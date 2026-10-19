@@ -48,7 +48,7 @@
   --rui-color-danger: #d66d75;
   /* Cuadrao Business: the cream canvas and the deep green of the approved
      landing, as tokens so Business surfaces share one owner for them. */
-  --cuadrao-cream: #fafbf8;
+  --cuadrao-cream: #F7F5EE;
   --cuadrao-green: #2f5a49;
   /* A floating menu's surface, light and dark, one owner for Business menus. */
   --cuadrao-menu-surface: #ffffff;
@@ -867,4 +867,36 @@ body {
   background-color: var(--auth-sage);
   color: var(--auth-muted);
   opacity: 1;
+}
+
+.business-foundation :is(h1, h2, h3) {
+  font-weight: 500;
+}
+
+.business-foundation :is(input, textarea, select) {
+  font-size: 16px;
+  border-color: #7d8a84;
+}
+
+.business-foundation :is(button, a, input, textarea, select, [role="button"], [role="menuitem"]):focus-visible {
+  outline: 2px solid #2f5a49;
+  outline-offset: 2px;
+}
+
+.dark .business-foundation :is(button, a, input, textarea, select, [role="button"], [role="menuitem"]):focus-visible {
+  outline-color: #8fcbb0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .business-foundation,
+  .business-foundation::before,
+  .business-foundation::after,
+  .business-foundation *,
+  .business-foundation *::before,
+  .business-foundation *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

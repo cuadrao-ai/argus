@@ -40,6 +40,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "overview" })}
         iconSize={20}
+        wrapLabel
       />
       <SidebarNavButton
         icon={Inbox}
@@ -49,6 +50,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
+        wrapLabel
         trailing={count(inboxCount)}
         activityPresentation={records.receiptActivity?.presentation === "working" ? "working" : records.receiptActivity?.presentation === "unread" ? "new_activity" : "none"}
         iconSize={20}
@@ -62,6 +64,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "expenses" })}
         iconSize={20}
+        wrapLabel
       />
       <SidebarNavButton
         icon={Bell}
@@ -72,6 +75,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "updates" })}
         iconSize={20}
+        wrapLabel
       />
 
     </nav>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { customPeriod, PERIOD_PRESETS, todayIso, type Period, type PeriodKey } from "./business-format";
+import { DayTextInput } from "./foundation/DayTextInput";
 
 export function usePeriodLabel() {
   const { t } = useTranslation();
@@ -36,8 +37,8 @@ export default function BusinessPeriodControl({ period, setPeriod }: { period: P
       </div>
       {typing ? (
         <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); const next = customPeriod(from, to); if (next) setPeriod(next); }}>
-          <label className="text-[12px] text-black/60 dark:text-white/60">{t("business.period.from", "From")}<input type="date" required value={from} max={to} onChange={(event) => setFrom(event.target.value)} className="mt-1 block min-h-9 rounded-lg border border-black/15 bg-transparent px-2 text-[13px] text-black dark:border-white/20 dark:text-white" /></label>
-          <label className="text-[12px] text-black/60 dark:text-white/60">{t("business.period.to", "Through")}<input type="date" required value={to} min={from} onChange={(event) => setTo(event.target.value)} className="mt-1 block min-h-9 rounded-lg border border-black/15 bg-transparent px-2 text-[13px] text-black dark:border-white/20 dark:text-white" /></label>
+          <label className="text-[12px] text-black/60 dark:text-white/60">{t("business.period.from", "From")}<DayTextInput required testId="business-period-from" value={from} onChange={(iso) => setFrom(iso ?? "")} className="mt-1 block min-h-11 w-[9.5rem] rounded-[12px] border border-[#7d8a84] bg-transparent px-3 text-[16px] text-black dark:text-white" /></label>
+          <label className="text-[12px] text-black/60 dark:text-white/60">{t("business.period.to", "Through")}<DayTextInput required testId="business-period-to" value={to} onChange={(iso) => setTo(iso ?? "")} className="mt-1 block min-h-11 w-[9.5rem] rounded-[12px] border border-[#7d8a84] bg-transparent px-3 text-[16px] text-black dark:text-white" /></label>
           <button type="submit" disabled={!customPeriod(from, to)} className="min-h-9 rounded-full bg-black px-3.5 text-[13px] font-medium text-white disabled:opacity-40 dark:bg-white dark:text-black">{t("business.period.apply", "Show")}</button>
         </form>
       ) : null}

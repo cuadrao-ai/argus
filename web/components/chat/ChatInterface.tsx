@@ -206,7 +206,8 @@ import { usePendingBreakdownRecovery } from "./usePendingBreakdownRecovery";
 import { retirePendingBreakdown } from "@/lib/pending-result-breakdown";
 import SidebarShell from "@/components/sidebar/SidebarShell";
 import ChatShellMenuTrigger from "@/components/chat/ChatShellMenuTrigger";
-import { useMobileShell } from "@/components/chat/useMobileShell";
+import BusinessPhoneAccount from "@/components/business-app/foundation/BusinessPhoneAccount";
+import { businessShellLayout, useMobileShell } from "@/components/chat/useMobileShell";
 import { memoryRecallsFromFinalPayload, useMemoryChrome } from "./memory-chrome";
 import {
   isStarterSelectionMetadata,
@@ -581,7 +582,10 @@ export default function ChatInterface() {
       }),
     );
   }, [closeDrawer, sidebarMode]);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: !(mobileShell.isBelowTablet ? true : isSidebarOpen), resetToEmptyChatSurface, closeTransientSidebar });
+  const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
+  const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
+  const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -2001,8 +2005,6 @@ export default function ChatInterface() {
     isHydratingConversation ||
     hasConversationLoadFailure;
 
-  const searchEntryEnabled =
-    omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
     requestSearch: searchEntryEnabled ? () => setSearchOverlayOpen(true) : undefined,
@@ -2055,7 +2057,7 @@ export default function ChatInterface() {
       selectPresentation={conversationActivity.selectPresentation}
       selectAggregatePresentation={conversationActivity.selectAggregatePresentation} selectOperationLabel={conversationActivity.selectOperationLabel}
     >
-      <div className="relative flex h-[100dvh] w-full overflow-hidden bg-[#f9f9f9] text-black dark:bg-[#141517] dark:text-white tablet:flex-row">
+      <div data-business-nav={layout.nav} className={`relative flex h-[100dvh] w-full overflow-hidden text-black dark:bg-[#141517] dark:text-white tablet:flex-row ${layout.businessShell ? "business-foundation bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
       {/* ── Sidebar: rail on desktop, off-canvas drawer below the mobile threshold ── */}
       <SidebarShell
         isBelowTablet={mobileShell.isBelowTablet}
@@ -2067,7 +2069,7 @@ export default function ChatInterface() {
         variant={mobileShell.isBelowTablet ? "drawer" : "rail"}
         onRequestClose={mobileShell.closeDrawer}
         guestSettings={null}
-        isOpen={mobileShell.isBelowTablet ? true : isSidebarOpen}
+        isOpen={layout.sidebarIsOpen} railLocked={layout.railLocked}
         onToggle={toggleSidebar}
         currentView={currentView}
         conversationId={conversationId}
@@ -2174,13 +2176,14 @@ export default function ChatInterface() {
         onConfirm={() => void handleConfirmHeaderDelete()}
       />
 
-      <section className="relative z-10 flex h-full flex-1 flex-col overflow-hidden bg-[#f9f9f9] dark:bg-[#141517]">
+      <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {currentView !== "settings" && (
           <header className="absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 tablet:px-8">
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger
+                  leading={layout.businessPhone ? workspace?.headerLeading?.(shellBridge) : null}
                   onOpen={mobileShell.openDrawer}
                   activityPresentation={
                     mobileShell.isDrawerOpen
@@ -2234,6 +2237,7 @@ export default function ChatInterface() {
                   memoryChrome={memoryChrome}
                 />
               ) : null}
+              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}
             </div>
           </header>
