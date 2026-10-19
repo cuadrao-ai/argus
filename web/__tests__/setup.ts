@@ -153,8 +153,9 @@ function loadedExports(specifier: string): Resettable | null {
 
 // Module-level state with a test seam. The overlay stack holds open layers and
 // a `listening` flag, and the history module holds unspent entries and pending
-// traversals; a file that opens one without closing it leaves it open for the
-// next file.
+// traversals. A finished sign-out leaves its flag set, and the chosen Business
+// grant stays selected. A file that sets one without clearing it leaves it for
+// the next file.
 afterEach(() => {
   const reset = (specifier: string, name: string) => {
     const seam = loadedExports(specifier)?.[name];
@@ -162,4 +163,7 @@ afterEach(() => {
   };
   reset("../components/layout/overlayStack", "resetOverlayStack");
   reset("../lib/overlay-history", "resetOverlayEntries");
+  reset("../lib/logout-flow", "resetLeavingSession");
+  const clearGrant = loadedExports("../lib/business-grant")?.setChosenGrant;
+  if (typeof clearGrant === "function") clearGrant(null);
 });
