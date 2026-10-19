@@ -21,6 +21,12 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   );
   const [owner, setOwner] = useState<string | null | undefined>(undefined);
   useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = "es";
+    return () => { root.lang = previous; };
+  }, []);
+  useEffect(() => {
     if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
     const client = getSupabaseClient();
     if (!client) return;
@@ -53,7 +59,7 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
   if (!consentUserId) return workspace;
   return (
-    <BusinessConsentGate key={consentUserId} userId={consentUserId} source={source}>
+    <BusinessConsentGate key={consentUserId} source={source}>
       {workspace}
     </BusinessConsentGate>
   );

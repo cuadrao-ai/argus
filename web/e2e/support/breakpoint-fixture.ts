@@ -1,6 +1,4 @@
 import type { Page, Route } from "@playwright/test";
-import { BUSINESS_PRIVACY_NOTICE_STORAGE_KEY } from "../../lib/browser-storage";
-import { BUSINESS_PRIVACY_NOTICE_VERSION, MOCK_AUTH_CONSENT_USER_ID, currentNoticeHashes } from "../../lib/business-privacy-notice";
 
 /**
  * Deterministic whole-app fixture for breakpoint work.
@@ -43,6 +41,12 @@ const SPANISH_TITLES: Record<string, string> = {
   "conversation-gamma":
     "Aportes mensuales al índice comparados con una suma única en una ventana de diez años",
 };
+
+/** The server's answer for a person who already accepted the Business consent screen. */
+export function fulfillAcceptedBusinessConsent(route: Route) {
+  const version = new URL(route.request().url()).searchParams.get("version") ?? "";
+  return route.fulfill({ json: { version, accepted_at: "2026-10-18T12:00:00.000Z" } });
+}
 
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
@@ -373,31 +377,13 @@ export async function installBreakpointFixture(
     },
     [language, theme],
   );
-  if (consent === "accepted") {
-    const textSha256 = (await currentNoticeHashes())["es-419"];
-    await page.addInitScript(
-      ({ key, userId, version, textSha256: hash }) => {
-        const record = {
-          userId,
-          acceptedAt: "2026-10-18T12:00:00.000Z",
-          noticeVersion: version,
-          locale: "es-419",
-          textSha256: hash,
-        };
-        window.sessionStorage.setItem(key, JSON.stringify({ [userId]: record }));
-      },
-      {
-        key: BUSINESS_PRIVACY_NOTICE_STORAGE_KEY,
-        userId: MOCK_AUTH_CONSENT_USER_ID,
-        version: BUSINESS_PRIVACY_NOTICE_VERSION,
-        textSha256,
-      },
-    );
-  }
-
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+
+    if (path.endsWith("/api/v1/business/consent") && consent === "accepted") {
+      return fulfillAcceptedBusinessConsent(route);
+    }
 
     if (path.endsWith("/api/v1/me/usage")) {
       if (usage === "error") {

@@ -217,6 +217,7 @@ export default function LandingPage() {
         password: submission.password,
         language: normalizeApiLanguage(i18n.resolvedLanguage ?? i18n.language),
         display_name: submission.displayName || null,
+        age_confirmed_at: submission.ageConfirmedAt ?? "",
       });
       if (result.needsEmailConfirmation) {
         return { status: "email_confirmation_required" as const };

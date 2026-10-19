@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 import type { ReceiptSummary } from "../lib/business-api";
 
 const evidence = "../docs/reports/evidence/cuadrao-receipt-activity";
@@ -37,6 +37,7 @@ async function mockInbox(page: Page, language: "en" | "es-419", collapsed: boole
     }
     if (path === "email") return route.fulfill({ json: { enabled: false, receiving_address: null } });
     if (path === "email/deliveries") return route.fulfill({ json: { items: [] } });
+    if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
   await page.goto("/biz?view=inbox");
