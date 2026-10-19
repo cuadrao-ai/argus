@@ -89,19 +89,17 @@ async function mount(overrides: Partial<BusinessDataSource> = {}) {
 }
 
 describe("Novedades rows", () => {
-  test("a receipt that changed twice shows once, at its latest state, newest first", async () => {
+  test("each update the API sends is one row, in the API's order, newest first", async () => {
     const page = await mount({
       updates: async () => [
-        update({ id: "receipt_ready:r1", kind: "receipt_ready", occurred_at: "2026-10-17T10:00:00Z", receipt_id: "r1", label: "Nube Hosting" }),
-        update({ id: "expense_confirmed:r2", kind: "expense_confirmed", occurred_at: "2026-10-18T10:00:00Z", receipt_id: "r2", label: "Render" }),
         update({ id: "expense_confirmed:r1", kind: "expense_confirmed", occurred_at: "2026-10-19T10:00:00Z", receipt_id: "r1", label: "Nube Hosting" }),
-        update({ id: "expense_confirmed:r2-again", kind: "expense_confirmed", occurred_at: "2026-10-16T10:00:00Z", receipt_id: "r2", label: "Render" }),
+        update({ id: "receipt_needs_attention:r2", kind: "receipt_needs_attention", occurred_at: "2026-10-18T10:00:00Z", receipt_id: "r2", label: "Render", attention: "unreadable" }),
       ],
     });
     await page.settle(() => page.rows().length > 0);
     assert.deepEqual(
       page.rows().map((row) => [row.querySelector("a")?.getAttribute("href"), row.querySelector('[data-testid="status-pill"]')?.getAttribute("data-status")]),
-      [["?receipt=r1", "approved"], ["?receipt=r2", "approved"]],
+      [["?receipt=r1", "approved"], ["?receipt=r2", "needs_attention"]],
     );
     await page.close();
   });

@@ -15,17 +15,6 @@ const KIND_STATUS: Record<BusinessUpdate["kind"], ReceiptStatus> = {
   expense_confirmed: "confirmed",
 };
 
-/** One row per receipt, its newest update, newest first. */
-export function latestPerReceipt(items: readonly BusinessUpdate[]): BusinessUpdate[] {
-  const byReceipt = new Map<string, BusinessUpdate>();
-  for (const item of items) {
-    const key = item.receipt_id ?? item.id;
-    const kept = byReceipt.get(key);
-    if (!kept || Date.parse(item.occurred_at) > Date.parse(kept.occurred_at)) byReceipt.set(key, item);
-  }
-  return [...byReceipt.values()].sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at));
-}
-
 function opensInPlace(event: MouseEvent) {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
@@ -49,7 +38,7 @@ export default function BusinessUpdatesPanel() {
       .updates()
       .then((next) => {
         if (cancelled) return;
-        setItems(latestPerReceipt(next));
+        setItems(next);
         setFailed(false);
       })
       .catch(() => !cancelled && setFailed(true));
@@ -69,7 +58,7 @@ export default function BusinessUpdatesPanel() {
     const line = sentence(update);
     const content = (
       <>
-        <span className="row-span-2 flex tablet:row-span-1">
+        <span className="row-span-2 flex items-start tablet:row-span-1">
           <StatusPill status={KIND_STATUS[update.kind]} />
         </span>
         <span className="min-w-0 break-words text-[15px] font-medium leading-[22px] text-[#172b26] dark:text-white">
@@ -139,7 +128,7 @@ export default function BusinessUpdatesPanel() {
       ) : null}
       <Settle pending={items === null && !failed} layout="updates">
         {items === null ? null : items.length === 0 ? (
-          <div data-testid="business-updates-empty" className={`${lockedCardClass} p-5 text-center text-[13px] leading-[18px] text-[#56635e] dark:text-white/60`}>
+          <div data-testid="business-updates-empty" className={`${lockedCardClass} p-6 text-center text-[13px] leading-[18px] text-[#56635e] dark:text-white/60`}>
             {t("business.updates.empty", "Nothing new. Results from your receipts will appear here.")}
           </div>
         ) : (

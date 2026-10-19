@@ -3,12 +3,15 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
-type Feed = "data" | "empty" | "error" | "slow";
+type Feed = "data" | "empty" | "error" | "slow" | "late";
 
 const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
+  { name: "tablet", width: 800, height: 1024 },
   { name: "mobile", width: 390, height: 844 },
 ] as const;
+
+const SPACING_SCALE = new Set([0, 4, 8, 12, 16, 24, 32, 48, 64]);
 
 const SHOTS = "test-results/design-novedades";
 const axePath = path.join(process.cwd(), "node_modules/axe-core/axe.min.js");
@@ -27,11 +30,8 @@ async function installBusiness(page: Page, feed: Feed) {
       if (parts[0] === "updates") {
         if (feed === "error") return route.fulfill({ status: 503, json: { code: "unavailable" } });
         if (feed === "slow") await new Promise((resolve) => setTimeout(resolve, 60_000));
-        const items = feed === "empty" ? [] : await source.updates();
-        // The confirmed receipt reported twice, as an older ready update, must still show once.
-        const confirmed = items.find((item) => item.kind === "expense_confirmed");
-        const older = confirmed ? [{ ...confirmed, id: `receipt_ready:${confirmed.receipt_id}`, kind: "receipt_ready", occurred_at: "2026-01-01T12:00:00Z" }] : [];
-        json = { items: [...items, ...older] };
+        if (feed === "late") await new Promise((resolve) => setTimeout(resolve, 1_500));
+        json = { items: feed === "empty" ? [] : await source.updates() };
       } else if (parts[0] === "space") json = await source.ensureSpace("es-419");
       else if (parts[0] === "spaces") json = { spaces: await source.spaces() };
       else if (parts[0] === "workspace") json = await source.workspace();
@@ -70,6 +70,25 @@ async function expectNoAxeViolations(page: Page) {
     return result.violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(", ")}`);
   });
   expect(violations).toEqual([]);
+}
+
+/** Every padding, margin and gap in the screen is on the 4px scale, and every radius is 12, 20 or a pill. */
+async function expectLockedSpacing(page: Page) {
+  const offScale = await page.locator("section:has(> div > h1)").evaluate((section, scale) => {
+    const allowed = new Set(scale);
+    const bad: string[] = [];
+    for (const element of [section, ...section.querySelectorAll<HTMLElement>("*:not(.sr-only)")]) {
+      const css = getComputedStyle(element);
+      for (const key of ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "marginTop", "marginRight", "marginBottom", "marginLeft", "rowGap", "columnGap"] as const) {
+        const value = Number.parseFloat(css[key]);
+        if (Number.isFinite(value) && !allowed.has(value)) bad.push(`${element.tagName}.${element.className.toString().slice(0, 40)} ${key}=${css[key]}`);
+      }
+      const radius = Number.parseFloat(css.borderTopLeftRadius);
+      if (radius && radius !== 12 && radius !== 20 && radius < 999) bad.push(`${element.tagName}.radius=${css.borderTopLeftRadius}`);
+    }
+    return bad;
+  }, [...SPACING_SCALE]);
+  expect(offScale).toEqual([]);
 }
 
 /** Contrast of an element's text against the first opaque background behind it. */
@@ -113,13 +132,18 @@ for (const viewport of VIEWPORTS) {
         expect(box.height).toBeGreaterThanOrEqual(64);
         expect((await row.boundingBox())!.width - box.width).toBeLessThanOrEqual(1);
         await expect(link.getByTestId("status-pill")).toHaveCount(1);
+        const pillBox = (await link.getByTestId("status-pill").boundingBox())!;
+        expect(pillBox.height).toBeGreaterThanOrEqual(24);
+        expect(pillBox.height).toBeLessThanOrEqual(25);
+        const clipped = await link.evaluate((element) => [...element.querySelectorAll<HTMLElement>("*")].filter((child) => child.scrollWidth > child.clientWidth + 1 && getComputedStyle(child).textOverflow !== "ellipsis").map((child) => child.outerHTML.slice(0, 80)));
+        expect(clipped).toEqual([]);
         await expect(link.locator(".lucide-circle-dashed")).toHaveCount(0);
         const time = link.locator("time");
         expect(Number.parseFloat(await time.evaluate((element) => getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
         expect(await textContrast(time)).toBeGreaterThanOrEqual(4.5);
-        const name = link.locator("> span").nth(1);
+        const name = link.locator(":scope > span").nth(1);
         expect(await name.evaluate((element) => getComputedStyle(element).fontFamily)).toMatch(/^"?inter/i);
-        const sentence = link.locator("> span").nth(2);
+        const sentence = link.locator(":scope > span").nth(2);
         expect(await textContrast(sentence)).toBeGreaterThanOrEqual(4.5);
         const sentenceBox = (await sentence.boundingBox())!;
         const timeBox = (await time.boundingBox())!;
@@ -142,21 +166,7 @@ for (const viewport of VIEWPORTS) {
       expect(style).toEqual({ background: "rgb(255, 254, 250)", border: "1px solid rgb(220, 224, 218)", radius: "20px", shadow: "none" });
       const heading = page.getByRole("heading", { level: 1, name: "Novedades" });
       expect(await heading.evaluate((element) => [getComputedStyle(element).fontFamily, getComputedStyle(element).fontWeight, getComputedStyle(element).fontSize])).toEqual([expect.stringMatching(/^"?space ?grotesk/i), "500", "28px"]);
-      const offScale = await page.locator("section:has(> div > h1)").evaluate((section) => {
-        const bad: string[] = [];
-        for (const element of [section, ...section.querySelectorAll<HTMLElement>("*")]) {
-          const css = getComputedStyle(element);
-          const spacing = ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "marginTop", "marginRight", "marginBottom", "marginLeft", "rowGap", "columnGap"] as const;
-          for (const key of spacing) {
-            const value = Number.parseFloat(css[key]);
-            if (Number.isFinite(value) && value % 4 !== 0) bad.push(`${element.tagName}.${key}=${css[key]}`);
-          }
-          const radius = Number.parseFloat(css.borderTopLeftRadius);
-          if (radius && radius !== 12 && radius !== 20 && radius < 999) bad.push(`${element.tagName}.radius=${css.borderTopLeftRadius}`);
-        }
-        return bad;
-      });
-      expect(offScale).toEqual([]);
+      await expectLockedSpacing(page);
       if (viewport.width < 720) {
         const box = (await heading.boundingBox())!;
         expect(box.x).toBe(16);
@@ -165,12 +175,37 @@ for (const viewport of VIEWPORTS) {
       }
     });
 
+    test("focus: a row shows the 2px green ring", async ({ page }) => {
+      await installBusiness(page, "data");
+      await openNovedades(page);
+      const link = rows(page).first().locator("a");
+      await link.focus();
+      expect(await link.evaluate((element) => { const css = getComputedStyle(element); return `${css.outlineWidth} ${css.outlineStyle} ${css.outlineColor}`; })).toBe("2px solid rgb(47, 90, 73)");
+    });
+
+    test("no jump: the heading stays put and skeleton rows hold the rows' height", async ({ page }) => {
+      await installBusiness(page, "late");
+      await openNovedades(page);
+      const heading = page.getByRole("heading", { level: 1, name: "Novedades" });
+      const before = (await heading.boundingBox())!;
+      await expect(page.getByTestId("business-loading")).toBeVisible();
+      const skeletonCard = page.getByTestId("business-loading").locator("[aria-hidden] > div").first();
+      const skeleton = (await skeletonCard.boundingBox())!;
+      const skeletonRow = (await skeletonCard.locator(":scope > div").first().boundingBox())!;
+      await expect(rows(page).first()).toBeVisible();
+      expect(await heading.boundingBox()).toEqual(before);
+      const list = (await page.getByTestId("business-updates-list").boundingBox())!;
+      expect(list.y).toBe(skeleton.y);
+      if (viewport.width >= 720) expect(Math.abs((await rows(page).first().boundingBox())!.height - skeletonRow.height)).toBeLessThanOrEqual(4);
+    });
+
     test("loading: heading at once, skeleton rows after 300ms", async ({ page }) => {
       await installBusiness(page, "slow");
       await openNovedades(page);
       await expect(page.getByTestId("business-loading")).toHaveAttribute("data-layout", "updates");
       const skeletonRow = page.getByTestId("business-loading").locator("[aria-hidden] > div > div").first();
       expect((await skeletonRow.boundingBox())!.height).toBeGreaterThanOrEqual(64);
+      await expectLockedSpacing(page);
       await noHorizontalScroll(page);
       await expectNoAxeViolations(page);
       await page.screenshot({ path: `${SHOTS}/loading-${viewport.width}.png` });
@@ -188,6 +223,7 @@ for (const viewport of VIEWPORTS) {
       await installBusiness(page, "empty");
       await openNovedades(page);
       await expect(page.getByTestId("business-updates-empty")).toHaveText("Nada nuevo. Aquí aparecerán los resultados de tus recibos.");
+      await expectLockedSpacing(page);
       await noHorizontalScroll(page);
       await expectNoAxeViolations(page);
       await page.screenshot({ path: `${SHOTS}/empty-${viewport.width}.png` });
@@ -200,6 +236,7 @@ for (const viewport of VIEWPORTS) {
       await expect(alert).toContainText("No pudimos cargar las novedades.");
       const retry = alert.getByRole("button", { name: "Reintentar" });
       expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await expectLockedSpacing(page);
       await noHorizontalScroll(page);
       await expectNoAxeViolations(page);
       await page.screenshot({ path: `${SHOTS}/error-${viewport.width}.png` });
