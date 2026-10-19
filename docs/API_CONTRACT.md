@@ -2723,6 +2723,28 @@ must prove that every enabled permanent Auth provider supplies a verified email
 compatible with profile and allowlist-role rules. Phone, OAuth, or other
 emailless permanent identities require a separate schema and Auth slice.
 
+## Age confirmation for new entry
+
+`POST /api/v1/auth/signup` and `POST /api/v1/auth/guest/signup` require
+`age_confirmed_at`, a string containing an RFC 3339 timestamp with an explicit
+timezone offset. The client captures the instant when the person checks the box
+during account creation and sends it on that request. English says
+"I confirm I'm 18 or older." Spanish says "Confirmo que tengo 18 años o más."
+The browser does not store the confirmation. `POST /api/v1/auth/guest` does not
+accept or require it. Reusing an already verified guest session stays compatible.
+
+A missing `age_confirmed_at` returns `422` with code `age_confirmation_required`.
+An invalid or unsavable value returns `422` with code `age_confirmation_invalid`.
+That includes null, a boolean, a number, a naive timestamp, a time more than
+five minutes ahead, and an instant the clock cannot store. The provider is not
+called. The API normalizes valid offsets to UTC. Existing admission, CAPTCHA, email-confirmation
+and handoff rules still apply. The server stores the first attestation in
+`profiles.age_confirmed_at`; retries cannot replace it. Provider user metadata
+carries the timestamp only to recover an interrupted initial profile write.
+This is a client attestation, never verified age or an authorization claim.
+No birthday or Apple age range is accepted or persisted by this contract.
+Existing profiles remain null until an explicit attestation exists.
+
 ## `POST /auth/signup`
 
 Create account.
@@ -2733,6 +2755,7 @@ Create account.
   "email": "user@email.com",
   "password": "string",
   "captcha_token": "bounded-turnstile-token",
+  "age_confirmed_at": "2026-10-17T12:00:00Z",
   "display_name": "Alex",
   "username": "alex",
   "language": "es-419"
@@ -2807,6 +2830,7 @@ workspace through the existing handoff transaction.
   "email": "user@email.com",
   "password": "string",
   "captcha_token": "bounded-turnstile-token",
+  "age_confirmed_at": "2026-10-17T12:00:00Z",
   "display_name": "Alex",
   "username": "alex",
   "language": "es-419"
@@ -3554,7 +3578,7 @@ What remains is inert compatibility state only:
   ordinary chat message.
 
 ## Product & Architecture Notes
-- **Frictionless**: Do not collect age, phone numbers, or complex risk tolerance profiles in Alpha.
+- **Frictionless**: Collect only the approved 18+ checkbox attestation; never a birthday, numeric age, phone number, or complex risk tolerance profile in Alpha.
 - **Conversational**: Personalization happens contextually inside the chat.
 - **Future Compatibility**: Richer preferences (watchlists, memory) may be added later as conversation-derived data.
 

@@ -132,7 +132,7 @@
             },
             "preferences": {
               "label": "Preferences you set",
-              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Argus never sends any of this to advertisers."
+              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Argus never sends any of this to advertisers. When you create your account, we save with it when you confirmed you're 18 or older. We don't store your date of birth."
             }
           },
           "body_after": "Argus does not use advertising cookies, ad pixels, marketing trackers, or cross-site tracking, and it does not share browser data with advertising partners. Product analytics, when enabled, run on Argus servers and store nothing in your browser. You can clear or block this storage in your browser settings, though signing in will stop working if you block the sign-in cookies."
@@ -1441,6 +1441,11 @@
     "close_dossier": "Close dossier"
   },
   "auth": {
+    "age_confirmation": {
+      "checkbox": "I confirm I'm 18 or older.",
+      "missing": "To continue, confirm you're 18 or older.",
+      "rejected": "We couldn't save your age confirmation. Check the box and try again."
+    },
     "captcha": {
       "verifying": "Verifying you’re not a bot…"
     },

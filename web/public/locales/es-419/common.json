@@ -132,7 +132,7 @@
             },
             "preferences": {
               "label": "Preferencias que tú eliges",
-              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Esta pestaña también guarda si aceptaste el aviso de privacidad vigente de Cuadrao Business, hasta que esa aceptación pueda guardarse en el servidor. Cerrar la pestaña borra esa copia. Argus nunca envía nada de esto a anunciantes."
+              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Esta pestaña también guarda si aceptaste el aviso de privacidad vigente de Cuadrao Business, hasta que esa aceptación pueda guardarse en el servidor. Cerrar la pestaña borra esa copia. Argus nunca envía nada de esto a anunciantes. Al crear tu cuenta, guardamos con ella cuándo confirmaste que tienes 18 años o más. No guardamos tu fecha de nacimiento."
             }
           },
           "body_after": "Argus no usa cookies publicitarias, píxeles de anuncios, rastreadores de marketing ni rastreo entre sitios, y no comparte datos de tu navegador con socios publicitarios. La analítica de producto, cuando está activa, corre en los servidores de Argus y no guarda nada en tu navegador. Puedes borrar o bloquear este almacenamiento desde la configuración de tu navegador, aunque el inicio de sesión dejará de funcionar si bloqueas las cookies de sesión."
@@ -1441,6 +1441,11 @@
     "close_dossier": "Cerrar el expediente"
   },
   "auth": {
+    "age_confirmation": {
+      "checkbox": "Confirmo que tengo 18 años o más.",
+      "missing": "Para continuar, confirma que tienes 18 años o más.",
+      "rejected": "No pudimos guardar tu confirmación de edad. Marca la casilla e inténtalo de nuevo."
+    },
     "captcha": {
       "verifying": "Verificando que no eres un bot…"
     },
