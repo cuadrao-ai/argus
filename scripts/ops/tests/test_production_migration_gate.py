@@ -727,6 +727,54 @@ def test_classifier_only_accepts_pure_alter_table_add_actions(
     assert classify_migration(source) == (classification, expected_requirement)
 
 
+def test_gate_uses_the_cuadrao_api_ref_when_an_earlier_service_declares_another(
+    tmp_path: Path,
+) -> None:
+    decoy_ref = "b" * 20
+    production_ref = "a" * 20
+    repo, candidate_sha = _candidate_repo(
+        tmp_path,
+        project_ref=production_ref,
+        render_text=(
+            "services:\n"
+            "  - type: web\n"
+            "    name: decoy-api\n"
+            "    envVars:\n"
+            "      - key: SUPABASE_URL\n"
+            f"        value: https://{decoy_ref}.supabase.co\n"
+            "  - type: web\n"
+            "    name: cuadrao-api\n"
+            "    envVars:\n"
+            "      - key: SUPABASE_URL\n"
+            f"        value: https://{production_ref}.supabase.co\n"
+        ),
+    )
+
+    contract = load_gate_contract(repo, candidate_sha)
+
+    assert contract.production_supabase_project_ref == production_ref
+
+
+def test_gate_refuses_a_render_yaml_with_no_cuadrao_api_block(
+    tmp_path: Path,
+) -> None:
+    repo, candidate_sha = _candidate_repo(
+        tmp_path,
+        project_ref="a" * 20,
+        render_text=(
+            "services:\n"
+            "  - type: web\n"
+            "    name: decoy-api\n"
+            "    envVars:\n"
+            "      - key: SUPABASE_URL\n"
+            f"        value: https://{'b' * 20}.supabase.co\n"
+        ),
+    )
+
+    with pytest.raises(MigrationGateError, match="does not declare cuadrao-api"):
+        load_gate_contract(repo, candidate_sha)
+
+
 def test_candidate_and_contract_are_read_from_exact_git_commit(
     tmp_path: Path,
 ) -> None:
@@ -1402,7 +1450,12 @@ def test_cli_rejects_tracked_changes_before_database_access(
     assert report["error"] == "checkout has tracked changes outside the candidate"
 
 
-def _candidate_repo(tmp_path: Path, *, project_ref: str) -> tuple[Path, str]:
+def _candidate_repo(
+    tmp_path: Path,
+    *,
+    project_ref: str,
+    render_text: str | None = None,
+) -> tuple[Path, str]:
     repo = tmp_path / "candidate-repo"
     migration_path = (
         repo / "supabase" / "migrations" / "20260812000000_add_release_marker.sql"
@@ -1414,12 +1467,15 @@ def _candidate_repo(tmp_path: Path, *, project_ref: str) -> tuple[Path, str]:
         encoding="utf-8",
     )
     render_path.write_text(
-        "services:\n"
-        "  - type: web\n"
-        "    name: cuadrao-api\n"
-        "    envVars:\n"
-        "      - key: SUPABASE_URL\n"
-        f"        value: https://{project_ref}.supabase.co\n",
+        render_text
+        or (
+            "services:\n"
+            "  - type: web\n"
+            "    name: cuadrao-api\n"
+            "    envVars:\n"
+            "      - key: SUPABASE_URL\n"
+            f"        value: https://{project_ref}.supabase.co\n"
+        ),
         encoding="utf-8",
     )
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)

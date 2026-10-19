@@ -426,7 +426,7 @@ def test_render_blueprint_declares_shared_render_env_contract_vars() -> None:
     render_config = yaml.safe_load(_source("render.yaml"))
     services = {service["name"]: service for service in render_config["services"]}
     assert set(services) == set(
-        "argus-api argus-app cuadrao-api cuadrao-web cuadrao-api-staging "
+        "cuadrao-api cuadrao-web cuadrao-api-staging "
         "cuadrao-web-staging cuadrao-marketing-staging".split()
     )
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))
@@ -1200,9 +1200,10 @@ def test_private_launch_runbook_uses_real_workflow_readiness_gate() -> None:
     assert "argus-api" in before_sessions
     assert "argus-app" in before_sessions
     assert "argus-backtests" in before_sessions
-    assert "`argus-api`, then `argus-app`, then **`argus-backtests`**" in (
-        before_sessions
-    )
+    assert (
+        "Deploy production `cuadrao-api`, then **`argus-backtests`**, from the "
+        "candidate commit."
+    ) in before_sessions
     assert "workflow_commit_mismatch" in before_sessions
     assert "argus-maintenance" not in runbook
     assert "cron-deploy-status" not in runbook
