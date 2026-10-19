@@ -91,6 +91,8 @@ def save_revision(
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
     dgii: DgiiDeclaration | None = None,
+    *,
+    reuse_version: bool = False,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -122,6 +124,19 @@ def save_revision(
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
+    if reuse_version:
+        payload = resolution["business"].get("dgii")
+        tx.rows(
+            "update public.business_draft_revisions set after_dgii=coalesce(after_dgii, %s)"
+            " where space_id=%s and draft_id=%s and version=%s",
+            (
+                Jsonb(payload) if payload else None,
+                tx.context.actor.space_id,
+                event.id,
+                event.version,
+            ),
+        )
+        return Applied(outcome="applied", draft_id=event.id, version=event.version)
     tx.rows(
         "insert into public.business_draft_revisions"
         " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,before_dgii,after_dgii)"
@@ -424,6 +439,7 @@ def prepare_attachment(
         "kind": _kind(candidate.kind_hint),
     }
     uncertain = set(candidate.uncertain)
+    _fill_unknown_purchase(values, uncertain, batch.receipt)
     if "merchant" in uncertain:
         uncertain.add("counterparty")
     if "direction" in uncertain:
@@ -619,6 +635,29 @@ def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
         kind_hint=shared({_kind(c.kind_hint) for c in purchases}),
         uncertain=frozenset(uncertain),
     )
+
+
+def _fill_unknown_purchase(
+    values: dict, uncertain: set[str], receipt: ReceiptDetails | None
+) -> None:
+    """A candidate that left the supplier or the currency unknown takes the receipt's.
+
+    A later merge still runs ``_retain_or_fill``, so a member or owner value stays.
+    """
+
+    if receipt is None:
+        return
+    if (
+        values["counterparty"] is None
+        or "counterparty" in uncertain
+        or "merchant" in uncertain
+    ) and receipt.merchant:
+        values["counterparty"] = receipt.merchant
+        uncertain.discard("counterparty")
+        uncertain.discard("merchant")
+    if (values["currency"] is None or "currency" in uncertain) and receipt.currency:
+        values["currency"] = receipt.currency
+        uncertain.discard("currency")
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:
