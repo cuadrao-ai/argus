@@ -1,9 +1,10 @@
+import { CircleAlert, CircleCheck, Clock } from "lucide-react";
 import type { ReceiptStatus } from "@/lib/business-api";
 
 export const BUSINESS_STATUS = {
-  approved: { labelKey: "business.status.pill_approved", label: "Aprobado", ink: "#2f5a49", surface: "#e3ebe1" },
-  pending: { labelKey: "business.status.pill_pending", label: "Pendiente", ink: "#735c14", surface: "#f2e8c9" },
-  needs_attention: { labelKey: "business.status.pill_attention", label: "Necesita atención", ink: "#9e2f39", surface: "#f6dfe0" },
+  approved: { labelKey: "business.status.pill_approved", label: "Aprobado", icon: CircleCheck, ink: "#2f5a49", surface: "#e3ebe1" },
+  pending: { labelKey: "business.status.pill_pending", label: "Pendiente", icon: Clock, ink: "#735c14", surface: "#f2e8c9" },
+  needs_attention: { labelKey: "business.status.pill_attention", label: "Necesita atención", icon: CircleAlert, ink: "#9e2f39", surface: "#f6dfe0" },
 } as const;
 
 export type BusinessStatusName = keyof typeof BUSINESS_STATUS;
