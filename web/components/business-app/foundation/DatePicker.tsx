@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
 import { dayText, parseDayText } from "./DayTextInput";
 
@@ -43,8 +43,10 @@ const quickButton = `inline-flex min-h-11 items-center rounded-full px-4 text-[1
  * dd/mm/aaaa, and opens one Monday-first month with Hoy and Ayer. On a
  * phone the month opens as a bottom sheet. Values are ISO days.
  */
-export function DatePicker({ id, value, onChange, disabled, required, describedBy, testId }: {
+export function DatePicker({ id, label, value, onChange, disabled, required, describedBy, testId }: {
   id?: string;
+  /** The field's name, which also names the phone sheet. */
+  label: string;
   value: string;
   onChange: (iso: string | null, invalid: boolean) => void;
   disabled?: boolean;
@@ -64,11 +66,9 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
   const [active, setActive] = useState(() => value || todayIso());
   const { isBelowTablet } = useResponsiveLayout();
   const root = useRef<HTMLDivElement>(null);
-  const sheet = useRef<HTMLDivElement>(null);
-  const inside = (node: EventTarget | null) => Boolean(node && (root.current?.contains(node as Node) || sheet.current?.contains(node as Node)));
+  const activeDay = useRef<HTMLButtonElement>(null);
   const field = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const grid = useRef<HTMLTableElement>(null);
   const focusDay = useRef(false);
 
   // The parent's value changed by something other than this field: show it.
@@ -93,17 +93,17 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
   useEffect(() => {
     if (!open || !focusDay.current) return;
     focusDay.current = false;
-    grid.current?.querySelector<HTMLButtonElement>('[tabindex="0"]')?.focus();
+    activeDay.current?.focus();
   }, [open, active]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isBelowTablet) return;
     const away = (event: PointerEvent) => {
-      if (!inside(event.target)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("pointerdown", away);
     return () => document.removeEventListener("pointerdown", away);
-  }, [open]);
+  }, [open, isBelowTablet]);
 
   const show = () => {
     setActive(typed ?? todayIso());
@@ -143,13 +143,7 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
   const weekdays = t("business.date_picker.weekdays", "lu ma mi ju vi sá do").split(" ");
 
   const month = (
-    <div
-      ref={sheet}
-      role="dialog"
-      aria-labelledby={headingId}
-      data-testid="date-picker-dialog"
-      className={`z-[70] border border-[#DCE0DA] bg-[#FFFEFA] p-4 shadow-lg dark:border-white/10 dark:bg-[#1f2225] ${isBelowTablet ? "business-foundation fixed inset-x-0 bottom-0 rounded-t-[12px] pb-[max(1rem,env(safe-area-inset-bottom))]" : "absolute left-0 top-full mt-2 w-max rounded-[12px]"}`}
-    >
+    <div data-testid="date-picker-month" className="business-foundation">
       <div className="flex gap-2">
         <button type="button" className={quickButton} onClick={() => choose(today)}>{t("business.date_picker.today", "Today")}</button>
         <button type="button" className={quickButton} onClick={() => choose(yesterday)}>{t("business.date_picker.yesterday", "Yesterday")}</button>
@@ -163,7 +157,7 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
-      <table ref={grid} role="grid" aria-labelledby={headingId} className="mx-auto mt-2 border-collapse" onKeyDown={onGridKey}>
+      <table role="grid" aria-labelledby={headingId} className="mx-auto mt-2 border-collapse" onKeyDown={onGridKey}>
         <thead>
           <tr>{weekdays.map((day) => <th key={day} scope="col" className="h-8 w-11 text-[12px] font-medium text-[#56635e] dark:text-white/70">{day}</th>)}</tr>
         </thead>
@@ -175,6 +169,7 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
                   {day ? (
                     <button
                       type="button"
+                      ref={day === active ? activeDay : undefined}
                       tabIndex={day === active ? 0 : -1}
                       aria-label={formatDay(day, locale)}
                       aria-current={day === today ? "date" : undefined}
@@ -200,7 +195,7 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
       className="relative"
       data-testid={testId}
       onKeyDown={escape}
-      onBlur={(event) => { if (open && event.relatedTarget && !inside(event.relatedTarget)) setOpen(false); }}
+      onBlur={(event) => { if (open && !isBelowTablet && event.relatedTarget && !root.current?.contains(event.relatedTarget as Node)) setOpen(false); }}
     >
       <div className="flex min-h-11 items-center rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] dark:bg-[#141517]">
         <input
@@ -236,8 +231,16 @@ export function DatePicker({ id, value, onChange, disabled, required, describedB
           <CalendarDays className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
-      {open && !isBelowTablet ? month : null}
-      {open && isBelowTablet ? createPortal(month, document.body) : null}
+      {open && !isBelowTablet ? (
+        <div role="dialog" aria-labelledby={headingId} data-testid="date-picker-dialog" className="absolute left-0 top-full z-[70] mt-2 w-max rounded-[12px] border border-[#DCE0DA] bg-[#FFFEFA] p-4 shadow-lg dark:border-white/10 dark:bg-[#1f2225]">
+          {month}
+        </div>
+      ) : null}
+      {isBelowTablet ? (
+        <BottomSheet isOpen={open} onClose={close} title={label} titleHidden closeLabel={t("common.close", "Close")} height="auto" initialFocusRef={activeDay}>
+          {month}
+        </BottomSheet>
+      ) : null}
     </div>
   );
 }

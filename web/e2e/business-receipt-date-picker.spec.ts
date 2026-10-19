@@ -19,18 +19,20 @@ for (const width of [1440, 390] as const) {
       await page.screenshot({ path: `${SHOT_DIR}/date-picker-closed-${width}.png` });
 
       await fields.getByRole("button", { name: "[placeholder] business.date_picker.open" }).click();
-      const dialog = page.getByTestId("date-picker-dialog");
+      const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.locator("th")).toHaveText(["lu", "ma", "mi", "ju", "vi", "sá", "do"]);
       await expect(dialog.getByRole("grid")).toBeVisible();
-      await expectTargets(page, '[data-testid="date-picker-dialog"] button');
+      await expectTargets(page, '[role="dialog"] button');
       await expectTargets(page, '[data-testid="receipt-review-fields"] button[aria-haspopup="dialog"]');
       await noHorizontalScroll(page);
-      const box = (await dialog.boundingBox())!;
       if (width < 720) {
-        expect(Math.round(box.y + box.height)).toBe(900);
-        expect(Math.round(box.width)).toBe(width);
+        await expect.poll(async () => { const sheet = (await dialog.boundingBox())!; return Math.round(sheet.y + sheet.height); }, { message: "the sheet settles on the bottom edge" }).toBe(900);
+        expect(Math.round((await dialog.boundingBox())!.width)).toBe(width);
+        await expect(dialog).toHaveAttribute("aria-modal", "true");
+        await expect(dialog.getByRole("heading", { name: "Fecha" })).toBeAttached();
       } else {
+        const box = (await dialog.boundingBox())!;
         const field = (await input.boundingBox())!;
         expect(box.y).toBeGreaterThanOrEqual(field.y + field.height);
         expect(box.width).toBeLessThan(400);

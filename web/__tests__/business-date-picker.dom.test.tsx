@@ -57,7 +57,7 @@ async function picker(value: string, onChange: (iso: string | null, invalid: boo
   const { useState } = await import("react");
   function Harness() {
     const [day, setDay] = useState(value);
-    return <><label htmlFor="day">Fecha de actividad</label><DatePicker id="day" value={day} onChange={(iso, invalid) => { onChange(iso, invalid); setDay(iso ?? ""); }} /></>;
+    return <><label htmlFor="day">Fecha de actividad</label><DatePicker id="day" label="Fecha de actividad" value={day} onChange={(iso, invalid) => { onChange(iso, invalid); setDay(iso ?? ""); }} /></>;
   }
   const page = await render(<Harness />);
   const input = page.host.querySelector<HTMLInputElement>("#day")!;

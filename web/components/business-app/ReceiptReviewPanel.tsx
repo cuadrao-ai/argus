@@ -379,6 +379,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 <div className="mt-1.5">
                   <DatePicker
                     id={dateId}
+                    label={t("business.review.date", "Date")}
                     value={draft.occurred_on}
                     disabled={locked}
                     onChange={(iso, invalid) => {
