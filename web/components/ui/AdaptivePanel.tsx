@@ -2,7 +2,7 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { ChevronLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -112,6 +112,21 @@ export default function AdaptivePanel({
   return <SideDrawer {...{ title, summary, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, width, footer, returnFocusRef, initialFocusRef, back, children }} />;
 }
 
+/** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
+function useDrawerSpace(preferred: number, drawn: boolean) {
+  useEffect(() => {
+    if (!drawn) return undefined;
+    const root = document.documentElement;
+    const apply = () => root.style.setProperty("--cuadrao-drawer-space", `${Math.max(320, Math.min(preferred, window.innerWidth * 0.4))}px`);
+    apply();
+    window.addEventListener("resize", apply);
+    return () => {
+      window.removeEventListener("resize", apply);
+      root.style.removeProperty("--cuadrao-drawer-space");
+    };
+  }, [preferred, drawn]);
+}
+
 function SideDrawerSurface({
   title,
   summary,
@@ -146,6 +161,7 @@ function SideDrawerSurface({
   children: ReactNode;
 }) {
   const { drawn, hasBelow } = useSheetStack(overlayId, true);
+  useDrawerSpace(DRAWER_WIDTH[width], drawn);
   useModalSurface({
     isOpen: true,
     overlayId,
