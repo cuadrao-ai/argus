@@ -2546,9 +2546,6 @@
       "supplier": "Supplier",
       "total": "Total"
     },
-    "sample": {
-      "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
-    },
     "status": {
       "pill_approved": "Approved",
       "pill_attention": "Needs attention",
@@ -2616,7 +2613,6 @@
     "month_close": {
       "title": "Close the month",
       "subtitle": "Income, expenses, and ITBIS for the month.",
-      "sample": "Sample figures. These are not your records and nothing is saved.",
       "income_label": "Income",
       "income_hint": "Invoice totals before ITBIS.",
       "expense_label": "Expenses",

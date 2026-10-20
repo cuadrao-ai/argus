@@ -118,7 +118,6 @@ describe("Business stays in Spanish for an en-US browser", () => {
       "Mi negocio",
       "por revisar",
       "Ingresos",
-      "Datos de muestra",
       "Subir recibos",
       "Registrar gasto",
       "Comercio",

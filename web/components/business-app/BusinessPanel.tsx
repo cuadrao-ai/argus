@@ -15,7 +15,6 @@ import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessUpdatesPanel from "./BusinessUpdatesPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
 import PanelErrorBoundary from "./PanelErrorBoundary";
-import { SampleDataNotice } from "./business-ui";
 import { formatBusinessName } from "./business-format";
 
 /**
@@ -68,7 +67,6 @@ export default function BusinessPanel() {
   }
   return (
     <div className={`mx-auto w-full ${panel.kind === "receipt" || panel.kind === "draft" ? "" : "max-w-3xl pb-6"}`}>
-      <SampleDataNotice />
       <BusinessContextCue />
       <BusinessSectionActions />
       <PanelErrorBoundary key={panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : panel.kind === "expense" ? `expense:${panel.expenseId}` : panel.kind}>

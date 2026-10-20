@@ -2722,7 +2722,6 @@
     "month_close": {
       "title": "Cuadrar el mes",
       "subtitle": "Ingresos, gastos e ITBIS del mes.",
-      "sample": "Datos de muestra. Estos montos no son tus registros y no se guardan.",
       "income_label": "Ingresos",
       "income_hint": "Total de facturas, antes de ITBIS.",
       "expense_label": "Gastos",
@@ -2916,9 +2915,6 @@
       "tax": "ITBIS",
       "title": "Revisar recibo",
       "view_expenses": "Ver gastos"
-    },
-    "sample": {
-      "notice": "Vista previa de diseño con datos de ejemplo. Aquí nada se guarda, se sube ni se envía."
     },
     "status": {
       "confirmed": "Gasto guardado",

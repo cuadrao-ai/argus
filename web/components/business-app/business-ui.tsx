@@ -3,7 +3,7 @@
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
-import { BusinessContext, useBusiness } from "./BusinessWorkspace";
+import { BusinessContext } from "./BusinessWorkspace";
 import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
 import { ToastNotice } from "./foundation/ToastNotice";
 
@@ -30,25 +30,6 @@ export function PanelHeading({ title, subtitle, action }: { title: string; subti
         {subtitle ? <p className="mt-1 text-[14px] text-black/55 dark:text-white/55">{subtitle}</p> : null}
       </div>
       {action}
-    </div>
-  );
-}
-
-/** Says, on every Business screen, when the records are invented. */
-export function SampleDataNotice() {
-  const { t } = useTranslation();
-  const { source } = useBusiness();
-  if (source.mode !== "fixture") return null;
-  return (
-    <div
-      role="note"
-      data-testid="business-sample-data"
-      className="mb-5 rounded-[14px] border border-dashed border-[#c2a44d]/60 bg-[#c2a44d]/10 px-4 py-2.5 text-[13px] text-black/70 dark:text-white/70"
-    >
-      {t(
-        "business.sample.notice",
-        "Design preview with sample data. Nothing here is saved, uploaded or sent.",
-      )}
     </div>
   );
 }

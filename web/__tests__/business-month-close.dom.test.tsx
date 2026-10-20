@@ -811,7 +811,6 @@ describe("Inicio month close source", () => {
     };
     try {
       const page = await renderPanel("fixture");
-      assert.match(page.host.querySelector('[data-testid="month-close-sample"]')?.textContent ?? "", /Datos de muestra/);
       assert.match(page.host.textContent ?? "", /Farmacia Central/);
       assert.equal(calls.some((url) => url.includes("/business/month-close")), false);
       await page.act(async () => page.root.unmount());

@@ -672,12 +672,6 @@ export function BusinessMonthCloseView({
         </div>
       </div>
 
-      {client.mode === "mock" ? (
-        <p role="note" data-testid="month-close-sample" className="mb-5 rounded-[14px] border border-dashed border-[#c2a44d]/60 bg-[#c2a44d]/10 px-4 py-2.5 text-[13px] text-black/70 dark:text-white/70">
-          {t("business.month_close.sample", "Sample figures. These are not your records and nothing is saved.")}
-        </p>
-      ) : null}
-
       {phase === "error" ? (
         <div role="alert" data-testid="month-close-error" data-layout="error" className="flex flex-col items-center justify-center gap-4 py-16 text-center">
           <h4 className="font-display text-[18px] font-medium text-black dark:text-white">{t("business.month_close.error_title", "We couldn't load the month")}</h4>
