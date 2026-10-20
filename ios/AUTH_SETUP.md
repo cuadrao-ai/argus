@@ -187,28 +187,18 @@ See the [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb
 for ownership and exact integration/design/auth reference commits.
 
 
-## 18+ entry confirmation
+## Native age signal
 
-Before signup or opening the on-device guest book, the person accepts
-"Confirmo que tengo 18 años o más." One local timestamp survives relaunch and
-conversion. `SessionController.signup` refuses a missing attestation and sends
-that exact string as `age_confirmed_at` to `POST /api/v1/auth/signup`.
-The web/API age-confirmation PR owns server validation and profile persistence.
-The native guest book has no anonymous server session; conversion creates a
-permanent account through ordinary signup before the existing book claim.
+Signup and guest entry have no custom age gate. A shared MainActor task requests
+`ageGates: 18` through the system UI on iOS 26.2 and later and logs a coarse result.
+It saves no raw range, birthday, account identity or preference. No result, pending
+request, failure or cancellation controls entry or signup. Redraws do not repeat
+the request. Only a completed adult result retains its completion time in memory.
+Signup snapshots that time as RFC3339 `age_confirmed_at`; every other result,
+including a pending request, omits it without waiting or creating a substitute.
 
-No birthday, raw Apple range, declaration method, or parental-control details are
-saved. The timestamp is a person's attestation and does not certify verified age.
-Existing login, admission, CAPTCHA, and email-confirmation paths remain in place.
-
-On iOS 26.2 and later, the app requests `ageGates: 18`. On iOS 26.4 and later,
-`.declaredAgeRangeRequired` from `requiredRegulatoryFeatures` makes sharing
-mandatory. A shared range below 18 always refuses entry. Optional decline or
-request failure permits the checkbox attestation. Mandatory decline, request
-failure, or an unknown regulatory requirement blocks entry and offers the approved
-recovery action. Older systems use only the checkbox. The under-18 screen has no
-retry and may open the configured terms URL through its scoped legal exception.
-The general legal-links flag stays false.
+Integration `d7fdf5a55` requires `age_confirmed_at`. Its separately owned backend
+change must make the field optional before omitted-timestamp signup can work.
 
 The device target requests `com.apple.developer.declared-age-range` through
 `Config/DeclaredAgeRange.entitlements`; simulator and optional Apple-sign-in
@@ -218,9 +208,7 @@ provisioning and an actual Apple account response remain separate acceptance.
 
 Release social sign-in remains off in `NativeProviderConfiguration.load` and
 Release settings. Its parked DEBUG ID-token path creates Supabase identities and
-hydrates `/me`; it does not use the signup API. Before enabling social sign-in,
-connect the same age confirmation to the server-owned profile creation path and
-verify its complete first-sign-in journey.
+hydrates `/me`; it does not use the signup API.
 
 Offline checks:
 
@@ -237,6 +225,16 @@ Its Apple results are synthetic. Set only process-level synthetic auth build
 values for the existing Cuadrao build gate; no server or provider is called.
 The CI workflow contains that command and retains its result bundle.
 
+`AgeSignupPayloadUITests` separately captures real `ProfileAuthModel` signup
+requests with synthetic observations. Start `python3 ios/scripts/auth/apple-session-server.py`
+in another terminal, then add `TEST_RUNNER_ARGUS_AGE_PAYLOAD_PROOF=true` to the
+same synthetic `xcodebuild test` command and select
+`-only-testing:ArgusFoundationUITests/AgeSignupPayloadUITests`. The fixture uses
+only loopback port 59920 and an isolated synthetic Keychain service. Adult uses a
+fixed observation instant; declined, unavailable, under18 and pending omit it.
+Use normal simulator ad-hoc signing so the isolated Keychain is available.
+The suite skips unless opted in; normal age UI tests need no server.
+
 Apple API and availability sources checked October 17, 2026:
 [requesting age ranges](https://developer.apple.com/documentation/declaredagerange/requesting-people-share-their-age-range-with-your-app),
 [regulatory features](https://developer.apple.com/documentation/declaredagerange/agerangeservice/requiredregulatoryfeatures),
@@ -251,6 +249,5 @@ The existing native swipe and reorder UI requires SDK 27 symbols. CI uses
 
 Legal entry UI tests add `--age-legal-entry` to the Debug age harness. It mounts
 the real welcome, signup and guest views with a signed-out model that has no
-session controller. Each launch resets the canonical age key on the isolated test simulator. The tests complete
-the real checkbox and a synthetic required adult check before legal assertions.
-They preserve the real signup controls and never send an auth request.
+session controller. Synthetic results never block these views. The tests use the
+real signup controls and guest book without age-key resets or auth requests.

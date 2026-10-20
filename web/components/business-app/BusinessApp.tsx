@@ -7,6 +7,9 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
 import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
+import BusinessConsentGate from "./BusinessConsentGate";
+import { BusinessConsentTestProvider } from "./business-consent-context";
+import { MOCK_AUTH_CONSENT_USER_ID } from "@/lib/business-privacy-notice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
 import { createFixtureBusinessDataSource, type FixtureOptions } from "./fixture-data";
@@ -17,6 +20,12 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
     sample ? createFixtureBusinessDataSource(sample) : liveBusinessDataSource,
   );
   const [owner, setOwner] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = "es";
+    return () => { root.lang = previous; };
+  }, []);
   useEffect(() => {
     if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
     const client = getSupabaseClient();
@@ -39,11 +48,19 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
       <button type="button" className="min-h-11 rounded-full px-6 py-3" onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
     </main>;
   }
-  return (
+  const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;
+  const workspace = (
     <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
       <ConversationShellGuard />
       <ConversationUnavailableNotice />
       <ChatInterface />
     </BusinessWorkspaceProvider>
+  );
+  if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
+  if (!consentUserId) return workspace;
+  return (
+    <BusinessConsentGate key={consentUserId} source={source}>
+      {workspace}
+    </BusinessConsentGate>
   );
 }

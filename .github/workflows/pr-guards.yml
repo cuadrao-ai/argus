@@ -1,0 +1,75 @@
+name: PR guards
+
+"on":
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hotspot-guard:
+    name: hotspot-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Fetch the pull request base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if git cat-file -e "${PR_BASE_SHA}^{commit}"; then
+            exit 0
+          fi
+          git fetch --no-tags origin "$BASE_REF"
+          git cat-file -e "${PR_BASE_SHA}^{commit}"
+
+      - name: Check hotspot files
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python scripts/ci/check_pr_guards.py hotspot
+
+  size-guard:
+    name: size-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Fetch the pull request base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if git cat-file -e "${PR_BASE_SHA}^{commit}"; then
+            exit 0
+          fi
+          git fetch --no-tags origin "$BASE_REF"
+          git cat-file -e "${PR_BASE_SHA}^{commit}"
+
+      - name: Check pull request size
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python scripts/ci/check_pr_guards.py size

@@ -8,6 +8,7 @@ from pydantic import Field, model_validator
 
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
+from .dgii import DgiiDeclaration
 from .facts import BusinessFacts, Contract, FactField, ReadPurchase
 
 
@@ -83,6 +84,8 @@ class DraftRevision(Contract):
     source_ids: tuple[UUID, ...]
     turn_key: str | None = None
     created_at: datetime
+    before_dgii: DgiiDeclaration | None = None
+    after_dgii: DgiiDeclaration | None = None
 
 
 class Blocker(Contract):
@@ -127,6 +130,7 @@ class RecordContext(Contract):
 
 
 class BusinessDossier(RecordContext):
+    dgii: DgiiDeclaration | None = None
     draft_id: UUID
     version: int = Field(ge=1)
     review_state: Literal["open", "accepting", "accepted", "dismissed"]

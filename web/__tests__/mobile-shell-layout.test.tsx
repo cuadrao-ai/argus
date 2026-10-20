@@ -366,6 +366,14 @@ describe("sidebar header", () => {
 });
 
 describe("mobile top bar", () => {
+  test("a leading control replaces the menu button", async () => {
+    const markup = await render(
+      <ChatShellMenuTrigger onOpen={() => undefined} leading={<span data-testid="business-mark">MP</span>} />,
+    );
+    expect(markup).toContain('data-testid="business-mark"');
+    expect(markup).not.toContain('data-testid="chat-shell-menu-trigger"');
+  });
+
   test("the trigger is a menu glyph with an accessible name", async () => {
     const markup = await render(
       <ChatShellMenuTrigger onOpen={() => undefined} />,
@@ -399,13 +407,15 @@ describe("mobile top bar", () => {
     expect(chatInterface).toContain("mobileShell.isDrawerOpen\n                      ? null");
   });
 
-  test("guest keeps Sign up pinned right and loses only the gear", () => {
-    expect(chatInterface).toContain("showSettings={!mobileShell.isBelowTablet}");
+  test("the guest header is gone and the shell menu trigger remains", () => {
+    expect(chatInterface).not.toContain("GuestHeader");
+    expect(chatInterface).not.toContain("showSettings={!mobileShell.isBelowTablet}");
+    expect(chatInterface).toContain("<ChatShellMenuTrigger");
   });
 
-  test("the drawer carries guest settings at its bottom", () => {
-    expect(chatInterface).toContain('placement="drawer"');
-    expect(chatSidebar).toContain('data-testid="sidebar-guest-settings"');
+  test("the drawer does not carry guest settings", () => {
+    expect(chatInterface).toContain("guestSettings={null}");
+    expect(chatInterface).not.toContain('placement="drawer"');
   });
 
   test("the rail preference entry is absent in drawer mode, not greyed", () => {
@@ -641,10 +651,10 @@ describe("omnisearch below threshold", () => {
     // mounted as the new topmost layer at a lower z-index, invisible but
     // holding focus and the keys meant for the dialog on screen.
     const shell = readFileSync(
-      join(import.meta.dir, "../components/guest/useGuestShellActions.ts"),
+      join(import.meta.dir, "../components/chat/useChatShellCapabilities.ts"),
       "utf-8",
     );
-    expect(shell).toContain("if (hasOpenOverlay()) {");
+    expect(shell).toContain("if (hasOpenOverlay()) return;");
     const registry = readFileSync(
       join(import.meta.dir, "../components/layout/overlayStack.ts"),
       "utf-8",

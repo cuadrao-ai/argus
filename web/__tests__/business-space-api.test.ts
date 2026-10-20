@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { startBusinessSpace } from "@/lib/business-api";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
@@ -23,6 +23,10 @@ function respond(...replies: { status: number; body: unknown }[]): Call[] {
 describe("starting the Business space", () => {
   const originalFetch = globalThis.fetch;
   const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+
+  beforeEach(() => {
+    setChosenGrant(null);
+  });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { cardClass } from "./business-ui";
+import { cardClass, lockedCardClass } from "./business-ui";
 import styles from "./business-skeletons.module.css";
 
 export const SKELETON_DELAY_MS = 300;
@@ -9,7 +9,7 @@ export const CONTENT_FADE_MS = 150;
 /** The screen-reader label is this word, and it is never visible. */
 export const SCREEN_READER_LOADING_LABEL = "Cargando";
 
-export type SkeletonLayout = "overview" | "inbox" | "updates" | "detail" | "rows";
+export type SkeletonLayout = "overview" | "inbox" | "updates" | "expenses" | "access" | "detail" | "rows";
 
 export function placeholderPhase(elapsedMs: number, delayMs = SKELETON_DELAY_MS): "blank" | "skeleton" {
   return elapsedMs < delayMs ? "blank" : "skeleton";
@@ -57,13 +57,55 @@ function InboxRow() {
 
 function UpdateRow() {
   return (
-    <div className="flex items-start gap-3 px-3 py-3">
-      <Bar className="mt-0.5 h-5 w-5 shrink-0" />
-      <Bar className="h-[14px] min-w-0 flex-1" />
-      <Bar className="h-3 w-14 shrink-0" />
+    <div className="flex min-h-16 items-start gap-3 px-3 py-3">
+      <Bar className="h-6 w-32 shrink-0 rounded-full" />
+      <span className="min-w-0 flex-1">
+        <span className="flex h-6 items-center"><Bar className="h-[15px] w-2/5" /></span>
+        <span className="mt-1 flex h-[18px] items-center"><Bar className="h-[13px] w-3/5" /></span>
+        <span className="mt-1 flex h-[18px] items-center tablet:hidden"><Bar className="h-[13px] w-14" /></span>
+      </span>
+      <span className="hidden h-[18px] shrink-0 items-center tablet:flex"><Bar className="h-[13px] w-14" /></span>
     </div>
   );
 }
+
+function ExpenseRow() {
+  return (
+    <div className="px-3 py-1">
+      <div className="flex min-h-11 items-center gap-3 py-2">
+        <span className="min-w-0 flex-1">
+          <span className="flex h-[1lh] items-center text-[15px]"><Bar className="h-[15px] w-2/5" /></span>
+          <span className="mt-0.5 flex h-[1lh] items-center text-[13px]"><Bar className="h-[13px] w-3/5" /></span>
+        </span>
+        <Bar className="h-[15px] w-16 shrink-0" />
+        <span className="h-4 w-4 shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+function AccessRow() {
+  return (
+    <div className="flex items-center gap-3 px-3 py-3">
+      <Bar className="h-11 w-11 shrink-0 rounded-[12px]" />
+      <span className="min-w-0 flex-1 space-y-2">
+        <Bar className="h-[15px] w-2/5" />
+        <Bar className="h-[13px] w-3/5" />
+      </span>
+      <Bar className="h-11 w-28 shrink-0 rounded-full" />
+    </div>
+  );
+}
+
+type ListLayout = Exclude<SkeletonLayout, "overview" | "detail">;
+
+const LIST_ROWS: Record<ListLayout, () => ReactNode> = {
+  inbox: InboxRow,
+  rows: InboxRow,
+  updates: UpdateRow,
+  expenses: ExpenseRow,
+  access: AccessRow,
+};
 
 function OverviewSkeleton() {
   return (
@@ -113,13 +155,11 @@ function DetailSkeleton() {
   );
 }
 
-function Rows({ count, layout }: { count: number; layout: SkeletonLayout }) {
-  const Row = layout === "updates" ? UpdateRow : InboxRow;
-  return (
-    <ListShell>
-      {Array.from({ length: count }, (_, index) => <Row key={index} />)}
-    </ListShell>
-  );
+function Rows({ count, layout }: { count: number; layout: ListLayout }) {
+  const Row = LIST_ROWS[layout];
+  const rows = Array.from({ length: count }, (_, index) => <Row key={index} />);
+  if (layout === "updates") return <div className={`${lockedCardClass} divide-y divide-[#DCE0DA] p-2 dark:divide-white/[0.06]`}>{rows}</div>;
+  return <ListShell>{rows}</ListShell>;
 }
 
 export function BusinessSkeleton({ layout, rows = 3 }: { layout: SkeletonLayout; rows?: number }) {

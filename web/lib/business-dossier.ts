@@ -1,4 +1,5 @@
 import type { BusinessAccount } from "./business-api";
+import type { DgiiDeclaration } from "./business-dgii";
 
 export type BusinessFact<T> =
   | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
@@ -46,6 +47,8 @@ export type BusinessReviewQuestion = {
 };
 
 export type BusinessDraftRevision = {
+  before_dgii?: DgiiDeclaration | null;
+  after_dgii?: DgiiDeclaration | null;
   draft_id: string;
   version: number;
   actor: BusinessActor;
@@ -82,6 +85,7 @@ export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string 
 export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
 
 export type BusinessDossier = BusinessRecordContext & {
+  dgii?: DgiiDeclaration | null;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */

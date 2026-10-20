@@ -34,7 +34,7 @@ final class GuestModeController: ObservableObject {
         if CuadraoGuestLaunch.noticesSeen { GuestNotice.allCases.forEach { $0.markSeen() } }
         #endif
         self.directory = directory
-        active = UserDefaults.standard.bool(forKey: Self.activeKey) && AgeConfirmationStore().confirmation != nil
+        active = UserDefaults.standard.bool(forKey: Self.activeKey)
         #if DEBUG
         if CuadraoGuestLaunch.accountSignedInBefore { UserDefaults.standard.set(true, forKey: Self.accountKey) }
         #endif
@@ -69,7 +69,6 @@ final class GuestModeController: ObservableObject {
 
     /// Opens the book, creating it on the first save. Nothing is sent anywhere.
     func enter() {
-        guard AgeConfirmationStore().confirmation != nil else { return }
         if model == nil { open() }
         set(active: true)
     }

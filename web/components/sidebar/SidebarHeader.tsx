@@ -10,11 +10,13 @@ export type SidebarVariant = "rail" | "drawer";
 export default function SidebarHeader({
   variant,
   isOpen,
+  railLocked = false,
   onToggle,
   onRequestClose,
 }: {
   variant: SidebarVariant;
   isOpen: boolean;
+  railLocked?: boolean;
   onToggle: () => void;
   onRequestClose?: () => void;
 }) {
@@ -42,6 +44,17 @@ export default function SidebarHeader({
         >
           <X className="h-5 w-5 text-black/60 dark:text-white/60" aria-hidden="true" />
         </button>
+      </div>
+    );
+  }
+
+  if (railLocked) {
+    return (
+      <div className="flex h-20 items-center px-[6px] pb-4 pt-6">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center">
+          {brandMark()}
+          <span className="sr-only">{brandName}</span>
+        </div>
       </div>
     );
   }

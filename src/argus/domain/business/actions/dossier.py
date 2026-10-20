@@ -63,18 +63,22 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         )
         if not isinstance(getattr(facts, name), Known)
     ]
-    if isinstance(facts.kind, Known) and facts.kind.value not in {"expense", "income"}:
+    if isinstance(facts.kind, Known) and facts.kind.value not in {
+        "expense",
+        "income",
+        "refund",
+    }:
         result.append(Blocker(code="activity_kind_unsupported", field="kind"))
     if (
         isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
+        and facts.kind.value in {"income", "refund"}
         and isinstance(facts.funding, Known)
         and not isinstance(facts.funding.value, BusinessAccountFunding)
     ):
         result.append(Blocker(code="business_funding_unsupported", field="funding"))
     if (
         isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
+        and facts.kind.value in {"income", "refund"}
         and isinstance(facts.funding, Known)
         and isinstance(facts.funding.value, BusinessAccountFunding)
     ):
@@ -88,7 +92,7 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
             isinstance(facts.currency, Known) and account.currency != facts.currency.value
         ):
             result.append(Blocker(code="import_currency_mismatch", field="funding"))
-        elif account.type not in ELIGIBILITY["income"]:
+        elif account.type not in ELIGIBILITY[facts.kind.value]:
             result.append(Blocker(code="account_ineligible", field="funding"))
     if (
         isinstance(facts.kind, Known)
@@ -162,7 +166,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     questions = tuple(ReviewQuestion.model_validate(row) for row in question_rows)
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at from public.business_draft_revisions"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
     )
@@ -206,7 +210,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     approvals = tx.rows(
         "select actor,command,outcome,created_at from public.business_action_receipts"
-        " where space_id=%s and command->>'action' in ('approve_expense','approve_income')"
+        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
         " and command->>'draft_id'=%s"
         + approval_filter
         + " order by created_at desc limit 1",
@@ -237,5 +241,6 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
         bill_mark=resolution.bill_mark,
+        dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
         **draft_marks(tx, draft_id, facts),
     )

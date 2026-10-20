@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { authLinkErrorRedirect } from "./lib/auth-link-error";
 import { decideBusinessOnlyWeb } from "./lib/business-only-web";
 import { businessOnlyWebFromEnv } from "./lib/private-alpha-flags";
 
 export function proxy(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+  const { pathname, search, searchParams, origin } = request.nextUrl;
 
-  if (pathname === "/dev/result-card" || pathname.startsWith("/dev/result-card/")) {
+  if (
+    pathname === "/dev/result-card" || pathname.startsWith("/dev/result-card/")
+    || pathname === "/dev/error-screen" || pathname.startsWith("/dev/error-screen/")
+  ) {
     if (process.env.NODE_ENV === "production") {
       return new NextResponse(null, { status: 404 });
     }
     return NextResponse.next();
   }
+
+  const target = authLinkErrorRedirect({ origin, pathname, searchParams });
+  if (target) return NextResponse.redirect(target);
 
   const decision = decideBusinessOnlyWeb({
     enabled: businessOnlyWebFromEnv(process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB),

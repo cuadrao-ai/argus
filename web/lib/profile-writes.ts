@@ -1,7 +1,9 @@
 import type { i18n as I18n } from "i18next";
 
 import { getMe, patchMe, type ApiUser, type ProfilePatch } from "./argus-api";
+import { businessPilotEnabled } from "./private-alpha-flags";
 import {
+  languageToShow,
   localeForLanguage,
   normalizeEnabledLanguage,
   type ArgusLanguage,
@@ -82,12 +84,13 @@ export async function saveProfileLanguage(
   },
 ): Promise<boolean> {
   const language = normalizeEnabledLanguage(code);
+  const visible = languageToShow(businessPilotEnabled, language) ?? language;
   // The whole step holds the slot, so it starts from a page that matches the
   // account and an earlier refusal cannot undo a newer choice.
   const user = await serializeProfileRequest(async () => {
     const shownLanguage = i18n.language;
-    await i18n.changeLanguage(language);
-    onShown?.(language);
+    await i18n.changeLanguage(visible);
+    onShown?.(normalizeEnabledLanguage(visible));
     try {
       return await patchProfile({
         language,
@@ -95,8 +98,9 @@ export async function saveProfileLanguage(
       });
     } catch (error) {
       console.error("Failed to update language", error);
-      await i18n.changeLanguage(shownLanguage);
-      onShown?.(normalizeEnabledLanguage(shownLanguage));
+      const restored = languageToShow(businessPilotEnabled, shownLanguage) ?? shownLanguage;
+      await i18n.changeLanguage(restored);
+      onShown?.(normalizeEnabledLanguage(restored));
       return null;
     }
   });

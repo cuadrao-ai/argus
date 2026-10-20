@@ -6,7 +6,7 @@ Apply `20261018030000`, `20261018030016`, and `20261018040000` to staging projec
 
 The record is `docs/release-manifests/2026-10-18-staging-security-waitlist-apply.json`. Its id is `staging-apply-2026-10-18`. The database name is `postgres`.
 
-The record lists the direct host `db.skedzwocnmrhfigiwyzi.supabase.co` and no other host. The pooler host is decided at apply time. The record's hosts list stays the direct host only.
+The record names the direct host `db.skedzwocnmrhfigiwyzi.supabase.co` and the session pooler `aws-0-us-east-1.pooler.supabase.com`. The direct host has no IPv4 address, so the connection path is the session pooler on port 5432. The user is `postgres.skedzwocnmrhfigiwyzi`.
 
 ## Versions
 
@@ -24,7 +24,7 @@ The record is issued at `2026-10-18T03:38:00-05:00` and expires at `2026-10-21T0
 
 ## Apply
 
-Set `ARGUS_APPLY_DATABASE_URL` in the environment to the staging database URL. Do not put that URL on the command line.
+Set `ARGUS_APPLY_DATABASE_URL` to the staging session pooler URL. The host is `aws-0-us-east-1.pooler.supabase.com`, the port is 5432, the database is `postgres`, and the user is `postgres.skedzwocnmrhfigiwyzi`. Do not put that URL on the command line. One matching pair of quotes around the value is removed before the URL is read. Mismatched quotes are left in place.
 
 Write this JSON list to `approved.json`.
 
@@ -39,6 +39,7 @@ poetry run python scripts/ops/apply_approved_migrations.py \
   --candidate-sha c940a8b319086bea023bc63b8b6817a87dbffafd \
   --approved-file approved.json \
   --allow-host db.skedzwocnmrhfigiwyzi.supabase.co \
+  --allow-host aws-0-us-east-1.pooler.supabase.com \
   --allow-database postgres \
   --hosted-approval docs/release-manifests/2026-10-18-staging-security-waitlist-apply.json \
   --ssl-root-cert /path/to/ca-bundle.pem

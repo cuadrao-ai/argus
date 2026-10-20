@@ -59,6 +59,11 @@ async function renderSpanishSignup(props: {
   await setNativeValue(fields[0] as HTMLInputElement, "Ada");
   await setNativeValue(fields[1] as HTMLInputElement, "ada@example.com");
   await setNativeValue(fields[2] as HTMLInputElement, "correct-horse");
+  const checkbox = signupForm.querySelector("#age-confirmation-checkbox");
+  if (!(checkbox instanceof HTMLInputElement)) throw new Error("age checkbox missing");
+  await act(async () => {
+    checkbox.click();
+  });
   const signupButton = signupForm.querySelector("button[type='submit']");
   await act(async () => {
     signupForm.requestSubmit(signupButton as HTMLButtonElement);
@@ -67,7 +72,7 @@ async function renderSpanishSignup(props: {
 }
 
 describe("signup confirmation code", () => {
-  test("Spanish signup accepts the email code and still mentions the link", async () => {
+  test("Spanish signup accepts the email code and names the address", async () => {
     const confirmed: Array<{ email: string; code: string }> = [];
     let finished = 0;
     const page = await renderSpanishSignup({
@@ -90,7 +95,7 @@ describe("signup confirmation code", () => {
     expect(document.activeElement).not.toBe(code);
     expect(code?.getAttribute("autocomplete")).toBe("one-time-code");
     expect(code?.getAttribute("inputmode")).toBe("numeric");
-    expect(state?.textContent).toContain("enlace");
+    expect(state?.textContent).toContain("Escribe el código que te enviamos a ada@example.com.");
     expect(page.host.textContent).toContain("Código de confirmación");
 
     await setNativeValue(code as HTMLInputElement, "123 456");

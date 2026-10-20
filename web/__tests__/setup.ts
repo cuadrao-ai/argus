@@ -1,4 +1,5 @@
-import { afterEach } from "bun:test";
+import { readdirSync, readFileSync, realpathSync } from "node:fs";
+import { afterEach, mock } from "bun:test";
 import { plugin } from "bun";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
@@ -14,6 +15,102 @@ plugin({
     });
   },
 });
+
+// A partial `mock.module` becomes the module's first evaluation when nothing
+// has imported it yet, so every export the factory omits disappears. The
+// replacement then stays in place for later files. `require` cannot load these
+// modules, so import the mocked targets once before any file runs and keep a
+// value copy. Put that copy back when the next test file is resolved. The copy
+// has to be taken before the mock, because the live record changes underneath.
+const applyModuleMock = mock.module.bind(mock);
+const realByPath = new Map<string, Record<string, unknown>>();
+const mockedPaths = new Set<string>();
+
+function callerDir(): string {
+  const frames = new Error().stack?.split("\n") ?? [];
+  for (const frame of frames) {
+    const match = frame.match(/\((.*):\d+:\d+\)$/) ?? frame.match(/at (.*):\d+:\d+$/);
+    const raw = match?.[1];
+    if (!raw || raw.includes("/setup.ts")) continue;
+    const path = raw.startsWith("file://") ? raw.slice("file://".length) : raw;
+    if (!path.startsWith("/")) continue;
+    return path.slice(0, path.lastIndexOf("/"));
+  }
+  return import.meta.dir;
+}
+
+function resolvedPath(specifier: string, fromDir: string): string | null {
+  try {
+    return realpathSync(Bun.resolveSync(specifier, fromDir));
+  } catch {
+    return null;
+  }
+}
+
+function copyExports(loaded: Record<string, unknown>): Record<string, unknown> {
+  const copy: Record<string, unknown> = {};
+  for (const key of Object.getOwnPropertyNames(loaded)) copy[key] = loaded[key];
+  return copy;
+}
+
+function restoreRealExports(): void {
+  for (const path of mockedPaths) {
+    const real = realByPath.get(path);
+    if (!real) continue;
+    applyModuleMock(path, () => real);
+  }
+  mockedPaths.clear();
+}
+
+mock.module = ((specifier: string, factory: () => Record<string, unknown>) => {
+  const path = resolvedPath(specifier, callerDir());
+  if (path) mockedPaths.add(path);
+  return applyModuleMock(specifier, factory);
+}) as typeof mock.module;
+
+plugin({
+  name: "test-file-boundary",
+  setup(build) {
+    build.onResolve({ filter: /\.test\.tsx?$/ }, () => {
+      restoreRealExports();
+    });
+  },
+});
+
+async function preloadMockTargets(): Promise<void> {
+  const jobs: Array<{ specifier: string; dir: string }> = [];
+  const seen = new Set<string>();
+  const pending = [import.meta.dir];
+  while (pending.length > 0) {
+    const dir = pending.pop();
+    if (!dir) break;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        pending.push(path);
+        continue;
+      }
+      if (entry.name === "setup.ts" || !/\.tsx?$/.test(entry.name)) continue;
+      const source = readFileSync(path, "utf8");
+      for (const match of source.matchAll(/mock\.module\(\s*(['"])([^'"]+)\1/g)) {
+        const key = `${dir}\0${match[2]}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        jobs.push({ specifier: match[2], dir });
+      }
+    }
+  }
+  for (const job of jobs) {
+    const path = resolvedPath(job.specifier, job.dir);
+    if (!path || realByPath.has(path)) continue;
+    try {
+      realByPath.set(path, copyExports(await import(path)));
+    } catch {
+      realByPath.delete(path);
+    }
+  }
+}
 
 /**
  * Preloaded by bunfig before every test file, so no file's global state is
@@ -36,6 +133,7 @@ await import("../lib/argus-api-transport");
 GlobalRegistrator.register({ url: "http://localhost" });
 await import("react-dom/client");
 await GlobalRegistrator.unregister();
+await preloadMockTargets();
 
 type Resettable = Record<string, unknown>;
 
@@ -55,8 +153,9 @@ function loadedExports(specifier: string): Resettable | null {
 
 // Module-level state with a test seam. The overlay stack holds open layers and
 // a `listening` flag, and the history module holds unspent entries and pending
-// traversals; a file that opens one without closing it leaves it open for the
-// next file.
+// traversals. A finished sign-out leaves its flag set, and the chosen Business
+// grant stays selected. A file that sets one without clearing it leaves it for
+// the next file.
 afterEach(() => {
   const reset = (specifier: string, name: string) => {
     const seam = loadedExports(specifier)?.[name];
@@ -64,4 +163,7 @@ afterEach(() => {
   };
   reset("../components/layout/overlayStack", "resetOverlayStack");
   reset("../lib/overlay-history", "resetOverlayEntries");
+  reset("../lib/logout-flow", "resetLeavingSession");
+  const clearGrant = loadedExports("../lib/business-grant")?.setChosenGrant;
+  if (typeof clearGrant === "function") clearGrant(null);
 });

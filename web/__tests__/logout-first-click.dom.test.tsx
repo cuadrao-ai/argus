@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { leaveSession, signedOutLanding } from "@/lib/logout-flow";
+import { isLeavingSession, leaveSession, resetLeavingSession, signedOutLanding } from "@/lib/logout-flow";
 
 // A real DOM: the Log out control is clicked once and the flow runs from that click.
 beforeAll(() => {
@@ -9,6 +9,7 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
+  resetLeavingSession();
   await GlobalRegistrator.unregister();
 });
 
@@ -68,24 +69,86 @@ describe("logout on the first click", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("a failed revocation hands the surface back to the signed-in account, says so, clears nothing and stays", async () => {
+  test("a failed revocation stays signed in and says so", async () => {
     const page = await mount({ businessBuild: true, revocation: "failed" });
     await page.clickOnce();
     assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
     await page.act(async () => page.root.unmount());
   });
 
-  test("failed API cookie clearing cannot report successful logout", async () => {
+  test("failed API cookie clearing stays signed in and says so", async () => {
     const page = await mount({ businessBuild: true, cookieSync: "failed" });
     await page.clickOnce();
     assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
     await page.act(async () => page.root.unmount());
   });
 
-  test("a sign-out that throws is a failed sign-out, not a half-left session", async () => {
+  test("a sign-out that throws stays signed in and says so", async () => {
     const page = await mount({ businessBuild: true, throws: true });
     await page.clickOnce();
     assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
     await page.act(async () => page.root.unmount());
+  });
+
+  test("a second click after a failed sign-out sends a new sign-out request", async () => {
+    const page = await mount({ businessBuild: true, revocation: "failed" });
+    await page.clickOnce();
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
+    page.log.length = 0;
+    await page.clickOnce();
+    assert.deepEqual(page.log, ["beginConversion", "signOut", "finishConversion:user-1", "failed"]);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a failed sign-out never navigates", async () => {
+    const page = await mount({ businessBuild: true, revocation: "failed" });
+    await page.clickOnce();
+    assert.equal(page.log.includes("clear"), false);
+    assert.equal(page.log.some((entry) => entry.startsWith("navigate")), false);
+    assert.equal(isLeavingSession(), false);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("a second click while sign-out is in flight does not send the request again", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const log: Log = [];
+    let release: (value: { revocation: "failed"; cookieSync: "failed" }) => void = () => {};
+    const gate = new Promise<{ revocation: "failed"; cookieSync: "failed" }>((resolve) => {
+      release = resolve;
+    });
+    const deps = {
+      boundary: { beginConversion: () => log.push("beginConversion"), finishConversion: () => log.push("finishConversion") },
+      currentUserId: "user-1",
+      signOut: () => {
+        log.push("signOut");
+        return gate;
+      },
+      clearLocalState: () => log.push("clear"),
+      navigate: (href: string) => log.push(`navigate:${href}`),
+      onFailed: () => log.push("failed"),
+      businessBuild: true,
+    };
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<button type="button" onClick={() => void leaveSession(deps)}>Cerrar sesión</button>);
+    });
+    const button = host.querySelector("button")!;
+    await act(async () => {
+      button.click();
+      button.click();
+    });
+    assert.deepEqual(log, ["beginConversion", "signOut"]);
+    await act(async () => {
+      release({ revocation: "failed", cookieSync: "failed" });
+      await gate;
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    assert.deepEqual(log, ["beginConversion", "signOut", "finishConversion", "failed"]);
+    assert.equal(log.some((entry) => entry.startsWith("navigate")), false);
+    await act(async () => root.unmount());
   });
 });

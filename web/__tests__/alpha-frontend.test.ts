@@ -228,7 +228,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(logo).not.toContain('stroke="currentColor"');
   });
 
-  test("private-alpha defaults hide exploratory chat suggestions while keeping starter chips", () => {
+  test("private-alpha defaults hide exploratory chat suggestions and investing starter chips", () => {
     const chat = readFileSync(
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
@@ -271,18 +271,21 @@ describe("Argus Alpha frontend contract", () => {
       "NEXT_PUBLIC_CHAT_EXPLORATORY_SUGGESTIONS_ENABLED",
     );
     expect(emptyChat).toContain("researchRailEnabled");
-    // No control gates the chips. They render whenever the empty chat does and
-    // stop when it stops, so there is nothing to show, hide, or persist.
     expect(emptyChat).not.toContain("showSuggestions");
     expect(chat).not.toContain("showSuggestions");
     expect(en.chat.show_suggestions).toBeUndefined();
     expect(en.chat.hide_suggestions).toBeUndefined();
     expect(es.chat.show_suggestions).toBeUndefined();
     expect(es.chat.hide_suggestions).toBeUndefined();
-    expect(starterActions).toContain("chat.starter_actions.tsla.value");
-    expect(starterActions).toContain("chat.starter_actions.btc.value");
-    expect(starterActions).toContain("chat.starter_actions.dca.value");
-    expect(starterActions).toContain("chat.example_queries");
+    expect(starterActions).not.toContain("chat.starter_actions");
+    expect(starterActions).not.toContain("chat.example_queries");
+    expect(starterActions).toContain("if (!workspaceEntries?.length) return null;");
+    expect(en.chat.starter_actions).toBeUndefined();
+    expect(en.chat.example_queries).toBeUndefined();
+    expect(en.chat.landing_starters).toBeUndefined();
+    expect(es.chat.starter_actions).toBeUndefined();
+    expect(es.chat.example_queries).toBeUndefined();
+    expect(es.chat.landing_starters).toBeUndefined();
     expect(emptyChat).toContain("<StarterActions");
     expect(input).not.toContain("placeholder_prompts");
     expect(input).not.toContain("animState");
@@ -290,51 +293,6 @@ describe("Argus Alpha frontend contract", () => {
     expect(chat).toContain("chat.followup_placeholder");
     expect(en.chat.placeholder_prompts).toBeUndefined();
     expect(es.chat.placeholder_prompts).toBeUndefined();
-
-    const starterAndPlaceholderText = [
-      en.chat.starter_actions.tsla.value,
-      en.chat.starter_actions.btc.value,
-      en.chat.starter_actions.dca.value,
-      es.chat.starter_actions.tsla.value,
-      es.chat.starter_actions.btc.value,
-      es.chat.starter_actions.dca.value,
-      en.chat.example_queries.q1,
-      en.chat.example_queries.q2,
-      en.chat.example_queries.q3,
-      es.chat.example_queries.q1,
-      es.chat.example_queries.q2,
-      es.chat.example_queries.q3,
-    ].join("\n");
-
-    expect(starterAndPlaceholderText).not.toContain("2024");
-    expect(starterAndPlaceholderText).not.toContain("January 1");
-    expect(starterAndPlaceholderText).not.toContain("December 31");
-    expect(starterAndPlaceholderText).not.toContain("1 de enero");
-    expect(starterAndPlaceholderText).not.toContain("31 de diciembre");
-    expect(starterAndPlaceholderText).not.toContain("Strategy:");
-    expect(starterAndPlaceholderText).not.toContain("Asset:");
-    expect(starterAndPlaceholderText).not.toContain("Period:");
-    expect(starterAndPlaceholderText).not.toContain("Estrategia:");
-    expect(starterAndPlaceholderText).not.toContain("Activo:");
-    expect(starterAndPlaceholderText).not.toContain("Periodo:");
-    expect(en.chat.starter_actions.tsla.value).toBe(
-      "Compare Apple with SPY over the last 12 months.",
-    );
-    expect(en.chat.starter_actions.btc.value).toBe(
-      "What if I bought Bitcoin this year so far?",
-    );
-    expect(en.chat.starter_actions.dca.value).toBe(
-      "What if I bought $250 of Nvidia every week over the last 12 months?",
-    );
-    expect(es.chat.starter_actions.tsla.value).toBe(
-      "Compara Apple con SPY durante los últimos 12 meses.",
-    );
-    expect(es.chat.starter_actions.btc.value).toBe(
-      "¿Qué habría pasado si compraba Bitcoin en lo que va del año?",
-    );
-    expect(es.chat.starter_actions.dca.value).toBe(
-      "¿Qué habría pasado si compraba $250 de Nvidia cada semana durante el último año?",
-    );
   });
 
   test("assistant turn controls use shared tooltips and robust clipboard copy", () => {
@@ -1113,7 +1071,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(`${chat}\n${emptyChat}`).toContain("<ChatInput");
     expect(chat).toContain("onSend={handleSend}");
     expect(emptyChat).toMatch(
-      /const disabled =\s*isStreamingResponse \|\|\s*isHydratingConversation \|\|\s*guestSubmissionPending \|\|\s*guestSubmissionError === CAPTCHA_UNAVAILABLE_CODE/,
+      /const disabled =\s*isStreamingResponse \|\|\s*isHydratingConversation;/,
     );
     expect(emptyChat).toContain("disabled={disabled}");
     expect(chat).toContain("disabled={conversationComposerUnavailable}");
@@ -2878,14 +2836,12 @@ describe("Argus Alpha frontend contract", () => {
   });
 
   test("auth exits return to the clean front door", () => {
-    const chatPage = readFileSync(join(root, "app/chat/page.tsx"), "utf-8");
     const chat = readFileSync(
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
     );
 
-    expect(chatPage).toContain("authLoginPathFromSearch");
-    expect(chatPage).not.toContain('redirect("/login")');
+    expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
     expect(chat).toContain("leaveSession(");
     expect(chat).not.toContain('window.location.href = "/?auth=login"');
     expect(chat).not.toContain('window.location.href = "/login"');
@@ -2903,9 +2859,30 @@ describe("Argus Alpha frontend contract", () => {
     expect(logoutHandler).toContain("resetToEmptyChatSurface()");
     expect(logoutHandler).toContain("clearHistory()");
     expect(flow).toContain('result?.revocation === "failed"');
+    expect(flow.indexOf('return "failed"')).toBeLessThan(flow.indexOf("deps.clearLocalState()"));
+    expect(flow).toContain("finishConversion(deps.currentUserId)");
     expect(flow.indexOf("deps.clearLocalState()")).toBeLessThan(
       flow.indexOf("deps.navigate(signedOutLanding(deps.businessBuild, deps.accountDeleted))"),
     );
+    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
+    const leaveClosedHome = page.slice(page.indexOf("const leaveClosedHome"), page.indexOf("const handleAuthSubmit"));
+    expect(leaveClosedHome).toContain("resetLeavingSession()");
+    expect(page).toContain("<BusinessClosedNotice navigate={leaveClosedHome} />");
+    const closedHome = readFileSync(join(root, "components/status/BusinessClosedNotice.tsx"), "utf-8");
+    expect(closedHome).toContain("setSignOutFailed(true)");
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeGreaterThan(-1);
+    expect(closedHome.indexOf("setSignOutFailed(false)")).toBeLessThan(
+      closedHome.indexOf("leaveSession("),
+    );
+    expect(closedHome).not.toContain("onFailed() {}");
+    expect(closedHome).toContain('t("settings.logout_error")');
+    expect(closedHome).toContain('!text-[var(--cuadrao-cream)]');
+    expect(closedHome).toContain("mailto:${CUADRAO_ADMIN_EMAIL}");
+    const shots = readFileSync(join(root, "e2e/business-signed-in-home.spec.ts"), "utf-8");
+    expect(shots).toContain("E2E_SCREENSHOT_DIR");
+    expect(shots).toContain('"test-results"');
+    expect(shots).not.toContain('const shots = "/opt/cursor/artifacts/screenshots"');
+    expect(shots).toContain("screenshot directory is not a test output path");
   });
 
   test("front door auth states stay interactive during auth entry", () => {

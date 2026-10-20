@@ -12,6 +12,7 @@ import { setChosenGrant } from "@/lib/business-grant";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 import type { GrantedSpace } from "@/lib/business-api";
 import spanish from "@/public/locales/es-419/common.json";
+import { currentMonthKey, shiftMonthKey, windowForMonth } from "@/lib/business-month-close";
 
 const own: GrantedSpace = { space_id: "own-space", grant_id: "own-grant", name: "Taller Luna", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
 const client: GrantedSpace = { ...own, space_id: "client-space", grant_id: "client-grant", name: "Colmado Sol", role: "accountant", capabilities: ["read"] };
@@ -28,7 +29,11 @@ beforeAll(() => {
   URL.createObjectURL = (blob) => { downloads.push({ filename: "", blob: blob as Blob }); return "blob:export"; };
   URL.revokeObjectURL = () => undefined;
   HTMLAnchorElement.prototype.click = function () { downloads.at(-1)!.filename = this.download; };
-  globalThis.fetch = async (input, init) => { calls.push({ url: new URL(String(input)), init }); return respond(init); };
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ rnc: null, can_edit: false });
+    calls.push({ url, init }); return respond(init);
+  };
 });
 afterAll(async () => {
   globalThis.fetch = original.fetch;
@@ -64,55 +69,41 @@ async function mount(chosen = own) {
   await render();
   const button = () => [...host.querySelectorAll("button")].find((item) => item.textContent?.includes("Descargar CSV, Excel y originales"));
   const submit = async () => { assert.ok(button(), "Gastos mounts the Spanish ZIP download control"); await act(async () => { button()!.click(); }); };
-  return { host, context, render, button, submit, close: async () => { await act(async () => root.unmount()); host.remove(); } };
+  const previousMonth = async () => { await act(async () => { host.querySelector<HTMLButtonElement>('[data-testid="month-close-month-prev"]')!.click(); }); };
+  return { host, context, render, button, submit, previousMonth, close: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
 
-for (const chosen of [own, client]) test(`Gastos downloads the current period ZIP for ${chosen.role}`, async () => {
+const thisMonth = windowForMonth(currentMonthKey());
+
+for (const chosen of [own, client]) test(`Gastos downloads this month's ZIP for ${chosen.role}`, async () => {
   const view = await mount(chosen);
   try {
     await view.submit();
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url.pathname.endsWith("/business/exports"), true);
-    assert.deepEqual([...calls[0].url.searchParams], [["start", "2026-10-01"], ["end", "2026-10-17"]]);
+    assert.deepEqual([...calls[0].url.searchParams], [["start", thisMonth.from], ["end", thisMonth.to]]);
     assert.equal(new Headers(calls[0].init?.headers).get("X-Business-Grant"), chosen.role === "accountant" ? chosen.grant_id : null);
     assert.equal(downloads.length, 1);
     assert.deepEqual(new Uint8Array(await downloads[0].blob.arrayBuffer()), bytes);
-    assert.equal(downloads[0].filename, "business-export-2026-10-01-2026-10-17.zip");
+    assert.equal(downloads[0].filename, `business-export-${thisMonth.from}-${thisMonth.to}.zip`);
     assert.ok(view.host.textContent?.includes(chosen.name));
   } finally { await view.close(); }
 });
 
-test("Todo requires a supported explicit period and follows the next selected period", async () => {
+test("the export downloads the month chosen with the month switcher, whatever the Gastos period", async () => {
   const view = await mount();
   try {
+    assert.equal(view.button()!.form!.querySelector('input[type="date"]'), null);
     await view.render({ period: { key: "all", from: "2000-01-01", to: "2026-10-17" } });
-    assert.equal(view.button()!.disabled, true);
-    assert.match(view.host.textContent!, /1 y 366 días/);
-    await act(async () => view.button()!.click());
-    assert.equal(calls.length, 0);
-    const input = view.button()!.form!.querySelector("input")!;
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "2026-10-01");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    assert.equal(view.button()!.disabled, false);
+    await view.previousMonth();
+    const previous = windowForMonth(shiftMonthKey(currentMonthKey(), -1));
     await view.submit();
-    assert.equal(calls[0].url.searchParams.get("start"), "2026-10-01");
-    await view.render({ period: { key: "last_month", from: "2026-09-01", to: "2026-09-30" } });
+    assert.deepEqual([...calls[0].url.searchParams], [["start", previous.from], ["end", previous.to]]);
+    assert.equal(downloads[0].filename, `business-export-${previous.from}-${previous.to}.zip`);
+    await view.previousMonth();
+    const before = windowForMonth(shiftMonthKey(currentMonthKey(), -2));
     await view.submit();
-    assert.equal(calls[1].url.searchParams.get("start"), "2026-09-01");
-    assert.equal(calls[1].url.searchParams.get("end"), "2026-09-30");
-  } finally { await view.close(); }
-});
-
-test("through today waits for this period's server end date", async () => {
-  const view = await mount();
-  try {
-    await view.render({ period: { key: "this_month", from: "2026-11-01", to: null } });
-    assert.equal(view.button(), undefined);
-    await view.render({ records: { ...view.context.records, overview: { ...view.context.records.overview!, from: "2026-11-01", to: "2026-11-02" } } });
-    await view.submit();
-    assert.equal(calls[0].url.searchParams.get("end"), "2026-11-02");
+    assert.deepEqual([...calls[1].url.searchParams], [["start", before.from], ["end", before.to]]);
   } finally { await view.close(); }
 });
 
@@ -131,7 +122,7 @@ for (const [status, pattern] of [[403, /acceso actual/], [404, /acceso actual/],
   } finally { await view.close(); }
 });
 
-for (const change of ["business", "period", "permission", "session"] as const) test(`changing ${change} rejects an in-flight export`, async () => {
+for (const change of ["business", "month", "permission", "session"] as const) test(`changing ${change} rejects an in-flight export`, async () => {
   const view = await mount(client);
   let finish!: (response: Response) => void;
   try {
@@ -141,7 +132,7 @@ for (const change of ["business", "period", "permission", "session"] as const) t
     await act(async () => view.host.querySelector<HTMLButtonElement>('button[type="submit"]:disabled')?.click());
     assert.equal(calls.length, 1);
     if (change === "business") await view.render({ chosen: own });
-    if (change === "period") await view.render({ period: { key: "last_month", from: "2026-09-01", to: "2026-09-30" } });
+    if (change === "month") await view.previousMonth();
     if (change === "permission") await view.render({ chosen: { ...client, capabilities: [] } });
     if (change === "session") invalidateBrowserAuth();
     await act(async () => finish(new Response(bytes, { headers: { "Content-Type": "application/zip" } })));
