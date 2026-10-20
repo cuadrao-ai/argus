@@ -8,7 +8,9 @@ import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/busin
 import { useBusiness } from "./BusinessWorkspace";
 import { useForwardAddress } from "./useForwardAddress";
 import { cardClass, pillButtonClass } from "./business-ui";
-import BusinessMonthClosePanel, { INICIO_EXPORT_ID } from "./BusinessMonthClosePanel";
+import { currentMonthKey } from "@/lib/business-month-close";
+import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
+import ExportRecordsPanel from "./ExportRecordsPanel";
 import { CopyButton, useCopyLabels } from "./foundation/CopyButton";
 import { ToastNotice, type QueuedToast } from "./foundation/ToastNotice";
 
@@ -32,13 +34,8 @@ export default function BusinessOverviewPanel() {
   const name = bridge?.greetingName?.trim();
   const greeting = name ? t("business.overview.greeting", { name, defaultValue: "Welcome, {{name}}" }) : t("business.overview.greeting_unnamed", "Welcome");
 
-  const showExport = () => {
-    const target = document.getElementById(INICIO_EXPORT_ID);
-    if (!target) return;
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-    target.focus({ preventScroll: true });
-  };
+  const [shownMonth, setShownMonth] = useState(() => currentMonthKey());
+  const [exportOpen, setExportOpen] = useState(false);
   const copyLabels = useCopyLabels(forwardAddress ?? "");
 
   return (
@@ -63,7 +60,7 @@ export default function BusinessOverviewPanel() {
             {recordExpense.label}
           </button>
         ) : null}
-        <button type="button" data-testid="inicio-export" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={showExport}>
+        <button type="button" data-testid="inicio-export" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => setExportOpen(true)}>
           <Download className="h-4 w-4" aria-hidden="true" />
           {t("business.overview.export_records", "Export records")}
         </button>
@@ -104,7 +101,8 @@ export default function BusinessOverviewPanel() {
         ) : null}
       </button>
 
-      <BusinessMonthClosePanel />
+      <BusinessMonthClosePanel onMonthChange={setShownMonth} />
+      {exportOpen ? <ExportRecordsPanel month={shownMonth} onClose={() => setExportOpen(false)} /> : null}
 
       {records.error ? (
         <div role="alert" className={`${cardClass} mt-6 text-[14px] text-black/70 dark:text-white/70`}>

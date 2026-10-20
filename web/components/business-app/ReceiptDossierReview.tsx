@@ -105,7 +105,8 @@ export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 3
 }
 
 /** The period view supplies its selected Business; a record may supply an explicit draft anchor. */
-export function ReceiptPeriodExport({ scope, start: from, end: to, available, monthSwitcher }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean; monthSwitcher?: ReactNode }) {
+/** `bare` drops the card and its heading, for a panel that already names the export. */
+export function ReceiptPeriodExport({ scope, start: from, end: to, available, monthSwitcher, bare = false }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean; monthSwitcher?: ReactNode; bare?: boolean }) {
   const { t } = useTranslation();
   const naming = useBusinessNaming();
   const [busy, setBusy] = useState(false);
@@ -133,9 +134,9 @@ export function ReceiptPeriodExport({ scope, start: from, end: to, available, mo
       finishPeriodExportRequest(request, controller, setBusy);
     }
   };
-  return <section className={cardClass} aria-label={t("business.export.title", "Export Business records")}>
-    <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>
-    <p className="mt-2 text-[13px] text-black/65 dark:text-white/65">{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(scope.name, t("business.overview.title", "My business")) })}</p>
+  return <section className={bare ? "" : cardClass} aria-label={t("business.export.title", "Export Business records")}>
+    {bare ? null : <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>}
+    <p className={`${bare ? "" : "mt-2 "}text-[13px] text-black/65 dark:text-white/65`}>{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(scope.name, t("business.overview.title", "My business")) })}</p>
     {available ? <BusinessFiscalProfile draftId={scope.draftId} /> : null}
     <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
       {monthSwitcher}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, BadgeCheck, Check, ChevronLeft, ChevronRight, CircleCheck, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -29,7 +29,6 @@ import {
   paperNcf,
   rncPresent,
   shiftMonthKey,
-  windowForMonth,
   sortDocuments,
   type MonthCloseBlocker,
   type MonthCloseClient,
@@ -39,11 +38,7 @@ import {
 } from "@/lib/business-month-close";
 import { formatDay, formatMoney } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
-import { BusinessContext, useBusiness } from "./BusinessWorkspace";
-import { ReceiptPeriodExport } from "./ReceiptDossierReview";
-
-/** Where the Inicio "Export records" button takes the owner. */
-export const INICIO_EXPORT_ID = "inicio-export-records";
+import { useBusiness } from "./BusinessWorkspace";
 
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
@@ -324,6 +319,7 @@ export function BusinessMonthCloseView({
   scopeKey = "default",
   canMutate = true,
   now,
+  onMonthChange,
 }: {
   client: MonthCloseClient;
   /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart. */
@@ -332,16 +328,16 @@ export function BusinessMonthCloseView({
   canMutate?: boolean;
   /** Clock for the current month. Tests pin it; Inicio uses today. */
   now?: Date;
+  /** Told each time the owner moves to another month. */
+  onMonthChange?: (month: string) => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
-  const workspace = useContext(BusinessContext);
   const [clock] = useState(() => now ?? new Date());
   const currentMonth = currentMonthKey(clock);
   const today = calendarDay(clock);
   const preview = previewHold();
   const [month, setMonth] = useState(currentMonth);
-  const bounds = windowForMonth(month);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
@@ -629,7 +625,7 @@ export function BusinessMonthCloseView({
             month={month}
             current={currentMonth}
             earliest={snapshot?.earliest_month ?? null}
-            onMonth={setMonth}
+            onMonth={(next) => { setMonth(next); onMonthChange?.(next); }}
             headingId="month-close-title"
             openRequest={pickerRequest}
           />
@@ -832,26 +828,11 @@ export function BusinessMonthCloseView({
         </div>
       ) : null}
 
-      {workspace?.chosen && bounds.to ? (
-        <div id={INICIO_EXPORT_ID} tabIndex={-1} className="mt-6 scroll-mt-6 focus:outline-none">
-          <ReceiptPeriodExport
-            key={`${workspace.chosen.grant_id}:${bounds.from}:${bounds.to}`}
-            scope={{
-              name: workspace.chosen.name,
-              capabilities: workspace.chosen.capabilities,
-              grantId: workspace.chosen.role === "owner" ? null : workspace.chosen.grant_id,
-            }}
-            start={bounds.from}
-            end={bounds.to}
-            available={workspace.source.mode === "live"}
-          />
-        </div>
-      ) : null}
     </section>
   );
 }
 
-export default function BusinessMonthClosePanel() {
+export default function BusinessMonthClosePanel({ onMonthChange }: { onMonthChange?: (month: string) => void }) {
   const { chosen, source } = useBusiness();
   const [sampleClient] = useState(() => createMockMonthCloseClient());
   const client = source.mode === "fixture" ? sampleClient : monthCloseClient;
@@ -860,6 +841,7 @@ export default function BusinessMonthClosePanel() {
       client={client}
       scopeKey={chosen?.grant_id ?? "own"}
       canMutate={Boolean(chosen?.capabilities.includes("approve"))}
+      onMonthChange={onMonthChange}
     />
   );
 }
