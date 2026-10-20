@@ -1,19 +1,19 @@
 "use client";
 
-import { Bell, House, Inbox, ReceiptText } from "lucide-react";
+import { House, Inbox, ReceiptText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness } from "./BusinessWorkspace";
 import { BUSINESS_SECTIONS } from "./business-keyboard-shortcuts";
 import { inboxCount } from "./inbox-count";
 import { recordList } from "./record-tray";
-const ICONS = [House, Inbox, ReceiptText, Bell];
+const ICONS = [House, Inbox, ReceiptText];
 
 export default function BusinessBottomTabs({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
   const { panel, openPanel, records } = useBusiness();
   const count = inboxCount(records);
-  return <nav aria-label={t("business.nav.label", "Business")} data-testid="business-bottom-tabs" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-black/10 bg-[var(--cuadrao-cream)] pb-[env(safe-area-inset-bottom)] dark:border-white/15 dark:bg-[#141517]">
+  return <nav aria-label={t("business.nav.label", "Business")} data-testid="business-bottom-tabs" className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-black/10 bg-[var(--cuadrao-cream)] pb-[env(safe-area-inset-bottom)] dark:border-white/15 dark:bg-[#141517]">
     {BUSINESS_SECTIONS.map((section, index) => {
       const Icon = ICONS[index];
       const selected = shell.currentView === "workspace" && (panel.kind === section || recordList(panel) === section);

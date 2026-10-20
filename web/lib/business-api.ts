@@ -333,17 +333,6 @@ export type BusinessOverview = {
   outside_period_latest_on: string | null;
 };
 
-export type BusinessUpdate = {
-  id: string;
-  kind: "receipt_ready" | "receipt_needs_attention" | "expense_confirmed";
-  occurred_at: string;
-  receipt_id: string | null;
-  expense_id: string | null;
-  error_code: string | null;
-  attention: ReceiptAttention | null;
-  label: string | null;
-};
-
 /**
  * Business records matching a query, each list capped by `limit`. A receipt
  * whose expense also matched is only under its expense, as `receipt_id`.
@@ -486,11 +475,6 @@ export async function listBusinessReceipts(
 
 export async function getBusinessReceipt(id: string, signal?: AbortSignal): Promise<ReceiptDetail> {
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}`, { signal });
-}
-
-export async function listBusinessUpdates(): Promise<BusinessUpdate[]> {
-  const page = await apiFetch<{ items: BusinessUpdate[] }>("/business/updates");
-  return page.items;
 }
 
 export async function searchBusiness(q: string, limit = 5): Promise<BusinessSearchResult> {

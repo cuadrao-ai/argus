@@ -6,6 +6,8 @@ import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
 import { RecordMarks } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { showToast } from "./foundation/toasts";
+import { Switch } from "@/components/ui/Switch";
 
 /**
  * What the record is marked as, and the two decisions that are people's:
@@ -42,25 +44,40 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
     }
   };
   const disabled = busy || working;
+  // Flips first; a refusal rolls the switch back and says so. A done change offers Deshacer.
+  const markPersonal = async (next: boolean) => {
+    try {
+      const marked = await source.markPersonal(dossier.draft_id, dossier.version, next, crypto.randomUUID());
+      onChanged(marked);
+      reload();
+      showToast({
+        kind: "success",
+        text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
+        action: { label: t("business.marks.undo", "Undo"), run: () => {
+          void source.markPersonal(dossier.draft_id, marked.version, !next, crypto.randomUUID()).then((back) => { onChanged(back); reload(); }).catch(() => showToast({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") }));
+        } },
+      });
+    } catch (error) {
+      showToast({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
+      throw error;
+    }
+  };
   const answer = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40";
 
   return (
     <div className={SURFACE_CARD} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <RecordMarks personal={personal} fiscalValue={fiscalValue} known={dossier.fiscal_known === true} markedBy={markedBy} />
-        {canPrepare ? (
-          <button
-            type="button"
-            data-testid="receipt-mark-personal"
-            aria-pressed={personal}
-            disabled={disabled}
-            onClick={() => void run(() => source.markPersonal(dossier.draft_id, dossier.version, !personal, crypto.randomUUID()), t("business.marks.mark_failed", "We could not save the change. Try again."))}
-            className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[13px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${personal ? "border-[#2f5a49] bg-[#2f5a49] text-[#FFFEFA]" : "border-[#7d8a84] bg-[#FFFEFA] text-[#172b26] dark:bg-[#1f2225] dark:text-white"}`}
-          >
-            {personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal")}
-          </button>
-        ) : null}
       </div>
+      {canPrepare ? (
+        <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
+          <span className="min-w-0">
+            <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.marks.mark_personal", "Personal")}</span>
+            <span className="block text-[13px] text-[#56635e] dark:text-white/70">{t("business.marks.personal_help", "It does not count in the Business totals.")}</span>
+          </span>
+          <Switch testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} checked={personal} disabled={disabled} onChange={markPersonal} />
+        </div>
+      ) : null}
       {personal && fiscalValue ? (
         <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10" data-testid="receipt-606">
           {inclusion === null && !owner && canPrepare ? (

@@ -2500,10 +2500,11 @@
         "matched": "Matched to source · not verified"
       },
       "receipt": {
-        "fiscal_receipt": "Fiscal receipt · tax details not verified",
-        "informal_receipt": "Informal receipt",
+        "fiscal_receipt": "With NCF or e-CF",
+        "informal_receipt": "Receipt without NCF",
         "no_receipt": "No receipt"
       },
+      "receipt_hint": "The last two stay out of the 606 and 607.",
       "share": {
         "all": "All for the business",
         "none": "Personal only",
@@ -2652,8 +2653,7 @@
       "label": "Business",
       "overview": "Home",
       "inbox": "Inbox",
-      "expenses": "Expenses",
-      "updates": "Updates"
+      "expenses": "Expenses"
     },
     "month_close": {
       "checklist_title": "To close {{month}}",
@@ -2744,25 +2744,50 @@
     "receipt": {
       "untitled": "Receipt"
     },
+    "attention_short": {
+      "unreadable": "Couldn't read it",
+      "ai_unavailable": "Reading unavailable",
+      "interrupted": "Reading stopped",
+      "outcome_unknown": "Reading result lost",
+      "no_purchase_found": "No purchase found",
+      "not_a_receipt": "Not a receipt",
+      "several_purchases": "Several purchases on one receipt",
+      "source_unavailable": "Original file missing",
+      "check_details": "Check the details",
+      "duplicate": "Looks like a repeat",
+      "other": "Needs attention"
+    },
     "inbox": {
       "load_more": "Load more",
       "reveal_more": "Show more",
       "title": "Inbox",
       "venta": "Venta",
-      "por_revisar": "{{count}} por revisar",
       "review_receipts": "Revisar recibos",
-      "subtitle": "Receipts waiting for you to review. Nothing here is an expense until you confirm it.",
       "error": "We couldn't load your inbox. Try again.",
-      "notes_title": "Notes awaiting review",
-      "notes_subtitle": "Saved in your own words. Open one to add facts or a receipt.",
       "notes_error": "We couldn't load your notes. Try again.",
       "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
-      "aside_reading_placeholder": "{{count}} todavía leyéndose",
-      "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review.",
-      "all_reviewed": "All reviewed"
+      "all_reviewed": "All reviewed",
+      "row_reading": "Reading…",
+      "row_saved": "Saved, not read",
+      "row_ready": "Ready to review",
+      "row_new": "New",
+      "row_note": "Typed note",
+      "segments": "Show",
+      "segment_review": "To review",
+      "segment_problem": "Problems",
+      "segment_all": "All",
+      "group_new": "New since your last visit",
+      "group_earlier": "Earlier",
+      "no_problems": "No receipts with problems",
+      "nothing_to_review": "Nothing to review",
+      "see_all_body": "Every receipt you have is under All.",
+      "see_all": "See all",
+      "emails_line": "Receipts you forward by email arrive here.",
+      "see_emails": "See emails",
+      "emails_title": "Emails"
     },
     "email": {
       "title": "Received emails",
@@ -2815,6 +2840,16 @@
         "email_route_revoked": "The access behind this address was removed.",
         "email_recipient_mismatch": "The message did not match this address.",
         "other": "Part of this email could not be saved."
+      },
+      "lands_in_bandeja": "Attachments arrive in your Bandeja, ready to review.",
+      "saved_line_one": "{{count}} receipt went to the Bandeja.",
+      "saved_line_other": "{{count}} receipts went to the Bandeja.",
+      "message": "Message",
+      "files": "Attachments",
+      "part_error": {
+        "unsupported_media_type": "This file type can't be saved as a receipt.",
+        "too_large": "The file is too large.",
+        "other": "It isn't a file we can save as a receipt."
       }
     },
     "review": {
@@ -2864,14 +2899,6 @@
     },
     "create": {
       "label": "Create"
-    },
-    "updates": {
-      "ready_line": "Ready to review",
-      "confirmed_line": "Saved as an expense",
-      "title": "Updates",
-      "subtitle": "Processing results and anything that needs you.",
-      "error": "We couldn't load updates. Try again.",
-      "empty": "Nothing new. Results from your receipts will appear here."
     },
     "intake": {
       "replayed": "Already saved before. This is that receipt.",
@@ -3071,7 +3098,8 @@
       "included_606_by": "Included in the 606 by {{name}}",
       "excluded_606_by": "Left out of the 606 by {{name}}",
       "decide_failed": "We could not save the answer. Try again.",
-      "none_fiscal": "None with fiscal value in this period."
+      "none_fiscal": "None with fiscal value in this period.",
+      "personal_help": "It does not count in the Business totals."
     }
   },
   "money": {

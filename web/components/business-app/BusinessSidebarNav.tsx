@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { Bell, House, Inbox, ReceiptText, UsersRound } from "lucide-react";
+import { House, Inbox, ReceiptText, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
@@ -64,17 +64,6 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "expenses" })}
-        iconSize={20}
-        variant="business"
-      />
-      <SidebarNavButton
-        icon={Bell}
-        label={t("business.nav.updates", "Updates")}
-        active={isActive("updates")}
-        shortcutHint={quickJumpHintDisplay(4, command)}
-        shortcutOnInteraction={!shell.isBelowTablet}
-        collapsed={shell.sidebarCollapsed}
-        onClick={() => openPanel({ kind: "updates" })}
         iconSize={20}
         variant="business"
       />

@@ -1,120 +1,232 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, Mail, Paperclip } from "lucide-react";
+import { ChevronRight, FileText, Mail, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ReceiptSummary } from "@/lib/business-api";
-import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
+import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake, BusinessEmailPart } from "@/lib/business-email";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
 import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
-import { cardClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
-import { copyText } from "./foundation/CopyButton";
+import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
-import { showToast } from "./foundation/toasts";
-
-export { EmailReceivingAddress } from "./InboxForwardingCard";
+import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "./foundation/surfaces";
 
 type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
-export function EmailDeliveryRow({ delivery, expanded, onExpanded, loadDetail, openReceipt, retryDelivery, inbox = null }: {
-  /** The Inbox's receipts, to say when a captured part's receipt is still saved and unread. */
-  inbox?: ReceiptSummary[] | null;
-  delivery: BusinessEmailDelivery;
-  expanded: boolean;
-  onExpanded: (expanded: boolean) => void;
-  loadDetail: (id: string) => Promise<BusinessEmailDetail>;
-  openReceipt: (id: string) => void;
-  retryDelivery: (id: string) => Promise<unknown>;
-}) {
+/** Where an email or one of its files stands: a word, its colour and a dot, never colour alone. */
+type Tone = "done" | "partial" | "failed" | "working";
+const TONE: Record<Tone, string> = {
+  done: "text-[#2f5a49] dark:text-[#8fcbb0]",
+  partial: "text-[#735c14] dark:text-[#f6e7c1]",
+  failed: "text-[#9e2f39] dark:text-[#ec9aa0]",
+  working: "text-[#56635e] dark:text-white/65",
+};
+const DELIVERY_TONE: Record<BusinessEmailDelivery["state"], Tone> = { captured: "done", partial: "partial", rejected: "failed", received: "working", processing: "working" };
+const PART_TONE: Record<BusinessEmailPart["state"], Tone> = { captured: "done", rejected: "failed", pending: "working" };
+
+function StateWord({ tone, children, testId }: { tone: Tone; children: string; testId?: string }) {
+  return (
+    <span data-testid={testId} data-tone={tone} className={`inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium ${TONE[tone]}`}>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-current ${tone === "working" ? "motion-safe:animate-pulse" : ""}`} />
+      {children}
+    </span>
+  );
+}
+
+const quietLink = "inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]";
+
+/** The Business's own receiving address: copy it, or turn it on. A failed load always offers a retry. */
+export function EmailReceivingAddress({ intake, onActivate }: { intake: BusinessEmailIntake; onActivate: () => Promise<void> }) {
+  const { t } = useTranslation();
+  const address = businessReceivingAddress(intake);
+  const labels = useCopyLabels(address ?? "");
+  const [activation, setActivation] = useState<"idle" | "working" | "failed">("idle");
+  if (!address) {
+    return (
+      <div className="space-y-2" data-testid="email-address">
+        <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.email.no_address", "This business has no receiving address yet.")}</p>
+        <button type="button" className={PRIMARY_BUTTON} disabled={activation === "working"} onClick={async () => {
+          setActivation("working");
+          try { await onActivate(); setActivation("idle"); } catch { setActivation("failed"); }
+        }}>{t("business.email.activate", "Get a receiving address")}</button>
+        {activation === "failed" ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.email.activate_failed", "Email receiving is not available for this business yet.")}</p> : null}
+      </div>
+    );
+  }
+  return (
+    <div data-testid="email-address">
+      <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.forward_to", "Forward receipts to this address:")}</p>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <p className="min-w-0 break-words text-[15px] font-medium text-[#172b26] dark:text-white"><WrappingAddress address={address} /></p>
+        <CopyButton value={address} label={t("business.email.copy", "Copy address")} {...labels} testId="email-copy-address" className={`${SECONDARY_BUTTON} shrink-0`}>
+          {t("business.email.copy", "Copy address")}
+        </CopyButton>
+      </div>
+      <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.lands_in_bandeja", "Attachments arrive in the Bandeja, ready to review.")}</p>
+    </div>
+  );
+}
+
+/** One received email: subject and where it stands, then who sent it, when, and how many files. */
+export function EmailDeliveryRow({ delivery, onOpen }: { delivery: BusinessEmailDelivery; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
-  // The receipt behind a captured part, when the Inbox has it: saved and unread until a person acts.
-  const savedReceipt = (documentId: string) => {
-    const receipt = inbox?.find((item) => item.id === documentId);
-    return receipt && savedUnread(receipt) ? receipt : null;
-  };
-  const waitingRetryAt = delivery.waiting?.retry_at;
-  const [body, setBody] = useState<Load<BusinessEmailDetail> | null>(null);
-  const [retry, setRetry] = useState<"idle" | "sending" | "accepted" | "error">("idle");
-  useEffect(() => { setRetry("idle"); }, [delivery.updated_at]);
-  useEffect(() => {
-    if (!expanded || waitingRetryAt) return;
-    let current = true;
-    setBody({ status: "loading" });
-    loadDetail(delivery.id).then((data) => { if (current) setBody({ status: "ready", data }); }).catch(() => { if (current) setBody({ status: "error" }); });
-    return () => { current = false; };
-  }, [expanded, delivery.id, delivery.updated_at, waitingRetryAt, loadDetail]);
-  const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
-  const waiting = delivery.waiting;
-  const stateLabel = waiting ? t("business.email.waiting_label", "Waiting until tomorrow") : t(`business.email.state.${delivery.state}`, delivery.state);
-  const resumeAt = waiting ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(waiting.retry_at)) : null;
   return (
-    <li className="rounded-[16px] border border-black/[0.06] dark:border-white/[0.08]">
-      <button type="button" aria-expanded={expanded} onClick={() => onExpanded(!expanded)} className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" /></span>
+    <li>
+      <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium text-black dark:text-white">{delivery.subject || t("business.email.no_subject", "No subject")}</span>
-          <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
-            {[delivery.sender || t("business.email.no_sender", "Sender unavailable"), formatRelativeTime(delivery.received_at, locale), t("business.email.attachments", "{{count}} attachments", { count: delivery.parts.length })].join(" · ")}
+          <span className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{delivery.subject || t("business.email.no_subject", "No subject")}</span>
+            <DeliveryState delivery={delivery} />
+          </span>
+          {/* The sender gives way first; when and how many files always show. */}
+          <span className="mt-0.5 flex min-w-0 gap-1 text-[13px] text-[#56635e] dark:text-white/65">
+            <span className="min-w-0 truncate">{delivery.sender || t("business.email.no_sender", "Sender unavailable")}</span>
+            <span className="shrink-0">{` · ${formatRelativeTime(delivery.received_at, locale)} · ${t("business.email.attachments", { count: delivery.parts.length, defaultValue: "{{count}} attachments" })}`}</span>
           </span>
         </span>
-        <span className="shrink-0 rounded-full bg-black/[0.05] px-2 py-0.5 text-[12px] text-black/70 dark:bg-white/[0.08] dark:text-white/70">{stateLabel}</span>
-        <ChevronRight className={`h-4 w-4 shrink-0 text-black/30 transition-transform dark:text-white/30 ${expanded ? "rotate-90" : ""}`} />
+        <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" aria-hidden="true" />
       </button>
-      {expanded ? (
-        <div className="space-y-3 px-3 pb-3">
-          {waiting ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })}</p> : null}
-          {!waiting && delivery.error_code ? <p className="text-[13px] text-black/55 dark:text-white/55">{t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))}</p> : null}
-          {!waiting && body?.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
-          {!waiting && body?.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.body_failed", "Could not load the message.")}</p> : null}
-          {!waiting && body?.status === "ready" ? <blockquote className="whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[14px] leading-relaxed text-black/75 dark:border-white/15 dark:text-white/75">{body.data.text_body || t("business.email.no_body", "No message text.")}</blockquote> : null}
-          <ul className="space-y-2">
-            {delivery.parts.map((part) => (
-              <li key={part.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-black/[0.03] px-3 py-2 dark:bg-white/[0.04]">
-                <Paperclip className="h-4 w-4 shrink-0 text-black/45 dark:text-white/45" aria-hidden="true" />
-                <span className="min-w-0 flex-1 break-words text-[14px] text-black dark:text-white">{part.filename || t("business.email.no_filename", "Unnamed attachment")}</span>
-                <span className="text-[12px] text-black/50 dark:text-white/50">{t(`business.email.part_state.${part.state}`, part.state)}</span>
-                {part.repeat_of_delivery_id || part.repeat_of_upload ? <span data-testid="email-part-repeat" className="text-[12px] font-medium text-black/70 dark:text-white/70">{part.repeat_of_delivery_id ? t("business.email.repeat", "You already received this file") : t("business.email.repeat_upload", "You already saved this file")}</span> : null}
-                {part.state === "captured" && part.document_id && savedReceipt(part.document_id) ? <span data-testid="email-part-saved-unread" className="basis-full text-[12px] text-black/65 dark:text-white/65">{savedUnreadLine(t, { enterable: savedReceipt(part.document_id)!.enterable, preparable: savedReceipt(part.document_id)!.preparable })}</span> : null}
-                {part.state === "captured" && part.document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(part.document_id!)}>{t("business.email.open_receipt", "Open receipt")}</button> : null}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-wrap gap-2">
-            {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
-            {!waiting && delivery.retryable ? <button type="button" className={secondaryButtonClass} disabled={retry !== "idle"} onClick={async () => {
-              setRetry("sending");
-              try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
-            }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}
-          </div>
-          {retry === "accepted" ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.retry_accepted", "Retry requested. The status updates after processing.")}</p> : null}
-          {retry === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.retry_failed", "Could not request a retry. Saved attachments are unchanged.")}</p> : null}
-        </div>
-      ) : null}
     </li>
   );
 }
 
-/** Received emails, newest first. */
-/** `openEmailId`: the delivery to show expanded on arrival, when a receipt sent the person to its first email. */
-export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?: string } = {}) {
+function DeliveryState({ delivery }: { delivery: BusinessEmailDelivery }) {
+  const { t } = useTranslation();
+  if (delivery.waiting) return <StateWord tone="partial" testId="email-state">{t("business.email.waiting_label", "Waiting until tomorrow")}</StateWord>;
+  return <StateWord tone={DELIVERY_TONE[delivery.state]} testId="email-state">{t(`business.email.state.${delivery.state}`, delivery.state)}</StateWord>;
+}
+
+/**
+ * One email, opened over the list with a way back: what happened in one line,
+ * the message, each attachment with where it went, and what the owner can do
+ * next (open the receipt, try again).
+ */
+export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDelivery, inbox = null }: {
+  delivery: BusinessEmailDelivery;
+  loadDetail: (id: string) => Promise<BusinessEmailDetail>;
+  openReceipt: (id: string) => void;
+  retryDelivery: (id: string) => Promise<unknown>;
+  /** The Inbox's receipts, to say when a captured part's receipt is still saved and unread. */
+  inbox?: ReceiptSummary[] | null;
+}) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "en";
+  const waiting = delivery.waiting;
+  const [body, setBody] = useState<Load<BusinessEmailDetail>>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  const [retry, setRetry] = useState<"idle" | "sending" | "accepted" | "error">("idle");
+  useEffect(() => {
+    if (waiting) return undefined;
+    let current = true;
+    setBody({ status: "loading" });
+    loadDetail(delivery.id).then((data) => { if (current) setBody({ status: "ready", data }); }).catch(() => { if (current) setBody({ status: "error" }); });
+    return () => { current = false; };
+  }, [delivery.id, delivery.updated_at, waiting, loadDetail, attempt]);
+  const savedReceipt = (documentId: string) => {
+    const receipt = inbox?.find((item) => item.id === documentId);
+    return receipt && savedUnread(receipt) ? receipt : null;
+  };
+  const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
+  const resumeAt = waiting ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(waiting.retry_at)) : null;
+  const reason = waiting
+    ? t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })
+    : delivery.error_code
+      ? t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))
+      : delivery.state === "captured"
+        ? t("business.email.saved_line", { count: captured.length, defaultValue: "{{count}} receipts went to the Bandeja." })
+        : null;
+
+  return (
+    <div className="space-y-5 pb-6 pt-4 desktop:px-5" data-testid="email-detail">
+      <div className="space-y-1">
+        <DeliveryState delivery={delivery} />
+        {reason ? <p className="text-[14px] text-[#172b26] dark:text-white" data-testid="email-reason">{reason}</p> : null}
+      </div>
+
+      {!waiting ? (
+        <section aria-label={t("business.email.message", "Message")}>
+          {body.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
+          {body.status === "error" ? (
+            <p role="alert" className="flex flex-wrap items-center gap-2 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
+              {t("business.email.body_failed", "Could not load the message.")}
+              <button type="button" className={quietLink} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
+            </p>
+          ) : null}
+          {body.status === "ready" ? <blockquote className="whitespace-pre-wrap break-words border-l-2 border-[#DCE0DA] pl-3 text-[14px] leading-relaxed text-[#56635e] dark:border-white/15 dark:text-white/75">{body.data.text_body || t("business.email.no_body", "No message text.")}</blockquote> : null}
+        </section>
+      ) : null}
+
+      <section aria-labelledby="email-files-title">
+        <h3 id="email-files-title" className="mb-1 text-[13px] font-medium text-[#56635e] dark:text-white/70">{t("business.email.files", "Attachments")}</h3>
+        <ul className="divide-y divide-[#EEF0EC] dark:divide-white/[0.06]">
+          {delivery.parts.map((part) => {
+            const saved = part.state === "captured" && part.document_id ? savedReceipt(part.document_id) : null;
+            return (
+              <li key={part.id} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                <FileText className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/60" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-[14px] text-[#172b26] dark:text-white">{part.filename || t("business.email.no_filename", "Unnamed attachment")}</span>
+                  <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-[#56635e] dark:text-white/65">
+                    <StateWord tone={PART_TONE[part.state]}>{t(`business.email.part_state.${part.state}`, part.state)}</StateWord>
+                    {part.state === "rejected" && part.error_code ? <span>{t(`business.email.part_error.${part.error_code}`, t("business.email.part_error.other", "It isn't a file we can save as a receipt."))}</span> : null}
+                    {part.repeat_of_delivery_id || part.repeat_of_upload ? <span data-testid="email-part-repeat">{part.repeat_of_delivery_id ? t("business.email.repeat", "You already received this file") : t("business.email.repeat_upload", "You already saved this file")}</span> : null}
+                    {saved ? <span data-testid="email-part-saved-unread">{savedUnreadLine(t, { enterable: saved.enterable, preparable: saved.preparable })}</span> : null}
+                  </span>
+                </span>
+                {part.state === "captured" && part.document_id ? (
+                  <button type="button" className={quietLink} onClick={() => openReceipt(part.document_id!)}>
+                    {t("business.email.open_receipt", "Open receipt")}<ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {delivery.original_document_id || (!waiting && delivery.retryable) ? (
+        <div className="flex flex-wrap gap-2">
+          {!waiting && delivery.retryable ? <button type="button" className={PRIMARY_BUTTON} disabled={retry === "sending" || retry === "accepted"} onClick={async () => {
+            setRetry("sending");
+            try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
+          }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}
+          {delivery.original_document_id ? <button type="button" className={SECONDARY_BUTTON} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
+        </div>
+      ) : null}
+      {retry === "accepted" ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.retry_accepted", "Retry requested. The status updates after processing.")}</p> : null}
+      {retry === "error" ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.email.retry_failed", "Could not request a retry. Saved attachments are unchanged.")}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The email sheet's content: the receiving address on top, then the emails
+ * received, newest first. Opening one shows it over the list with a way back;
+ * opening its receipt closes both. `openEmailId` opens one on arrival.
+ */
+export default function BusinessEmailDeliveries({ openEmailId, onOpenReceipt }: { openEmailId?: string; onOpenReceipt?: (id: string) => void } = {}) {
   const { t } = useTranslation();
   const { source, openPanel, revision, records } = useBusiness();
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [deliveries, setDeliveries] = useState<Load<BusinessEmailDelivery[]>>({ status: "loading" });
-  const [expanded, setExpanded] = useState<string | null>(openEmailId ?? null);
+  const [opened, setOpened] = useState<string | null>(openEmailId ?? null);
   // A later arrival from another receipt names another email: it opens too.
-  useEffect(() => { if (openEmailId) setExpanded(openEmailId); }, [openEmailId]);
+  useEffect(() => { if (openEmailId) setOpened(openEmailId); }, [openEmailId]);
   const [attempt, setAttempt] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [stalled, setStalled] = useState(false);
   useEffect(() => {
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let polls = 0;
     setStalled(false);
+    setRefreshing(true);
     source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
     const refresh = async () => {
       try {
@@ -125,42 +237,67 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
         if (polls++ < 6) timer = setTimeout(() => void refresh(), 5000);
         else setStalled(true);
       } catch { if (current) setDeliveries({ status: "error" }); }
+      finally { if (current) setRefreshing(false); }
     };
     void refresh();
     return () => { current = false; clearTimeout(timer); };
   }, [source, attempt, revision]);
-  if (intake.status === "error" && deliveries.status === "error") return null;
+  const reload = () => setAttempt((value) => value + 1);
+  const openReceipt = (id: string) => (onOpenReceipt ? onOpenReceipt(id) : openPanel({ kind: "receipt", receiptId: id }));
   const forwardAddress = intake.status === "ready" ? businessReceivingAddress(intake.data) : null;
-  const copyForward = async (address: string) => {
-    const copied = await copyText(address);
-    showToast(copied ? { kind: "info", text: t("business.email.copied", "Address copied.") } : { kind: "error", text: t("business.overview.copy_forward_failed", { address, defaultValue: "Could not copy. Your forwarding address is {{address}}" }) });
-  };
+  const copyLabels = useCopyLabels(forwardAddress ?? "");
+  const openDelivery = deliveries.status === "ready" ? deliveries.data.find((item) => item.id === opened) ?? null : null;
+
   return (
-    <section aria-label={t("business.email.title", "Received emails")} className="mb-6">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.email.title", "Received emails")}</h3>
+    <div className="space-y-8 pb-6 pt-2 desktop:px-5" data-testid="bandeja-emails">
+      <section aria-label={t("business.email.forward_to", "Forward receipts to this address:")}>
+        {intake.status === "loading" ? <Settle pending layout="rows" rows={1} /> : null}
+        {intake.status === "error" ? (
+          <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
+            {t("business.email.address_failed", "Could not load the receiving address.")}
+            <button type="button" className={quietLink} onClick={reload}>{t("common.retry", "Retry")}</button>
+          </p>
+        ) : null}
+        {intake.status === "ready" ? <EmailReceivingAddress intake={intake.data} onActivate={async () => { const next = await source.createEmailAddress(); setIntake({ status: "ready", data: next }); }} /> : null}
+      </section>
+
+      <section aria-labelledby="email-received-title">
+        <div className="flex items-center justify-between gap-2">
+          <h3 id="email-received-title" className="font-display text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.email.title", "Received emails")}</h3>
+          <button type="button" aria-label={t("business.email.reload", "Refresh")} data-testid="email-refresh" onClick={reload} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "motion-safe:animate-spin" : ""}`} aria-hidden="true" />
+          </button>
         </div>
-        <button type="button" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.email.reload", "Refresh")}</button>
-      </div>
-      <div className={`${cardClass} mt-3 space-y-4`}>
-        {deliveries.status === "error" ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: () => setAttempt((value) => value + 1) }} /> : null}
-        {stalled ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
+        {stalled ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
+        {deliveries.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
+        {deliveries.status === "error" ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} /> : null}
         {deliveries.status === "ready" ? (deliveries.data.length ? (
-          <ul className="space-y-2" data-testid="business-email-deliveries">
-            {deliveries.data.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} inbox={records.inbox} expanded={expanded === delivery.id} onExpanded={(open) => setExpanded(open ? delivery.id : null)} loadDetail={source.emailDelivery} retryDelivery={source.retryEmailDelivery} openReceipt={(id) => openPanel({ kind: "receipt", receiptId: id })} />)}
+          <ul className="divide-y divide-[#EEF0EC] dark:divide-white/[0.06]" data-testid="business-email-deliveries">
+            {deliveries.data.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}
           </ul>
         ) : (
-          <EmptyState
-            kind="first_run"
-            mark="mail"
-            compact
+          <EmptyState kind="first_run" mark="mail" compact
             title={t("business.email.empty", "No emails received yet.")}
-            body={t("business.empty.email_body", "Forward your receipts to your Cuadrao address and they show up here, ready for review.")}
-            action={forwardAddress ? { label: t("business.email.copy", "Copy address"), run: () => void copyForward(forwardAddress) } : undefined}
-          />
+            body={t("business.empty.email_body", "Forward your receipts to your Cuadrao address and they show up here, ready for review.")} />
         )) : null}
-      </div>
-    </section>
+        {deliveries.status === "ready" && !deliveries.data.length && forwardAddress ? (
+          <div className="flex justify-center">
+            <CopyButton value={forwardAddress} label={t("business.email.copy", "Copy address")} {...copyLabels} className={PRIMARY_BUTTON}>{t("business.email.copy", "Copy address")}</CopyButton>
+          </div>
+        ) : null}
+      </section>
+
+      {openDelivery ? (
+        <AdaptivePanel
+          title={openDelivery.subject || t("business.email.no_subject", "No subject")}
+          summary={openDelivery.sender ?? undefined}
+          closeLabel={t("common.back", "Back")}
+          onClose={() => setOpened(null)}
+          width="md"
+        >
+          <EmailDeliveryDetail delivery={openDelivery} inbox={records.inbox} loadDetail={source.emailDelivery} retryDelivery={source.retryEmailDelivery} openReceipt={openReceipt} />
+        </AdaptivePanel>
+      ) : null}
+    </div>
   );
 }

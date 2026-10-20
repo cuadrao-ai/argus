@@ -42,7 +42,7 @@ for (const width of [1280, 390]) {
     await capture("overview");
     await expect(cards).toBeVisible();
     const skeleton = page.getByTestId("business-loading");
-    for (const name of ["inbox", "expenses", "updates"]) {
+    for (const name of ["inbox", "expenses"]) {
       await page.goto(`/dev/business-preview?view=${name}`);
       await expect(skeleton).toBeVisible();
       await capture(name);
@@ -69,7 +69,6 @@ for (const width of [1280, 390]) {
 
 const listScreens = [
   { view: "expenses", title: "Gastos", rows: "[data-expense-id]", oneLineWidths: [1440, 390] },
-  { view: "updates", title: "Novedades", rows: "section ul > li", oneLineWidths: [1440] },
   { view: "access", title: "Acceso", rows: '[data-testid="business-access-grants"] > li', oneLineWidths: [1440, 390] },
 ];
 

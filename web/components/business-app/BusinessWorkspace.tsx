@@ -60,7 +60,6 @@ export type BusinessPanelState =
   | { kind: "inbox"; emailId?: string }
   | { kind: "expenses"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
-  | { kind: "updates" }
   | { kind: "access" }
   // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
   | { kind: "receipt"; receiptId: string; list?: RecordList }
@@ -120,7 +119,7 @@ export function useBusiness(): BusinessContextValue {
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "updates", "access"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "access"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -133,8 +132,10 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" | "updates" | "access" };
+    return { kind: view as "overview" | "inbox" | "expenses" | "access" };
   }
+  // Novedades became part of the Bandeja; an old link lands there.
+  if (view === "updates") return { kind: "inbox" };
   return { kind: "overview" };
 }
 

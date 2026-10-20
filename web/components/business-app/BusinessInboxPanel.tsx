@@ -1,223 +1,122 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, MoreHorizontal, NotebookPen, UserRound } from "lucide-react";
+import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { BusinessCapture, ReceiptSummary } from "@/lib/business-api";
-import ActionMenu from "./ActionMenu";
+import type { ReceiptSummary } from "@/lib/business-api";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
-import InboxForwardingCard from "./InboxForwardingCard";
-import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
+import { savedUnread } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
-import { useBusinessConsent } from "./business-consent-context";
 import { bandejaReceipts } from "./bandeja-order";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
-import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
+import { countNeedsAttention, isStillReading, needsAttention, porRevisar } from "@/lib/business-review-count";
+import { inboxCount, openNotesByDraft, type OpenNote } from "./inbox-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, PanelHeading, primaryButtonClass, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
+import { cardClass, PanelHeading } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
 import { EmptyState } from "./foundation/EmptyState";
-import { showToast } from "./foundation/toasts";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Settle } from "./business-skeletons";
 
-export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
+export { inboxCount, openNotesByDraft, type OpenNote } from "./inbox-count";
+
+type ListKey = "review" | "problem" | "all";
+
+/** A Bandeja row is a receipt or a typed note awaiting review; both open their record. */
+type BandejaItem = { kind: "receipt"; receipt: ReceiptSummary } | { kind: "note"; note: OpenNote };
+
+const itemTime = (item: BandejaItem) => (item.kind === "receipt" ? item.receipt.received_at : item.note.receivedAt);
+const itemNew = (item: BandejaItem) => item.kind === "receipt" && Boolean(item.receipt.activity?.unread);
+
+/** The rows a segment shows, newest first. "Por revisar" is the one review count every screen shares. */
+export function bandejaRows(list: ListKey, receipts: readonly ReceiptSummary[], notes: readonly OpenNote[]): BandejaItem[] {
+  const picked = list === "review" ? porRevisar(receipts) : list === "problem" ? receipts.filter(needsAttention) : receipts;
+  const rows: BandejaItem[] = [...picked.map((receipt) => ({ kind: "receipt" as const, receipt })), ...(list === "problem" ? [] : notes.map((note) => ({ kind: "note" as const, note })))];
+  return rows.sort((a, b) => (itemTime(a) < itemTime(b) ? 1 : -1));
+}
+
+function useShortAttention() {
+  const { t } = useTranslation();
+  return (attention: ReceiptSummary["attention"]) => attention ? t(`business.attention_short.${attention}`, t("business.attention_short.other", "Needs attention")) : "";
+}
 
 /**
- * One row per draft still awaiting review: its latest note, and how many came
- * before it. Recorded and dismissed drafts leave the Inbox.
+ * One quiet line per receipt: what it is, where it stands, the total and its
+ * type. Fixing a problem happens in the record, so the row only opens it.
  */
-export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote[] {
-  const byDraft = new Map<string, OpenNote>();
-  for (const note of captures) {
-    if (note.review_state !== "open" && note.review_state !== "accepting") continue;
-    const current = byDraft.get(note.draft_id);
-    if (!current) {
-      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: note.revision, earlier: 0 });
-    } else if (note.received_at > current.receivedAt) {
-      byDraft.set(note.draft_id, { ...current, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current.revision), earlier: current.earlier + 1 });
-    } else {
-      current.earlier += 1;
-      current.revision = Math.max(note.revision, current.revision);
-    }
-  }
-  return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
-}
-
-export { inboxCount } from "./inbox-count";
-
-export function NotesAwaitingReview({ notes, error, truncated = false, openDraftId, onOpen, onRetry }: { notes: OpenNote[]; error: boolean; truncated?: boolean; openDraftId?: string; onOpen: (draftId: string) => void; onRetry?: () => void }) {
+export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: ReceiptSummary; open?: boolean; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
-  if (!error && notes.length === 0) return null;
-  return (
-    <section aria-label={t("business.inbox.notes_title", "Notes awaiting review")} className="mb-6">
-      <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.inbox.notes_title", "Notes awaiting review")}</h3>
-      <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_subtitle", "Saved in your own words. Open one to add facts or a receipt.")}</p>
-      {error ? (
-        <EmptyState kind="error" compact title={t("business.empty.notes_error", "We couldn't load your notes")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={onRetry ? { label: t("common.retry", "Retry"), run: onRetry } : undefined} />
-      ) : (
-        <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-inbox-notes">
-          {notes.map((note) => (
-            <li key={note.draftId} aria-current={note.draftId === openDraftId ? "true" : undefined} className={`rounded-[16px] ${OPEN_ROW_CLASS}`}>
-              <button
-                type="button"
-                onClick={() => onOpen(note.draftId)}
-                className="flex w-full items-center gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
-                  <NotebookPen className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 whitespace-pre-line break-words text-[15px] text-black dark:text-white">{note.text.trim()}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-[#56635e] dark:text-white/60">
-                    {[formatRelativeTime(note.receivedAt, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {truncated && !error ? <p className="mt-2 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
-    </section>
-  );
-}
-
-export function ReceiptRow({ receipt, open = false, onOpen, onMark, onRetry, onUpload }: { receipt: ReceiptSummary; open?: boolean; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void>; onUpload?: () => void }) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
-  const attentionLabel = useAttentionLabel();
-  const terminal = useTerminalRead()(receipt.attention, receipt.error_code);
+  const shortAttention = useShortAttention();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
-  const needsAttention = receipt.status === "needs_attention";
-  const [retry, setRetry] = useState<"idle" | "retrying" | "failed">("idle");
-  const inFlight = useRef(false);
-  const tryAgain = async () => {
-    if (inFlight.current || !receipt.preparable || !onRetry) return;
-    inFlight.current = true;
-    setRetry("retrying");
-    try {
-      await onRetry();
-      setRetry("idle");
-    } catch {
-      setRetry("failed");
-    } finally {
-      inFlight.current = false;
-    }
-  };
+  const problem = receipt.status === "needs_attention";
+  const reading = isStillReading(receipt);
+  const marks = [
+    receipt.personal ? t("business.marks.personal_chip", "Personal") : null,
+    receipt.fiscal_known && !receipt.fiscal_value ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : null,
+  ].filter(Boolean);
+  const state = problem || receipt.attention
+    ? shortAttention(receipt.attention)
+    : reading
+      ? t("business.inbox.row_reading", "Reading…")
+      : savedUnread(receipt)
+        ? t("business.inbox.row_saved", "Saved, not read")
+        : t("business.inbox.row_ready", "Ready to review");
+  const money = formatMoney(receipt.amount, receipt.currency, locale);
   return (
-    <li aria-current={open ? "true" : undefined} className={`flex flex-wrap items-center gap-1 rounded-[16px] ${OPEN_ROW_CLASS}`}>
-      <button
-        type="button"
-        onClick={onOpen}
-        className={`flex min-w-0 flex-1 ${needsAttention ? "items-start" : "items-center"} gap-3 rounded-[16px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04]`}
-      >
-        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
-          {receipt.activity?.state === "reading" ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[12px] border-2 border-teal-500/50 border-t-transparent motion-safe:animate-spin" /> : receipt.activity?.unread ? <span aria-hidden="true" data-testid="receipt-unread-dot" className="absolute right-0 top-0 h-2 w-2 rounded-full bg-teal-600" /> : null}
-          <Icon className="h-5 w-5 text-black/55 dark:text-white/55" />
+    <li aria-current={open ? "true" : undefined} data-testid="bandeja-row" data-new={receipt.activity?.unread ? "true" : undefined} className={`rounded-[12px] ${OPEN_ROW_CLASS}`}>
+      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]">
+          {reading ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[8px] border-2 border-[#2f5a49]/50 border-t-transparent motion-safe:animate-spin" /> : null}
+          {receipt.activity?.unread && !reading ? <span data-testid="receipt-unread-dot" className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#FFFEFA] bg-[#2f5a49] dark:border-[#1f2225]"><span className="sr-only">{t("business.inbox.row_new", "New")}</span></span> : null}
+          <Icon className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className={`block ${needsAttention ? "break-words" : "truncate"} text-[15px] font-medium text-black dark:text-white`}>
-            {receipt.document_type === "venta" ? <span className="mr-2 rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-black/70 dark:bg-white/10 dark:text-white/70" data-testid="inbox-venta">{t("business.inbox.venta", "Venta")}</span> : null}
-            {receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}
+          <span className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}</span>
+            <span className="shrink-0 text-right text-[15px] font-medium tabular-nums text-[#172b26] dark:text-white">{money || "—"}</span>
           </span>
-          <span className={`mt-0.5 flex gap-1.5 ${needsAttention ? "items-start whitespace-normal break-words text-black/70 dark:text-white/75" : "items-center truncate text-[#56635e] dark:text-white/60"} text-[13px]`}>
-            {receipt.channel === "whatsapp" ? (
-              <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-label="WhatsApp" />
-            ) : receipt.channel === "email" ? (
-              <Mail className="h-3.5 w-3.5 shrink-0" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} />
-            ) : null}
-            {terminal ? (
-              <span className="block">
-                <span className="block font-medium">{terminal.title}</span>
-                <span className="mt-0.5 block">{terminal.body}</span>
-              </span>
-            ) : receipt.attention
-              ? attentionLabel(receipt.attention)
-              : savedUnread(receipt)
-                ? receipt.activity?.state === "saved_unread"
-                  ? t("business.activity.saved_row", "Saved unread. Waiting for receipt reading.")
-                  : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
-                : formatRelativeTime(receipt.received_at, locale)}
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px]">
+            {receipt.channel === "whatsapp" ? <MessageCircle className="h-3.5 w-3.5 shrink-0 text-[#56635e]" aria-label="WhatsApp" /> : receipt.channel === "email" ? <Mail className="h-3.5 w-3.5 shrink-0 text-[#56635e]" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} /> : null}
+            <span data-testid="bandeja-row-state" className={`line-clamp-2 @md:truncate ${problem ? "font-medium text-[#9e2f39] dark:text-[#ec9aa0]" : "text-[#56635e] dark:text-white/65"}`}>
+              {[state, formatRelativeTime(receipt.received_at, locale), ...marks].filter(Boolean).join(" · ")}
+            </span>
           </span>
-          <span className="mt-1 block text-[15px] font-medium tabular-nums @min-[28rem]:hidden">{formatMoney(receipt.amount, receipt.currency, locale)}</span>
-          <span className={`mt-2 block ${needsAttention ? "" : "@min-[28rem]:hidden"}`}><StatusPill status={receipt.status} /></span>
-          <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={receipt.fiscal_known === true} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
-        <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white @min-[28rem]:block">
-          {formatMoney(receipt.amount, receipt.currency, locale)}
+        {/* A problem receipt has no read type yet; the column stays for alignment. */}
+        <span data-testid="bandeja-row-type" className="hidden w-16 shrink-0 text-right text-[13px] text-[#56635e] @md:block dark:text-white/65">
+          {problem ? null : receipt.document_type === "venta" ? t("business.intake.type_venta", "Sale") : t("business.intake.type_recibo", "Purchase")}
         </span>
-        {!needsAttention ? <span className="hidden @min-[28rem]:block"><StatusPill status={receipt.status} /></span> : null}
-        <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
+        <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" aria-hidden="true" />
       </button>
-      {onMark && receipt.personal_editable ? (
-        <ActionMenu
-          label={t("chat.more_actions", "More actions")}
-          placement="below-end"
-          actions={[{ id: "mark_personal", icon: UserRound, label: receipt.personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal"), run: () => onMark(receipt) }]}
-          renderTrigger={({ ref, open, toggle, menuId }) => (
-            <button
-              ref={ref}
-              type="button"
-              aria-label={t("chat.more_actions", "More actions")}
-              aria-haspopup="menu"
-              aria-expanded={open}
-              aria-controls={open ? menuId : undefined}
-              onClick={toggle}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:text-white/75 dark:hover:bg-white/[0.06]"
-            >
-              <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
-            </button>
-          )}
-        />
-      ) : null}
-      {needsAttention && (receipt.enterable || (receipt.preparable && onRetry && !terminal) || (terminal?.upload && onUpload)) ? (
-        <div className="w-full min-w-0 px-3 pb-3">
-          {receipt.preparable && onRetry && !terminal ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}</p> : null}
-          <div className="flex flex-wrap gap-2">
-            {receipt.preparable && onRetry && !terminal ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={() => void tryAgain()}>{t("common.retry", "Retry")}</button> : null}
-            {terminal?.upload && onUpload ? <button type="button" className={primaryButtonClass} onClick={onUpload}>{terminal.uploadLabel}</button> : null}
-            {receipt.enterable ? <button type="button" className={secondaryButtonClass} disabled={retry === "retrying"} onClick={onOpen}>{terminal ? terminal.enterLabel : locale === "es-419" ? "Escribir datos" : t("business.actions.record_expense", "Record expense")}</button> : null}
-          </div>
-          {retry === "failed" ? <p role="alert" className="mt-2 break-words text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.review.prepare_failed", "We couldn't start preparation. Your receipt is saved. Try again.")}</p> : null}
-        </div>
-      ) : null}
     </li>
   );
 }
 
-/** One tap marks or unmarks; the shared toast offers Deshacer. */
-export function usePersonalMark() {
-  const { t } = useTranslation();
-  const { source, reload } = useBusiness();
-  const mark = useCallback(async (receipt: ReceiptSummary) => {
-    const failed = () => showToast({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
-    try {
-      const detail = await source.receipt(receipt.id);
-      const draftId = detail.draft_id;
-      if (!draftId) return;
-      const next = !receipt.personal;
-      const marked = await source.markPersonal(draftId, detail.version, next, crypto.randomUUID());
-      reload();
-      showToast({
-        kind: "success",
-        text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
-        action: {
-          label: t("business.marks.undo", "Undo"),
-          run: () => {
-            void source.markPersonal(draftId, marked.version, !next, crypto.randomUUID()).then(() => reload()).catch(failed);
-          },
-        },
-      });
-    } catch {
-      failed();
-    }
-  }, [reload, source, t]);
-  return { mark };
+function NoteRow({ note, open, onOpen }: { note: OpenNote; open: boolean; onOpen: () => void }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "en";
+  return (
+    <li aria-current={open ? "true" : undefined} data-testid="bandeja-note" className={`rounded-[12px] ${OPEN_ROW_CLASS}`}>
+      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]"><NotebookPen className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{note.text.trim()}</span>
+            <span className="shrink-0 text-right text-[15px] tabular-nums text-[#56635e]">—</span>
+          </span>
+          <span className="mt-0.5 block truncate text-[13px] text-[#56635e] dark:text-white/65">
+            {[t("business.inbox.row_note", "Typed note"), formatRelativeTime(note.receivedAt, locale), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" aria-hidden="true" />
+      </button>
+    </li>
+  );
 }
 
 function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | null }) {
@@ -248,37 +147,52 @@ function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | n
 
 const INBOX_PAGE = 8;
 
+/**
+ * The one place receipts wait. Three segments split the same rows: what to
+ * review, what has a problem, and everything. What arrived since the last
+ * visit sits on top. Email lives one tap away, behind Ver correos.
+ */
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
-  const consent = useBusinessConsent();
-  const { records, openPanel, actions, panel, chosen, source, reload, revision } = useBusiness();
-  const personal = usePersonalMark();
-  const items = records.inbox ? bandejaReceipts(records.inbox) : null;
+  const { records, openPanel, actions, panel, chosen, revision, reload } = useBusiness();
+  const receipts = records.inbox ? bandejaReceipts(records.inbox) : null;
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
   const uploadAction = actions.create.find((action) => action.id === "upload_receipt");
   const upload = chosen?.role === "owner" ? uploadAction : null;
-  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? uploadAction : null;
-  const empty = items !== null && notes !== null && items.length === 0 && notes.length === 0 && !records.notesError && !records.error;
-  const reviewCount = items ? countPorRevisar(items) : null;
-  const readingCount = items ? countStillReading(items) : 0;
-  const unreadableCount = items ? countUnreadable(items) : 0;
-  const aside = [
-    readingCount ? t("business.inbox.aside_reading_placeholder", "{{count}} todavía leyéndose", { count: readingCount }) : null,
-    unreadableCount ? t("business.inbox.aside_unreadable_placeholder", "{{count}} no se pudo leer", { count: unreadableCount }) : null,
-  ].filter((part): part is string => Boolean(part));
+  const [list, setList] = useState<ListKey>("review");
+  const [emailsOpen, setEmailsOpen] = useState(panel.kind === "inbox" && Boolean(panel.emailId));
+  // A record's "first email" link names an email while the Bandeja is already on screen beside the tray.
+  const askedEmail = panel.kind === "inbox" ? panel.emailId : undefined;
+  useEffect(() => { if (askedEmail) setEmailsOpen(true); }, [askedEmail]);
+  const empty = receipts !== null && notes !== null && receipts.length === 0 && notes.length === 0 && !records.notesError && !records.error;
+  const review = inboxCount(records);
+  const counts = receipts && notes && review !== null ? { review, problem: countNeedsAttention(receipts) } : null;
+  const rows = receipts && notes ? bandejaRows(list, receipts, notes) : null;
+  const fresh = rows?.filter(itemNew) ?? [];
+  const earlier = rows?.filter((row) => !itemNew(row)) ?? [];
   const openReview = () => {
-    const next = porRevisar(items ?? [])[0];
+    const next = porRevisar(receipts ?? [])[0];
     if (next) openPanel({ kind: "receipt", receiptId: next.id, list: "inbox" });
   };
+  const renderRow = (row: BandejaItem) => row.kind === "receipt" ? (
+    <ReceiptRow key={row.receipt.id} receipt={row.receipt} open={isOpenRecord(panel, { kind: "receipt", receiptId: row.receipt.id })} onOpen={() => openPanel({ kind: "receipt", receiptId: row.receipt.id, list: "inbox" })} />
+  ) : (
+    <NoteRow key={row.note.draftId} note={row.note} open={isOpenRecord(panel, { kind: "draft", draftId: row.note.draftId })} onOpen={() => openPanel({ kind: "draft", draftId: row.note.draftId, list: "inbox" })} />
+  );
+  const group = (title: string, items: BandejaItem[], testId: string) => items.length ? (
+    <div data-testid={testId}>
+      {fresh.length ? <h3 className="px-3 pb-1 pt-3 text-[12px] font-medium text-[#7d8a84] dark:text-white/50">{title}</h3> : null}
+      <ListPager items={items} pageSize={INBOX_PAGE} revealLabel={t("business.inbox.reveal_more", "Ver más")} loadLabel={t("business.inbox.load_more", "Cargar más")} retryLabel={t("common.retry", "Reintentar")} listClassName="divide-y divide-[#EEF0EC] dark:divide-white/[0.06]" renderItem={renderRow} />
+    </div>
+  ) : null;
 
   return (
-    <section>
+    <section className="@container">
       {upload && isBelowTablet && !empty ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
       <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
-        subtitle={t("business.inbox.subtitle", "Receipts waiting for you to review. Nothing here is an expense until you confirm it.")}
         action={
           upload && !isBelowTablet && !empty ? <PrimaryUpload label={upload.label} onClick={upload.run} />
           : chosen?.role === "accountant" ? (
@@ -288,55 +202,60 @@ export default function BusinessInboxPanel() {
           ) : null
         }
       />
-      {reviewCount !== null && (items?.length || notes?.length) ? (
-        <div className="mb-4">
-          <p data-testid="bandeja-por-revisar" className="text-[15px] font-medium tabular-nums text-black dark:text-white">{t("business.inbox.por_revisar", "{{count}} por revisar", { count: reviewCount })}</p>
-          {aside.length ? <p data-testid="bandeja-aside" className="mt-1 text-[13px] text-black/60 dark:text-white/65">{`${aside.join(". ")}.`}</p> : null}
-        </div>
-      ) : null}
       {records.error ? (
         <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : (
-        <Settle pending={items === null || notes === null} layout="inbox">
-          {items === null || notes === null ? null : empty ? (
+        <Settle pending={receipts === null || notes === null} layout="inbox">
+          {rows === null || counts === null ? null : empty ? (
             <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
           ) : (
             <>
-              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} openDraftId={panel.kind === "draft" ? panel.draftId : undefined} onOpen={(draftId) => openPanel({ kind: "draft", draftId, list: "inbox" })} onRetry={reload} />
-              {items.length ? (
-                <ListPager
-                  items={items}
-                  pageSize={INBOX_PAGE}
-                  revealLabel={t("business.inbox.reveal_more", "Ver más")}
-                  loadLabel={t("business.inbox.load_more", "Cargar más")}
-                  retryLabel={t("common.retry", "Reintentar")}
-                  listClassName={`${cardClass} @container divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}
-                  listTestId="business-inbox-receipts"
-                  renderItem={(receipt) => (
-                    <ReceiptRow
-                      key={receipt.id}
-                      receipt={receipt}
-                      open={isOpenRecord(panel, { kind: "receipt", receiptId: receipt.id })}
-                      onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id, list: "inbox" })}
-                      onMark={personal.mark}
-                      onRetry={async () => {
-                        if (!consent.accepted) {
-                          consent.reopen();
-                          return;
-                        }
-                        try { await source.prepareReceipt(receipt.id); } finally { reload(); }
-                      }}
-                      onUpload={uploadAnother ? () => uploadAnother.run() : undefined}
-                    />
-                  )}
+              <div className="mb-4">
+                <SegmentedControl
+                  testId="bandeja-segments"
+                  label={t("business.inbox.segments", "Show")}
+                  value={list}
+                  onChange={setList}
+                  segments={[
+                    { key: "review", label: t("business.inbox.segment_review", "To review"), count: counts.review },
+                    { key: "problem", label: t("business.inbox.segment_problem", "Problems"), count: counts.problem },
+                    { key: "all", label: t("business.inbox.segment_all", "All") },
+                  ]}
                 />
-              ) : null}
+              </div>
+              {records.notesError ? <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.empty.notes_error", "We couldn't load your notes")}</p> : null}
+              {rows.length ? (
+                <div className={`${cardClass} p-2`} data-testid="business-inbox-receipts">
+                  {group(t("business.inbox.group_new", "New since your last visit"), fresh, "bandeja-new")}
+                  {group(t("business.inbox.group_earlier", "Earlier"), earlier, "bandeja-earlier")}
+                </div>
+              ) : (
+                <div className={cardClass} data-testid="bandeja-segment-empty">
+                  <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
+                    title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}
+                    body={t("business.inbox.see_all_body", "Every receipt you have is under All.")}
+                    action={{ label: t("business.inbox.see_all", "See all"), run: () => setList("all") }} />
+                </div>
+              )}
+              {records.notesTruncated ? <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
             </>
           )}
         </Settle>
       )}
-      <InboxForwardingCard />
-      <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
+      <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-2" data-testid="bandeja-emails-line">
+        <p className="flex items-center gap-2 text-[13px] text-[#56635e] dark:text-white/65"><Mail className="h-4 w-4" aria-hidden="true" />{t("business.inbox.emails_line", "Receipts you forward by email arrive here.")}</p>
+        <button type="button" data-testid="bandeja-open-emails" onClick={() => setEmailsOpen(true)} className="inline-flex min-h-11 items-center rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
+          {t("business.inbox.see_emails", "See emails")}
+        </button>
+      </div>
+      {emailsOpen ? (
+        <AdaptivePanel title={t("business.inbox.emails_title", "Emails")} closeLabel={t("common.close", "Close")} onClose={() => setEmailsOpen(false)} width="md">
+          <BusinessEmailDeliveries
+            openEmailId={panel.kind === "inbox" ? panel.emailId : undefined}
+            onOpenReceipt={(id) => { setEmailsOpen(false); openPanel({ kind: "receipt", receiptId: id, list: "inbox" }); }}
+          />
+        </AdaptivePanel>
+      ) : null}
     </section>
   );
 }

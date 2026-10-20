@@ -454,8 +454,7 @@ export default function ChatSidebar({
 
   const isDrawer = variant === "drawer";
   // No rail exists in drawer mode, so its preference entry is absent, not greyed.
-  // Business has no rail preference: only its toggle collapses it.
-  const sidebarPreferenceHandler = isDrawer || business ? undefined : onOpenSidebarPreference;
+  const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;
   const businessRail = business && !isDrawer;
   const railInset = isOpen ? "px-3" : "px-[10px]";
   const rowVariant = businessRail ? "business" : undefined;

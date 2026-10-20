@@ -108,9 +108,11 @@ test("still-reading and unreadable receipts stay off the por revisar number", as
     receiptPage: async (view) => ({ items: view === "all" ? items : items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1 } }),
   });
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="bandeja-por-revisar"]') !== null);
-    assert.equal(page.host.querySelector('[data-testid="bandeja-por-revisar"]')?.textContent, "1 por revisar");
-    assert.equal(page.host.querySelector('[data-testid="bandeja-aside"]')?.textContent, "1 todavía leyéndose. 1 no se pudo leer.");
+    const segment = (key: string) => page.host.querySelector(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)?.textContent;
+    await page.settle(() => segment("review") !== undefined);
+    assert.equal(segment("review"), "Por revisar1");
+    assert.equal(segment("problem"), "Con problema1");
+    assert.equal(segment("all"), "Todo");
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
     assert.equal(/Revisar \d+ recibo/.test(page.host.textContent ?? ""), false);
     assert.match(page.host.textContent ?? "", /RD\$/);

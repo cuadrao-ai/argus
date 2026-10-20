@@ -131,18 +131,33 @@ export default function AdaptivePanel({
 }
 
 /** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
-function useDrawerSpace({ preferred, min, maxVw }: DrawerBounds, drawn: boolean) {
+/**
+ * Every drawn drawer claims the room it needs; the page gives up the widest
+ * claim. A drawer stacked on another hands its claim over without the page
+ * snapping back between them.
+ */
+const drawerClaims = new Map<string, number>();
+function applyDrawerSpace() {
+  const root = document.documentElement;
+  if (drawerClaims.size) root.style.setProperty("--cuadrao-drawer-space", `${Math.max(...drawerClaims.values())}px`);
+  else root.style.removeProperty("--cuadrao-drawer-space");
+}
+
+function useDrawerSpace(id: string, { preferred, min, maxVw }: DrawerBounds, drawn: boolean) {
   useEffect(() => {
     if (!drawn) return undefined;
-    const root = document.documentElement;
-    const apply = () => root.style.setProperty("--cuadrao-drawer-space", `${Math.max(min, Math.min(preferred, (window.innerWidth * maxVw) / 100))}px`);
-    apply();
-    window.addEventListener("resize", apply);
-    return () => {
-      window.removeEventListener("resize", apply);
-      root.style.removeProperty("--cuadrao-drawer-space");
+    const claim = () => {
+      drawerClaims.set(id, Math.max(min, Math.min(preferred, (window.innerWidth * maxVw) / 100)));
+      applyDrawerSpace();
     };
-  }, [preferred, min, maxVw, drawn]);
+    claim();
+    window.addEventListener("resize", claim);
+    return () => {
+      window.removeEventListener("resize", claim);
+      drawerClaims.delete(id);
+      applyDrawerSpace();
+    };
+  }, [id, preferred, min, maxVw, drawn]);
 }
 
 type DrawerProps = {
@@ -168,7 +183,7 @@ type StackPlace = { drawn: boolean; hasBelow: boolean };
 
 function SideDrawerSurface(props: DrawerProps) {
   const place = useSheetStack(props.overlayId, true);
-  useDrawerSpace(DRAWER_WIDTH[props.width], place.drawn);
+  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn);
   return props.modal ? <ModalDrawer {...props} {...place} /> : <TrayDrawer {...props} {...place} />;
 }
 

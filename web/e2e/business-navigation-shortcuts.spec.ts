@@ -20,7 +20,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await setup(page);
   await page.goto("/dev/business-preview?chat=off");
   await expect(page.getByTestId("business-sidebar-nav")).toBeVisible();
-  await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(4);
+  await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Recientes", exact: true })).toHaveCount(0);
   await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
   await expect(page.getByTestId("month-close-cards")).toBeVisible();
@@ -46,7 +46,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await expect(page.getByRole("button", { name: "Cerrar búsqueda", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   const command = await page.evaluate(() => /Mac/.test(navigator.userAgent));
-  for (const [index, view] of ["overview", "inbox", "expenses", "updates"].entries()) {
+  for (const [index, view] of ["overview", "inbox", "expenses"].entries()) {
     await chord(page, `${command ? "Alt" : "Shift"}+Digit${index + 1}`);
     await expect(page.getByTestId("business-sidebar-nav").getByRole("button").nth(index)).toHaveAttribute("aria-current", "page");
     if (view !== "overview") await expect(page).toHaveURL(new RegExp(`view=${view}`));
@@ -57,7 +57,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await chord(page, "Shift+Semicolon");
   await expect(page.getByRole("button", { name: "Perfil", exact: true })).toBeVisible();
   await chord(page, command ? "Alt+Digit1" : "Shift+Digit1");
-  await expect(page).toHaveURL(/view=updates/);
+  await expect(page).toHaveURL(/view=expenses/);
   await page.keyboard.press("Escape");
   await chord(page, "Shift+Backslash");
   await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos", exact: true }).focus();

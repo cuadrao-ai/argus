@@ -27,7 +27,7 @@ async function installBusiness(page: Page, storedMode: string | null) {
     else if (parts[0] === "receipts" && parts.length === 1) json = await source.receiptPage!(url.searchParams.get("view") === "all" ? "all" : "inbox");
     else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
     else if (parts[0] === "month-close") json = { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed: false, reasons: [], missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: [], cuentas_por_pagar: [], currencies: [{ currency: "DOP", income_before_itbis: "48500.00", expense_before_itbis: "12300.00", net_result: "36200.00", itbis_owed: "6516.00" }] };
-    else if (["captures", "updates", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
+    else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
     else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
     return route.fulfill({ json });
   });
@@ -38,7 +38,7 @@ async function railGeometry(page: Page) {
     const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
     const aside = nav.closest("aside") as HTMLElement;
     const box = (element: Element) => element.getBoundingClientRect();
-    const labels = /^(Inicio|Bandeja|Gastos|Novedades|Acceso|Ajustes)/;
+    const labels = /^(Inicio|Bandeja|Gastos|Acceso|Ajustes)/;
     const rows = [...aside.querySelectorAll<HTMLButtonElement>("button")].filter((button) => labels.test(button.textContent?.trim() ?? ""));
     const active = rows.find((row) => row.getAttribute("aria-current") === "page") ?? null;
     return {
@@ -75,8 +75,8 @@ for (const width of [1440, 1024]) {
           borderRight: "1px",
           navTop: 108,
           navGapAboveFirstRow: 8,
-          rowHeights: [44, 44, 44, 44, 44, 44],
-          rowLabels: ["Inicio", "Bandeja", "Gastos", "Novedades", "Acceso", "Ajustes"],
+          rowHeights: [44, 44, 44, 44, 44],
+          rowLabels: ["Inicio", "Bandeja", "Gastos", "Acceso", "Ajustes"],
           footerBottomGap: 12,
           activeHeight: 44,
           activeBackground: "rgb(227, 235, 225)",

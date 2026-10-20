@@ -427,7 +427,7 @@ test.describe("Business preview on a phone", () => {
     await page.getByTestId("chat-shell-menu-trigger").click();
 
     const drawerNav = nav(page);
-    for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
+    for (const label of ["Overview", "Inbox", "Expenses"]) {
       await expect(drawerNav.getByText(label, { exact: true })).toBeVisible();
     }
     await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("5");
@@ -607,7 +607,6 @@ test.describe("Business preview while its chat is off", () => {
     for (const [label, heading] of [
       ["Inbox", "Inbox"],
       ["Expenses", "Expenses"],
-      ["Updates", "Updates"],
       ["Overview", "Mi negocio"],
     ]) {
       await nav(page).getByRole("button", { name: new RegExp(`^${label}`) }).click();
@@ -671,7 +670,7 @@ test.describe("Business preview on a phone while its chat is off", () => {
     await openPreview(page, `${PREVIEW}?chat=off`);
     await expect(panelHeading(page, "Mi negocio")).toBeVisible();
     await page.getByTestId("chat-shell-menu-trigger").click();
-    for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
+    for (const label of ["Overview", "Inbox", "Expenses"]) {
       await expect(nav(page).getByText(label, { exact: true })).toBeVisible();
     }
     await expect(page.getByTestId("business-create").first()).toBeVisible();

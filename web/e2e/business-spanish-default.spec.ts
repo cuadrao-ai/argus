@@ -33,7 +33,7 @@ async function setup(page: Page) {
     if (path === `receipts/${receipt.id}`) return route.fulfill({ json: receipt });
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
-    if (["email/deliveries", "captures", "updates"].includes(path)) return route.fulfill({ json: { items: [] } });
+    if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });

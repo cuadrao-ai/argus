@@ -16,7 +16,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { pillButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./receipt-file";
-import { SegmentedControl } from "./foundation/SegmentedControl";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { randomId } from "@/lib/random-id";

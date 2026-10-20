@@ -97,7 +97,7 @@ async function installBusinessShell(page: Page) {
     }
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
-    if (path === "email/deliveries" || path === "captures" || path === "updates") {
+    if (path === "email/deliveries" || path === "captures") {
       return route.fulfill({ json: { items: [] } });
     }
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);

@@ -28,7 +28,7 @@ async function setup(page: Page, options: { enterable?: boolean; preparable?: bo
     }
     if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso de prueba", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
-    if (path === "email/deliveries" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [] } });
+    if (path === "email/deliveries" || path === "captures") return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
@@ -63,47 +63,37 @@ for (const width of [1280, 390]) {
       await expect(page.getByRole("dialog")).toHaveCount(0);
     }
     await page.goto("/biz?view=inbox");
-    const row = page.getByTestId("business-inbox-receipts").locator("li").first();
+    const row = page.getByTestId("bandeja-row").first();
     await expect(row).toContainText("recibo-interrumpido.jpg");
+    await expect(row.getByTestId("bandeja-row-state")).toContainText("La lectura se detuvo");
     await row.scrollIntoViewIfNeeded();
     await capture("inbox");
     if (baseline) return;
-    const retry = row.getByRole("button", { name: "Reintentar", exact: true });
-    const manual = row.getByRole("button", { name: "Escribir datos", exact: true });
-    await expect(manual).toBeVisible();
-    for (const button of [retry, manual]) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect(row.getByRole("button")).toHaveCount(1);
+    await row.getByRole("button").click();
+    await expect(page).toHaveURL(/receipt=rcpt-unknown/);
+    const retry = page.getByRole("button", { name: "Reintentar con IA", exact: true });
+    await expect(retry).toBeVisible();
+    expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     state.failed = true;
     await retry.click();
-    await expect(row.getByRole("alert")).toContainText("Tu recibo está guardado");
-    expect(state.preparations).toBe(1);
+    await expect.poll(() => state.preparations).toBe(1);
     await capture("retry-failed");
-    state.failed = false;
-    state.hold = true;
-    const reads = state.receipts;
-    await retry.focus();
-    await page.keyboard.press("Enter");
-    await expect(retry).toBeDisabled();
-    await page.keyboard.press("Enter");
-    await expect.poll(() => state.receipts).toBeGreaterThan(reads);
-    expect(state.preparations).toBe(2);
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await capture("inbox-reduced-motion");
-    await manual.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.getByLabel("Comercio", { exact: true })).toBeEditable();
-    await expect(page).toHaveURL(/receipt=rcpt-unknown/);
-    expect(state.preparations).toBe(2);
-    await capture("manual-entry");
+    await capture("record-reduced-motion");
   });
 }
 
-for (const permissions of [{ enterable: false, preparable: false }, { enterable: true, preparable: false }, { enterable: false, preparable: true }]) {
-  test(`recovery follows server permission ${JSON.stringify(permissions)}`, async ({ page }) => {
-    await setup(page, permissions);
+for (const preparable of [false, true]) {
+  test(`the record offers Reintentar con IA only when the server says it can prepare (${preparable})`, async ({ page }) => {
+    await setup(page, { preparable });
     await page.goto("/biz?view=inbox");
-    const row = page.getByTestId("business-inbox-receipts").locator("li").first();
-    await expect(row.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(permissions.preparable ? 1 : 0);
-    await expect(row.getByRole("button", { name: "Escribir datos", exact: true })).toHaveCount(permissions.enterable ? 1 : 0);
+    const row = page.getByTestId("bandeja-row").first();
+    await expect(row.getByRole("button")).toHaveCount(1);
+    await row.getByRole("button").click();
+    await expect(page).toHaveURL(/receipt=rcpt-unknown/);
+    await expect(page.getByTestId("receipt-attention")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reintentar con IA", exact: true })).toHaveCount(preparable ? 1 : 0);
   });
 }
 
@@ -113,8 +103,10 @@ test("English keeps existing canonical labels and accountant has no upload hero"
   await expect(page.getByTestId("month-close-cards")).toBeVisible();
   await expect(page.getByTestId("business-primary-upload")).toHaveCount(0);
   await page.goto("/biz?view=inbox");
-  const row = page.getByTestId("business-inbox-receipts").locator("li").first();
-  await expect(row.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
-  await expect(row.getByRole("button", { name: "Record expense", exact: true })).toBeVisible();
+  const row = page.getByTestId("bandeja-row").first();
+  await expect(row.getByTestId("bandeja-row-state")).toContainText("Reading stopped");
+  await expect(row.getByRole("button")).toHaveCount(1);
   await expect(page.getByTestId("business-primary-upload")).toHaveCount(0);
+  await row.getByRole("button").click();
+  await expect(page.getByRole("button", { name: "Try again with AI", exact: true })).toBeVisible();
 });

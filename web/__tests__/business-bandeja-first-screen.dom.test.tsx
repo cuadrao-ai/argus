@@ -90,19 +90,16 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   } finally { await off.close(); }
 });
 
-test("Bandeja shows one subhead, the receipts before the forwarding card, and one green Subir recibo that opens the upload", async () => {
+test("Bandeja shows no subhead, the receipts before the email line, and one green Agregar that opens the upload", async () => {
   const page = await mountInbox();
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="inbox-forwarding-card"]') !== null && page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
-    const subheads = [...page.host.querySelectorAll("p")].filter((node) => ownText(node).includes(PHRASE));
-    assert.equal(subheads.length, 1);
-    assert.equal(subheads[0]?.textContent, "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.");
+    await page.settle(() => page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
+    assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the segments, not in a subhead");
     const receipts = page.host.querySelector('[data-testid="business-inbox-receipts"]')!;
-    const card = page.host.querySelector('[data-testid="inbox-forwarding-card"]')!;
-    assert.equal((receipts.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, true);
-    assert.equal(card.textContent?.includes("Copiar dirección"), true);
-    assert.equal(card.textContent?.includes("Reenvía los recibos a esta dirección:"), true);
-    assert.equal(receipts.compareDocumentPosition(page.host.querySelector('[aria-label="Correos recibidos"]')!) & Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_FOLLOWING);
+    const line = page.host.querySelector('[data-testid="bandeja-emails-line"]')!;
+    assert.equal((receipts.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, true);
+    assert.equal(line.textContent, "Los recibos que reenvías por correo llegan aquí.Ver correos");
+    assert.equal(document.querySelector('[data-testid="inbox-forwarding-card"]'), null, "the forwarding card waits behind Ver correos");
     const upload = page.host.querySelector('[data-testid="business-primary-upload"]') as HTMLButtonElement;
     assert.equal(upload.textContent, "Agregar");
     assert.equal([...page.host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === "Agregar").length, 1);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SegmentedControl } from "./foundation/SegmentedControl";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { customPeriod, PERIOD_PRESETS, todayIso, type Period, type PeriodKey } from "./business-format";
 
 export function usePeriodLabel() {

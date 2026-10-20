@@ -8,10 +8,6 @@ import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
   "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
-/** The locked card edge and surface, without padding. */
-export const lockedCardClass =
-  "rounded-[20px] border border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/[0.06] dark:bg-[#1f2225]";
-
 export const pillButtonClass =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 disabled:opacity-40 dark:focus-visible:ring-white/30";
 

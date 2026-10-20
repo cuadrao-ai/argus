@@ -33,13 +33,20 @@ This guide covers the light appearance. Dark appearance needs its own design.
 ### Type
 
 - Headings use Space Grotesk at weight 500, never bold. Body and controls use Inter.
+- The app's scale is **16 body, 21 section title, 26 page title**. The
+  golden-ratio display sizes (42 and 68) belong to the marketing site: in a
+  dense money screen they push the numbers below the fold.
 - Input text is at least 16px.
 - Money uses fixed-width (tabular) digits everywhere, so columns of amounts align.
 - Labels and headings wrap. They never truncate or clip.
 
 ### Spacing, shape and depth
 
-- Spacing moves in 4px steps.
+- Spacing follows the golden ratio from 8px: **8, 13, 21, 34, 55**. A gap
+  inside a control is 8, between related items 13, between groups 21,
+  between sections 34, around a page 55. Lucas set this on October 20, 2026;
+  screens adopt it as each one is redesigned, not in one sweep.
+- A split layout gives content about 62% and actions or details about 38%.
 - Surfaces are flat. Separate them with colour contrast and hairlines, never
   decorative shadows.
 - Corners are 12px for standard elements and 20px for cards. Buttons are fully round.
@@ -59,8 +66,18 @@ scrolls sideways at any width.
 
 ### Motion
 
-Motion is calm and short. With reduced motion on, show the end state without
-movement. Loading placeholders stop moving.
+Lucas set these on October 20, 2026:
+
+1. **Fast.** Interface motion stays under 250ms. Only a sheet's drag release and
+   the toast stack's spring run longer, because the hand or the stack drives them.
+2. **Ease out.** Fast off the mark, gentle at the end. Never linear.
+3. **No bounce on menus.** Overshoot reads as slow. Springs are for things the
+   owner throws (a sheet, a toast).
+4. **Grow from the source.** A menu or popover scales from the control that
+   opened it (`transform-origin` on that edge).
+5. **Reduced motion is a fade.** Never a flight. Loading placeholders stop.
+6. **Composited only.** Animate `transform` and `opacity`. Never width, height,
+   top or left on every frame.
 
 ## 2. Status
 
@@ -139,15 +156,83 @@ segments; the chosen one is white. It is a radio group: arrow keys move the
 choice. Keep it to four short words or fewer. A rare choice (any other dates)
 is a link under the control, not another segment.
 
+Its thumb moves on springs, not a fade or a jump:
+
+- The edge that leads the move is quick; the trailing edge follows on a softer
+  spring. The thumb stretches by changing its width, never by scaling, so its
+  round ends keep their shape. It lands with a small bounce.
+- Pressing a segment reaches the thumb about 14px toward it. Releasing
+  commits the move. Sliding off with the button down springs it back.
+- With reduced motion on, the thumb moves straight to its place.
+
+### Notifications
+
+Severity picks the surface, never habit (Lucas, October 20, 2026). The same
+news at four volumes:
+
+| Surface | When | How it leaves |
+| --- | --- | --- |
+| **Toast** | Something the owner just did finished: a save, a copy, a download. | On its own after 4 seconds; 8 with **Deshacer**, which every destructive action offers. Errors stay. |
+| **Banner** | A condition of the whole app: the service is degraded, access changed, offline. | Docked at the top of the app, never inserted mid-page. Stays until the owner closes it or the condition ends. |
+| **Alert** | A choice that must come before anything else: delete, close a month, remove access. | Only by choosing. Never two at once. |
+| **Badge** | Something waiting quietly: receipts to review, new since the last visit. | When it is cleared. |
+
+Up to three toasts stack and breathe; an alert never stacks.
+
 ### Toasts and saves
 
 - One toast at a time, from one presenter, clear of the page's controls.
-- A plain confirmation lasts 3 seconds. A toast with Undo lasts longer and its
+- A plain confirmation lasts 4 seconds. A toast with Undo lasts longer and its
   timer pauses on hover and focus.
-- Never insert a banner that shifts the page. Field errors stay beside their field.
+- Never insert a banner mid-page that shifts the content. Field errors stay beside their field.
 - A failed save never shows as success. Keep the owner's input and offer one
   honest retry.
 - Announce confirmations politely and errors assertively to screen readers.
+
+### Errors
+
+Type the error first; each type has its own surface (Lucas, October 20, 2026):
+
+| Type | Example | Surface |
+| --- | --- | --- |
+| Validation | A typo in an RNC | Inline under the field, as the owner types. The action stays disabled until the value is valid. |
+| Network | The connection dropped | A toast that says so in human words ("Sin conexión. Reintentando en 5 segundos.") and retries by itself. |
+| Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. Never a modal. |
+| Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
+
+- Every error has a way out: Reintentar, Actualizar or "Escríbenos a
+  hola@cuadrao.ai". A dead end is never shipped.
+- Never "Ocurrió un error". Say what broke and what happens next.
+- A modal is the last resort, for a choice the owner must make before anything else.
+
+### Success
+
+1. **Say what happened, with the specifics.** "Gasto de RD$3,450.00 en
+   Ferretería La Esquina aprobado", not "Listo".
+2. **Offer the next action.** Approving offers the next receipt. Exporting
+   names the file. A check mark with no button is a dead end.
+3. **Dismissal follows stakes.** A saved setting gets a toast. A closed month
+   gets a summary that stays, with what to file next.
+4. **Leave one open loop.** Closing a month points to the 606 and 607; an
+   invite points to its status.
+5. **Celebration scales with rarity.** Only the first closed month gets a
+   moment. Every other save is quiet.
+
+### Toggles
+
+`Switch` owns every on/off control.
+
+- The rail is twice the knob's diameter plus its padding, so the knob travels
+  one diameter. The rail's corner is the knob's radius plus the padding, so
+  the curves stay concentric.
+- A press widens the knob toward where it is going; the release carries it
+  there on the same springs as the segmented thumb.
+- One flip changes four things together in 250ms, ease out: rail colour, knob
+  position, knob shadow and the label.
+- Space toggles it, focus shows the ring, and `role="switch"` with
+  `aria-checked` announces the new state.
+- Optimistic: it flips first, shows a spinner in the knob while the server
+  answers, and rolls back with a toast if the server says no.
 
 ### Empty, zero and loading
 
@@ -211,8 +296,21 @@ frame, such as readable names, tax numbers or amounts.
 
 ### Bandeja
 
-Bandeja follows [Growing lists](#growing-lists) and shows each receipt's status as
-in [Status](#2-status).
+Bandeja is the one place receipts wait. Novedades folded into it on October 20,
+2026: its rows were the same receipts, and its one extra fact (what is new)
+is now the top group.
+
+- A segmented control splits the same rows: **Por revisar** (the shared count
+  Inicio and the sidebar show), **Con problema**, **Todo**.
+- What arrived since the last visit sits on top under "Nuevo desde tu última
+  visita". The server's unread flag decides it.
+- A row is one quiet line: name and total, then the state, the time and the
+  marks. A problem says itself in red, in a few words. Fixes (Reintentar,
+  Subir otro archivo, Escribir datos) live in the record, not in the row.
+- Typed notes are rows like receipts.
+- Email sits behind **Ver correos**, a sheet with the forwarding address and
+  the received emails. Copying the address also lives on Inicio.
+- Bandeja follows [Growing lists](#growing-lists).
 
 **Behavior rules (pending from Product).** Product may add a "Falta información"
 state here. Until Product defines it, it is not a status.

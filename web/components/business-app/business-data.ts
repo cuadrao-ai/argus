@@ -15,7 +15,6 @@ import type {
   BusinessOverview,
   BusinessSearchResult,
   BusinessSpace,
-  BusinessUpdate,
   BusinessWorkspaceInfo,
   ReceiptDetail,
   ReceiptReviewFields,
@@ -56,7 +55,6 @@ export type BusinessDataSource = Readonly<{
   /** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
   decideFiscalInclusion: (id: string, version: number, include: boolean, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
-  updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
   expense: (id: string) => Promise<BusinessExpenseDetail>;
   search: (query: string) => Promise<BusinessSearchResult>;
@@ -105,7 +103,6 @@ export const liveBusinessDataSource: BusinessDataSource = {
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
   receiptSource: api.fetchBusinessReceiptSource,
-  updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
   expense: api.getBusinessExpense,
   search: (query) => api.searchBusiness(query),
@@ -189,7 +186,6 @@ export function withBusinessSpace(
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,
     receiptSource: source.receiptSource,
-    updates: after(source.updates),
     expenses: after(source.expenses),
     search: after(source.search),
     captureNote: source.captureNote,

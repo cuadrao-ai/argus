@@ -1,7 +1,6 @@
 import type {
   BusinessAccount,
   BusinessExpense,
-  BusinessUpdate,
   ReceiptDetail,
   ReceiptReviewFields,
   BusinessAccessGrant,
@@ -71,6 +70,8 @@ function seedReceipts(): ReceiptDetail[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
+      // New since the last visit until it is opened, as the server marks it.
+      activity: { state: "ready", unread: true, completion_cursor: "sample-ferreteria" },
       fiscal_known: true,
       status: "review_ready",
       channel: "whatsapp",
@@ -129,6 +130,8 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-blurry",
+      // New since the last visit until it is opened, as the server marks it.
+      activity: { state: "ready", unread: true, completion_cursor: "sample-blurry" },
       status: "needs_attention",
       channel: "whatsapp",
       filename: "IMG_2209.jpg",
@@ -454,6 +457,13 @@ export function createFixtureBusinessDataSource(
       await delay();
       return find(id);
     },
+    markReceiptRead: async (id, cursor) => {
+      await delay(120);
+      const item = find(id);
+      const activity = { state: item.activity?.state ?? "ready", unread: false, completion_cursor: cursor } as const;
+      replace({ ...item, activity });
+      return activity;
+    },
     markPersonal: async (id, version, personal) => {
       await delay();
       // The preview acts as the owner: the owner's own mark names nobody else.
@@ -474,27 +484,6 @@ export function createFixtureBusinessDataSource(
     receiptSource: async (id) => {
       await delay(120);
       return sampleReceiptImage(find(id));
-    },
-    updates: async () => {
-      await delay();
-      const items: BusinessUpdate[] = receipts
-        .filter((item) => ["review_ready", "needs_attention", "confirmed"].includes(item.status))
-        .map((item) => ({
-          id: `upd-${item.id}`,
-          kind:
-            item.status === "confirmed"
-              ? "expense_confirmed"
-              : item.status === "needs_attention"
-                ? "receipt_needs_attention"
-                : "receipt_ready",
-          occurred_at: item.received_at,
-          receipt_id: item.id,
-          expense_id: item.expense_id,
-          error_code: item.error_code,
-          attention: item.attention,
-          label: item.merchant ?? item.filename,
-        }));
-      return items;
     },
     expense: async (id) => {
       await delay();

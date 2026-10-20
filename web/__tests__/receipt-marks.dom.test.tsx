@@ -90,54 +90,6 @@ describe("the Overview's two totals", () => {
   });
 });
 
-describe("the Personal control in the Bandeja", () => {
-  async function mountRow(item: ReceiptSummary, marks: ((r: ReceiptSummary) => void) | undefined) {
-    const env = await setup();
-    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
-    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={item} onOpen={() => undefined} onMark={marks} /></ul></env.I18nextProvider>); });
-    return env;
-  }
-
-  test("anyone the server lets prepare gets a row menu; a read-only grant gets the chip only", async () => {
-    const marked: string[] = [];
-    const owner = await mountRow(receipt({ personal_editable: true, fiscal_known: true, fiscal_value: null }), (r) => marked.push(r.id));
-    const trigger = owner.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
-    assert.ok(trigger, "a row menu");
-    assert.equal(owner.host.querySelector('[role="menuitem"]'), null);
-    await owner.act(async () => trigger.click());
-    const button = owner.host.querySelector('[role="menuitem"]') as HTMLButtonElement;
-    assert.ok(button, "a Personal control");
-    assert.equal(button.closest("button"), button, "not nested in the row's button");
-    assert.equal(button.textContent, "Marcar como personal");
-    assert.ok(button.className.includes("min-h-11"));
-    await owner.act(async () => { button.click(); });
-    assert.deepEqual(marked, ["rcpt-1"]);
-    assert.ok(owner.host.querySelector('[data-mark="no_fiscal"]'), "the grey chip on the row");
-    await owner.act(async () => owner.root.unmount());
-    const reader = await mountRow(receipt({ personal: true, fiscal_value: "ncf" }), () => undefined);
-    assert.equal(reader.host.querySelector('[aria-haspopup="menu"]'), null);
-    assert.equal(reader.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
-    await reader.act(async () => reader.root.unmount());
-  });
-
-  test("the owner sees who marked the receipt and takes the mark back through its menu", async () => {
-    const marked: ReceiptSummary[] = [];
-    const owner = await mountRow(receipt({ personal: true, personal_marked_by: "Marta", personal_editable: true, fiscal_value: "ncf" }), (r) => marked.push(r));
-    assert.ok(owner.host.querySelector('[data-mark="personal"] [data-testid="personal-marked-dot"]'), "the dot on the chip");
-    assert.equal(owner.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Marta");
-    const trigger = owner.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
-    assert.ok(trigger, "a row menu");
-    assert.equal(owner.host.querySelector('[role="menuitem"]'), null);
-    await owner.act(async () => trigger.click());
-    const button = owner.host.querySelector('[role="menuitem"]') as HTMLButtonElement;
-    assert.equal(button.textContent, "Ya no es personal");
-    await owner.act(async () => { button.click(); });
-    assert.equal(marked.length, 1, "one tap");
-    assert.equal(marked[0].personal, true, "the unmark of the receipt as listed");
-    await owner.act(async () => owner.root.unmount());
-  });
-});
-
 describe("the receipt page's marks card", () => {
   const OWNER = { actor_id: "o", actor_kind: "member", display_name: "Dueño", grant_id: "own", issuer_id: "o", issuer_display_name: "Dueño" };
   const ACCOUNTANT = { actor_id: "a", actor_kind: "member", display_name: "Lía", grant_id: "g", issuer_id: "o", issuer_display_name: "Dueño" };
@@ -165,39 +117,60 @@ describe("the receipt page's marks card", () => {
       ...over,
     }) as unknown as BusinessDossier;
 
-  async function mountCard(d: BusinessDossier, role: "owner" | "accountant") {
+  async function mountCard(d: BusinessDossier, role: "owner" | "accountant", { refuseAfter }: { refuseAfter?: Promise<void> } = {}) {
     const env = await setup();
+    const React = await import("react");
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
+    const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
+    const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+    clearToasts();
     const calls: string[] = [];
+    let current = d;
     const value = {
       chosen: role === "owner" ? null : { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true },
       reload: () => undefined,
       source: {
-        markPersonal: async (id: string, version: number, personal: boolean) => { calls.push(`mark:${personal}:${version}`); return dossier({}, personal, true, null); },
+        markPersonal: async (id: string, version: number, personal: boolean) => {
+          calls.push(`mark:${personal}:${version}`);
+          if (refuseAfter) { await refuseAfter; throw new Error("conflict"); }
+          return dossier({ version: version + 1 }, personal, current.fiscal_value !== null, null);
+        },
         decideFiscalInclusion: async (id: string, version: number, include: boolean) => { calls.push(`606:${include}:${version}`); return dossier({}, true, true, include); },
       },
     } as unknown as BusinessContextValue;
     const changed: BusinessDossier[] = [];
-    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><ReceiptMarksCard dossier={d} onChanged={(next) => changed.push(next)} /></BusinessContext.Provider></env.I18nextProvider>); });
-    return { ...env, calls, changed };
+    // The receipt page keeps the dossier the server returns and renders the card from it.
+    function Page() {
+      const [shown, setShown] = React.useState(d);
+      return <ReceiptMarksCard dossier={shown} onChanged={(next) => { changed.push(next); current = next; setShown(next); }} />;
+    }
+    await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><Page /><ToastViewport /></BusinessContext.Provider></env.I18nextProvider>); });
+    const toggle = () => env.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
+    return { ...env, calls, changed, toggle };
   }
 
   test("the owner marks and unmarks; the 606 is read-only for the owner: pending, included or not", async () => {
     const page = await mountCard(dossier({}, false, false), "owner");
-    const toggle = page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
-    assert.equal(toggle.textContent, "Marcar como personal");
+    assert.equal(page.toggle().getAttribute("role"), "switch");
+    assert.equal(page.toggle().getAttribute("aria-label"), "Personal");
+    assert.equal(page.toggle().getAttribute("aria-checked"), "false");
     assert.equal(page.host.querySelector('[data-testid="receipt-606"]'), null, "nothing to decide without a fiscal number");
-    await page.act(async () => { toggle.click(); });
+    await page.act(async () => { page.toggle().click(); });
     await page.settle();
     assert.deepEqual(page.calls, ["mark:true:3"]);
     assert.equal(page.changed.length, 1);
+    assert.equal(page.toggle().getAttribute("aria-checked"), "true", "the saved mark stays on");
     await page.act(async () => page.root.unmount());
     const pending = await mountCard(dossier({}, true, true, null), "owner");
     assert.equal(pending.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Pendiente del contador");
     assert.equal(pending.host.querySelector('[data-testid="personal-marked-dot"]'), null, "the owner's own mark");
     assert.equal(pending.host.querySelector('[data-testid="receipt-606-yes"]'), null, "the owner never answers");
-    assert.equal((pending.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement).textContent, "Ya no es personal");
+    assert.equal(pending.toggle().getAttribute("aria-checked"), "true");
+    await pending.act(async () => { pending.toggle().click(); });
+    await pending.settle();
+    assert.deepEqual(pending.calls, ["mark:false:3"]);
+    assert.equal(pending.toggle().getAttribute("aria-checked"), "false", "unmarked");
     await pending.act(async () => pending.root.unmount());
     const included = await mountCard(dossier({}, true, true, true), "owner");
     assert.equal(included.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Incluido en 606");
@@ -207,13 +180,45 @@ describe("the receipt page's marks card", () => {
   test("the owner sees who else marked it and undoes the accountant's mark in one tap", async () => {
     const page = await mountCard(dossier({}, true, true, null, "accountant"), "owner");
     assert.equal(page.host.querySelector('[data-mark="personal"] .sr-only')?.textContent, "Marcado por Lía");
-    const toggle = page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
-    assert.equal(toggle.textContent, "Ya no es personal");
-    await page.act(async () => { toggle.click(); });
+    assert.equal(page.toggle().getAttribute("aria-checked"), "true");
+    await page.act(async () => { page.toggle().click(); });
     await page.settle();
     assert.deepEqual(page.calls, ["mark:false:3"]);
     assert.equal(page.changed.length, 1);
     await page.act(async () => page.root.unmount());
+  });
+
+  test("a saved Personal change offers Deshacer, which puts it back; a refused one rolls the switch back with an error toast", async () => {
+    const page = await mountCard(dossier({}, false, true), "owner");
+    await page.act(async () => { page.toggle().click(); });
+    await page.settle();
+    assert.equal(page.toggle().getAttribute("aria-checked"), "true");
+    const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+    const toast = page.host.querySelector('[data-testid="toast-viewport"]')!;
+    assert.ok(toast.textContent?.includes("Marcado como personal."), toast.textContent ?? "");
+    const undo = [...toast.querySelectorAll("button")].find((b) => b.textContent === "Deshacer") as HTMLButtonElement;
+    assert.ok(undo, "the success toast offers Deshacer");
+    await page.act(async () => { undo.click(); });
+    await page.settle();
+    assert.deepEqual(page.calls, ["mark:true:3", "mark:false:4"], "Deshacer reverses the saved revision");
+    assert.equal(page.toggle().getAttribute("aria-checked"), "false", "back to not personal");
+    await page.act(async () => page.root.unmount());
+
+    let answer!: () => void;
+    const refused = await mountCard(dossier({}, false, true), "owner", { refuseAfter: new Promise<void>((done) => { answer = done; }) });
+    await refused.act(async () => { refused.toggle().click(); });
+    assert.equal(refused.toggle().getAttribute("aria-checked"), "true", "the switch flips before the server answers");
+    assert.equal(refused.toggle().getAttribute("aria-busy"), "true", "and shows it is waiting");
+    await refused.act(async () => { answer(); });
+    await refused.settle();
+    assert.deepEqual(refused.calls, ["mark:true:3"]);
+    assert.equal(refused.changed.length, 0);
+    assert.equal(refused.toggle().getAttribute("aria-checked"), "false", "a refusal rolls the switch back");
+    const error = refused.host.querySelector('[data-testid="toast-viewport"]')!;
+    assert.ok(error.textContent?.includes("No pudimos guardar el cambio."), error.textContent ?? "");
+    assert.equal([...error.querySelectorAll("button")].some((b) => b.textContent === "Deshacer"), false, "nothing to undo");
+    await refused.act(async () => refused.root.unmount());
+    clearToasts();
   });
 
   test("a read-only grant reads the mark and has no control", async () => {
@@ -226,7 +231,7 @@ describe("the receipt page's marks card", () => {
 
   test("the accountant with prepare marks Personal too, and sees Sí and No, 44px each, only for a personal receipt with a fiscal number", async () => {
     const page = await mountCard(dossier({}, true, true, null), "accountant");
-    assert.equal((page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement).textContent, "Ya no es personal");
+    assert.equal(page.toggle().getAttribute("aria-checked"), "true", "the accountant holds the Personal switch too");
     assert.ok(!page.host.textContent?.includes("Solo el dueño"));
     assert.ok(page.host.textContent?.includes("¿Incluir en 606?"));
     const yes = page.host.querySelector('[data-testid="receipt-606-yes"]') as HTMLButtonElement;
@@ -291,7 +296,7 @@ describe("the review page's fiscal details", () => {
 });
 
 describe("one owner for the marks", () => {
-  test("the Bandeja row and the record show the same server marks for a grantee's mark, the owner's mark and after an unmark", async () => {
+  test("the Bandeja row and the record agree on Personal for a grantee's mark, the owner's mark and after an unmark", async () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
     const { default: ReceiptMarksCard } = await import("@/components/business-app/ReceiptMarksCard");
@@ -303,35 +308,30 @@ describe("one owner for the marks", () => {
     ];
     for (const item of cases) {
       const server = { personal: item.personal, personal_marked_by: item.by, fiscal_value: "ncf" as const, include_606: null };
-      const read = (host: HTMLElement) => ({
-        personal: host.querySelector('[data-mark="personal"]') !== null,
-        dot: host.querySelector('[data-testid="personal-marked-dot"]') !== null,
-        said: host.querySelector('[data-mark="personal"] .sr-only')?.textContent ?? null,
-      });
       const env = await setup();
-      await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ul><ReceiptRow receipt={receipt({ ...server, personal_editable: true })} onOpen={() => undefined} onMark={() => undefined} /></ul></BusinessContext.Provider></env.I18nextProvider>); });
-      const row = read(env.host);
+      await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ul><ReceiptRow receipt={receipt({ ...server, personal_editable: true })} onOpen={() => undefined} /></ul></BusinessContext.Provider></env.I18nextProvider>); });
+      const row = env.host.querySelector('[data-testid="bandeja-row-state"]')!.textContent!.split(" · ").includes("Personal");
       await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={owner}><ReceiptMarksCard dossier={{ draft_id: "d-1", version: 3, capabilities: ["read", "prepare"], history: [], facts: { business_share: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] }, fiscal: null }, ...server } as unknown as BusinessDossier} onChanged={() => undefined} /></BusinessContext.Provider></env.I18nextProvider>); });
-      const record = read(env.host);
-      assert.deepEqual(record, row, item.name);
-      assert.equal(row.said, item.by ? `Marcado por ${item.by}` : null, item.name);
-      assert.equal(row.personal, item.personal, item.name);
+      assert.equal(row, item.personal, item.name);
+      assert.equal(env.host.querySelector('[data-mark="personal"]') !== null, item.personal, item.name);
+      assert.equal(env.host.querySelector('[data-mark="personal"] .sr-only')?.textContent ?? null, item.by ? `Marcado por ${item.by}` : null, `${item.name}: the record names who marked it`);
       await env.act(async () => env.root.unmount());
     }
   });
 });
 
 describe("the server states what the browser used to guess", () => {
-  test("an unreadable receipt nobody read shows no fiscal chip; a read one without a number does", async () => {
+  test("an unreadable receipt nobody read says nothing about its fiscal number; a read one without a number does", async () => {
     const env = await setup();
     const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
     const render = (item: ReceiptSummary) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={item} onOpen={() => undefined} /></ul></env.I18nextProvider>); });
+    const said = () => env.host.querySelector('[data-testid="bandeja-row-state"]')!.textContent!.split(" · ");
     await render(receipt({ status: "needs_attention", attention: "unreadable" as ReceiptSummary["attention"], merchant: null, amount: null }));
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null, "nothing read, nothing claimed");
+    assert.equal(said().includes("Sin comprobante fiscal"), false, "nothing read, nothing claimed");
     await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: null }));
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]')?.textContent, "Sin comprobante fiscal");
+    assert.equal(said().includes("Sin comprobante fiscal"), true);
     await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: "ecf" }));
-    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null);
+    assert.equal(said().includes("Sin comprobante fiscal"), false);
     await env.act(async () => env.root.unmount());
   });
 
@@ -364,29 +364,6 @@ describe("the server states what the browser used to guess", () => {
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptHistory history={[created] as never} accounts={[]} /></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="history-606"]'), null);
     assert.ok(!(env.host.textContent ?? "").includes("Incluir en 606"));
-    await env.act(async () => env.root.unmount());
-  });
-});
-
-describe("the Bandeja row menu", () => {
-  test("opening and dismissing the menu never opens or changes a receipt", async () => {
-    const env = await setup();
-    const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
-    let opened = 0;
-    let marked = 0;
-    await env.act(async () => env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={receipt({ personal_editable: true })} onOpen={() => { opened++; }} onMark={() => { marked++; }} /></ul></env.I18nextProvider>));
-    const trigger = env.host.querySelector('[aria-haspopup="menu"]') as HTMLButtonElement;
-    assert.ok(trigger);
-    await env.act(async () => trigger.click());
-    const item = env.host.querySelector('[role="menuitem"]') as HTMLButtonElement;
-    assert.equal(document.activeElement, item);
-    await env.act(async () => item.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-    assert.equal(env.host.querySelector('[role="menu"]'), null);
-    assert.equal(document.activeElement, trigger);
-    assert.equal(opened, 0);
-    assert.equal(marked, 0);
-    await env.act(async () => (env.host.querySelector("li > button") as HTMLButtonElement).click());
-    assert.equal(opened, 1);
     await env.act(async () => env.root.unmount());
   });
 });

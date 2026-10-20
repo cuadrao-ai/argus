@@ -240,7 +240,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos", "Novedades"]);
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }
@@ -278,13 +278,13 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     }
   });
 
-  test("phone tabs name Inicio, Bandeja, Gastos and Novedades and do not include a menu button", async () => {
+  test("phone tabs name Inicio, Bandeja and Gastos and do not include a menu button", async () => {
     const BusinessBottomTabs = (await import("@/components/business-app/BusinessBottomTabs")).default;
     const page = await mount(() => <BusinessBottomTabs shell={shell({ isBelowTablet: true })} />);
     const tabs = page.host.querySelector('[data-testid="business-bottom-tabs"]');
     assert.ok(tabs);
     const names = [...tabs.querySelectorAll("button")].map((button) => button.textContent?.trim());
-    assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos", "Novedades"]);
+    assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos"]);
     assert.equal(page.host.querySelector('[data-testid="chat-shell-menu-trigger"]'), null);
     await page.close();
   });
@@ -293,8 +293,10 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const BusinessEmailDeliveries = (await import("@/components/business-app/BusinessEmailDeliveries")).default;
     const page = await mount(() => <BusinessEmailDeliveries />, { emailDeliveries: async () => [] });
     await page.settle(() => (page.host.textContent ?? "").includes("Todavía no has recibido correos."));
-    assert.ok(page.host.querySelector('section[aria-label="Correos recibidos"]'));
-    assert.ok((page.host.textContent ?? "").includes("Todavía no has recibido correos."));
+    // The section is named by its visible heading, and the empty line sits inside it.
+    const section = [...page.host.querySelectorAll("section[aria-labelledby]")].find((item) => document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent === "Correos recibidos");
+    assert.ok(section, "a section named Correos recibidos");
+    assert.ok((section.textContent ?? "").includes("Todavía no has recibido correos."));
     await page.close();
   });
 
@@ -322,7 +324,6 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
     const BusinessExpensesPanel = (await import("@/components/business-app/BusinessExpensesPanel")).default;
-    const BusinessUpdatesPanel = (await import("@/components/business-app/BusinessUpdatesPanel")).default;
     const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
     const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
     const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
@@ -334,11 +335,10 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         <BusinessOverviewPanel />
         <BusinessInboxPanel />
         <BusinessExpensesPanel />
-        <BusinessUpdatesPanel />
         <BusinessAccessPanel />
       </>
     ));
-    await page.settle(() => page.host.querySelectorAll('[data-testid="business-inbox-receipts"] > li').length > 0 && page.buttons("Quitar acceso").length > 0);
+    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
     const headings = [...page.host.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading]")];
     assert.ok(headings.length >= 5);
     assert.deepEqual(headings.filter((heading) => !heading.textContent?.trim()).map((heading) => heading.outerHTML), []);

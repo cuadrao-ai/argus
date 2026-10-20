@@ -36,7 +36,7 @@ for (const width of [1280, 390]) {
           if (request.method() === "POST") state.invites++;
           return route.fulfill({ json: { grants: [], invites: [] } });
         }
-        if (["receipts", "captures", "updates"].includes(path)) return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
+        if (["receipts", "captures"].includes(path)) return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
         return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       });
       await page.goto("/biz");

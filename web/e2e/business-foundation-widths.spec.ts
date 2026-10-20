@@ -56,7 +56,7 @@ async function installBusiness(page: Page) {
       else if (parts[0] === "receipts" && parts.length === 2) json = await source.receipt(parts[1]);
       else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
       else if (parts[0] === "month-close" && parts.length === 1) json = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
-      else if (["captures", "updates", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
+      else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
       else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       return route.fulfill({ json });
     } catch (error) {

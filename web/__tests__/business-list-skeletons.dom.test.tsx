@@ -7,7 +7,6 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import BusinessAccessPanel from "@/components/business-app/BusinessAccessPanel";
 import BusinessExpensesPanel from "@/components/business-app/BusinessExpensesPanel";
-import BusinessUpdatesPanel from "@/components/business-app/BusinessUpdatesPanel";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { liveBusinessDataSource } from "@/components/business-app/business-data";
 import { SKELETON_DELAY_MS } from "@/components/business-app/business-skeletons";
@@ -63,18 +62,6 @@ const screens: Screen[] = [
     loaded: async () => ({ items: await fixture.expenses("2000-01-01", null) }),
     rows: "[data-expense-id]",
     empty: { body: { items: [] }, kind: "filtered", title: spanish.business.empty.expenses_filtered_title },
-  },
-  {
-    name: "Novedades",
-    Panel: BusinessUpdatesPanel,
-    path: "/business/updates",
-    layout: "updates",
-    title: spanish.business.updates.title,
-    errorTitle: spanish.business.empty.updates_error,
-    errorTestId: "business-updates-error",
-    loaded: async () => ({ items: await fixture.updates() }),
-    rows: "ul > li",
-    empty: { body: { items: [] }, kind: "first_run", title: spanish.business.empty.updates_title },
   },
   {
     name: "Acceso",

@@ -3,6 +3,7 @@
 import { Layout, LayoutPanelLeft, MousePointer2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 export type SidebarMode = "expanded" | "collapsed" | "hover";
 
@@ -15,8 +16,7 @@ type SidebarPreferenceModalProps = {
 };
 
 /**
- * Centered blur modal for selecting Sidebar preference:
- * Expanded | Collapsed | Expand on Hover.
+ * The sidebar preference: Expanded, Collapsed or Expand on Hover.
  */
 export default function SidebarPreferenceModal({
   mode,
@@ -27,11 +27,7 @@ export default function SidebarPreferenceModal({
 }: SidebarPreferenceModalProps) {
   const { t } = useTranslation();
 
-  const handleSelect = (newMode: SidebarMode) => {
-    onSelect(newMode);
-    onClose();
-  };
-
+  // The rail changes beside the sheet as it is picked, so the sheet stays open.
   return (
     <AdaptivePanel
       title={t("settings.sidebar.title")}
@@ -41,53 +37,23 @@ export default function SidebarPreferenceModal({
       backLabel={backLabel}
       width="sm"
     >
-      <p className="px-5 pt-3 text-[12px] text-black/50 dark:text-white/50">
+      <p className="px-5 pt-3 text-[13px] text-[#56635e] dark:text-white/70">
         {t("settings.sidebar.description")}
       </p>
-      <div className="p-3">
-        <div className="flex items-center justify-between p-1 bg-black/5 dark:bg-black/35 rounded-2xl">
-          <button
-            onClick={() => handleSelect("expanded")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl transition-all ${
-              mode === "expanded"
-                ? "bg-white dark:bg-[#32363d] text-black dark:text-white shadow-sm"
-                : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            <Layout className="w-[18px] h-[18px]" />
-            <span className="text-[12px] font-medium">
-              {t("settings.sidebar.expanded")}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => handleSelect("collapsed")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl transition-all ${
-              mode === "collapsed"
-                ? "bg-white dark:bg-[#32363d] text-black dark:text-white shadow-sm"
-                : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            <LayoutPanelLeft className="w-[18px] h-[18px]" />
-            <span className="text-[12px] font-medium">
-              {t("settings.sidebar.collapsed")}
-            </span>
-          </button>
-          
-          <button
-            onClick={() => handleSelect("hover")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl transition-all ${
-              mode === "hover"
-                ? "bg-white dark:bg-[#32363d] text-black dark:text-white shadow-sm"
-                : "text-black/45 dark:text-white/45 hover:text-black dark:hover:text-white"
-            }`}
-          >
-            <MousePointer2 className="w-[18px] h-[18px]" />
-            <span className="text-[12px] font-medium">
-              {t("settings.sidebar.hover")}
-            </span>
-          </button>
-        </div>
+      <div className="p-4">
+        <SegmentedControl
+          fill
+          stacked
+          testId="sidebar-mode-options"
+          label={t("settings.sidebar.title")}
+          value={mode}
+          onChange={onSelect}
+          segments={[
+            { key: "expanded", label: t("settings.sidebar.expanded"), icon: Layout },
+            { key: "collapsed", label: t("settings.sidebar.collapsed"), icon: LayoutPanelLeft },
+            { key: "hover", label: t("settings.sidebar.hover"), icon: MousePointer2 },
+          ]}
+        />
       </div>
     </AdaptivePanel>
   );

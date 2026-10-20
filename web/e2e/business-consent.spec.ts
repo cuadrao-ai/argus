@@ -39,7 +39,7 @@ async function openBusiness(page: Page, server: Server) {
     if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0 } } });
     if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso de prueba", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null } });
     if (path === "email") return route.fulfill({ json: { enabled: false, receiving_address: null } });
-    if (path === "email/deliveries" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [] } });
+    if (path === "email/deliveries" || path === "captures") return route.fulfill({ json: { items: [] } });
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
   await page.goto("/biz");

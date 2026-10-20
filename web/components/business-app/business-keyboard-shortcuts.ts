@@ -8,7 +8,7 @@ import type { BusinessActions } from "./business-actions";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 import { useRunReviewShortcut } from "./BusinessReviewShortcuts";
 
-export const BUSINESS_SECTIONS = ["overview", "inbox", "expenses", "updates"] as const;
+export const BUSINESS_SECTIONS = ["overview", "inbox", "expenses"] as const;
 export function useBusinessKeyboardShortcuts({ openPanel, actions, chosen }: { openPanel: (panel: BusinessPanelState) => void; actions: BusinessActions; chosen: GrantedSpace | null }): readonly WorkspaceKeyboardShortcut[] {
   const { t, i18n } = useTranslation();
   const spanish = (i18n.resolvedLanguage ?? i18n.language).startsWith("es");

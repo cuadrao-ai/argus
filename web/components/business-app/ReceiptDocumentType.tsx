@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
-import { SegmentedControl } from "./foundation/SegmentedControl";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 type DocumentType = NonNullable<BusinessDossier["document_type"]>;
 

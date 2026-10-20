@@ -29,7 +29,7 @@ async function openIntake(page: Page) {
     if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso explícito del negocio para correo, WhatsApp y archivos.", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [{ model: "fixture-reader" }], reply: [] }, consented_at: null, revoked_at: null } });
     if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } });
     if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
-    if (path === "receipts" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
+    if (path === "receipts" || path === "captures") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
     if (path === "spaces") return route.fulfill({ json: { spaces: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });

@@ -132,14 +132,14 @@ test("a saved collapsed or hover preference does not collapse the Business rail"
   }
 });
 
-test("the labeled rail stacks Inicio to Novedades on top, Acceso and Ajustes at the foot", async () => {
+test("the labeled rail stacks Inicio to Gastos on top, Acceso and Ajustes at the foot", async () => {
   await mountRail();
   assert.match(aside().className, /\bw-60\b/);
   assert.match(aside().className, /bg-\[var\(--cuadrao-cream\)\]/);
   assert.match(aside().className, /\bborder-r\b/);
   assert.deepEqual(
     rows().map((button) => button.textContent?.replace(/Ctrl.*$|⌘.*$/, "").replace(/\d+$/, "").trim()),
-    ["Inicio", "Bandeja", "Gastos", "Novedades", "Acceso", "Ajustes"],
+    ["Inicio", "Bandeja", "Gastos", "Acceso", "Ajustes"],
   );
   for (const button of rows()) {
     assert.match(button.className, /\bh-11\b/, button.textContent ?? "");
@@ -147,7 +147,7 @@ test("the labeled rail stacks Inicio to Novedades on top, Acceso and Ajustes at 
     assert.equal(visibleLabel(button), true, button.textContent ?? "");
   }
   const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
-  assert.ok(nav.contains(row("Novedades")!));
+  assert.ok(nav.contains(row("Gastos")!));
   assert.ok(!nav.contains(row("Acceso")!));
   assert.equal(document.querySelector('[data-testid="business-current-name"]')?.textContent, "Ferretería Luna");
   assert.equal(document.querySelector('[data-testid="business-switcher"] button[aria-haspopup="menu"]') !== null, true);

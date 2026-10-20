@@ -13,7 +13,7 @@ import type { MonthCloseSource } from "./BusinessMonthClosePanel";
 import { formatBusinessName } from "./business-format";
 import { RangeCalendar } from "./foundation/RangeCalendar";
 import { PRIMARY_BUTTON } from "./foundation/surfaces";
-import { SegmentedControl } from "./foundation/SegmentedControl";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { showToast } from "./foundation/toasts";
 
 export function finishPeriodExportRequest(request: { current: AbortController | null }, controller: AbortController, setBusy: (busy: boolean) => void) {

@@ -52,38 +52,42 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
 }
 
 describe("a receipt saved without a read never looks stuck", () => {
-  test("the Inbox row says what to do, and the pill reads Guardado, sin leer", async () => {
+  test("the Bandeja row reads Guardado, sin leer; the full sentence waits in the record", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
     const page = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({})]);
-    assert.ok(page.host.textContent?.includes(HINT), "the row carries the sentence");
-    assert.ok(page.host.textContent?.includes("Guardado, sin leer"));
+    const state = page.host.querySelector('[data-testid="bandeja-row-state"]')?.textContent ?? "";
+    assert.match(state, /^Guardado, sin leer · /);
+    assert.ok(!page.host.textContent?.includes(HINT));
     assert.ok(!page.host.textContent?.includes("sin preparar"));
     await page.act(async () => page.root.unmount());
   });
 
-  test("a receipt being read, or one that needs attention, keeps its own words on the row", async () => {
+  test("a receipt being read keeps its own words on the row", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
     const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", read_pending: true })]);
-    assert.ok(!reading.host.textContent?.includes(HINT));
+    await reading.act(async () => reading.host.querySelector<HTMLButtonElement>('[data-segment="all"]')!.click());
+    assert.match(reading.host.querySelector('[data-testid="bandeja-row-state"]')?.textContent ?? "", /^Leyendo… · /);
+    assert.ok(!reading.host.textContent?.includes("Guardado, sin leer"));
     await reading.act(async () => reading.root.unmount());
   });
 
-  test("the Correos recibidos row says the same under the captured attachment whose receipt is still unread", async () => {
+  test("the opened Correos recibidos email says the same under the captured attachment whose receipt is still unread", async () => {
     const { default: BusinessEmailDeliveries } = await import("@/components/business-app/BusinessEmailDeliveries");
     const page = await mount((React) => React.createElement(BusinessEmailDeliveries), [receipt({})]);
-    const expander = page.host.querySelector("button[aria-expanded]") as HTMLButtonElement;
-    await page.act(async () => { expander.click(); });
+    const row = page.host.querySelector('[data-testid="email-delivery-row"]') as HTMLButtonElement;
+    await page.act(async () => { row.click(); });
     await page.act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    const hint = page.host.querySelector('[data-testid="email-part-saved-unread"]');
-    assert.equal(hint?.textContent, HINT);
-    assert.ok([...page.host.querySelectorAll("button")].some((b) => b.textContent === "Abrir recibo"));
+    const detail = document.body.querySelector('[data-testid="email-detail"]');
+    assert.equal(detail?.querySelector('[data-testid="email-part-saved-unread"]')?.textContent, HINT);
+    assert.ok([...(detail?.querySelectorAll("button") ?? [])].some((b) => b.textContent === "Abrir recibo"));
     await page.act(async () => page.root.unmount());
     // Once the receipt was read, the line is gone.
     const read = await mount((React) => React.createElement(BusinessEmailDeliveries), [receipt({ status: "review_ready" })]);
-    const expander2 = read.host.querySelector("button[aria-expanded]") as HTMLButtonElement;
-    await read.act(async () => { expander2.click(); });
+    const row2 = read.host.querySelector('[data-testid="email-delivery-row"]') as HTMLButtonElement;
+    await read.act(async () => { row2.click(); });
     await read.act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    assert.equal(read.host.querySelector('[data-testid="email-part-saved-unread"]'), null);
+    assert.ok(document.body.querySelector('[data-testid="email-detail"]'), "the email opened");
+    assert.equal(document.body.querySelector('[data-testid="email-part-saved-unread"]'), null);
     await read.act(async () => read.root.unmount());
   });
 });

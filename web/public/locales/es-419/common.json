@@ -2500,10 +2500,11 @@
         "matched": "Vinculado a la fuente · sin verificar"
       },
       "receipt": {
-        "fiscal_receipt": "Recibo fiscal · datos fiscales sin verificar",
-        "informal_receipt": "Recibo informal",
+        "fiscal_receipt": "Con NCF o e-CF",
+        "informal_receipt": "Recibo sin NCF",
         "no_receipt": "Sin recibo"
       },
+      "receipt_hint": "Los dos últimos quedan fuera del 606 y 607.",
       "share": {
         "all": "Todo para el negocio",
         "none": "Solo personal",
@@ -2639,25 +2640,50 @@
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
       "title": "¿Qué hacemos hoy por tu negocio?"
     },
+    "attention_short": {
+      "unreadable": "No se pudo leer",
+      "ai_unavailable": "Lectura no disponible",
+      "interrupted": "La lectura se detuvo",
+      "outcome_unknown": "No recuperamos la lectura",
+      "no_purchase_found": "No encontramos una compra",
+      "not_a_receipt": "No parece un recibo",
+      "several_purchases": "Varias compras en un recibo",
+      "source_unavailable": "Falta el archivo original",
+      "check_details": "Revisa los datos",
+      "duplicate": "Parece repetido",
+      "other": "Necesita atención"
+    },
     "inbox": {
-      "aside_reading_placeholder": "{{count}} todavía leyéndose",
-      "aside_unreadable_placeholder": "{{count}} no se pudo leer",
       "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
       "error": "No pudimos cargar tu bandeja. Reintenta.",
       "load_more": "Cargar más",
-      "notes_title": "Notas en revisión",
-      "notes_subtitle": "Guardadas con tus palabras. Abre una para agregar datos o un recibo.",
       "notes_error": "No pudimos cargar tus notas. Reintenta.",
       "notes_latest": "Se muestran las últimas 50 notas guardadas. Las notas abiertas más antiguas se encuentran con la búsqueda.",
       "note_more_one": "{{count}} nota anterior",
       "note_more_other": "{{count}} notas anteriores",
       "venta": "Venta",
-      "por_revisar": "{{count}} por revisar",
       "reveal_more": "Ver más",
       "review_receipts": "Revisar recibos",
-      "subtitle": "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.",
       "title": "Bandeja",
-      "all_reviewed": "Todo revisado"
+      "all_reviewed": "Todo revisado",
+      "row_reading": "Leyendo…",
+      "row_saved": "Guardado, sin leer",
+      "row_ready": "Listo para revisar",
+      "row_new": "Nuevo",
+      "row_note": "Nota escrita",
+      "segments": "Mostrar",
+      "segment_review": "Por revisar",
+      "segment_problem": "Con problema",
+      "segment_all": "Todo",
+      "group_new": "Nuevo desde tu última visita",
+      "group_earlier": "Antes",
+      "no_problems": "Ningún recibo con problemas",
+      "nothing_to_review": "Nada por revisar",
+      "see_all_body": "Todos tus recibos están en Todo.",
+      "see_all": "Ver todo",
+      "emails_line": "Los recibos que reenvías por correo llegan aquí.",
+      "see_emails": "Ver correos",
+      "emails_title": "Correos"
     },
     "email": {
       "title": "Correos recibidos",
@@ -2710,6 +2736,16 @@
         "email_route_revoked": "Se retiró el acceso detrás de esta dirección.",
         "email_recipient_mismatch": "El mensaje no coincidió con esta dirección.",
         "other": "Una parte de este correo no se pudo guardar."
+      },
+      "lands_in_bandeja": "Los adjuntos llegan a tu Bandeja, listos para revisar.",
+      "saved_line_one": "{{count}} recibo llegó a la Bandeja.",
+      "saved_line_other": "{{count}} recibos llegaron a la Bandeja.",
+      "message": "Mensaje",
+      "files": "Adjuntos",
+      "part_error": {
+        "unsupported_media_type": "Este tipo de archivo no se puede guardar como recibo.",
+        "too_large": "El archivo es demasiado grande.",
+        "other": "No es un archivo que podamos guardar como recibo."
       }
     },
     "intake": {
@@ -2800,8 +2836,7 @@
       "expenses": "Gastos",
       "inbox": "Bandeja",
       "label": "Negocio",
-      "overview": "Inicio",
-      "updates": "Novedades"
+      "overview": "Inicio"
     },
     "month_close": {
       "checklist_title": "Para cerrar {{month}}",
@@ -2990,14 +3025,6 @@
       "review_ready": "Listo para revisar",
       "saved": "Guardado, sin leer"
     },
-    "updates": {
-      "confirmed_line": "Se guardó como gasto",
-      "empty": "Nada nuevo. Aquí aparecerán los resultados de tus recibos.",
-      "error": "No pudimos cargar las novedades. Reintenta.",
-      "ready_line": "Está listo para revisar",
-      "subtitle": "Resultados de tus recibos y lo que necesita tu atención.",
-      "title": "Novedades"
-    },
     "composer_receipt": {
       "open": "Abrir recibo",
       "saved": "Guardado en la Bandeja",
@@ -3071,7 +3098,8 @@
       "included_606_by": "Incluido en 606 por {{name}}",
       "excluded_606_by": "Fuera del 606 por {{name}}",
       "decide_failed": "No pudimos guardar la respuesta. Inténtalo de nuevo.",
-      "none_fiscal": "Ninguno con valor fiscal en este período."
+      "none_fiscal": "Ninguno con valor fiscal en este período.",
+      "personal_help": "No cuenta en los totales del negocio."
     }
   },
   "money": {

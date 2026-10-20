@@ -23,7 +23,6 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       }
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
       if (path === "receipts") return route.fulfill({ json: { items: [] } });
-      if (path === "updates") return route.fulfill({ json: { items: [] } });
       if (path === "search") return route.fulfill({ json: await source.search(url.searchParams.get("q") ?? "") });
       if (path === "captures" && method === "GET") {
         if (state.notesUnavailable) return route.fulfill({ status: 503, json: { code: "private-internal-payload" } });

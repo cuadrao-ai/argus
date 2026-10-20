@@ -22,7 +22,7 @@ async function setup(page: Page, scenario: Scenario = "pending", language: "en" 
     if (path === "receipts") return route.fulfill({ json: { items: url.searchParams.get("view") === "all" ? all : scenario === "pending" ? [receipt] : [], activity: scenario === "unknown" ? null : activity } });
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
-    if (["email/deliveries", "captures", "updates"].includes(path)) return route.fulfill({ json: { items: [] } });
+    if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });

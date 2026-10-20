@@ -14,7 +14,6 @@ import BusinessInboxPanel from "./BusinessInboxPanel";
 import BusinessExpensesPanel from "./BusinessExpensesPanel";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessAccessPanel from "./BusinessAccessPanel";
-import BusinessUpdatesPanel from "./BusinessUpdatesPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
 import PanelErrorBoundary from "./PanelErrorBoundary";
 import { formatBusinessName } from "./business-format";
@@ -132,7 +131,6 @@ export default function BusinessPanel() {
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "expenses" ? <BusinessExpensesPanel /> : null}
-        {shown === "updates" ? <BusinessUpdatesPanel /> : null}
         {shown === "access" ? <BusinessAccessPanel /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
