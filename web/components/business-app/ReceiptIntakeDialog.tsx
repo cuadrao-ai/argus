@@ -4,7 +4,7 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
-import { Camera, CircleAlert, CircleCheck, ClipboardPaste, Clock, Copy, FileText, FileUp, Mail, RotateCw, X } from "lucide-react";
+import { Camera, ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Clock, Copy, FileText, FileUp, Mail, RotateCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
@@ -84,7 +84,22 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const uploading = queue.uploading;
   const unfinished = entries.some(isUnfinishedUpload);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
-  const failedCount = entries.filter((item) => item.status === "failed").length;
+  const batch = uploadBatchView(entries, queue.retryWaiting);
+  const renderRow = (item: ReceiptUpload) => (
+    <UploadRow
+      key={item.key}
+      item={item}
+      locale={locale}
+      fileSize={fileSize}
+      rejection={item.status === "rejected" ? rejectionText[item.reason] : null}
+      retryWaiting={queue.retryWaiting(item.key)}
+      canRemove={!uploading && item.status !== "uploading" && item.status !== "saved"}
+      onRemove={() => queue.remove(item.key)}
+      onRetry={() => queue.retry(item.key)}
+      onReplace={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}
+    />
+  );
+  const [savedOpen, setSavedOpen] = useState(false);
   const many = target === "inbox";
   const progress = many && queue.progress?.target === target ? queue.progress : null;
   const failed = entries.find((item) => item.status === "failed");
@@ -106,9 +121,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const choose = (files: readonly File[]) => {
     setClipboardEmpty(false);
     const before = new Set(queue.snapshot().map((item) => item.key));
-    queue.add(files, limits, target, bridge?.conversationId ?? null);
+    queue.add(files, limits, target, bridge?.conversationId ?? null, documentType);
     const fresh = queue.snapshot().filter((item) => !before.has(item.key) && item.status === "queued").map((item) => item.key);
-    if (fresh.length) void queue.save(target, consent, new Set(fresh), documentType);
+    if (fresh.length) void queue.save(target, consent, new Set(fresh));
   };
   const chooseRef = useRef(choose);
   useEffect(() => {
@@ -220,7 +235,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                 role="radio"
                 aria-checked={documentType === type}
                 data-testid={`intake-type-${type}`}
-                disabled={uploading}
                 className={`min-h-11 rounded-full px-5 text-[15px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 ${documentType === type ? "bg-white text-[#172b26] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:bg-[#1f2225] dark:text-white" : `${MUTED} hover:text-[#172b26] dark:hover:text-white`}`}
                 onClick={() => setDocumentType(type)}
               >
@@ -326,29 +340,41 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
 
         {entries.length > 0 ? (
           <section aria-label={t("business.intake.queue_title", "Upload receipts")}>
-            <p role="status" aria-live="polite" data-testid="receipt-upload-summary" className={`mb-2 text-[14px] font-medium tabular-nums ${MUTED}`}>
-              {[
-                progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : null,
-                saved.length > 0 ? t("business.intake.summary_saved", { count: saved.length, defaultValue: "{{count}} saved" }) : null,
-                failedCount > 0 ? t("business.intake.summary_failed", { count: failedCount, defaultValue: "{{count}} not uploaded" }) : null,
-              ].filter(Boolean).join(" · ")}
-            </p>
+            <div data-testid="receipt-upload-summary-bar" className="sticky top-0 z-10 -mx-4 mb-2 bg-white px-4 py-2 dark:bg-[#1f2225]">
+              <p role="status" aria-live="polite" data-testid="receipt-upload-summary" className="text-[14px] font-medium tabular-nums text-[#172b26] dark:text-white">
+                {[
+                  progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : null,
+                  progress && batch.secondsLeft !== null ? timeLeftText(t, batch.secondsLeft) : null,
+                  !progress && batch.saved.length > 0 ? t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" }) : null,
+                  batch.attention.length > 0 ? t("business.intake.summary_failed", { count: batch.attention.length, defaultValue: "{{count}} not uploaded" }) : null,
+                ].filter(Boolean).join(" · ")}
+              </p>
+              {progress ? (
+                <div role="progressbar" aria-label={t("business.intake.queue_title", "Upload receipts")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(batch.share * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-[#2f5a49]/15">
+                  <div className="h-full rounded-full bg-[#2f5a49] transition-[width] duration-200 ease-out motion-reduce:transition-none dark:bg-[#8fcbb0]" style={{ width: `${batch.share * 100}%` }} />
+                </div>
+              ) : null}
+            </div>
             <ul className="space-y-2" data-testid="receipt-upload-queue">
-              {entries.map((item) => (
-                <UploadRow
-                  key={item.key}
-                  item={item}
-                  locale={locale}
-                  fileSize={fileSize}
-                  rejection={item.status === "rejected" ? rejectionText[item.reason] : null}
-                  retryWaiting={queue.retryWaiting(item.key)}
-                  canRemove={!uploading && item.status !== "uploading" && item.status !== "saved"}
-                  onRemove={() => queue.remove(item.key)}
-                  onRetry={() => queue.retry(item.key)}
-                  onReplace={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}
-                />
-              ))}
+              {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
+              {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
             </ul>
+            {batch.saved.length > 1 ? (
+              <div className="mt-2 rounded-[16px] border border-[#DCE0DA] dark:border-white/10" data-testid="receipt-upload-saved-fold">
+                <button
+                  type="button"
+                  aria-expanded={savedOpen}
+                  aria-controls="receipt-upload-saved"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-[16px] px-3 text-left text-[14px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+                  onClick={() => setSavedOpen((open) => !open)}
+                >
+                  <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  <span className="flex-1 tabular-nums">{t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" })}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${savedOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                </button>
+                {savedOpen ? <ul id="receipt-upload-saved" className="space-y-2 px-2 pb-2">{batch.saved.map(renderRow)}</ul> : null}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -385,6 +411,40 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       </div>
     </AdaptivePanel>
   );
+}
+
+type Translate = ReturnType<typeof useTranslation>["t"];
+
+function timeLeftText(t: Translate, seconds: number): string {
+  return seconds < 60
+    ? t("business.intake.row_seconds_left", { count: Math.max(1, seconds), defaultValue: "{{count}} s left" })
+    : t("business.intake.row_minutes_left", { count: Math.ceil(seconds / 60), defaultValue: "{{count}} min left" });
+}
+
+/**
+ * A batch read for attention: files that need the owner first, then the one
+ * uploading, then the ones waiting, then the saved ones. The share and time
+ * left cover the bytes still to send at the current file's rate.
+ */
+export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting: (key: string) => boolean) {
+  const attention = entries.filter((item) => item.status === "rejected" || (item.status === "failed" && !retryWaiting(item.key)));
+  const active = entries.filter((item) => item.status === "uploading");
+  const waiting = entries.filter((item) => item.status === "queued" || (item.status === "failed" && retryWaiting(item.key)));
+  const saved = entries.filter((item) => item.status === "saved");
+  const bytesOf = (items: readonly ReceiptUpload[]) => items.reduce((sum, item) => sum + item.file.size, 0);
+  const sending = active.reduce((sum, item) => sum + (item.status === "uploading" && item.bytes ? item.bytes.sent : 0), 0);
+  const total = bytesOf([...active, ...waiting, ...saved]);
+  const done = bytesOf(saved) + sending;
+  const rate = active.flatMap((item) => (item.status === "uploading" && item.bytes?.bytesPerSecond ? [item.bytes.bytesPerSecond] : []))[0] ?? null;
+  const remaining = total - done;
+  return {
+    attention,
+    active,
+    waiting,
+    saved,
+    share: total > 0 ? Math.min(1, done / total) : 0,
+    secondsLeft: rate ? Math.ceil(remaining / rate) : null,
+  };
 }
 
 /** A small preview of an image file; a PDF or other file shows its kind instead. */
@@ -429,11 +489,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
   const share = bytes && bytes.total > 0 ? Math.min(1, bytes.sent / bytes.total) : 0;
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(share);
   const left = bytes?.secondsLeft;
-  const timeLeft = left == null || share >= 1
-    ? null
-    : left < 60
-      ? t("business.intake.row_seconds_left", { count: Math.max(1, left), defaultValue: "{{count}} s left" })
-      : t("business.intake.row_minutes_left", { count: Math.ceil(left / 60), defaultValue: "{{count}} min left" });
+  const timeLeft = left == null || share >= 1 ? null : timeLeftText(t, left);
   const failedRetryable = item.status === "failed" && ROW_RETRY.has(item.failure);
   return (
     <li data-testid="receipt-upload-row" data-status={item.status} className={`rounded-[16px] border p-3 ${item.status === "failed" || item.status === "rejected" ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
@@ -441,7 +497,15 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
         <FileThumb file={item.file} />
         <div className="min-w-0 flex-1">
           <p className="break-words text-[14px] font-medium text-[#172b26] dark:text-white">{item.file.name}</p>
-          <p className={`text-[13px] tabular-nums ${MUTED}`}>{`${receiptFormatLabel(item.file.type)} · ${fileSize(item.file.size)}`}</p>
+          <p className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] tabular-nums ${MUTED}`}>
+            <span>{`${receiptFormatLabel(item.file.type)} · ${fileSize(item.file.size)}`}</span>
+            <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-full bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
+              {t(item.documentType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", item.documentType === "venta" ? "Venta" : "Receipt")}
+            </span>
+            {item.status === "queued" || retryWaiting ? (
+              <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" />{t("business.intake.row_waiting", "Waiting")}</span>
+            ) : null}
+          </p>
         </div>
         {item.status === "saved" ? <CircleCheck className="h-6 w-6 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" aria-hidden="true" /> : null}
         {canRemove ? (
@@ -470,9 +534,6 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
           </div>
           <p className={`mt-1.5 text-[13px] tabular-nums ${MUTED}`}>{[percent, timeLeft].filter(Boolean).join(" · ")}</p>
         </div>
-      ) : null}
-      {item.status === "queued" || retryWaiting ? (
-        <p className={`mt-2 flex items-center gap-1.5 text-[13px] ${MUTED}`}><Clock className="h-3.5 w-3.5" aria-hidden="true" />{t("business.intake.row_waiting", "Waiting")}</p>
       ) : null}
       {item.status === "saved" ? (
         <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">

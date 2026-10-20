@@ -179,12 +179,12 @@ test("a venta upload tells the server the document type", async () => {
     seen.push(documentType);
     return savedReceipt("venta");
   }, () => undefined);
-  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
-  await queue.save("inbox", false, undefined, "venta");
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox", null, "venta");
+  await queue.save("inbox", false);
   expect(seen).toEqual(["venta"]);
 });
 
-test("a failed venta is retried as a venta whatever type the retry names", async () => {
+test("a failed venta is retried as a venta", async () => {
   const seen: Array<"recibo" | "venta"> = [];
   let fail = true;
   const queue = new ReceiptUploadQueue(async (_file, _consent, _key, documentType) => {
@@ -192,13 +192,55 @@ test("a failed venta is retried as a venta whatever type the retry names", async
     if (fail) throw new Error("connection lost");
     return savedReceipt("venta");
   }, () => undefined);
-  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
-  await queue.save("inbox", false, undefined, "venta");
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox", null, "venta");
+  await queue.save("inbox", false);
   fail = false;
   const [failed] = queue.snapshot();
-  await queue.save("inbox", false, failed.key, "recibo");
+  queue.retry(failed.key);
+  await new Promise((resolve) => setTimeout(resolve, 0));
   expect(seen).toEqual(["venta", "venta"]);
   expect(queue.snapshot()[0].status).toBe("saved");
+});
+
+test("one batch mixes receipts and sales: each file uploads with the type it was added with", async () => {
+  const seen: string[] = [];
+  const queue = new ReceiptUploadQueue(async (candidate, _consent, _key, documentType) => {
+    seen.push(`${candidate.name}:${documentType}`);
+    return savedReceipt(candidate.name);
+  }, () => undefined);
+  queue.add([file("compra.pdf", "application/pdf")], limits, "inbox", null, "recibo");
+  queue.add([file("venta.pdf", "application/pdf")], limits, "inbox", null, "venta");
+  await queue.save("inbox", false);
+  expect(seen).toEqual(["compra.pdf:recibo", "venta.pdf:venta"]);
+});
+
+test("a retry tapped while another file uploads waits its turn and then goes", async () => {
+  let release: () => void = () => undefined;
+  const calls: string[] = [];
+  let failFirst = true;
+  const queue = new ReceiptUploadQueue(async (candidate) => {
+    calls.push(candidate.name);
+    if (candidate.name === "uno.pdf" && failFirst) {
+      failFirst = false;
+      throw new Error("connection lost");
+    }
+    if (candidate.name === "dos.pdf") await new Promise<void>((resolve) => { release = resolve; });
+    return savedReceipt(candidate.name);
+  }, () => undefined);
+  queue.add([file("uno.pdf", "application/pdf")], limits, "inbox");
+  await queue.save("inbox", false);
+  queue.add([file("dos.pdf", "application/pdf")], limits, "inbox");
+  const dos = queue.snapshot().find((item) => item.file.name === "dos.pdf")!;
+  const running = queue.save("inbox", false, new Set([dos.key]));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const failed = queue.snapshot().find((item) => item.status === "failed");
+  queue.retry(failed!.key);
+  expect(queue.retryWaiting(failed!.key)).toBe(true);
+  release();
+  await running;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(calls).toEqual(["uno.pdf", "dos.pdf", "uno.pdf"]);
+  expect(queue.snapshot().every((item) => item.status === "saved")).toBe(true);
 });
 
 test("a server type rejection asks for another file rather than resending it", async () => {
