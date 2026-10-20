@@ -1130,6 +1130,12 @@
 .buttonSmall:hover {
   background: var(--cta-hover);
 }
+.submit {
+  background: var(--cta-hover);
+}
+.submit:hover {
+  background: var(--ink);
+}
 .button:hover svg {
   transform: translate(2px, -2px);
 }

@@ -18,3 +18,15 @@ test("the scrolled header button rests on the hover color", () => {
 test("the unscrolled header button keeps its light resting color", () => {
   expect(background('.header[data-condensed="false"] .utilityNav > .buttonSmall')).toBe("#e8ede3");
 });
+
+test("the contact form button rests on the hover color and darkens on hover", () => {
+  expect(background(".submit")).toBe("var(--cta-hover)");
+  expect(background(".submit:hover")).toBe("var(--ink)");
+});
+
+test("only the contact form uses the swapped button", () => {
+  const used = ["contact-form", "business-footer", "business-header"].filter((name) =>
+    readFileSync(new URL(`../components/${name}.tsx`, import.meta.url), "utf8").includes("styles.submit"),
+  );
+  expect(used).toEqual(["contact-form"]);
+});

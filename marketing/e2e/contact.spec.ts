@@ -40,6 +40,17 @@ for (const locale of ["es", "en"] as const) {
       await expectNothingStoredInBrowser(page);
     });
 
+    test("the send button rests on the green and darkens on hover", async ({ page }) => {
+      await page.goto(copy.path);
+      const button = page.getByRole("button", { name: copy.send });
+      await expect(button).toBeEnabled();
+      const background = () => button.evaluate((node) => getComputedStyle(node).backgroundColor);
+      await page.mouse.move(5, 5);
+      await expect.poll(background).toBe("rgb(48, 70, 58)");
+      await button.hover();
+      await expect.poll(background).toBe("rgb(23, 43, 38)");
+    });
+
     test("a double click sends one request and one message", async ({ page, request }, info) => {
       let posts = 0;
       page.on("request", (req) => {
