@@ -306,14 +306,16 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                   className={`min-h-11 rounded-full px-4 text-[14px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${documentType === type ? "bg-white text-[#172b26] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:bg-[#1f2225] dark:text-white" : `${MUTED} hover:text-[#172b26] dark:hover:text-white`}`}
                   onClick={() => setDocumentType(type)}
                 >
-                  {t(type === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", type === "venta" ? "Venta" : "Receipt")}
+                  {t(type === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", type === "venta" ? "Sale" : "Purchase")}
                 </button>
               ))}
             </div>
           </div>
-          {documentType === "venta" ? (
-            <p className={`mt-1 text-right text-[13px] ${MUTED}`}>{t("business.intake.type_venta_help", "An invoice this business already issued.")}</p>
-          ) : null}
+          <p className={`mt-1 text-right text-[13px] ${MUTED}`}>
+            {documentType === "venta"
+              ? t("business.intake.type_venta_help", "An invoice the business issued.")
+              : t("business.intake.type_recibo_help", "Something the business paid for.")}
+          </p>
         </div>
 
         {failure === "server" || failure === "unavailable" ? (
@@ -504,7 +506,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
           <p className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] tabular-nums ${MUTED}`}>
             <span>{`${receiptFormatLabel(item.file.type)} · ${fileSize(item.file.size)}`}</span>
             <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-full bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
-              {t(item.documentType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", item.documentType === "venta" ? "Venta" : "Receipt")}
+              {t(item.documentType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", item.documentType === "venta" ? "Sale" : "Purchase")}
             </span>
             {item.status === "queued" || retryWaiting ? (
               <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" />{t("business.intake.row_waiting", "Waiting")}</span>
