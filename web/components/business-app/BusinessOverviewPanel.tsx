@@ -1,36 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, Download } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { businessReceivingAddress } from "@/lib/business-email";
 import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/business-review-count";
 import { useBusiness } from "./BusinessWorkspace";
+import { useForwardAddress } from "./useForwardAddress";
 import { cardClass, pillButtonClass } from "./business-ui";
 import BusinessMonthClosePanel, { INICIO_EXPORT_ID } from "./BusinessMonthClosePanel";
 import { ToastNotice, type QueuedToast } from "./foundation/ToastNotice";
 
 /** The Inicio action row: four pills fit one row from 1024px; 44px tall like every target. */
 const actionPill = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:focus-visible:ring-white/30";
-
-function useForwardAddress(): string | null {
-  const { source } = useBusiness();
-  const [address, setAddress] = useState<string | null>(null);
-  useEffect(() => {
-    if (!source?.emailIntake) return undefined;
-    let live = true;
-    source.emailIntake().then((intake) => {
-      if (live) setAddress(businessReceivingAddress(intake));
-    }).catch(() => {
-      if (live) setAddress(null);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source]);
-  return address;
-}
 
 export default function BusinessOverviewPanel() {
   const { t } = useTranslation();

@@ -516,11 +516,36 @@ export function retryAfterMs(header: string | null, now = Date.now()): number | 
   return Number.isNaN(at) ? null : Math.max(0, at - now);
 }
 
+/** Bytes of one upload sent so far; `total` is the whole file. */
+export type UploadProgressListener = (sent: number, total: number) => void;
+
+type UploadError = Error & { status: number; code: string; retryAfterMs: number | null };
+
+function uploadError(status: number, body: string, retryAfter: string | null): UploadError {
+  let code: string | undefined;
+  try {
+    code = (JSON.parse(body) as { code?: string }).code;
+  } catch {
+    code = undefined;
+  }
+  const error = new Error(code ?? `API error ${status}`) as UploadError;
+  error.status = status;
+  error.code = code ?? "unknown";
+  error.retryAfterMs = retryAfterMs(retryAfter);
+  return error;
+}
+
+/**
+ * One receipt file to the Inbox. With a progress listener the body goes over
+ * XMLHttpRequest, the one browser API that reports bytes sent; a lost
+ * connection rejects with a TypeError, as fetch does, so it reads as offline.
+ */
 export async function uploadBusinessReceipt(
   file: File,
   consentToPrepare: boolean,
   idempotencyKey: string,
   documentType: "recibo" | "venta" = "recibo",
+  onProgress?: UploadProgressListener,
 ): Promise<ReceiptSummary> {
   const authHeaders = await authenticatedRequestHeaders();
   const headers = argusApiRequestHeaders(
@@ -533,24 +558,37 @@ export async function uploadBusinessReceipt(
     },
     authHeaders,
   );
-  const response = await fetch(`${ARGUS_API_BASE_URL}/business/receipts`, {
+  const url = `${ARGUS_API_BASE_URL}/business/receipts`;
+  if (onProgress && typeof XMLHttpRequest !== "undefined") {
+    return new Promise<ReceiptSummary>((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open("POST", url);
+      request.withCredentials = true;
+      headers.forEach((value, key) => request.setRequestHeader(key, value));
+      request.upload.onprogress = (event) => onProgress(event.loaded, event.lengthComputable ? event.total : file.size);
+      request.onload = () => {
+        if (request.status >= 200 && request.status < 300) {
+          try {
+            resolve(JSON.parse(request.responseText) as ReceiptSummary);
+          } catch (error) {
+            reject(error);
+          }
+        } else {
+          reject(uploadError(request.status, request.responseText, request.getResponseHeader("Retry-After")));
+        }
+      };
+      request.onerror = () => reject(new TypeError("Network request failed"));
+      request.onabort = () => reject(new TypeError("Upload aborted"));
+      request.send(file);
+    });
+  }
+  const response = await fetch(url, {
     method: "POST",
     body: file,
     credentials: "include",
     headers,
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { code?: string };
-    const error = new Error(body.code ?? `API error ${response.status}`) as Error & {
-      status: number;
-      code: string;
-      retryAfterMs: number | null;
-    };
-    error.status = response.status;
-    error.code = body.code ?? "unknown";
-    error.retryAfterMs = retryAfterMs(response.headers.get("Retry-After"));
-    throw error;
-  }
+  if (!response.ok) throw uploadError(response.status, await response.text().catch(() => ""), response.headers.get("Retry-After"));
   return response.json() as Promise<ReceiptSummary>;
 }
 

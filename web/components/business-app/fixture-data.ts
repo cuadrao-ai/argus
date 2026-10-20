@@ -338,6 +338,8 @@ export function createFixtureBusinessDataSource(
   const required: (keyof ReceiptReviewFields)[] = ["merchant", "occurred_on", "amount", "currency", "account_id"];
   const missing = (fields: ReceiptReviewFields) => required.filter((key) => !fields[key]);
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
+  /** A sample file named with "falla" loses its connection once at 90%, so the retry can be seen. */
+  const failedOnce = new Set<string>();
 
   return {
     mode: "fixture",
@@ -508,8 +510,17 @@ export function createFixtureBusinessDataSource(
         .filter((item) => item.occurred_on >= from && item.occurred_on <= to)
         .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
     },
-    uploadReceipt: async (file, consentToPrepare, key) => {
-      await delay(500);
+    uploadReceipt: async (file, consentToPrepare, key, _documentType, onProgress) => {
+      const failOnce = /falla/i.test(file.name) && !failedOnce.has(key);
+      const steps = 12;
+      for (let step = 1; step <= steps; step += 1) {
+        await delay(Math.min(400, 120 + file.size / 40_000));
+        onProgress?.(Math.round((file.size * step) / steps), file.size);
+        if (failOnce && step >= Math.round(steps * 0.9)) {
+          failedOnce.add(key);
+          throw new TypeError("Sample connection lost at 90%");
+        }
+      }
       const earlier = uploads.get(key);
       if (earlier) return earlier;
       counter += 1;
