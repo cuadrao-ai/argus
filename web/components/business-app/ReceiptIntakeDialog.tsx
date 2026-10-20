@@ -4,7 +4,7 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
-import { Camera, ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Clock, FileText, FileUp, Mail, RotateCw, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronRight, CircleAlert, CircleCheck, Clock, FileText, FolderOpen, FileUp, Mail, RotateCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
@@ -13,13 +13,14 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { pillButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./receipt-file";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { useForwardAddress } from "./useForwardAddress";
-import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
+import { useInputCapabilities } from "./useInputCapabilities";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
 
@@ -71,6 +72,10 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "es-419";
   const capabilities = useInputCapabilities();
+  const { isBelowTablet } = useResponsiveLayout();
+  /** The photo row is for phones: a camera, file capture and a phone-sized screen. */
+  const showCamera = capabilities.cameraCapture && isBelowTablet;
+  const pasteKeys = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
   const { bridge, clearLostAccess } = useBusiness();
   const forwardAddress = useForwardAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +85,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
   const consent = false;
   const [drag, setDrag] = useState<DragState>({ kind: "idle" });
-  const [clipboardEmpty, setClipboardEmpty] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const addressRef = useRef<HTMLParagraphElement>(null);
   const copyLabels = useCopyLabels(forwardAddress ?? "");
@@ -122,7 +126,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const [documentType, setDocumentType] = useState<DocumentType>("recibo");
   /** Files start uploading as soon as they arrive; a running drain takes them at its tail. */
   const choose = (files: readonly File[]) => {
-    setClipboardEmpty(false);
     const before = new Set(queue.snapshot().map((item) => item.key));
     queue.add(files, limits, target, bridge?.conversationId ?? null, documentType);
     const fresh = queue.snapshot().filter((item) => !before.has(item.key) && item.status === "queued").map((item) => item.key);
@@ -144,15 +147,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  const pasteFromClipboard = async () => {
-    try {
-      const pasted = await readClipboardFile(limits.media_types);
-      if (pasted) choose([pasted]);
-      else setClipboardEmpty(true);
-    } catch {
-      setClipboardEmpty(true);
-    }
-  };
   const openPicker = () => {
     replacingRef.current = null;
     fileInputRef.current?.click();
@@ -211,7 +205,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       ? t("business.intake.drop_release", { count: drag.count, defaultValue: "Drop to upload {{count}} files" })
       : drag.kind === "reject"
         ? t("business.intake.drop_reject", "That file type can't be uploaded. Use {{formats}}.", { formats })
-        : capabilities.dragAndDrop
+        : capabilities.dragAndDrop && !isBelowTablet
           ? many ? t("business.intake.drop_title_multiple", "Drag your receipts here") : t("business.intake.drop_title", "Drag your receipt here")
           : many ? t("business.intake.touch_title_multiple", "Choose your receipts") : t("business.intake.touch_title", "Choose your receipt");
 
@@ -221,7 +215,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       closeLabel={t("common.close", "Close")}
       onClose={onClose}
       width="md"
-      footer={
+      footer={entries.length === 0 ? undefined : (
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="receipt-intake-footer">
           {saved.length > 0 && !unfinished && !uploading ? (
             <button type="button" className={primaryButtonClass} onClick={() => { queue.clear(target); onReview(saved); }}>
@@ -232,33 +226,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             {t("business.intake.done", "Done")}
           </button>
         </div>
-      }
+      )}
     >
       <div className="space-y-5 px-4 pb-6">
-        <div>
-          <p id="intake-type-question" className={`mb-2 text-[14px] font-medium ${MUTED}`}>{t("business.intake.type_question", "What are you uploading?")}</p>
-          <div role="radiogroup" aria-labelledby="intake-type-question" className="inline-flex rounded-full bg-black/[0.05] p-1 dark:bg-white/10" data-testid="intake-document-type">
-            {(["recibo", "venta"] as const).map((type) => (
-              <button
-                key={type}
-                type="button"
-                role="radio"
-                aria-checked={documentType === type}
-                data-testid={`intake-type-${type}`}
-                className={`min-h-11 rounded-full px-5 text-[15px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 ${documentType === type ? "bg-white text-[#172b26] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:bg-[#1f2225] dark:text-white" : `${MUTED} hover:text-[#172b26] dark:hover:text-white`}`}
-                onClick={() => setDocumentType(type)}
-              >
-                {t(type === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", type === "venta" ? "Venta" : "Receipt")}
-              </button>
-            ))}
-          </div>
-          <p className={`mt-2 text-[13px] ${MUTED}`}>
-            {documentType === "venta"
-              ? t("business.intake.type_venta_help", "An invoice this business already issued.")
-              : t("business.intake.type_recibo_help", "A purchase.")}
-          </p>
-        </div>
-
         <div
           data-testid="intake-drop-zone"
           data-drag={drag.kind}
@@ -279,28 +249,14 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           </div>
           {drag.kind === "idle" && !compact ? (
             <>
-              {capabilities.dragAndDrop ? (
-                <p className={`mt-1 text-[15px] ${MUTED}`}>{many ? t("business.intake.drop_or_click_multiple", "or click to choose them") : t("business.intake.drop_or_click", "or click to choose it")}</p>
+              <p className={`mt-1 text-[13px] ${MUTED}`}>{t("business.intake.formats_short", "{{formats}} · up to {{size}} MB", { formats, size: sizeLabel(limits.max_bytes) })}</p>
+              <button type="button" data-testid="intake-choose" className={`${pillButtonClass} mt-5 bg-[#2f5a49] text-[#FFFEFA] dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={(event) => { event.stopPropagation(); openPicker(); }}>
+                <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
+              </button>
+              {capabilities.dragAndDrop && !isBelowTablet ? (
+                <p className={`mt-3 text-[12px] ${MUTED}`}>{t("business.intake.paste_hint", { keys: pasteKeys, defaultValue: "or paste with {{keys}}" })}</p>
               ) : null}
-              <p className={`mt-3 text-[13px] ${MUTED}`}>{t("business.intake.formats_short", "{{formats}} · up to {{size}} MB", { formats, size: sizeLabel(limits.max_bytes) })}</p>
-              <div className="mt-4 flex flex-wrap justify-center gap-1" onClick={(event) => event.stopPropagation()}>
-                <button type="button" className={smallAction} onClick={openPicker}>
-                  <FileUp className="h-4 w-4" aria-hidden="true" />
-                  {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
-                </button>
-                {capabilities.clipboardRead ? (
-                  <button type="button" className={smallAction} onClick={() => void pasteFromClipboard()}>
-                    <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
-                    {t("business.intake.paste", "Paste")}
-                  </button>
-                ) : null}
-                {capabilities.cameraCapture ? (
-                  <button type="button" className={smallAction} onClick={() => cameraInputRef.current?.click()}>
-                    <Camera className="h-4 w-4" aria-hidden="true" />
-                    {t("business.intake.camera", "Take photo")}
-                  </button>
-                ) : null}
-              </div>
             </>
           ) : null}
           <input
@@ -336,17 +292,35 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           />
         </div>
 
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p id="intake-type-question" className={`text-[14px] ${MUTED}`}>{t("business.intake.saved_as", "Saved as")}</p>
+            <div role="radiogroup" aria-labelledby="intake-type-question" className="inline-flex rounded-full bg-black/[0.05] p-1 dark:bg-white/10" data-testid="intake-document-type">
+              {(["recibo", "venta"] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  role="radio"
+                  aria-checked={documentType === type}
+                  data-testid={`intake-type-${type}`}
+                  className={`min-h-11 rounded-full px-4 text-[14px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${documentType === type ? "bg-white text-[#172b26] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:bg-[#1f2225] dark:text-white" : `${MUTED} hover:text-[#172b26] dark:hover:text-white`}`}
+                  onClick={() => setDocumentType(type)}
+                >
+                  {t(type === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", type === "venta" ? "Venta" : "Receipt")}
+                </button>
+              ))}
+            </div>
+          </div>
+          {documentType === "venta" ? (
+            <p className={`mt-1 text-right text-[13px] ${MUTED}`}>{t("business.intake.type_venta_help", "An invoice this business already issued.")}</p>
+          ) : null}
+        </div>
+
         {failure === "server" || failure === "unavailable" ? (
           <ServerErrorScreen reference={serverReference} onRetry={() => failed && queue.retry(failed.key)} />
         ) : null}
         {failure === "removed" ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
         {failure === "closed" ? <BusinessClosedNotice /> : null}
-
-        {clipboardEmpty ? (
-          <p role="status" className={`text-[14px] ${MUTED}`}>
-            {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}
-          </p>
-        ) : null}
 
         {entries.length > 0 ? (
           <section aria-label={t("business.intake.queue_title", "Upload receipts")}>
@@ -388,30 +362,47 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           </section>
         ) : null}
 
-        {many && forwardAddress ? (
+        {many && (forwardAddress || showCamera) ? (
           <section aria-labelledby="intake-other-ways" data-testid="intake-other-ways">
             <h3 id="intake-other-ways" className={`mb-2 text-[14px] font-medium ${MUTED}`}>{t("business.intake.other_ways", "Other ways to add receipts")}</h3>
-            <div className="flex items-start gap-3 rounded-[16px] border border-[#DCE0DA] p-3 dark:border-white/10">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
-                <Mail className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.intake.email_way", "Forward them by email")}</p>
-                <p className={`text-[13px] ${MUTED}`}>{t("business.intake.email_way_help", "They land in your Inbox.")}</p>
-                <p ref={addressRef} data-testid="intake-forward-address" className="mt-1 select-all break-words text-[14px] text-[#172b26] dark:text-white"><WrappingAddress address={forwardAddress} /></p>
-                {copyFailed ? (
-                  <p className={`mt-1 text-[13px] ${DANGER}`}>{t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}</p>
-                ) : null}
-              </div>
-              <CopyButton
-                value={forwardAddress}
-                label={t("business.email.copy", "Copy address")}
-                {...copyLabels}
-                onFailed={selectAddress}
-                testId="intake-forward-copy"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
-              />
-            </div>
+            <ul className="divide-y divide-[#DCE0DA] rounded-[16px] border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">
+              {forwardAddress ? (
+                <li className="flex items-center gap-3 p-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
+                    <Mail className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.intake.email_way", "Forward them by email")}</p>
+                    <p ref={addressRef} data-testid="intake-forward-address" className={`select-all break-words text-[13px] ${MUTED}`}><WrappingAddress address={forwardAddress} /></p>
+                    {copyFailed ? (
+                      <p className={`mt-1 text-[13px] ${DANGER}`}>{t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}</p>
+                    ) : null}
+                  </div>
+                  <CopyButton
+                    value={forwardAddress}
+                    label={t("business.email.copy", "Copy address")}
+                    {...copyLabels}
+                    onFailed={selectAddress}
+                    testId="intake-forward-copy"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+                  />
+                </li>
+              ) : null}
+              {showCamera ? (
+                <li>
+                  <button type="button" data-testid="intake-camera" className="flex min-h-11 w-full items-center gap-3 p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]" onClick={() => cameraInputRef.current?.click()}>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
+                      <Camera className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.intake.camera_way", "Take a photo")}</span>
+                      <span className={`block text-[13px] ${MUTED}`}>{t("business.intake.camera_way_help", "With your phone's camera")}</span>
+                    </span>
+                    <ChevronRight className={`h-4 w-4 shrink-0 ${MUTED}`} aria-hidden="true" />
+                  </button>
+                </li>
+              ) : null}
+            </ul>
           </section>
         ) : null}
 
