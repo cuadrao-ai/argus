@@ -761,6 +761,19 @@ export function BusinessMonthCloseView({
             </section>
           )}
 
+
+          {locked ? null : receivable.length === 0 && payable.length === 0 ? (
+            <p id="month-close-money" data-testid="month-close-nothing-open" className={`${cardClass} flex scroll-mt-6 items-center gap-2 text-[15px] text-[#56635e] dark:text-white/70`}>
+              <CircleCheck className="h-5 w-5 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />
+              {t("business.month_close.nothing_open", "Nothing to collect or pay.")}
+            </p>
+          ) : (
+            <div id="month-close-money" className="grid scroll-mt-6 grid-cols-1 gap-4 tablet:grid-cols-2">
+              {moneyColumn("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect."))}
+              {moneyColumn("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay."))}
+            </div>
+          )}
+
           <section aria-label={t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")} data-testid="month-close-cards" data-loading={phase === "loading" ? "true" : undefined} className={`${cardClass} grid grid-cols-2 gap-x-4 gap-y-5 desktop:grid-cols-4`}>
             {figure("month-close-income", t("business.month_close.income_label", "Income"), figures.income.state, figures.income.value, figures.income.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
             {figure("month-close-expenses", t("business.month_close.expense_label", "Expenses"), figures.expenses.state, figures.expenses.value, figures.expenses.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
@@ -784,14 +797,7 @@ export function BusinessMonthCloseView({
             ) : null}
           </section>
 
-          {locked ? (
-            renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed")
-          ) : (
-            <div id="month-close-money" className="grid scroll-mt-6 grid-cols-1 gap-4 tablet:grid-cols-2">
-              {moneyColumn("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect."))}
-              {moneyColumn("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay."))}
-            </div>
-          )}
+          {locked ? renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed") : null}
         </>
       )}
 

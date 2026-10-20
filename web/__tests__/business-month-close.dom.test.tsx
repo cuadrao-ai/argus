@@ -340,6 +340,8 @@ describe("month close layouts", () => {
     };
     const { act, host, root } = await renderView(client);
     const column = () => host.querySelector('[data-testid="month-close-receivable"]');
+    const order = [...host.querySelectorAll('[data-testid="month-close-checklist"], [data-testid="month-close-receivable"], [data-testid="month-close-payable"], [data-testid="month-close-cards"]')].map((node) => node.getAttribute("data-testid"));
+    assert.deepEqual(order, ["month-close-checklist", "month-close-receivable", "month-close-payable", "month-close-cards"], "what to do, then who owes whom, then how the month went");
     assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 3);
     assert.equal(column()?.querySelector('[data-document-id="d"]'), null);
     assert.match(column()?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent ?? "", /RD\$ 500\.00/);
@@ -687,8 +689,11 @@ describe("a fully settled month", () => {
     assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000\.00/);
     assert.match(host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent ?? "", /Todo listo para cerrar octubre\./);
     assert.equal(host.querySelector('[data-testid="month-close-checklist-left"]'), null);
-    assert.match(host.querySelector('[data-testid="month-close-receivable-empty"]')?.textContent ?? "", /Nada por cobrar/);
-    assert.match(host.querySelector('[data-testid="month-close-payable-empty"]')?.textContent ?? "", /Nada por pagar/);
+    assert.match(host.querySelector('[data-testid="month-close-nothing-open"]')?.textContent ?? "", /Nada por cobrar ni por pagar/);
+    assert.equal(host.querySelector('[data-testid="month-close-receivable"]'), null);
+    assert.equal(host.querySelector('[data-testid="month-close-payable"]'), null);
+    const order = [...host.querySelectorAll('[data-testid="month-close-checklist"], [data-testid="month-close-nothing-open"], [data-testid="month-close-cards"]')].map((node) => node.getAttribute("data-testid"));
+    assert.deepEqual(order, ["month-close-checklist", "month-close-nothing-open", "month-close-cards"]);
     assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 4,000\.00/);
     assert.equal(host.querySelector('[data-testid="month-close-empty"]'), null);
     assert.equal(host.textContent?.includes("Este mes no tiene documentos"), false);
