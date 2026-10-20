@@ -1,5 +1,11 @@
 import re
 
+FILER_TAX_ID_LENGTH = {"rnc": 9, "cedula": 11}
+COUNTERPARTY_ID_LENGTH = {
+    "1": FILER_TAX_ID_LENGTH["rnc"],
+    "2": FILER_TAX_ID_LENGTH["cedula"],
+}
+
 
 def identity_digits(value: str | None) -> str | None:
     """Digits only. Length is not decided here: a 9-digit RNC and an 11-digit
@@ -13,13 +19,26 @@ def identity_digits(value: str | None) -> str | None:
 
 def normalized_taxpayer_id(value: str | None) -> str | None:
     digits = identity_digits(value)
-    return (
-        digits
-        if digits is not None
-        and len(digits) in {9, 11}
-        and any(char != "0" for char in digits)
-        else None
-    )
+    if (
+        digits is None
+        or len(digits) not in set(FILER_TAX_ID_LENGTH.values())
+        or not any(char != "0" for char in digits)
+    ):
+        return None
+    return digits
+
+
+def normalized_filer_tax_id(kind: str, value: str) -> str:
+    if kind not in FILER_TAX_ID_LENGTH:
+        raise ValueError("tax_id_type")
+    digits = identity_digits(value)
+    if digits is None:
+        raise ValueError("tax_id_not_digits")
+    if len(digits) != FILER_TAX_ID_LENGTH[kind]:
+        raise ValueError("tax_id_length")
+    if not any(char != "0" for char in digits):
+        raise ValueError("tax_id_all_zero")
+    return digits
 
 
 def rnc_check_digit_ok(digits: str) -> bool:

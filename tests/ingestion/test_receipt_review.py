@@ -38,6 +38,7 @@ PURCHASE = {
     "merchant": "Ferreteria Ochoa",
 }
 DETAILS = {
+    "payment_status": "paid",
     "merchant": "Ferreteria Ochoa",
     "occurred_on": "2026-10-03",
     "currency": "DOP",

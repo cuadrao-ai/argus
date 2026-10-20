@@ -38,7 +38,10 @@ def read(currency: str, amount: str = "33254.91") -> ExtractionResult:
                 )
             ],
             receipt=dict(
-                total=amount, currency=currency, merchant="Hotel Brisa del Este SRL"
+                payment_status="paid",
+                total=amount,
+                currency=currency,
+                merchant="Hotel Brisa del Este SRL",
             ),
         )
     )

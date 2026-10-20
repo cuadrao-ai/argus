@@ -8768,7 +8768,13 @@ dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
 Preparation preserves extracted observations and receipt itemization separately
-from canonical candidate projection. Compatible observations enter existing
+from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
+with missing evidence treated as unknown on a new read. Payment evidence does not
+gate projection: an unpaid bill or order confirmation keeps its read amount, which
+Business preparation leaves unverified for a person to approve.
+`receipt.tax` holds final tax only; `receipt.estimated_tax` retains a printed
+estimate without promoting it to final tax or ITBIS. Existing saved
+batches are not reinterpreted or reread automatically. Compatible observations enter existing
 reconciliation; incompatible observations remain on the draft with review issues.
 Opening, closing, available and running balances remain distinguishable; unknown
 scope is unresolved, never guessed. Receipt items, subtotal, tax/service, tip and
@@ -9288,11 +9294,35 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
-`GET /business/fiscal-profile` returns `{rnc, can_edit}` under the same live read
+`GET /business/fiscal-profile` returns `{name, tax_id, can_edit}` under the same live read
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
-`PATCH /business/fiscal-profile` requires the actual owner, approve permission,
-`Idempotency-Key`, and `{rnc, previous_rnc}`. It records an immutable human action;
-a stale prior RNC is 409. The filer identity supports a nine-digit RNC or eleven-digit cédula.
+`name` is the Business name the switcher lists. `tax_id` is null until the owner sets one.
+A set tax id is `{type, value}` where `type` is `rnc` or `cedula` and `value` is digits only.
+An RNC is 9 digits. A cédula is 11 digits. Leading zeros stay. `can_edit` is true only for
+the space owner. Another member of that Business receives the same profile with `can_edit`
+false. The route does not take a space id, so another Business is not addressable here.
+
+`PATCH /business/fiscal-profile` requires the space owner, approve permission, and
+`Idempotency-Key`. The body is `{name, previous_name, tax_id, previous_tax_id}`.
+`name` is 1 to 80 characters after trimming. `previous_name` and `previous_tax_id` must
+match the stored profile. A mismatch is 409 `stale_version`. Spaces and hyphens in
+`value` are removed before storage. `tax_id: null` clears the filer id. The 606 and 607
+header and file name use the stored digits. The switcher reads the stored name on the
+next space list.
+
+Validation failures are 422 and the problem `code` says what to fix.
+
+- `tax_id_type` means the type is not `rnc` or `cedula`.
+- `tax_id_not_digits` means the value has a character other than a digit, a space, or a hyphen.
+- `tax_id_length` means an RNC is not 9 digits or a cédula is not 11 digits.
+- `tax_id_all_zero` means every digit is zero.
+- `business_name_invalid` means the name is blank or longer than 80 characters.
+
+A member who is not the owner and holds approve receives 403 `business_owner_required`.
+A member without approve receives 403 `business_permission_denied`. Each accepted change
+is an immutable action receipt with the actor and the time. Replaying the same key returns
+the saved profile and does not write again.
+
 `GET /business/fiscal-profile/fields` supplies the form controls from the same
 typed declaration and annex column definitions used by the exporter.
 
@@ -9758,7 +9788,12 @@ accept path recorded.
   fiscal bill. Replaying that batch refuses the same way, so the retry asks
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
-  statement period. Other interrupted hand-offs retry the same way. A terminal
+  statement period. An NCF due notice is that one expense, marked
+  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  is prepared again as paid, the mark becomes `Factura pagada`. The draft
+  id does not change and a second expense is not opened. A paid purchase
+  that is not a due notice carries `bill_mark: null`. Other interrupted
+  hand-offs retry the same way. A terminal
   refusal is never reported as `no_purchase_found`, which stays for a receipt
   that was read and found no purchase row. The stored `error_code` is not
   rewritten.

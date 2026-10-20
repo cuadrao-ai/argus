@@ -36,9 +36,17 @@ def changed(record, *, ncf=None, amount=None, tax=None, **declaration):
     )
 
 
-@pytest.mark.parametrize("filer", ["199990013", "00100000001"])
-def test_filer_identity_preserves_rnc_or_cedula_in_header_and_filename(filer):
-    assert FiscalProfileChange(rnc=filer, previous_rnc=None).rnc == filer
+@pytest.mark.parametrize(
+    ("kind", "filer"), [("rnc", "199990013"), ("cedula", "00100000001")]
+)
+def test_filer_identity_preserves_rnc_or_cedula_in_header_and_filename(kind, filer):
+    saved = FiscalProfileChange(
+        name="Taller Norte",
+        previous_name="Taller Norte",
+        tax_id={"type": kind, "value": filer},
+        previous_tax_id=None,
+    )
+    assert saved.tax_id is not None and saved.tax_id.value == filer
     result = packet(rnc=filer)
     for form, count in [("606", 3), ("607", 1)]:
         name = f"dgii/DGII_F_{form}_{filer}_202609.TXT"
@@ -50,11 +58,22 @@ def test_filer_identity_preserves_rnc_or_cedula_in_header_and_filename(filer):
 
 
 @pytest.mark.parametrize(
-    "filer", ["000000000", "00000000000", "1234567890", "123456789012"]
+    ("kind", "filer"),
+    [
+        ("rnc", "000000000"),
+        ("cedula", "00000000000"),
+        ("rnc", "1234567890"),
+        ("cedula", "123456789012"),
+    ],
 )
-def test_invalid_filer_shape_is_rejected(filer):
+def test_invalid_filer_shape_is_rejected(kind, filer):
     with pytest.raises(ValidationError):
-        FiscalProfileChange(rnc=filer, previous_rnc=None)
+        FiscalProfileChange(
+            name="Taller Norte",
+            previous_name="Taller Norte",
+            tax_id={"type": kind, "value": filer},
+            previous_tax_id=None,
+        )
 
 
 @pytest.mark.parametrize(

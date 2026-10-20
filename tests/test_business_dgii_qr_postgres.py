@@ -66,7 +66,11 @@ def _saved_with_qr(actions):  # noqa: ANN001
                         uncertain=["amount"],
                     )
                 ],
-                receipt=dict(currency="DOP", merchant="Hotel Brisa del Este SRL"),
+                receipt=dict(
+                    payment_status="paid",
+                    currency="DOP",
+                    merchant="Hotel Brisa del Este SRL",
+                ),
             )
         )
         batch = batch_from_result(result, digest, cid, now, 1, dgii_qr=QR)
