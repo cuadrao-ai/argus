@@ -28,12 +28,6 @@ from argus.llm.openrouter_request_policy import (
     validate_openrouter_route,
 )
 
-#: Person-entered facts the reply model is not shown until a scorecard measures them.
-_UNMEASURED_DOSSIER_FIELDS = {
-    "due_on": True,
-    "history": {"__all__": {"before_due_on", "after_due_on"}},
-}
-
 
 class BusinessTurnResult(Contract):
     graph_run_id: UUID
@@ -171,9 +165,9 @@ class BusinessTurnRunner:
         }
         if touched_ids:
             saved_state["dossiers"] = [
-                context.actions.dossier(context.authorization, UUID(draft_id)).model_dump(
-                    mode="json", exclude=_UNMEASURED_DOSSIER_FIELDS
-                )
+                context.actions.dossier(
+                    context.authorization, UUID(draft_id)
+                ).model_facing()
                 for draft_id in sorted(touched_ids)
             ]
         context.check_access()

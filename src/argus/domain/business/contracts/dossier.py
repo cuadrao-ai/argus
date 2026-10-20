@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -28,6 +29,11 @@ class WebActionSource(Contract):
     channel: Literal["web"] = "web"
     received_at: datetime
     text: str = Field(min_length=1, max_length=20000)
+
+
+def web_action_text(command: dict[str, Any]) -> str:
+    """The canonical text a web action source records for its command."""
+    return json.dumps(command, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 class AttachmentSource(Contract):
@@ -179,3 +185,25 @@ class BusinessDossier(RecordContext):
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted. Locked with the other facts once approved.
     due_on: date | None = None
+
+    def model_facing(self) -> dict[str, Any]:
+        """The dossier as every model reads it: the JSON dump without the
+        facts no scorecard has measured yet."""
+        view = self.model_dump(mode="json", exclude=_UNMEASURED_DOSSIER_FIELDS)
+        view["sources"] = [_unmeasured_removed(source) for source in view["sources"]]
+        return view
+
+
+#: The due date a person sets in review, wherever the dossier carries it.
+_UNMEASURED_DOSSIER_FIELDS = {
+    "due_on": True,
+    "history": {"__all__": {"before_due_on", "after_due_on"}},
+}
+
+
+def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
+    if source["kind"] != "web_action" or '"due_on"' not in source["text"]:
+        return source
+    command = json.loads(source["text"])
+    command.get("request", {}).pop("due_on", None)
+    return {**source, "text": web_action_text(command)}

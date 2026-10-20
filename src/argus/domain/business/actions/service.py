@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -47,6 +46,7 @@ from argus.domain.business.contracts.dossier import (
     RecordContext,
     SourceEvidence,
     WebActionSource,
+    web_action_text,
 )
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
@@ -295,11 +295,8 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=json.dumps(
-                                command.model_dump(mode="json", exclude_none=True),
-                                sort_keys=True,
-                                separators=(",", ":"),
-                                ensure_ascii=False,
+                            text=web_action_text(
+                                command.model_dump(mode="json", exclude_none=True)
                             ),
                         )
                         source_id = sources.record_source(
@@ -524,11 +521,8 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=json.dumps(
-                                command.model_dump(mode="json", exclude_none=True),
-                                sort_keys=True,
-                                separators=(",", ":"),
-                                ensure_ascii=False,
+                            text=web_action_text(
+                                command.model_dump(mode="json", exclude_none=True)
                             ),
                         )
                         source_id = sources.record_source(
