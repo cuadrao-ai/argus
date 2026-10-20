@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
@@ -12,6 +12,7 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import { DatePicker } from "./foundation/DatePicker";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
@@ -65,6 +66,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const inFlight = useRef(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [amountInvalid, setAmountInvalid] = useState(false);
+  const [dateInvalid, setDateInvalid] = useState(false);
+  const dateId = useId();
   const [amountError, setAmountError] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
   const retainReceipt = useCallback(() => setUnprepared(true), []);
@@ -111,6 +114,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           : fresh,
       );
       setAmountInvalid(false);
+      if (!draft || !before || draft.occurred_on === before.occurred_on) setDateInvalid(false);
       setUnprepared(false);
       setReadStalled(false);
       reload();
@@ -156,6 +160,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setDetail(next);
     setDraft(draftFrom(next));
     setAmountInvalid(false);
+    setDateInvalid(false);
   };
 
   const saveProblem = (code: string | undefined, current: Draft) => {
@@ -264,8 +269,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
-  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode) => (
-    <label className="block">
+  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode, htmlFor?: string) => {
+    const heading = (
       <span className="flex items-center justify-between text-[13px] font-medium text-black/60 dark:text-white/60">
         {label}
         {!confirmed && missing.includes(key) ? (
@@ -274,9 +279,13 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           </span>
         ) : null}
       </span>
-      {control}
-    </label>
-  );
+    );
+    return htmlFor ? (
+      <div><label htmlFor={htmlFor} className="block">{heading}</label>{control}</div>
+    ) : (
+      <label className="block">{heading}{control}</label>
+    );
+  };
   const set = (key: keyof ReceiptReviewFields) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setDraft((current) => (current ? { ...current, [key]: event.target.value } : current));
 
@@ -368,7 +377,19 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               {field(
                 "occurred_on",
                 t("business.review.date", "Date"),
-                <input type="date" className={inputClass} value={draft.occurred_on} onChange={set("occurred_on")} disabled={locked} />,
+                <div className="mt-1.5">
+                  <DatePicker
+                    id={dateId}
+                    label={t("business.review.date", "Date")}
+                    value={draft.occurred_on}
+                    disabled={locked}
+                    onChange={(iso, invalid) => {
+                      setDraft((current) => (current ? { ...current, occurred_on: iso ?? "" } : current));
+                      setDateInvalid(invalid);
+                    }}
+                  />
+                </div>,
+                dateId,
               )}
               {field(
                 "category_id",
@@ -448,7 +469,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               <button
                 type="button"
                 className={primaryButtonClass}
-                disabled={busy !== null || missing.length > 0 || amountInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
+                disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
                 onClick={() => void save()}
               >
                 {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
