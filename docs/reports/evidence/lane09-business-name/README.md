@@ -15,17 +15,9 @@ The direct October 16, 08:45 CT lock supplies all new Spanish copy. The coordina
 
 The evidence commit changes only this report and screenshots. Root must reconcile subsequent navigation and Personal work, run independent Eval, verify the recorded staging migration, and run terminal CI after marking the PR ready. Draft skips do not satisfy CI. No hosted change, user login, provider call, production action, or merge was performed by this worker.
 
-Before images used the reconciled integration `BusinessApp` mount with the naming wrapper absent. Other working-tree naming files were present but unreachable in that view. The mount was restored before after captures. After images use the frozen implementation. All browser requests outside localhost were blocked; fixtures represent saved synthetic server state. This proves the rendered owner flow, not hosted persistence or real login.
+Screenshots are not committed. `web/e2e/business-name-prompt.spec.ts` writes the first-visit, required, saved and Ajustes views at 1280px and 390px to its Playwright output directory. All browser requests outside localhost are blocked; fixtures represent saved synthetic server state. This proves the rendered owner flow, not hosted persistence or real login.
 
-| View | 1280px | 390px |
-| --- | --- | --- |
-| Before first visit | [Before](business-name-before-1280.png) | [Before](business-name-before-390.png) |
-| Optional first visit | [After](business-name-after-1280.png) | [After](business-name-after-390.png) |
-| Required invite step | [Required](business-name-required-1280.png) | [Required](business-name-required-390.png) |
-| Saved name | [Saved](business-name-saved-1280.png) | [Saved](business-name-saved-390.png) |
-| Editable Ajustes | [Settings](business-name-settings-1280.png) | [Settings](business-name-settings-390.png) |
-
-The existing adaptive sheet/dialog supplies modal semantics and focus. Browser checks verify initial field focus, the full visible action area, skip then reload without a repeat, one required action, Escape refusal while required, no invite before saving, and editing the saved name in Ajustes. The [current accessibility guidance](https://developer.apple.com/videos/play/wwdc2026/220/) informed the native field, accessible name and explicit action checks. No new visual system was introduced.
+The existing adaptive sheet/dialog supplies modal semantics and focus. Browser checks verify the consent screen before any naming claim, the prompt over Inicio after consent, the saved name in the Business rail, initial field focus, the full visible action area, skip then reload without a repeat, one required action, Escape refusal while required, no invite before saving, and editing the saved name in Ajustes. The [current accessibility guidance](https://developer.apple.com/videos/play/wwdc2026/220/) informed the native field, accessible name and explicit action checks. No new visual system was introduced.
 
 ## Verification
 
