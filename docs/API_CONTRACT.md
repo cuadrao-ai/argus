@@ -32,8 +32,9 @@ requirements from the [architecture action principles](ARCHITECTURE.md#cuadrao-a
 Specify each endpoint's payload and failure behavior in its own contract before
 implementation. The constitution sources introduce no routes or envelopes and
 do not change the behavior of existing endpoints. Month close
-(`GET /api/v1/business/month-close` and
-`PATCH /api/v1/business/month-close/documents/{activity_id}`) is specified in
+(`GET /api/v1/business/month-close`,
+`PATCH /api/v1/business/month-close/documents/{activity_id}`, and the open items
+read `GET /api/v1/business/open-items`) is specified in
 [the month-close contract](contracts/business-month-close.md).
 
 ## Forward Evolvable

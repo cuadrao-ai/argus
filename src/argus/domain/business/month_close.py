@@ -59,6 +59,7 @@ class MonthDocument:
     settled_on: date | None
     payment_method: str | None
     declared_base_minor: int | None = None
+    counterparty: str | None = None
 
 
 @dataclass(frozen=True)
@@ -243,14 +244,24 @@ def set_document_status(
 
 
 def _line(document: MonthDocument) -> dict:
+    currency = document.currency
+    before = before_itbis(document.total_minor, document.itbis_minor)
+    itbis = document.itbis_minor
     return {
         "activity_id": document.activity_id,
         "document_kind": document.role,
-        "currency": document.currency,
+        "currency": currency,
         "occurred_on": document.occurred_on.isoformat(),
         "total_minor": document.total_minor,
-        "before_itbis_minor": before_itbis(document.total_minor, document.itbis_minor),
-        "itbis_minor": document.itbis_minor,
+        "total": format_minor_units(document.total_minor, currency),
+        "before_itbis_minor": before,
+        "before_itbis": format_minor_units(before, currency),
+        "itbis_minor": itbis,
+        "itbis": None if itbis is None else format_minor_units(itbis, currency),
+        "counterparty": document.counterparty,
+        "rnc": document.rnc,
+        "ncf": document.ncf,
+        "ecf": document.ecf,
         "status": document.status,
     }
 
@@ -381,6 +392,53 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     }
 
 
+OPEN_ITEMS_CAP = 100
+
+
+def open_items(documents: Sequence[MonthDocument], cap: int = OPEN_ITEMS_CAP) -> dict:
+    """Every pending document the month close would list, from any month.
+
+    Oldest first. ``count`` and the per-currency totals cover every pending
+    document, including the ones past ``cap``.
+    """
+
+    pending = sorted(
+        (
+            document
+            for document in documents
+            if in_close(document) and document.status == "pendiente"
+        ),
+        key=lambda document: (document.occurred_on, document.activity_id),
+    )
+    return {
+        "cuentas_por_cobrar": _open_list(
+            [document for document in pending if document.role == "invoice"], cap
+        ),
+        "cuentas_por_pagar": _open_list(
+            [document for document in pending if document.role == "receipt"], cap
+        ),
+    }
+
+
+def _open_list(documents: Sequence[MonthDocument], cap: int) -> dict:
+    totals: dict[str, int] = {}
+    for document in documents:
+        currency = document.currency
+        totals[currency] = totals.get(currency, 0) + document.total_minor
+    return {
+        "count": len(documents),
+        "totals": [
+            {
+                "currency": currency,
+                "total_minor": minor,
+                "total": format_minor_units(minor, currency),
+            }
+            for currency, minor in sorted(totals.items())
+        ],
+        "items": [_line(document) for document in documents[:cap]],
+    }
+
+
 def itbis_or_none(text: str | None, currency: str) -> int | None:
     if text is None:
         return None
@@ -399,6 +457,7 @@ class FiscalParts:
     personal: bool
     include_606: bool | None
     declared_base_minor: int | None = None
+    counterparty: str | None = None
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -409,7 +468,7 @@ def _known(fact: object) -> object | None:
 
 
 def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
-    """RNC, fiscal number, ITBIS, and the personal mark from one draft.
+    """RNC, fiscal number, ITBIS, personal mark, and counterparty from one draft.
 
     An unreadable draft contributes no fiscal parts. The activity total is not
     read from the draft.
@@ -443,6 +502,7 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         is_personal(facts),
         fiscal_inclusion(facts),
         declared,
+        _text(_known(facts.counterparty)),
     )
 
 
@@ -508,6 +568,7 @@ def project_documents(
                 personal=parts.personal,
                 include_606=parts.include_606,
                 declared_base_minor=parts.declared_base_minor,
+                counterparty=parts.counterparty,
                 status=status,
                 settled_on=settled_on,
                 payment_method=method,

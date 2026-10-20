@@ -14,6 +14,10 @@ Read the month for the Business in scope. Scope is the caller's own Business, or
 
 Set that document's settlement. The caller needs the prepare capability. A repeat of the same status, date, and payment method changes nothing and appends no history row.
 
+`GET /api/v1/business/open-items`
+
+Read every invoice and receipt that is still `pendiente`, from any month. Scope and grants are the same as the month read. The caller needs the read capability, so the owner and an accountant can both call it.
+
 ## Authorization and errors
 
 A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live grant without the capability is `403` `business_permission_denied`. An activity that is not in this Business is `404` `business_record_not_found`. The body does not say whether the activity exists in another Business.
@@ -21,6 +25,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | HTTP | code | When |
 | --- | --- | --- |
 | 422 | `month_invalid` | `month` is not a real `YYYY-MM` |
+| 422 | `validation_error` | The month read got a query parameter other than one `month`, or the open items read got any query parameter |
 | 422 | `business_status_invalid` | Status is not allowed for that document |
 | 422 | `business_payment_method_invalid` | Method is outside the allowed set |
 | 422 | `business_settlement_incomplete` | A settled document lacks a date or method, or a pending document sends either |
@@ -29,7 +34,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | 403 | `business_permission_denied` | The grant cannot prepare, or cannot read |
 | 403 | `business_grant_not_live` | The grant header does not name a live grant |
 | 409 | `business_document_settlement_conflict` | Two first settlements of the same document collided again after one fresh retry |
-| 503 | `business_month_close_unavailable` | The authorized snapshot could not be read or written |
+| 503 | `business_month_close_unavailable` | The authorized snapshot could not be read or written. Open items use the same code. |
 
 The error body is the usual problem document. `code` is the field above.
 
@@ -99,7 +104,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
-A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `before_itbis_minor`, `itbis_minor` (null when the document does not state ITBIS), and `status`.
+A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, and `status`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. The same item shape is used in every list in this contract.
 
 An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
 
@@ -126,6 +131,51 @@ The RNC field holds one number. It does not record whether that number is an RNC
 Personal expenses stay out of the month unless the accountant has answered yes to including them. Sales marked personal stay out. Transfers and other activity kinds stay out.
 
 Pending documents are the receivables and payables. They do not flip `closed` to false. The month still closes when every document in it has an RNC and a fiscal number. Paying one later does not move its amount into another month.
+
+## Open items
+
+The month lists show only what was issued in that month. Inicio shows what is still owed, so a September invoice that is still `pendiente` stays in Por cobrar when the person views October.
+
+```json
+{
+  "cuentas_por_cobrar": {
+    "count": 1,
+    "totals": [{"currency": "DOP", "total_minor": 5900, "total": "59.00"}],
+    "items": [
+      {
+        "activity_id": "…",
+        "document_kind": "invoice",
+        "currency": "DOP",
+        "occurred_on": "2026-09-12",
+        "total_minor": 5900,
+        "total": "59.00",
+        "before_itbis_minor": 5000,
+        "before_itbis": "50.00",
+        "itbis_minor": 900,
+        "itbis": "9.00",
+        "counterparty": "Cliente de práctica",
+        "rnc": "131000001",
+        "ncf": "B0100000001",
+        "ecf": null,
+        "status": "pendiente"
+      }
+    ]
+  },
+  "cuentas_por_pagar": {"count": 0, "totals": [], "items": []}
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `cuentas_por_cobrar` | Every invoice still `pendiente`. The same documents the month read lists in its `cuentas_por_cobrar`, from every month together. |
+| `cuentas_por_pagar` | Every receipt still `pendiente`, chosen the same way. |
+| `count` | How many pending documents the list has, including the ones past the cap. |
+| `totals` | The sum of `total_minor` for every pending document in the list, one entry per currency. Currencies are never added together or converted. A currency with no pending document has no entry. |
+| `items` | The oldest 100 pending documents, by `occurred_on` and then `activity_id`. The item shape is the month-close list item. |
+
+Marking a document `cobrado` or `pagado` with the PATCH above removes it from this read. Setting it back to `pendiente` returns it. The month summary and the close checklist stay month-scoped.
+
+A document has no due date today, so the order uses the date the document was issued. A due date is an open question.
 
 ## PATCH
 
