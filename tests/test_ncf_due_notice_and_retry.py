@@ -67,7 +67,7 @@ class TestNcfDueNoticeAndRetry:
     @pytest.mark.parametrize(
         ("kind", "attention", "preparable", "extracts_again"),
         [
-            ("incomplete", "interrupted", True, True),
+            ("incomplete", "interrupted", True, False),
             ("unreadable", "unreadable", False, False),
             ("no_receipt", "not_a_receipt", False, False),
             ("ncf_bill", "interrupted", True, False),

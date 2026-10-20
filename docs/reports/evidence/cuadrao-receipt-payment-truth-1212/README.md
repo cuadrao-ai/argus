@@ -18,15 +18,16 @@ model row when the receipt total agreed. Business preparation could also recover
 that row after projection rejected it, then fill purchase facts from a QR.
 
 `ReceiptDetails` now carries `payment_status` and `estimated_tax`. Unknown payment
-is the default for a new read. The existing `tax` field is final tax only. The prompt
-keeps order dates separate from paid purchase dates and asks for no unsupported
-purchase row. The original source and raw read remain retained.
+is the default for a new read. The existing `tax` field is final tax only. The
+fields carry no descriptions and the prompt is unchanged. The original source and
+raw read remain retained.
 
-The extractor owns the `receipt_payment_unproven` decision. Business consumes that
-issue before raw-row recovery or QR filling. An unpaid attachment cannot clear an
-existing draft's read purchases or facts. A frozen legacy batch keeps its stored
-candidates; this change does not reinterpret or automatically reread it. Paid
-scripted provider responses in existing tests now state payment evidence explicitly.
+Payment status is evidence, not a gate (founder decision, October 19, 2026). An
+unpaid bill or order confirmation keeps its read amount on the draft, marked
+unverified, the same as any other read, and is never auto-approved. A frozen
+legacy batch keeps its stored candidates; this change does not reinterpret or
+automatically reread it. Paid scripted provider responses in existing tests state
+payment evidence explicitly.
 
 Only `prepare_attachment` and its import change in Business mutations. The root
 coordinator approved that bounded shared-method scope. Business Eval must recheck

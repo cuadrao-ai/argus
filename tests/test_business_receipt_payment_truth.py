@@ -1,5 +1,7 @@
 # ruff: noqa: F811
-"""Business consumes the shared payment decision before reading raw rows or QR."""
+"""An unpaid read prefills its amount unverified; payment status stays evidence."""
+
+from decimal import Decimal
 
 import pytest
 from argus.domain.ingestion.documents.models import DocumentDraft
@@ -11,13 +13,11 @@ from tests.test_business_multi_purchase import _prepared
 
 
 @pytest.mark.parametrize("with_qr", [False, True])
-def test_unproven_payment_cannot_be_rebuilt_as_business_purchase(
-    checked, monkeypatch, with_qr
-):  # noqa: F811
+def test_unpaid_read_prefills_an_unverified_amount(checked, monkeypatch, with_qr):  # noqa: F811
     from argus.domain.ingestion.documents.dgii_qr import parse_dgii_url
     from argus.domain.ingestion.documents.extractor import batch_from_result
 
-    _, _, _, row = checked
+    _, tx, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
     parsed = read_receipt(payment_status="unknown", estimated_tax="3.20")
     batch = batch_from_result(
@@ -28,12 +28,13 @@ def test_unproven_payment_cannot_be_rebuilt_as_business_purchase(
         1,
         dgii_qr=parse_dgii_url(URL) if with_qr else None,
     )
-    assert not batch.candidates
     _, resolution, _ = _prepared(checked, monkeypatch, batch)
-    for name in ("amount", "occurred_on", "kind"):
-        assert getattr(resolution.facts, name).state == "unknown"
-    assert resolution.read_purchases == ()
-    assert resolution.read_total is None
+    saved = tx.imports.put_event.call_args.args[0]
+    assert saved.state == "open"
+    assert resolution.facts.amount.state == "known"
+    assert resolution.facts.amount.verified is False
+    assert Decimal(resolution.facts.amount.value) == Decimal("43.20")
+    assert resolution.facts.kind.value == "expense"
     assert resolution.dgii_qr == batch.dgii_qr
     assert batch.receipt.estimated_tax == "3.20"
 
@@ -65,7 +66,7 @@ def test_legacy_saved_business_batch_keeps_its_frozen_candidates(checked, monkey
     assert not batch.issues
 
 
-def test_unpaid_attachment_keeps_existing_read_purchases_and_facts(checked, monkeypatch):  # noqa: F811
+def test_unpaid_reread_prefills_the_existing_draft_like_a_paid_one(checked, monkeypatch):  # noqa: F811
     from uuid import UUID
 
     from argus.domain.business.actions import mutations
@@ -87,27 +88,40 @@ def test_unpaid_attachment_keeps_existing_read_purchases_and_facts(checked, monk
     initial = batch_from_result(
         paid, draft.sha256, draft.connection_id, draft.created_at, 1
     )
-    _, prior, _ = _prepared(checked, monkeypatch, initial)
+    _prepared(checked, monkeypatch, initial)
     event = tx.imports.put_event.call_args.args[0]
     monkeypatch.setattr(mutations, "event_at", lambda *args: event)
-    pending = batch_from_result(
-        read_receipt(payment_status="pending", estimated_tax="3.20"),
-        draft.sha256,
-        draft.connection_id,
-        draft.created_at,
-        1,
-    )
-    mutations.prepare_attachment(
-        tx,
-        ExistingDraft(draft_id=UUID(event.id), version=event.version),
-        pending,
-        draft,
-        binding.actor,
-    )
-    saved = tx.imports.put_event.call_args.args[0]
-    after = BusinessResolution.model_validate(saved.resolution["business"])
-    assert len(prior.read_purchases) == 2
-    assert after.read_purchases == prior.read_purchases
-    assert after.read_total == prior.read_total
-    assert after.facts == prior.facts
+
+    def reread(payment_status: str) -> tuple:
+        batch = batch_from_result(
+            read_receipt(payment_status=payment_status, estimated_tax="3.20"),
+            draft.sha256,
+            draft.connection_id,
+            draft.created_at,
+            1,
+        )
+        mutations.prepare_attachment(
+            tx,
+            ExistingDraft(draft_id=UUID(event.id), version=event.version),
+            batch,
+            draft,
+            binding.actor,
+        )
+        saved = tx.imports.put_event.call_args.args[0]
+        return saved, BusinessResolution.model_validate(saved.resolution["business"])
+
+    saved, pending = reread("pending")
+    _, settled = reread("paid")
+    assert saved.state == "open"
     assert saved.version == event.version + 1
+    assert pending.facts.amount.verified is False
+    assert Decimal(pending.facts.amount.value) == Decimal("43.20")
+    assert pending.read_purchases == settled.read_purchases
+    assert pending.read_total == settled.read_total
+    for name in ("amount", "currency", "kind"):
+        unpaid, paid_fact = getattr(pending.facts, name), getattr(settled.facts, name)
+        assert (unpaid.state, unpaid.value, unpaid.verified) == (
+            paid_fact.state,
+            paid_fact.value,
+            paid_fact.verified,
+        )

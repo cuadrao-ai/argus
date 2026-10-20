@@ -3693,10 +3693,9 @@ source of durability.
 
 Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
 Approval state remains in reconciliation events. The immutable batch retains receipt
-`payment_status` and separate final `tax` and `estimated_tax` values. A new read
-without source-supported payment records `receipt_payment_unproven`; its raw
-rows and source remain evidence, without purchase candidate projection or
-Business purchase-fact reconstruction. Older saved batches keep their stored
+`payment_status` and separate final `tax` and `estimated_tax` values. Payment
+status is evidence only: an unpaid read still projects its purchase, and the
+Business draft keeps the amount unverified. Older saved batches keep their stored
 candidates and are not backfilled or automatically prepared again. Valid observations can project
 independently while incompatible observations stay on the draft with issues.
 Opening/running scopes and unknown scopes remain reviewable preparation evidence

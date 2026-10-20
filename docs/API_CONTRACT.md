@@ -8769,12 +8769,11 @@ dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
 
 Preparation preserves extracted observations and receipt itemization separately
 from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
-with missing evidence treated as unknown on a new read. Only a source-supported
-paid receipt projects a purchase. An order date is not a paid purchase date.
+with missing evidence treated as unknown on a new read. Payment evidence does not
+gate projection: an unpaid bill or order confirmation keeps its read amount, which
+Business preparation leaves unverified for a person to approve.
 `receipt.tax` holds final tax only; `receipt.estimated_tax` retains a printed
-estimate without promoting it to final tax or ITBIS. An unsupported purchase
-stays in the immutable batch with `receipt_payment_unproven`, and cannot be
-rebuilt from raw rows or QR values during Business preparation. Existing saved
+estimate without promoting it to final tax or ITBIS. Existing saved
 batches are not reinterpreted or reread automatically. Compatible observations enter existing
 reconciliation; incompatible observations remain on the draft with review issues.
 Opening, closing, available and running balances remain distinguishable; unknown

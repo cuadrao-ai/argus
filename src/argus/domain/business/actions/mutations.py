@@ -39,7 +39,6 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import (
-    RECEIPT_PAYMENT_UNPROVEN,
     DocumentDraft,
     ExtractionBatch,
     ReceiptDetails,
@@ -379,19 +378,13 @@ def prepare_attachment(
         candidate.source.connection_id != draft.connection_id for candidate in candidates
     ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
-    payment_unproven = any(
-        issue.code == RECEIPT_PAYMENT_UNPROVEN for issue in batch.issues
-    )
     bill = ncf_bill(batch)
     purchases = candidates or _observed_purchases(batch)
     booked_from_bill = False
     if not purchases and bill and batch.receipt is not None:
         purchases = [_bill_purchase(batch.receipt)]
         booked_from_bill = True
-    withhold = payment_unproven and not bill
-    if withhold:
-        purchases = []
-    priced = () if purchases or withhold else priced_amounts(batch)
+    priced = () if purchases else priced_amounts(batch)
     chosen = review_amount(batch) if priced else None
     if chosen is not None:
         purchases = [_review_purchase(item) for item in priced]
@@ -404,11 +397,8 @@ def prepare_attachment(
     ambiguous = len(purchases) != 1 or any(
         issue.code == "receipt_purchase_ambiguous" for issue in batch.issues
     )
-    read_purchases: tuple[ReadPurchase, ...] | None = ()
-    if withhold:
-        read_purchases = None
-    elif ambiguous:
-        read_purchases = tuple(
+    read_purchases = (
+        tuple(
             ReadPurchase(
                 index=index,
                 amount=candidate.amount,
@@ -419,11 +409,10 @@ def prepare_attachment(
             )
             for index, candidate in enumerate(purchases, 1)
         )
-    read_total = (
-        batch.receipt.total
-        if ambiguous and not withhold and batch.receipt is not None
-        else None
+        if ambiguous
+        else ()
     )
+    read_total = batch.receipt.total if ambiguous and batch.receipt is not None else None
     candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
@@ -474,10 +463,7 @@ def prepare_attachment(
     ).model_dump(mode="json")
     # The typed merge after decode and read: the QR fills only what the read
     # left unknown, each filled fact naming its origin; a mismatch fills nothing.
-    if not withhold:
-        facts = fill_from_qr(
-            facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1
-        )
+    facts = fill_from_qr(facts, batch.dgii_qr, source_id, fill_amount=len(purchases) <= 1)
     facts = BusinessFacts.model_validate(facts).model_dump(mode="json")
     if before is not None:
         merged = before.model_dump(mode="json")

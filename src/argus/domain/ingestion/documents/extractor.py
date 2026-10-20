@@ -31,7 +31,6 @@ from argus.domain.ingestion.documents.dgii_qr import with_qr
 from argus.domain.ingestion.documents.ecf_checks import EcfDocument, safe_ecf_checks
 from argus.domain.ingestion.documents.models import (
     RECEIPT_CURRENCY_CONFLICT,
-    RECEIPT_PAYMENT_UNPROVEN,
     RECEIPT_PURCHASE_AMBIGUOUS,
     DocumentExtractionError,
     ExtractedObservation,
@@ -360,11 +359,6 @@ def batch_from_result(
         issues.append(ProjectionIssue(code="incomplete_extraction"))
     if not result.observations:
         issues.append(ProjectionIssue(code="no_financial_observations"))
-    payment_unproven = (
-        result.receipt is not None and result.receipt.payment_status != "paid"
-    )
-    if payment_unproven:
-        issues.append(ProjectionIssue(code=RECEIPT_PAYMENT_UNPROVEN))
     receipt_rows = [row for row in result.observations if row.evidence == "transaction"]
     receipt_ambiguous = result.receipt is not None and len(receipt_rows) > 1
     if (
@@ -431,9 +425,7 @@ def batch_from_result(
                 )
             )
             continue
-        if not result.readable or (
-            (receipt_ambiguous or payment_unproven) and row.evidence == "transaction"
-        ):
+        if not result.readable or (receipt_ambiguous and row.evidence == "transaction"):
             continue
         if row.evidence == "balance" and row.balance_scope not in get_args(BalanceScope):
             issues.append(

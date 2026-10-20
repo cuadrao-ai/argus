@@ -108,7 +108,6 @@ class ReceiptDetails(_Frozen):
 RECEIPT_PURCHASE_AMBIGUOUS: Final = "receipt_purchase_ambiguous"
 # The read's receipt currency differs from the one the source names for itself.
 RECEIPT_CURRENCY_CONFLICT: Final = "receipt_currency_conflict"
-RECEIPT_PAYMENT_UNPROVEN: Final = "receipt_payment_unproven"
 
 
 class ProjectionIssue(_Frozen):

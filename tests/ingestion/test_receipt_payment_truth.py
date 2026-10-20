@@ -1,6 +1,7 @@
 """Orders and estimated charges remain source evidence, not paid purchases."""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 
 import pytest
 from argus.domain.ingestion.documents.extractor import batch_from_result
@@ -43,21 +44,24 @@ def project(parsed: ExtractionResult) -> ExtractionBatch:
 
 
 @pytest.mark.parametrize("payment_status", ["unknown", "pending"])
-def test_unpaid_read_cannot_project_a_contradictory_posted_purchase(payment_status):
+def test_unpaid_read_keeps_its_purchase_and_payment_evidence(payment_status):
     parsed = read_receipt(payment_status=payment_status, estimated_tax="3.20")
     batch = project(parsed)
-    assert batch.candidates == ()
-    assert [issue.code for issue in batch.issues] == ["receipt_payment_unproven"]
+    assert len(batch.candidates) == 1
+    assert Decimal(batch.candidates[0].amount) == Decimal("43.20")
+    assert not batch.issues
     assert batch.observations == parsed.observations
     assert batch.receipt == parsed.receipt
+    assert batch.receipt.payment_status == payment_status
     assert batch.receipt.estimated_tax == "3.20"
     assert batch.receipt.tax is None
 
 
 def test_missing_payment_evidence_is_unknown_for_a_fresh_read():
     batch = project(read_receipt())
-    assert batch.candidates == ()
-    assert [issue.code for issue in batch.issues] == ["receipt_payment_unproven"]
+    assert batch.receipt.payment_status == "unknown"
+    assert len(batch.candidates) == 1
+    assert not batch.issues
 
 
 def test_paid_receipt_still_projects_one_purchase_and_final_tax():
