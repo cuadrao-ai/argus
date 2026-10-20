@@ -223,6 +223,10 @@ class ApprovalCommand(Contract):
 class CaptureNote(Contract):
     text: str = Field(min_length=1, max_length=20000)
     draft: ExistingDraft | None = None
+    #: The type of the new draft this note starts; a review changes it later.
+    document_type: DocumentType | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @field_validator("draft", mode="before")
     @classmethod
@@ -239,6 +243,8 @@ class CaptureNote(Contract):
             raise ValueError("capture text must not be blank")
         if "\x00" in self.text:
             raise ValueError("capture text must not contain NUL")
+        if self.draft is not None and self.document_type is not None:
+            raise ValueError("a document type names a new capture only")
         return self
 
 

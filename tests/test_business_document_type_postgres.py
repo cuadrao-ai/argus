@@ -33,7 +33,6 @@ from tests.test_business_scope_switch_routes_postgres import (
     API,
     ENV,
     GRANT,
-    _note,
     _person,
 )
 
@@ -412,16 +411,74 @@ def test_the_owner_retypes_open_drafts_and_the_606_and_607_follow_the_type(
     assert dgii["forms"]["607"]["record_count"] == 1
 
 
-def test_a_draft_without_an_upload_has_no_document_type_to_change(web) -> None:  # noqa: ANN001
-    note = _note(web, web.alice, "Vendí 850 a PRÁCTICA cliente")
-    assert note.status_code == 200, note.text
-    draft = note.json()["draft_id"]
-    assert _dossier(web, draft)["document_type_editable"] is False
-    refused = _review(web, draft, {"document_type": "venta"})
-    assert refused.status_code == 422, refused.text
-    assert refused.json()["code"] == "document_type_unsupported"
-    unchanged = _review(web, draft, {"document_type": "recibo"})
-    assert unchanged.status_code == 200, unchanged.text
+def _capture(world, body: dict):  # noqa: ANN001, ANN202
+    return world.client.post(
+        f"{API}/business/captures", json=body, headers=_headers(world)
+    )
+
+
+@pytest.mark.parametrize(
+    "named,expected,kind",
+    [
+        (None, ("recibo", True, True), None),
+        ("recibo", ("recibo", False, True), None),
+        ("venta", ("venta", False, True), "income"),
+    ],
+)
+def test_a_typed_capture_takes_the_same_type_rules(web, named, expected, kind) -> None:  # noqa: ANN001
+    body = {"text": "Vendí 2,360 a PRÁCTICA cliente"}
+    if named is not None:
+        body["document_type"] = named
+    captured = _capture(web, body)
+    assert captured.status_code == 200, captured.text
+    assert _typed(captured.json()) == expected
+    assert captured.json()["facts"]["kind"]["value"] == kind
+
+
+def test_a_capture_is_retyped_while_open_and_lands_in_the_607(web) -> None:  # noqa: ANN001
+    _own_rnc(web)
+    account = _account(web)
+    captured = _capture(web, {"text": "Vendí 2,360 a PRÁCTICA cliente"})
+    assert captured.status_code == 200, captured.text
+    draft = captured.json()["draft_id"]
+    retyped = _review(web, draft, {"document_type": "venta"})
+    assert retyped.status_code == 200, retyped.text
+    view = retyped.json()
+    assert _typed(view) == ("venta", False, True)
+    assert view["facts"]["kind"]["value"] == "income"
+    assert view["history"][-1]["version"] == captured.json()["version"] + 1
+    reviewed = _review(
+        web,
+        draft,
+        {
+            "facts": _facts("income", "2360.00", "2026-09-16", account),
+            "dgii": SALE_607,
+        },
+    )
+    assert reviewed.status_code == 200, reviewed.text
+    _approve(web, draft, "record_income")
+    locked = _review(web, draft, {"document_type": "recibo"})
+    assert (locked.status_code, locked.json()["code"]) == (422, "document_type_locked")
+    added = _capture(
+        web,
+        {
+            "text": "Otra nota",
+            "draft": {"draft_id": draft, "version": 1},
+            "document_type": "recibo",
+        },
+    )
+    assert added.status_code == 422, added.text
+    exported = web.client.get(
+        f"{API}/business/exports",
+        params={"start": "2026-09-01", "end": "2026-09-30"},
+        headers=web.alice.headers,
+    )
+    assert exported.status_code == 200, exported.text
+    with ZipFile(io.BytesIO(exported.content)) as archive:
+        dgii = json.loads(archive.read("manifest.json"))["dgii"]
+    placed = {item["draft_id"]: item["disposition"] for item in dgii["reconciliation"]}
+    assert placed == {draft: "607"}
+    assert dgii["forms"]["606"]["record_count"] == 0
 
 
 def test_a_read_only_grant_sees_the_type_and_cannot_change_it(web) -> None:  # noqa: ANN001

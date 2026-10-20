@@ -223,7 +223,6 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         revisions,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
-    from_upload = any(source.kind == "attachment" for source in evidence)
     return BusinessDossier(
         **context.model_dump(),
         draft_id=draft_id,
@@ -246,7 +245,6 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         document_type=resolution.document_type,
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open"
-        and from_upload
         and "prepare" in tx.authorization.capabilities,
         **draft_marks(tx, draft_id, facts),
     )

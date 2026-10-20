@@ -167,8 +167,8 @@ class BusinessDossier(RecordContext):
     include_606: bool | None = None
     include_606_by: str | None = None
     #: The document type: a receipt (recibo) or an invoice the business issued
-    #: (venta). Detected when the read set it. Editable while the draft is open,
-    #: came from an upload, and the caller may prepare.
+    #: (venta). Detected when no person named it. Editable while the draft is
+    #: open and the caller may prepare.
     document_type: DocumentType = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False

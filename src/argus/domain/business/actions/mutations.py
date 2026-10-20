@@ -185,9 +185,7 @@ def revise(
         before = None
     else:
         event = (
-            _open_for_type(tx, ref, document_type)
-            if document_type is not None
-            else event_at(tx, ref)
+            _open_for_type(tx, ref) if document_type is not None else event_at(tx, ref)
         )
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
@@ -269,11 +267,8 @@ def revise(
     )
 
 
-def _open_for_type(
-    tx: ActionTransaction, ref: ExistingDraft, document_type: DocumentType
-) -> ImportEvent:
-    """The draft whose document type a person sets: open, and from an upload
-    when the type changes."""
+def _open_for_type(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:
+    """The draft whose document type a person sets: still open."""
 
     try:
         event = event_at(tx, ref)
@@ -281,14 +276,6 @@ def _open_for_type(
         if error.code == "recorded_correction_unsupported":
             raise ActionError("invalid_input", "document_type_locked") from None
         raise
-    current = (event.resolution.get("business") or {}).get("document_type", "recibo")
-    if document_type != current and not tx.rows(
-        "select 1 from public.business_draft_sources l join public.business_sources s"
-        " on s.id=l.source_id and s.space_id=l.space_id"
-        " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' limit 1",
-        (tx.context.actor.space_id, event.id),
-    ):
-        raise ActionError("invalid_input", "document_type_unsupported")
     return event
 
 
