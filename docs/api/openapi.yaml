@@ -14561,6 +14561,18 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -15016,6 +15028,13 @@ components:
         draft:
           anyOf:
           - $ref: '#/components/schemas/ExistingDraft'
+          - type: 'null'
+        document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
           - type: 'null'
       additionalProperties: false
       type: object
@@ -24501,6 +24520,12 @@ components:
           - recibo
           - venta
           default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -25143,6 +25168,12 @@ components:
           - recibo
           - venta
           default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -25612,6 +25643,13 @@ components:
         dgii:
           anyOf:
           - $ref: '#/components/schemas/FiscalReview'
+          - type: 'null'
+        document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
           - type: 'null'
       additionalProperties: false
       type: object

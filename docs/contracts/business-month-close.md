@@ -110,13 +110,13 @@ An invoice is a recorded income activity. A receipt is a recorded expense activi
 
 ## Venta
 
-A Venta is an invoice the business has already issued. In the Bandeja the person uploads or captures it the same way as a receipt and names the document type at that moment. The type is `venta`. A purchase stays `recibo`. The same bytes keep the type from the first save. A later upload of those bytes that names the other type is `409` `document_type_conflict`. An absent type header means `recibo`. Any other value is `422` `document_type_invalid`.
+A Venta is an invoice the business has already issued. In the Bandeja the person uploads or captures it the same way as a receipt and may name the document type at that moment. The type is `venta`. A purchase is `recibo`. The same bytes keep a named type from the first save. A later upload of those bytes that names the other type is `409` `document_type_conflict`; over an upload that named no type it returns the stored document. Any other value is `422` `document_type_invalid`. When the upload names no type, the read sets it: a document whose issuer RNC is the Business's own tax id from the fiscal profile is a `venta`, anything else a `recibo`, and the draft says the read chose it. A typed note (`POST /business/captures`) may name the type the same way; an unnamed note is a detected `recibo`. While the draft is open the owner or a preparer may change the type in review. Once approved it cannot change.
 
 The read is the same read a receipt gets. The reader prompt stays as it is. The capture type gives the printed fields their meaning on a Venta:
 
 | Printed field | Meaning on a Venta |
 | --- | --- |
-| RNC | The client's RNC or cédula |
+| RNC | The client's RNC or cédula. The Business's own number on the invoice is the issuer, so a Venta read that way leaves the RNC unknown. |
 | NCF or e-CF | The fiscal number the business already issued |
 | ITBIS | ITBIS charged |
 

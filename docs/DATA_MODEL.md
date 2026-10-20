@@ -3511,6 +3511,13 @@ default value is unverified DOP currency. Fiscal facts are evidence, not model
 tax decisions. Income is a distinct draft kind; expense acceptance does not
 establish delivery of all seven Business journeys.
 
+The resolution's `document_type` (`recibo` or `venta`) is the draft's current
+document type, and `document_type_detected` is true while the read's choice
+stands. The upload's own choice lives on `financial_document_extractions.draft`
+as `document_type`, null when the upload named none. A person's change is a
+normal revision on an open draft; the type is not stored on the revision row,
+whose web source holds the request that named it. No migration.
+
 | Table | Durable owner and invariants |
 | --- | --- |
 | `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`. Keep 10 years. No delete API. |
