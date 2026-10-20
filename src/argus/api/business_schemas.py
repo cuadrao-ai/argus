@@ -32,6 +32,23 @@ class BusinessSpaceInfo(_Wire):
     name: str
 
 
+class BusinessNamingState(BusinessSpaceInfo):
+    name_required: bool
+    name_prompt_seen: bool
+
+
+class BusinessNamePrompt(BusinessNamingState):
+    show_prompt: bool
+
+
+class BusinessNameTarget(_Wire):
+    space_id: UUID
+
+
+class SaveBusinessName(BusinessNameTarget):
+    name: SpaceName
+
+
 class GrantedSpaceInfo(_Wire):
     """One Business the caller may enter through one live grant of theirs."""
 

@@ -56,7 +56,9 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 for label in ("alice", "bob")
             }
             started = client.post(
-                f"{API}/business/space", json={}, headers=people["alice"].headers
+                f"{API}/business/space",
+                json={"name": "Ferretería Prueba"},
+                headers=people["alice"].headers,
             )
             assert started.status_code == 201, started.text
             people["alice"].space_id = started.json()["id"]

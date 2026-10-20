@@ -103,7 +103,9 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             }
             for person in (people["alice"], people["bob"], people["carol"]):
                 started = client.post(
-                    f"{API}/business/space", json={}, headers=person.headers
+                    f"{API}/business/space",
+                    json={"name": f"Negocio de {person.email}"},
+                    headers=person.headers,
                 )
                 assert started.status_code == 201, started.text
                 person.space_id = started.json()["id"]

@@ -6,6 +6,7 @@ import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
+import BusinessNamingProvider from "./BusinessNamingProvider";
 import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
 import BusinessConsentGate from "./BusinessConsentGate";
 import { BusinessConsentTestProvider } from "./business-consent-context";
@@ -51,9 +52,11 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;
   const workspace = (
     <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
+      <BusinessNamingProvider>
       <ConversationShellGuard />
       <ConversationUnavailableNotice />
       <ChatInterface />
+      </BusinessNamingProvider>
     </BusinessWorkspaceProvider>
   );
   if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;

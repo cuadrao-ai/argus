@@ -51,12 +51,16 @@ from argus.api.business_drafts import (
     updates_with_drafts,
     upload_recorder,
 )
+from argus.api.business_naming import require_business_name
 from argus.api.business_schemas import (
     AcceptBusinessConsent,
     BusinessAccess,
     BusinessAccount,
     BusinessConsent,
     BusinessExpense,
+    BusinessNamePrompt,
+    BusinessNameTarget,
+    BusinessNamingState,
     BusinessOverview,
     BusinessSearch,
     BusinessSpaceInfo,
@@ -78,12 +82,14 @@ from argus.api.business_schemas import (
     ReceiptReviewBody,
     ReceiptSummary,
     RenameBusinessSpace,
+    SaveBusinessName,
     StartBusinessSpace,
     UpdatePage,
 )
 from argus.api.business_spaces import (
     accept_business_invites,
     business_access,
+    business_spaces,
     space_missing_problem,
 )
 from argus.api.dependencies import problem
@@ -242,6 +248,55 @@ def get_space(
     if space is None:
         raise space_missing_problem(request)
     return _space(space)
+
+
+def _naming(space: Space) -> dict[str, Any]:
+    return {
+        **_space(space),
+        "name_required": space.name_required,
+        "name_prompt_seen": space.name_prompt_seen,
+    }
+
+
+@router.get("/space/name", response_model=BusinessNamingState)
+def get_business_name(
+    request: Request, person: Annotated[BusinessPerson, Depends(require_business_person)]
+) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
+    space = person.spaces.open_space(person.person_id)
+    if space is None:
+        raise space_missing_problem(request)
+    return _naming(space)
+
+
+@router.post("/space/name-prompt", response_model=BusinessNamePrompt)
+def claim_business_name_prompt(
+    request: Request,
+    body: BusinessNameTarget,
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
+    space = person.spaces.open_space(person.person_id)
+    if space is None or space.id != str(body.space_id):
+        raise space_missing_problem(request)
+    show = person.spaces.claim_naming_visit(person.person_id, str(body.space_id))
+    current = person.spaces.open_space(person.person_id)
+    if current is None or current.id != str(body.space_id):
+        raise space_missing_problem(request)
+    return {**_naming(current), "show_prompt": show and current.name_required}
+
+
+@router.patch("/space/name", response_model=BusinessNamingState)
+def save_business_name(
+    request: Request,
+    body: SaveBusinessName,
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
+    space = person.spaces.rename(person.person_id, body.name, str(body.space_id))
+    if space is None:
+        raise space_missing_problem(request)
+    return _naming(space)
 
 
 @router.get("/spaces", response_model=BusinessSpaces)
@@ -413,6 +468,10 @@ def give_access(
     response.headers.update(NO_STORE)
     store = _access_store(request)
     space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
+    spaces = business_spaces()
+    if spaces is None:
+        raise space_missing_problem(request)
+    require_business_name(request, spaces, space_id)
     store.ensure_owner_grant(space_id, owner_id)
     try:
         created, found = store.give(space_id, owner_id, body.email)

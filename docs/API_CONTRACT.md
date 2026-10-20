@@ -9451,6 +9451,18 @@ person starts their space, every route below except POST `/space` answers 404
   idempotency and selected-client behavior remain unchanged.
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
+- Business naming is owner-only and uses the currently open Business.
+  GET `/api/v1/business/space/name` returns `{id, name, name_required,
+  name_prompt_seen}`. `name_required` means the persisted name is a default.
+  POST `/api/v1/business/space/name-prompt` takes `{space_id}` and returns the
+  same state plus `show_prompt`. Its atomic server claim allows one first-visit
+  prompt per Business. A different or closed Business returns 404.
+  PATCH `/api/v1/business/space/name` takes `{space_id, name}` and returns that
+  naming state after an owner-scoped write. Names use the existing 1–80 limit.
+  Owners must save a nondefault name before inviting an accountant or exporting.
+  Both routes return 409 `business_name_required` while the name is default.
+  Accountant exports retain their existing permission checks and never prompt.
+  Dismissing the optional prompt does not affect the required action check.
 - GET `/api/v1/business/consent?version=<16 hex>` answers `{version,
   accepted_at}`: when the caller accepted that wording of the Business consent
   screen, or null. It needs no space, and a chosen grant does not change the

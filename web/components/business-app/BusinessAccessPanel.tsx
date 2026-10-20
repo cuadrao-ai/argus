@@ -1,5 +1,7 @@
 "use client";
 
+import { useBusinessNaming } from "./BusinessNamingProvider";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -93,6 +95,7 @@ export function AccessList({
 export default function BusinessAccessPanel() {
   const { t } = useTranslation();
   const { source, revision } = useBusiness();
+  const naming = useBusinessNaming();
   const [access, setAccess] = useState<BusinessAccess | null>(null);
   const [failed, setFailed] = useState(false);
   const [email, setEmail] = useState("");
@@ -123,6 +126,7 @@ export default function BusinessAccessPanel() {
     setGiving(true);
     setGiveError(null);
     try {
+      if (naming && !await naming.requireName()) return;
       const next = await source.giveAccess(address);
       setAccess(next);
       if (next.invite_delivery && next.invite_delivery !== "accepted") {

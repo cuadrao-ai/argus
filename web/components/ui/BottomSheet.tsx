@@ -77,6 +77,7 @@ type BottomSheetProps = {
   title: string;
   /** Accessible name for the close control. */
   closeLabel: string;
+  dismissible?: boolean;
   height?: BottomSheetHeight;
   titleHidden?: boolean;
   description?: string;
@@ -92,6 +93,7 @@ export function BottomSheetSurface({
   onClose,
   title,
   closeLabel,
+  dismissible = true,
   height = "tall",
   titleHidden = false,
   description,
@@ -112,9 +114,10 @@ export function BottomSheetSurface({
     overlayId,
     containerRef: panelRef,
     onDismiss: onClose,
+    canDismiss: () => dismissible,
     // Escape is routed by the registry, which only calls the topmost layer, so
     // the sheet no longer has to work out whether the press was meant for it.
-    onEscape: onClose,
+    onEscape: dismissible ? onClose : () => {},
     initialFocusRef: initialFocusRef ?? closeButtonRef,
   });
 
@@ -126,6 +129,7 @@ export function BottomSheetSurface({
 
 
   const handleDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dismissible) return;
     // Controls in the header keep their own clicks; capturing here would eat them.
     if (
       event.target instanceof Element &&
@@ -184,7 +188,7 @@ export function BottomSheetSurface({
     <div className="fixed inset-0 z-[120] flex items-end justify-center">
       <div
         aria-hidden="true"
-        onClick={onClose}
+        onClick={dismissible ? onClose : undefined}
         className="argus-sheet-scrim absolute inset-0 bg-black/25 backdrop-blur-sm dark:bg-black/60"
       />
       <div
@@ -227,7 +231,7 @@ export function BottomSheetSurface({
                 </p>
               )}
             </div>
-            <button
+            {dismissible ? <button
               ref={closeButtonRef}
               type="button"
               onClick={onClose}
@@ -235,7 +239,7 @@ export function BottomSheetSurface({
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/60 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/60 dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
             >
               <X className="h-5 w-5" aria-hidden="true" />
-            </button>
+            </button> : null}
           </div>
         </div>
         <div

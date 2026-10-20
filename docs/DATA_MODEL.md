@@ -3432,6 +3432,17 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business name prompt
+
+`spaces.business_name_prompt_seen_at` stores the first owner visit that claimed
+its optional naming prompt. Migration `20261016142927_business_name_prompt.sql`
+adds the nullable timestamp without changing existing names, grants or RLS.
+The conditional update requires the authenticated owner, the currently open
+Business, its expected ID, a default name and a null timestamp. Concurrent
+claims produce one winner. Renaming preserves the timestamp. Client roles have
+no direct write grant on this state. Required naming for owner invites and
+exports derives from the current name, independently of this timestamp.
+
 ### Business receipt reading consent and attention
 
 `20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
