@@ -148,13 +148,14 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     const primaries = resumen.querySelectorAll('[data-primary="true"]');
     assert.equal(primaries.length, 1);
     assert.equal(primaries[0]?.getAttribute("data-testid"), "business-primary-upload");
-    assert.equal(primaries[0]?.textContent, "Subir recibo");
+    assert.equal(primaries[0]?.textContent, "Agregar");
     assert.match(primaries[0]?.className ?? "", /min-h-11/);
     const actions = resumen.querySelector('[data-testid="inicio-actions"]');
     const cards = resumen.querySelector('[data-testid="month-close-cards"]');
     assert.ok(actions && cards && (actions.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the action row comes before the month figures");
     assert.ok(actions.contains(primaries[0]!));
-    for (const id of ["inicio-record-expense", "inicio-export"]) assert.ok(actions.querySelector(`[data-testid="${id}"]`), id);
+    assert.ok(actions.querySelector('[data-testid="inicio-export"]'), "inicio-export");
+    assert.equal(actions.querySelector('[data-testid="inicio-record-expense"]'), null, "one door: no separate Registrar gasto");
     await owner.settle(() => resumen.querySelector('[data-testid="inicio-forward-copy"]') !== null);
     const copy = resumen.querySelector('[data-testid="inicio-forward-copy"]') as HTMLButtonElement | null;
     assert.ok(copy && actions.contains(copy), "the forwarding address copies from the action row");

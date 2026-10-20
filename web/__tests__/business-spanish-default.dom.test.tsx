@@ -42,7 +42,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     assert.equal(layout.includes('lang="en"'), false);
   });
 
-  test("overview, upload, record expense, and receipt review render Spanish", async () => {
+  test("overview, the Agregar sheet, and receipt review render Spanish", async () => {
     const { accountLanguageToApply, commitShellLanguage, documentLanguage } = await import("@/lib/language-features");
     const calls: string[] = [];
     await commitShellLanguage(
@@ -69,7 +69,6 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
     const { setChosenGrant } = await import("@/lib/business-grant");
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
-    const RecordExpenseDialog = (await import("@/components/business-app/RecordExpenseDialog")).default;
     const ReceiptIntakeDialog = (await import("@/components/business-app/ReceiptIntakeDialog")).default;
     const ReceiptReviewPanel = (await import("@/components/business-app/ReceiptReviewPanel")).default;
     const { ReceiptUploadQueue } = await import("@/components/business-app/receipt-upload-queue");
@@ -106,7 +105,6 @@ describe("Business stays in Spanish for an en-US browser", () => {
             <BusinessWorkspaceProvider source={source as never}>
               <BusinessMark />
               <BusinessOverviewPanel />
-              <RecordExpenseDialog isOpen onClose={() => undefined} onRecorded={() => undefined} />
               <ReceiptIntakeDialog target="inbox" queue={queue} onClose={() => undefined} onReview={() => undefined} />
               <ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} />
             </BusinessWorkspaceProvider>
@@ -115,7 +113,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
       );
     });
     const text = () => document.body.textContent ?? "";
-    const ready = () => ["en la Bandeja", "Ingresos", "Subir recibos", "Registrar gasto", "Pagado desde"].every((item) => text().includes(item));
+    const ready = () => ["en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Comercio"].every((item) => text().includes(item));
     for (let i = 0; i < 80 && !ready(); i += 1) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     }
@@ -125,17 +123,16 @@ describe("Business stays in Spanish for an en-US browser", () => {
       "Hola",
       "en la Bandeja",
       "Ingresos",
-      "Subir recibos",
-      "Registrar gasto",
+      "Agregar",
+      "Escríbelo",
+      "Se guardan como",
+      "Compra",
       "Comercio",
       "Fecha",
-      "Categoría",
-      "Moneda",
-      "Pagado desde",
     ]) {
       assert.ok(visible.includes(spanishText), spanishText);
     }
-    for (const englishText of ["Upload receipts", "My business", "Record expense", "Open inbox", "Actual expenses", "Merchant", "Paid from", "Welcome", "to review"]) {
+    for (const englishText of ["Upload receipts", "My business", "Record expense", "Open inbox", "Actual expenses", "Merchant", "Write it", "Saved as", "Welcome", "to review"]) {
       assert.equal(visible.includes(englishText), false, englishText);
     }
     assert.equal(document.documentElement.lang, "es");

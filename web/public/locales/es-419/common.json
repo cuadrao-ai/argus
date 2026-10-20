@@ -2512,13 +2512,13 @@
       }
     },
     "actions": {
+      "add": "Agregar",
       "ask_spending": "¿Cuánto gasté este mes?",
       "attach_receipt": "Agregar un recibo",
       "record_expense": "Registrar gasto",
       "review_receipts": "Revisar recibos",
       "review_inbox_one": "Revisar {{count}} recibo",
-      "review_inbox_other": "Revisar {{count}} recibos",
-      "upload_receipt": "Subir recibo"
+      "review_inbox_other": "Revisar {{count}} recibos"
     },
     "category": {
       "none": "Sin categoría",
@@ -2686,6 +2686,19 @@
       "type_venta": "Venta",
       "type_venta_help": "Una factura que el negocio emitió.",
       "queue_title": "Subir recibos",
+      "add_title": "Agregar",
+      "no_paper": "¿No tienes el papel?",
+      "write": "Escríbelo",
+      "write_title": "Escríbelo",
+      "write_placeholder": "Ej.: Pagué RD$500 de gasolina hoy en la Isla, en efectivo.",
+      "write_help": "Qué compraste o vendiste, cuánto, cuándo y cómo pagaste. Lo revisas en la Bandeja antes de aprobar.",
+      "write_back": "Subir archivos",
+      "write_save": "Guardar",
+      "write_empty": "Escribe qué pasó antes de guardar.",
+      "typed_kind": "Escrito",
+      "typed_saving": "Guardando…",
+      "typed_saved": "Guardado en la Bandeja",
+      "typed_uncertain": "No pudimos confirmar si se guardó. Reintenta; no se guardará dos veces.",
       "saved_as": "Se guardan como",
       "paste_hint": "o pega con {{keys}}",
       "camera_way": "Toma una foto",
@@ -2872,23 +2885,6 @@
     },
     "receipt": {
       "untitled": "Recibo"
-    },
-    "record": {
-      "account_failed": "No pudimos crear la cuenta. Revisa el nombre e inténtalo de nuevo.",
-      "account_name": "Nombre",
-      "account_name_suggestion": "Cuenta {{currency}}",
-      "account_type": "Tipo de cuenta",
-      "account_types": {
-        "cash": "Efectivo",
-        "checking": "Cuenta corriente",
-        "credit_card": "Tarjeta de crédito",
-        "savings": "Ahorros"
-      },
-      "add_account": "Añadir cuenta",
-      "amount_in": "Total en {{currency}}",
-      "failed": "No pudimos guardar este gasto. Reintenta. No se guardará dos veces.",
-      "no_accounts": "Primero agrega una cuenta del negocio para saber desde dónde se pagó este gasto.",
-      "save": "Guardar gasto"
     },
     "review": {
       "see_original": "Ver el recibo ya guardado",

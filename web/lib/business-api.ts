@@ -241,7 +241,6 @@ export async function settleBusinessRemainder(draftId: string, version: number, 
 export const EXPENSE_ACCOUNT_TYPES = ["cash", "checking", "savings", "credit_card"] as const;
 export type ExpenseAccountType = (typeof EXPENSE_ACCOUNT_TYPES)[number];
 
-export type NewBusinessAccount = { nickname: string; type: ExpenseAccountType; currency: CurrencyCode };
 
 export type BusinessAccount = {
   id: string;
@@ -379,13 +378,6 @@ export async function listBusinessCaptures(query = "", limit = 20, view: "inbox"
   return page.items;
 }
 
-export type ExpenseInput = {
-  account_id: string;
-  amount: DecimalString;
-  occurred_on: string;
-  merchant: string | null;
-  category_id: string | null;
-};
 
 /** The owner's one Business space. Business records live only inside it. */
 export type BusinessSpace = { id: string; name: string };
@@ -632,28 +624,6 @@ export async function confirmBusinessReceipt(
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version }),
-  });
-}
-
-export async function recordBusinessExpense(
-  input: ExpenseInput,
-  idempotencyKey: string,
-): Promise<BusinessExpense> {
-  return apiFetch("/business/expenses", {
-    method: "POST",
-    headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(input),
-  });
-}
-
-export async function createBusinessAccount(
-  input: NewBusinessAccount,
-  idempotencyKey: string,
-): Promise<BusinessAccount> {
-  return apiFetch("/business/accounts", {
-    method: "POST",
-    headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(input),
   });
 }
 

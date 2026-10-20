@@ -320,7 +320,6 @@ export function createFixtureBusinessDataSource(
   { chatAvailable, accounts: start }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource {
   const accounts: BusinessAccount[] = start === "none" ? [] : [...ACCOUNTS];
-  const createdAccounts = new Map<string, BusinessAccount>();
   let receipts = seedReceipts();
   let expenses = seedExpenses();
   let counter = 0;
@@ -620,37 +619,6 @@ export function createFixtureBusinessDataSource(
           matches(query, [item.nickname, item.type, item.currency].join(" ")),
         ).slice(0, 5),
       };
-    },
-    recordExpense: async (input) => {
-      await delay();
-      const account = accounts.find((item) => item.id === input.account_id) ?? accounts[0];
-      const injected = injectedWriteError();
-      if (injected) throw injected;
-      counter += 1;
-      const created: BusinessExpense = {
-        id: `exp-manual-${counter}`,
-        merchant: input.merchant,
-        amount: input.amount,
-        currency: account.currency,
-        category_id: input.category_id,
-        account_id: account.id,
-        occurred_on: input.occurred_on,
-        receipt_id: null,
-        draft_id: null,
-      };
-      expenses = [created, ...expenses];
-      return created;
-    },
-    createAccount: async (input, key) => {
-      await delay();
-      const replayed = createdAccounts.get(key);
-      if (replayed) return replayed;
-      const injected = injectedWriteError();
-      if (injected) throw injected;
-      const created = { id: `acct-${createdAccounts.size + 1}-${key.slice(0, 8)}`, ...input };
-      createdAccounts.set(key, created);
-      accounts.push(created);
-      return created;
     },
     emailIntake: async () => {
       await delay();

@@ -20,7 +20,7 @@ export function useBusinessKeyboardShortcuts({ openPanel, actions, chosen }: { o
     { id: "previous", label: spanish ? "Recibo anterior" : `${t("business.review.title", "Review receipt")} ↑`, code: "ArrowUp", keyLabel: "↑", shift: true, run: () => review("previous") },
     { id: "next", label: spanish ? "Recibo siguiente" : `${t("business.review.title", "Review receipt")} ↓`, code: "ArrowDown", keyLabel: "↓", shift: true, run: () => review("next") },
     { id: "edit", label: label("Editar dato", "business.dossier.edit", "Edit details"), code: "KeyE", keyLabel: "E", shift: true, run: () => review("edit") },
-    { id: "upload", label: t("business.actions.upload_receipt", "Upload receipt"), code: "Period", keyLabel: ".", shift: true, run: () => { const action = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined; action?.run(); return Boolean(action); } },
+    { id: "upload", label: t("business.actions.add", "Add"), code: "Period", keyLabel: ".", shift: true, run: () => { const action = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined; action?.run(); return Boolean(action); } },
     ...BUSINESS_SECTIONS.map((section, index) => ({ id: section, label: spanish ? `Ir a ${t(`business.nav.${section}`)}` : t(`business.nav.${section}`), code: `Digit${index + 1}`, keyLabel: String(index + 1), jumpIndex: index, run: () => { openPanel({ kind: section }); return true; } })),
     ...(businessSearchEnabledFromEnv() ? [{ id: "search", label: t("common.search", "Search"), code: "KeyK", keyLabel: "K" }] : []),
     { id: "keyboard_shortcuts", label: t("keyboard_shortcuts.title", "Keyboard shortcuts"), code: "Slash", keyLabel: "/" },

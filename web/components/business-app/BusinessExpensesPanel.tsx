@@ -42,7 +42,7 @@ export default function BusinessExpensesPanel() {
     };
   }, [period.from, period.to, revision, source]);
 
-  const record = actions.create.find((action) => action.id === "record_expense");
+  const record = actions.create.find((action) => action.id === "upload_receipt");
   // Coming back from one expense's panel: focus its row once the list has
   // rendered, so keyboard focus returns where it left. A row outside the
   // period is not in the list; the panel itself takes focus then. Once per

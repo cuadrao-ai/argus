@@ -6,7 +6,6 @@ import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
 import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import { useBusiness } from "./BusinessWorkspace";
 import { useAccessBanner } from "./useAccessBanner";
-import BusinessSectionActions from "./BusinessSectionActions";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import BusinessExpensesPanel from "./BusinessExpensesPanel";
@@ -68,7 +67,6 @@ export default function BusinessPanel() {
   return (
     <div className={`mx-auto w-full ${panel.kind === "receipt" || panel.kind === "draft" ? "" : "max-w-3xl pb-6"}`}>
       <BusinessContextCue />
-      <BusinessSectionActions />
       <PanelErrorBoundary key={panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : panel.kind === "expense" ? `expense:${panel.expenseId}` : panel.kind}>
         {panel.kind === "overview" ? <BusinessOverviewPanel /> : null}
         {panel.kind === "inbox" ? <BusinessInboxPanel /> : null}

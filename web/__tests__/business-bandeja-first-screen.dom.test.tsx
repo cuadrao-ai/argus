@@ -104,8 +104,8 @@ test("Bandeja shows one subhead, the receipts before the forwarding card, and on
     assert.equal(card.textContent?.includes("Reenvía los recibos a esta dirección:"), true);
     assert.equal(receipts.compareDocumentPosition(page.host.querySelector('[aria-label="Correos recibidos"]')!) & Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_FOLLOWING);
     const upload = page.host.querySelector('[data-testid="business-primary-upload"]') as HTMLButtonElement;
-    assert.equal(upload.textContent, "Subir recibo");
-    assert.equal([...page.host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === "Subir recibo").length, 1);
+    assert.equal(upload.textContent, "Agregar");
+    assert.equal([...page.host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === "Agregar").length, 1);
     await page.act(async () => { upload.click(); });
     await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"));
     assert.equal((document.body.textContent ?? "").includes("Elegir archivos"), true);

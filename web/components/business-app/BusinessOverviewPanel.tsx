@@ -23,7 +23,6 @@ export default function BusinessOverviewPanel() {
   const { records, openPanel, actions, chosen, bridge } = useBusiness();
   const owner = chosen?.role !== "accountant";
   const upload = owner ? actions.create?.find((action) => action.id === "upload_receipt") ?? null : null;
-  const recordExpense = owner ? actions.create?.find((action) => action.id === "record_expense") ?? null : null;
   const forwardAddress = useForwardAddress();
   const [toast, setToast] = useState<QueuedToast | null>(null);
   const items = records.inbox;
@@ -52,12 +51,6 @@ export default function BusinessOverviewPanel() {
         ) : chosen?.role === "accountant" ? (
           <button type="button" data-testid="inicio-primary-review" data-primary="true" className={primaryClass} onClick={() => openPanel({ kind: "inbox" })}>
             {t("business.actions.review_receipts", "Review receipts")}
-          </button>
-        ) : null}
-        {recordExpense ? (
-          <button type="button" data-testid="inicio-record-expense" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={recordExpense.run}>
-            <recordExpense.icon className="h-4 w-4" aria-hidden="true" />
-            {recordExpense.label}
           </button>
         ) : null}
         <button type="button" data-testid="inicio-export" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => setExportOpen(true)}>

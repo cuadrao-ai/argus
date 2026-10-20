@@ -141,7 +141,7 @@ test("without a consent provider, model actions stay blocked and manual recordin
   await act(async () => { root.render(tree(<><Starters /><ReceiptReadingControl /><BusinessInboxPanel /></>, [inboxReceipt])); });
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
   const labels = [...host.querySelectorAll("button")].map((button) => button.textContent);
-  assert.equal(labels.includes("Record expense"), true);
+  assert.equal(labels.includes("Add"), true);
   assert.equal(labels.includes("What did I spend this month?"), false);
   assert.equal(host.querySelector('[data-testid="receipt-reading-control"]'), null);
   assert.equal(calls.enable, 0);

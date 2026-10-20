@@ -17,8 +17,6 @@ import type {
   BusinessSpace,
   BusinessUpdate,
   BusinessWorkspaceInfo,
-  ExpenseInput,
-  NewBusinessAccount,
   ReceiptDetail,
   ReceiptReviewFields,
   ReceiptSummary,
@@ -72,8 +70,6 @@ export type BusinessDataSource = Readonly<{
     fields: Partial<ReceiptReviewFields>,
   ) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;
-  recordExpense: (input: ExpenseInput, key: string) => Promise<BusinessExpense>;
-  createAccount: (input: NewBusinessAccount, key: string) => Promise<BusinessAccount>;
   emailIntake: () => Promise<BusinessEmailIntake>;
   createEmailAddress: () => Promise<BusinessEmailIntake>;
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
@@ -118,8 +114,6 @@ export const liveBusinessDataSource: BusinessDataSource = {
   rebindReceipt: api.rebindBusinessReceipt,
   saveReview: api.saveBusinessReceiptReview,
   confirmReceipt: api.confirmBusinessReceipt,
-  recordExpense: api.recordBusinessExpense,
-  createAccount: api.createBusinessAccount,
   emailIntake: api.getBusinessEmailIntake,
   createEmailAddress: api.createBusinessEmailAddress,
   emailDeliveries: api.listBusinessEmailDeliveries,
@@ -202,8 +196,6 @@ export function withBusinessSpace(
     rebindReceipt: source.rebindReceipt,
     saveReview: source.saveReview,
     confirmReceipt: source.confirmReceipt,
-    recordExpense: after(source.recordExpense),
-    createAccount: after(source.createAccount),
     emailIntake: after(source.emailIntake),
     createEmailAddress: after(source.createEmailAddress),
     emailDeliveries: after(source.emailDeliveries),

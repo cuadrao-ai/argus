@@ -2591,7 +2591,7 @@
       "enter_details": "Enter details"
     },
     "actions": {
-      "upload_receipt": "Upload receipt",
+      "add": "Add",
       "record_expense": "Record expense",
       "review_receipts": "Review receipts",
       "review_inbox_one": "Review {{count}} receipt",
@@ -2828,23 +2828,6 @@
       "error": "We couldn't load updates. Try again.",
       "empty": "Nothing new. Results from your receipts will appear here."
     },
-    "record": {
-      "save": "Save expense",
-      "no_accounts": "Add a business account first so we know where this expense was paid from.",
-      "amount_in": "Total in {{currency}}",
-      "failed": "We couldn't save this expense. Try again. It won't be saved twice.",
-      "account_name": "Name",
-      "account_type": "Account type",
-      "account_types": {
-        "cash": "Cash",
-        "checking": "Checking",
-        "credit_card": "Credit card",
-        "savings": "Savings"
-      },
-      "add_account": "Add account",
-      "account_failed": "We couldn't create the account. Check the name and try again.",
-      "account_name_suggestion": "{{currency}} account"
-    },
     "intake": {
       "replayed": "Already saved before. This is that receipt.",
       "unsupported": "This file isn't supported. Try {{formats}}.",
@@ -2858,6 +2841,19 @@
       "type_venta": "Sale",
       "type_venta_help": "An invoice the business issued.",
       "queue_title": "Upload receipts",
+      "add_title": "Add",
+      "no_paper": "No paper?",
+      "write": "Write it",
+      "write_title": "Write it",
+      "write_placeholder": "For example: I paid RD$500 for gas today at Isla, in cash.",
+      "write_help": "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.",
+      "write_back": "Upload files",
+      "write_save": "Save",
+      "write_empty": "Write what happened before saving.",
+      "typed_kind": "Typed",
+      "typed_saving": "Saving…",
+      "typed_saved": "Saved to the Inbox",
+      "typed_uncertain": "We couldn't confirm it was saved. Try again; it won't be saved twice.",
       "saved_as": "Saved as",
       "paste_hint": "or paste with {{keys}}",
       "camera_way": "Take a photo",

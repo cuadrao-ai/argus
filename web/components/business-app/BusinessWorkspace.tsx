@@ -47,8 +47,6 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
-import RecordExpenseDialog from "./RecordExpenseDialog";
-import ManualCaptureDialog from "./ManualCaptureDialog";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
@@ -250,8 +248,6 @@ function BusinessWorkspaceContent({
   }, [chosen, source]);
   const [bridge, setBridge] = useState<ChatShellBridge | null>(null);
   const [intakeTarget, setIntakeTarget] = useState<IntakeTarget | null>(null);
-  const [recordExpenseOpen, setRecordExpenseOpen] = useState(false);
-  const [captureOpen, setCaptureOpen] = useState(false);
   const [attachedReceipt, setAttachedReceipt] = useState<ReceiptSummary | null>(null);
   // Switching Business closes whatever was open in the old one before the new
   // one loads: the open record and its address, the dialogs and their typed
@@ -270,8 +266,6 @@ function BusinessWorkspaceContent({
     writePanelToUrl("workspace", { kind: "overview" });
     setDirectRecord(false);
     setIntakeTarget(null);
-    setRecordExpenseOpen(false);
-    setCaptureOpen(false);
     setAttachedReceipt(null);
     setRecords(EMPTY_RECORDS);
     setRevision((value) => value + 1);
@@ -399,8 +393,6 @@ function BusinessWorkspaceContent({
     records,
     bridge,
     openIntake,
-    openRecordExpense: () => setRecordExpenseOpen(true),
-    openCapture: () => setCaptureOpen(true),
     openPanel,
   });
 
@@ -503,20 +495,6 @@ function BusinessWorkspaceContent({
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
-        <RecordExpenseDialog
-          isOpen={recordExpenseOpen}
-          onClose={() => setRecordExpenseOpen(false)}
-          onRecorded={() => {
-            setRecordExpenseOpen(false);
-            reload();
-            openPanel({ kind: "expenses" });
-          }}
-        />
-        <ManualCaptureDialog isOpen={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={(dossier) => {
-          setCaptureOpen(false);
-          reload();
-          openPanel({ kind: "draft", draftId: dossier.draft_id });
-        }} />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
   );
