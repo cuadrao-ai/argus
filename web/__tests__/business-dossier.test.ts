@@ -162,11 +162,11 @@ test("Spanish export control names the authorized client and allows read-only re
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const fixture = createDossierFixtures([{ id: "client-account", nickname: "Caja", type: "cash", currency: "DOP" }]);
   const record = await fixture.dossier(dossierFixtureIds.readOnly);
-  const render = (dossier: BusinessDossier, available = true, end = "2026-10-31") => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptPeriodExport, { dossier, start: "2026-10-01", end, available })));
+  const render = (dossier: BusinessDossier, available = true, end = "2026-10-31") => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptPeriodExport, { scope: { draftId: dossier.draft_id, name: dossier.space_name, capabilities: dossier.capabilities }, start: "2026-10-01", end, available })));
   const html = render(record);
   assert.ok(html.includes(record.space_name));
   assert.match(html, /Descargar CSV, Excel y originales/);
-  assert.match(html, /originales faltantes/);
+  assert.doesNotMatch(html, /type="date"/);
   assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/);
   assert.ok(!html.includes("Aprobar"));
   assert.equal(render({ ...record, capabilities: [] }), "");

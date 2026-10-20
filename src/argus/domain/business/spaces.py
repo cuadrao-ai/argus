@@ -11,6 +11,7 @@ from __future__ import annotations
 import threading
 import uuid
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from typing import Protocol
 
 from psycopg_pool import ConnectionPool
@@ -58,6 +59,15 @@ class SpaceStore(Protocol):
     def rename(
         self, person_id: str, name: str, space_id: str | None = None
     ) -> Space | None: ...
+
+    def consent_accepted_at(self, person_id: str, version: str) -> datetime | None:
+        """When the person accepted this wording of the Business consent screen."""
+        ...
+
+    def accept_consent(self, person_id: str, space_id: str, version: str) -> datetime:
+        """Records the acceptance once per wording, naming the Business the
+        person works in, and returns the first acceptance time."""
+        ...
 
 
 class PostgresSpaceStore:
@@ -124,11 +134,41 @@ class PostgresSpaceStore:
             ).fetchone()
         return Space(*row) if row else None
 
+    def consent_accepted_at(self, person_id: str, version: str) -> datetime | None:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "select accepted_at from public.business_consent_acceptances"
+                " where user_id = %s and copy_version = %s",
+                (person_id, version),
+            ).fetchone()
+        return row[0] if row else None
+
+    def accept_consent(self, person_id: str, space_id: str, version: str) -> datetime:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "with added as ("
+                " insert into public.business_consent_acceptances"
+                " (user_id, space_id, copy_version) values (%s, %s, %s)"
+                " on conflict (user_id, copy_version) do nothing returning accepted_at)"
+                " select accepted_at from added union all"
+                " select accepted_at from public.business_consent_acceptances"
+                " where user_id = %s and copy_version = %s limit 1",
+                (person_id, space_id, version, person_id, version),
+            ).fetchone()
+        if row is not None:
+            return row[0]
+        # A concurrent first acceptance committed after this statement's snapshot.
+        existing = self.consent_accepted_at(person_id, version)
+        if existing is None:  # pragma: no cover - the conflict means it exists
+            raise LookupError("business consent vanished during accept")
+        return existing
+
 
 class InMemorySpaceStore:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._spaces: dict[str, Space] = {}
+        self._consents: dict[tuple[str, str], datetime] = {}
 
     def open_space(self, person_id: str) -> Space | None:
         with self._lock:
@@ -170,3 +210,13 @@ class InMemorySpaceStore:
             space = replace(current, name=name)
             self._spaces[person_id] = space
             return space
+
+    def consent_accepted_at(self, person_id: str, version: str) -> datetime | None:
+        with self._lock:
+            return self._consents.get((person_id, version))
+
+    def accept_consent(self, person_id: str, space_id: str, version: str) -> datetime:
+        with self._lock:
+            return self._consents.setdefault(
+                (person_id, version), datetime.now(timezone.utc)
+            )

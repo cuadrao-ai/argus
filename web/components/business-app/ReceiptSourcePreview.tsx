@@ -8,6 +8,7 @@ import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatTimestamp } from "./business-format";
 import { cardClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
+import { DelayedSourceWell } from "./business-skeletons";
 
 export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
@@ -49,7 +50,7 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
             </button>
           </div>
         ) : state.kind === "loading" ? (
-          <span role="status" className="text-[14px] text-black/55 dark:text-white/55">{t("common.loading", "Loading")}</span>
+          <DelayedSourceWell />
         ) : detail.media_type === "application/pdf" && source.mode === "live" ? (
           <iframe title={t("business.review.source", "Original receipt")} src={state.url} className="h-[480px] w-full" />
         ) : detail.media_type.startsWith("image/") || source.mode === "fixture" ? (

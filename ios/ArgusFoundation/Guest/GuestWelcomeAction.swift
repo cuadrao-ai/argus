@@ -8,7 +8,7 @@ struct GuestWelcomeAction: View {
 
     var body: some View {
         if let welcome, case .full(true) = welcome.shape {
-            Button(action: welcome.open) {
+            Button { welcome.open() } label: {
                 Text(spanish ? "Probar sin cuenta" : "Try without an account")
                     .font(.system(.body, weight: .medium))
                     .multilineTextAlignment(.center)

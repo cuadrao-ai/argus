@@ -1,12 +1,17 @@
 "use client";
 
-import { useContext, useEffect, type ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
 import { BusinessContext, useBusiness } from "./BusinessWorkspace";
+import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
+import { ToastNotice } from "./foundation/ToastNotice";
 
 export const cardClass =
   "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
+/** The locked card edge and surface, without padding. */
+export const lockedCardClass =
+  "rounded-[20px] border border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/[0.06] dark:bg-[#1f2225]";
 
 export const pillButtonClass =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 disabled:opacity-40 dark:focus-visible:ring-white/30";
@@ -48,15 +53,9 @@ export function SampleDataNotice() {
   );
 }
 
-const STATUS_TONE: Record<ReceiptStatus, string> = {
-  saved: "bg-black/5 text-black/65 dark:bg-white/10 dark:text-white/65",
-  queued: "bg-black/5 text-black/65 dark:bg-white/10 dark:text-white/65",
-  preparing: "bg-black/5 text-black/65 dark:bg-white/10 dark:text-white/65",
-  review_ready: "bg-[#5ba897]/15 text-[#2f7466] dark:text-[#7cc6b4]",
-  needs_attention: "bg-[#d66d75]/15 text-[#a8434c] dark:text-[#ec9aa0]",
-  confirmed: "bg-black/5 text-black/65 dark:bg-white/10 dark:text-white/65",
-  dismissed: "bg-black/5 text-black/45 dark:bg-white/10 dark:text-white/45",
-};
+export function StatusPill({ status }: { status: ReceiptStatus }) {
+  return <FoundationStatusPill status={status} />;
+}
 
 export function useStatusLabel() {
   const { t } = useTranslation();
@@ -70,15 +69,6 @@ export function useStatusLabel() {
       confirmed: t("business.status.confirmed", "Expense saved"),
       dismissed: t("business.status.dismissed", "Dismissed"),
     })[status];
-}
-
-export function StatusPill({ status }: { status: ReceiptStatus }) {
-  const label = useStatusLabel();
-  return (
-    <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[12px] font-medium ${STATUS_TONE[status]}`}>
-      {label(status)}
-    </span>
-  );
 }
 
 export function useCategoryLabel() {
@@ -111,6 +101,7 @@ export function useAttentionLabel() {
           interrupted: t("business.attention.interrupted", "Preparation stopped before it finished. Your receipt is saved. Try again or enter the details yourself."),
           outcome_unknown: t("business.attention.outcome_unknown", "We couldn't recover the AI reading result. Your receipt is still saved. Try again or enter the details yourself."),
           no_purchase_found: t("business.attention.no_purchase_found", "Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself."),
+          not_a_receipt: t("business.attention.not_a_receipt", "This doesn't look like a receipt"),
           several_purchases: t("business.attention.several_purchases", "Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense."),
           source_unavailable: t("business.attention.source_unavailable", "The original file is no longer available. Enter the details yourself."),
           check_details: t("business.attention.check_details", "Cuadrao couldn't read every part of this receipt. Check the details against the original before you confirm."),
@@ -118,6 +109,43 @@ export function useAttentionLabel() {
           other: t("business.attention.other", "Something went wrong with this receipt. It is still saved. Enter the details yourself."),
         } satisfies Record<ReceiptAttention, string>)[attention]
       : "";
+}
+
+/** Title and body for a terminal read. Other attention values keep the one-line label. */
+export function useTerminalRead() {
+  const { t } = useTranslation();
+  return (attention: ReceiptAttention | null, errorCode: string | null) => {
+    const uploadLabel = t("business.file_read.upload_another", "Upload another file");
+    const enterLabel = t("business.file_read.enter_details", "Enter details");
+    if (
+      attention === "unreadable" &&
+      (errorCode === "unreadable_document" || errorCode === "receipt_requires_review")
+    ) {
+      return {
+        title: t("business.file_read.unreadable_title", "We couldn't read this file"),
+        body: t(
+          "business.file_read.unreadable_body",
+          "The image or PDF came out blurry, cropped, or damaged. Upload a clearer photo of the whole receipt, in good light, or enter the details yourself.",
+        ),
+        upload: true,
+        uploadLabel,
+        enterLabel,
+      };
+    }
+    if (attention === "not_a_receipt") {
+      return {
+        title: t("business.file_read.not_a_receipt_title", "This doesn't look like a receipt."),
+        body: t(
+          "business.file_read.not_a_receipt_body",
+          "Upload the photo or the PDF of a receipt.",
+        ),
+        upload: true,
+        uploadLabel,
+        enterLabel,
+      };
+    }
+    return null;
+  };
 }
 
 export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {
@@ -191,16 +219,6 @@ export function RecordMarks({ personal, fiscalValue, known, markedBy = null, cla
 
 /** A short announcement with one way back, for a change the person can undo. */
 export function UndoToast({ text, onUndo, onClose }: { text: string; onUndo?: () => void; onClose: () => void }) {
-  const { t } = useTranslation();
-  useEffect(() => {
-    const timer = setTimeout(onClose, 6000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-  return (
-    <div role="status" data-testid="undo-toast" className="fixed inset-x-4 bottom-24 z-[60] mx-auto flex max-w-md items-center justify-between gap-3 rounded-[14px] bg-black px-4 py-3 text-[13px] text-white shadow-lg dark:bg-white dark:text-black">
-      <span className="min-w-0">{text}</span>
-      {onUndo ? <button type="button" onClick={onUndo} className="inline-flex min-h-9 shrink-0 items-center rounded-full px-3 text-[13px] font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 dark:focus-visible:ring-black/40">{t("business.marks.undo", "Undo")}</button> : null}
-    </div>
-  );
+  return <ToastNotice text={text} kind={onUndo ? "undo" : "confirm"} onUndo={onUndo} onClose={onClose} />;
 }
 

@@ -230,6 +230,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     signup = client.post(
         f"{API}/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": accountant.email,
             "password": accountant.password,
             "captcha_token": CAPTCHA,
@@ -338,7 +339,15 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     manifest = json.loads(package.read("manifest.json"))
     originals = [s["file"] for s in manifest["sources"]]
     assert sorted(package.namelist()) == sorted(
-        ["manifest.json", "records.csv", "records.xlsx", "unresolved.csv", *originals]
+        [
+            "manifest.json",
+            "records.csv",
+            "records.xlsx",
+            "unresolved.csv",
+            "dgii/606-607.xlsx",
+            "dgii/summary.json",
+            *originals,
+        ]
     )
     assert len(originals) == 3 and all(n.startswith("originals/") for n in originals)
     assert {tuple(s["draft_ids"]) for s in manifest["sources"]} == {(draft,)}

@@ -53,6 +53,34 @@ extension FinancialLoopUITests {
         XCTAssertFalse(modeLine.waitForExistence(timeout: 3), "never again")
     }
 
+    func testSpanishGuestToastWrapsAtLargeTextSizes() throws {
+        for size in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryXXXL", "UICTContentSizeCategoryAccessibilityXXXL"] {
+            launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-guest-notices", "-UIPreferredContentSizeCategoryName", size], language: "es-419")
+            enterGuestBook()
+            let line = app.staticTexts["Modo invitado · solo en este iPhone. No se sincroniza ni se une a ninguna cuenta."].firstMatch
+            XCTAssertTrue(line.waitForExistence(timeout: 5))
+            XCTAssertGreaterThanOrEqual(line.frame.minY, app.frame.minY)
+            XCTAssertLessThanOrEqual(line.frame.maxY, app.frame.maxY)
+            let close = app.buttons["toast.close"]
+            XCTAssertEqual(close.label, "Cerrar")
+            XCTAssertTrue(close.isHittable)
+            capture("aviso-invitado-texto-" + size)
+            close.tap()
+            XCTAssertTrue(line.waitForNonExistence(timeout: 5))
+        }
+    }
+
+    func testSpanishModeLineDoesNotReturnOnSecondLaunch() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-guest-notices"], language: "es-419")
+        enterGuestBook()
+        let line = app.staticTexts["Modo invitado · solo en este iPhone. No se sincroniza ni se une a ninguna cuenta."].firstMatch
+        XCTAssertTrue(line.waitForExistence(timeout: 5))
+        XCTAssertTrue(line.waitForNonExistence(timeout: 12))
+        relaunchGuestWithoutReset(language: ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"])
+        XCTAssertTrue(app.descendants(matching: .any)["guest.home.empty"].waitForExistence(timeout: 20))
+        XCTAssertFalse(line.waitForExistence(timeout: 3), "the note stays absent on second launch")
+    }
+
     func testPerfilHasTheLineAndARealCreateAccountButton() throws {
         launchSignedOut(arguments: ["--cuadrao-guest-book", "--cuadrao-guest-notices"])
         enterGuestBook()

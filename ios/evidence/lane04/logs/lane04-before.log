@@ -1,0 +1,10 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:227: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : Failed to unable to perform Swipe left on "guest.contribution.row.D5B4E3C6-8CEC-4890-AC57-378455072172" StaticText: visible frame is empty, which may happen if the element is offscreen.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (53.804 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/CuadraoLegalLinksUITests.swift:96: error: -[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists] : XCTAssertFalse failed
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' failed (25.924 seconds).
+	 Executed 2 tests, with 2 failures (0 unexpected) in 79.728 (79.730) seconds
+	 Executed 2 tests, with 2 failures (0 unexpected) in 79.728 (79.731) seconds
+	 Executed 2 tests, with 2 failures (0 unexpected) in 79.728 (79.732) seconds
+** TEST FAILED **

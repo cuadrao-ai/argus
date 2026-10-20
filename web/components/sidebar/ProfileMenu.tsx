@@ -83,7 +83,8 @@ import {
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
-import { businessPilotEnabled, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
+import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
+import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
@@ -96,7 +97,6 @@ type ProfileMenuProps = {
   onClose: () => void;
   onLogout: (options?: LogoutOptions) => void;
   onFeedback?: (type: "bug" | "feature" | "general") => void;
-  onDeleteAllConversations?: () => void;
   onHistoryMutated?: () => void;
   /** Every successful patch reports upward, not just the fields a surface reads. */
   onProfileUpdated?: (user: ApiUser) => void;
@@ -124,14 +124,31 @@ type ProfileQuickJumpItem = {
   onSelect: () => void;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+type HelpLegalLink = {
+  id: "terms" | "privacy";
+  href: string;
+  external: boolean;
+};
+
+function menuLegalLinks(business: boolean): HelpLegalLink[] {
+  if (!business) {
+    return [
+      { id: "terms", href: "/terms", external: false },
+      { id: "privacy", href: "/privacy", external: false },
+    ];
+  }
+  const published = cuadraoLegalLinks();
+  const links: HelpLegalLink[] = [];
+  if (published.terms) links.push({ id: "terms", href: published.terms, external: true });
+  if (published.privacy) links.push({ id: "privacy", href: published.privacy, external: true });
+  return links;
+}
 
 export default function ProfileMenu({
   isOpen,
   onClose,
   onLogout,
   onFeedback,
-  onDeleteAllConversations,
   onHistoryMutated,
   onProfileUpdated,
   onOpenSidebarPreference,
@@ -142,13 +159,8 @@ export default function ProfileMenu({
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
+  const legalLinks = menuLegalLinks(isBusiness);
   const { isBelowDesktop } = useResponsiveLayout();
-  /*
-   * Below the panel line this menu is a sheet, whatever the sidebar is doing.
-   * Tying it to the sidebar's own 720 line left the tablet band showing a
-   * shrunken mouse menu whose submenus only opened on a hover that a tablet
-   * cannot produce.
-   */
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
   const handlePageLinkClick = useCallback(
@@ -188,7 +200,11 @@ export default function ProfileMenu({
   const homeCountryAvailable = !isBusiness && accountKind === "registered";
   const naming = useBusinessNaming();
   const businessNameAvailable = naming?.canEdit === true;
-  const whatsappLinkAvailable = businessPilotEnabled && accountKind === "registered";
+  const whatsappLinkAvailable =
+    accountKind === "registered" &&
+    (isBusiness
+      ? businessWhatsappPreferencesEnabledFromEnv()
+      : businessPilotEnabledFromEnv());
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
@@ -483,12 +499,6 @@ export default function ProfileMenu({
     [asSheet, onClose],
   );
 
-  const handleDeleteAllConversations = useCallback(() => {
-    setActiveSubmenu(null);
-    onClose();
-    onDeleteAllConversations?.();
-  }, [onClose, onDeleteAllConversations]);
-
   const handleOpenKeyboardShortcuts = useCallback(() => {
     setActiveSubmenu(null);
     onClose();
@@ -739,7 +749,6 @@ export default function ProfileMenu({
             navigateFromOverlay("/account/security", onClose),
         },
         ...(!isBusiness ? [{ id: "usage", onSelect: () => openModal("usage") }] : []),
-        { id: "delete-all", onSelect: handleDeleteAllConversations },
         { id: "delete-account", onSelect: handleOpenDeleteRequest },
       ];
     }
@@ -773,16 +782,17 @@ export default function ProfileMenu({
           id: "keyboard-shortcuts",
           onSelect: handleOpenKeyboardShortcuts,
         },
-        ...(!isBusiness ? [
-        {
-          id: "terms",
-          onSelect: () => navigateFromOverlay("/terms", onClose),
-        },
-        {
-          id: "privacy",
-          onSelect: () => navigateFromOverlay("/privacy", onClose),
-        },
-        ] : []),
+        ...legalLinks.map((link) => ({
+          id: link.id,
+          onSelect: () => {
+            if (link.external) {
+              window.open(link.href, "_blank", "noopener,noreferrer");
+              onClose();
+              return;
+            }
+            navigateFromOverlay(link.href, onClose);
+          },
+        })),
       ];
     }
     if (activeSubmenu === "feedback") {
@@ -820,7 +830,7 @@ export default function ProfileMenu({
   }, [
     activeSubmenu,
     isBusiness,
-    handleDeleteAllConversations,
+    legalLinks,
     handleOpenDeleteRequest,
     handleOpenKeyboardShortcuts,
     handleSubmenuToggle,
@@ -1142,16 +1152,6 @@ export default function ProfileMenu({
             )}
             <div role="separator" className="my-1 border-t border-black/5 dark:border-white/5" />
             <button
-              onClick={handleDeleteAllConversations}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-[#d66d75] transition-colors hover:bg-[#d66d75]/10 dark:hover:bg-[#d66d75]/10"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("settings.data.delete_all_conversations", "Delete all conversations")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("delete-all")}</span>
-            </button>
-            <button
               type="button"
               onClick={handleOpenDeleteRequest}
               className="flex min-h-[88px] w-full flex-col items-start gap-1 px-3.5 py-2 text-left text-[#d66d75] transition-colors hover:bg-[#d66d75]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d66d75]/25 dark:hover:bg-[#d66d75]/10"
@@ -1310,30 +1310,24 @@ export default function ProfileMenu({
               <span className="ml-auto flex shrink-0">{quickJumpBadge("keyboard-shortcuts")}</span>
             </button>
             )}
-            {!isBusiness && <>
-            <a
-              href="/terms"
-              onClick={(event) => handlePageLinkClick(event, "/terms")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("settings.help.terms", "Terms of Use")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("terms")}</span>
-            </a>
-            <a
-              href="/privacy"
-              onClick={(event) => handlePageLinkClick(event, "/privacy")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("settings.help.privacy", "Privacy Policy")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("privacy")}</span>
-            </a>
-            </>}
+            {legalLinks.length === 0 ? (
+              <p role="status" data-testid="help-legal-empty" className="min-h-[38px] px-3.5 py-2" />
+            ) : legalLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.href}
+                target={link.external ? "_blank" : undefined}
+                rel={link.external ? "noreferrer" : undefined}
+                onClick={link.external ? undefined : (event) => handlePageLinkClick(event, link.href)}
+                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+              >
+                {link.id === "terms" ? <FileText className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+                <span className="whitespace-nowrap">
+                  {t(link.id === "terms" ? "settings.help.terms" : "settings.help.privacy", link.id === "terms" ? "Terms" : "Privacy")}
+                </span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge(link.id)}</span>
+              </a>
+            ))}
           </div>
         )}
       </div>
@@ -1431,7 +1425,7 @@ export default function ProfileMenu({
           onClick={(event) => handlePageLinkClick(event, "/terms")}
           className="transition-colors hover:text-black dark:hover:text-white"
         >
-          {t("settings.help.terms", "Terms of Use")}
+          {t("settings.help.terms", "Terms")}
         </a>
         <span aria-hidden="true">·</span>
         <a
@@ -1439,7 +1433,7 @@ export default function ProfileMenu({
           onClick={(event) => handlePageLinkClick(event, "/privacy")}
           className="transition-colors hover:text-black dark:hover:text-white"
         >
-          {t("settings.help.privacy", "Privacy Policy")}
+          {t("settings.help.privacy", "Privacy")}
         </a>
       </div>
       </>}

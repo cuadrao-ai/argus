@@ -23,7 +23,7 @@ describe("keyboard shortcuts overlay", () => {
     const keyboardShortcutHook = source(
       "components/keyboard/useChatKeyboardShortcuts.ts",
     );
-    const guestShellActions = source("components/guest/useGuestShellActions.ts");
+    const guestShellActions = source("components/chat/useChatShellCapabilities.ts");
     const menu = source("components/sidebar/ProfileMenu.tsx");
 
     expect(overlay).toContain("KEYBOARD_SHORTCUTS.filter");

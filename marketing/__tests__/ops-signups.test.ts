@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   planNotice,
+  pendingSignups,
   removeSignup,
   sendNotice,
   validateTemplate,
@@ -27,12 +28,12 @@ const template: NoticeTemplate = {
 };
 
 describe("removal", () => {
-  test("erases the address of an active signup and keeps its digest", async () => {
+  test("erases an existing legacy address and keeps its suppression digest", async () => {
     const { fetch: doFetch, calls } = recordingFetch(() => Response.json([{ email_digest: "x" }]));
     const result = await removeSignup(ops, " Ana@Example.INVALID ", doFetch, () => new Date("2026-10-08T00:00:00Z"));
     expect(result).toBe("removed");
-    expect(calls).toHaveLength(1);
-    expect(calls[0].url).toContain(`email_digest=eq.${emailDigest("ana@example.invalid")}&removed_at=is.null`);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].url).toContain(`email_digest=eq.${emailDigest("ana@example.invalid")}&privacy_policy_version=is.null&removed_at=is.null`);
     expect(calls[0].init.method).toBe("PATCH");
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       email: null,
@@ -40,15 +41,21 @@ describe("removal", () => {
     });
   });
 
-  test("an address that never registered is recorded as suppressed", async () => {
-    const { fetch: doFetch, calls } = recordingFetch((call) =>
-      call.init.method === "PATCH" ? Response.json([]) : new Response(null, { status: 201 }),
-    );
-    expect(await removeSignup(ops, "ghost@example.invalid", doFetch)).toBe("suppressed");
-    const body = JSON.parse(String(calls[1].init.body));
-    expect(body.email).toBeNull();
-    expect(body.email_digest).toBe(emailDigest("ghost@example.invalid"));
-    expect(calls[1].init.headers).toMatchObject({ Prefer: "resolution=ignore-duplicates,return=minimal" });
+  test("an absent address stays absent on repeated operator removal", async () => {
+    const { fetch: doFetch, calls } = recordingFetch(() => Response.json([]));
+    expect(await removeSignup(ops, "ghost@example.invalid", doFetch)).toBe("absent");
+    expect(await removeSignup(ops, "ghost@example.invalid", doFetch)).toBe("absent");
+    expect(calls.map((call) => call.init.method)).toEqual(["PATCH", "DELETE", "PATCH", "DELETE"]);
+    expect(calls[1].url).toContain(`email_digest=eq.${emailDigest("ghost@example.invalid")}&privacy_policy_version=not.is.null`);
+  });
+
+  test("personal removal deletes rather than clears a row and a failed delete throws", async () => {
+    const { fetch: doFetch, calls } = recordingFetch((call) => Response.json(call.init.method === "DELETE" ? [{ email_digest: "x" }] : []));
+    expect(await removeSignup(ops, "ana@example.invalid", doFetch)).toBe("removed");
+    expect(calls[1].init.method).toBe("DELETE");
+    expect(calls[1].url).not.toContain("removed_at");
+    const failed = recordingFetch((call) => call.init.method === "DELETE" ? new Response(null, { status: 503 }) : Response.json([]));
+    await expect(removeSignup(ops, "ana@example.invalid", failed.fetch)).rejects.toThrow("HTTP 503");
   });
 
   test("a database error is raised, not reported as done", async () => {
@@ -89,7 +96,7 @@ describe("notice template", () => {
 // A small stand-in for the signup table and the mail provider, so the tests
 // exercise claim-then-send as a database and Resend would actually answer.
 function backend(options: {
-  rows: Record<string, { removed?: boolean; notifiedAt?: string | null }>;
+  rows: Record<string, { removed?: boolean; notifiedAt?: string | null; privacyVersion?: string }>;
   claimStatus?: number;
   // The database saves the claim, then the answer is lost.
   claimAnswerLost?: boolean;
@@ -122,6 +129,7 @@ function backend(options: {
       const matches =
         !!row &&
         (!requiresActive || !row.removed) &&
+        (query.get("privacy_policy_version") !== "is.null" || !row.privacyVersion) &&
         (!wantsUnnotified || !row.notifiedAt) &&
         (wantsUnnotified || query.get("notified_at") === null || row.notifiedAt === claimedValue);
       if (!matches) return Response.json([]);
@@ -281,5 +289,22 @@ describe("notice sending", () => {
     expect(result.sent).toBe(1);
     expect(events).toEqual(["mail"]);
     expect((calls[0].init.headers as Record<string, string>)["Idempotency-Key"]).toStartWith("notice-test-");
+  });
+});
+
+
+describe("personal consent boundary", () => {
+  test("legacy discovery excludes double-opt-in rows", async () => {
+    const { fetch: doFetch } = recordingFetch((call) => {
+      const filter = new URL(call.url).searchParams.get("privacy_policy_version");
+      return Response.json(filter === "is.null" ? [a] : [a, b]);
+    });
+    expect(await pendingSignups(ops, doFetch)).toEqual([a]);
+  });
+  test("a stale notice plan cannot claim a row upgraded to personal consent", async () => {
+    const database = backend({ rows: { [a.email_digest]: { privacyVersion: "2026-10-16" } } });
+    const result = await sendNotice(ops, template, planNotice([a], null), database.doFetch, NOW);
+    expect(result.skipped).toBe(1);
+    expect(database.delivered()).toBe(0);
   });
 });

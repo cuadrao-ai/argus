@@ -1,4 +1,5 @@
 import { clearArgusSessionCookies } from "./argus-api";
+import { classifyFailure, emailRetrySeconds } from "./failure-screen";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
 import { getSupabaseClient } from "./supabase-client";
 
@@ -12,6 +13,7 @@ export type AuthSecurityPort = {
   signOut: (options: {
     scope: "local" | "others" | "global";
   }) => Promise<{ error: unknown | null }>;
+  hasSession?: () => Promise<boolean>;
 };
 
 export type SessionActionResult = {
@@ -25,15 +27,23 @@ type ClearArgusCookies = () => Promise<void>;
 
 export function accountSecurityLoadFailureAction(
   error: unknown,
-): "redirect_to_login" | "retry" {
-  const status =
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof error.status === "number"
-      ? error.status
-      : null;
-  return status === 401 || status === 403 ? "redirect_to_login" : "retry";
+): "redirect_to_login" | "closed" | "server" | "retry" {
+  const kind = classifyFailure(error);
+  if (kind === "session_ended") return "redirect_to_login";
+  if (kind === "closed" || kind === "removed") return "closed";
+  if (kind === "unavailable" || kind === "server") return "server";
+  return "retry";
+}
+
+export class RecoveryRequestError extends Error {
+  readonly status: number;
+  readonly retryAfterSeconds: number;
+
+  constructor(status: number, retryAfterSeconds: number) {
+    super("Recovery request failed.");
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
 }
 
 function throwOnAuthError(error: unknown | null): void {
@@ -85,6 +95,15 @@ export function createAuthSecurityActions(
       throwOnAuthError(error);
     },
 
+    async hasRecoverySession(): Promise<boolean> {
+      if (!auth.hasSession) return false;
+      try {
+        return await auth.hasSession();
+      } catch {
+        return false;
+      }
+    },
+
     async resetRecoveredPassword(
       newPassword: string,
     ): Promise<SessionActionResult> {
@@ -130,6 +149,10 @@ export function getAuthSecurityActions() {
     exchangeCodeForSession: (code) => supabase.auth.exchangeCodeForSession(code),
     updateUser: (attributes) => supabase.auth.updateUser(attributes),
     signOut: (options) => supabase.auth.signOut(options),
+    hasSession: async () => {
+      const { data, error } = await supabase.auth.getUser();
+      return error === null && data.user !== null;
+    },
   };
   return createAuthSecurityActions(auth, async () => {
     await clearArgusSessionCookies();
@@ -145,6 +168,9 @@ export async function requestPasswordRecovery(email: string): Promise<void> {
     body: JSON.stringify({ email, captcha_token: captchaToken }),
   });
   if (!response.ok) {
-    throw new Error("Recovery request failed.");
+    const retryAfter = response.status === 429
+      ? emailRetrySeconds(response.headers.get("Retry-After"))
+      : 0;
+    throw new RecoveryRequestError(response.status, retryAfter);
   }
 }

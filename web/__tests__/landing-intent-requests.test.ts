@@ -32,6 +32,7 @@ function installStorage() {
       },
     },
     location: { search: "", pathname: "/" },
+    dispatchEvent: () => true,
   };
 }
 
@@ -58,6 +59,7 @@ describe("landing attribution on auth requests", () => {
 
     await bootstrapGuest({ captcha_token: "token", language: "en" });
     expect(bodies[0]).toEqual({ captcha_token: "token", language: "en" });
+    expect(bodies[0]).not.toHaveProperty("age_confirmed_at");
     expect(bodies[0]).not.toHaveProperty("attribution");
 
     captureLandingIntent("utm_campaign=x&starter=backtest", "/");

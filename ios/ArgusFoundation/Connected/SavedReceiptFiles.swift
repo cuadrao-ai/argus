@@ -7,7 +7,17 @@ enum SavedReceiptFiles {
     typealias File = (data: Data, name: String, pdf: Bool)
 
     static let maxPixels: CGFloat = 20_000_000
-    static var scannerAvailable: Bool { VNDocumentCameraViewController.isSupported }
+    static var scannerAvailable: Bool {
+        #if DEBUG
+        if ScanStub.active { return true }
+        #endif
+        return VNDocumentCameraViewController.isSupported
+    }
+
+    /// The same shaping off the main thread: a multi-page scan becomes one full-resolution PDF, which takes seconds.
+    static func preparing(_ files: [File], source: ReceiptSourceChoice, spanish: Bool) async -> [File] {
+        await Task.detached(priority: .userInitiated) { prepared(files, source: source, spanish: spanish) }.value
+    }
 
     static func prepared(_ files: [File], source: ReceiptSourceChoice, spanish: Bool) -> [File] {
         switch source {

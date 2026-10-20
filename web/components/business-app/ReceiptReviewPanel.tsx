@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
@@ -12,22 +12,25 @@ import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import { DatePicker } from "./foundation/DatePicker";
 import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { formatBusinessName, formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
   cardClass,
-  LoadingRows,
   primaryButtonClass,
   secondaryButtonClass,
   StatusPill,
   useAttentionLabel,
   useCategoryLabel,
+  useTerminalRead,
 } from "./business-ui";
+import { ContentFade, Settle } from "./business-skeletons";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
 
@@ -52,7 +55,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
-  const { source, reload, openPanel, revision, records } = useBusiness();
+  const terminalRead = useTerminalRead();
+  const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
+  const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
@@ -61,6 +66,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const inFlight = useRef(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [amountInvalid, setAmountInvalid] = useState(false);
+  const [dateInvalid, setDateInvalid] = useState(false);
+  const dateId = useId();
   const [amountError, setAmountError] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
   const retainReceipt = useCallback(() => setUnprepared(true), []);
@@ -107,6 +114,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           : fresh,
       );
       setAmountInvalid(false);
+      if (!draft || !before || draft.occurred_on === before.occurred_on) setDateInvalid(false);
       setUnprepared(false);
       setReadStalled(false);
       reload();
@@ -121,10 +129,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       </p>
     );
   }
-  if (!detail || !draft) return <LoadingRows rows={4} layout="detail" />;
+  if (!detail || !draft) return <Settle pending layout="detail" />;
+  const terminal = terminalRead(detail.attention, detail.error_code);
+  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />) => (
-    <ReceiptReviewFrame
+    <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
       back={confirmed ? "expenses" : "inbox"}
       eyebrow={detail.record_context ? formatBusinessName(detail.record_context.space_name, t("business.overview.title", "My business")) : null}
@@ -134,11 +144,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       source={source}
     >
       {children}
-    </ReceiptReviewFrame>
+    </ReceiptReviewFrame></ContentFade>
   );
   if (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading") return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
+  const canEnter = detail.enterable && canPrepare && !locked;
 
   const changedFields = (): Partial<ReceiptReviewFields> =>
     Object.fromEntries(
@@ -149,6 +160,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setDetail(next);
     setDraft(draftFrom(next));
     setAmountInvalid(false);
+    setDateInvalid(false);
   };
 
   const saveProblem = (code: string | undefined, current: Draft) => {
@@ -169,6 +181,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const prepare = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("prepare");
     setProblem(null);
     try {
@@ -188,6 +204,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const rebind = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("rebind");
     setProblem(null);
     try {
@@ -249,8 +269,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
-  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode) => (
-    <label className="block">
+  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode, htmlFor?: string) => {
+    const heading = (
       <span className="flex items-center justify-between text-[13px] font-medium text-black/60 dark:text-white/60">
         {label}
         {!confirmed && missing.includes(key) ? (
@@ -259,9 +279,13 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           </span>
         ) : null}
       </span>
-      {control}
-    </label>
-  );
+    );
+    return htmlFor ? (
+      <div><label htmlFor={htmlFor} className="block">{heading}</label>{control}</div>
+    ) : (
+      <label className="block">{heading}{control}</label>
+    );
+  };
   const set = (key: keyof ReceiptReviewFields) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setDraft((current) => (current ? { ...current, [key]: event.target.value } : current));
 
@@ -277,10 +301,38 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
             <div role="alert" data-testid="receipt-attention" className={`${cardClass} text-[14px] text-black/75 dark:text-white/75`}>
-              <p className="flex gap-2.5">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
-                <span>{attentionLabel(detail.attention)}</span>
-              </p>
+              {terminal ? (
+                <>
+                  <p className="flex gap-2.5">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                    <span>
+                      <span className="block font-medium">{terminal.title}</span>
+                      <span className="mt-1 block">{terminal.body}</span>
+                    </span>
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {terminal.upload && uploadAnother ? (
+                      <button type="button" className={primaryButtonClass} onClick={uploadAnother.run}>
+                        {terminal.uploadLabel}
+                      </button>
+                    ) : null}
+                    {canEnter ? (
+                      <button
+                        type="button"
+                        className={secondaryButtonClass}
+                        onClick={() => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus()}
+                      >
+                        {terminal.enterLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p className="flex gap-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                  <span>{attentionLabel(detail.attention)}</span>
+                </p>
+              )}
               {detail.duplicate_of ? (
                 <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
                   {t("business.review.see_original", "See the receipt already saved")}
@@ -307,7 +359,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
+          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
           {waitingForAi && readStalled ? (
             <div role="status" data-testid="receipt-read-stalled" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
               <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
@@ -325,7 +377,19 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               {field(
                 "occurred_on",
                 t("business.review.date", "Date"),
-                <input type="date" className={inputClass} value={draft.occurred_on} onChange={set("occurred_on")} disabled={locked} />,
+                <div className="mt-1.5">
+                  <DatePicker
+                    id={dateId}
+                    label={t("business.review.date", "Date")}
+                    value={draft.occurred_on}
+                    disabled={locked}
+                    onChange={(iso, invalid) => {
+                      setDraft((current) => (current ? { ...current, occurred_on: iso ?? "" } : current));
+                      setDateInvalid(invalid);
+                    }}
+                  />
+                </div>,
+                dateId,
               )}
               {field(
                 "category_id",
@@ -405,7 +469,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               <button
                 type="button"
                 className={primaryButtonClass}
-                disabled={busy !== null || missing.length > 0 || amountInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
+                disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
                 onClick={() => void save()}
               >
                 {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}

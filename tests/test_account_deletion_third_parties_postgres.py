@@ -149,10 +149,11 @@ def test_a_wrong_or_missing_key_never_drops_a_live_token(lane, world):  # noqa: 
     assert _run(run_id)[4]["revocations"]["plaid"] == {"unrecoverable": 1}
 
 
-def test_the_recording_fake_is_never_done_outside_tests(lane, world):  # noqa: F811
+def test_the_recording_fake_is_never_done_outside_tests(lane, world, monkeypatch):  # noqa: F811
     """Priya 2: deleted nothing at PostHog, so where the fake is not explicitly
     the adapter the step stays pending; only an operator can close it, with a
     reason kept in the run record."""
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "synthetic-event-token")
     a = world["a"]
     admin = SqlAuthAdmin()
     with pytest.raises(AccountDeletionIncomplete) as raised:

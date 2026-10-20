@@ -2,10 +2,10 @@
 
 import { MessageSquareWarning } from "lucide-react";
 import { CuadraoMark } from "@/components/CuadraoMark";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { useTranslation } from "react-i18next";
 import { panelFailureIconClass } from "@/lib/failure-treatment";
-import { COLD_TRANSCRIPT_RETRIEVAL_DELAY_MS } from "@/lib/chat-conversation-view-helpers";
 
 type ConversationRetrievalStateProps =
   | Readonly<{
@@ -33,18 +33,7 @@ export function ConversationRetrievalAnnouncement({ business = false, initial = 
   );
 }
 
-export function InitialConversationRetrievalState({ business = false }: { business?: boolean }) {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(true), COLD_TRANSCRIPT_RETRIEVAL_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, []);
-  if (!visible) return null;
-  return <>
-    <ConversationRetrievalAnnouncement business={business} initial />
-    <ConversationRetrievalState state="loading" business={business} />
-  </>;
-}
+export const InitialConversationRetrievalState: (props: { business?: boolean }) => ReactNode = FullscreenLoading;
 
 export default function ConversationRetrievalState(
   props: ConversationRetrievalStateProps & { business?: boolean },

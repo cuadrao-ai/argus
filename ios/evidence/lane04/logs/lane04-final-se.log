@@ -1,0 +1,8 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' passed (57.150 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' passed (31.578 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 88.728 (88.732) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 88.728 (88.733) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 88.728 (88.735) seconds
+** TEST SUCCEEDED **

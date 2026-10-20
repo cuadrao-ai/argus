@@ -164,6 +164,14 @@ struct ConnectedCreateAccount: View {
     }
 
     var body: some View {
+        if signingIn {
+            form
+        } else {
+            AgeRangeObservationView(observation: auth.ageRangeObservation) { form }
+        }
+    }
+
+    private var form: some View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
@@ -193,27 +201,8 @@ struct ConnectedCreateAccount: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier(signingIn ? "cuadrao.signin.emailChoice" : "cuadrao.signup.email")
-                    let legal = CuadraoLegalURLs.current
-                    if !signingIn, legal.hasTermsAndPrivacy, let terms = legal.terms, let privacy = legal.privacy {
-                        VStack(spacing: 0) {
-                            Text(spanish ? "Al crear tu cuenta, aceptas los términos."
-                                 : "By creating an account, you accept the terms.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                            HStack(spacing: 20) {
-                                Link(destination: terms) {
-                                    Text(spanish ? "Términos" : "Terms").underline().font(.footnote)
-                                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                                }.accessibilityIdentifier("cuadrao.signup.terms")
-                                Link(destination: privacy) {
-                                    Text(spanish ? "Privacidad" : "Privacy").underline().font(.footnote)
-                                        .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                                }.accessibilityIdentifier("cuadrao.signup.privacy")
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 24)
+                    if !signingIn {
+                        CuadraoSignupAcceptance(spanish: spanish)
                     }
                     Button { signingIn.toggle() } label: {
                         (Text(signingIn ? (spanish ? "¿Primera vez aquí? " : "New here? ")

@@ -200,18 +200,18 @@ def load_gate_contract(
     except UnicodeDecodeError as exc:
         raise MigrationGateError(f"candidate {_RENDER_PATH} must be valid UTF-8") from exc
     api_block = re.search(
-        r"(?ms)^  - type:.*?^    name: argus-api\s*$.*?(?=^  - type:|\Z)",
+        r"(?ms)^  - type:[^\n]*\n(?:(?!^  - type:).)*?^    name: cuadrao-api\s*$(?:(?!^  - type:).)*",
         render_source,
     )
     if api_block is None:
-        raise MigrationGateError("candidate render.yaml does not declare argus-api")
+        raise MigrationGateError("candidate render.yaml does not declare cuadrao-api")
     supabase_url = re.search(
         r"(?m)^      - key: SUPABASE_URL\s*$\n" r"^        value:\s*([^\s#]+)\s*$",
         api_block.group(0),
     )
     if supabase_url is None:
         raise MigrationGateError(
-            "candidate argus-api does not declare a literal SUPABASE_URL"
+            "candidate cuadrao-api does not declare a literal SUPABASE_URL"
         )
     project_ref = _project_ref_from_supabase_url(
         supabase_url.group(1).strip("'\""),

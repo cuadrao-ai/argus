@@ -18,8 +18,8 @@ _SMTP_HOST = "smtp.resend.com"
 _SMTP_PORT = 465
 _SMTP_USERNAME = "resend"
 _SMTP_TIMEOUT_SECONDS = 10.0
-_SENDER_ADDRESS = "noreply@get-argus.com"
-_SENDER_HEADER = "Argus <noreply@get-argus.com>"
+_SENDER_ADDRESS = "no-responder@mail.cuadrao.ai"
+_SENDER_HEADER = "Cuadrao <no-responder@mail.cuadrao.ai>"
 
 
 def _require_accepted(code: int) -> None:
@@ -43,6 +43,7 @@ def send_resend_email(
 
     message = MIMEMultipart("alternative")
     message["From"] = _SENDER_HEADER
+    message["Reply-To"] = "hola@cuadrao.ai"
     message["To"] = recipient
     message["Subject"] = subject
     if idempotency_key is not None:
