@@ -1401,7 +1401,7 @@
     "result_count_one": "{{count}} result",
     "result_count_other": "{{count}} results",
     "retest_current_data": "Retest with current data",
-    "retest_tooltip": "Reuse this setup with the latest available data. You’ll review it before it runs.",
+    "retest_tooltip": "Reuse this setup with the latest data.",
     "retest_already_current": "Already up to date",
     "retest_no_new_data": "No new market data is available since this run.",
     "retest_available_dates": "Use available dates",
@@ -2511,6 +2511,29 @@
         "idempotency_conflict": "This action has a different saved basis. Check the current record."
       }
     },
+    "empty": {
+      "access_error": "We couldn't load access",
+      "all_clear_body": "When another receipt arrives, it shows up here for review.",
+      "all_clear_title": "All approved. Squared away.",
+      "email_body": "Forward your receipts to your Cuadrao address and they show up here, ready for review.",
+      "email_error": "We couldn't load your emails",
+      "error_body": "Your data is still saved. Check your connection and try again.",
+      "expenses_body": "Every receipt you approve in the Inbox becomes an expense for its month.",
+      "expenses_error": "We couldn't load your expenses",
+      "expenses_filtered_body": "There may be expenses in other months.",
+      "expenses_filtered_title": "No expenses in this period",
+      "expenses_title": "Your approved expenses show here",
+      "inbox_body": "Upload, type or forward them by email. You review and approve them so they count in your numbers.",
+      "inbox_error": "We couldn't load your inbox",
+      "inbox_title": "Your receipts land here",
+      "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
+      "notes_error": "We couldn't load your notes",
+      "overview_error": "We couldn't load your business",
+      "see_all_periods": "See all periods",
+      "updates_body": "When Cuadrao reads, saves or needs something from a receipt, it shows up here.",
+      "updates_error": "We couldn't load updates",
+      "updates_title": "See what happened to your receipts"
+    },
     "expenses": {
       "title": "Expenses",
       "subtitle": "Saved expenses from {{from}} to {{to}}.",
@@ -2952,6 +2975,7 @@
       "add": "Add"
     },
     "composer_receipt": {
+      "open": "Open receipt",
       "saved": "Saved to Inbox",
       "dismiss": "Dismiss"
     },

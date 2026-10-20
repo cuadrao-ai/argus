@@ -7,6 +7,7 @@ import { Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { EmptyState } from "./foundation/EmptyState";
 import { cardClass, dangerButtonClass, dangerConfirmButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 
@@ -94,7 +95,7 @@ export function AccessList({
 
 export default function BusinessAccessPanel() {
   const { t } = useTranslation();
-  const { source, revision } = useBusiness();
+  const { source, revision, reload } = useBusiness();
   const naming = useBusinessNaming();
   const [access, setAccess] = useState<BusinessAccess | null>(null);
   const [failed, setFailed] = useState(false);
@@ -107,6 +108,7 @@ export default function BusinessAccessPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     source
       .access()
       .then((next) => !cancelled && setAccess(next))
@@ -183,7 +185,7 @@ export default function BusinessAccessPanel() {
         subtitle={t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}
       />
       {failed ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business_access.error", "We couldn't load access. Try again.")}</p>
+        <EmptyState kind="error" testId="business-access-error" title={t("business.empty.access_error", "We couldn't load access")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : access === null ? (
         <Settle pending layout="access" />
       ) : (

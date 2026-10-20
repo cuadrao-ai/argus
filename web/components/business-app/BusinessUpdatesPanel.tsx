@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, type MouseEvent } from "react";
-import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessUpdate, ReceiptStatus } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { EmptyState } from "./foundation/EmptyState";
 import { formatRelativeTime } from "./business-format";
 import { lockedCardClass, StatusPill, useAttentionLabel } from "./business-ui";
 import { Settle } from "./business-skeletons";
@@ -27,7 +27,8 @@ export default function BusinessUpdatesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
-  const { source, revision, openPanel } = useBusiness();
+  const { source, revision, openPanel, actions, chosen, spaces } = useBusiness();
+  const add = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   const [items, setItems] = useState<BusinessUpdate[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -109,27 +110,13 @@ export default function BusinessUpdatesPanel() {
         </p>
       </div>
       {failed ? (
-        <div role="alert" data-testid="business-updates-error" className="mb-4 flex flex-wrap items-center gap-x-2">
-          <CircleAlert aria-hidden="true" className="h-4 w-4 shrink-0 text-[#9e2f39] dark:text-[#ec9aa0]" />
-          <p className="min-w-0 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
-            {t("business.updates.error", "We couldn't load updates. Try again.")}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setFailed(false);
-              setAttempt((value) => value + 1);
-            }}
-            className="inline-flex min-h-11 items-center rounded-full px-4 text-[15px] font-medium leading-5 text-[#2f5a49] dark:text-[#8fcbb0]"
-          >
-            {t("common.retry", "Retry")}
-          </button>
-        </div>
+        <EmptyState kind="error" testId="business-updates-error" title={t("business.empty.updates_error", "We couldn't load updates")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: () => { setFailed(false); setAttempt((value) => value + 1); } }} />
       ) : null}
-      <Settle pending={items === null && !failed} layout="updates">
-        {items === null ? null : items.length === 0 ? (
-          <div data-testid="business-updates-empty" className={`${lockedCardClass} p-6 text-center text-[13px] leading-[18px] text-[#56635e] dark:text-white/60`}>
-            {t("business.updates.empty", "Nothing new. Results from your receipts will appear here.")}
+      {/* Hold until the Business is known, so an empty feed shows its action from the first frame. */}
+      <Settle pending={(items === null || spaces === null) && !failed} layout="updates">
+        {items === null || spaces === null ? null : items.length === 0 ? (
+          <div data-testid="business-updates-empty" className={`${lockedCardClass} px-6`}>
+            <EmptyState kind="first_run" mark="bell" compact title={t("business.empty.updates_title", "See what happened to your receipts")} body={t("business.empty.updates_body", "When Cuadrao reads, saves or needs something from a receipt, it shows up here.")} action={add ? { label: add.label, run: add.run } : undefined} />
           </div>
         ) : (
           <ul

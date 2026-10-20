@@ -68,7 +68,7 @@ describe("notes awaiting review in the Inbox", () => {
     const render = (notes: ReturnType<typeof openNotesByDraft>, error: boolean) =>
       renderToStaticMarkup(<I18nextProvider i18n={i18n}><NotesAwaitingReview notes={notes} error={error} onOpen={() => undefined} /></I18nextProvider>);
     const failed = render([], true);
-    assert.ok(failed.includes('role="alert"') && failed.includes("We couldn&#x27;t load your notes. Try again."));
+    assert.ok(failed.includes('role="alert"') && failed.includes('data-empty-kind="error"') && failed.includes("We couldn&#x27;t load your notes"), "a notes outage is an error state, said in words");
     assert.ok(!failed.includes("<button"));
     assert.equal(render([], false), "");
   });

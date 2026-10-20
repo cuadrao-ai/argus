@@ -6,6 +6,7 @@ import { Download } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/business-review-count";
 import { useBusiness } from "./BusinessWorkspace";
+import { EmptyState } from "./foundation/EmptyState";
 import { useForwardAddress } from "./useForwardAddress";
 import { cardClass, pillButtonClass } from "./business-ui";
 import { currentMonthKey } from "@/lib/business-month-close";
@@ -20,7 +21,7 @@ const actionPill = "inline-flex min-h-11 items-center justify-center gap-1.5 rou
 export default function BusinessOverviewPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, openPanel, actions, chosen, bridge } = useBusiness();
+  const { records, openPanel, actions, chosen, bridge, reload } = useBusiness();
   const owner = chosen?.role !== "accountant";
   const upload = owner ? actions.create?.find((action) => action.id === "upload_receipt") ?? null : null;
   const forwardAddress = useForwardAddress();
@@ -84,8 +85,8 @@ export default function BusinessOverviewPanel() {
       {exportOpen ? <ExportRecordsPanel month={shownMonth} onClose={() => setExportOpen(false)} /> : null}
 
       {records.error ? (
-        <div role="alert" className={`${cardClass} mt-6 text-[14px] text-black/70 dark:text-white/70`}>
-          {t("business.overview.error", "We couldn't load your business records. Your saved receipts and expenses are safe. Try again.")}
+        <div className={`${cardClass} mt-6`}>
+          <EmptyState kind="error" compact testId="inicio-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
         </div>
       ) : null}
 

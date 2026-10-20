@@ -76,9 +76,13 @@ test("a Bandeja that has never been used keeps the plain empty copy", async () =
   });
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-inbox-empty"]') !== null);
-    const empty = page.host.querySelector('[data-testid="business-inbox-empty"]')?.textContent ?? "";
+    const card = page.host.querySelector('[data-testid="business-inbox-empty"]')!;
+    const empty = card.textContent ?? "";
+    assert.equal(card.querySelector("[data-empty-kind]")?.getAttribute("data-empty-kind"), "first_run");
+    assert.equal(card.querySelector("h3")?.textContent, "Aquí llegan tus recibos");
     assert.equal(empty.includes("Todo aprobado"), false);
-    assert.equal(empty.includes("Sube un recibo"), true);
+    assert.equal(empty.includes("Súbelos, escríbelos o reenvíalos por correo."), true);
+    assert.equal([...card.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Agregar"), true, "the empty Bandeja offers Agregar");
   } finally { await page.close(); }
 });
 

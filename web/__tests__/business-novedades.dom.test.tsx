@@ -207,27 +207,35 @@ describe("Novedades states", () => {
     await page.close();
   });
 
-  test("an empty feed is one Spanish line in the card", async () => {
+  test("an empty feed is a first-run empty state in the card, with Agregar", async () => {
     const page = await mount({ updates: async () => [] });
     await page.settle(() => page.host.querySelector('[data-testid="business-updates-empty"]') !== null);
     const empty = page.host.querySelector('[data-testid="business-updates-empty"]')!;
-    assert.equal(empty.textContent, "Nada nuevo. Aquí aparecerán los resultados de tus recibos.");
-    assert.equal(empty.children.length, 0, "no illustration");
+    await page.settle(() => empty.querySelector("button") !== null);
+    const state = empty.querySelector('[data-empty-kind="first_run"]');
+    assert.ok(state, "the card holds a first-run empty state");
+    assert.ok(state.querySelector("svg[data-mark]"), "the empty state is drawn");
+    assert.equal(state.querySelector("h3")?.textContent, "Aquí verás qué pasó con tus recibos");
+    assert.equal(state.querySelector("p")?.textContent, "Cuando Cuadrao lea, guarde o necesite algo de un recibo, te avisamos aquí.");
+    assert.deepEqual([...state.querySelectorAll("button")].map((button) => button.textContent?.trim()), ["Agregar"]);
     await page.close();
   });
 
   test("a failed load says so in Spanish with Reintentar, and Reintentar loads the rows", async () => {
     let fail = true;
     const page = await mount({ updates: async () => { if (fail) throw new Error("offline"); return [update({})]; } });
-    await page.settle(() => page.host.querySelector('[role="alert"]') !== null);
-    const alert = page.host.querySelector('[role="alert"]')!;
-    assert.equal(alert.querySelector("p")?.textContent, "No pudimos cargar las novedades. Reintenta.");
-    assert.ok(alert.querySelector("svg.lucide-circle-alert"), "the line carries the alert icon");
+    await page.settle(() => page.host.querySelector('[data-testid="business-updates-error"]') !== null);
+    const alert = page.host.querySelector('[data-testid="business-updates-error"]')!;
+    assert.equal(alert.getAttribute("role"), "alert");
+    assert.equal(alert.getAttribute("data-empty-kind"), "error");
+    assert.equal(alert.querySelector("h3")?.textContent, "No pudimos cargar las novedades");
+    assert.ok(alert.querySelector("svg[data-mark]"), "the error is drawn");
     const retry = [...alert.querySelectorAll("button")];
-    assert.deepEqual(retry.map((button) => button.textContent), ["Reintentar"]);
+    assert.deepEqual(retry.map((button) => button.textContent?.trim()), ["Reintentar"]);
     fail = false;
     await page.act(async () => { retry[0].click(); });
     await page.settle(() => page.rows().length === 1);
+    assert.equal(page.host.querySelector('[data-testid="business-updates-error"]'), null);
     assert.equal(page.host.querySelector('[role="alert"]'), null);
     await page.close();
   });

@@ -13,13 +13,14 @@ import { Settle } from "./business-skeletons";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
 import { ReceiptPeriodExport } from "./ReceiptDossierReview";
+import { EmptyState } from "./foundation/EmptyState";
 import { MonthSwitcher } from "./BusinessMonthClosePanel";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
-  const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen } = useBusiness();
+  const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen, reload } = useBusiness();
   const [exportMonth, setExportMonth] = useState(() => currentMonthKey());
   const exportWindow = windowForMonth(exportMonth);
   const exportHeading = useId();
@@ -33,6 +34,7 @@ export default function BusinessExpensesPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     source
       .expenses(period.from, period.to)
       .then((next) => !cancelled && setItems(next))
@@ -89,14 +91,16 @@ export default function BusinessExpensesPanel() {
         monthSwitcher={<MonthSwitcher month={exportMonth} current={currentMonthKey()} earliest={null} onMonth={setExportMonth} headingId={exportHeading} />}
       /></div> : null}
       {failed ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
-          {t("business.expenses.error", "We couldn't load your expenses. Try again.")}
-        </p>
+        <EmptyState kind="error" testId="business-expenses-error" title={t("business.empty.expenses_error", "We couldn't load your expenses")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : items === null ? (
         <Settle pending layout="expenses" />
       ) : items.length === 0 ? (
-        <div className={`${cardClass} text-center text-[14px] text-black/55 dark:text-white/55`}>
-          {t("business.expenses.empty", "No expenses saved in this period.")}
+        <div className={cardClass} data-testid="business-expenses-empty">
+          {period.key === "this_month" || period.key === "all" ? (
+            <EmptyState kind="first_run" mark="receipt" compact title={t("business.empty.expenses_title", "Your approved expenses show here")} body={t("business.empty.expenses_body", "Every receipt you approve in the Inbox becomes an expense for its month.")} action={record ? { label: record.label, run: record.run } : undefined} />
+          ) : (
+            <EmptyState kind="filtered" compact title={t("business.empty.expenses_filtered_title", "No expenses in this period")} body={t("business.empty.expenses_filtered_body", "There may be expenses in other months.")} action={{ label: t("business.empty.see_all_periods", "See all periods"), run: () => setPeriod("all") }} />
+          )}
         </div>
       ) : (
         <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>

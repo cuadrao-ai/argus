@@ -18,6 +18,7 @@ import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, PanelHeading, primaryButtonClass, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
+import { EmptyState } from "./foundation/EmptyState";
 import { showToast } from "./foundation/toasts";
 import { Settle } from "./business-skeletons";
 
@@ -46,7 +47,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
 
 export { inboxCount } from "./inbox-count";
 
-export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void }) {
+export function NotesAwaitingReview({ notes, error, truncated = false, onOpen, onRetry }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void; onRetry?: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   if (!error && notes.length === 0) return null;
@@ -55,7 +56,7 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen }:
       <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.inbox.notes_title", "Notes awaiting review")}</h3>
       <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business.inbox.notes_subtitle", "Saved in your own words. Open one to add facts or a receipt.")}</p>
       {error ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business.inbox.notes_error", "We couldn't load your notes. Try again.")}</p>
+        <EmptyState kind="error" compact title={t("business.empty.notes_error", "We couldn't load your notes")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={onRetry ? { label: t("common.retry", "Retry"), run: onRetry } : undefined} />
       ) : (
         <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-inbox-notes">
           {notes.map((note) => (
@@ -219,7 +220,7 @@ export function usePersonalMark() {
 }
 
 function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | null }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { source, records } = useBusiness();
   const [proof, setProof] = useState<{ source: typeof source; activity: typeof records.receiptActivity; approved: boolean } | null>(null);
   const approved = !records.notesTruncated && proof?.source === source && proof.activity === records.receiptActivity && proof.approved;
@@ -234,14 +235,12 @@ function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | n
     return () => { current = false; controller.abort(); };
   }, [source, records.receiptActivity, records.notesTruncated]);
   return (
-    <div data-testid="business-inbox-empty" className={`${cardClass} text-center`}>
-      {approved ? <p className="font-display text-[18px] font-medium text-black dark:text-white">
-        {i18n.resolvedLanguage === "es-419" ? "Todo aprobado. Pa'que cuadre." : t("business.inbox.all_reviewed", "All reviewed")}
-      </p> : null}
-      <p className={`${approved ? "mt-1 " : ""}text-[14px] text-black/65 dark:text-white/70`}>
-        {t("business.inbox.empty_body", "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.")}
-      </p>
-      {upload ? <div className="mt-4"><PrimaryUpload label={upload.label} onClick={upload.run} /></div> : null}
+    <div data-testid="business-inbox-empty" className={cardClass}>
+      {approved ? (
+        <EmptyState kind="first_run" mark="check" compact title={t("business.empty.all_clear_title", "All approved. Squared away.")} body={t("business.empty.all_clear_body", "When another receipt arrives, it shows up here for review.")} action={upload ?? undefined} />
+      ) : (
+        <EmptyState kind="first_run" mark="inbox" compact title={t("business.empty.inbox_title", "Your receipts land here")} body={t("business.empty.inbox_body", "Upload, type or forward them by email. You review and approve them so they count in your numbers.")} action={upload ?? undefined} />
+      )}
     </div>
   );
 }
@@ -274,7 +273,7 @@ export default function BusinessInboxPanel() {
 
   return (
     <section>
-      {upload && isBelowTablet ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
+      {upload && isBelowTablet && !empty ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
       <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
@@ -295,16 +294,14 @@ export default function BusinessInboxPanel() {
         </div>
       ) : null}
       {records.error ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
-          {t("business.inbox.error", "We couldn't load your inbox. Try again.")}
-        </p>
+        <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : (
         <Settle pending={items === null || notes === null} layout="inbox">
           {items === null || notes === null ? null : empty ? (
-            <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={isBelowTablet ? null : upload ? { label: upload.label, run: upload.run } : null} />
+            <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
           ) : (
             <>
-              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} />
+              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} onRetry={reload} />
               {items.length ? (
                 <ListPager
                   items={items}

@@ -281,12 +281,18 @@ describe("month close layouts", () => {
     const { act, host, root } = await renderView(client);
     const empty = host.querySelector('[data-testid="month-close-empty"]');
     assert.equal(empty?.getAttribute("data-layout"), "empty");
-    assert.match(empty?.textContent ?? "", /Este mes no tiene documentos/);
-    assert.match(empty?.textContent ?? "", /No hay facturas ni gastos en este mes/);
-    const action = host.querySelector('[data-testid="month-close-empty-action"]');
-    assert.ok(action instanceof HTMLButtonElement);
+    const state = empty?.querySelector('[data-empty-kind="first_run"]');
+    assert.ok(state, "the empty month is a first-run empty state");
+    assert.ok(state.querySelector("svg[data-mark]"), "the empty month is drawn");
+    assert.equal(state.querySelector("h3")?.textContent, "Este mes no tiene documentos");
+    assert.equal(state.querySelector("p")?.textContent, "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.");
+    const buttons = [...(empty?.querySelectorAll("button") ?? [])];
+    assert.deepEqual(buttons.map((button) => button.textContent?.trim()), ["Elegir mes"], "without an add door only the month button shows");
+    const action = buttons[0];
     assert.match(action.className, /min-h-11/);
-    assert.equal(action.textContent, "Elegir mes");
+    assert.equal(host.querySelector('[data-testid="month-close-month-picker"]'), null);
+    await act(async () => { action.click(); });
+    assert.ok(document.body.querySelector('[data-testid="month-close-month-picker"]'), "Elegir mes opens the month picker");
     await act(async () => root.unmount());
     host.remove();
   });
@@ -805,6 +811,7 @@ describe("Inicio month close source", () => {
     const value = {
       source: { mode },
       chosen: { grant_id: "own-grant", capabilities: ["approve"], role: "owner", name: "Taller" },
+      actions: { create: [] },
     } as unknown as BusinessContextValue;
     const host = document.createElement("div");
     document.body.appendChild(host);
@@ -862,7 +869,12 @@ describe("Inicio month close source", () => {
       globalThis.fetch = fail;
       window.fetch = fail;
       const failed = await renderPanel("live");
-      assert.match(failed.host.querySelector('[data-testid="month-close-error"]')?.textContent ?? "", /No pudimos cargar el mes/);
+      const error = failed.host.querySelector('[data-testid="month-close-error"]');
+      const errorState = error?.querySelector('[data-empty-kind="error"]');
+      assert.ok(errorState, "the failed month is an error empty state");
+      assert.equal(errorState.getAttribute("role"), "alert");
+      assert.equal(errorState.querySelector("h3")?.textContent, "No pudimos cargar el mes");
+      assert.deepEqual([...errorState.querySelectorAll("button")].map((button) => button.textContent?.trim()), ["Reintentar"]);
       assert.equal(failed.host.textContent?.includes("Farmacia Central"), false);
       assert.equal(failed.host.querySelector('[data-testid="month-close-sample"]'), null);
       assert.equal(failed.host.querySelector('[data-testid="month-close-income"]'), null);

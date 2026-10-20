@@ -39,6 +39,7 @@ import { formatDay, formatMoney } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { showToast } from "./foundation/toasts";
+import { EmptyState } from "./foundation/EmptyState";
 
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
@@ -292,6 +293,7 @@ export function BusinessMonthCloseView({
   now,
   onMonthChange,
   review,
+  onAdd,
 }: {
   client: MonthCloseClient;
   /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart; null holds the load until the Business is known. */
@@ -304,6 +306,8 @@ export function BusinessMonthCloseView({
   onMonthChange?: (month: string) => void;
   /** Receipts waiting in the Bandeja, the checklist's first line; null while unknown. */
   review?: { count: number; detail: string | null; open: () => void } | null;
+  /** Opens Agregar; an empty month offers it as its next step. */
+  onAdd?: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
@@ -629,11 +633,8 @@ export function BusinessMonthCloseView({
       />
 
       {phase === "error" ? (
-        <div role="alert" data-testid="month-close-error" data-layout="error" className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-          <h4 className="font-display text-[18px] font-medium text-black dark:text-white">{t("business.month_close.error_title", "We couldn't load the month")}</h4>
-          <button type="button" className={`${secondaryButtonClass} min-w-11`} onClick={() => setAttempt((value) => value + 1)}>
-            {t("business.month_close.retry", "Try again")}
-          </button>
+        <div data-testid="month-close-error" data-layout="error" className={cardClass}>
+          <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setAttempt((value) => value + 1) }} />
         </div>
       ) : !snapshot || !summary || !net || !figures ? (
         <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true">
@@ -654,12 +655,16 @@ export function BusinessMonthCloseView({
           </div>
         </div>
       ) : noDocuments ? (
-        <div data-testid="month-close-empty" data-layout="empty" className={`${cardClass} flex flex-col items-center py-12 text-center`}>
-          <h4 className="font-display text-[18px] font-medium text-black dark:text-white">{t("business.month_close.empty_title", "This month has no documents")}</h4>
-          <p className="mt-2 max-w-sm text-[14px] text-[#56635e] dark:text-white/70">{t("business.month_close.empty", "No invoices or expenses in this month.")}</p>
-          <button type="button" data-testid="month-close-empty-action" className={`${secondaryButtonClass} mt-6 min-w-11`} onClick={() => setPickerRequest((value) => value + 1)}>
-            {t("business.month_close.choose_month", "Choose month")}
-          </button>
+        <div data-testid="month-close-empty" data-layout="empty" className={cardClass}>
+          <EmptyState
+            kind="first_run"
+            mark="calendar"
+            compact
+            title={t("business.month_close.empty_title", "This month has no documents")}
+            body={t("business.empty.month_body", "Add this month's receipts and invoices to see your income, expenses and ITBIS.")}
+            action={onAdd ? { label: t("business.actions.add", "Add"), run: onAdd } : undefined}
+            secondary={{ label: t("business.month_close.choose_month", "Choose month"), run: () => setPickerRequest((value) => value + 1) }}
+          />
         </div>
       ) : (
         <>
@@ -814,7 +819,8 @@ export function BusinessMonthCloseView({
 }
 
 export default function BusinessMonthClosePanel({ onMonthChange, review }: { onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null }) {
-  const { chosen, source, spaces } = useBusiness();
+  const { chosen, source, spaces, actions } = useBusiness();
+  const add = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
   const scopeKey = spaces === null ? null : chosen && chosen.role !== "owner" ? chosen.grant_id : "own";
   const [sampleClient] = useState(() => createMockMonthCloseClient());
@@ -826,6 +832,7 @@ export default function BusinessMonthClosePanel({ onMonthChange, review }: { onM
       canMutate={Boolean(chosen?.capabilities.includes("approve"))}
       onMonthChange={onMonthChange}
       review={review}
+      onAdd={add?.run}
     />
   );
 }

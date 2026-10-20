@@ -5,12 +5,15 @@ import { ChevronRight, Mail, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
-import { emailDeliveriesNeedRefresh } from "@/lib/business-email";
+import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
 import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { cardClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
+import { copyText } from "./foundation/CopyButton";
+import { EmptyState } from "./foundation/EmptyState";
+import { showToast } from "./foundation/toasts";
 
 export { EmailReceivingAddress } from "./InboxForwardingCard";
 
@@ -127,6 +130,11 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
     return () => { current = false; clearTimeout(timer); };
   }, [source, attempt, revision]);
   if (intake.status === "error" && deliveries.status === "error") return null;
+  const forwardAddress = intake.status === "ready" ? businessReceivingAddress(intake.data) : null;
+  const copyForward = async (address: string) => {
+    const copied = await copyText(address);
+    showToast(copied ? { kind: "info", text: t("business.email.copied", "Address copied.") } : { kind: "error", text: t("business.overview.copy_forward_failed", { address, defaultValue: "Could not copy. Your forwarding address is {{address}}" }) });
+  };
   return (
     <section aria-label={t("business.email.title", "Received emails")} className="mb-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -136,13 +144,22 @@ export default function BusinessEmailDeliveries({ openEmailId }: { openEmailId?:
         <button type="button" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.email.reload", "Refresh")}</button>
       </div>
       <div className={`${cardClass} mt-3 space-y-4`}>
-        {deliveries.status === "error" ? <p role="alert" className="text-[13px] text-black/70 dark:text-white/70">{t("business.email.list_failed", "Could not load received emails.")}</p> : null}
+        {deliveries.status === "error" ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: () => setAttempt((value) => value + 1) }} /> : null}
         {stalled ? <p role="status" className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
         {deliveries.status === "ready" ? (deliveries.data.length ? (
           <ul className="space-y-2" data-testid="business-email-deliveries">
             {deliveries.data.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} inbox={records.inbox} expanded={expanded === delivery.id} onExpanded={(open) => setExpanded(open ? delivery.id : null)} loadDetail={source.emailDelivery} retryDelivery={source.retryEmailDelivery} openReceipt={(id) => openPanel({ kind: "receipt", receiptId: id })} />)}
           </ul>
-        ) : <p className="text-[13px] text-black/55 dark:text-white/55">{t("business.email.empty", "No emails received yet.")}</p>) : null}
+        ) : (
+          <EmptyState
+            kind="first_run"
+            mark="mail"
+            compact
+            title={t("business.email.empty", "No emails received yet.")}
+            body={t("business.empty.email_body", "Forward your receipts to your Cuadrao address and they show up here, ready for review.")}
+            action={forwardAddress ? { label: t("business.email.copy", "Copy address"), run: () => void copyForward(forwardAddress) } : undefined}
+          />
+        )) : null}
       </div>
     </section>
   );

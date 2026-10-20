@@ -44,10 +44,11 @@ type Screen = {
   path: string;
   layout: string;
   title: string;
-  error: string;
+  errorTitle: string;
+  errorTestId: string;
   loaded: () => Promise<unknown>;
   rows: string;
-  empty?: { body: unknown; text: string };
+  empty?: { body: unknown; kind: string; title: string };
 };
 
 const screens: Screen[] = [
@@ -57,10 +58,11 @@ const screens: Screen[] = [
     path: "/business/expenses",
     layout: "expenses",
     title: spanish.business.expenses.title,
-    error: spanish.business.expenses.error,
+    errorTitle: spanish.business.empty.expenses_error,
+    errorTestId: "business-expenses-error",
     loaded: async () => ({ items: await fixture.expenses("2000-01-01", null) }),
     rows: "[data-expense-id]",
-    empty: { body: { items: [] }, text: spanish.business.expenses.empty },
+    empty: { body: { items: [] }, kind: "filtered", title: spanish.business.empty.expenses_filtered_title },
   },
   {
     name: "Novedades",
@@ -68,10 +70,11 @@ const screens: Screen[] = [
     path: "/business/updates",
     layout: "updates",
     title: spanish.business.updates.title,
-    error: spanish.business.updates.error,
+    errorTitle: spanish.business.empty.updates_error,
+    errorTestId: "business-updates-error",
     loaded: async () => ({ items: await fixture.updates() }),
     rows: "ul > li",
-    empty: { body: { items: [] }, text: spanish.business.updates.empty },
+    empty: { body: { items: [] }, kind: "first_run", title: spanish.business.empty.updates_title },
   },
   {
     name: "Acceso",
@@ -79,7 +82,8 @@ const screens: Screen[] = [
     path: "/business/access",
     layout: "access",
     title: spanish.business_access.title,
-    error: spanish.business_access.error,
+    errorTitle: spanish.business.empty.access_error,
+    errorTestId: "business-access-error",
     loaded: () => fixture.access(),
     rows: "[data-testid=business-access-grants] > li",
   },
@@ -153,7 +157,9 @@ for (const screen of screens) {
           await wait(SKELETON_DELAY_MS + 20);
           await view.answer(screen.path, Response.json(empty.body));
           assert.equal(view.skeleton(), null);
-          assert.ok(view.host.textContent?.includes(empty.text));
+          const state = view.host.querySelector(`[data-empty-kind=${empty.kind}]`);
+          assert.ok(state, `the ${empty.kind} empty state replaces the skeleton`);
+          assert.equal(state.querySelector("h3")?.textContent, empty.title);
         } finally { await view.close(); }
       });
     }
@@ -164,7 +170,12 @@ for (const screen of screens) {
         await wait(SKELETON_DELAY_MS + 20);
         await view.answer(screen.path, Response.json({ detail: "boom" }, { status: 500 }));
         assert.equal(view.skeleton(), null);
-        assert.ok(view.host.querySelector("[role=alert]")?.textContent?.includes(screen.error), "the error line replaces the skeleton");
+        const error = view.host.querySelector(`[data-testid=${screen.errorTestId}]`);
+        assert.ok(error, "the error state replaces the skeleton");
+        assert.equal(error.getAttribute("role"), "alert");
+        assert.equal(error.getAttribute("data-empty-kind"), "error");
+        assert.equal(error.querySelector("h3")?.textContent, screen.errorTitle);
+        assert.deepEqual([...error.querySelectorAll("button")].map((button) => button.textContent?.trim()), ["Reintentar"]);
       } finally { await view.close(); }
     });
 

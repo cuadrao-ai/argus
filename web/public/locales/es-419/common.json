@@ -1401,7 +1401,7 @@
     "result_count_one": "{{count}} resultado",
     "result_count_other": "{{count}} resultados",
     "retest_current_data": "Volver a probar con datos actuales",
-    "retest_tooltip": "Reutiliza esta configuración con los datos más recientes disponibles. Podrás revisarla antes de ejecutarla.",
+    "retest_tooltip": "Reutiliza esta configuración con los datos más recientes.",
     "retest_already_current": "Ya está al día",
     "retest_no_new_data": "No hay datos de mercado nuevos desde esta ejecución.",
     "retest_available_dates": "Usar fechas disponibles",
@@ -2560,6 +2560,29 @@
       "upload_another": "Subir otro archivo",
       "enter_details": "Escribir datos"
     },
+    "empty": {
+      "access_error": "No pudimos cargar el acceso",
+      "all_clear_body": "Cuando llegue otro recibo, aparece aquí para que lo revises.",
+      "all_clear_title": "Todo aprobado. Pa'que cuadre.",
+      "email_body": "Reenvía tus recibos a tu dirección de Cuadrao y aparecen aquí, listos para revisar.",
+      "email_error": "No pudimos cargar tus correos",
+      "error_body": "Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.",
+      "expenses_body": "Cada recibo que apruebas en la Bandeja se vuelve un gasto de su mes.",
+      "expenses_error": "No pudimos cargar tus gastos",
+      "expenses_filtered_body": "Puede que haya gastos en otros meses.",
+      "expenses_filtered_title": "No hay gastos en este período",
+      "expenses_title": "Aquí verás tus gastos aprobados",
+      "inbox_body": "Súbelos, escríbelos o reenvíalos por correo. Los revisas y los apruebas para que cuenten en tus números.",
+      "inbox_error": "No pudimos cargar tu bandeja",
+      "inbox_title": "Aquí llegan tus recibos",
+      "month_body": "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.",
+      "notes_error": "No pudimos cargar tus notas",
+      "overview_error": "No pudimos cargar tu negocio",
+      "see_all_periods": "Ver todos los períodos",
+      "updates_body": "Cuando Cuadrao lea, guarde o necesite algo de un recibo, te avisamos aquí.",
+      "updates_error": "No pudimos cargar las novedades",
+      "updates_title": "Aquí verás qué pasó con tus recibos"
+    },
     "expenses": {
       "empty": "No hay gastos guardados en este período.",
       "error": "No pudimos cargar tus gastos. Reintenta.",
@@ -2952,6 +2975,7 @@
       "title": "Novedades"
     },
     "composer_receipt": {
+      "open": "Abrir recibo",
       "saved": "Guardado en la Bandeja",
       "dismiss": "Descartar"
     },
