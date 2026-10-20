@@ -36,3 +36,19 @@ for (const { path, cta, contact, earlyAccess } of [
     }
   });
 }
+
+for (const path of ["/", "/en", "/personal"]) {
+  test(`${path} header button rests on its hover color once the header floats`, async ({ page }) => {
+    test.skip(test.info().project.name === "mobile", "the header button is in the mobile menu on phones");
+    await page.goto(path);
+    const button = page.locator("header nav > div:last-child > a:last-child");
+    const background = () => button.evaluate((node) => getComputedStyle(node).backgroundColor);
+    await expect.poll(background).toBe("rgb(232, 237, 227)");
+    await page.evaluate(() => window.scrollTo(0, 600));
+    await expect(page.locator("header")).toHaveAttribute("data-condensed", "true");
+    await page.mouse.move(5, 400);
+    await expect.poll(background).toBe("rgb(48, 70, 58)");
+    await button.hover();
+    await expect.poll(background).toBe("rgb(48, 70, 58)");
+  });
+}

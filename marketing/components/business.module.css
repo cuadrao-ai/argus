@@ -4,6 +4,7 @@
   --line: #dce0da;
   --paper: #fafbf8;
   --accent: #d7ddc0;
+  --cta-hover: #30463a;
   min-height: 100svh;
   background: var(--paper);
   color: var(--ink);
@@ -172,6 +173,9 @@
   background: #e8ede3;
   border-color: transparent;
   color: var(--ink) !important;
+}
+.header[data-condensed="true"] .utilityNav > .buttonSmall {
+  background: var(--cta-hover);
 }
 .header .utilityNav > .buttonSmall {
   transition:
@@ -1124,7 +1128,7 @@
 }
 .button:hover,
 .buttonSmall:hover {
-  background: #30463a;
+  background: var(--cta-hover);
 }
 .button:hover svg {
   transform: translate(2px, -2px);
