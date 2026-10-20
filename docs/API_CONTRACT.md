@@ -9232,16 +9232,15 @@ run, the next approval rebuilds the declaration instead of keeping it.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. It may also carry `document_type` (`recibo` or `venta`),
-alone or with facts and `dgii`, for a draft that came from an upload. A change
+alone or with facts and `dgii`, for an open draft from an upload, a note or a
+chat. A change
 is one revision: a `venta` becomes income and loses a payable bill mark, a
 `recibo` becomes an expense, and a declaration saved under the other type is
 cleared unless the same request saves one. The printed RNC, NCF and ITBIS stay
 as read. Setting the type, changed or not, ends `document_type_detected`. After
-approval the change is `422` `document_type_locked`; a draft with no uploaded
-document is `422` `document_type_unsupported`. `BusinessDossier` carries
+approval the change is `422` `document_type_locked`. `BusinessDossier` carries
 `document_type`, `document_type_detected` and `document_type_editable` (open,
-from an upload, and the caller holds `prepare`). Sending the current type on a
-draft with no upload is accepted. A stale `version` is still `409`
+and the caller holds `prepare`). A stale `version` is still `409`
 `stale_version` first. The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
 `ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
@@ -9358,7 +9357,8 @@ Existing `ARGUS_BUSINESS_PILOT_ENABLED`, `ARGUS_INGESTION_ENABLED` and `ARGUS_DO
 
 
 **Human note capture contract.** `POST /business/captures` takes
-`{text, draft?: {draft_id, version}}` and `Idempotency-Key`, returning the existing
+`{text, draft?: {draft_id, version}, document_type?: "recibo" | "venta"}` and
+`Idempotency-Key`, returning the existing
 `BusinessDossier`. This foundation supplies its command and receipt constraints;
 route/service implementation is a separate owned slice. `text` is 1–20,000
 characters, rejects whitespace-only input and U+0000 (NUL), and is retained
@@ -9374,7 +9374,11 @@ and requires its exact open version. Accepted-record append is unsupported.
 The server persists an immutable original `MessageSource` with kind `message`
 and channel `web`, linked to the canonical candidate and a revision. It does not
 turn the text into inferred facts or an agent proposal. New drafts have unknown
-facts except the existing unverified DOP currency default. Appending a note
+facts except the existing unverified DOP currency default. A new note takes the
+upload's type rules: a named `venta` starts as income, a named type is not
+detected, and an unnamed note is a detected `recibo`, because typed text carries
+no issuer RNC for the read's rule to match. `document_type` with `draft` is
+`422`; an existing draft changes its type through review. Appending a note
 advances the revision while preserving facts and question states. The source,
 candidate/link, revision and human `capture_note` command receipt commit in one
 transaction without a model call, money write, consent change or agent turn.

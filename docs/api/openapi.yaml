@@ -14987,6 +14987,13 @@ components:
           anyOf:
           - $ref: '#/components/schemas/ExistingDraft'
           - type: 'null'
+        document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
