@@ -95,6 +95,7 @@ async def test_receipt_request_requires_one_purchase_and_preserves_printed_evide
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("ARGUS_PROD_OPENROUTER_API_KEY", "registered-test-key")
     receipt = {
+        "payment_status": "paid",
         "merchant": "Synthetic Corner Store",
         "total": amount,
         "currency": currency,

@@ -67,6 +67,7 @@ def _saved_invoice(actions, filename: str, media_type: str):  # noqa: ANN001
                     )
                 ],
                 receipt=dict(
+                    payment_status="paid",
                     merchant="Hotel Brisa del Este SRL",
                     occurred_on="2026-10-09",
                     currency="DOP",

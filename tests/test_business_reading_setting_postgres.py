@@ -377,6 +377,7 @@ def test_a_worker_read_lands_exactly_like_an_api_read(
             "merchant": "SUMINISTROS DEL PUERTO SRL",
         },
         {
+            "payment_status": "paid",
             "merchant": "SUMINISTROS DEL PUERTO SRL",
             "occurred_on": "2026-10-07",
             "currency": "DOP",
