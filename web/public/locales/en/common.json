@@ -1440,11 +1440,6 @@
     "close_dossier": "Close dossier"
   },
   "auth": {
-    "age_confirmation": {
-      "checkbox": "I confirm I'm 18 or older.",
-      "missing": "To continue, confirm you're 18 or older.",
-      "rejected": "We couldn't save your age confirmation. Check the box and try again."
-    },
     "captcha": {
       "verifying": "Verifying you’re not a bot…"
     },

@@ -1440,11 +1440,6 @@
     "close_dossier": "Cerrar el expediente"
   },
   "auth": {
-    "age_confirmation": {
-      "checkbox": "Confirmo que tengo 18 años o más.",
-      "missing": "Para continuar, confirma que tienes 18 años o más.",
-      "rejected": "No pudimos guardar tu confirmación de edad. Marca la casilla e inténtalo de nuevo."
-    },
     "captcha": {
       "verifying": "Verificando que no eres un bot…"
     },

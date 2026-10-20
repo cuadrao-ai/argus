@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { Bell, House, Inbox, ReceiptText } from "lucide-react";
+import { Bell, House, Inbox, ReceiptText, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
@@ -29,7 +29,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
     <nav
       aria-label={t("business.nav.label", "Business")}
       data-testid="business-sidebar-nav"
-      className="mt-2 border-t border-black/5 pt-2 dark:border-white/5"
+      className="flex flex-col"
     >
       <SidebarNavButton
         icon={House}
@@ -40,7 +40,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "overview" })}
         iconSize={20}
-        wrapLabel
+        variant="business"
       />
       <SidebarNavButton
         icon={Inbox}
@@ -50,10 +50,10 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
-        wrapLabel
         trailing={count(inboxCount)}
         activityPresentation={records.receiptActivity?.presentation === "working" ? "working" : records.receiptActivity?.presentation === "unread" ? "new_activity" : "none"}
         iconSize={20}
+        variant="business"
       />
       <SidebarNavButton
         icon={ReceiptText}
@@ -64,7 +64,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "expenses" })}
         iconSize={20}
-        wrapLabel
+        variant="business"
       />
       <SidebarNavButton
         icon={Bell}
@@ -75,9 +75,25 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "updates" })}
         iconSize={20}
-        wrapLabel
+        variant="business"
       />
-
     </nav>
+  );
+}
+
+/** Acceso sits above Ajustes at the foot of the rail, in the same row shape. */
+export function BusinessSidebarFooter({ shell }: { shell: ChatShellBridge }) {
+  const { t } = useTranslation();
+  const { panel, openPanel } = useBusiness();
+  return (
+    <SidebarNavButton
+      icon={UsersRound}
+      label={t("business_access.nav", "Access")}
+      active={shell.currentView === "workspace" && panel.kind === "access"}
+      collapsed={shell.sidebarCollapsed}
+      onClick={() => openPanel({ kind: "access" })}
+      iconSize={20}
+      variant="business"
+    />
   );
 }
