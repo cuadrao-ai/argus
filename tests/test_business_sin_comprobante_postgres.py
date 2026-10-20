@@ -89,6 +89,16 @@ def _draft(world, account: str, kind: str, amount: str, day: str, name: str, **e
     return note["draft_id"], reviewed["version"]
 
 
+def _stated_itbis(practice: str, itbis: str, **declared: str) -> dict:
+    """A fiscal review that states ITBIS and no RNC or fiscal number."""
+
+    declaration = {**PRACTICE[practice]["declaration"], **declared}
+    return {
+        "fiscal": {"rnc": None, "ncf": None, "itbis": itbis},
+        "declaration": declaration,
+    }
+
+
 def _approve(world, draft: str, version: int, kind: str) -> str:  # noqa: ANN001
     approved = _send(
         world,
@@ -134,6 +144,7 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
         "2026-09-08",
         "Colmado",
         receipt_state="fiscal_receipt",
+        dgii=_stated_itbis("P01", "76.27", goods_amount="423.73", paid_on="2026-09-08"),
     )
     dossier = _get(web, f"/business/drafts/{draft}/dossier").json()
     assert dossier["sin_comprobante"] is False
@@ -161,6 +172,7 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
         "2026-09-09",
         "Venta en efectivo",
         receipt_state="informal_receipt",
+        dgii=_stated_itbis("S01", "45.76", billed_amount="254.24", bank="300.00"),
     )
     _, fiscal_purchase = _record(
         web, pesos, "expense", "1180", "2026-09-03", "PRÁCTICA P01", dgii=PRACTICE["P01"]
@@ -205,12 +217,20 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
     dop, usd = september["currencies"]
     assert (usd["currency"], usd["expense_before_itbis_minor"]) == ("USD", 8000)
     assert (usd["itbis_paid_minor"], usd["income_before_itbis_minor"]) == (0, 0)
-    # P01 is 1000 before ITBIS and S01 is 2000; the cash records add their totals.
+    # P01 is 1000.00 before 180.00 ITBIS and S01 2000.00 before 360.00. The cash
+    # purchase's 76.27 ITBIS cannot be credited, so its whole 500.00 is cost. The
+    # cash sale counts 254.24 and its stated 45.76 ITBIS stays charged.
     assert (dop["expense_before_itbis_minor"], dop["income_before_itbis_minor"]) == (
         150000,
-        230000,
+        225424,
     )
-    assert (dop["itbis_paid_minor"], dop["itbis_charged_minor"]) == (18000, 36000)
+    assert (dop["itbis_paid_minor"], dop["itbis_charged_minor"]) == (18000, 40576)
+    amounts = {
+        line["activity_id"]: (line["before_itbis_minor"], line["itbis_minor"])
+        for line in september["cuentas_por_pagar"] + september["cuentas_por_cobrar"]
+    }
+    assert amounts[cash_purchase] == (50000, 7627)
+    assert amounts[cash_sale] == (25424, 4576)
     lines = {
         line["activity_id"]: line["sin_comprobante"]
         for line in september["cuentas_por_pagar"] + september["cuentas_por_cobrar"]

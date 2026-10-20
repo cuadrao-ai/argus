@@ -266,7 +266,11 @@ def set_document_status(
 
 def _line(document: MonthDocument) -> dict:
     currency = document.currency
-    before = before_itbis(document.total_minor, document.itbis_minor)
+    before = (
+        expense_base(document)
+        if document.role == "receipt"
+        else before_itbis(document.total_minor, document.itbis_minor)
+    )
     itbis = document.itbis_minor
     return {
         "activity_id": document.activity_id,

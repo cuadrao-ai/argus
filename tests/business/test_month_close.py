@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -362,6 +363,10 @@ def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
     assert summary["missing_rnc"] == summary["missing_ncf"] == []
     [line] = summary["cuentas_por_pagar"]
     assert (line["activity_id"], line["sin_comprobante"]) == ("cash-purchase", True)
+    assert (line["before_itbis_minor"], line["before_itbis"]) == (50000, "500.00")
+    unpaid_sale = replace(sold, status="pendiente", settled_on=None, payment_method=None)
+    [sale_line] = open_items([unpaid_sale])["cuentas_por_cobrar"]["items"]
+    assert (sale_line["before_itbis_minor"], sale_line["itbis_minor"]) == (25424, 4576)
 
 
 def test_a_purchase_with_a_comprobante_and_no_number_still_blocks_the_close():
