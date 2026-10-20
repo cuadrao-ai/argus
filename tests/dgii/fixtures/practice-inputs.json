@@ -1,6 +1,6 @@
 {
   "practice_label": "PRÁCTICA",
-  "business_name": "PRÁCTICA José",
+  "business_name": "Taller Ensayo",
   "period": "202609",
   "schema_source": "src/argus/domain/business/contracts/dgii.py",
   "no_hosted_write_performed": true,

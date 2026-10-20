@@ -228,6 +228,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     signup = client.post(
         f"{API}/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": accountant.email,
             "password": accountant.password,
             "captcha_token": CAPTCHA,

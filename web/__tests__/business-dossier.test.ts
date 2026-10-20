@@ -166,7 +166,7 @@ test("Spanish export control names the authorized client and allows read-only re
   const html = render(record);
   assert.ok(html.includes(record.space_name));
   assert.match(html, /Descargar CSV, Excel y originales/);
-  assert.match(html, /originales faltantes/);
+  assert.doesNotMatch(html, /type="date"/);
   assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/);
   assert.ok(!html.includes("Aprobar"));
   assert.equal(render({ ...record, capabilities: [] }), "");

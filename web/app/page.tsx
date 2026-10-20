@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { useRouter } from "next/navigation";
 import AuthForm, {
@@ -8,7 +9,6 @@ import AuthForm, {
 } from "@/components/auth/AuthForm";
 import RequestAccess from "@/components/auth/RequestAccess";
 import { SettingsMenu } from "@/components/SettingsMenu";
-import GuestEntry from "@/components/guest/GuestEntry";
 import { useTranslation } from "react-i18next";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import {
@@ -18,7 +18,10 @@ import {
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
+import { resetLeavingSession } from "@/lib/logout-flow";
 import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { sessionEndedNotice } from "@/lib/failure-screen";
 import {
   guestEntryAvailable,
   resolveLandingEntrySurface,
@@ -27,9 +30,10 @@ import {
 import {
   captureLandingIntentFromLocation,
   postAuthPath,
+  signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
-import { ENABLED_LANGUAGES, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { landingLanguageChoices, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
@@ -64,6 +68,8 @@ export default function LandingPage() {
   const [authMode, setAuthMode] = useState<AuthMode>("intro");
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
+  const [homeClosed, setHomeClosed] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
 
@@ -71,6 +77,7 @@ export default function LandingPage() {
     captureLandingIntentFromLocation();
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
+    setSessionEnded(sessionEndedNotice(window.location.search));
     const verification = completeAuthVerification();
     let cancelled = false;
     (async () => {
@@ -83,7 +90,7 @@ export default function LandingPage() {
           setIsCheckingSession(false);
           return;
         }
-        if (verified === "none" && skipAuthenticatedRedirect()) {
+        if (verified === "none" && skipAuthenticatedRedirect() && !signedInHomeClosed()) {
           setIsCheckingSession(false);
           return;
         }
@@ -99,6 +106,12 @@ export default function LandingPage() {
           // cannot bounce between the front door and the Business shell.
           await logoutFromApi().catch(() => undefined);
           if (cancelled) return;
+          setIsCheckingSession(false);
+          return;
+        }
+        if (signedInHomeClosed()) {
+          setHomeClosed(true);
+          setAuthMode("login");
           setIsCheckingSession(false);
           return;
         }
@@ -131,25 +144,38 @@ export default function LandingPage() {
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(null, "", nextUrl);
   };
-  // A language chosen on this page before signing in. It is shown at once and,
-  // once the account signs in, saved on it; the account's own setting rules
-  // every later visit.
+  // A language chosen on this page before signing in. It is saved on the
+  // account after sign-in. A Business build keeps showing Spanish.
   const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
   const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const otherLanguages = ENABLED_LANGUAGES.filter((language) => language.code !== shownLanguage);
+  const otherLanguages = landingLanguageChoices(businessPilotEnabled, shownLanguage);
   const chooseLanguage = async (code: ArgusLanguage) => {
-    await i18n.changeLanguage(code);
+    const shown = languageToShow(businessPilotEnabled, code);
+    if (shown) await i18n.changeLanguage(shown);
     setChosenLanguage(code);
   };
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
+  const leaveClosedHome = (href: string) => {
+    resetLeavingSession();
+    setHomeClosed(false);
+    if (href === "/" || href.startsWith("/?auth=login")) {
+      updateAuthMode("login");
+      return;
+    }
+    window.location.assign(href);
+  };
 
   const handleAuthSubmit = async (submission: AuthFormSubmission) => {
     const allowMockSignupNetwork =
       process.env.NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP === "true" &&
       submission.mode === "signup";
     if (isMockAuth && !allowMockSignupNetwork) {
+      if (signedInHomeClosed()) {
+        setHomeClosed(true);
+        return;
+      }
       router.replace(postAuthPath());
       router.refresh();
       return;
@@ -161,24 +187,46 @@ export default function LandingPage() {
         password: submission.password,
         language: normalizeApiLanguage(i18n.resolvedLanguage ?? i18n.language),
         display_name: submission.displayName || null,
+        age_confirmed_at: submission.ageConfirmedAt ?? "",
       });
       if (result.needsEmailConfirmation) {
         return { status: "email_confirmation_required" as const };
       }
-    } else {
-      await loginWithEmail({
-        email: submission.email,
-        password: submission.password,
-      });
-      // The choice made on this page outlives the sign-in: saved on the
-      // account now, so the workspace does not switch back to the account's
-      // earlier language. A failed save keeps the shown language for this visit.
-      if (chosenLanguage) {
-        await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
+      if (signedInHomeClosed()) {
+        setHomeClosed(true);
+        return;
       }
+      router.replace(postAuthPath());
+      router.refresh();
+      return;
     }
 
+    await loginWithEmail({
+      email: submission.email,
+      password: submission.password,
+    });
+    await continueWithChosenLanguage();
+    if (signedInHomeClosed()) return;
+    router.refresh();
+  };
+
+  async function continueWithChosenLanguage() {
+    // The choice made on this page outlives the sign-in: saved on the
+    // account now, so the workspace does not switch back to the account's
+    // earlier language. A failed save keeps the shown language for this visit.
+    if (chosenLanguage) {
+      await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
+    }
+    if (signedInHomeClosed()) {
+      setHomeClosed(true);
+      return;
+    }
     router.replace(postAuthPath());
+  }
+
+  const finishConfirmedSignup = async () => {
+    await continueWithChosenLanguage();
+    if (signedInHomeClosed()) return;
     router.refresh();
   };
 
@@ -195,15 +243,9 @@ export default function LandingPage() {
     return (
       <>
         <DevModeBadge />
-        <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <FullscreenLoading />
       </>
     );
-  }
-
-  if (entrySurface === "guest") {
-    return <GuestEntry />;
   }
 
   return (
@@ -219,7 +261,9 @@ export default function LandingPage() {
         </div>
 
         <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
-          {authMode === "intro" ? (
+          {homeClosed ? (
+            <BusinessClosedNotice navigate={leaveClosedHome} />
+          ) : authMode === "intro" ? (
             <button
               type="button"
               onClick={showRequest}
@@ -230,6 +274,11 @@ export default function LandingPage() {
             </button>
           ) : (
             <div className="w-full max-w-sm">
+              {sessionEnded && authMode === "login" ? (
+                <p role="status" data-testid="session-ended" className="mb-4 text-center text-[16px] text-[#2f5a49]">
+                  {t("auth.screen.session_ended", "Your session ended. Sign in again.")}
+                </p>
+              ) : null}
               {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
               {authMode === "request" ? (
                 <RequestAccess
@@ -242,12 +291,13 @@ export default function LandingPage() {
                   brand="cuadrao"
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
+                  onEmailConfirmed={finishConfirmedSignup}
                 />
               )}
             </div>
           )}
 
-          {otherLanguages.length > 0 ? (
+          {!homeClosed && otherLanguages.length > 0 ? (
             <p className="text-[13px] tracking-wide text-black/60 dark:text-white/60" data-testid="auth-language-switch">
               {otherLanguages.map((language) => (
                 <button

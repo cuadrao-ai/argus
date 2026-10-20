@@ -9,6 +9,7 @@ import type {
   BusinessAccount,
   BusinessCapture,
   BusinessCaptureInput,
+  BusinessConsent,
   BusinessExpense,
   BusinessExpenseDetail,
   BusinessOverview,
@@ -31,6 +32,9 @@ import type {
 export type BusinessDataSource = Readonly<{
   mode: "live" | "fixture";
   ensureSpace: (language: ArgusLanguage) => Promise<BusinessSpace>;
+  /** The person's acceptance of one wording of the consent screen. */
+  consent: (version: string) => Promise<BusinessConsent>;
+  acceptConsent: (version: string) => Promise<BusinessConsent>;
   /** Every Business the person may enter through a live grant, their own first. */
   spaces: () => Promise<GrantedSpace[]>;
   /** The person dismissed the one-time access line for one of their grants. */
@@ -77,6 +81,7 @@ export type BusinessDataSource = Readonly<{
   retryEmailDelivery: (id: string) => Promise<{ id: string }>;
   access: () => Promise<BusinessAccess>;
   giveAccess: (email: string) => Promise<BusinessAccess>;
+  resendAccessInvite: (id: string) => Promise<BusinessAccess>;
   revokeAccessGrant: (id: string) => Promise<void>;
   revokeAccessInvite: (id: string) => Promise<void>;
 }>;
@@ -84,6 +89,8 @@ export type BusinessDataSource = Readonly<{
 export const liveBusinessDataSource: BusinessDataSource = {
   mode: "live",
   ensureSpace: api.startBusinessSpace,
+  consent: api.getBusinessConsent,
+  acceptConsent: api.acceptBusinessConsent,
   workspace: api.getBusinessWorkspace,
   receiptActivity: api.getReceiptActivity,
   receiptPage: api.getBusinessReceiptPage,
@@ -120,6 +127,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   retryEmailDelivery: api.retryBusinessEmailDelivery,
   access: api.getBusinessAccess,
   giveAccess: api.giveBusinessAccess,
+  resendAccessInvite: api.resendBusinessAccessInvite,
   revokeAccessGrant: api.revokeBusinessAccessGrant,
   revokeAccessInvite: api.revokeBusinessAccessInvite,
   spaces: api.getBusinessSpaces,
@@ -165,6 +173,8 @@ export function withBusinessSpace(
   return {
     mode: source.mode,
     ensureSpace: ready,
+    consent: source.consent,
+    acceptConsent: source.acceptConsent,
     workspace: after(source.workspace),
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
@@ -201,6 +211,7 @@ export function withBusinessSpace(
     retryEmailDelivery: source.retryEmailDelivery,
     access: after(source.access),
     giveAccess: after(source.giveAccess),
+    resendAccessInvite: after(source.resendAccessInvite),
     revokeAccessGrant: source.revokeAccessGrant,
     revokeAccessInvite: source.revokeAccessInvite,
     spaces: after(source.spaces),

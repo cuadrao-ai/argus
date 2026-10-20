@@ -1,4 +1,0 @@
-interface:
-  display_name: "Argus Experience Audit"
-  short_description: "Reproduce and lock Argus product experience evidence"
-  default_prompt: "Use $argus-experience-audit to run a safe current-checkpoint Guest and signed-in experience audit and lock the evidence."

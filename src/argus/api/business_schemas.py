@@ -59,6 +59,21 @@ class RenameBusinessSpace(_Wire):
     name: SpaceName
 
 
+#: Names one wording of the Business consent screen; the web derives it from the copy.
+ConsentVersion = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{16}$")]
+
+
+class AcceptBusinessConsent(_Wire):
+    version: ConsentVersion
+
+
+class BusinessConsent(_Wire):
+    """The caller's acceptance of one wording; ``accepted_at`` is null until then."""
+
+    version: ConsentVersion
+    accepted_at: datetime | None
+
+
 class BusinessAccount(_Wire):
     id: str
     nickname: str | None
@@ -94,11 +109,13 @@ class BusinessAccessInvite(_Wire):
     email: str
     created_at: datetime
     expires_at: datetime
+    state: Literal["pending", "expired"]
 
 
 class BusinessAccess(_Wire):
     grants: list[BusinessAccessGrant]
     invites: list[BusinessAccessInvite]
+    invite_delivery: Literal["not_configured", "accepted", "failed"] | None = None
 
 
 class GiveBusinessAccess(_Wire):

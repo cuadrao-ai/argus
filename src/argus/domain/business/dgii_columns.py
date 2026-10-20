@@ -54,3 +54,21 @@ SALES_COLUMNS = (
 
 COLUMNS = {"606": PURCHASE_COLUMNS, "607": SALES_COLUMNS}
 PAYMENT_BUCKETS = ("cash", "bank", "card", "credit", "gift", "barter", "other_payment")
+# A blank and a zero both leave the cell empty. Required and calculated amounts
+# stay numeric, including 0.00.
+OPTIONAL_AMOUNTS = frozenset(
+    {
+        "services_amount",
+        "goods_amount",
+        "itbis_withheld",
+        "itbis_proportionality",
+        "itbis_cost",
+        "income_withheld",
+        "itbis_withheld_by_third_parties",
+        "income_withheld_by_third_parties",
+        "selective_tax",
+        "other_taxes",
+        "legal_tip",
+        *PAYMENT_BUCKETS,
+    }
+)

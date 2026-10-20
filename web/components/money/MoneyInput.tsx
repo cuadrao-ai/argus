@@ -184,11 +184,11 @@ export default function MoneyInput({
         className={`mt-1.5 flex min-h-11 w-full items-center gap-2 rounded-[12px] border bg-white px-3 transition-colors focus-within:ring-[0.125rem] dark:bg-[#141517] ${
           shown
             ? "border-[#a8434c]/60 focus-within:ring-[#a8434c]/15 dark:border-[#ec9aa0]/60"
-            : "border-black/10 focus-within:border-black/30 focus-within:ring-black/10 dark:border-white/10"
+            : "border-[#7d8a84] focus-within:ring-black/10"
         } ${disabled ? "bg-black/[0.03] dark:bg-white/[0.03]" : ""}`}
       >
         {symbol ? (
-          <span aria-hidden="true" className="shrink-0 text-[16px] tabular-nums text-black/50 dark:text-white/50">
+          <span aria-hidden="true" className="shrink-0 text-[16px] tabular-nums text-[#56635e] dark:text-white/60">
             {symbol}
           </span>
         ) : null}

@@ -57,6 +57,19 @@ CLIENT_SCHEMA_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 
 CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.backtest_jobs": {"authenticated": frozenset({"SELECT"})},
+    "public.business_bank_accounts": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_bank_imports": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_bank_lines": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_bank_suggestions": {
+        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
+    },
+    "public.business_consent_acceptances": {"authenticated": frozenset({"SELECT"})},
     "public.chat_turn_lifecycles": {"authenticated": frozenset({"SELECT"})},
     "public.conversation_read_states": {"authenticated": frozenset({"SELECT"})},
     "public.financial_accounts": {"authenticated": frozenset({"SELECT"})},
@@ -83,6 +96,9 @@ CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 
 # Column grants that are not covered by a table-level grant above.
 CLIENT_COLUMN_PRIVILEGES: dict[str, dict[str, dict[str, frozenset[str]]]] = {
+    "public.business_consent_acceptances": {
+        "authenticated": {"INSERT": frozenset({"copy_version", "space_id", "user_id"})},
+    },
     "public.financial_source_connections": {
         "authenticated": {
             "SELECT": frozenset(
@@ -133,6 +149,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "argus_private.account_deletion_runs",
         "argus_private.account_placeholders",
         "argus_private.invite_code_digests",
+        "argus_private.retention_policies",
+        "argus_private.retention_sweeps",
         "public.apple_sign_in_credentials",
         "public.argus_memory_vectors",
         "public.backtest_runs",
@@ -143,12 +161,17 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_action_receipts",
         "public.business_ai_consents",
         "public.business_client_grants",
+        "public.business_document_settlement_revisions",
+        "public.business_document_settlements",
         "public.business_draft_revisions",
         "public.business_draft_sources",
+        "public.business_email_address_events",
         "public.business_email_daily_usage",
         "public.business_email_deliveries",
         "public.business_email_parts",
+        "public.business_email_retired_aliases",
         "public.business_email_routes",
+        "public.business_email_senders",
         "public.business_questions",
         "public.business_receipt_activity_baseline",
         "public.business_receipt_consent_commands",
@@ -170,6 +193,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.cost_ledger_entries",
         "public.cuadrao_early_access_signups",
         "public.decision_notes",
+        "public.dgii_rnc",
+        "public.dgii_rnc_load",
         "public.evidence_artifacts",
         "public.feedback",
         "public.financial_account_idempotency",
@@ -238,11 +263,12 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
 # Functions a client role can execute, directly or through PUBLIC. Extension
 # members are excluded.
 CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
+    "argus_private.business_bank_has_capability(uuid, text)": frozenset(
+        {"authenticated"}
+    ),
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
-    # Migration 20261016154607 adopts these existing staging grants unchanged.
-    # The separate M0 hardening migration owns their revocation.
-    "public.rls_auto_enable()": frozenset({"anon", "authenticated"}),
+    # The historical staging adoption retains this existing helper grant.
     "public.set_updated_at()": frozenset({"anon", "authenticated"}),
 }
 
@@ -408,8 +434,64 @@ def test_client_executable_functions_match_the_allow_list(catalog) -> None:
     assert _executable_functions(catalog) == CLIENT_EXECUTABLE_FUNCTIONS
 
 
+@pytest.mark.parametrize("role", CLIENT_ROLES)
+def test_rls_event_trigger_is_not_client_executable(catalog, role) -> None:
+    catalog.execute(
+        "select has_function_privilege(%s, 'public.rls_auto_enable()', 'EXECUTE')",
+        (role,),
+    )
+    assert catalog.fetchone() == (False,)
+
+
+def test_revoked_rls_helper_still_enables_new_public_table_rls(catalog) -> None:
+    with catalog.connection.transaction(force_rollback=True):
+        catalog.execute("create table public.security_rls_probe (id integer)")
+        catalog.execute(
+            "select relrowsecurity from pg_class where oid='public.security_rls_probe'::regclass"
+        )
+        assert catalog.fetchone() == (True,)
+
+
 def test_migration_owner_default_privileges_give_clients_nothing(catalog) -> None:
     assert _default_privileges(catalog) == CLIENT_DEFAULT_PRIVILEGES
+
+
+def test_service_role_can_call_dgii_rnc_lookup(catalog) -> None:
+    catalog.execute(
+        """
+        select prosecdef
+        from pg_proc
+        join pg_namespace on pg_namespace.oid = pg_proc.pronamespace
+        where nspname = 'public' and proname = 'dgii_rnc_lookup'
+        """
+    )
+    assert catalog.fetchone() == (False,)
+    catalog.execute(
+        """
+        select role_name,
+               has_function_privilege(role_name, 'public.dgii_rnc_lookup(text)', 'execute')
+        from unnest(array['anon', 'authenticated', 'service_role']) as role_name
+        """
+    )
+    assert dict(catalog.fetchall()) == {
+        "anon": False,
+        "authenticated": False,
+        "service_role": True,
+    }
+    try:
+        with catalog.connection.transaction(force_rollback=True):
+            catalog.execute(
+                """
+                insert into public.dgii_rnc (rnc, name, trade_name, status, file_date)
+                values ('101234567', 'Casa Norte', null, 'ACTIVO', '2026-10-18')
+                """
+            )
+            catalog.execute("set role service_role")
+            catalog.execute("select rnc from public.dgii_rnc_lookup('1-01-23456-7')")
+            assert catalog.fetchone() == ("101234567",)
+            catalog.execute("reset role")
+    finally:
+        catalog.execute("reset role")
 
 
 def test_business_space_is_never_client_visible(catalog) -> None:
@@ -593,6 +675,111 @@ def test_service_role_still_writes_backend_owned_rows(owned_rows) -> None:
             assert cursor.fetchone() == ("succeeded",)
 
 
+@pytest.fixture
+def consent_people() -> Iterator[tuple]:
+    """Ana and Beto each own a Business; neither holds a grant on the other's."""
+
+    with psycopg.connect(DSN) as connection:
+        try:
+            people = {}
+            with connection.cursor() as cursor:
+                for name in ("ana", "beto"):
+                    user_id = str(uuid4())
+                    cursor.execute(
+                        "insert into auth.users (id, email, is_anonymous)"
+                        " values (%s, %s, false)",
+                        (user_id, f"consent-{name}-{user_id}@example.test"),
+                    )
+                    cursor.execute(
+                        "insert into public.spaces (kind, name, created_by)"
+                        " values ('business', %s, %s) returning id::text",
+                        (name, user_id),
+                    )
+                    (space_id,) = cursor.fetchone()
+                    cursor.execute(
+                        "insert into public.business_client_grants"
+                        " (space_id, grantee_id, issuer_id, capabilities)"
+                        " values (%s, %s, %s, array['read', 'prepare', 'approve'])",
+                        (space_id, user_id, user_id),
+                    )
+                    people[name] = (user_id, space_id)
+            yield connection, people
+        finally:
+            connection.rollback()
+
+
+CONSENT_INSERT = (
+    "insert into public.business_consent_acceptances (user_id, space_id, copy_version)"
+    " values (%s, %s, %s)"
+)
+CONSENT_VERSION = "0123456789abcdef"
+
+
+def test_a_signed_in_person_writes_and_reads_only_their_own_consent(
+    consent_people,
+) -> None:
+    connection, people = consent_people
+    ana, ana_space = people["ana"]
+    beto, beto_space = people["beto"]
+    with connection.cursor() as cursor:
+        with connection.transaction():
+            _act_as(cursor, "authenticated", user_id=ana)
+            cursor.execute(CONSENT_INSERT, (ana, ana_space, CONSENT_VERSION))
+            cursor.execute(
+                "select user_id::text, space_id::text, copy_version,"
+                " accepted_at is not null from public.business_consent_acceptances"
+            )
+            assert cursor.fetchall() == [(ana, ana_space, CONSENT_VERSION, True)]
+            cursor.execute("reset role")
+
+        refused = {
+            "someone else's acceptance": (CONSENT_INSERT, (beto, beto_space, "f" * 16)),
+            "a Business without a grant": (CONSENT_INSERT, (ana, beto_space, "e" * 16)),
+            "a chosen time": (
+                "insert into public.business_consent_acceptances"
+                " (user_id, space_id, copy_version, accepted_at)"
+                " values (%s, %s, %s, now() - interval '1 year')",
+                (ana, ana_space, "d" * 16),
+            ),
+            "an edit": (
+                "update public.business_consent_acceptances set copy_version = %s"
+                " where user_id = %s",
+                ("c" * 16, ana),
+            ),
+            "a delete": (
+                "delete from public.business_consent_acceptances where user_id = %s",
+                (ana,),
+            ),
+        }
+        for label, (statement, params) in refused.items():
+            with (
+                pytest.raises(psycopg.errors.InsufficientPrivilege),
+                connection.transaction(),
+            ):
+                _act_as(cursor, "authenticated", user_id=ana)
+                cursor.execute(statement, params)
+                pytest.fail(f"{label} was written")
+
+        with connection.transaction():
+            _act_as(cursor, "authenticated", user_id=beto)
+            cursor.execute("select count(*) from public.business_consent_acceptances")
+            assert cursor.fetchone() == (0,)
+            cursor.execute("reset role")
+        with (
+            pytest.raises(psycopg.errors.InsufficientPrivilege),
+            connection.transaction(),
+        ):
+            _act_as(cursor, "anon")
+            cursor.execute("select count(*) from public.business_consent_acceptances")
+
+        cursor.execute("delete from auth.users where id = %s", (ana,))
+        cursor.execute(
+            "select count(*) from public.business_consent_acceptances where user_id = %s",
+            (ana,),
+        )
+        assert cursor.fetchone() == (0,), "a deleted account keeps no acceptance"
+
+
 # Storage. Buckets no client may reach, and every storage.objects policy; an
 # empty policy list means only the service role reads or writes any object.
 
@@ -632,3 +819,27 @@ def test_client_roles_cannot_see_their_own_private_objects(owned_rows, role) -> 
                 "select count(*) from storage.objects where name = %s", (name,)
             )
             assert cursor.fetchone() == (0,)
+
+
+def test_service_role_cannot_rewrite_address_events(catalog) -> None:
+    catalog.execute(
+        "select has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'SELECT'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'INSERT'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'UPDATE'),"
+        " has_table_privilege('service_role',"
+        " 'public.business_email_address_events', 'DELETE')"
+    )
+    assert catalog.fetchone() == (True, True, False, False)
+    with psycopg.connect(DSN) as connection:
+        with connection.cursor() as cursor:
+            for statement in (
+                "update public.business_email_address_events set event_type = event_type",
+                "delete from public.business_email_address_events",
+            ):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    with connection.transaction():
+                        _act_as(cursor, "service_role")
+                        cursor.execute(statement)

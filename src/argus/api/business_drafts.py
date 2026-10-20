@@ -68,6 +68,9 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         code=refusal.code,
         title=refusal.code.replace("_", " ").capitalize(),
         detail=refusal.code,
+        context={"existing_record_id": str(refusal.existing_record_id)}
+        if refusal.existing_record_id
+        else None,
         headers=NO_STORE,
     )
 

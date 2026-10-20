@@ -1,4 +1,3 @@
-import hashlib
 import io
 import json
 import os
@@ -18,7 +17,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
 )
 from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.export import ExportPeriod, export_package
 from argus.domain.business.fiscal_profile import (
@@ -30,6 +29,7 @@ from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.recording.repository import NewAccount
 
 from tests import test_business_actions_postgres as shared
+from tests.dgii.test_packet import packet
 
 users = shared.users
 shared_actions = shared.actions
@@ -47,7 +47,7 @@ def actions(shared_actions):
     from argus.domain.business.spaces import PostgresSpaceStore
 
     service, context, grant = shared_actions
-    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "PRÁCTICA José")
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "Taller Ensayo")
     yield service, context, grant
 
 
@@ -156,6 +156,11 @@ def approve(service, context, draft):
 
 
 def test_practice_human_capture_revision_approval_and_actual_export(actions):
+    """Detail lines match the practice packet.
+
+    Activity ids do not define annex order, so the comparison ignores line order.
+    The seeded-month test locks supplied-record order.
+    """
     service, context, _ = actions
     account = cash_account(service, context)
     set_profile(
@@ -185,23 +190,18 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
         assert manifest["dgii"]["totals_dop"]["itbis_por_adelantar"] == "252.00"
         assert manifest["dgii"]["totals_dop"]["itbis_facturado"] == "450.00"
         assert len(manifest["records"]) == 6
-        assert (
-            hashlib.sha256(
-                archive.read("dgii/DGII_F_606_199990013_202609.TXT")
-            ).hexdigest()
-            == "729e044ba0a1de65c2dbb46617c38617f25697e3e5e42dc4ed23f2fd4b3e01a5"
-        )
-        assert (
-            hashlib.sha256(
-                archive.read("dgii/DGII_F_607_199990013_202609.TXT")
-            ).hexdigest()
-            == "73b5366cb83900e54b48eb4573c6bc29fb3115b2421985d67981479ced474d09"
-        )
+        reference = packet()
+        for form in ("606", "607"):
+            name = f"dgii/DGII_F_{form}_199990013_202609.TXT"
+            actual = archive.read(name).split(b"\r\n")
+            expected = reference.files[name].split(b"\r\n")
+            assert actual[0] == expected[0]
+            assert sorted(actual[1:]) == sorted(expected[1:])
         output = os.getenv("CUADRAO_DGII_FIXTURE_OUTPUT")
         if output:
             root = Path(output)
             root.mkdir(parents=True, exist_ok=True)
-            (root / "PRÁCTICA-José-local-export.zip").write_bytes(blob)
+            (root / "taller-ensayo-local-export.zip").write_bytes(blob)
             for name in archive.namelist():
                 if name.startswith("dgii/"):
                     (root / Path(name).name).write_bytes(archive.read(name))
@@ -227,10 +227,9 @@ def test_fiscal_duplicate_approvals_create_one_money_activity(actions, sale, buy
             executor.map(lambda draft: approve(service, context, draft), [first, second])
         )
     assert sorted(result.outcome for result in results) == ["applied", "invalid_input"]
-    assert (
-        next(result.code for result in results if result.outcome == "invalid_input")
-        == "fiscal_duplicate_document"
-    )
+    assert next(
+        result.code for result in results if result.outcome == "invalid_input"
+    ) == ("fiscal_duplicate_document" if sale else "duplicate_comprobante")
     with service.authority.pool.connection() as db:
         assert (
             db.execute(
@@ -262,7 +261,8 @@ def test_conflicting_amount_same_ncf_is_refused_before_money_and_review_keeps_ta
     assert before.dgii is not None
     assert before.history[-1].before_dgii == before.history[-1].after_dgii
     outcome = approve(service, context, (second[0], changed.version, second[2]))
-    assert outcome.code == "fiscal_duplicate_document"
+    assert outcome.code == "duplicate_comprobante"
+    assert outcome.existing_record_id == first[0]
 
 
 def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_packet(
@@ -377,7 +377,7 @@ def test_legacy_printed_supplier_identity_blocks_new_canonical_duplicate(actions
         == "applied"
     )
     second = reviewed(service, context, account)
-    assert approve(service, context, second).code == "fiscal_duplicate_document"
+    assert approve(service, context, second).code == "duplicate_comprobante"
 
 
 def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, users):
@@ -509,6 +509,163 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
                 archive.read(f"dgii/DGII_F_{form}_{filer}_202609.TXT").split(b"\r\n")[0]
                 == f"{form}|{filer}|202609|1".encode()
             )
+
+
+def _blank_purchase():
+    return {
+        "form": "606",
+        "id_type": "1",
+        "modified_ncf": None,
+        "selective_tax": "1.10",
+        "other_taxes": "2.20",
+        "legal_tip": "0.25",
+        "category": None,
+        "paid_on": None,
+        "services_amount": None,
+        "goods_amount": None,
+        "itbis_withheld": None,
+        "itbis_proportionality": None,
+        "itbis_cost": None,
+        "itbis_perceived": None,
+        "income_withholding_type": None,
+        "income_withheld": None,
+        "income_perceived": None,
+        "payment_method": None,
+    }
+
+
+def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    capture = service.capture(
+        context, CaptureNote(text="PRÁCTICA compra con centavos"), str(uuid4())
+    )
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "1180.55",
+                "currency": "DOP",
+                "occurred_on": "2026-09-03",
+                "counterparty": "PRÁCTICA centavos",
+                "funding": {"kind": "business_account", "account_id": str(account)},
+                "business_share": {"kind": "all"},
+                "receipt_state": "fiscal_receipt",
+            }.items()
+        }
+    )
+    stored = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=facts,
+            dgii=FiscalReview.model_validate(
+                {
+                    "fiscal": {
+                        "rnc": "199990021",
+                        "ncf": "B0100000001",
+                        "itbis": "180.10",
+                    },
+                    "declaration": _blank_purchase(),
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert stored.outcome == "applied", stored
+    saved = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=stored.version,
+            facts=BusinessFactPatch(
+                purchase=PurchaseReview(
+                    category="09",
+                    payment_method="04",
+                    paid_on=date(2026, 9, 3),
+                    itbis_withheld="18.40",
+                    income_withholding_type="02",
+                    income_withheld="10.15",
+                )
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert saved.outcome == "applied", saved
+    dossier = service.dossier(context, capture.draft_id)
+    assert dossier.dgii.goods_amount == "996.90"
+    assert dossier.dgii.services_amount is None
+    assert dossier.dgii.payment_method == "04"
+    assert dossier.dgii.itbis_withheld == "18.40"
+    assert dossier.dgii.income_withholding_type == "02"
+    assert dossier.dgii.income_withheld == "10.15"
+    assert dossier.history[-1].after_dgii.payment_method == "04"
+    assert dossier.history[-1].after_dgii.goods_amount == "996.90"
+
+
+def test_a_listed_bad_check_digit_stays_in_the_606(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    set_profile(service.authority, context, filer_change("199990013"), "rnc")
+    listed_rnc = "138888003"
+    with service.authority.pool.connection() as connection, connection.transaction():
+        connection.execute(
+            "insert into public.dgii_rnc (rnc, name, trade_name, status, file_date)"
+            " values (%s, %s, %s, 'ACTIVO', %s)",
+            (listed_rnc, "FARMACIA CAROL", "FARMACIA", date(2026, 10, 17)),
+        )
+    try:
+        draft = reviewed(service, context, account, override={"rnc": listed_rnc})
+        assert approve(service, context, draft).outcome == "applied"
+        blob = export_package(
+            service.authority,
+            context,
+            ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+            InMemorySourceObjects(),
+        )
+    finally:
+        with service.authority.pool.connection() as connection, connection.transaction():
+            connection.execute("delete from public.dgii_rnc where rnc=%s", (listed_rnc,))
+    with ZipFile(io.BytesIO(blob)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        names = archive.namelist()
+    assert "dgii/DGII_F_606_199990013_202609.TXT" in names
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    assert not any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["issues"]
+    )
+    assert not any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["warnings"]
+    )
+    assert manifest["rnc_checks"][0]["status"] == "verificado"
+    assert manifest["rnc_checks"][0]["name"] == "FARMACIA CAROL"
+
+
+def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
+    service, context, _ = actions
+    capture = service.capture(
+        context, CaptureNote(text="PRÁCTICA ingreso sin declaración"), str(uuid4())
+    )
+    saved = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "kind": {"state": "known", "value": "income"},
+                    "amount": {"state": "known", "value": "100.50"},
+                    "purchase": {"category": "09", "payment_method": "04"},
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert saved.outcome == "applied", saved
+    dossier = service.dossier(context, capture.draft_id)
+    assert dossier.dgii is None
 
 
 def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(

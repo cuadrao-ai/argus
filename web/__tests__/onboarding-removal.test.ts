@@ -23,11 +23,9 @@ describe("onboarding strip-out: first use is ordinary chat", () => {
 
   test("home and chat pages do not import or render an onboarding gate", () => {
     const landing = read("app/page.tsx");
-    const chatPage = read("app/chat/page.tsx");
-    for (const source of [landing, chatPage]) {
-      expect(source).not.toContain("OnboardingGate");
-      expect(source.toLowerCase()).not.toContain("onboarding");
-    }
+    expect(landing).not.toContain("OnboardingGate");
+    expect(landing.toLowerCase()).not.toContain("onboarding");
+    expect(fs.existsSync(path.join(webRoot, "app/chat/page.tsx"))).toBe(false);
   });
 
   test("chat surface renders no onboarding goal cards or hidden protocol", () => {
@@ -78,17 +76,16 @@ describe("onboarding strip-out: first use is ordinary chat", () => {
     expect(enKeys.some((key) => key.toLowerCase().includes("onboarding"))).toBe(false);
   });
 
-  test("generic localized starter prompts remain on the empty chat surface", () => {
+  test("investing starter prompts are gone and only caller entries render", () => {
     const emptyChat = read("components/chat/EmptyChatSurface.tsx");
     const starters = read("components/chat/StarterActions.tsx");
     expect(emptyChat).toContain("<StarterActions");
-    expect(starters).toContain("chat.starter_actions.tsla.value");
-    expect(starters).toContain("chat.starter_actions.btc.value");
-    expect(starters).toContain("chat.starter_actions.dca.value");
+    expect(starters).toContain("if (!workspaceEntries?.length) return null;");
+    expect(starters).not.toContain("chat.starter_actions");
     const en = JSON.parse(read("public/locales/en/common.json"));
     const es = JSON.parse(read("public/locales/es-419/common.json"));
-    expect(en.chat.starter_actions.tsla.value.length).toBeGreaterThan(0);
-    expect(es.chat.starter_actions.tsla.value.length).toBeGreaterThan(0);
+    expect(en.chat.starter_actions).toBeUndefined();
+    expect(es.chat.starter_actions).toBeUndefined();
   });
 
   test("chat first paint waits for the authenticated profile language", () => {
@@ -98,11 +95,11 @@ describe("onboarding strip-out: first use is ordinary chat", () => {
     const refreshEnd = chat.indexOf("const [messages, setMessages]", refreshStart);
     const refresh = chat.slice(refreshStart, refreshEnd);
     const languageApply = init.indexOf(
-      "await i18n.changeLanguage(resolvedLanguage)",
+      "await commitShellLanguage(i18n, businessPilotEnabled, meResponse?.user?.language)",
     );
     const establishedFlip = init.indexOf('setProfileState("established")');
     const refreshLanguageApply = refresh.indexOf(
-      "await i18n.changeLanguage(resolvedLanguage)",
+      "await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language)",
     );
     const refreshEstablishedFlip = refresh.indexOf(
       'setProfileState("established")',

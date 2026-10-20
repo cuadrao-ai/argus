@@ -12,7 +12,8 @@ test("all automatic mail uses the shared layout, leave headers, address and repl
   for (const body of payloads) {
     expect(body.from).toBe(config.from); expect(body.reply_to).toBe("hola@cuadrao.ai");
     expect(body.html).toContain(config.postalAddress);
-    expect(body.html).toContain("Saludos, el equipo de Cuadrao");
+    expect(body.html).toContain("Saludos,<br>Cuadrao");
+    expect(body.text).toContain("Saludos,\nCuadrao");
     expect(body.html).toContain("Salir de la lista");
     expect(body.html).not.toContain('class="code"');
     expect(body.html).not.toContain("¿Buscas Cuadrao para tu negocio?");

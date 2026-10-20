@@ -32,7 +32,6 @@ const REGISTERED: Surface[] = [
   { name: "deleted", path: [DATA, "settings.data.recently_deleted"] },
   { name: "usage", path: [DATA, "settings.data.usage"] },
   { name: "shared-links", path: [DATA, "settings.data.shared_links"], optional: true },
-  { name: "delete-all-confirm", path: [DATA, "settings.data.delete_all_conversations"] },
   { name: "account-delete", path: [DATA, "settings.profile.delete_account"] },
   { name: "appearance", path: [PREFS, "settings.app.appearance"] },
   { name: "language", path: [PREFS, "settings.app.language"] },
@@ -120,9 +119,8 @@ for (const cell of AUDIT_CELLS) {
           }
           const marker = surface.marker
             ? page.getByText(label(language, surface.marker), { exact: true }).filter({ visible: true }).last()
-            : surface.name === "delete-all-confirm" ? page.getByRole("alertdialog")
-              : surface.name === "account-delete" ? page.getByRole("dialog", { name: label(language, "settings.profile.request_deletion.title"), exact: true })
-                : page.getByRole("dialog").last();
+            : surface.name === "account-delete" ? page.getByRole("dialog", { name: label(language, "settings.profile.request_deletion.title"), exact: true })
+              : page.getByRole("dialog").last();
           if (surface.name === "account-delete") {
             const confirmButton = marker.getByRole("button", { name: label(language, "settings.profile.request_deletion.confirm"), exact: true });
             const hitTest = await confirmButton.evaluate((control) => {

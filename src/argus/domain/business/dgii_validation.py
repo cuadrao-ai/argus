@@ -9,9 +9,10 @@ from argus.domain.business.contracts.dgii import (
     DgiiDeclaration,
     PurchaseDeclaration,
     SalesDeclaration,
+    amount_or_zero,
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
-from argus.domain.business.dgii_columns import PAYMENT_BUCKETS
+from argus.domain.business.dgii_columns import OPTIONAL_AMOUNTS, PAYMENT_BUCKETS
 from argus.domain.business.fiscal_identity import (
     COUNTERPARTY_ID_LENGTH,
     normalized_ncf,
@@ -39,16 +40,22 @@ def ncf_type(value: str) -> str | None:
     return normalized[1:3] if normalized else None
 
 
+def credit_note(value: str | None) -> bool:
+    return ncf_type(value or "") in {"04", "34"}
+
+
+def reportable_607(value: str | None) -> bool:
+    number = normalized_ncf(value)
+    return number is not None and not number.startswith("E")
+
+
 def fact_value(record: FiscalRecord, name: str) -> str | None:
     fact = getattr(record.facts.fiscal, name, None)
     return fact.value if isinstance(fact, Known) else None
 
 
 def is_credit(record: FiscalRecord) -> bool:
-    return ncf_type(fact_value(record, "ecf") or fact_value(record, "ncf") or "") in {
-        "04",
-        "34",
-    }
+    return credit_note(fact_value(record, "ecf") or fact_value(record, "ncf"))
 
 
 def record_issues(
@@ -63,7 +70,9 @@ def record_issues(
     def issue(code: str, field: str) -> None:
         issues.append({"code": code, "activity_id": record.activity_id, "field": field})
 
-    declaration = record.declaration
+    from argus.domain.business.dgii_line import confirmed_declaration
+
+    declaration = confirmed_declaration(record)
     if declaration is None:
         issue("fiscal_declaration_missing", "declaration")
         return issues
@@ -125,6 +134,7 @@ def record_issues(
         "actual_refund",
         "itbis_perceived",
         "income_perceived",
+        *OPTIONAL_AMOUNTS,
     }
     original_sale = (
         next(
@@ -254,7 +264,7 @@ def record_issues(
         ):
             issue("fiscal_credit_reference_not_applicable", "modified_ncf")
     else:
-        if ncf and ncf.startswith("E"):
+        if ncf and not reportable_607(ncf):
             issue("fiscal_607_ecf_excluded", "ncf")
         if record.kind != "income":
             issue("fiscal_direction_unsupported", "kind")
@@ -292,16 +302,16 @@ def record_issues(
             )
         ):
             issue("fiscal_withholding_date_required", "withheld_on")
-        if (
-            not is_credit(record)
-            and all(values[name] is not None for name in PAYMENT_BUCKETS)
-            and sum(Decimal(values[name]) for name in PAYMENT_BUCKETS)
+        if not is_credit(record) and (
+            not any(values[name] is not None for name in PAYMENT_BUCKETS)
+            or sum(amount_or_zero(values[name]) for name in PAYMENT_BUCKETS)
             != Decimal(record.amount)
         ):
             issue("fiscal_payment_total_conflict", "cash")
     if not issues:
         base = (
-            Decimal(declaration.services_amount) + Decimal(declaration.goods_amount)
+            amount_or_zero(declaration.services_amount)
+            + amount_or_zero(declaration.goods_amount)
             if isinstance(declaration, PurchaseDeclaration)
             else Decimal(declaration.billed_amount)
         )
@@ -309,7 +319,7 @@ def record_issues(
             base
             + Decimal(tax)
             + sum(
-                Decimal(values[name])
+                amount_or_zero(values[name])
                 for name in ("selective_tax", "other_taxes", "legal_tip")
             )
         )

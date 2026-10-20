@@ -6,7 +6,7 @@ import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
 import { useTranslation } from "react-i18next";
 import { readStored, writeStored } from "@/lib/browser-storage";
-import { currentAuthLoginPath, signedInHomePath } from "@/lib/landing-intent";
+import { signedInHomePath } from "@/lib/landing-intent";
 import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
@@ -33,14 +33,7 @@ import { conversationActivityMutationNoticeDescriptor, useConversationActivity }
 import { useConversationTranscriptFreshness } from "./useConversationTranscriptFreshness";
 import { loadSavedConversationTranscript, type SavedConversationTranscript } from "@/lib/conversation-transcript-freshness";
 import { chatFinalPayloadOwnsVisibleTerminalArtifact, clearConversationActivityTranscript, conversationActivityMutationRequiresCanonicalHydration, createConversationActivityTerminalReadinessSession, createConversationActivityTranscriptReadiness, promoteCanonicalConversationActivityTranscript, synchronizeConversationViewRefs, useConversationActivityViewport } from "@/components/chat/useConversationActivityViewport";
-import GuestExperienceSurfaces from "@/components/guest/GuestExperienceSurfaces";
-import GuestHeader from "@/components/guest/GuestHeader";
-import ExpiredGuestSession from "@/components/guest/ExpiredGuestSession";
-import {
-  useGuestExperience,
-  useGuestSendBridge,
-  type GuestResumeSend,
-} from "@/components/guest/useGuestExperience";
+import { useChatShellCapabilities } from "@/components/chat/useChatShellCapabilities";
 import {
   createConversation,
   deleteConversation,
@@ -61,7 +54,8 @@ import {
 } from "@/lib/argus-api";
 import { endSessionKeepingSurface, type LogoutOptions } from "@/lib/account-deletion-api";
 import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";
-import { businessPilotEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
+import { commitShellLanguage } from "@/lib/language-features";
+import { businessPilotEnabled, businessSearchEntryEnabled, omnisearchEnabled, researchRailEnabled } from "@/lib/private-alpha-flags";
 import { leaveSession } from "@/lib/logout-flow";
 import {
   useTranscriptTurnAnchor,
@@ -210,16 +204,13 @@ import FeedbackAsk from "../feedback/FeedbackAsk";
 import { messageElementRegistrar } from "./transcript-element-refs";
 import { usePendingBreakdownRecovery } from "./usePendingBreakdownRecovery";
 import { retirePendingBreakdown } from "@/lib/pending-result-breakdown";
-import { isGuestSimulationConversionRejection } from "@/lib/guest-conversion-recovery";
-import { useGuestEntryError } from "@/lib/guest-entry-error";
 import SidebarShell from "@/components/sidebar/SidebarShell";
 import ChatShellMenuTrigger from "@/components/chat/ChatShellMenuTrigger";
-import GuestSettingsMenu from "@/components/guest/GuestSettingsMenu";
-import { useMobileShell } from "@/components/chat/useMobileShell";
+import BusinessPhoneAccount from "@/components/business-app/foundation/BusinessPhoneAccount";
+import { businessShellLayout, useMobileShell } from "@/components/chat/useMobileShell";
 import { memoryRecallsFromFinalPayload, useMemoryChrome } from "./memory-chrome";
 import {
   isStarterSelectionMetadata,
-  type GuestPendingSubmission,
   type SendOptions,
   type SendSelection,
 } from "./chat-send-selection";
@@ -264,18 +255,13 @@ export default function ChatInterface() {
   > | null>(null);
   const dailyCap = useDailyCapNotice(account?.user.id);
   const [profileState, setProfileState] = useState<ProfileState>("probing");
-  const [expiredPublicAccountAccessEnabled, setExpiredPublicAccountAccessEnabled] =
-    useState(false);
   const authenticatedUserIdRef = useRef<string | null>(null);
   const refreshAccount = useCallback(async (expectedUserId?: string) => {
     const nextAccount = await getMe(expectedUserId);
     if (nextAccount === null) return null;
     authenticatedUserIdRef.current = nextAccount.user.id;
     setAccount(nextAccount);
-    const resolvedLanguage = nextAccount.user.language ?? i18n.language;
-    if (resolvedLanguage && resolvedLanguage !== i18n.language) {
-      await i18n.changeLanguage(resolvedLanguage);
-    }
+    await commitShellLanguage(i18n, businessPilotEnabled, nextAccount.user.language);
     setProfileState("established");
     return nextAccount;
   }, [i18n]);
@@ -322,7 +308,6 @@ export default function ChatInterface() {
     guestExpiresAt: account?.guest?.expires_at,
     activityCausalClock,
   });
-  const [guestSubmissionPending, setGuestSubmissionPending] = useState(false);
   const [isHydratingConversation, setIsHydratingConversation] = useState(false);
   const [showConversationRetrievalState, setShowConversationRetrievalState] =
     useState(false);
@@ -340,10 +325,7 @@ export default function ChatInterface() {
   const postTurnHistoryRefreshTimersRef = useRef<number[]>([]);
   const activeConversationIdRef = useRef<string | null>(null);
   const hasAcceptedUserInputRef = useRef(Boolean(readReceiptFollowup()));
-  const guestSendRef = useRef<GuestResumeSend | null>(null);
   const sendAdmissionInFlightRef = useRef(false);
-  const guestSubmissionRetryRef = useRef<GuestPendingSubmission | null>(null);
-  const guestEntry = useGuestEntryError(guestSubmissionRetryRef);
   const currentViewRef = useRef<View>("chat");
   const [transcriptSessionCache] = useState(
     () => new TranscriptSessionCache<SavedConversationTranscript>(),
@@ -496,7 +478,6 @@ export default function ChatInterface() {
 
   const accountBoundary = useChatAccountBoundary(account?.user.id ?? null, requestSessions, () => {
     transcriptSessionCache.clearAuthenticatedState();
-    guestSubmissionRetryRef.current = null;
     clearHistory();
     resetToEmptyChatSurface();
   });
@@ -601,7 +582,10 @@ export default function ChatInterface() {
       }),
     );
   }, [closeDrawer, sidebarMode]);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: !(mobileShell.isBelowTablet ? true : isSidebarOpen), resetToEmptyChatSurface, closeTransientSidebar });
+  const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
+  const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
+  const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -895,9 +879,7 @@ export default function ChatInterface() {
 
   const {
     startNewChat,
-    adoptGuestConversation,
     handleConversationRemoved,
-    handleAllConversationsDeleted,
   } = useChatSurfaceLifecycle({
     conversationId,
     setHistoryItems,
@@ -910,88 +892,39 @@ export default function ChatInterface() {
         "conversation_delete",
       );
     },
-    onAllConversationsDeleted: () => {
-      transcriptSessionCache.clearAuthenticatedState();
-      clearConversationActivityTranscript(activityTranscriptReadiness, readyTranscriptConversationIdRef);
-      pendingScrollRestoreRef.current = null;
-    },
   });
   const archiveActiveConversation = useArchiveActiveConversation({
     conversationId, onArchived: handleConversationRemoved,
     onSuccess: () => showToast(t("common.archive", "Archive")), onError: () => showToast(t("common.error_occurred"), "error"),
   });
-  const guestBootstrapRequired = profileState === "bootstrap_required";
-  const guestExperience = useGuestExperience({
-    account,
-    guestBootstrapRequired,
-    conversationId,
-    messages,
-    sendRef: guestSendRef,
-    refreshAccount,
-    refreshHistory,
-    refreshHistoryForActivity,
-    closeTransientSidebar,
-    startNewChat,
-    onOpenFeedback: () =>
-      setFeedbackState({
-        isOpen: true,
-        type: "general",
-        context: { surface: "guest_header", conversation_id: conversationId },
-      }),
-    // The one door into Omnisearch, so the drawer closes here rather than at
-    // each caller. The palette paints below the drawer, and gating the shortcut
-    // hook alone still left the guest shell's own key listener opening it into
-    // a layer nobody can see.
-    onOpenOmnisearch: () => {
-      closeDrawer();
-      setSearchOverlayOpen(true);
-    },
-    onRequestPendingGuestSignIn: () => router.push(currentAuthLoginPath()),
-    onAdoptConversation: adoptGuestConversation,
-    onGuestBootstrapExpired: (publicAccountAccessEnabled) => {
-      guestEntry.resetGuestSubmissionError();
-      setExpiredPublicAccountAccessEnabled(publicAccountAccessEnabled);
-      setProfileState("expired");
-    },
-    onGuestBootstrapError: guestEntry.onGuestBootstrapError,
-    onAuthenticationStart: accountBoundary.beginConversion,
-    onAuthenticationComplete: accountBoundary.finishConversion,
-    onGateError: () => showToast(t("chat.error_generic"), "error"),
-    onStartOverError: () =>
-      showToast(
-        t(
-          "guest.new_conversation.error",
-          "The temporary chat was left unchanged.",
-        ),
-        "error",
-      ),
-    // The single owner of the Omnisearch shortcut; useChatKeyboardShortcuts
-    // never claims it. Whether any surface is open is asked at press time
-    // against the layer registry, rather than named here one surface at a
-    // time: naming only the drawer left the same bug behind every other modal.
-    // Withheld below the mobile threshold on the same rule as the rest of the
-    // layer, so there is one answer to whether this width has shortcuts.
-    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet && !workspace?.keyboardShortcuts,
-  });
   const {
     isGuest,
+    isEstablishedGuest,
     canManageConversation,
     canSaveDecision,
     canUseOmnisearch,
     canUseGroundedDiscovery,
     canSubmitFeedback,
-    requestGuestDecision,
-    requestGuestFeedback,
-    requestGuestSearchUpgrade,
-    requestGuestSignIn,
     requestNewChat,
     requestOmnisearch,
-    recoverGuestSimulationRejection,
-    resumeDecisionTarget,
-    resumeDecisionArtifactId,
-    resumeDecisionMessageId,
-    clearResumeDecision,
-  } = guestExperience;
+    receiptSharing,
+  } = useChatShellCapabilities({
+    account,
+    conversationId,
+    closeTransientSidebar,
+    onNewChat: startNewChat,
+    // The one door into Omnisearch, so the drawer closes here rather than at
+    // each caller. The palette paints below the drawer.
+    onOpenOmnisearch: () => {
+      closeDrawer();
+      setSearchOverlayOpen(true);
+    },
+    // The single owner of the Omnisearch shortcut; useChatKeyboardShortcuts
+    // never claims it. Whether any surface is open is asked at press time
+    // against the layer registry. Withheld below the mobile threshold, and
+    // when a workspace owns its own shortcuts.
+    omnisearchShortcutEnabled: omnisearchEnabled && !mobileShell.isBelowTablet && !workspace?.keyboardShortcuts,
+  });
 
   const memoryChrome = useMemoryChrome(isGuest, conversationId);
 
@@ -1051,7 +984,6 @@ export default function ChatInterface() {
     options?: SendOptions,
   ) => {
     const trimmed = text.trim();
-    let guestSubmissionHandedToStream = false;
     // Never decline a real message in silence; see lib/send-refusal.ts.
     const refuseSend = sendRefusal(showToast, t);
     if (!trimmed || !workspaceChatAvailable(workspace) || accountBoundary.invalidated.current || accountBoundary.conversionPending.current) return false;
@@ -1067,33 +999,9 @@ export default function ChatInterface() {
       : starterSelection
         ? undefined
         : (mentionsOrAction as ChatActionOption | undefined);
-    const isDeferredGuestSubmission =
-      guestBootstrapRequired && !options?.bypassGuestGate;
     sendAdmissionInFlightRef.current = true;
-    if (isDeferredGuestSubmission) {
-      guestSubmissionRetryRef.current = {
-        text,
-        mentionsOrAction,
-        actionArg,
-        options,
-      };
-      guestEntry.clearGuestSubmissionError();
-      setGuestSubmissionPending(true);
-      setStreamStatus(t("guest.entry.sending", "Sending..."));
-    }
 
     try {
-    if (
-      !options?.bypassGuestGate &&
-      !(await guestExperience.admitSend({
-        text: trimmed,
-        mentions,
-        action,
-        language: i18n.resolvedLanguage ?? i18n.language,
-      }))
-    ) {
-      return false;
-    }
     if (accountBoundary.invalidated.current || accountBoundary.conversionPending.current) return false;
     const expectedUserId = authenticatedUserIdRef.current;
     if (!expectedUserId) return false;
@@ -1202,7 +1110,7 @@ export default function ChatInterface() {
         renderUserMessage,
       });
     });
-    if (!isDeferredGuestSubmission) setStreamStatus(null);
+    setStreamStatus(null);
 
     const streamInput: string | ChatActionRequest = action?.type
       ? chatActionRequestFromAction(action)
@@ -1214,7 +1122,6 @@ export default function ChatInterface() {
       requestKind, options?.requestId,
     );
     if (!initialRequestSession) return refuseSend("chat.send_busy", SEND_BUSY_FALLBACK);
-    guestSubmissionRetryRef.current = null;
     let requestSession: ChatRequestSession = initialRequestSession;
     const clearObservedDailyCap = dailyCap.captureSuccessClear();
     const terminalReadiness = beginConversationActivityTerminalReadiness(() => requestSession);
@@ -1227,13 +1134,6 @@ export default function ChatInterface() {
 
     const canApplyVisibleStreamUpdate = () =>
       requestSessions.canWriteVisible(requestSession);
-    const clearNeutralGuestSubmission = () => { if (isDeferredGuestSubmission) setGuestSubmissionPending(false); };
-    const recoverQuotaRejectedRun = (failureCode: unknown) => {
-      if (!isGuestSimulationConversionRejection(failureCode, action) || !recoverGuestSimulationRejection(action)) return false;
-      void loadConversation(requestSession.identity.conversationId);
-      finishRequestTransport(requestSession);
-      return true;
-    };
     const handleStreamEvent = (event: ChatStreamEvent) => {
       if (event.event === "stage_start") {
         if (!requestSessions.authorize(requestSession, "stage")) return;
@@ -1242,7 +1142,6 @@ export default function ChatInterface() {
           requestSession.identity.requestId,
           "running",
         );
-        clearNeutralGuestSubmission();
         if (!canApplyVisibleStreamUpdate()) return;
         setStreamStatus(toolProgressText(event.data.tool_progress ?? null, t));
       }
@@ -1259,9 +1158,7 @@ export default function ChatInterface() {
       }
       if (event.event === "error") {
         if (!requestSessions.authorize(requestSession, "error")) return;
-        clearNeutralGuestSubmission();
         const errorPayload = event.data as typeof event.data & Record<string, unknown>;
-        if (recoverQuotaRejectedRun(errorPayload.code)) return;
         throwIfAmbiguousRunSseError(event, action?.type === "run_backtest");
         if (!canApplyVisibleStreamUpdate()) {
           finishRequestTransport(requestSession);
@@ -1331,9 +1228,7 @@ export default function ChatInterface() {
         const identityAuthorized = requestSessions.authorize(requestSession, "final");
         if (!identityAuthorized) return;
         options?.onTerminal?.();
-        clearNeutralGuestSubmission();
         setStreamStatus(null);
-        if (recoverQuotaRejectedRun(event.data.final_response_payload?.code ?? event.data.code)) return;
         const finalPayload = event.data as typeof event.data & Record<string, unknown>;
         const finalText =
           event.data.assistant_response ?? event.data.assistant_prompt ?? "";
@@ -1579,7 +1474,6 @@ export default function ChatInterface() {
       }
       if (event.event === "done") {
         if (!requestSessions.authorize(requestSession, "done")) return;
-        clearNeutralGuestSubmission();
         setMessages((prev) => applyRetestReceipt(prev, userMsg.id, null));
         terminalReadiness.finish(true); finishRequestTransport(requestSession);
       }
@@ -1621,7 +1515,6 @@ export default function ChatInterface() {
       );
     };
 
-    guestSubmissionHandedToStream = true;
     const transport = (async () => {
       try {
         await streamToConversation(targetConversationId);
@@ -1651,7 +1544,6 @@ export default function ChatInterface() {
           }
         }
         if (err instanceof ChatAccountChangedError) { accountBoundary.invalidate(); return; }
-        clearNeutralGuestSubmission();
         const isOrdinaryTransportAmbiguity =
           action?.type !== "run_backtest" &&
           (!(err instanceof ChatStreamError) || err.status === 0);
@@ -1779,26 +1671,10 @@ export default function ChatInterface() {
     return options?.awaitCompletion ? transport.then(() => true) : true;
     } finally {
       sendAdmissionInFlightRef.current = false;
-      if (isDeferredGuestSubmission && !guestSubmissionHandedToStream) {
-        setGuestSubmissionPending(false);
-        setStreamStatus(null);
-      }
     }
   };
 
-  const retryGuestSubmission = () => {
-    const pending = guestSubmissionRetryRef.current;
-    if (!pending) return;
-    void handleSend(
-      pending.text,
-      pending.mentionsOrAction,
-      pending.actionArg,
-      pending.options,
-    );
-  };
-
-  useGuestSendBridge(guestSendRef, handleSend);
-  const receiptFollowup = useReceiptFollowup({ profileState, account, conversationId, hydrating: isHydratingConversation, guest: guestExperience, refreshAccount, navigate: navigateConversationTranscript, send: (text, options) => handleSend(text, undefined, undefined, options) });
+  const receiptFollowup = useReceiptFollowup({ profileState, account, conversationId, hydrating: isHydratingConversation, refreshAccount, navigate: navigateConversationTranscript, send: (text, options) => handleSend(text, undefined, undefined, options) });
   // ── Action routing ─────────────────────────────────────────────────────────
 
   const handleLogout = async (options: LogoutOptions = {}) => {
@@ -1988,7 +1864,7 @@ export default function ChatInterface() {
   const omnisearch = omnisearchActionHandlers(() => ({
     closeOverlay: () => setSearchOverlayOpen(false),
     loadConversation, startNewChat, requestNewChat,
-    guestGate: () => ({ accountKind: isGuest ? "guest" : "registered", hasAcceptedContent: messages.some((message) => message.role === "user") }),
+    guestGate: () => ({ accountKind: "registered" as const, hasAcceptedContent: messages.some((message) => message.role === "user") }),
     send: handleSend,
     isSourceConversationReady: (id) =>
       activeConversationIdRef.current === id &&
@@ -2094,8 +1970,7 @@ export default function ChatInterface() {
   const turnInFlight =
     Boolean(visibleStreamStatus) ||
     isStreamingResponse ||
-    isHydratingConversation ||
-    guestSubmissionPending;
+    isHydratingConversation;
   // Next-move rows render under their owning message instead of a floating
   // strip above the composer, but they keep every gate the strip applied:
   // nothing offers a next move mid-turn, or while an active card already owns
@@ -2113,13 +1988,9 @@ export default function ChatInterface() {
   const chatInputPlaceholder =
     messages.length === 0
       ? t(
-          isGuest
-            ? researchRailEnabled
-              ? "guest.shell.input_placeholder"
-              : "guest.shell.input_placeholder_prerail"
-            : researchRailEnabled
-              ? "chat.input_placeholder"
-              : "chat.input_placeholder_prerail",
+          researchRailEnabled
+            ? "chat.input_placeholder"
+            : "chat.input_placeholder_prerail",
         )
       : t("chat.followup_placeholder", "Ask a follow-up...");
   const hasConversationLoadFailure =
@@ -2132,12 +2003,11 @@ export default function ChatInterface() {
   const conversationComposerUnavailable = Boolean(readReceiptFollowup()) ||
     isStreamingResponse ||
     isHydratingConversation ||
-    guestSubmissionPending ||
     hasConversationLoadFailure;
 
   const keyboardShortcuts = useChatKeyboardShortcuts({
     enabled: !mobileShell.isBelowTablet,
-    requestSearch: omnisearchEnabled ? () => setSearchOverlayOpen(true) : undefined,
+    requestSearch: searchEntryEnabled ? () => setSearchOverlayOpen(true) : undefined,
     isChatView: currentView === "chat",
     canManageConversation,
     conversationId,
@@ -2181,21 +2051,13 @@ export default function ChatInterface() {
     );
   }
 
-  if (profileState === "expired") {
-    return (
-      <ExpiredGuestSession
-        publicAccountAccessEnabled={expiredPublicAccountAccessEnabled}
-      />
-    );
-  }
-
   return (
-    <ReceiptConversationProvider target={evidenceReceiptSharingEnabled ? guestExperience.receiptSharing.target : null} conversationId={conversationId} onClose={guestExperience.receiptSharing.close}>
+    <ReceiptConversationProvider target={evidenceReceiptSharingEnabled ? receiptSharing.target : null} conversationId={conversationId} onClose={receiptSharing.close}>
     <ConversationActivityPresentationProvider
       selectPresentation={conversationActivity.selectPresentation}
       selectAggregatePresentation={conversationActivity.selectAggregatePresentation} selectOperationLabel={conversationActivity.selectOperationLabel}
     >
-      <div className="relative flex h-[100dvh] w-full overflow-hidden bg-[#f9f9f9] text-black dark:bg-[#141517] dark:text-white tablet:flex-row">
+      <div data-business-nav={layout.nav} className={`relative flex h-[100dvh] w-full overflow-hidden text-black dark:bg-[#141517] dark:text-white tablet:flex-row ${layout.businessShell ? "business-foundation bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
       {/* ── Sidebar: rail on desktop, off-canvas drawer below the mobile threshold ── */}
       <SidebarShell
         isBelowTablet={mobileShell.isBelowTablet}
@@ -2206,16 +2068,8 @@ export default function ChatInterface() {
       <ChatSidebar
         variant={mobileShell.isBelowTablet ? "drawer" : "rail"}
         onRequestClose={mobileShell.closeDrawer}
-        guestSettings={
-          mobileShell.isBelowTablet && isGuest ? (
-            <GuestSettingsMenu
-              feedbackEnabled={canSubmitFeedback}
-              onFeedback={requestGuestFeedback}
-              placement="drawer"
-            />
-          ) : null
-        }
-        isOpen={mobileShell.isBelowTablet ? true : isSidebarOpen}
+        guestSettings={null}
+        isOpen={layout.sidebarIsOpen} railLocked={layout.railLocked}
         onToggle={toggleSidebar}
         currentView={currentView}
         conversationId={conversationId}
@@ -2243,15 +2097,13 @@ export default function ChatInterface() {
         onLoadMoreHistory={loadMoreHistory}
         onOpenSearch={() => {
           closeDrawer();
-          if (omnisearchEnabled) {
+          if (searchEntryEnabled) {
             requestOmnisearch();
           }
         }}
         onHistoryMutated={refreshHistory}
         onProfileUpdated={onProfileUpdated}
         onConversationRemoved={handleConversationRemoved}
-        onAllConversationsDeleted={handleAllConversationsDeleted}
-        onToast={showToast}
         onLogout={(options) => {
           void handleLogout(options);
         }}
@@ -2269,13 +2121,13 @@ export default function ChatInterface() {
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
         mode={sidebarMode}
         omnisearchEnabled={
-          omnisearchEnabled && (!isGuest || canUseOmnisearch)
+          searchEntryEnabled && (!isGuest || canUseOmnisearch)
         }
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
         primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
-        isGuest={guestExperience.isEstablishedGuest}
+        isGuest={isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />
       </SidebarShell>
@@ -2294,7 +2146,7 @@ export default function ChatInterface() {
         }
       />
 
-      {omnisearchEnabled &&
+      {searchEntryEnabled &&
         (!isGuest || canUseOmnisearch) &&
         searchOverlayOpen && (
           <ChatCommandPalette
@@ -2310,9 +2162,7 @@ export default function ChatInterface() {
             isGuest={isGuest}
             groundedDiscoveryAvailable={canUseGroundedDiscovery}
             canManageConversation={canManageConversation}
-            onDecisionUnavailable={requestGuestDecision}
-            decisionResumeTarget={resumeDecisionTarget}
-            onDecisionResumeHandled={clearResumeDecision}
+            decisionResumeTarget={null}
             onMutated={refreshHistory}
             onConversationRemoved={handleConversationRemoved}
           />
@@ -2326,13 +2176,14 @@ export default function ChatInterface() {
         onConfirm={() => void handleConfirmHeaderDelete()}
       />
 
-      <section className="relative z-10 flex h-full flex-1 flex-col overflow-hidden bg-[#f9f9f9] dark:bg-[#141517]">
+      <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {currentView !== "settings" && (
           <header className="absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 tablet:px-8">
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger
+                  leading={layout.businessPhone ? workspace?.headerLeading?.(shellBridge) : null}
                   onOpen={mobileShell.openDrawer}
                   activityPresentation={
                     mobileShell.isDrawerOpen
@@ -2357,23 +2208,14 @@ export default function ChatInterface() {
                 )}
             </ChatHeaderHeading>
 
-            {/* Action cluster (guest settings or durable owner menu) */}
             <div className={`ml-auto flex shrink-0 justify-end pointer-events-auto${workspace ? " items-center gap-2" : ""}`}>
               {workspace?.headerActions(shellBridge)}
-              {currentView === "chat" && isGuest ? (
-                <GuestHeader
-                  expiresAt={account?.guest?.expires_at ?? null}
-                  feedbackEnabled={canSubmitFeedback}
-                  onFeedback={requestGuestFeedback}
-                  onSignIn={requestGuestSignIn}
-                  showSettings={!mobileShell.isBelowTablet}
-                />
-              ) : currentView === "chat" &&
+              {currentView === "chat" &&
                 conversationId &&
                 canManageConversation ? (
                 <ChatHeaderMenu
                   conversationId={conversationId}
-                  onShare={guestExperience.receiptSharing.request}
+                  onShare={receiptSharing.request}
                   isOpen={showChatOptions}
                   onToggleOpen={() => setShowChatOptions(!showChatOptions)}
                   onRequestClose={closeChatOptions}
@@ -2395,6 +2237,7 @@ export default function ChatInterface() {
                   memoryChrome={memoryChrome}
                 />
               ) : null}
+              {layout.businessPhone && !isGuest ? <BusinessPhoneAccount onLogout={(options) => { void handleLogout(options); }} onFeedback={(type) => setFeedbackState({ isOpen: true, type, context: { surface: "sidebar", conversation_id: conversationId } })} onHistoryMutated={refreshHistory} onProfileUpdated={onProfileUpdated} onOpenSidebarPreference={() => setIsSidebarPreferenceModalOpen(true)} onOpenKeyboardShortcuts={() => keyboardShortcuts.setKeyboardShortcutsOpen(true)} settingsOpenRequest={keyboardShortcuts.settingsOpenRequest} /> : null}
               {workspace?.profileInHeader && !mobileShell.isBelowTablet ? <div ref={setProfileSlot} className="relative" /> : null}
             </div>
           </header>
@@ -2408,9 +2251,6 @@ export default function ChatInterface() {
             {showEmptyChatSurface ? (
               <EmptyChatSurface
                 isGuest={isGuest}
-                expiresAt={account?.guest?.expires_at}
-                guestSubmissionPending={guestSubmissionPending || Boolean(readReceiptFollowup())}
-                guestSubmissionError={guestEntry.guestSubmissionError}
                 isStreamingResponse={isStreamingResponse}
                 isHydratingConversation={isHydratingConversation}
                 canConsumeLandingStarter={initialRoutingSettled}
@@ -2418,7 +2258,6 @@ export default function ChatInterface() {
                 placeholder={chatInputPlaceholder}
                 composerNotice={dailyCap.notice}
                 onSend={handleSend}
-                onRetryGuestSubmission={retryGuestSubmission}
                 onToast={showToast}
                 workspace={workspace ? { lead: workspace.emptyChatLead(shellBridge), starterEntries: workspace.starterEntries(shellBridge), composer: workspace.composer(shellBridge) } : undefined}
               />
@@ -2438,7 +2277,7 @@ export default function ChatInterface() {
                   onScroll={updateScrollPositionState}
                   role="region"
                   aria-label={t("common.conversation", "Conversation")}
-                  aria-busy={isHydratingConversation || guestSubmissionPending}
+                  aria-busy={isHydratingConversation}
                   className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[86px]"
                   style={{ paddingBottom: 190 + dailyCap.height }}
                 >
@@ -2490,9 +2329,6 @@ export default function ChatInterface() {
                             turnInFlight={turnInFlight}
                             isGuest={isGuest}
                             canSaveDecision={canSaveDecision}
-                            onDecisionUnavailable={(artifactId) =>
-                              requestGuestDecision({ surface: "result_card", artifactId })
-                            }
                             onDecisionSaved={(decisionState) => {
                               setMessages((prev) =>
                                 messagesWithSavedDecisionState(
@@ -2503,11 +2339,7 @@ export default function ChatInterface() {
                               );
                               if (conversationId) invalidateTranscriptForMutation(conversationId, "durable_result_action");
                             }}
-                            onRequestSearchUpgrade={requestGuestSearchUpgrade}
-                            resumeDecisionArtifactId={
-                              msg.id === resumeDecisionMessageId ? resumeDecisionArtifactId : null
-                            }
-                            onDecisionResumeHandled={clearResumeDecision}
+                            resumeDecisionArtifactId={null}
                           /></ReceiptConversationTurn>
                         </div>
                       );
@@ -2552,10 +2384,7 @@ export default function ChatInterface() {
                       {...workspaceComposerProps(workspace, shellBridge)}
                     /></ReceiptSelectionComposer>
                     <ChatLegalNotice
-                      expiresAt={account?.guest?.expires_at}
-                      isGuest={isGuest}
                       showRegisteredDisclaimer={showConversationDisclaimer}
-                      variant="after_message"
                     />
                   </div>
                 </div>
@@ -2580,8 +2409,8 @@ export default function ChatInterface() {
         context={feedbackState.context}
       />
       {workspace?.bottomNavigation?.(shellBridge)}
-      {receiptFollowup}<GuestExperienceSurfaces experience={guestExperience} />
-      {evidenceReceiptSharingEnabled && guestExperience.receiptSharing.target && <ShareReceiptPanel key={guestExperience.receiptSharing.target.conversationId} {...guestExperience.receiptSharing.target} onClose={guestExperience.receiptSharing.close} />}
+      {receiptFollowup}
+      {evidenceReceiptSharingEnabled && receiptSharing.target && <ShareReceiptPanel key={receiptSharing.target.conversationId} {...receiptSharing.target} onClose={receiptSharing.close} />}
       {isSidebarPreferenceModalOpen && (
         <SidebarPreferenceModal
           mode={sidebarMode}

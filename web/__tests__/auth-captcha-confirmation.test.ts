@@ -69,14 +69,50 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
 
     expect(body).toMatchObject({
       email: "alpha@example.com",
       captcha_token: "argus-local-browser-qa",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(result.response.session).toBeNull();
     expect(result.needsEmailConfirmation).toBe(true);
+  });
+
+  test("a login request that never returns ends as a browser-check failure", async () => {
+    globalThis.fetch = (() => new Promise(() => undefined)) as typeof fetch;
+
+    const result = await Promise.race([
+      loginWithEmail(
+        { email: "alpha@example.com", password: "password123" },
+        { requestTimeoutMs: 30 },
+      ).then(() => "resolved", (error: unknown) => error),
+      new Promise<string>((resolve) => setTimeout(() => resolve("hung"), 200)),
+    ]);
+
+    expect(result).toMatchObject({ code: "captcha_unavailable" });
+    expect(result).not.toMatchObject({ code: "unauthorized" });
+  });
+
+  test("a captcha rejection from login stays a browser-check failure", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          code: "captcha_unavailable",
+          detail: "The browser check did not complete. Try again.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const error = await loginWithEmail({
+      email: "alpha@example.com",
+      password: "password123",
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: "captcha_unavailable" });
+    expect(error).not.toMatchObject({ code: "unauthorized" });
   });
 
   test("signup with a returned session preserves the authenticated outcome", async () => {
@@ -87,6 +123,7 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
 
     expect(result.needsEmailConfirmation).toBe(false);
@@ -117,6 +154,7 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       password: "password123",
       language: "es-419",
       display_name: "Alex",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
       source_conversation_id: "conversation-1",
       pending_action: {
         reason: "keep_history",
@@ -145,6 +183,7 @@ describe("password auth CAPTCHA and confirmation contract", () => {
       language: "es-419",
       display_name: "Alex",
       captcha_token: "argus-local-browser-qa",
+      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(result.needsEmailConfirmation).toBe(true);
   });

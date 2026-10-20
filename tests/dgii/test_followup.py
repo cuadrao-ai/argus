@@ -100,6 +100,25 @@ def test_additional_sales_document_types_are_exportable(code):
     )
 
 
+def test_an_e34_purchase_credit_subtracts_on_the_606():
+    records = practice_records()
+    note = next(
+        record
+        for record in records
+        if getattr(record.facts.fiscal.ncf, "value", None) == "B0400000001"
+    )
+    electronic = changed(note, ncf="E340000000001")
+    result = packet(
+        tuple(electronic if record is note else record for record in records)
+    )
+    assert result.manifest["issues"] == []
+    assert result.manifest["totals_dop"]["606_net_base"] == "1400.00"
+    assert (
+        "E340000000001"
+        in result.files["dgii/DGII_F_606_199990013_202609.TXT"].decode()
+    )
+
+
 def test_sales_credit_note_has_modified_reference_and_signed_tax_bridge():
     original = practice_records()[4]
     note = changed(
@@ -395,7 +414,7 @@ def test_flagged_b02_purchase_stays_excluded_without_erasing_book_gross():
 @pytest.mark.parametrize(
     "number", ["B1300000001", "B1700000001", "E430000000001", "E470000000001"]
 )
-@pytest.mark.parametrize("filer", ["199990013", "00100000001"])
+@pytest.mark.parametrize("filer", ["199990013", "00100000009"])
 @pytest.mark.parametrize("matching", [True, False])
 def test_self_billed_purchase_identity_must_match_filer_without_rewriting_facts(
     number, filer, matching

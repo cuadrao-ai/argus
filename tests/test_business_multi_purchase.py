@@ -121,7 +121,7 @@ def test_three_purchases_are_all_kept_and_all_unrecorded(checked, monkeypatch) -
     assert (resolution.read_total, resolution.unrecorded_purchases()) == ("340.00", 3)
 
 
-def test_a_read_with_no_purchase_keeps_the_total_and_names_nothing_read(
+def test_a_receipt_total_with_no_purchase_row_is_an_unverified_draft(
     checked,  # noqa: F811
     monkeypatch,  # noqa: ANN001
 ) -> None:
@@ -131,14 +131,16 @@ def test_a_read_with_no_purchase_keeps_the_total_and_names_nothing_read(
     _, _, _, row = checked
     draft = DocumentDraft.model_validate(row["draft"])
     _, resolution, _ = _prepared(checked, monkeypatch, _batch(draft, [], "340.00"))
-    assert (resolution.read_purchases, resolution.read_total) == ((), "340.00")
-    assert resolution.facts.amount.state == "unknown"
+    assert resolution.read_purchases == ()
+    assert resolution.facts.amount.state == "known"
+    assert resolution.facts.amount.verified is False
+    assert Decimal(resolution.facts.amount.value) == Decimal("340.00")
     event = Mock(
         spec=ImportEvent,
         state="open",
         resolution={"business": resolution.model_dump(mode="json")},
     )
-    assert read_attention(event)["attention"] == "no_purchase_found"
+    assert read_attention(event) == {}
 
 
 def test_only_a_known_kind_reaches_the_consensus(checked, monkeypatch) -> None:  # noqa: ANN001, F811
@@ -257,8 +259,156 @@ def test_an_unreadable_read_is_still_refused_to_the_document_layer(
     monkeypatch,  # noqa: ANN001
 ) -> None:
     batch = ExtractionBatch(complete=True, readable=False, candidates=(), receipt=None)
-    with pytest.raises(ActionError, match="receipt_requires_review"):
+    with pytest.raises(ActionError, match="unreadable_document"):
         _prepared(checked, monkeypatch, batch)
+
+
+def _projected(draft: DocumentDraft, **result: object) -> ExtractionBatch:
+    """The real projection of one synthetic read."""
+
+    observations = result.get("observations")
+    if isinstance(observations, list):
+        result["observations"] = [
+            {**row, "row": index} for index, row in enumerate(observations, 1)
+        ]
+    return batch_from_result(
+        ExtractionResult.model_validate(
+            dict(complete=True, readable=True, pages_read=[1], **result)
+        ),
+        draft.sha256,
+        draft.connection_id,
+        draft.created_at,
+        1,
+    )
+
+
+def test_a_due_notice_with_an_ncf_and_a_total_becomes_an_expense(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    notice = {
+        **_row("80.00", "Servicios del Norte", "2026-10-01"),
+        "evidence": "due_notice",
+        "direction": "unknown",
+        "kind_hint": "unknown",
+    }
+    bill = dict(
+        merchant="Servicios del Norte",
+        occurred_on="2026-10-01",
+        currency="DOP",
+        total="1500.00",
+        ncf="B0100000001",
+    )
+    batch = _projected(draft, observations=[notice], receipt=bill)
+    assert batch.candidates
+    assert all(candidate.evidence != "transaction" for candidate in batch.candidates)
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    facts = resolution.facts
+    assert (facts.kind.state, facts.kind.value) == ("known", "expense")
+    assert Decimal(facts.amount.value) == Decimal("1500.00")
+    assert (facts.fiscal.ncf.state, facts.fiscal.ncf.value) == ("known", "B0100000001")
+
+
+def test_an_incomplete_ncf_bill_is_not_refused_before_the_draft(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    notice = {
+        **_row("80.00", "Servicios del Norte", "2026-10-01"),
+        "row": 1,
+        "evidence": "statement_period",
+        "direction": "unknown",
+        "kind_hint": "unknown",
+    }
+    bill = dict(total="1500.00", currency="DOP", ncf="B0100000001")
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=False,
+            readable=True,
+            pages_read=[1],
+            observations=[notice],
+            receipt=bill,
+        )
+    )
+    batch = batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
+    )
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    assert resolution.facts.kind.value == "expense"
+    assert Decimal(resolution.facts.amount.value) == Decimal("1500.00")
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [None, dict(total="42.00", currency="USD", merchant="Cuenta Demo")],
+)
+def test_a_priced_statement_becomes_an_unverified_review(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+    receipt,  # noqa: ANN001
+) -> None:
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    statement = {
+        **_row("42.00", "Cuenta Demo", "2026-10-02", currency="USD"),
+        "evidence": "statement_period",
+        "direction": "unknown",
+        "kind_hint": "unknown",
+    }
+    batch = _projected(draft, observations=[statement], receipt=receipt)
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    assert resolution.facts.amount.state == "known"
+    assert resolution.facts.amount.verified is False
+    assert Decimal(resolution.facts.amount.value) == Decimal("42.00")
+    if receipt is None:
+        assert resolution.read_purchases == ()
+    else:
+        assert len(resolution.read_purchases) > 1
+
+
+def test_an_unreadable_ncf_bill_stays_unreadable(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    from argus.domain.ingestion.documents.models import ReceiptDetails
+
+    batch = ExtractionBatch(
+        complete=True,
+        readable=False,
+        candidates=(),
+        receipt=ReceiptDetails(ncf="B0100000001", total="1500.00", currency="DOP"),
+    )
+    with pytest.raises(ActionError, match="unreadable_document"):
+        _prepared(checked, monkeypatch, batch)
+
+
+def test_an_incomplete_receipt_with_a_total_and_no_ncf_stays_reviewable(
+    checked,  # noqa: F811
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    _, _, _, row = checked
+    draft = DocumentDraft.model_validate(row["draft"])
+    purchase = {**_row("250.50", "Colmado La Esquina", "2026-10-09"), "row": 1}
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=False,
+            readable=True,
+            pages_read=[1],
+            observations=[purchase],
+            receipt=dict(total="250.50", currency="DOP", merchant="Colmado La Esquina"),
+        )
+    )
+    batch = batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
+    )
+    _, resolution, _ = _prepared(checked, monkeypatch, batch)
+    assert resolution.facts.amount.state == "known"
+    assert resolution.facts.amount.verified is False
+    assert Decimal(resolution.facts.amount.value) == Decimal("250.50")
 
 
 def test_a_single_read_with_an_uncertain_amount_is_not_labelled_no_purchase_found(

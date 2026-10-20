@@ -19,6 +19,12 @@ async function openBusiness(page: Page) {
     window.localStorage.setItem("i18nextLng", "en");
   });
   await page.goto("/biz");
+  const consent = page.getByTestId("business-consent-screen");
+  await expect(consent.or(page.getByTestId("workspace-panel-region"))).toBeVisible();
+  if (await consent.isVisible()) {
+    await consent.getByRole("checkbox").check();
+    await consent.getByTestId("business-consent-continue").click();
+  }
 }
 
 test.describe("Owner upload reaches its saved receipt", () => {
