@@ -293,8 +293,8 @@ export function BusinessMonthCloseView({
   review,
 }: {
   client: MonthCloseClient;
-  /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart. */
-  scopeKey?: string;
+  /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart; null holds the load until the Business is known. */
+  scopeKey?: string | null;
   /** Close and settlement marks follow the grant's approve capability. */
   canMutate?: boolean;
   /** Clock for the current month. Tests pin it; Inicio uses today. */
@@ -333,6 +333,7 @@ export function BusinessMonthCloseView({
       setSnapshot(null);
       return;
     }
+    if (scopeKey === null) return;
     client.load(month, scopeKey).then(
       (next) => {
         if (generation.current !== request) return;
@@ -390,7 +391,7 @@ export function BusinessMonthCloseView({
         : current,
     );
     try {
-      const saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey, today) : await client.markPagado(documentId, scopeKey, today);
+      const saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey ?? undefined, today) : await client.markPagado(documentId, scopeKey ?? undefined, today);
       if (started !== generation.current) return;
       setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === documentId ? { ...item, status: saved.status } : item)) } : current));
     } catch {
@@ -420,7 +421,7 @@ export function BusinessMonthCloseView({
     if (!canMutate || !snapshot?.month || busyClose) return;
     setBusyClose(true);
     try {
-      const next = await client.closeMonth(snapshot.month, scopeKey);
+      const next = await client.closeMonth(snapshot.month, scopeKey ?? undefined);
       setSnapshot(next);
       setConfirming(false);
     } catch {
@@ -824,13 +825,15 @@ export function BusinessMonthCloseView({
 }
 
 export default function BusinessMonthClosePanel({ onMonthChange, review }: { onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null }) {
-  const { chosen, source } = useBusiness();
+  const { chosen, source, spaces } = useBusiness();
+  // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
+  const scopeKey = spaces === null ? null : chosen && chosen.role !== "owner" ? chosen.grant_id : "own";
   const [sampleClient] = useState(() => createMockMonthCloseClient());
   const client = source.mode === "fixture" ? sampleClient : monthCloseClient;
   return (
     <BusinessMonthCloseView
       client={client}
-      scopeKey={chosen?.grant_id ?? "own"}
+      scopeKey={scopeKey}
       canMutate={Boolean(chosen?.capabilities.includes("approve"))}
       onMonthChange={onMonthChange}
       review={review}

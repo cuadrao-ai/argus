@@ -70,7 +70,15 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
     if (mode === "choose") listRef.current?.focus();
   }, [mode]);
 
-  if (!current) return null;
+  if (!current) {
+    // While the list loads, hold the mark's place so the menu below does not jump when it arrives.
+    return spaces === null ? (
+      <div data-testid="business-switcher-pending" aria-hidden="true" className={`flex min-h-11 items-center gap-2 px-1 ${collapsed ? "justify-center" : "w-full"}`}>
+        <span className="h-8 w-8 shrink-0 rounded-[12px] bg-black/[0.06] dark:bg-white/10" />
+        {collapsed ? null : <span className="h-4 w-24 rounded-md bg-black/[0.06] dark:bg-white/10" />}
+      </div>
+    ) : null;
+  }
   const fallback = t("business.overview.title", "Mi negocio");
   const name = formatBusinessName(current.name, fallback);
 
