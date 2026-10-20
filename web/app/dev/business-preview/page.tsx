@@ -4,7 +4,7 @@ import BusinessApp from "@/components/business-app/BusinessApp";
 export const metadata = { title: "Business preview (sample data) - Cuadrao" };
 export const dynamic = "force-dynamic";
 
-/** `?chat=off` serves a workspace whose Business chat is not available; `?accounts=none` one with no account yet. */
+/** Business chat is off, as in the product by default; `?chat=on` serves a workspace with chat. `?accounts=none` serves one with no account yet. */
 export default async function BusinessPreviewPage({
   searchParams,
 }: {
@@ -14,7 +14,7 @@ export default async function BusinessPreviewPage({
   const { chat, accounts } = await searchParams;
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
-      <BusinessApp sample={{ chatAvailable: chat !== "off", accounts: accounts === "none" ? "none" : undefined }} />
+      <BusinessApp sample={{ chatAvailable: chat === "on", accounts: accounts === "none" ? "none" : undefined }} />
     </main>
   );
 }
