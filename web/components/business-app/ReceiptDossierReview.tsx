@@ -1,5 +1,6 @@
 "use client";
 
+import { useBusinessNaming } from "./BusinessNamingProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { rncStatus } from "@/lib/rnc-status";
 import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
@@ -106,6 +107,7 @@ export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 3
 /** The period view supplies its selected Business; a record may supply an explicit draft anchor. */
 export function ReceiptPeriodExport({ scope, start: from, end: to, available, monthSwitcher }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean; monthSwitcher?: ReactNode }) {
   const { t } = useTranslation();
+  const naming = useBusinessNaming();
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
@@ -118,6 +120,8 @@ export function ReceiptPeriodExport({ scope, start: from, end: to, available, mo
     if (!controller) return;
     setProblem(null);
     try {
+      if (naming && !await naming.requireName()) return;
+      controller.signal.throwIfAborted();
       const blob = await fetchBusinessExport(scope.draftId, from, to, controller.signal, scope.grantId);
       controller.signal.throwIfAborted();
       saveBlobDownload(blob, `business-export-${from}-${to}.zip`);

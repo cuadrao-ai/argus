@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import threading
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Protocol
 
@@ -27,6 +27,11 @@ MAX_NAME_LENGTH = 80
 class Space:
     id: str
     name: str
+    name_prompt_seen: bool = False
+
+    @property
+    def name_required(self) -> bool:
+        return self.name in DEFAULT_SPACE_NAMES.values()
 
 
 def default_space_name(language: str | None) -> str:
@@ -49,7 +54,11 @@ class SpaceStore(Protocol):
         """
         ...
 
-    def rename(self, person_id: str, name: str) -> Space | None: ...
+    def claim_naming_visit(self, person_id: str, space_id: str) -> bool: ...
+
+    def rename(
+        self, person_id: str, name: str, space_id: str | None = None
+    ) -> Space | None: ...
 
     def consent_accepted_at(self, person_id: str, version: str) -> datetime | None:
         """When the person accepted this wording of the Business consent screen."""
@@ -68,7 +77,7 @@ class PostgresSpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name from public.spaces"
+                "select id::text, name, business_name_prompt_seen_at is not null from public.spaces"
                 " where id = public.business_space_of(%s)",
                 (person_id,),
             ).fetchone()
@@ -77,7 +86,7 @@ class PostgresSpaceStore:
     def get(self, space_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name from public.spaces"
+                "select id::text, name, business_name_prompt_seen_at is not null from public.spaces"
                 " where id = %s and kind = 'business' and closed_at is null",
                 (space_id,),
             ).fetchone()
@@ -89,7 +98,7 @@ class PostgresSpaceStore:
                 "insert into public.spaces (kind, name, created_by)"
                 " values ('business', %s, %s)"
                 " on conflict (created_by) where kind = 'business' and closed_at is null"
-                " do nothing returning id::text, name",
+                " do nothing returning id::text, name, business_name_prompt_seen_at is not null",
                 (name, person_id),
             ).fetchone()
             if created is not None:
@@ -102,12 +111,26 @@ class PostgresSpaceStore:
             raise LookupError("business space vanished during create")
         return existing, False
 
-    def rename(self, person_id: str, name: str) -> Space | None:
+    def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
+        with self._pool.connection() as connection:
+            row = connection.execute(
+                "update public.spaces set business_name_prompt_seen_at = now()"
+                " where id = public.business_space_of(%s) and id = %s::uuid"
+                " and business_name_prompt_seen_at is null and name = any(%s)"
+                " returning id",
+                (person_id, space_id, list(DEFAULT_SPACE_NAMES.values())),
+            ).fetchone()
+        return row is not None
+
+    def rename(
+        self, person_id: str, name: str, space_id: str | None = None
+    ) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
                 "update public.spaces set name = %s"
-                " where id = public.business_space_of(%s) returning id::text, name",
-                (name, person_id),
+                " where id = public.business_space_of(%s) and (%s::uuid is null or id = %s::uuid)"
+                " returning id::text, name, business_name_prompt_seen_at is not null",
+                (name, person_id, space_id, space_id),
             ).fetchone()
         return Space(*row) if row else None
 
@@ -164,11 +187,27 @@ class InMemorySpaceStore:
             self._spaces[person_id] = space
             return space, True
 
-    def rename(self, person_id: str, name: str) -> Space | None:
+    def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
         with self._lock:
-            if person_id not in self._spaces:
+            space = self._spaces.get(person_id)
+            if (
+                space is None
+                or space.id != space_id
+                or space.name_prompt_seen
+                or not space.name_required
+            ):
+                return False
+            self._spaces[person_id] = replace(space, name_prompt_seen=True)
+            return True
+
+    def rename(
+        self, person_id: str, name: str, space_id: str | None = None
+    ) -> Space | None:
+        with self._lock:
+            current = self._spaces.get(person_id)
+            if current is None or (space_id is not None and current.id != space_id):
                 return None
-            space = Space(self._spaces[person_id].id, name)
+            space = replace(current, name=name)
             self._spaces[person_id] = space
             return space
 

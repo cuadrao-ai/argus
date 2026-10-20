@@ -15,6 +15,7 @@ mock.module("@/components/business-app/BusinessWorkspace", () => ({
   useBusiness: () => { throw new Error("workspace is replaced in this boundary test"); },
   BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
 }));
+mock.module("@/components/business-app/BusinessNamingProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));

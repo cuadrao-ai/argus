@@ -19,6 +19,7 @@ mock.module("@/lib/supabase-client", () => ({
 mock.module("@/components/business-app/BusinessWorkspace", () => ({
   BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
 }));
+mock.module("@/components/business-app/BusinessNamingProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 mock.module("@/components/chat/ChatInterface", () => ({
   default: () => <input aria-label="Business draft" defaultValue="" />,
 }));
