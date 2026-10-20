@@ -1,29 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Download, Paperclip } from "lucide-react";
+import { ChevronRight, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessExpense } from "@/lib/business-api";
-import { currentMonthKey } from "@/lib/business-month-close";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { expensePanel } from "./business-expense-target";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
-import { cardClass, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { cardClass, PanelHeading, useCategoryLabel, RecordMarks, recordFiscalMark } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
-import ExportRecordsPanel from "./ExportRecordsPanel";
+import BusinessAddMenu from "./BusinessAddMenu";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { EmptyState } from "./foundation/EmptyState";
-import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
-  const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen, reload } = useBusiness();
-  const [exportOpen, setExportOpen] = useState(false);
-  const monthClose = useMonthCloseSource();
+  const { isBelowTablet } = useResponsiveLayout();
+  const { source, revision, period, setPeriod, records, panel, openPanel, actions, reload } = useBusiness();
   const found = panel.kind === "expenses" ? panel.expenseId : undefined;
   const [items, setItems] = useState<BusinessExpense[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -64,33 +62,18 @@ export default function BusinessExpensesPanel() {
 
   return (
     <section ref={section} tabIndex={-1} className="outline-none">
+      {isBelowTablet ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
       <PanelHeading
         title={t("business.expenses.title", "Expenses")}
         subtitle={t("business.expenses.subtitle", "Saved expenses from {{from}} to {{to}}.", {
           from: formatDay(period.from, locale),
           to: formatDay(period.to ?? records.overview?.to ?? period.from, locale),
         })}
-        action={
-          <div className="flex flex-wrap gap-2">
-            {chosen?.capabilities.includes("read") ? (
-              <button type="button" data-testid="expenses-export" className={secondaryButtonClass} onClick={() => setExportOpen(true)}>
-                <Download className="h-4 w-4" aria-hidden="true" />
-                {t("business.export.action", "Export")}
-              </button>
-            ) : null}
-            {record ? (
-              <button type="button" className={secondaryButtonClass} onClick={record.run}>
-                {record.label}
-              </button>
-            ) : null}
-          </div>
-        }
       />
       <div className="mb-4">
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
         {records.overview ? <OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /> : null}
       </div>
-      {exportOpen ? <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={() => setExportOpen(false)} /> : null}
       {failed ? (
         <EmptyState kind="error" testId="business-expenses-error" title={t("business.empty.expenses_error", "We couldn't load your expenses")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : items === null ? (
@@ -117,9 +100,9 @@ export default function BusinessExpensesPanel() {
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <RecordMarks personal={expense.personal} fiscalValue={expense.fiscal_value} known={expense.fiscal_known === true} markedBy={expense.personal_marked_by} className="mt-1" />
+                  <RecordMarks personal={expense.personal} fiscal={recordFiscalMark(expense)} markedBy={expense.personal_marked_by} className="mt-1" />
                 </span>
-                <span className="text-right text-[15px] font-medium tabular-nums text-black dark:text-white">
+                <span className="cuadrao-amount text-right text-[15px] font-medium tabular-nums text-black dark:text-white">
                   {formatMoney(expense.amount, expense.currency, locale)}
                 </span>
               </>

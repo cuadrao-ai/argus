@@ -4,6 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import type { WorkspaceKeyboardShortcut } from "@/lib/keyboard-shortcuts";
 import type { LucideIcon } from "lucide-react";
 import type { ConversationSurface } from "@/lib/conversation-surface-api";
+import type { StorageKey } from "@/lib/browser-storage";
 import type { WorkspaceStarterEntry } from "./StarterActions";
 
 /**
@@ -50,7 +51,12 @@ export type WorkspaceSearchHit = Readonly<{
   title: string;
   detail: string;
   amount: string | null;
-  open: () => void;
+  /** What the hit is, in a word on the row. */
+  badge: string;
+  /** More words a screen or action answers to, beyond its title. */
+  keywords?: string;
+  /** Absent when the record has no screen of its own: the row shows it and goes nowhere. */
+  open?: () => void;
   /** The record behind the hit, shown beside the results before it opens. */
   preview?: ReactNode;
 }>;
@@ -70,6 +76,13 @@ export type WorkspaceSearch = Readonly<{
   /** Hits carry previews, so the palette keeps its dossier pane and sheet. */
   previewAvailable?: boolean;
   find: (query: string) => Promise<readonly WorkspaceSearchGroup[]>;
+  /**
+   * Screens and actions, listed before a query and matched by it on the
+   * device, so a short or mistyped query still has somewhere to go.
+   */
+  shortcuts: readonly WorkspaceSearchGroup[];
+  /** Where this browser keeps the queries that led to a record, per scope. */
+  recents: Readonly<{ key: StorageKey; scope: string }>;
   copy: Readonly<{
     placeholder: string;
     noResultsHint: string;
@@ -77,6 +90,15 @@ export type WorkspaceSearch = Readonly<{
     loading: string;
     failed: string;
     retry: string;
+    recent: string;
+    showMore: (count: number) => string;
+    showLess: string;
+    noMatch: (query: string) => string;
+    keepTyping: string;
+    readError: string;
+    loadMoreError: string;
+    ask: string;
+    close: string;
   }>;
 }>;
 
@@ -99,10 +121,14 @@ export type ChatWorkspace = Readonly<{
   sidebarNav: (bridge: ChatShellBridge) => ReactNode;
   /** What sits directly under the lockup, above every nav entry: a workspace's own identity control, if any. */
   sidebarHeader?: (bridge: ChatShellBridge) => ReactNode;
+  /** The workspace's mark; on a closed rail it is the expand button, and hovering it shows the expand icon. */
+  sidebarMark?: (bridge: ChatShellBridge) => ReactNode;
   sidebarFooter: (bridge: ChatShellBridge) => ReactNode;
   /** Phone leading control, in place of the menu button. */
   headerLeading?: (bridge: ChatShellBridge) => ReactNode;
   headerActions: (bridge: ChatShellBridge) => ReactNode;
+  /** A search field in the top bar from the tablet stop up; the sidebar then drops its own search row. */
+  headerSearch?: (bridge: ChatShellBridge) => ReactNode;
   panel: (bridge: ChatShellBridge) => ReactNode;
   starterEntries: (bridge: ChatShellBridge) => readonly WorkspaceStarterEntry[];
   composer: (bridge: ChatShellBridge) => WorkspaceComposer;

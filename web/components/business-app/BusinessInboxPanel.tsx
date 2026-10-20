@@ -5,26 +5,25 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import BusinessEmailDeliveries from "./BusinessEmailDeliveries";
-import { savedUnread } from "./ReceiptReadNotice";
+import { useReceiptStateWord } from "./receipt-state-word";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
 import { countNeedsAttention, isStillReading, needsAttention, porRevisar } from "@/lib/business-review-count";
 import { inboxCount, openNotesByDraft, type OpenNote } from "./inbox-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, PanelHeading } from "./business-ui";
+import { cardClass, PanelHeading, recordFiscalMark } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
-import { PrimaryUpload } from "./foundation/PrimaryUpload";
+import BusinessAddMenu from "./BusinessAddMenu";
 import { EmptyState } from "./foundation/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Settle } from "./business-skeletons";
 
 export { inboxCount, openNotesByDraft, type OpenNote } from "./inbox-count";
 
-type ListKey = "review" | "problem" | "all";
+type ListKey = "review" | "problem" | "all" | "emails";
 
 /** A Bandeja row is a receipt or a typed note awaiting review; both open their record. */
 type BandejaItem = { kind: "receipt"; receipt: ReceiptSummary } | { kind: "note"; note: OpenNote };
@@ -34,14 +33,10 @@ const itemNew = (item: BandejaItem) => item.kind === "receipt" && Boolean(item.r
 
 /** The rows a segment shows, newest first. "Por revisar" is the one review count every screen shares. */
 export function bandejaRows(list: ListKey, receipts: readonly ReceiptSummary[], notes: readonly OpenNote[]): BandejaItem[] {
+  if (list === "emails") return [];
   const picked = list === "review" ? porRevisar(receipts) : list === "problem" ? receipts.filter(needsAttention) : receipts;
   const rows: BandejaItem[] = [...picked.map((receipt) => ({ kind: "receipt" as const, receipt })), ...(list === "problem" ? [] : notes.map((note) => ({ kind: "note" as const, note })))];
   return rows.sort((a, b) => (itemTime(a) < itemTime(b) ? 1 : -1));
-}
-
-function useShortAttention() {
-  const { t } = useTranslation();
-  return (attention: ReceiptSummary["attention"]) => attention ? t(`business.attention_short.${attention}`, t("business.attention_short.other", "Needs attention")) : "";
 }
 
 /**
@@ -51,21 +46,16 @@ function useShortAttention() {
 export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: ReceiptSummary; open?: boolean; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
-  const shortAttention = useShortAttention();
+  const stateWord = useReceiptStateWord();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   const problem = receipt.status === "needs_attention";
   const reading = isStillReading(receipt);
+  const fiscalMark = recordFiscalMark(receipt);
   const marks = [
     receipt.personal ? t("business.marks.personal_chip", "Personal") : null,
-    receipt.fiscal_known && !receipt.fiscal_value ? t("business.marks.no_fiscal_chip", "No fiscal receipt number") : null,
+    fiscalMark === "sin_comprobante" ? t("business.marks.sin_comprobante_chip", "No comprobante") : fiscalMark === "missing_ncf" ? t("business.marks.missing_ncf_chip", "NCF missing") : null,
   ].filter(Boolean);
-  const state = problem || receipt.attention
-    ? shortAttention(receipt.attention)
-    : reading
-      ? t("business.inbox.row_reading", "Reading…")
-      : savedUnread(receipt)
-        ? t("business.inbox.row_saved", "Saved, not read")
-        : t("business.inbox.row_ready", "Ready to review");
+  const state = stateWord(receipt);
   const money = formatMoney(receipt.amount, receipt.currency, locale);
   return (
     <li aria-current={open ? "true" : undefined} data-testid="bandeja-row" data-new={receipt.activity?.unread ? "true" : undefined} className={`rounded-[12px] ${OPEN_ROW_CLASS}`}>
@@ -78,7 +68,7 @@ export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: Receipt
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}</span>
-            <span className="shrink-0 text-right text-[15px] font-medium tabular-nums text-[#172b26] dark:text-white">{money || "—"}</span>
+            <span className={`shrink-0 text-right text-[15px] font-medium tabular-nums text-[#172b26] dark:text-white ${money ? "cuadrao-amount" : ""}`}>{money || "—"}</span>
           </span>
           <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px]">
             {receipt.channel === "whatsapp" ? <MessageCircle className="h-3.5 w-3.5 shrink-0 text-[#56635e]" aria-label="WhatsApp" /> : receipt.channel === "email" ? <Mail className="h-3.5 w-3.5 shrink-0 text-[#56635e]" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} /> : null}
@@ -160,11 +150,11 @@ export default function BusinessInboxPanel() {
   const notes = records.notes === null ? null : openNotesByDraft(records.notes);
   const uploadAction = actions.create.find((action) => action.id === "upload_receipt");
   const upload = chosen?.role === "owner" ? uploadAction : null;
-  const [list, setList] = useState<ListKey>("review");
-  const [emailsOpen, setEmailsOpen] = useState(panel.kind === "inbox" && Boolean(panel.emailId));
-  // A record's "first email" link names an email while the Bandeja is already on screen beside the tray.
   const askedEmail = panel.kind === "inbox" ? panel.emailId : undefined;
-  useEffect(() => { if (askedEmail) setEmailsOpen(true); }, [askedEmail]);
+  const askedEmails = panel.kind === "inbox" && (panel.segment === "emails" || Boolean(panel.emailId));
+  const [list, setList] = useState<ListKey>(askedEmails ? "emails" : "review");
+  // Ver correos (the top bar, search) and a record's "first email" link ask again each time, even with the Bandeja on screen.
+  useEffect(() => { if (askedEmails) setList("emails"); }, [askedEmails, askedEmail, panel]);
   const empty = receipts !== null && notes !== null && receipts.length === 0 && notes.length === 0 && !records.notesError && !records.error;
   const review = inboxCount(records);
   const counts = receipts && notes && review !== null ? { review, problem: countNeedsAttention(receipts) } : null;
@@ -189,13 +179,12 @@ export default function BusinessInboxPanel() {
 
   return (
     <section className="@container">
-      {upload && isBelowTablet && !empty ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
+      {isBelowTablet && !empty ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
       <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         action={
-          upload && !isBelowTablet && !empty ? <PrimaryUpload label={upload.label} onClick={upload.run} />
-          : chosen?.role === "accountant" ? (
+          chosen?.role === "accountant" ? (
             <button type="button" data-testid="business-primary-review" onClick={openReview} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--cuadrao-green)] px-5 text-[16px] font-medium text-[#fffefa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]">
               {t("business.inbox.review_receipts", "Revisar recibos")}
             </button>
@@ -206,56 +195,54 @@ export default function BusinessInboxPanel() {
         <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : (
         <Settle pending={receipts === null || notes === null} layout="inbox">
-          {rows === null || counts === null ? null : empty ? (
-            <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
-          ) : (
+          {rows === null || counts === null ? null : (
             <>
               <div className="mb-4">
+                {/* A phone fits all four only with their short names. */}
                 <SegmentedControl
                   testId="bandeja-segments"
                   label={t("business.inbox.segments", "Show")}
                   value={list}
                   onChange={setList}
+                  fill={isBelowTablet}
                   segments={[
-                    { key: "review", label: t("business.inbox.segment_review", "To review"), count: counts.review },
-                    { key: "problem", label: t("business.inbox.segment_problem", "Problems"), count: counts.problem },
+                    { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts.review },
+                    { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts.problem },
                     { key: "all", label: t("business.inbox.segment_all", "All") },
+                    { key: "emails", label: t("business.inbox.segment_emails", "Emails") },
                   ]}
                 />
               </div>
-              {records.notesError ? <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.empty.notes_error", "We couldn't load your notes")}</p> : null}
-              {rows.length ? (
-                <div className={`${cardClass} p-2`} data-testid="business-inbox-receipts">
-                  {group(t("business.inbox.group_new", "New since your last visit"), fresh, "bandeja-new")}
-                  {group(t("business.inbox.group_earlier", "Earlier"), earlier, "bandeja-earlier")}
-                </div>
+              {list === "emails" ? (
+                <BusinessEmailDeliveries
+                  openEmailId={askedEmail}
+                  onOpenReceipt={(id) => openPanel({ kind: "receipt", receiptId: id, list: "inbox" })}
+                />
+              ) : empty ? (
+                <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
               ) : (
-                <div className={cardClass} data-testid="bandeja-segment-empty">
-                  <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
-                    title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}
-                    body={t("business.inbox.see_all_body", "Every receipt you have is under All.")}
-                    action={{ label: t("business.inbox.see_all", "See all"), run: () => setList("all") }} />
-                </div>
+                <>
+                  {records.notesError ? <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.empty.notes_error", "We couldn't load your notes")}</p> : null}
+                  {rows.length ? (
+                    <div className={`${cardClass} p-2`} data-testid="business-inbox-receipts">
+                      {group(t("business.inbox.group_new", "New since your last visit"), fresh, "bandeja-new")}
+                      {group(t("business.inbox.group_earlier", "Earlier"), earlier, "bandeja-earlier")}
+                    </div>
+                  ) : (
+                    <div className={cardClass} data-testid="bandeja-segment-empty">
+                      <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
+                        title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}
+                        body={t("business.inbox.see_all_body", "Every receipt you have is under All.")}
+                        action={{ label: t("business.inbox.see_all", "See all"), run: () => setList("all") }} />
+                    </div>
+                  )}
+                  {records.notesTruncated ? <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
+                </>
               )}
-              {records.notesTruncated ? <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
             </>
           )}
         </Settle>
       )}
-      <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-2" data-testid="bandeja-emails-line">
-        <p className="flex items-center gap-2 text-[13px] text-[#56635e] dark:text-white/65"><Mail className="h-4 w-4" aria-hidden="true" />{t("business.inbox.emails_line", "Receipts you forward by email arrive here.")}</p>
-        <button type="button" data-testid="bandeja-open-emails" onClick={() => setEmailsOpen(true)} className="inline-flex min-h-11 items-center rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
-          {t("business.inbox.see_emails", "See emails")}
-        </button>
-      </div>
-      {emailsOpen ? (
-        <AdaptivePanel title={t("business.inbox.emails_title", "Emails")} closeLabel={t("common.close", "Close")} onClose={() => setEmailsOpen(false)} width="md">
-          <BusinessEmailDeliveries
-            openEmailId={panel.kind === "inbox" ? panel.emailId : undefined}
-            onOpenReceipt={(id) => { setEmailsOpen(false); openPanel({ kind: "receipt", receiptId: id, list: "inbox" }); }}
-          />
-        </AdaptivePanel>
-      ) : null}
     </section>
   );
 }

@@ -204,37 +204,62 @@ describe("typed notes in the list", () => {
   });
 });
 
-describe("email behind Ver correos", () => {
-  test("Ver correos opens the receiving address and the received emails in one sheet, and Cerrar puts them away", async () => {
+describe("email in the Correos segment", () => {
+  const correos = (page: { host: HTMLElement }) => page.host.querySelector<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment="emails"]');
+  const emailDetail = () => document.querySelector('[data-testid="email-detail"]');
+
+  test("Correos is the fourth segment and shows the receiving address, then Correos recibidos with its refresh, then the email rows", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
-    assert.equal(document.querySelector('[data-testid="bandeja-emails"]'), null);
-    const button = page.host.querySelector<HTMLButtonElement>('[data-testid="bandeja-open-emails"]')!;
-    assert.equal(button.textContent, "Ver correos");
-    await page.act(async () => button.click());
-    await page.settle(() => document.querySelector('[data-testid="bandeja-emails"] [data-testid="email-address"]') !== null, "the email sheet");
-    const sheet = document.querySelector('[data-testid="bandeja-emails"]')!;
-    assert.equal(sheet.querySelector('[data-testid="email-copy-address"]')?.textContent, "Copiar dirección");
-    const received = sheet.querySelector('section[aria-labelledby="email-received-title"]');
-    assert.equal(received && document.getElementById(received.getAttribute("aria-labelledby")!)?.textContent, "Correos recibidos", "the received emails are in the sheet");
-    const close = [...document.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.getAttribute("aria-label") === "Cerrar" || item.textContent === "Cerrar");
-    assert.ok(close, "Cerrar");
-    await page.act(async () => close.click());
-    await page.settle(() => document.querySelector('[data-testid="bandeja-emails"]') === null, "the sheet to close");
+    assert.equal(page.host.querySelector('[data-testid="bandeja-emails"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="bandeja-open-emails"]'), null, "no Ver correos line");
+    assert.equal(correos(page)?.textContent, "Correos");
+    await page.act(async () => correos(page)!.click());
+    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
+    await page.settle(() => page.host.querySelector('[data-testid="business-email-deliveries"]') !== null && page.host.querySelector('[data-testid="email-copy-address"]') !== null, "the Correos view");
+    const view = page.host.querySelector('[data-testid="bandeja-emails"]')!;
+    assert.equal(view.querySelector('[data-testid="email-copy-address"]')?.textContent, "Copiar dirección");
+    const received = view.querySelector('section[aria-labelledby="email-received-title"]')!;
+    assert.equal(document.getElementById("email-received-title")?.textContent, "Correos recibidos");
+    assert.equal(received.querySelector('[data-testid="email-refresh"]')?.getAttribute("aria-label"), "Actualizar");
+    assert.ok(received.querySelectorAll('[data-testid="email-delivery-row"]').length > 0, "the email rows sit in their card");
+    assert.equal(page.host.querySelector('[data-testid="business-inbox-receipts"]'), null, "Correos replaces the receipt rows");
+    assert.equal(document.querySelector('[role="dialog"]'), null, "Correos is the main view, not a sheet");
   });
 
-  test("a link to one email opens the Bandeja with the email sheet already open", async () => {
-    const page = await mount({ panel: { kind: "inbox", emailId: "delivery-1" } });
-    await page.settle(() => document.querySelector('[data-testid="bandeja-emails"]') !== null, "the email sheet");
-    assert.equal(page.api().panel.kind, "inbox");
+  test("Ver correos switches to Correos, also with the Bandeja already showing", async () => {
+    const page = await mount({ panel: { kind: "inbox" } });
+    await inboxReady(page);
+    assert.equal(page.segment("review")?.getAttribute("aria-checked"), "true");
+    await page.open({ kind: "inbox", segment: "emails" });
+    await page.settle(() => page.host.querySelector('[data-testid="bandeja-emails"]') !== null, "the Correos view");
+    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
+    await page.choose("all");
+    assert.equal(page.host.querySelector('[data-testid="bandeja-emails"]'), null);
+    await page.open({ kind: "inbox", segment: "emails" });
+    await page.settle(() => correos(page)?.getAttribute("aria-checked") === "true", "Correos again");
   });
-  test("on a desktop, See the first email from a record in the tray opens the email sheet over the Bandeja", async () => {
+
+  test("a link to one email opens the Bandeja on Correos with that email open, and back returns to the list", async () => {
+    const page = await mount({ panel: { kind: "inbox", emailId: "email-ferreteria" } });
+    await page.settle(() => emailDetail() !== null, "the named email");
+    assert.equal(page.api().panel.kind, "inbox");
+    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
+    const back = emailDetail()!.closest('[role="dialog"]')?.querySelector<HTMLButtonElement>('button[aria-label="Volver"]');
+    assert.ok(back, "the email detail has a back arrow");
+    await page.act(async () => back.click());
+    await page.settle(() => emailDetail() === null, "the email to close");
+    assert.ok(page.host.querySelector('[data-testid="business-email-deliveries"]'), "back lands on the email rows");
+  });
+
+  test("on a desktop, the first email from a record in the tray lands on Correos with that email open", async () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" } });
     await inboxReady(page);
     await page.open({ kind: "receipt", receiptId: "rcpt-papeleria", list: "inbox" });
     await page.settle(() => document.querySelector('[data-testid="side-drawer"]') !== null, "the record tray");
-    await page.open({ kind: "inbox", emailId: "delivery-1" });
-    await page.settle(() => document.querySelector('[data-testid="bandeja-emails"]') !== null, "the email sheet");
+    await page.open({ kind: "inbox", emailId: "email-ferreteria" });
+    await page.settle(() => emailDetail() !== null, "the named email");
+    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
   });
 });
 

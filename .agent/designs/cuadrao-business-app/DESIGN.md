@@ -149,6 +149,30 @@ Which container, screen by screen (Lucas, October 20, 2026):
 - **Popovers:** pickers (a date, a month, a menu).
 - **Alerts:** closing a month, deleting, removing someone's access.
 
+### Sidebar and account
+
+Lucas set this on October 20, 2026. The left sidebar is where you work; the
+top right is who you are.
+
+- **Top left:** the business you are working in (its initial, name and your
+  role), the one name that reads first. Its menu switches business and opens
+  **Configurar negocio**. The open and close toggle sits beside it.
+- **Then:** the screens: Inicio, Bandeja, Gastos. Negocio is reached from the
+  business menu (Configurar negocio), the one door.
+- **Foot of the rail:** the Cuadrao mark, small and quiet.
+- **Top bar:** lined up with the content column. Search on the left, always
+  visible (its placeholder says what it finds). On the right: **Agregar ▾**,
+  the one global action, whose menu holds Exportar registros, Copiar
+  dirección de reenvío and Ver correos; the **Ocultar montos** eye, which
+  blurs every amount for screen sharing; then the account. No screen repeats
+  these buttons. Phones keep Agregar ▾ at the top of each screen instead.
+- **Top right of the canvas:** the person's account (Perfil, Preferencias,
+  Datos y privacidad, Ayuda, Comentarios, Cerrar sesión). Its sheets open on
+  the same side, so the eye does not cross the screen. Phones already put it
+  there.
+- **Negocio** is a page, not a sheet: Datos (name and RNC), Equipo y accesos,
+  Correo de recibos. Nothing about the business lives in the account menu.
+
 ### Segmented control
 
 One control picks one of a few periods or views. A tinted track holds the
@@ -301,15 +325,18 @@ Bandeja is the one place receipts wait. Novedades folded into it on October 20,
 is now the top group.
 
 - A segmented control splits the same rows: **Por revisar** (the shared count
-  Inicio and the sidebar show), **Con problema**, **Todo**.
+  Inicio and the sidebar show), **Con problema**, **Todo**, and **Correos**,
+  the emails that brought receipts in, with the receiving address and a
+  refresh on top. Email is a main way in, so it lives in the list, not in a
+  sheet. Phones use the short names Revisar and Problemas so all four fit.
 - What arrived since the last visit sits on top under "Nuevo desde tu última
   visita". The server's unread flag decides it.
 - A row is one quiet line: name and total, then the state, the time and the
   marks. A problem says itself in red, in a few words. Fixes (Reintentar,
   Subir otro archivo, Escribir datos) live in the record, not in the row.
 - Typed notes are rows like receipts.
-- Email sits behind **Ver correos**, a sheet with the forwarding address and
-  the received emails. Copying the address also lives on Inicio.
+- Opening an email shows it in the drawer with a way back; opening its
+  receipt puts the email away and opens the receipt beside the list.
 - Bandeja follows [Growing lists](#growing-lists).
 
 **Behavior rules (pending from Product).** Product may add a "Falta información"

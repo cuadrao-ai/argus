@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import type { BusinessAction } from "./business-actions";
 
 type ActionMenuProps = {
-  actions: readonly (Omit<BusinessAction, "id"> & { id: BusinessAction["id"] | "mark_personal" })[];
+  actions: readonly (Omit<BusinessAction, "id"> & { id: string })[];
   label: string;
   /** Where the menu opens relative to its trigger. */
   placement: "above-start" | "below-end" | "above-start-compact";
@@ -65,16 +65,15 @@ export default function ActionMenu({ actions, label, placement, portal = false, 
     const place = () => {
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setFixedStyle({
-        position: "fixed",
-        left: Math.max(8, rect.left),
-        bottom: window.innerHeight - rect.top + 8,
-      });
+      // A portaled menu keeps its placement: it opens below and right-aligned for "below-end", above otherwise.
+      setFixedStyle(placement === "below-end"
+        ? { position: "fixed", right: Math.max(8, window.innerWidth - rect.right), top: rect.bottom + 8 }
+        : { position: "fixed", left: Math.max(8, rect.left), bottom: window.innerHeight - rect.top + 8 });
     };
     place();
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
-  }, [open, portal]);
+  }, [open, portal, placement]);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const items = itemRefs.current.filter(Boolean) as HTMLButtonElement[];

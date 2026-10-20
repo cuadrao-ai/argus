@@ -11,11 +11,12 @@ import { useBusiness } from "./BusinessWorkspace";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
+import { cardClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "./foundation/surfaces";
 
-type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
+export type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
 /** Where an email or one of its files stands: a word, its colour and a dot, never colour alone. */
 type Tone = "done" | "partial" | "failed" | "working";
@@ -69,6 +70,38 @@ export function EmailReceivingAddress({ intake, onActivate }: { intake: Business
       <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.lands_in_bandeja", "Attachments arrive in the Bandeja, ready to review.")}</p>
     </div>
   );
+}
+
+/** The receiving address as loaded: a placeholder while it loads, a retry when it fails, then the address. */
+export function EmailAddressSection({ intake, onRetry, onActivated }: { intake: Load<BusinessEmailIntake>; onRetry: () => void; onActivated: (next: BusinessEmailIntake) => void }) {
+  const { t } = useTranslation();
+  const { source } = useBusiness();
+  return (
+    <section aria-label={t("business.email.forward_to", "Forward receipts to this address:")}>
+      {intake.status === "loading" ? <Settle pending layout="rows" rows={1} /> : null}
+      {intake.status === "error" ? (
+        <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
+          {t("business.email.address_failed", "Could not load the receiving address.")}
+          <button type="button" className={quietLink} onClick={onRetry}>{t("common.retry", "Retry")}</button>
+        </p>
+      ) : null}
+      {intake.status === "ready" ? <EmailReceivingAddress intake={intake.data} onActivate={async () => onActivated(await source.createEmailAddress())} /> : null}
+    </section>
+  );
+}
+
+/** The address on its own, for the Negocio page: it loads itself. */
+export function BusinessEmailAddress() {
+  const { source, revision } = useBusiness();
+  const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let current = true;
+    setIntake({ status: "loading" });
+    source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
+    return () => { current = false; };
+  }, [source, revision, attempt]);
+  return <EmailAddressSection intake={intake} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => setIntake({ status: "ready", data: next })} />;
 }
 
 /** One received email: subject and where it stands, then who sent it, when, and how many files. */
@@ -243,23 +276,21 @@ export default function BusinessEmailDeliveries({ openEmailId, onOpenReceipt }: 
     return () => { current = false; clearTimeout(timer); };
   }, [source, attempt, revision]);
   const reload = () => setAttempt((value) => value + 1);
-  const openReceipt = (id: string) => (onOpenReceipt ? onOpenReceipt(id) : openPanel({ kind: "receipt", receiptId: id }));
+  // Opening a receipt puts the email away first, so the receipt is the one thing open.
+  const openReceipt = (id: string) => {
+    setOpened(null);
+    if (onOpenReceipt) onOpenReceipt(id);
+    else openPanel({ kind: "receipt", receiptId: id });
+  };
   const forwardAddress = intake.status === "ready" ? businessReceivingAddress(intake.data) : null;
   const copyLabels = useCopyLabels(forwardAddress ?? "");
   const openDelivery = deliveries.status === "ready" ? deliveries.data.find((item) => item.id === opened) ?? null : null;
 
   return (
-    <div className="space-y-8 pb-6 pt-2 desktop:px-5" data-testid="bandeja-emails">
-      <section aria-label={t("business.email.forward_to", "Forward receipts to this address:")}>
-        {intake.status === "loading" ? <Settle pending layout="rows" rows={1} /> : null}
-        {intake.status === "error" ? (
-          <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
-            {t("business.email.address_failed", "Could not load the receiving address.")}
-            <button type="button" className={quietLink} onClick={reload}>{t("common.retry", "Retry")}</button>
-          </p>
-        ) : null}
-        {intake.status === "ready" ? <EmailReceivingAddress intake={intake.data} onActivate={async () => { const next = await source.createEmailAddress(); setIntake({ status: "ready", data: next }); }} /> : null}
-      </section>
+    <div className="space-y-6" data-testid="bandeja-emails">
+      <div className={`${cardClass} py-4`}>
+        <EmailAddressSection intake={intake} onRetry={reload} onActivated={(next) => setIntake({ status: "ready", data: next })} />
+      </div>
 
       <section aria-labelledby="email-received-title">
         <div className="flex items-center justify-between gap-2">
@@ -272,7 +303,7 @@ export default function BusinessEmailDeliveries({ openEmailId, onOpenReceipt }: 
         {deliveries.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
         {deliveries.status === "error" ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} /> : null}
         {deliveries.status === "ready" ? (deliveries.data.length ? (
-          <ul className="divide-y divide-[#EEF0EC] dark:divide-white/[0.06]" data-testid="business-email-deliveries">
+          <ul className={`${cardClass} divide-y divide-[#EEF0EC] p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
             {deliveries.data.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}
           </ul>
         ) : (

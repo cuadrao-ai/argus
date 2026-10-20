@@ -137,6 +137,8 @@ export type ChatSidebarProps = {
   primaryNav?: ReactNode;
   /** Rendered directly under the lockup, before any nav entry. */
   headerSlot?: ReactNode;
+  /** The workspace's mark, the expand button on a closed rail. */
+  headerMark?: ReactNode;
   /** A workspace's actions, pinned above the profile footer. */
   footerActions?: ReactNode;
   /**
@@ -192,6 +194,7 @@ export default function ChatSidebar({
   guestSettings = null,
   primaryNav = null,
   headerSlot = null,
+  headerMark = null,
   footerActions = null,
   profileSlot = null,
 }: ChatSidebarProps) {
@@ -480,13 +483,13 @@ export default function ChatSidebar({
         isOpen={isOpen}
         railLocked={railLocked}
         business={businessRail}
+        businessSlot={businessRail ? headerSlot : undefined}
+        businessMark={businessRail ? headerMark : undefined}
         onToggle={onToggle}
         onRequestClose={onRequestClose}
       />
 
-      {businessRail && headerSlot ? (
-        <div className={`shrink-0 ${isOpen ? "px-3" : "flex justify-center"}`}>{headerSlot}</div>
-      ) : headerSlot}
+      {businessRail ? null : headerSlot}
 
       <div className={`flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${businessRail ? `${railInset} pt-2` : "px-[6px] pb-4 pt-2"}`}>
         {/* Main Navigation */}

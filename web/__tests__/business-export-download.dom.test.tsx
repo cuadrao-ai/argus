@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
-import BusinessExpensesPanel from "@/components/business-app/BusinessExpensesPanel";
+import ExportRecordsPanel from "@/components/business-app/ExportRecordsPanel";
+import { useMonthCloseSource } from "@/components/business-app/BusinessMonthClosePanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
 import { setChosenGrant } from "@/lib/business-grant";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
@@ -56,22 +57,30 @@ async function mount(chosen = own) {
     source, chosen, revision: 0,
     period: { key: "custom", from: "2026-10-01", to: "2026-10-17" },
     records: { workspace: null, overview: { from: "2026-10-01", to: "2026-10-17" }, error: false },
-    panel: { kind: "expenses" }, actions: { create: [] },
+    panel: { kind: "expenses" }, actions: { create: [] }, spaces: [chosen],
     setPeriod: () => undefined,
   } as unknown as BusinessContextValue;
+  // The sheet as the workspace opens it from Agregar or search: this month, over any screen.
+  function Sheet() {
+    const [shown, setShown] = useState(true);
+    const monthClose = useMonthCloseSource();
+    return shown
+      ? <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={() => setShown(false)} />
+      : <button type="button" data-testid="reopen-export" onClick={() => setShown(true)}>Exportar registros</button>;
+  }
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const render = async (patch: Partial<BusinessContextValue> = {}) => {
     context = { ...context, ...patch };
     setChosenGrant(context.chosen?.role === "accountant" ? context.chosen.grant_id : null);
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessExpensesPanel /></BusinessContext.Provider></I18nextProvider>));
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Sheet /></BusinessContext.Provider></I18nextProvider>));
   };
   await render();
   const button = () => document.querySelector<HTMLButtonElement>('[data-testid="export-download"]') ?? undefined;
   const open = async () => {
     if (button()) return;
-    const door = host.querySelector<HTMLButtonElement>('[data-testid="expenses-export"]');
-    assert.ok(door, "Gastos offers Exportar");
+    const door = host.querySelector<HTMLButtonElement>('[data-testid="reopen-export"]');
+    assert.ok(door, "the closed sheet can open again");
     await act(async () => { door.click(); });
     for (let i = 0; i < 10; i += 1) await act(async () => { await Promise.resolve(); });
   };
@@ -83,7 +92,7 @@ async function mount(chosen = own) {
 const thisMonth = windowForMonth(currentMonthKey());
 const exports = () => calls.filter((call) => call.url.pathname.endsWith("/business/exports"));
 
-for (const chosen of [own, client]) test(`Gastos downloads this month's ZIP for ${chosen.role}`, async () => {
+for (const chosen of [own, client]) test(`Exportar registros downloads this month's ZIP for ${chosen.role}`, async () => {
   const view = await mount(chosen);
   try {
     await view.submit();
@@ -97,7 +106,7 @@ for (const chosen of [own, client]) test(`Gastos downloads this month's ZIP for 
   } finally { await view.close(); }
 });
 
-test("the export downloads the period chosen in the panel, whatever the Gastos period", async () => {
+test("the export downloads the period chosen in the panel, whatever the workspace period", async () => {
   const view = await mount();
   try {
     await view.render({ period: { key: "all", from: "2000-01-01", to: "2026-10-17" } });
@@ -162,7 +171,8 @@ test("a changed grant before a click never exports a different Business", async 
 test("preview and unreadable Businesses never dispatch exports", async () => {
   const view = await mount({ ...client, capabilities: [] });
   try {
-    assert.equal(view.host.querySelector('[data-testid="expenses-export"]'), null, "no read, no export door");
+    assert.ok(document.querySelector('[data-testid="export-records-panel"]'), "the sheet opens");
+    assert.equal(view.button(), undefined, "no read, no Exportar in the sheet");
     await view.render({ chosen: own, source: { ...view.context.source, mode: "fixture" } });
     await view.open();
     assert.equal(view.button()!.disabled, true);

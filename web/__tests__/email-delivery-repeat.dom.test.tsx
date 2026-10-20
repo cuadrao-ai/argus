@@ -51,6 +51,9 @@ describe("a repeated email attachment in Correos recibidos", () => {
     const open = [...(detail()?.querySelectorAll("button") ?? [])].find((b) => b.textContent === "Abrir recibo") as HTMLButtonElement;
     await act(async () => { open.click(); });
     assert.deepEqual(opened, [{ kind: "receipt", receiptId: "rcpt-1" }]);
+    assert.equal(detail(), null, "Abrir recibo puts the email away, so the receipt is the one thing open");
+    await act(async () => { rows[0].click(); });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     const back = document.body.querySelector<HTMLButtonElement>('[data-testid="side-drawer"] button[aria-label="Volver"]');
     assert.ok(back, "the opened email offers a way back to the list");
     await act(async () => { back.click(); });

@@ -2206,7 +2206,8 @@
         "business_name_invalid": "Enter a business name of 1 to 80 characters.",
         "business_owner_required": "Only the business owner can change this profile.",
         "business_permission_denied": "You can view this profile. You cannot change it."
-      }
+      },
+      "profile_load_failed": "We couldn't load the name and RNC."
     },
     "activity": {
       "all_channels": "Receipt reading is managed for your Business across email, WhatsApp and uploads.",
@@ -2653,7 +2654,8 @@
       "label": "Business",
       "overview": "Home",
       "inbox": "Inbox",
-      "expenses": "Expenses"
+      "expenses": "Expenses",
+      "business": "Business"
     },
     "month_close": {
       "checklist_title": "To close {{month}}",
@@ -2744,6 +2746,13 @@
     "receipt": {
       "untitled": "Receipt"
     },
+    "add_menu": {
+      "more": "More actions"
+    },
+    "amounts": {
+      "hide": "Hide amounts",
+      "show": "Show amounts"
+    },
     "attention_short": {
       "unreadable": "Couldn't read it",
       "ai_unavailable": "Reading unavailable",
@@ -2785,9 +2794,10 @@
       "nothing_to_review": "Nothing to review",
       "see_all_body": "Every receipt you have is under All.",
       "see_all": "See all",
-      "emails_line": "Receipts you forward by email arrive here.",
       "see_emails": "See emails",
-      "emails_title": "Emails"
+      "segment_emails": "Emails",
+      "segment_review_short": "Review",
+      "segment_problem_short": "Issues"
     },
     "email": {
       "title": "Received emails",
@@ -3031,15 +3041,36 @@
       "dismiss": "Dismiss"
     },
     "search": {
-      "placeholder": "Search expenses, receipts and chats",
-      "placeholder_records": "Search expenses and receipts",
+      "placeholder": "Search a merchant, amount or note",
       "open_record": "Open record",
       "record_unavailable": "This record isn't available.",
-      "no_results_hint": "Try a merchant or a file name.",
+      "no_results_hint": "Search by merchant, amount, category, account or a note's text.",
       "region": "Business records",
       "loading": "Searching your business",
       "failed": "We couldn't search your business.",
-      "receipts": "Receipts"
+      "receipts": "Receipts",
+      "go_to": "Go to",
+      "actions": "Actions",
+      "go_team": "Team and access",
+      "keywords_business": "settings details business tax",
+      "keywords_team": "team accountant people access",
+      "keywords_add": "upload receipt photo file note invoice",
+      "keywords_copy_forward": "email mail",
+      "badge_screen": "Screen",
+      "badge_action": "Action",
+      "badge_expense": "Expense",
+      "badge_receipt": "Receipt",
+      "badge_note": "Note",
+      "badge_account": "Account",
+      "accounts": "Accounts",
+      "recent": "Recent searches",
+      "show_more": "See more ({{count}})",
+      "show_less": "See less",
+      "no_match": "Nothing matched “{{query}}”.",
+      "keep_typing": "Type at least 3 letters to search your records.",
+      "chats_failed": "We couldn't load your chats. Your records are still here.",
+      "chats_more_failed": "We couldn't load more chats. The ones shown are still here.",
+      "ask": "Ask in a new chat"
     },
     "capture": {
       "reopen_retained": "Reopen retained note",
@@ -3061,6 +3092,14 @@
       "saved_note": "Saved original note",
       "search_failed": "Notes are unavailable. Other record results are shown below."
     },
+    "settings": {
+      "title": "Business",
+      "tab_datos": "Details",
+      "tab_equipo": "Team and access",
+      "tab_correo": "Receipt email",
+      "datos_title": "Name and RNC",
+      "datos_body": "They appear on your 606 and 607 and on what you export."
+    },
     "switcher": {
       "label": "Business",
       "change": "Switch Business",
@@ -3069,11 +3108,12 @@
       "client": "Client",
       "client_cue": "Client: {{name}}",
       "role_owner": "Owner",
-      "role_accountant": "View and prepare",
+      "role_accountant": "Accountant",
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
       "lost": "You no longer have access to this Business.",
-      "team": "Team and access"
+      "team": "Team and access",
+      "settings": "Business settings"
     },
     "marks": {
       "real_expenses": "Actual expenses",
@@ -3099,7 +3139,9 @@
       "excluded_606_by": "Left out of the 606 by {{name}}",
       "decide_failed": "We could not save the answer. Try again.",
       "none_fiscal": "None with fiscal value in this period.",
-      "personal_help": "It does not count in the Business totals."
+      "personal_help": "It does not count in the Business totals.",
+      "sin_comprobante_chip": "No comprobante",
+      "missing_ncf_chip": "NCF missing"
     }
   },
   "money": {

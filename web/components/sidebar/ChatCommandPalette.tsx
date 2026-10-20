@@ -103,7 +103,7 @@ import {
 } from "./command-palette/paletteLayout";
 import CommandPaletteLoadMoreControl from "./CommandPaletteLoadMoreControl";
 import { useChatAvailable, useChatWorkspace, useConversationSurface } from "@/components/chat/ChatWorkspace";
-import { moveWorkspaceFocus, useWorkspaceSearch, WorkspaceSearchResults } from "./command-palette/WorkspaceSearchResults";
+import { moveWorkspaceFocus, useRecentSearches, useWorkspaceSearch, WorkspaceSearchHome, WorkspaceSearchNoMatch, WorkspaceSearchResults } from "./command-palette/WorkspaceSearchResults";
 
 type ChatCommandPaletteProps = {
   onClose: () => void;
@@ -330,7 +330,6 @@ function ChatCommandPaletteSurface({
     decisionStateFilter === null;
 
   useEffect(() => {
-    inputRef.current?.focus();
     const saved = readStored("argus:command_palette_layout");
     if (saved === "expanded" || saved === "collapsed") {
       setLayoutMode(saved);
@@ -534,22 +533,24 @@ function ChatCommandPaletteSurface({
   }, [chatAvailable, decisionStateFilter, isLedgerMode, query, retryNonce, searchSurface]);
 
   const workspaceResults = useWorkspaceSearch(isLedgerMode ? null : workspaceSearch, query);
+  const workspaceRecents = useRecentSearches(workspaceSearch?.recents ?? null);
   const [workspaceSelection, setWorkspaceSelection] = useState<string | null>(null);
   const [workspaceSheet, setWorkspaceSheet] = useState(false);
   const workspaceGroups = workspaceResults.state.status === "ready" ? workspaceResults.state.groups : [];
   const selectedWorkspaceHit = workspaceGroups.flatMap((group) => group.hits.map((hit) => ({ key: `${group.id}:${hit.id}`, hit }))).find((item) => item.key === workspaceSelection)?.hit;
   // A new query or a conversation preview replaces the previewed record.
   useEffect(() => { setWorkspaceSelection(null); setWorkspaceSheet(false); }, [query, previewItem]);
+  const openSelectedWorkspaceHit = selectedWorkspaceHit?.open;
   const workspaceDossier = selectedWorkspaceHit?.preview ? <div data-dossier-pane="true" className="flex h-full flex-col gap-4">
     <div className="min-h-0 flex-1 overflow-y-auto">{selectedWorkspaceHit.preview}</div>
-    <button type="button" className="min-h-11 shrink-0 rounded-full bg-black px-4 text-sm text-white dark:bg-white dark:text-black" onClick={() => { onClose(); selectedWorkspaceHit.open(); }}>{t("business.search.open_record", "Open record")}</button>
+    {openSelectedWorkspaceHit ? <button type="button" className="min-h-11 shrink-0 rounded-full bg-black px-4 text-sm text-white dark:bg-white dark:text-black" onClick={() => { onClose(); openSelectedWorkspaceHit(); }}>{t("business.search.open_record", "Open record")}</button> : null}
   </div> : null;
   const isFiltering = query.trim().length > 0;
   const isWaitingForIndexableQuery =
     isFiltering && !searchQueryIsIndexable(query);
   const isResultMode = isFiltering || isLedgerMode;
-  // Without chat there is nothing to list before a query, so the palette is just its field.
-  const isFieldOnly = !chatAvailable && !isFiltering;
+  // Without chat or a workspace's own screens there is nothing to list before a query, so the palette is just its field.
+  const isFieldOnly = !chatAvailable && !isFiltering && !workspaceSearch;
   const assetRollup = useMemo(
     () =>
       isFiltering
@@ -1112,7 +1113,7 @@ function ChatCommandPaletteSurface({
       }
       activateItem(item, options.openAtLeftOff);
     },
-    [activateItem, hasPreviewPane, isBelowDesktop, setPreviewItem],
+    [activateItem, hasPreviewPane, isBelowDesktop, setIsDossierSheetOpen, setPreviewItem],
   );
 
   const askText = chatAvailable && onAsk && isFiltering && !isWaitingForIndexableQuery && !isLedgerMode && !isSearching && !readError && displayItems.length === 0 && !assetRollupDisplay && workspaceResults.quiet ? query.trim() : null;
@@ -1152,6 +1153,35 @@ function ChatCommandPaletteSurface({
     initialFocusRef: inputRef,
   });
 
+  const changeQuery = (nextQuery: string) => {
+    const nextSignature = JSON.stringify([
+      nextQuery.trim(),
+      false,
+      null,
+    ]);
+    if (nextSignature !== searchSignatureRef.current) {
+      historyRequestIdRef.current += 1;
+    }
+    searchSignatureRef.current = nextSignature;
+    ledgerBrowseRequestIdRef.current += 1;
+    searchRequestIdRef.current += 1;
+    setLedgerGroups([]);
+    setIsLedgerLoading(false);
+    setIsLoadingMoreSearch(false);
+    setQuery(nextQuery);
+    if (isLedgerMode || decisionStateFilter) {
+      setIsLedgerMode(false);
+      setDecisionStateFilter(null);
+      setSearchResults([]);
+      setSearchNextCursor(null);
+    }
+  };
+  // A recent search fills the bar and searches, as typing it would.
+  const fillQuery = (text: string) => {
+    changeQuery(text);
+    inputRef.current?.focus();
+  };
+
   const toggleLayout = () => {
     setLayoutMode((current) => {
       const next = current === "expanded" ? "collapsed" : "expanded";
@@ -1161,6 +1191,16 @@ function ChatCommandPaletteSurface({
   };
 
   const isLoading = isResultMode ? isSearching || isLedgerLoading : isColdStartLoading;
+  // A workspace's search is a sheet, not a centred box: flat, no blur, no dimming.
+  // From the tablet stop it hangs from the top and the page stays readable around
+  // it; on a phone it fills the screen and closes from its own button.
+  const workspaceIsSheet = workspaceSearch !== null;
+  const workspaceSheetRootClass = `fixed inset-0 z-[60] flex justify-center ${isBelowTablet ? "" : "items-start p-3 pt-[8dvh] sm:p-6 sm:pt-[8dvh]"}`;
+  const workspaceSheetPanelClass = isBelowTablet
+    ? "relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white dark:bg-[#1b1d20]"
+    : `relative flex max-h-[84dvh] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white dark:border-white/10 dark:bg-[#1b1d20] ${
+        effectiveLayoutMode === "expanded" ? "h-[78dvh] w-[94vw] max-w-6xl" : "h-[60dvh] w-full max-w-lg"
+      }`;
   const footerCount = displayItems.length + workspaceGroups.reduce((count, group) => count + group.hits.length, 0);
   const selectedCanManageShortcutActions = Boolean(canManageConversation && selectedPreview?.canManageConversation);
 
@@ -1357,7 +1397,7 @@ function ChatCommandPaletteSurface({
                 </div>
               ) : (
                 <div className="flex flex-1 items-center justify-center text-center">
-                  <p className="text-[13px] text-black/30 dark:text-white/30">
+                  <p className={`text-[13px] ${workspaceSearch ? "text-[#56635e] dark:text-white/65" : "text-black/30 dark:text-white/30"}`}>
                     {t(
                       "command_palette.select_preview",
                       "Select a result to preview its details.",
@@ -1367,17 +1407,17 @@ function ChatCommandPaletteSurface({
               );
 
   return (
-    <div ref={paletteRef} hidden={!paletteDrawn} className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6">
+    <div ref={paletteRef} hidden={!paletteDrawn} className={workspaceIsSheet ? workspaceSheetRootClass : "fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6"}>
       <button
         tabIndex={-1}
         type="button"
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm dark:bg-black/60"
+        className={workspaceIsSheet ? "absolute inset-0" : "absolute inset-0 bg-black/20 backdrop-blur-sm dark:bg-black/60"}
         onClick={onClose}
         aria-label={t("command_palette.close", "Close search")}
       />
 
       <div
-        className={`relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[18px] border border-black/10 bg-white transition-all duration-300 dark:border-white/10 dark:bg-[#1b1d20] ${
+        className={workspaceIsSheet ? workspaceSheetPanelClass : `relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[18px] border border-black/10 bg-white transition-all duration-300 dark:border-white/10 dark:bg-[#1b1d20] ${
           effectiveLayoutMode === "expanded"
             ? "h-[78dvh] w-[94vw] max-w-6xl"
             : isFieldOnly
@@ -1392,30 +1432,7 @@ function ChatCommandPaletteSurface({
             type="text"
             value={query}
             maxLength={512}
-            onChange={(event) => {
-              const nextQuery = event.target.value;
-              const nextSignature = JSON.stringify([
-                nextQuery.trim(),
-                false,
-                null,
-              ]);
-              if (nextSignature !== searchSignatureRef.current) {
-                historyRequestIdRef.current += 1;
-              }
-              searchSignatureRef.current = nextSignature;
-              ledgerBrowseRequestIdRef.current += 1;
-              searchRequestIdRef.current += 1;
-              setLedgerGroups([]);
-              setIsLedgerLoading(false);
-              setIsLoadingMoreSearch(false);
-              setQuery(nextQuery);
-              if (isLedgerMode || decisionStateFilter) {
-                setIsLedgerMode(false);
-                setDecisionStateFilter(null);
-                setSearchResults([]);
-                setSearchNextCursor(null);
-              }
-            }}
+            onChange={(event) => changeQuery(event.target.value)}
             placeholder={workspaceSearch?.copy.placeholder ?? t(
               "command_palette.search_placeholder",
               "Search Argus...",
@@ -1432,6 +1449,15 @@ function ChatCommandPaletteSurface({
               <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
             </button>
           )}
+          {workspaceSearch && isBelowTablet ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-11 shrink-0 rounded-full px-3 text-[15px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+            >
+              {workspaceSearch.copy.close}
+            </button>
+          ) : null}
         </div>
 
         {isGuest && !groundedDiscoveryAvailable && (
@@ -1501,7 +1527,8 @@ function ChatCommandPaletteSurface({
             data-command-palette-action-region
             {...shortcutLegend.actionRegionProps}
           >
-            {workspaceSearch && <WorkspaceSearchResults search={workspaceSearch} {...workspaceResults} onOpened={onClose} selectedKey={workspaceSelection ?? undefined} onPreview={workspaceSearch.previewAvailable ? (group, hit) => setWorkspaceSelection(`${group}:${hit.id}`) : undefined} onSelect={workspaceSearch.previewAvailable ? (group, hit) => { setWorkspaceSelection(`${group}:${hit.id}`); if (isBelowDesktop || effectiveLayoutMode === "collapsed") setWorkspaceSheet(true); } : undefined} />}
+            {workspaceSearch && !isFiltering && !isLedgerMode ? <WorkspaceSearchHome search={workspaceSearch} recent={workspaceRecents.items} onFill={fillQuery} onOpened={onClose} /> : null}
+            {workspaceSearch && isFiltering && <WorkspaceSearchResults search={workspaceSearch} {...workspaceResults} onOpened={onClose} onChosen={() => workspaceRecents.remember(query)} selectedKey={workspaceSelection ?? undefined} onPreview={workspaceSearch.previewAvailable ? (group, hit) => setWorkspaceSelection(`${group}:${hit.id}`) : undefined} onSelect={workspaceSearch.previewAvailable ? (group, hit) => { setWorkspaceSelection(`${group}:${hit.id}`); if (isBelowDesktop || effectiveLayoutMode === "collapsed") setWorkspaceSheet(true); } : undefined} />}
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-5 w-5 animate-spin text-black/20 dark:text-white/20" />
@@ -1516,7 +1543,7 @@ function ChatCommandPaletteSurface({
                   aria-hidden="true"
                 />
                 <p className="text-[14px] text-black/50 dark:text-white/50">
-                  {t(
+                  {workspaceSearch?.copy.readError ?? t(
                     "command_palette.read_error",
                     "Argus couldn’t load these results.",
                   )}
@@ -1537,7 +1564,10 @@ function ChatCommandPaletteSurface({
               </div>
             ) : displayItems.length === 0 &&
               !assetRollupDisplay &&
-              !isLedgerMode ? (workspaceResults.quiet && !isFieldOnly &&
+              !isLedgerMode ? (workspaceSearch ? (isFiltering && workspaceResults.quiet ? <>
+                <WorkspaceSearchNoMatch search={workspaceSearch} query={query} waiting={isWaitingForIndexableQuery} onOpened={onClose} />
+                {askText && onAsk ? <div className="mt-3 px-3"><AskArgusRow label={workspaceSearch.copy.ask} text={askText} onAsk={onAsk} /></div> : null}
+              </> : null) : workspaceResults.quiet && !isFieldOnly &&
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Search className="mb-3 h-8 w-8 text-black/10 dark:text-white/10" />
                 <p className="text-[14px] text-black/30 dark:text-white/30">
@@ -1557,14 +1587,14 @@ function ChatCommandPaletteSurface({
                 </p>
                 {isFiltering && (
                   <p className="mt-2 max-w-xs text-[12px] leading-relaxed text-black/25 dark:text-white/25">
-                    {isWaitingForIndexableQuery || !workspaceSearch ? t(
+                    {t(
                       isWaitingForIndexableQuery
                         ? "command_palette.keep_typing_detail"
                         : "command_palette.try_searching",
                       isWaitingForIndexableQuery
                         ? "Search starts with a 2-character ticker or a 3-character word."
                         : "Try a ticker, phrase, or note you remember.",
-                    ) : workspaceSearch.copy.noResultsHint}
+                    )}
                   </p>
                 )}
                 {askText && onAsk ? <div className="mt-6 w-full max-w-md px-3"><AskArgusRow text={askText} onAsk={onAsk} /></div> : null}
@@ -1667,7 +1697,7 @@ function ChatCommandPaletteSurface({
                               role="button"
                               tabIndex={0}
                               aria-disabled={isNavigationDisabled}
-                              className={`group relative flex w-full items-start gap-2 rounded-[12px] px-3 py-2.5 text-left outline-none transition-colors focus:ring-2 focus:ring-black/20 dark:focus:ring-white/25 max-desktop:min-h-11 max-desktop:pe-12 ${
+                              className={`group relative flex w-full items-start gap-2 rounded-[12px] px-3 py-2.5 text-left transition-colors ${workspaceSearch ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49]" : "outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/25"} max-desktop:min-h-11 max-desktop:pe-12 ${
                                 selectedPreview?.id === item.id &&
                                 selectedPreview.type === item.type
                                   ? "bg-black/5 dark:bg-white/5"
@@ -1800,6 +1830,7 @@ function ChatCommandPaletteSurface({
                 })}
                 {isResultMode && searchNextCursor && (
                   <CommandPaletteLoadMoreControl
+                    errorLabel={workspaceSearch?.copy.loadMoreError}
                     failed={loadMoreFailed}
                     loading={isLoadingMoreSearch}
                     disabled={isLoadingMoreSearch || isSavingDecision}

@@ -1,98 +1,57 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { countNeedsAttention, countStillReading } from "@/lib/business-review-count";
 import { inboxCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
+import BusinessAddMenu from "./BusinessAddMenu";
 import { EmptyState } from "./foundation/EmptyState";
-import { useForwardAddress } from "./useForwardAddress";
-import { cardClass, pillButtonClass } from "./business-ui";
-import { currentMonthKey } from "@/lib/business-month-close";
+import { cardClass } from "./business-ui";
 import BusinessMonthClosePanel, { useMonthCloseSource } from "./BusinessMonthClosePanel";
-import ExportRecordsPanel from "./ExportRecordsPanel";
-import { CopyButton, useCopyLabels } from "./foundation/CopyButton";
-import { showToast } from "./foundation/toasts";
 
-/** The Inicio action row: four pills fit one row from 1024px; 44px tall like every target. */
-const actionPill = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:focus-visible:ring-white/30";
-
+/**
+ * Inicio: a greeting, then what it takes to close the month. Its actions live
+ * in the top bar's Agregar from the tablet stop up; a phone keeps Agregar at
+ * the top of the screen.
+ */
 export default function BusinessOverviewPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, openPanel, actions, chosen, bridge, reload } = useBusiness();
-  const owner = chosen?.role !== "accountant";
-  const upload = owner ? actions.create?.find((action) => action.id === "upload_receipt") ?? null : null;
-  const forwardAddress = useForwardAddress();
+  const { records, openPanel, bridge, reload } = useBusiness();
   const items = records.inbox;
   const porRevisar = inboxCount(records);
   const reading = items ? countStillReading(items) : 0;
   const problem = items ? countNeedsAttention(items) : 0;
-  const primaryClass = `${pillButtonClass} min-w-11 bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
   const name = bridge?.greetingName?.trim();
   const greeting = name ? t("business.overview.greeting", { name, defaultValue: "Welcome, {{name}}" }) : t("business.overview.greeting_unnamed", "Welcome");
-
-  const [shownMonth, setShownMonth] = useState(() => currentMonthKey());
-  const [exportOpen, setExportOpen] = useState(false);
   const monthClose = useMonthCloseSource();
-  const copyLabels = useCopyLabels(forwardAddress ?? "");
 
   return (
     <section aria-labelledby="business-overview-title">
       <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
         {greeting}
       </h2>
-      <div data-testid="inicio-actions" className={`mb-6 mt-4 ${isBelowTablet ? "flex flex-col gap-2" : "flex flex-wrap items-center gap-2"}`}>
-        {upload ? (
-          <button type="button" data-testid="business-primary-upload" data-primary="true" className={`${actionPill} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
-            <upload.icon className="h-4 w-4" aria-hidden="true" />
-            {upload.label}
-          </button>
-        ) : chosen?.role === "accountant" ? (
-          <button type="button" data-testid="inicio-primary-review" data-primary="true" className={primaryClass} onClick={() => openPanel({ kind: "inbox" })}>
-            {t("business.actions.review_receipts", "Review receipts")}
-          </button>
-        ) : null}
-        <button type="button" data-testid="inicio-export" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => setExportOpen(true)}>
-          <Download className="h-4 w-4" aria-hidden="true" />
-          {t("business.overview.export_records", "Export records")}
-        </button>
-        {owner && forwardAddress ? (
-          <CopyButton
-            value={forwardAddress}
-            label={t("business.overview.copy_forward", "Copy forwarding address")}
-            {...copyLabels}
-            onFailed={() => showToast({ kind: "error", text: copyLabels.failedLabel })}
-            testId="inicio-forward-copy"
-            className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`}
-          >
-            {t("business.overview.copy_forward", "Copy forwarding address")}
-          </CopyButton>
-        ) : null}
+      {isBelowTablet ? <div data-testid="inicio-actions" className="mt-4"><BusinessAddMenu placement="page" /></div> : null}
+      <div className="mt-6">
+        <BusinessMonthClosePanel
+          monthClose={monthClose}
+          review={porRevisar === null ? null : {
+            count: porRevisar,
+            detail: [
+              reading > 0 ? t("business.overview.reading", { count: reading }) : null,
+              problem > 0 ? t("business.overview.problem", { count: problem }) : null,
+            ].filter(Boolean).join(" · ") || null,
+            open: () => openPanel({ kind: "inbox" }),
+          }}
+        />
       </div>
-
-      <BusinessMonthClosePanel
-        monthClose={monthClose}
-        onMonthChange={setShownMonth}
-        review={porRevisar === null ? null : {
-          count: porRevisar,
-          detail: [
-            reading > 0 ? t("business.overview.reading", { count: reading }) : null,
-            problem > 0 ? t("business.overview.problem", { count: problem }) : null,
-          ].filter(Boolean).join(" · ") || null,
-          open: () => openPanel({ kind: "inbox" }),
-        }}
-      />
-      {exportOpen ? <ExportRecordsPanel month={shownMonth} monthClose={monthClose} onClose={() => setExportOpen(false)} /> : null}
 
       {records.error ? (
         <div className={`${cardClass} mt-6`}>
           <EmptyState kind="error" compact testId="inicio-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
         </div>
       ) : null}
-
     </section>
   );
 }

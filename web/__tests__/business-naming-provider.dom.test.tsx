@@ -155,7 +155,7 @@ test("leaving the Business while its required check is pending cancels the conti
 });
 
 for (const role of ["owner", "accountant"] as const) {
-  test(`Business ${role} preferences preserve naming access and hide personal country settings`, async () => {
+  test(`Business ${role} preferences leave the business name to the Negocio page and hide personal country settings`, async () => {
     const view = await mount(async (url, init) => String(url).endsWith("name-prompt")
       ? Response.json(state(JSON.parse(String(init?.body)).space_id))
       : Response.json({ user: { id: "settings-owner", display_name: "Test owner", email: "owner@example.test", language: "es-419" }, account_kind: "registered", available: false }), { profile: true });
@@ -164,7 +164,8 @@ for (const role of ["owner", "accountant"] as const) {
       const button = (text: string) => [...document.querySelectorAll("button")].find(item => item.textContent?.trim() === text);
       await act(async () => { button("Preferencias")!.click(); });
       assert.equal(button("País y moneda"), undefined);
-      assert.equal(Boolean(button("¿Cómo se llama tu negocio?")), role === "owner");
+      assert.ok([...document.querySelectorAll("button")].some(item => item.textContent?.includes(spanish.settings.app.language)), "Preferencias opened");
+      assert.equal(button("¿Cómo se llama tu negocio?"), undefined, "the name lives in Negocio > Datos");
     } finally {
       await view.close();
       (await import("@/components/layout/overlayStack")).resetOverlayStack();

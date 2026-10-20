@@ -7,7 +7,7 @@ import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
-import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks, recordFiscalMark } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { useRecordTray } from "./record-tray";
 
@@ -77,7 +77,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
           <header className="mb-5">
             <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t("business.expenses.detail_title", "Saved expense")}</p>
             <h2 id="expense-detail-title" className="min-w-0 break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
-            <p className="mt-3 font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(state.expense.amount, state.expense.currency, locale)}</p>
+            <p className="cuadrao-amount mt-3 font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{formatMoney(state.expense.amount, state.expense.currency, locale)}</p>
           </header>
           <div className={cardClass}>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
@@ -88,7 +88,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
               <dt className="text-black/55 dark:text-white/55">{t("business.review.account", "Paid from")}</dt>
               <dd className="text-black dark:text-white">{state.expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : (state.expense.account_id && accounts.get(state.expense.account_id)?.nickname) || t("business.expenses.account_unknown", "Unknown")}</dd>
             </dl>
-            <RecordMarks personal={state.expense.personal} fiscalValue={state.expense.fiscal_value} known={state.expense.fiscal_known === true} markedBy={state.expense.personal_marked_by} className="mt-4" />
+            <RecordMarks personal={state.expense.personal} fiscal={recordFiscalMark(state.expense)} markedBy={state.expense.personal_marked_by} className="mt-4" />
             {state.expense.personal && state.expense.fiscal_value ? (
               <p className="mt-2 text-[13px] text-black/65 dark:text-white/65" data-testid="expense-606-state">
                 {state.expense.include_606 === true ? t("business.marks.included_606", "Included in the 606") : state.expense.include_606 === false ? t("business.marks.excluded_606", "Not included in the 606") : t("business.marks.pending_606", "Waiting for the accountant")}

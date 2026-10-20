@@ -1,0 +1,229 @@
+import assert from "node:assert/strict";
+import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
+import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import type { BusinessDataSource } from "@/components/business-app/business-data";
+import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
+
+// The real workspace over the sample source, with the top bar the workspace
+// hands the chat shell (search field, Agregar ▾, the eye) beside the screen
+// the panel router shows.
+mock.module("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(""),
+  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
+  usePathname: () => "/biz",
+}));
+
+const HIDE_KEY = "cuadrao:hide_amounts";
+
+beforeAll(() => {
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 1280, height: 900 });
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
+});
+
+const unmounts: (() => Promise<void>)[] = [];
+afterEach(async () => {
+  while (unmounts.length) await unmounts.pop()!();
+  const { setAmountsHidden } = await import("@/lib/amounts-hidden");
+  setAmountsHidden(false);
+  localStorage.removeItem(HIDE_KEY);
+  delete document.documentElement.dataset.amountsHidden;
+  (await import("@/components/layout/overlayStack")).resetOverlayStack();
+  document.body.innerHTML = "";
+});
+
+async function mount({ width = 1280, grant = null, overrides = {} }: { width?: number; grant?: string | null; overrides?: Partial<BusinessDataSource> } = {}) {
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const i18next = (await import("i18next")).default;
+  const { I18nextProvider } = await import("react-i18next");
+  const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
+  const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+  const { setChosenGrant } = await import("@/lib/business-grant");
+  const { clearToasts } = await import("@/components/business-app/foundation/toasts");
+  setChosenGrant(grant);
+  clearToasts();
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), captures: async () => [], ...overrides };
+  const searches: string[] = [];
+  const below = width < 720;
+  const shell = { currentView: "workspace", conversationId: null, isBelowTablet: below, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: () => searches.push("open") };
+  let api: ReturnType<typeof useBusiness> | null = null;
+  function TopBar() {
+    const workspace = useChatWorkspace();
+    return (
+      <header data-testid="top-bar">
+        {below ? null : workspace?.headerSearch?.(shell as never)}
+        {workspace?.headerActions?.(shell as never)}
+      </header>
+    );
+  }
+  function Probe() {
+    api = useBusiness();
+    return <div data-testid="screen"><BusinessPanel /></div>;
+  }
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  const tree = (
+    <I18nextProvider i18n={i18n}>
+      <BusinessConsentTestProvider accepted>
+        <BusinessWorkspaceProvider source={source as BusinessDataSource}>
+          <TopBar />
+          <Probe />
+        </BusinessWorkspaceProvider>
+      </BusinessConsentTestProvider>
+    </I18nextProvider>
+  );
+  await act(async () => root.render(tree));
+  let mounted = true;
+  const unmount = async () => { if (mounted) { mounted = false; await act(async () => root.unmount()); } };
+  unmounts.push(unmount);
+  const wait = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)); });
+  const settle = async (done: () => boolean, what: string) => {
+    for (let i = 0; i < 80; i += 1) {
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      if (done()) return;
+    }
+    throw new Error(`timed out waiting for ${what}: ${document.body.textContent?.slice(0, 300)}`);
+  };
+  const bar = () => host.querySelector<HTMLElement>('[data-testid="top-bar"]')!;
+  const screen = () => host.querySelector<HTMLElement>('[data-testid="screen"]')!;
+  // The forwarding address is read once the chosen Business is known; the sample answers after 240 ms.
+  const ready = async () => { await settle(() => api?.chosen != null && api.records.overview !== null, "the chosen Business"); await wait(400); };
+  const open = async (panel: BusinessPanelState) => { await act(async () => api!.openPanel(panel)); };
+  const menuItems = () => [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] [role="menuitem"]')];
+  const openMenu = async (within: ParentNode) => {
+    await act(async () => within.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!.click());
+    return menuItems();
+  };
+  return { act, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, unmount, api: () => api! };
+}
+
+describe("the Business top bar on a desktop", () => {
+  test("the search field reads like a field, opens the one search, and sits before Agregar, the eye and nothing else from the workspace", async () => {
+    const page = await mount();
+    const search = page.bar().querySelector<HTMLButtonElement>('[data-testid="header-search"]')!;
+    assert.ok(search, "the top bar carries the search field");
+    assert.equal(search.querySelector("span")?.textContent, "Busca comercio, monto o nota");
+    await page.act(async () => search.click());
+    assert.deepEqual(page.searches, ["open"]);
+    const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
+    assert.deepEqual(order, ["header-search", "add-menu-header", "amounts-toggle"]);
+  });
+
+  test("the owner's Agregar opens the upload, and its menu offers Exportar registros, Copiar dirección de reenvío and Ver correos", async () => {
+    const page = await mount();
+    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
+    const add = menu.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!;
+    assert.equal(add.textContent, "Agregar");
+    await page.ready();
+    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Copiar dirección de reenvío", "Ver correos"]);
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+    await page.act(async () => page.menuItems()[1].click());
+    assert.equal(copied.length, 1);
+    assert.match(copied[0], /@/);
+    await page.act(async () => add.click());
+    await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"), "the upload sheet");
+  });
+
+  test("an owner without a forwarding address gets no Copiar dirección", async () => {
+    const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
+    await page.ready();
+    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros", "Ver correos"]);
+  });
+
+  test("a contador gets the menu alone, with no Agregar and no copy of the owner's address", async () => {
+    const page = await mount({ grant: "fixture-grant-client" });
+    await page.settle(() => page.api().chosen?.role === "accountant", "the client business");
+    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
+    assert.equal(menu.querySelector('[data-testid="business-primary-upload"]'), null);
+    const trigger = menu.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!;
+    assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
+    assert.ok(trigger.textContent?.trim(), "the lone trigger names itself");
+    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Ver correos"]);
+  });
+
+  for (const kind of ["overview", "inbox", "expenses"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
+    const page = await mount();
+    await page.ready();
+    await page.open({ kind });
+    assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
+    const exportItem = (await page.openMenu(page.bar())).find((item) => item.textContent === "Exportar registros")!;
+    await page.act(async () => exportItem.click());
+    await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
+    assert.equal(page.api().panel.kind, kind, "the screen underneath stays");
+    assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
+  });
+
+  test("Ver correos from the menu opens the Bandeja on Correos", async () => {
+    const page = await mount();
+    const emails = (await page.openMenu(page.bar())).find((item) => item.textContent === "Ver correos")!;
+    await page.act(async () => emails.click());
+    assert.deepEqual(page.api().panel, { kind: "inbox", segment: "emails" });
+    await page.settle(() => page.screen().querySelector('[data-testid="bandeja-emails"]') !== null, "the Correos view");
+  });
+});
+
+describe("Ocultar montos", () => {
+  test("the eye flags the page root, survives a remount and a reload of the stored choice, and turns off again", async () => {
+    const first = await mount();
+    const eye = () => document.querySelector<HTMLButtonElement>('[data-testid="amounts-toggle"]')!;
+    assert.equal(eye().getAttribute("aria-pressed"), "false");
+    assert.equal(document.documentElement.dataset.amountsHidden, undefined);
+    await first.act(async () => eye().click());
+    assert.equal(eye().getAttribute("aria-pressed"), "true");
+    assert.equal(document.documentElement.dataset.amountsHidden, "true");
+    assert.equal(localStorage.getItem(HIDE_KEY), "true");
+    await first.unmount();
+    delete document.documentElement.dataset.amountsHidden;
+
+    const second = await mount();
+    assert.equal(eye().getAttribute("aria-pressed"), "true", "a remount keeps the choice");
+    assert.equal(document.documentElement.dataset.amountsHidden, "true", "a remount puts the flag back");
+    await second.act(async () => eye().click());
+    assert.equal(document.documentElement.dataset.amountsHidden, undefined);
+    assert.equal(localStorage.getItem(HIDE_KEY), "false");
+  });
+
+  test("amounts on Inicio, the Bandeja, Gastos and a record's total carry the mark the eye blurs", async () => {
+    const page = await mount();
+    const marked = () => page.screen().querySelectorAll(".cuadrao-amount").length;
+    await page.settle(() => marked() > 0, "Inicio's amounts");
+    await page.open({ kind: "inbox" });
+    await page.settle(() => page.screen().querySelector('[data-testid="business-inbox-receipts"] .cuadrao-amount') !== null, "the Bandeja's amounts");
+    await page.open({ kind: "expenses" });
+    await page.settle(() => page.screen().querySelector("section .cuadrao-amount") !== null && page.api().panel.kind === "expenses", "Gastos' amounts");
+    await page.open({ kind: "receipt", receiptId: "rcpt-ferreteria" });
+    await page.settle(() => document.querySelector('[data-testid="receipt-total"]') !== null, "the record total");
+    assert.ok(document.querySelector('[data-testid="receipt-total"]')!.classList.contains("cuadrao-amount"));
+  });
+});
+
+describe("the Business top bar on a phone", () => {
+  test("the top bar has no Agregar; Inicio, the Bandeja and Gastos each start with their own", async () => {
+    const page = await mount({ width: 390 });
+    assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
+    assert.ok(page.bar().querySelector('[data-testid="amounts-toggle"]'), "the eye stays");
+    const search = page.bar().querySelector<HTMLButtonElement>('[data-testid="business-phone-search"]')!;
+    assert.equal(search.getAttribute("aria-label"), "Buscar", "a phone keeps its search icon");
+    await page.act(async () => search.click());
+    assert.deepEqual(page.searches, ["open"]);
+    for (const kind of ["overview", "inbox", "expenses"] as const) {
+      await page.open({ kind });
+      await page.settle(() => page.screen().querySelector('[data-testid="add-menu-page"]') !== null, `${kind}'s Agregar`);
+      const menu = page.screen().querySelector('[data-testid="add-menu-page"]')!;
+      assert.equal(menu.querySelector('[data-testid="business-primary-upload"]')?.textContent, "Agregar", kind);
+      assert.equal(page.screen().querySelectorAll('[data-testid="add-menu-page"]').length, 1, kind);
+    }
+  });
+});

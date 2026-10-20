@@ -7,6 +7,7 @@ import type {
   BusinessAccessInvite,
 } from "@/lib/business-api";
 import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
+import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
 import type { BusinessDataSource } from "./business-data";
 
@@ -70,6 +71,8 @@ function seedReceipts(): ReceiptDetail[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
+      // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
+      sin_comprobante: true,
       // New since the last visit until it is opened, as the server marks it.
       activity: { state: "ready", unread: true, completion_cursor: "sample-ferreteria" },
       fiscal_known: true,
@@ -100,6 +103,8 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-papeleria",
+      // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
+      sin_comprobante: true,
       fiscal_known: true,
       status: "review_ready",
       draft_id: dossierFixtureIds.unprepared,
@@ -326,6 +331,8 @@ export function createFixtureBusinessDataSource(
   let receipts = seedReceipts();
   let expenses = seedExpenses();
   let counter = 0;
+  // A synthetic name and RNC for the sample; the RNC is a made-up number.
+  let fiscalProfile: FiscalProfile = { name: "Mi negocio", tax_id: { type: "rnc", value: "131245678" }, can_edit: true };
   const uploads = new Map<string, ReceiptDetail>();
 
   const find = (id: string) => {
@@ -616,6 +623,15 @@ export function createFixtureBusinessDataSource(
     emailIntake: async () => {
       await delay();
       return { enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" };
+    },
+    fiscalProfile: async () => {
+      await delay();
+      return structuredClone(fiscalProfile);
+    },
+    saveFiscalProfile: async (input) => {
+      await delay();
+      fiscalProfile = { ...fiscalProfile, name: input.name || fiscalProfile.name, tax_id: input.tax_id };
+      return structuredClone(fiscalProfile);
     },
     createEmailAddress: async () => {
       await delay();

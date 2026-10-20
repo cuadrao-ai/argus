@@ -101,7 +101,8 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     const found = dossiers.get(id);
     if (!found) return fail(404, "draft_not_found");
     // The sample reads a type the way the server does: open and preparable means it can still change.
-    return structuredClone({ document_type: "recibo" as const, ...found, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare") });
+    const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
+    return structuredClone({ document_type: "recibo" as const, ...found, sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare") });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;

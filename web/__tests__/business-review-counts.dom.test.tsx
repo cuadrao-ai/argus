@@ -166,38 +166,24 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("the owner gets one upload primary and the accountant gets one review primary", async () => {
+  test("a desktop Inicio and Bandeja repeat no top-bar action, and the accountant's Bandeja keeps one Revisar recibos", async () => {
     const owner = await mount();
-    const resumen = owner.host.querySelector('[data-testid="resumen"]')!;
-    const primaries = resumen.querySelectorAll('[data-primary="true"]');
-    assert.equal(primaries.length, 1);
-    assert.equal(primaries[0]?.getAttribute("data-testid"), "business-primary-upload");
-    assert.equal(primaries[0]?.textContent, "Agregar");
-    assert.match(primaries[0]?.className ?? "", /min-h-11/);
-    const actions = resumen.querySelector('[data-testid="inicio-actions"]');
-    const cards = resumen.querySelector('[data-testid="month-close-cards"]');
-    assert.ok(actions && cards && (actions.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the action row comes before the month figures");
-    assert.ok(actions.contains(primaries[0]!));
-    assert.ok(actions.querySelector('[data-testid="inicio-export"]'), "inicio-export");
-    assert.equal(actions.querySelector('[data-testid="inicio-record-expense"]'), null, "one door: no separate Registrar gasto");
-    await owner.settle(() => resumen.querySelector('[data-testid="inicio-forward-copy"]') !== null);
-    const copy = resumen.querySelector('[data-testid="inicio-forward-copy"]') as HTMLButtonElement | null;
-    assert.ok(copy && actions.contains(copy), "the forwarding address copies from the action row");
-    assert.match(copy.className, /min-h-11/);
-    const copied: string[] = [];
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
-    await owner.act(async () => { copy.click(); });
-    assert.equal(copied.length, 1);
-    assert.match(copied[0]!, /@/);
+    for (const id of ["resumen", "bandeja"]) {
+      const screen = owner.host.querySelector(`[data-testid="${id}"]`)!;
+      assert.equal(screen.querySelectorAll('[data-primary="true"]').length, 0, `${id} has no primary of its own`);
+      for (const gone of ["inicio-actions", "inicio-export", "inicio-forward-copy", "inicio-primary-review", "add-menu-page", "business-primary-upload"]) {
+        assert.equal(screen.querySelector(`[data-testid="${gone}"]`), null, `${id} has no ${gone}`);
+      }
+    }
     await owner.act(async () => owner.root.unmount());
 
     const accountant = await mount({ grant: "fixture-grant-client" });
-    const view = accountant.host.querySelector('[data-testid="resumen"]')!;
-    const review = view.querySelectorAll('[data-primary="true"]');
+    const resumen = accountant.host.querySelector('[data-testid="resumen"]')!;
+    assert.equal(resumen.querySelector('[data-testid="inicio-primary-review"]'), null);
+    const review = accountant.host.querySelectorAll('[data-testid="bandeja"] [data-testid="business-primary-review"]');
     assert.equal(review.length, 1);
-    assert.equal(review[0]?.getAttribute("data-testid"), "inicio-primary-review");
     assert.equal(review[0]?.textContent, "Revisar recibos");
-    assert.equal(view.querySelector('[data-testid="business-primary-upload"]'), null);
+    assert.equal(accountant.host.querySelector('[data-testid="business-primary-upload"]'), null);
     await accountant.act(async () => accountant.root.unmount());
   });
 

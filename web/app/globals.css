@@ -924,3 +924,13 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Ocultar montos: amounts keep their place and blur, so nothing reflows when it turns on. */
+:root[data-amounts-hidden="true"] .cuadrao-amount {
+  color: transparent !important;
+  text-shadow: 0 0 10px rgba(23, 43, 38, 0.65);
+  user-select: none;
+}
+:root.dark[data-amounts-hidden="true"] .cuadrao-amount {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}

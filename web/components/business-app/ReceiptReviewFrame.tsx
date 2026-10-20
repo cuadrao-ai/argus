@@ -50,7 +50,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
         <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="min-w-0 break-words rounded-[12px] font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
         {badge}
       </div>
-      {amount ? <p data-testid="receipt-total" className="mt-2 text-[28px] font-medium leading-[34px] tabular-nums text-[#172b26] dark:text-white">{amount}</p> : null}
+      {amount ? <p data-testid="receipt-total" className="cuadrao-amount mt-2 text-[28px] font-medium leading-[34px] tabular-nums text-[#172b26] dark:text-white">{amount}</p> : null}
       {mark ? <p data-testid="bill-mark" className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{mark}</p> : null}
     </header>
   );

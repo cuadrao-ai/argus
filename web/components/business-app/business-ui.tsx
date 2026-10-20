@@ -174,11 +174,21 @@ export function useOwnerView(): boolean {
  * When someone other than the owner marked it Personal, the owner sees a small
  * dot on the chip that reads "Marcado por <nombre>".
  */
-export function RecordMarks({ personal, fiscalValue, known, markedBy = null, className = "" }: { personal?: boolean; fiscalValue?: "ncf" | "ecf" | null; known: boolean; markedBy?: string | null; className?: string }) {
+/**
+ * A record's marks, as the server reads them: Personal, and either "Sin
+ * comprobante" (stated, out of the 606 and 607) or "Falta NCF" (no fiscal
+ * number yet and none stated as missing). Nothing shows while unknown.
+ */
+export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_known?: boolean; fiscal_value?: "ncf" | "ecf" | null }): "sin_comprobante" | "missing_ncf" | null {
+  if (record.sin_comprobante) return "sin_comprobante";
+  return record.fiscal_known && !record.fiscal_value ? "missing_ncf" : null;
+}
+
+export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: string | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
   const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-full border px-2 text-[11px] font-medium";
-  if (!personal && (!known || fiscalValue)) return null;
+  if (!personal && !fiscal) return null;
   const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
   return (
     <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
@@ -188,7 +198,7 @@ export function RecordMarks({ personal, fiscalValue, known, markedBy = null, cla
           {marker ? <><span data-testid="personal-marked-dot" aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--cuadrao-green)]" /><span className="sr-only">{marker}</span></> : null}
         </span>
       ) : null}
-      {known && !fiscalValue ? <span data-mark="no_fiscal" className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{t("business.marks.no_fiscal_chip", "No fiscal receipt number")}</span> : null}
+      {fiscal ? <span data-mark={fiscal === "sin_comprobante" ? "sin_comprobante" : "no_fiscal"} className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{fiscal === "sin_comprobante" ? t("business.marks.sin_comprobante_chip", "No comprobante") : t("business.marks.missing_ncf_chip", "NCF missing")}</span> : null}
     </span>
   );
 }

@@ -497,7 +497,7 @@ export function BusinessMonthCloseView({
           </time>
           {relative ? <span className="mt-1 block text-[12px] text-[#56635e] dark:text-white/70">{relative}</span> : null}
         </div>
-        <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale)}</span>
+        <span className="cuadrao-amount text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale)}</span>
         <div className="flex flex-wrap items-center gap-2">
           {pending ? markButton(document) : null}
         </div>
@@ -543,7 +543,7 @@ export function BusinessMonthCloseView({
       <section aria-labelledby={`${testId}-title`} data-testid={testId} className={`${cardClass} flex flex-col`}>
         <div className="flex items-baseline justify-between gap-3">
           <h4 id={`${testId}-title`} className="font-display text-[17px] font-medium text-black dark:text-white">{title}</h4>
-          {rows.length > 0 ? <span data-testid={`${testId}-total`} className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(documentsTotal(rows), "DOP", locale)}</span> : null}
+          {rows.length > 0 ? <span data-testid={`${testId}-total`} className="cuadrao-amount text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(documentsTotal(rows), "DOP", locale)}</span> : null}
         </div>
         {rows.length === 0 ? (
           <p className="mt-3 text-[14px] text-[#56635e] dark:text-white/70" data-testid={`${testId}-empty`}>{empty}</p>
@@ -562,22 +562,20 @@ export function BusinessMonthCloseView({
                   data-kind={document.kind}
                   data-status={document.status}
                   data-overdue={overdue ? "true" : "false"}
-                  className="flex items-center gap-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
+                  // Two lines that share their edges: who and how much, then when and what to do.
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-[15px] font-medium text-black dark:text-white">{document.counterparty}</p>
-                    <p className={`text-[13px] tabular-nums ${overdue ? "text-[#9e2f39] dark:text-[#ec9aa0]" : "text-[#56635e] dark:text-white/70"}`}>
-                      {overdue
-                        ? [t("business.month_close.status_vencida", "Overdue"), relative?.toLocaleLowerCase(locale)].filter(Boolean).join(" · ")
-                        : document.due_on
-                          ? t("business.month_close.due_on", { date: shortDay(document.due_on), defaultValue: "Due {{date}}" })
-                          : shortDay(document.occurred_on)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end">
-                    <span className="text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale)}</span>
-                    {canMutate ? markButton(document) : null}
-                  </div>
+                  <p className="break-words text-[15px] font-medium text-black dark:text-white">{document.counterparty}</p>
+                  <span className="cuadrao-amount text-right text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale)}</span>
+                  <p className={`text-[13px] tabular-nums ${overdue ? "text-[#9e2f39] dark:text-[#ec9aa0]" : "text-[#56635e] dark:text-white/70"}`}>
+                    {overdue
+                      ? [t("business.month_close.status_vencida", "Overdue"), relative?.toLocaleLowerCase(locale)].filter(Boolean).join(" · ")
+                      : document.due_on
+                        ? t("business.month_close.due_on", { date: shortDay(document.due_on), defaultValue: "Due {{date}}" })
+                        : shortDay(document.occurred_on)}
+                  </p>
+                  {/* The button keeps its 44px target but gives back its padding, so its words end on the amount's edge. */}
+                  <span className="-my-3 -mr-3 justify-self-end">{canMutate ? markButton(document) : null}</span>
                 </li>
               );
             })}
@@ -607,7 +605,7 @@ export function BusinessMonthCloseView({
     return (
       <div data-testid={testId} data-layout="summary" data-state={state} data-amount={known ? value : undefined} className="min-w-0">
         <p className="text-[13px] text-[#56635e] dark:text-white/70">{label}</p>
-        <p className={`mt-1 font-display text-[22px] font-medium leading-tight tracking-tight text-black dark:text-white ${known ? "tabular-nums" : ""}`}>
+        <p className={`mt-1 font-display text-[22px] font-medium leading-tight tracking-tight text-black dark:text-white ${known ? "cuadrao-amount tabular-nums" : ""}`}>
           {known ? formatMoney(value, "DOP", locale) : "—"}
         </p>
         {why ? <p className="mt-1 text-[12px] text-[#56635e] dark:text-white/70">{why}</p> : null}
@@ -821,12 +819,21 @@ export function BusinessMonthCloseView({
 export type MonthCloseSource = { client: MonthCloseClient; scopeKey: string | null };
 
 /** The month close the selected Business reads. One per view, so the sample books Inicio closes are the books its export sees. */
+// One sample book per sample source, so Inicio and an export opened from the top bar see the same closed months.
+const SAMPLE_CLIENTS = new WeakMap<object, MonthCloseClient>();
+function sampleClientFor(source: object): MonthCloseClient {
+  const known = SAMPLE_CLIENTS.get(source);
+  if (known) return known;
+  const made = createMockMonthCloseClient();
+  SAMPLE_CLIENTS.set(source, made);
+  return made;
+}
+
 export function useMonthCloseSource(): MonthCloseSource {
   const { chosen, source, spaces } = useBusiness();
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
   const scopeKey = spaces === null ? null : chosen && chosen.role !== "owner" ? chosen.grant_id : "own";
-  const [sampleClient] = useState(() => createMockMonthCloseClient());
-  return { client: source.mode === "fixture" ? sampleClient : monthCloseClient, scopeKey };
+  return { client: source.mode === "fixture" ? sampleClientFor(source) : monthCloseClient, scopeKey };
 }
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null }) {

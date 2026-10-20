@@ -73,7 +73,7 @@ test.describe("A saved expense opens its record", () => {
     await approveFromInbox(page);
     await page.getByTestId("business-sidebar-nav").getByRole("button", { name: /^Overview/ }).click();
     await page.getByRole("button", { name: /^Search/ }).first().click();
-    const input = page.getByPlaceholder("Search expenses, receipts and chats");
+    const input = page.getByPlaceholder("Search a merchant, amount or note");
     await expect(input).toBeFocused();
     await input.fill("ferreteria");
     const expenses = page.getByTestId("workspace-search-results").getByRole("group", { name: "Expenses" });

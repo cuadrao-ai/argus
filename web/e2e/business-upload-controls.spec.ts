@@ -48,9 +48,11 @@ for (const width of [1280, 390]) {
     await expect(page.getByTestId("month-close-cards")).toBeVisible();
     await capture("overview");
     if (!baseline) {
-      const upload = region.getByTestId("business-primary-upload");
-      await expect(upload).toHaveText("Subir recibo");
-      await expect(region.getByRole("button", { name: "Subir recibo", exact: true })).toHaveCount(1);
+      // Inicio repeats no top-bar action: a desktop's Agregar sits in the top bar, a phone's on the screen.
+      const upload = page.getByTestId(width === 390 ? "add-menu-page" : "add-menu-header").getByTestId("business-primary-upload");
+      await expect(upload).toHaveText("Agregar");
+      await expect(page.getByTestId("business-primary-upload")).toHaveCount(1);
+      await expect(region.getByTestId("inicio-export")).toHaveCount(0);
       const bounds = await upload.boundingBox();
       expect(bounds!.height).toBeGreaterThanOrEqual(44);
       expect(bounds!.y).toBeLessThan(400);

@@ -68,8 +68,8 @@ for (const width of [1280, 390]) {
 }
 
 const listScreens = [
-  { view: "expenses", title: "Gastos", rows: "[data-expense-id]", oneLineWidths: [1440, 390] },
-  { view: "access", title: "Acceso", rows: '[data-testid="business-access-grants"] > li', oneLineWidths: [1440, 390] },
+  { view: "expenses", query: "expenses", title: "Gastos", rows: "[data-expense-id]", oneLineWidths: [1440, 390] },
+  { view: "access", query: "business&tab=equipo", title: "Negocio", rows: '[data-testid="business-access-grants"] > li', oneLineWidths: [1440, 390] },
 ];
 
 for (const width of [1440, 390]) {
@@ -82,7 +82,7 @@ for (const width of [1440, 390]) {
         const original = window.setTimeout.bind(window);
         window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => original(handler, delay === 240 ? 1800 : delay, ...args)) as typeof window.setTimeout;
       });
-      await page.goto(`/dev/business-preview?view=${screen.view}`);
+      await page.goto(`/dev/business-preview?view=${screen.query}`);
       const skeleton = page.getByTestId("business-loading");
       await expect(skeleton).toBeVisible();
       await expect(skeleton).toHaveAttribute("data-layout", screen.view);

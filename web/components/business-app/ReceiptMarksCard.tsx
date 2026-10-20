@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
-import { RecordMarks } from "./business-ui";
+import { RecordMarks, recordFiscalMark } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
 import { Switch } from "@/components/ui/Switch";
@@ -67,7 +67,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   return (
     <div className={SURFACE_CARD} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RecordMarks personal={personal} fiscalValue={fiscalValue} known={dossier.fiscal_known === true} markedBy={markedBy} />
+        <RecordMarks personal={personal} fiscal={recordFiscalMark(dossier)} markedBy={markedBy} />
       </div>
       {canPrepare ? (
         <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">

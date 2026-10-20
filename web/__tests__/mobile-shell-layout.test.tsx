@@ -414,6 +414,11 @@ describe("mobile top bar", () => {
     expect(chatInterface).toContain("<ChatShellMenuTrigger");
   });
 
+  test("a workspace with a top-bar search drops the sidebar's Buscar row from the tablet stop up, and a phone keeps its search", () => {
+    expect(chatInterface).toContain("!(workspace?.headerSearch && !mobileShell.isBelowTablet)");
+    expect(chatInterface).toContain("workspace?.headerSearch && !mobileShell.isBelowTablet ? (");
+  });
+
   test("the drawer does not carry guest settings", () => {
     expect(chatInterface).toContain("guestSettings={null}");
     expect(chatInterface).not.toContain('placement="drawer"');

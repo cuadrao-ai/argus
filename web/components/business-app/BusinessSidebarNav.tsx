@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { House, Inbox, ReceiptText, UsersRound } from "lucide-react";
+import { House, Inbox, ReceiptText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
+import { CuadraoMark } from "@/components/CuadraoMark";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { inboxCount as countInbox } from "./inbox-count";
@@ -71,19 +72,12 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   );
 }
 
-/** Acceso sits above Ajustes at the foot of the rail, in the same row shape. */
+/** The foot of the rail: the product's own mark, quiet, so the business above stays the one name that reads first. */
 export function BusinessSidebarFooter({ shell }: { shell: ChatShellBridge }) {
-  const { t } = useTranslation();
-  const { panel, openPanel } = useBusiness();
   return (
-    <SidebarNavButton
-      icon={UsersRound}
-      label={t("business_access.nav", "Access")}
-      active={shell.currentView === "workspace" && panel.kind === "access"}
-      collapsed={shell.sidebarCollapsed}
-      onClick={() => openPanel({ kind: "access" })}
-      iconSize={20}
-      variant="business"
-    />
+    <div data-testid="sidebar-brand" className={`flex items-center gap-2 pb-3 pt-2 ${shell.sidebarCollapsed ? "justify-center" : "px-2"}`}>
+      <CuadraoMark size={20} className="h-5 w-5 shrink-0 opacity-70" />
+      {shell.sidebarCollapsed ? null : <span className="font-display text-[15px] font-medium tracking-tight text-[#56635e] dark:text-white/60">cuadrao</span>}
+    </div>
   );
 }

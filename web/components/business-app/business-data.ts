@@ -4,6 +4,7 @@ import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } 
 import { getChosenGrant } from "@/lib/business-grant";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import { getFiscalProfile, setFiscalProfile, type FiscalProfile, type FiscalProfileInput } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
@@ -70,6 +71,9 @@ export type BusinessDataSource = Readonly<{
   ) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;
   emailIntake: () => Promise<BusinessEmailIntake>;
+  /** The business's name and tax id as the 606, 607 and exports print them. */
+  fiscalProfile: (draftId?: string) => Promise<FiscalProfile>;
+  saveFiscalProfile: (input: FiscalProfileInput, key: string) => Promise<FiscalProfile>;
   createEmailAddress: () => Promise<BusinessEmailIntake>;
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
   emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
@@ -114,6 +118,8 @@ export const liveBusinessDataSource: BusinessDataSource = {
   saveReview: api.saveBusinessReceiptReview,
   confirmReceipt: api.confirmBusinessReceipt,
   emailIntake: api.getBusinessEmailIntake,
+  fiscalProfile: getFiscalProfile,
+  saveFiscalProfile: setFiscalProfile,
   createEmailAddress: api.createBusinessEmailAddress,
   emailDeliveries: api.listBusinessEmailDeliveries,
   emailDelivery: api.getBusinessEmailDelivery,
@@ -196,6 +202,8 @@ export function withBusinessSpace(
     saveReview: source.saveReview,
     confirmReceipt: source.confirmReceipt,
     emailIntake: after(source.emailIntake),
+    fiscalProfile: after(source.fiscalProfile),
+    saveFiscalProfile: source.saveFiscalProfile,
     createEmailAddress: after(source.createEmailAddress),
     emailDeliveries: after(source.emailDeliveries),
     emailDelivery: source.emailDelivery,

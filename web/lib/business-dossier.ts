@@ -98,6 +98,8 @@ export type BusinessDossier = BusinessRecordContext & {
   /** The record's facts exist, so an empty fiscal_value means no fiscal number. */
   fiscal_known?: boolean;
   fiscal_value?: "ncf" | "ecf" | null;
+  /** Always present on the dossier: no comprobante fiscal stated and no NCF or e-CF. */
+  sin_comprobante?: boolean;
   include_606?: boolean | null;
   /** Who gave the 606 answer, while one applies. */
   include_606_by?: string | null;

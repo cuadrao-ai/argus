@@ -139,7 +139,7 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
             onPointerCancel={settle}
             onClick={() => onChange(segment.key)}
             onKeyDown={(event) => move(event, index)}
-            className={`relative min-h-11 ${stacked ? "flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 text-[12px] leading-4" : "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px]"} px-4 font-medium transition-colors duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] disabled:opacity-50 motion-reduce:transition-none ${fill ? "min-w-0 flex-1 px-2" : "shrink-0"} ${
+            className={`relative min-h-11 ${stacked ? "flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 text-[12px] leading-4" : "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px]"} px-4 font-medium transition-colors duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] disabled:opacity-50 motion-reduce:transition-none ${fill ? "min-w-0 flex-auto px-2" : "shrink-0"} ${
               checked ? "text-[#172b26] dark:text-white" : "text-[#56635e] hover:text-[#172b26] dark:text-white/60 dark:hover:text-white"
             }`}
           >

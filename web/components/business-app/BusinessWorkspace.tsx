@@ -34,11 +34,11 @@ import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath 
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
-import { periodRange, type Period, type PeriodKey } from "./business-format";
+import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
-import BusinessSwitcher from "./BusinessSwitcher";
+import BusinessSwitcher, { BusinessMark } from "./BusinessSwitcher";
 import { ToastViewport } from "./foundation/ToastViewport";
 import { clearToasts } from "./foundation/toasts";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
@@ -50,22 +50,32 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
+import ExportRecordsPanel from "./ExportRecordsPanel";
+import BusinessAddMenu from "./BusinessAddMenu";
+import { AmountsToggle } from "./foundation/AmountsToggle";
+import { HeaderSearch } from "./foundation/HeaderSearch";
+import { useMonthCloseSource } from "./BusinessMonthClosePanel";
+import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 
 export type BusinessPanelState =
+  // `segment` opens the Bandeja on that list, as Ver correos asks. The address bar never carries it.
   | { kind: "overview" }
-  | { kind: "inbox"; emailId?: string }
+  | { kind: "inbox"; emailId?: string; segment?: "emails" }
   | { kind: "expenses"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
-  | { kind: "access" }
+  // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
+  | { kind: "business"; tab?: BusinessTab }
   // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
   | { kind: "receipt"; receiptId: string; list?: RecordList }
   | { kind: "draft"; draftId: string; list?: RecordList };
 
 export type RecordList = "inbox" | "expenses";
+export type BusinessTab = "datos" | "equipo" | "correo";
+const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
@@ -105,6 +115,8 @@ export type BusinessContextValue = Readonly<{
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
   clearAttachedReceipt: () => void;
+  /** Opens Exportar registros over whatever screen is showing. */
+  openExport: () => void;
 }>;
 
 /** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
@@ -119,7 +131,7 @@ export function useBusiness(): BusinessContextValue {
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "access"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "expenses"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -132,8 +144,13 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" | "access" };
+    return { kind: view as "overview" | "inbox" | "expenses" };
   }
+  if (view === "business") {
+    const tab = params.get("tab");
+    return tab && BUSINESS_TABS.has(tab) ? { kind: "business", tab: tab as BusinessTab } : { kind: "business" };
+  }
+  if (view === "access") return { kind: "business", tab: "equipo" };
   // Novedades became part of the Bandeja; an old link lands there.
   if (view === "updates") return { kind: "inbox" };
   return { kind: "overview" };
@@ -163,7 +180,9 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("receipt");
     url.searchParams.delete("draft");
     url.searchParams.delete("expense");
+    url.searchParams.delete("tab");
     if (view === "workspace") {
+      if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
       else if (panel.kind === "draft") url.searchParams.set("draft", panel.draftId);
       else if (panel.kind === "expense") url.searchParams.set("expense", panel.expenseId);
@@ -408,6 +427,9 @@ function BusinessWorkspaceContent({
     openPanel,
   });
 
+  const [exportOpen, setExportOpen] = useState(false);
+  const openExport = useCallback(() => setExportOpen(true), []);
+
   const value = useMemo<BusinessContextValue>(
     () => ({
       source,
@@ -428,17 +450,20 @@ function BusinessWorkspaceContent({
       bridge,
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
+      openExport,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, lostAccess, markAccessSeen, openExport, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;
   const businessSearch = useBusinessSearch({
     source,
-    chatAvailable,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
     openPanel,
-    setPeriod,
+    actions,
+    owner: chosen?.role !== "accountant",
+    scope: chosen?.space_id ?? "own",
+    openExport,
   });
 
   const keyboardShortcuts = useBusinessKeyboardShortcuts({ openPanel, actions, chosen });
@@ -452,20 +477,25 @@ function BusinessWorkspaceContent({
       conversationSurface: "business",
       chatAvailable,
       initialView,
-      profileInHeader: false,
+      // The person's account sits at the top right on a desktop; the rail keeps the business and its screens.
+      profileInHeader: true,
       keyboardShortcuts,
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} />,
+      sidebarMark: () => <BusinessMark name={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} /> : null,
       headerActions: (shell) => <>
         {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-[16px] text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
+        {shell.isBelowTablet ? null : <BusinessAddMenu placement="header" />}
+        <AmountsToggle />
       </>,
+      headerSearch: (shell) => shell.openSearch ? <HeaderSearch onOpen={shell.openSearch} /> : null,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -507,6 +537,7 @@ function BusinessWorkspaceContent({
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
+        {exportOpen ? <WorkspaceExport onClose={() => setExportOpen(false)} /> : null}
         <ToastViewport />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
@@ -515,4 +546,10 @@ function BusinessWorkspaceContent({
 
 export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode }) {
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
+}
+
+/** The one Exportar registros, opened from the top bar's menu or from search over any screen. */
+function WorkspaceExport({ onClose }: { onClose: () => void }) {
+  const monthClose = useMonthCloseSource();
+  return <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={onClose} />;
 }

@@ -101,9 +101,12 @@ for (const width of [1280, 390]) {
       expect(state.captures[1].input.draft?.version).toBe(1);
       expect(state.captures[1].key).not.toBe(state.captures[0].key);
       expect(state.approvals).toBe(0);
-      if (width < 768) await page.getByRole("button", { name: "Abrir barra lateral", exact: true }).click();
-      await page.getByRole("button", { name: /^(Buscar|Search)/ }).first().click();
-      await page.getByPlaceholder(/Buscar gastos/).fill("pintura");
+      // From the tablet stop up search is the top bar's field; a phone keeps Buscar in its drawer.
+      if (width < 720) {
+        await page.getByRole("button", { name: "Abrir barra lateral", exact: true }).click();
+        await page.getByRole("button", { name: /^(Buscar|Search)/ }).first().click();
+      } else await page.getByTestId("header-search").click();
+      await page.getByPlaceholder("Busca comercio, monto o nota").fill("pintura");
       const hit = page.getByTestId("workspace-search-results").getByRole("button", { name: /Ayer compré pintura/ });
       await expect(hit).toContainText("Nota original guardada");
       await hit.click();
@@ -174,8 +177,8 @@ test("new-note entry waits for successful own-workspace load", async ({ page }) 
 test("notes unavailable preserves Spanish real record search and displays an honest partial error", async ({ page }) => {
   const { state } = await setup(page);
   state.notesUnavailable = true;
-  await page.getByRole("button", { name: /^(Buscar|Search)/ }).first().click();
-  await page.getByPlaceholder(/Buscar gastos/).fill("comedor");
+  await page.getByTestId("header-search").click();
+  await page.getByPlaceholder("Busca comercio, monto o nota").fill("comedor");
   const results = page.getByTestId("workspace-search-results");
   await expect(results.getByRole("button", { name: /Comedor Doña Ana/ })).toBeVisible();
   await expect(results.getByRole("alert")).toContainText("Las notas no están disponibles");

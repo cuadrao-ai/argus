@@ -8,7 +8,8 @@ import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { EmptyState } from "./foundation/EmptyState";
-import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, dangerButtonClass, PanelHeading, secondaryButtonClass } from "./business-ui";
+import { PRIMARY_BUTTON } from "./foundation/surfaces";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
 
@@ -94,7 +95,8 @@ export function AccessList({
   );
 }
 
-export default function BusinessAccessPanel() {
+/** Equipo y accesos. `embedded` drops its own heading inside the Negocio page, which names it. */
+export default function BusinessAccessPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const { source, revision, reload } = useBusiness();
   const naming = useBusinessNaming();
@@ -181,10 +183,12 @@ export default function BusinessAccessPanel() {
 
   return (
     <section>
-      <PanelHeading
-        title={t("business_access.title", "Access")}
-        subtitle={t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}
-      />
+      {embedded ? <p className="mb-4 text-[14px] text-[#56635e] dark:text-white/70">{t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}</p> : (
+        <PanelHeading
+          title={t("business_access.title", "Access")}
+          subtitle={t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}
+        />
+      )}
       {failed ? (
         <EmptyState kind="error" testId="business-access-error" title={t("business.empty.access_error", "We couldn't load access")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : access === null ? (
@@ -222,7 +226,7 @@ export default function BusinessAccessPanel() {
               />
             </label>
             {giveError ? <p role="alert" className="mt-2 text-[13px] text-black/70 dark:text-white/70">{giveError}</p> : null}
-            <button type="submit" className={`${primaryButtonClass} mt-3`} disabled={giving}>
+            <button type="submit" className={`${PRIMARY_BUTTON} mt-3`} disabled={giving}>
               {giving ? t("business_access.giving", "Giving access...") : t("business_access.give", "Give access")}
             </button>
           </form>

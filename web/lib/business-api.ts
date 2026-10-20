@@ -89,6 +89,8 @@ export type ReceiptSummary = ReceiptReviewFields & {
   fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
   fiscal_value?: "ncf" | "ecf" | null;
+  /** A person stated it has no comprobante fiscal and it carries no NCF or e-CF: it counts in the totals, stays out of the 606 and 607. Absent when false. */
+  sin_comprobante?: boolean;
   /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
   include_606?: boolean | null;
   /** Who gave the 606 answer; absent while there is none. */
@@ -306,6 +308,8 @@ export type BusinessExpense = {
   fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
   fiscal_value?: "ncf" | "ecf" | null;
+  /** A person stated it has no comprobante fiscal and it carries no NCF or e-CF: it counts in the totals, stays out of the 606 and 607. Absent when false. */
+  sin_comprobante?: boolean;
   /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */
   include_606?: boolean | null;
   /** Who gave the 606 answer; absent while there is none. */

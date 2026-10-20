@@ -27,16 +27,20 @@ async function setup(page: Page) {
 }
 
 for (const width of [1280, 390]) {
-  test(`owner sees the receipt and one upload on the first Bandeja screen at ${width}`, async ({ page }) => {
+  test(`owner sees the receipt and one Agregar on the first Bandeja screen at ${width}`, async ({ page }) => {
     const height = width === 390 ? 844 : 900;
     await page.setViewportSize({ width, height });
     await setup(page);
     await page.goto("/biz?view=inbox");
     const receipts = page.getByTestId("business-inbox-receipts");
-    const upload = page.getByTestId("business-primary-upload");
-    const emails = page.getByTestId("bandeja-emails-line");
+    // A desktop's Agregar sits in the top bar; a phone's at the top of the screen.
+    const upload = page.getByTestId(width === 390 ? "add-menu-page" : "add-menu-header").getByTestId("business-primary-upload");
+    const segments = page.getByTestId("bandeja-segments");
     await expect(receipts).toBeVisible();
-    await expect(upload).toHaveText("Subir recibo");
+    await expect(upload).toHaveText("Agregar");
+    await expect(page.getByTestId("business-primary-upload")).toHaveCount(1);
+    await expect(page.getByTestId(width === 390 ? "add-menu-header" : "add-menu-page")).toHaveCount(0);
+    await expect(page.getByTestId("bandeja-emails-line")).toHaveCount(0);
     await expect(page.getByTestId("bandeja-segments").locator('[data-segment="review"]')).toHaveText("Por revisar1");
     await expect(page.getByText("necesita tu atención")).toHaveCount(0);
     await expect(page.getByText(/Revisar \d+ recibo/)).toHaveCount(0);
@@ -47,16 +51,14 @@ for (const width of [1280, 390]) {
     await expect(page.getByTestId("email-address")).toHaveCount(0);
     const receiptBox = await receipts.boundingBox();
     const uploadBox = await upload.boundingBox();
-    const emailsBox = await emails.boundingBox();
     expect(receiptBox).toBeTruthy();
     expect(uploadBox).toBeTruthy();
-    expect(emailsBox).toBeTruthy();
     expect(uploadBox!.height).toBeGreaterThanOrEqual(44);
     expect(uploadBox!.y).toBeLessThan(receiptBox!.y);
     expect(receiptBox!.y).toBeLessThan(height);
-    expect(receiptBox!.y).toBeLessThan(emailsBox!.y);
     await page.screenshot({ path: `../docs/reports/evidence/business-bandeja-first-screen/after-inbox-${width}.png` });
-    await emails.getByRole("button", { name: "Ver correos", exact: true }).click();
+    await segments.locator('[data-segment="emails"]').click();
     await expect(page.getByTestId("bandeja-emails").getByTestId("email-copy-address")).toHaveText("Copiar dirección");
+    await expect(receipts).toHaveCount(0);
   });
 }

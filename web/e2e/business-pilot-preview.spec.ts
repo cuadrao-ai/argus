@@ -621,7 +621,7 @@ test.describe("Business preview while its chat is off", () => {
     );
     await openLoaded(page);
     await page.getByRole("button", { name: /^Search/ }).first().click();
-    const input = page.getByPlaceholder("Search expenses and receipts");
+    const input = page.getByPlaceholder("Search a merchant, amount or note");
     await expect(input).toBeFocused();
     await expect(page.getByText("No conversations yet")).toHaveCount(0);
     await expect(page.locator("[data-palette-row-index]")).toHaveCount(0);

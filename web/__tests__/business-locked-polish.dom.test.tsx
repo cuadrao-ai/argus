@@ -168,7 +168,7 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const html = renderToStaticMarkup(
       <I18nextProvider i18n={i18n}>
-        <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} />
+        <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} onResend={() => undefined} />
       </I18nextProvider>,
     );
     assert.ok(html.includes("Desde 1 oct 2026"));
@@ -246,13 +246,16 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     }
   });
 
-  test("the header mark opens Equipo y accesos and Acceso is the one row at the foot", async () => {
+  test("the header mark opens Configurar negocio and the foot carries the Cuadrao mark and no row", async () => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+    let accountInHeader: boolean | undefined;
     function Rail({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
       const workspace = useChatWorkspace();
+      accountInHeader = workspace?.profileInHeader;
       const bridge = shell({ sidebarCollapsed });
       return <>
         <header>{workspace?.sidebarHeader?.(bridge)}</header>
+        <aside data-testid="closed-rail-mark">{workspace?.sidebarMark?.(bridge)}</aside>
         <footer>{workspace?.sidebarFooter(bridge)}</footer>
       </>;
     }
@@ -264,14 +267,21 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         assert.ok(mark, "the business mark is in the header");
         assert.equal(mark.getAttribute("aria-haspopup"), "menu");
         assert.equal(page.host.textContent?.includes("Tu negocio"), false);
-        const footerRows = [...page.host.querySelectorAll("footer button")];
-        assert.deepEqual(footerRows.map((button) => button.textContent?.trim()), ["Acceso"]);
+        await page.settle(() => page.host.querySelector('[data-testid="closed-rail-mark"]')?.textContent === "M");
+        assert.equal(page.host.querySelector('[data-testid="closed-rail-mark"]')?.textContent, "M", "the closed rail's mark is the business's initial");
+        assert.equal(accountInHeader, true, "a desktop Business puts the account at the top right");
+        assert.deepEqual([...page.host.querySelectorAll("footer button")], [], "the foot has no row");
+        const brand = page.host.querySelector('footer [data-testid="sidebar-brand"]');
+        assert.ok(brand?.querySelector('img[src*="cuadrao-mark"]'), "the Cuadrao mark sits at the foot");
+        assert.equal(brand?.textContent?.includes("cuadrao"), !sidebarCollapsed, "the word shows only beside a labeled rail");
         assert.equal(page.business().panel.kind, "overview");
         await page.click(mark);
-        const access = [...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes("Equipo y accesos"));
-        assert.ok(access, "Equipo y accesos is in the menu");
-        await page.click(access);
-        assert.equal(page.business().panel.kind, "access", "the menu opens access");
+        const items = [...document.querySelectorAll('[role="menuitem"]')];
+        assert.equal(items.some((item) => item.textContent?.includes("Equipo y accesos")), false);
+        const settings = items.find((item) => item.textContent?.includes("Configurar negocio"));
+        assert.ok(settings, "Configurar negocio is in the menu");
+        await page.click(settings);
+        assert.deepEqual(page.business().panel, { kind: "business" }, "the menu opens the Negocio page");
       } finally {
         await page.close();
       }
@@ -306,15 +316,15 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const page = await mount(() => {
       function Probe() {
         const { source } = useBusinessContext();
-        built = useBusinessSearch({ source, chatAvailable: true, accounts: [], openPanel: () => undefined, setPeriod: () => undefined });
+        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, owner: true, scope: "own" });
         return null;
       }
       return <Probe />;
     });
     const search = built as WorkspaceSearch | null;
     assert.ok(search);
-    assert.equal(search.copy.noResultsHint, "Prueba con el nombre de un comercio o de un archivo.");
-    assert.equal(search.copy.placeholder, "Buscar gastos, recibos y chats");
+    assert.equal(search.copy.noResultsHint, "Busca por comercio, monto, categoría, cuenta o el texto de una nota.");
+    assert.equal(search.copy.placeholder, "Busca comercio, monto o nota");
     const groups = await search.find("zzqqxx");
     assert.deepEqual(groups.flatMap((group) => group.hits), []);
     await page.close();

@@ -32,19 +32,21 @@ async function setup() {
 }
 
 describe("the chips", () => {
-  test("a read receipt without a fiscal number says so in grey text; a personal one says Personal; a receipt not yet read says nothing", async () => {
+  test("a stated Sin comprobante and a missing NCF each say so in grey text; a personal one says Personal; a receipt not yet read says nothing", async () => {
     const env = await setup();
-    const { RecordMarks } = await import("@/components/business-app/business-ui");
+    const { RecordMarks, recordFiscalMark } = await import("@/components/business-app/business-ui");
     const render = (props: Parameters<typeof RecordMarks>[0]) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><RecordMarks {...props} /></env.I18nextProvider>); });
-    await render({ known: true, fiscalValue: null });
-    const chip = env.host.querySelector('[data-mark="no_fiscal"]')!;
-    assert.equal(chip.textContent, "Sin comprobante fiscal");
-    assert.ok(!/amber|red|warning|danger/.test(chip.className), "grey, never amber or red");
-    await render({ known: true, fiscalValue: "ncf" });
+    await render({ fiscal: recordFiscalMark({ sin_comprobante: true, fiscal_known: true, fiscal_value: null }) });
+    const stated = env.host.querySelector('[data-mark="sin_comprobante"]')!;
+    assert.equal(stated.textContent, "Sin comprobante");
+    assert.ok(!/amber|red|warning|danger/.test(stated.className), "grey, never amber or red");
+    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: null }) });
+    assert.equal(env.host.querySelector('[data-mark="no_fiscal"]')?.textContent, "Falta NCF");
+    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: "ncf" }) });
     assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null);
-    await render({ known: false, fiscalValue: null });
-    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null);
-    await render({ known: true, fiscalValue: "ncf", personal: true });
+    await render({ fiscal: recordFiscalMark({ fiscal_known: false, fiscal_value: null }) });
+    assert.equal(env.host.querySelector('[data-testid="record-marks"]'), null, "nothing read, nothing claimed");
+    await render({ fiscal: recordFiscalMark({ fiscal_known: true, fiscal_value: "ncf" }), personal: true });
     assert.equal(env.host.querySelector('[data-mark="personal"]')?.textContent, "Personal");
     assert.equal(env.host.querySelector('[data-testid="personal-marked-dot"]'), null, "the owner's own mark has no dot");
     assert.equal(env.host.querySelector('[data-mark="no_fiscal"]'), null);
@@ -57,7 +59,7 @@ describe("the chips", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const render = (role: "owner" | "accountant") => env.act(async () => {
       const value = { chosen: role === "owner" ? { space_id: "s", name: "Mi negocio", grant_id: "own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true } : { space_id: "s", name: "Colmado Peña", grant_id: "g", role: "accountant", capabilities: ["read", "prepare"], access_seen: true } } as unknown as BusinessContextValue;
-      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks known fiscalValue="ncf" personal markedBy="Marta" /></BusinessContext.Provider></env.I18nextProvider>);
+      env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><RecordMarks fiscal={null} personal markedBy="Marta" /></BusinessContext.Provider></env.I18nextProvider>);
     });
     await render("owner");
     const chip = env.host.querySelector('[data-mark="personal"]')!;
@@ -77,12 +79,12 @@ describe("the Overview's two totals", () => {
     const env = await setup();
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: BusinessOverviewPanel } = await import("@/components/business-app/BusinessOverviewPanel");
-    const overview: BusinessOverview = { from: "2026-10-01", to: "2026-10-31", today: "2026-10-13", totals: [{ currency: "DOP", amount: "5000.00", count: 3 }], fiscal_totals: [{ currency: "DOP", amount: "3500.00", count: 2 }], without_fiscal_totals: [{ currency: "DOP", amount: "1500.00", count: 1 }], needs_attention: 0, last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
-    const value = { source: { mode: "fixture" }, records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [] }, chosen: null } as unknown as BusinessContextValue;
+    const overview: BusinessOverview = { from: "2026-10-01", to: "2026-10-31", today: "2026-10-13", totals: [{ currency: "DOP", amount: "5000.00", count: 3 }], fiscal_totals: [{ currency: "DOP", amount: "3500.00", count: 2 }], without_fiscal_totals: [{ currency: "DOP", amount: "1500.00", count: 1 }], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
+    const value = { source: { mode: "fixture" }, records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, panel: { kind: "overview" }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [] }, chosen: null } as unknown as BusinessContextValue;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><BusinessOverviewPanel /></BusinessContext.Provider></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(env.host.querySelector('[data-testid="overview-fiscal-expenses"]'), null);
-    assert.ok(env.host.querySelector('[data-testid="inicio-actions"]'), "the Inicio renders");
+    assert.ok(env.host.querySelector("#business-overview-title"), "the Inicio renders");
     assert.equal(env.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old review card is gone");
     assert.equal(env.host.querySelector('[data-testid="month-close-task-review"]'), null, "nothing to review adds no checklist line");
     assert.equal(/Revisa 0 |0 por revisar/.test(env.host.textContent ?? ""), false);
@@ -327,11 +329,14 @@ describe("the server states what the browser used to guess", () => {
     const render = (item: ReceiptSummary) => env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ul><ReceiptRow receipt={item} onOpen={() => undefined} /></ul></env.I18nextProvider>); });
     const said = () => env.host.querySelector('[data-testid="bandeja-row-state"]')!.textContent!.split(" · ");
     await render(receipt({ status: "needs_attention", attention: "unreadable" as ReceiptSummary["attention"], merchant: null, amount: null }));
-    assert.equal(said().includes("Sin comprobante fiscal"), false, "nothing read, nothing claimed");
+    assert.equal(said().some((part) => part === "Sin comprobante" || part === "Falta NCF"), false, "nothing read, nothing claimed");
     await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: null }));
-    assert.equal(said().includes("Sin comprobante fiscal"), true);
+    assert.equal(said().includes("Falta NCF"), true);
+    await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: null, sin_comprobante: true }));
+    assert.equal(said().includes("Sin comprobante"), true);
+    assert.equal(said().includes("Falta NCF"), false);
     await render(receipt({ status: "review_ready", fiscal_known: true, fiscal_value: "ecf" }));
-    assert.equal(said().includes("Sin comprobante fiscal"), false);
+    assert.equal(said().some((part) => part === "Sin comprobante" || part === "Falta NCF"), false);
     await env.act(async () => env.root.unmount());
   });
 

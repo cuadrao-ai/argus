@@ -90,22 +90,22 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   } finally { await off.close(); }
 });
 
-test("Bandeja shows no subhead, the receipts before the email line, and one green Agregar that opens the upload", async () => {
+test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its email waits behind the Correos segment", async () => {
   const page = await mountInbox();
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
     assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the segments, not in a subhead");
-    const receipts = page.host.querySelector('[data-testid="business-inbox-receipts"]')!;
-    const line = page.host.querySelector('[data-testid="bandeja-emails-line"]')!;
-    assert.equal((receipts.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, true);
-    assert.equal(line.textContent, "Los recibos que reenvías por correo llegan aquí.Ver correos");
-    assert.equal(document.querySelector('[data-testid="inbox-forwarding-card"]'), null, "the forwarding card waits behind Ver correos");
-    const upload = page.host.querySelector('[data-testid="business-primary-upload"]') as HTMLButtonElement;
-    assert.equal(upload.textContent, "Agregar");
-    assert.equal([...page.host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === "Agregar").length, 1);
-    await page.act(async () => { upload.click(); });
-    await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"));
-    assert.equal((document.body.textContent ?? "").includes("Elegir archivos"), true);
+    const segments = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment]')];
+    assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all", "emails"]);
+    assert.equal(segments[3].textContent, "Correos");
+    assert.equal(page.host.querySelector('[data-testid="bandeja-emails-line"]'), null, "no Ver correos line under the receipts");
+    assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address waits behind Correos");
+    assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null, "Agregar lives in the top bar");
+    assert.equal(page.host.querySelector('[data-testid="add-menu-page"]'), null);
+    await page.act(async () => { segments[3].click(); });
+    await page.settle(() => page.host.querySelector('[data-testid="email-address"]') !== null);
+    assert.ok(page.host.querySelector('[data-testid="email-address"]'), "Correos shows the receiving address");
+    assert.equal(page.host.querySelector('[data-testid="business-inbox-receipts"]'), null, "Correos replaces the receipt rows");
   } finally { await page.close(); }
 });
 

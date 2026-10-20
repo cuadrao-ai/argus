@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { PanelLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CuadraoMark } from "@/components/CuadraoMark";
@@ -12,6 +13,8 @@ export default function SidebarHeader({
   isOpen,
   railLocked = false,
   business = false,
+  businessSlot,
+  businessMark,
   onToggle,
   onRequestClose,
 }: {
@@ -19,6 +22,10 @@ export default function SidebarHeader({
   isOpen: boolean;
   railLocked?: boolean;
   business?: boolean;
+  /** Business only: the business card takes the brand's place at the top; the brand moves to the foot of the rail. */
+  businessSlot?: ReactNode;
+  /** The business's mark: on a closed rail it is the expand button, as the brand mark was. */
+  businessMark?: ReactNode;
   onToggle: () => void;
   onRequestClose?: () => void;
 }) {
@@ -50,6 +57,11 @@ export default function SidebarHeader({
     );
   }
 
+  if (railLocked && business && businessSlot) {
+    return <div className="flex h-14 shrink-0 items-center justify-center">{businessSlot}</div>;
+  }
+
+
   if (railLocked) {
     return (
       <div className="flex h-14 shrink-0 items-center justify-center">
@@ -75,6 +87,47 @@ export default function SidebarHeader({
       </button>
     </Tooltip>
   );
+
+  if (business && businessSlot) {
+    const railToggle = (
+      <Tooltip content={isOpen ? t("sidebar.close", "Close sidebar") : t("sidebar.open", "Open sidebar")} side="right">
+        <button
+          type="button"
+          onClick={onToggle}
+          data-testid="sidebar-rail-toggle"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[12px] text-black/60 transition-colors duration-200 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
+          aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
+        >
+          <PanelLeft className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </Tooltip>
+    );
+    if (isOpen) {
+      return (
+        <div className="flex min-h-14 shrink-0 items-center gap-1 pl-3 pr-1 pt-2">
+          <div className="min-w-0 flex-1">{businessSlot}</div>
+          {railToggle}
+        </div>
+      );
+    }
+    // Closed, the business's mark is the way back open: hovering or focusing it shows the expand icon in its place.
+    return (
+      <div className="flex h-14 shrink-0 items-center justify-center pt-2">
+        <Tooltip content={t("sidebar.open", "Open sidebar")} side="right">
+          <button
+            type="button"
+            onClick={onToggle}
+            data-testid="sidebar-rail-toggle"
+            aria-label={t("common.expand", "Expand")}
+            className="group relative flex h-11 w-11 items-center justify-center rounded-[12px] transition-colors duration-200 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/5"
+          >
+            <span className="transition-opacity duration-150 ease-out group-hover:opacity-0 group-focus-visible:opacity-0">{businessMark ?? brandMark()}</span>
+            <PanelLeft className="absolute h-5 w-5 text-black/60 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+    );
+  }
 
   if (business) {
     return isOpen ? (

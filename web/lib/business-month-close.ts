@@ -73,6 +73,8 @@ export type MonthCloseDocument = {
    * Absent means those fields are the record.
    */
   fiscal_known?: boolean;
+  /** No comprobante fiscal: counts in the month, stays out of the 606 and 607, never blocks the close. */
+  sin_comprobante?: boolean;
 };
 
 export type MonthCloseWindow = {

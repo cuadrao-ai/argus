@@ -120,8 +120,9 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           await expect(page.getByText("argus", { exact: true })).toHaveCount(0);
           await capture(page, `brand-biz-${theme}-${short(language)}-${viewport.width}`);
           if (viewport.width === 1280) {
-            // The rail shows the mark only while collapsed.
+            // The mark sits at the foot of the rail; collapsed, it stays without its word.
             await page.getByRole("button", { name: copy.collapse, exact: true }).click();
+            await expect(page.getByTestId("sidebar-brand").getByText("cuadrao", { exact: true })).toHaveCount(0);
           }
           const mark = page.locator(`img[src="/brand/cuadrao-mark-${theme}.svg"]:visible`).first();
           await expect(mark).toBeVisible();

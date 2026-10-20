@@ -2100,12 +2100,12 @@ export default function ChatInterface() {
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
         mode={sidebarMode}
         omnisearchEnabled={
-          searchEntryEnabled && (!isGuest || canUseOmnisearch)
+          searchEntryEnabled && (!isGuest || canUseOmnisearch) && !(workspace?.headerSearch && !mobileShell.isBelowTablet)
         }
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />
@@ -2158,7 +2158,8 @@ export default function ChatInterface() {
       <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {currentView !== "settings" && (
-          <header className="absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 tablet:px-8">
+          // A workspace with a search field in its bar lines the bar up with its centred content column (48rem), so search and avatar sit on the column's edges.
+          <header className={`absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-48rem)/2))]" : "tablet:px-8"}`}>
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger
@@ -2175,6 +2176,9 @@ export default function ChatInterface() {
               </div>
             )}
             {/* Title (left-aligned; truncates before the action cluster) */}
+            {workspace?.headerSearch && !mobileShell.isBelowTablet ? (
+              <div className="pointer-events-auto min-w-0 flex-1">{workspace.headerSearch(shellBridge)}</div>
+            ) : null}
             <ChatHeaderHeading>
               {currentView === "chat" &&
                 (conversationId !== null || messages.length > 0) &&

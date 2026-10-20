@@ -17,7 +17,7 @@ async function openPreview(page: Page, language: "en" | "es-419" = "en") {
 }
 
 async function openSearch(page: Page, placeholder: string) {
-  await page.getByRole("button", { name: /^(Search|Buscar)/ }).first().click();
+  await page.getByTestId("header-search").click();
   const input = page.getByPlaceholder(placeholder);
   await expect(input).toBeFocused();
   return input;
@@ -32,7 +32,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("an expense found by merchant opens its receipt and original by keyboard", async ({ page }) => {
     await openPreview(page);
-    const input = await openSearch(page, "Search expenses, receipts and chats");
+    const input = await openSearch(page, "Search a merchant, amount or note");
 
     await input.fill("nube hosting");
     const expenses = results(page).getByRole("group", { name: "Expenses" });
@@ -58,7 +58,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("a receipt found by merchant or file name opens its review", async ({ page }) => {
     await openPreview(page);
-    const input = await openSearch(page, "Search expenses, receipts and chats");
+    const input = await openSearch(page, "Search a merchant, amount or note");
 
     await input.fill("papeleria-oct");
     const receipts = results(page).getByRole("group", { name: "Receipts" });
@@ -74,7 +74,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("an expense without a receipt opens its row in Expenses", async ({ page }) => {
     await openPreview(page);
-    const input = await openSearch(page, "Search expenses, receipts and chats");
+    const input = await openSearch(page, "Search a merchant, amount or note");
 
     await input.fill("estacion");
     await results(page).getByRole("button", { name: /Estación Ruta 3/ }).click();
@@ -85,7 +85,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("owner-funded expense keeps its Spanish funding, date and category in search and its list", async ({ page }) => {
     await openPreview(page, "es-419");
-    const input = await openSearch(page, "Buscar gastos, recibos y chats");
+    const input = await openSearch(page, "Busca comercio, monto o nota");
     await input.fill("comedor");
     const hit = results(page).getByRole("button", { name: /Comedor Doña Ana/ });
     await expect(hit).toContainText("Dinero del dueño");
@@ -107,7 +107,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("no match keeps the existing empty state with a Business hint", async ({ page }) => {
     await openPreview(page);
-    const input = await openSearch(page, "Search expenses, receipts and chats");
+    const input = await openSearch(page, "Search a merchant, amount or note");
 
     await input.fill("zzqqxx");
     await expect(page.getByText("No results found")).toBeVisible();
@@ -117,7 +117,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("a failed search says so and retries in place", async ({ page }) => {
     await openPreview(page);
-    const input = await openSearch(page, "Search expenses, receipts and chats");
+    const input = await openSearch(page, "Search a merchant, amount or note");
 
     await page.evaluate(() => {
       (globalThis as { __businessFixtureFailNextWrite?: string }).__businessFixtureFailNextWrite = "server_error";
@@ -130,7 +130,7 @@ test.describe("Business search in the omnisearch", () => {
 
   test("Spanish shows the same results in Spanish", async ({ page }) => {
     await openPreview(page, "es-419");
-    const input = await openSearch(page, "Buscar gastos, recibos y chats");
+    const input = await openSearch(page, "Busca comercio, monto o nota");
 
     await input.fill("hosting");
     await expect(results(page).getByRole("group", { name: "Gastos" })).toContainText("Nube Hosting");
@@ -159,7 +159,7 @@ test.describe("Business chats in the omnisearch", () => {
         : null;
       return route.fulfill({ json: { items: [], next_cursor: null, ledger_groups } });
     });
-    const input = await openSearch(page, "Search expenses, receipts and chats");
+    const input = await openSearch(page, "Search a merchant, amount or note");
     await input.fill("ledger");
     await expect(page.getByText("No results found")).toBeVisible();
 

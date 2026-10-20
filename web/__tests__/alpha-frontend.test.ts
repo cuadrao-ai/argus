@@ -1782,10 +1782,10 @@ describe("Argus Alpha frontend contract", () => {
       palette.indexOf("const loadLedgerBrowse"),
     );
     const searchInputChange = palette.slice(
-      palette.indexOf("onChange={(event) => {"),
+      palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       palette.indexOf(
-        "placeholder={",
-        palette.indexOf("onChange={(event) => {"),
+        "const fillQuery",
+        palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       ),
     );
 
@@ -1912,10 +1912,10 @@ describe("Argus Alpha frontend contract", () => {
       ),
     );
     const searchInputChange = palette.slice(
-      palette.indexOf("onChange={(event) => {"),
+      palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       palette.indexOf(
-        "placeholder={t(",
-        palette.indexOf("onChange={(event) => {"),
+        "const fillQuery",
+        palette.indexOf("const changeQuery = (nextQuery: string) => {"),
       ),
     );
 

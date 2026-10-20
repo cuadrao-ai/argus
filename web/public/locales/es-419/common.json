@@ -2206,7 +2206,8 @@
         "business_name_invalid": "Escribe un nombre de 1 a 80 caracteres.",
         "business_owner_required": "Solo el dueño del negocio puede cambiar este perfil.",
         "business_permission_denied": "Puedes ver este perfil. No puedes cambiarlo."
-      }
+      },
+      "profile_load_failed": "No pudimos cargar el nombre y el RNC."
     },
     "activity": {
       "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
@@ -2640,6 +2641,13 @@
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
       "title": "¿Qué hacemos hoy por tu negocio?"
     },
+    "add_menu": {
+      "more": "Más acciones"
+    },
+    "amounts": {
+      "hide": "Ocultar montos",
+      "show": "Mostrar montos"
+    },
     "attention_short": {
       "unreadable": "No se pudo leer",
       "ai_unavailable": "Lectura no disponible",
@@ -2681,9 +2689,10 @@
       "nothing_to_review": "Nada por revisar",
       "see_all_body": "Todos tus recibos están en Todo.",
       "see_all": "Ver todo",
-      "emails_line": "Los recibos que reenvías por correo llegan aquí.",
       "see_emails": "Ver correos",
-      "emails_title": "Correos"
+      "segment_emails": "Correos",
+      "segment_review_short": "Revisar",
+      "segment_problem_short": "Problemas"
     },
     "email": {
       "title": "Correos recibidos",
@@ -2836,7 +2845,8 @@
       "expenses": "Gastos",
       "inbox": "Bandeja",
       "label": "Negocio",
-      "overview": "Inicio"
+      "overview": "Inicio",
+      "business": "Negocio"
     },
     "month_close": {
       "checklist_title": "Para cerrar {{month}}",
@@ -3031,15 +3041,36 @@
       "dismiss": "Descartar"
     },
     "search": {
-      "placeholder": "Buscar gastos, recibos y chats",
-      "placeholder_records": "Buscar gastos y recibos",
+      "placeholder": "Busca comercio, monto o nota",
       "open_record": "Abrir registro",
       "record_unavailable": "Este registro no está disponible.",
-      "no_results_hint": "Prueba con el nombre de un comercio o de un archivo.",
+      "no_results_hint": "Busca por comercio, monto, categoría, cuenta o el texto de una nota.",
       "region": "Registros del negocio",
       "loading": "Buscando en tu negocio",
       "failed": "No pudimos buscar en tu negocio.",
-      "receipts": "Recibos"
+      "receipts": "Recibos",
+      "go_to": "Ir a",
+      "actions": "Acciones",
+      "go_team": "Equipo y accesos",
+      "keywords_business": "ajustes datos negocio rnc",
+      "keywords_team": "equipo contador contadora personas acceso",
+      "keywords_add": "subir recibo foto archivo nota factura",
+      "keywords_copy_forward": "correo email",
+      "badge_screen": "Pantalla",
+      "badge_action": "Acción",
+      "badge_expense": "Gasto",
+      "badge_receipt": "Recibo",
+      "badge_note": "Nota",
+      "badge_account": "Cuenta",
+      "accounts": "Cuentas",
+      "recent": "Búsquedas recientes",
+      "show_more": "Ver más ({{count}})",
+      "show_less": "Ver menos",
+      "no_match": "No encontramos nada con «{{query}}».",
+      "keep_typing": "Escribe al menos 3 letras para buscar en tus registros.",
+      "chats_failed": "No pudimos cargar tus chats. Tus registros siguen aquí.",
+      "chats_more_failed": "No pudimos cargar más chats. Los que ves siguen aquí.",
+      "ask": "Preguntar en un chat nuevo"
     },
     "capture": {
       "reopen_retained": "Volver a abrir la nota conservada",
@@ -3061,6 +3092,14 @@
       "saved_note": "Nota original guardada",
       "search_failed": "Las notas no están disponibles. Los demás resultados se muestran abajo."
     },
+    "settings": {
+      "title": "Negocio",
+      "tab_datos": "Datos",
+      "tab_equipo": "Equipo y accesos",
+      "tab_correo": "Correo de recibos",
+      "datos_title": "Nombre y RNC",
+      "datos_body": "Salen en tu 606 y 607 y en lo que exportas."
+    },
     "switcher": {
       "label": "Negocio",
       "change": "Cambiar de negocio",
@@ -3069,11 +3108,12 @@
       "client": "Cliente",
       "client_cue": "Cliente: {{name}}",
       "role_owner": "Dueño",
-      "role_accountant": "Ver y preparar",
+      "role_accountant": "Contador",
       "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
       "got_it": "Entendido",
       "lost": "Ya no tienes acceso a este negocio.",
-      "team": "Equipo y accesos"
+      "team": "Equipo y accesos",
+      "settings": "Configurar negocio"
     },
     "marks": {
       "real_expenses": "Gastos reales",
@@ -3099,7 +3139,9 @@
       "excluded_606_by": "Fuera del 606 por {{name}}",
       "decide_failed": "No pudimos guardar la respuesta. Inténtalo de nuevo.",
       "none_fiscal": "Ninguno con valor fiscal en este período.",
-      "personal_help": "No cuenta en los totales del negocio."
+      "personal_help": "No cuenta en los totales del negocio.",
+      "sin_comprobante_chip": "Sin comprobante",
+      "missing_ncf_chip": "Falta NCF"
     }
   },
   "money": {

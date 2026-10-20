@@ -38,7 +38,7 @@ async function railGeometry(page: Page) {
     const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
     const aside = nav.closest("aside") as HTMLElement;
     const box = (element: Element) => element.getBoundingClientRect();
-    const labels = /^(Inicio|Bandeja|Gastos|Acceso|Ajustes)/;
+    const labels = /^(Inicio|Bandeja|Gastos)/;
     const rows = [...aside.querySelectorAll<HTMLButtonElement>("button")].filter((button) => labels.test(button.textContent?.trim() ?? ""));
     const active = rows.find((row) => row.getAttribute("aria-current") === "page") ?? null;
     return {
@@ -49,7 +49,11 @@ async function railGeometry(page: Page) {
       navGapAboveFirstRow: Math.round(box(rows[0]).top - (aside.querySelector('[data-testid="business-switcher"]')?.getBoundingClientRect().bottom ?? 0)),
       rowHeights: rows.map((row) => Math.round(box(row).height)),
       rowLabels: rows.map((row) => row.textContent?.replace(/Ctrl.*$|⌘.*$/, "").replace(/\d+$/, "").trim()),
-      footerBottomGap: Math.round(box(aside).bottom - box(rows[rows.length - 1]).bottom),
+      brandBottomGap: Math.round(box(aside).bottom - box(aside.querySelector('[data-testid="sidebar-brand"]')!).bottom),
+      accountInRail: aside.querySelector('[data-testid="header-profile-trigger"]') !== null,
+      accountInHeader: document.querySelector('[data-testid="header-profile-trigger"]') !== null,
+      searchInRail: [...aside.querySelectorAll("button")].some((button) => /^(Buscar|Search)/.test(button.textContent?.trim() ?? "")),
+      searchInHeader: document.querySelector('[data-testid="header-search"]') !== null,
       activeHeight: active ? Math.round(box(active).height) : null,
       activeBackground: active ? getComputedStyle(active).backgroundColor : null,
       activeColor: active ? getComputedStyle(active).color : null,
@@ -73,11 +77,15 @@ for (const width of [1440, 1024]) {
           width: 240,
           background: "rgb(247, 245, 238)",
           borderRight: "1px",
-          navTop: 108,
-          navGapAboveFirstRow: 8,
-          rowHeights: [44, 44, 44, 44, 44],
-          rowLabels: ["Inicio", "Bandeja", "Gastos", "Acceso", "Ajustes"],
-          footerBottomGap: 12,
+          navTop: 64,
+          navGapAboveFirstRow: 10,
+          rowHeights: [44, 44, 44],
+          rowLabels: ["Inicio", "Bandeja", "Gastos"],
+          brandBottomGap: 0,
+          accountInRail: false,
+          accountInHeader: true,
+          searchInRail: false,
+          searchInHeader: true,
           activeHeight: 44,
           activeBackground: "rgb(227, 235, 225)",
           activeColor: "rgb(47, 90, 73)",
@@ -101,10 +109,14 @@ for (const width of [1440, 1024]) {
       const rail = await railGeometry(page);
       expect({ width: rail.width, rowHeights: rail.rowHeights, activeHeight: rail.activeHeight, navTop: rail.navTop }).toEqual({
         width: 64,
-        rowHeights: [44, 44, 44, 44, 44, 44],
+        rowHeights: [44, 44, 44, 44],
         activeHeight: 44,
-        navTop: 108,
+        navTop: 64,
       });
+      // Closed, the business's own mark is the one way back open.
+      await expect(page.locator("aside").getByTestId("business-switcher")).toHaveCount(0);
+      await expect(page.getByTestId("sidebar-rail-toggle")).toHaveCount(1);
+      await expect(page.getByTestId("sidebar-rail-toggle")).toHaveAttribute("aria-label", "Expandir");
       await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos" }).hover();
       await expect(page.getByRole("tooltip").filter({ hasText: "Gastos" })).toBeVisible();
       if (SHOTS && width === 1440) {
