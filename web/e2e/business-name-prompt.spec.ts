@@ -7,13 +7,19 @@ for (const width of [1280, 390]) {
     test.use({ viewport: { width, height: 844 } });
     test("owner skips once then saves before inviting", async ({ page }, testInfo) => {
       await page.route("**/*", route => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
-      await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+      await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true, consent: "required" });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
-      const state = { name: "Mi negocio", seen: false, invites: 0 };
+      const state = { name: "Mi negocio", seen: false, invites: 0, consentedAt: null as string | null };
       const space = () => ({ id: "fixture-space", name: state.name, name_required: state.name === "Mi negocio", name_prompt_seen: state.seen });
       await page.route("**/api/v1/business/**", async route => {
         const request = route.request();
-        const path = new URL(request.url()).pathname.split("/business/")[1];
+        const url = new URL(request.url());
+        const path = url.pathname.split("/business/")[1];
+        if (path === "consent") {
+          if (request.method() === "POST") state.consentedAt ??= new Date().toISOString();
+          const version = request.method() === "POST" ? request.postDataJSON().version : url.searchParams.get("version");
+          return route.fulfill({ json: { version, accepted_at: state.consentedAt } });
+        }
         if (path === "space/name-prompt") {
           const show = !state.seen && space().name_required;
           state.seen = true;
@@ -34,12 +40,18 @@ for (const width of [1280, 390]) {
         return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       });
       await page.goto("/biz");
+      const dialog = page.getByRole("dialog", { name: "¿Cómo se llama tu negocio?", exact: true });
+      const consent = page.getByTestId("business-consent-screen");
+      await expect(consent).toBeVisible();
+      await expect(dialog).toHaveCount(0);
+      expect(state.seen).toBe(false);
+      await consent.getByRole("checkbox").check();
+      await consent.getByRole("button", { name: "Continuar", exact: true }).click();
       await expect(page.getByTestId("workspace-panel-region")).toBeVisible();
       if (process.env.NAME_PROMPT_BASELINE === "1") {
         await page.screenshot({ path: testInfo.outputPath(`business-name-before-${width}.png`) });
         return;
       }
-      const dialog = page.getByRole("dialog", { name: "¿Cómo se llama tu negocio?", exact: true });
       await expect(dialog).toBeVisible();
       await expect(dialog.getByPlaceholder("Ej. Colmado La Esquina")).toBeFocused();
       const save = dialog.getByRole("button", { name: "Guardar", exact: true });
@@ -53,6 +65,7 @@ for (const width of [1280, 390]) {
       await page.waitForFunction(() => (window as Window & { namingDismissed?: boolean }).namingDismissed);
       await page.reload();
       await expect(page.getByTestId("workspace-panel-region")).toBeVisible();
+      await expect(consent).toHaveCount(0);
       await expect(dialog).toHaveCount(0);
       expect(state.seen).toBe(true);
       await page.goto("/biz?view=access");
@@ -69,8 +82,8 @@ for (const width of [1280, 390]) {
       await expect(dialog).toHaveCount(0);
       await expect.poll(() => state.invites).toBe(1);
       expect(state.name).toBe("Colmado La Esquina");
+      await expect(page.getByRole("button", { name: "Colmado La Esquina", exact: true })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`business-name-saved-${width}.png`) });
-      if (width < 720) await page.getByTestId("chat-shell-menu-trigger").click();
       await page.getByRole("button", { name: /^(ajustes|configuración)$/i }).first().click();
       await page.getByRole("button", { name: "Preferencias", exact: true }).click();
       await page.getByRole("button", { name: "¿Cómo se llama tu negocio?", exact: true }).click();
