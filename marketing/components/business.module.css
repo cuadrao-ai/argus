@@ -1131,10 +1131,10 @@
   background: var(--cta-hover);
 }
 .submit {
-  background: var(--cta-hover);
+  background: #2f5a49;
 }
 .submit:hover {
-  background: var(--ink);
+  background: #1d4236;
 }
 .button:hover svg {
   transform: translate(2px, -2px);

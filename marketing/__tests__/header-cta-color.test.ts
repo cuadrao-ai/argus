@@ -19,9 +19,9 @@ test("the unscrolled header button keeps its light resting color", () => {
   expect(background('.header[data-condensed="false"] .utilityNav > .buttonSmall')).toBe("#e8ede3");
 });
 
-test("the contact form button rests on the hover color and darkens on hover", () => {
-  expect(background(".submit")).toBe("var(--cta-hover)");
-  expect(background(".submit:hover")).toBe("var(--ink)");
+test("the contact form button rests on the brand green and darkens on hover", () => {
+  expect(background(".submit")).toBe("#2f5a49");
+  expect(background(".submit:hover")).toBe("#1d4236");
 });
 
 test("only the contact form uses the swapped button", () => {
