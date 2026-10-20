@@ -14561,6 +14561,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
         document_type:
           type: string
           enum:
@@ -14650,6 +14653,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -17249,6 +17255,9 @@ components:
           - type: 'null'
         status:
           type: string
+        sin_comprobante:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -17920,6 +17929,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
         recorded_at:
           anyOf:
           - type: string
@@ -24579,6 +24591,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
         personal_editable:
           type: boolean
           default: false
@@ -25227,6 +25242,9 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        sin_comprobante:
+          type: boolean
+          default: false
         personal_editable:
           type: boolean
           default: false

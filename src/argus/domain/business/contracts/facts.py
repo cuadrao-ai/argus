@@ -393,6 +393,26 @@ def is_personal(facts: BusinessFacts) -> bool:
     )
 
 
+#: Receipt states that say the record has no comprobante fiscal.
+NO_COMPROBANTE = frozenset({"informal_receipt", "no_receipt"})
+
+
+def is_sin_comprobante(facts: BusinessFacts) -> bool:
+    """Stated to have no comprobante fiscal, and no fiscal number on the draft.
+
+    The receipt state is the person's answer, never inferred from a missing
+    number. A draft that carries an NCF or an e-CF has a comprobante whatever
+    the state says.
+    """
+
+    state = facts.receipt_state
+    return (
+        isinstance(state, Known)
+        and state.value in NO_COMPROBANTE
+        and fiscal_value(facts) is None
+    )
+
+
 def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
     """The accountant's 606 answer when one applies, else None."""
 

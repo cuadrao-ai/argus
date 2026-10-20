@@ -92,21 +92,38 @@ The sample minors are illustrative. Each currency the month actually contains is
 
 | Field | Meaning |
 | --- | --- |
-| `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
+| `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes, or is sin comprobante. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
-| `income_before_itbis_minor` | Sales lines that would go on the 607. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
-| `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS. |
+| `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
+| `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
-| `itbis_charged_minor` | ITBIS on the 607 lines. A credit note subtracts. |
-| `itbis_paid_minor` | ITBIS on the 606 lines. |
+| `itbis_charged_minor` | ITBIS on the 607 lines, plus ITBIS stated on a sin comprobante sale. A credit note subtracts. |
+| `itbis_paid_minor` | ITBIS on the 606 lines. A sin comprobante purchase adds none. |
 | `itbis_owed_minor` | Charged minus paid. Negative when the business paid more ITBIS than it charged. |
-| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS. Those incomplete documents are not part of the net. |
+| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS, and the whole total for a sin comprobante receipt. Those incomplete documents are not part of the net. |
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
-A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, and `status`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. The same item shape is used in every list in this contract.
+A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, `status`, and `sin_comprobante`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `before_itbis_minor` is the total minus ITBIS, and the whole total for a sin comprobante receipt, the same amount `by_status` and the expense total count. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. `sin_comprobante` is true when the document is sin comprobante, and false otherwise. The same item shape is used in every list in this contract.
 
-An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
+An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS, except on a sin comprobante receipt, where it is the whole total. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
+
+## Sin comprobante
+
+A document is sin comprobante when a person states in review that it has no comprobante fiscal and the draft carries no NCF or e-CF. The statement is the draft fact `receipt_state` with the value `no_receipt` or `informal_receipt`. The owner sets it in chat or a prepare-holder sets it in review. It is editable while the draft is open, it is kept in the draft history, and it is locked when the draft is approved. A missing NCF alone never makes a document sin comprobante. A draft that carries an NCF or an e-CF has a comprobante, whatever `receipt_state` says.
+
+A sin comprobante document counts in `income_before_itbis` or `expense_before_itbis` and in `by_status`. It is not a 606 or 607 line, and the DGII export lists it as excluded with the reason `no_fiscal_number`. It never adds a `missing_rnc` or `missing_ncf` reason, so it never keeps the month open. A personal sin comprobante purchase stays out of the month like any personal purchase.
+
+A document that has a comprobante, or whose `receipt_state` is unknown, and has no RNC or fiscal number still keeps the month open.
+
+Two ITBIS rules are decisions, recorded on 2026-10-20 by the coordinator. Lucas can overrule them.
+
+- A sin comprobante purchase counts its whole total as expense, and none of its ITBIS is ITBIS paid. ITBIS paid without a valid comprobante cannot be credited, so it is part of the cost. Example: a 500.00 purchase that states 76.27 ITBIS adds 500.00 to `expense_before_itbis` and 0.00 to `itbis_paid`.
+- A sin comprobante sale counts its total minus the ITBIS it states as income, and that ITBIS stays in `itbis_charged`, so the tax owed is never understated. Example: a 300.00 sale that states 45.76 ITBIS adds 254.24 to `income_before_itbis` and 45.76 to `itbis_charged`.
+
+Receipt summaries and details, and expenses and their detail, carry the mark as `sin_comprobante` only when it is true. The draft dossier and every month-close and open-items line always carry it.
+
+This mark is not the bank matching state `sin_comprobante`. That state is an outgoing bank charge with no matched receipt. This mark is a recorded document that a person stated has no comprobante fiscal.
 
 ## Venta
 
@@ -248,4 +265,4 @@ where space_id = $space
   and owner_id = $owner
 ```
 
-The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the 607 billed amount when the draft declares one, the personal mark, and the inclusion answer. That draft is the current `resolution` on the import event. The 607 reads a different row: the approved revision at or before the approval receipt version, and it requires that receipt. The two agree until a personal mark or a 606 inclusion answer is written after approval, or until an accepted draft has no approval receipt. Month close keeps reading the current draft. This note records the gap and does not change the read. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.
+The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the 607 billed amount when the draft declares one, the personal mark, the inclusion answer, and the receipt state. That draft is the current `resolution` on the import event. The 607 reads a different row: the approved revision at or before the approval receipt version, and it requires that receipt. The two agree until a personal mark or a 606 inclusion answer is written after approval, or until an accepted draft has no approval receipt. Month close keeps reading the current draft. This note records the gap and does not change the read. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.
