@@ -2138,7 +2138,7 @@
   "business": {
     "date_picker": {
       "next_month": "Mes siguiente",
-      "open": "[placeholder] business.date_picker.open",
+      "open": "Abrir calendario",
       "placeholder": "dd/mm/aaaa",
       "previous_month": "Mes anterior",
       "today": "Hoy",
