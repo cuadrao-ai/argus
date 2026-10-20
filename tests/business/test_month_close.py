@@ -586,6 +586,7 @@ def test_an_open_line_keeps_its_currency_parts_and_unknown_itbis_stays_null():
         "ecf": "E310000000001",
         "status": "pendiente",
         "sin_comprobante": False,
+        "due_on": None,
     }
 
 

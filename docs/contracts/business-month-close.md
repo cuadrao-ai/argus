@@ -104,7 +104,7 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
-A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, `status`, and `sin_comprobante`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `before_itbis_minor` is the total minus ITBIS, and the whole total for a sin comprobante receipt, the same amount `by_status` and the expense total count. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. `sin_comprobante` is true when the document is sin comprobante, and false otherwise. The same item shape is used in every list in this contract.
+A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, `status`, `sin_comprobante`, and `due_on`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `before_itbis_minor` is the total minus ITBIS, and the whole total for a sin comprobante receipt, the same amount `by_status` and the expense total count. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. `sin_comprobante` is true when the document is sin comprobante, and false otherwise. `due_on` is the due date a person set in review, as `YYYY-MM-DD`, and null while it is unknown. Nothing reads it from the document or defaults it. The same item shape is used in every list in this contract.
 
 An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS, except on a sin comprobante receipt, where it is the whole total. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
 
@@ -174,7 +174,9 @@ The month lists show only what was issued in that month. Inicio shows what is st
         "rnc": "131000001",
         "ncf": "B0100000001",
         "ecf": null,
-        "status": "pendiente"
+        "status": "pendiente",
+        "sin_comprobante": false,
+        "due_on": "2026-10-12"
       }
     ]
   },
@@ -188,11 +190,11 @@ The month lists show only what was issued in that month. Inicio shows what is st
 | `cuentas_por_pagar` | Every receipt still `pendiente`, chosen the same way. |
 | `count` | How many pending documents the list has, including the ones past the cap. |
 | `totals` | The sum of `total_minor` for every pending document in the list, one entry per currency. Currencies are never added together or converted. A currency with no pending document has no entry. |
-| `items` | The oldest 100 pending documents, by `occurred_on` and then `activity_id`. The item shape is the month-close list item. |
+| `items` | The first 100 pending documents. Documents with a `due_on` come first, soonest due date first. Documents without one follow, by `occurred_on`. Ties go by `occurred_on` and then `activity_id`. The item shape is the month-close list item. |
 
 Marking a document `cobrado` or `pagado` with the PATCH above removes it from this read. Setting it back to `pendiente` returns it. The month summary and the close checklist stay month-scoped.
 
-A document has no due date today, so the order uses the date the document was issued. A due date is an open question.
+A person sets the due date in review (`PATCH /business/drafts/{draft_id}/review`) while the draft is open. It locks with the other facts once the document is approved. The month lists keep their `occurred_on` order.
 
 ## PATCH
 

@@ -406,10 +406,14 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         if "draft_id" in summary:
             out["draft_id"] = None
         return out
-    if not drafts or legacy == str(drafts[0]["id"]):
+    if not drafts:
         return summary
     row = drafts[0]
     resolution = BusinessResolution.model_validate(row["resolution"]["business"])
+    if legacy == str(row["id"]):
+        return (
+            {**summary, "due_on": resolution.due_on} if "due_on" in summary else summary
+        )
     facts = resolution.facts
 
     def value(fact):  # noqa: ANN001, ANN202
@@ -438,7 +442,11 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         "document_type_detected": resolution.document_type_detected,
         "document_type_editable": row["state"] == "open",
     }
-    for key, item in (("draft_id", str(row["id"])), ("version", row["version"])):
+    for key, item in (
+        ("draft_id", str(row["id"])),
+        ("version", row["version"]),
+        ("due_on", resolution.due_on),
+    ):
         if key in summary:
             out[key] = item
     out.update(

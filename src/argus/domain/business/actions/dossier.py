@@ -166,7 +166,8 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     questions = tuple(ReviewQuestion.model_validate(row) for row in question_rows)
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii from public.business_draft_revisions"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on"
+        " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
     )
@@ -246,5 +247,6 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         document_type_detected=resolution.document_type_detected,
         document_type_editable=event.state == "open"
         and "prepare" in tx.authorization.capabilities,
+        due_on=resolution.due_on,
         **draft_marks(tx, draft_id, facts),
     )

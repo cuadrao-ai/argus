@@ -93,6 +93,8 @@ class DocumentLine(_Wire):
     # Marked in review as having no comprobante fiscal: counted in the totals,
     # left out of the 606 and 607, and never a missing RNC or NCF.
     sin_comprobante: bool = False
+    # The due date set in review; null while unknown. Open items sort on it.
+    due_on: date | None
 
 
 class MonthClose(_Wire):

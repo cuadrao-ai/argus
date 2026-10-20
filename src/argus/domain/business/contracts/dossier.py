@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -88,6 +88,8 @@ class DraftRevision(Contract):
     created_at: datetime
     before_dgii: DgiiDeclaration | None = None
     after_dgii: DgiiDeclaration | None = None
+    before_due_on: date | None = None
+    after_due_on: date | None = None
 
 
 class Blocker(Contract):
@@ -174,3 +176,6 @@ class BusinessDossier(RecordContext):
     document_type: DocumentType = "recibo"
     document_type_detected: bool = False
     document_type_editable: bool = False
+    #: The due date a person set in review; null while unknown. Never read
+    #: from the document or defaulted. Locked with the other facts once approved.
+    due_on: date | None = None

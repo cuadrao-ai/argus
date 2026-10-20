@@ -313,6 +313,7 @@ class BusinessActions:
                             tx.authorization.provenance,
                             fiscal_review=request.dgii,
                             document_type=request.document_type,
+                            due_on=request.due_on,
                         )
                 except ActionError as error:
                     result = error.result

@@ -161,6 +161,8 @@ async def test_real_database_runner_persists_provenance_and_replays_one_draft(ac
     assert dossier["facts"]["occurred_on"]["state"] == "unknown"
     assert dossier["sources"][0]["text"] == message
     assert len(dossier["history"]) == 2
+    assert "due_on" not in dossier
+    assert all("after_due_on" not in row for row in dossier["history"])
     assert all(
         row["actor"]["actor_kind"] == "owner_via_agent" for row in dossier["history"]
     )
