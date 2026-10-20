@@ -125,7 +125,7 @@ for (const screen of screens) {
       const view = await mount(screen.Panel);
       try {
         await wait(SKELETON_DELAY_MS + 20);
-        assert.equal(view.host.querySelector("h2")?.textContent, screen.title);
+        assert.equal(view.host.querySelector("h1, h2")?.textContent, screen.title);
         const skeleton = view.skeleton();
         assert.ok(skeleton, "the skeleton is on screen while the list is pending");
         assert.equal(skeleton.getAttribute("data-layout"), screen.layout);
@@ -164,7 +164,7 @@ for (const screen of screens) {
         await wait(SKELETON_DELAY_MS + 20);
         await view.answer(screen.path, Response.json({ detail: "boom" }, { status: 500 }));
         assert.equal(view.skeleton(), null);
-        assert.equal(view.host.querySelector("[role=alert]")?.textContent, screen.error);
+        assert.ok(view.host.querySelector("[role=alert]")?.textContent?.includes(screen.error), "the error line replaces the skeleton");
       } finally { await view.close(); }
     });
 

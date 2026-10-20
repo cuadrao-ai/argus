@@ -1,14 +1,12 @@
-"""Exercise the production age policy and store with synthetic Apple results, without providers."""
+"""Exercise the nonblocking age observation with synthetic Apple results, without providers."""
 from pathlib import Path
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[2]
 paths = [
-    "ios/Packages/ArgusSession/Sources/ArgusSession/AgeConfirmation.swift",
-    "ios/ArgusFoundation/Auth/AgeConfirmationPolicy.swift",
-    "ios/ArgusFoundation/Auth/AgeConfirmationModel.swift",
-    "ios/ArgusFoundation/Cuadrao/CuadraoLegalURLs.swift",
+    "ios/ArgusFoundation/Auth/AgeRangeSignal.swift",
+    "ios/ArgusFoundation/Auth/AgeRangeObservation.swift",
     "ios/DesignPreviewTests/AgeConfirmationChecks.swift",
 ]
 with tempfile.TemporaryDirectory(prefix="cuadrao-age-confirmation-") as directory:

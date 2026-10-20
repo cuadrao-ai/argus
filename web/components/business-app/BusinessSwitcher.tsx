@@ -107,7 +107,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
   );
 
   return (
-    <div className={collapsed ? "" : "mx-1 mb-1"} data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
+    <div data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
       <button
         ref={buttonRef}
         type="button"

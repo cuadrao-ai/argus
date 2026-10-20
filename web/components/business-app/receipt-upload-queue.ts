@@ -1,4 +1,5 @@
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
+import { classifyFailure, type FailureClass } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import { receiptFileWithType } from "./receipt-file";
 import { nextWaitingUpload, runFifo, waitingUploads } from "./receipt-upload-fifo";
@@ -17,7 +18,8 @@ export function composerUploadDisposition(origin: UploadOrigin, current: { conve
 
 export type ReceiptUpload = UploadFile & (
   | { status: "queued" }
-  | { status: "uploading" | "failed"; consent: boolean }
+  | { status: "uploading"; consent: boolean }
+  | { status: "failed"; consent: boolean; failure: FailureClass }
   | { status: "saved"; consent: boolean; receipt: ReceiptSummary }
   | { status: "rejected"; reason: UploadRejection }
 );
@@ -140,7 +142,12 @@ export class ReceiptUploadQueue {
             if (error instanceof Error && "status" in error && error.status === 415) {
               this.replace({ ...item, status: "rejected", reason: "unsupported" });
             } else {
-              this.replace({ ...attempt, status: "failed" });
+              const online = typeof navigator === "undefined" ? true : navigator.onLine;
+              this.replace({
+                ...attempt,
+                status: "failed",
+                failure: classifyFailure(error, { fetch: true, online }),
+              });
             }
             return;
           }

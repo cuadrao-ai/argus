@@ -789,11 +789,13 @@ def test_production_migration_gate_is_executable_and_precedes_service_deploy() -
     assert runbook_landed_gate_index < tester_gate.index("sync the Blueprint")
     assert runbook_landed_gate_index < tester_gate.index("api-real-workflow-on")
     assert runbook_landed_gate_index < tester_gate.index(
-        "Deploy **all three live services**"
+        "Deploy production `cuadrao-api`, then **`argus-backtests`**"
     )
     assert runbook_gate_index < tester_gate.index("sync the Blueprint")
     assert runbook_gate_index < tester_gate.index("api-real-workflow-on")
-    assert runbook_gate_index < tester_gate.index("Deploy **all three live services**")
+    assert runbook_gate_index < tester_gate.index(
+        "Deploy production `cuadrao-api`, then **`argus-backtests`**"
+    )
     assert "rerun the gate against the landed SHA" in " ".join(tester_gate.split())
     assert "Production Migration Gate" in manifest
     assert "Candidate migrations" in manifest

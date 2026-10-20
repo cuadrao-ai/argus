@@ -25,6 +25,7 @@ final class ProfileAuthModel: ObservableObject {
     @Published private(set) var savedReceipts: SavedReceiptsModel?
     @Published private(set) var receiptJourney: ReceiptJourneyModel?
     @Published private(set) var deletion: AccountDeletionModel?
+    let ageRangeObservation: AgeRangeObservation
     let configuration: NativeAuthConfiguration?
     /// Native Apple and Google buttons; `.off` unless email auth is configured too.
     let providers: NativeProviderConfiguration
@@ -59,7 +60,9 @@ final class ProfileAuthModel: ObservableObject {
     }
 
     init(configuration loadedConfiguration: NativeAuthConfiguration?, controller loadedController: SessionController?,
-         providers: NativeProviderConfiguration = .off, initialState: State = .signedOut) {
+         providers: NativeProviderConfiguration = .off, initialState: State = .signedOut,
+         ageRangeObservation: AgeRangeObservation? = nil) {
+        self.ageRangeObservation = ageRangeObservation ?? .shared
         configuration = loadedConfiguration
         controller = loadedController
         self.providers = providers
@@ -164,9 +167,10 @@ final class ProfileAuthModel: ObservableObject {
         defer { finishOperation() }
         do {
             if signup {
+                let ageConfirmedAt = ageRangeObservation.adultConfirmedAt
                 let outcome = try await controller.signup(email: email, password: password, captchaToken: captchaToken,
                                                           language: language, displayName: displayName.isEmpty ? nil : displayName,
-                                                          ageConfirmation: AgeConfirmationStore().confirmation)
+                                                          ageConfirmedAt: ageConfirmedAt)
                 switch outcome {
                 case .confirmationRequired:
                     confirmationRequired = true

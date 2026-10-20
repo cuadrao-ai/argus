@@ -666,13 +666,7 @@ export async function signupWithEmail(payload: {
   language: ApiLanguage;
   display_name?: string | null;
   username?: string | null;
-  age_confirmed_at: string;
 }) {
-  if (!payload.age_confirmed_at) {
-    throw Object.assign(new Error("age_confirmation_required"), {
-      code: "age_confirmation_required",
-    });
-  }
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
   const response = await postPasswordAuth<AuthResponsePayload>("/auth/signup", {

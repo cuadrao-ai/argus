@@ -22,7 +22,7 @@ function screenshotDir(): string {
 
 const shots = screenshotDir();
 const title = "Cuadrao Business aún no está disponible para tu cuenta.";
-const body = "Si crees que es un error, escríbenos a admin@cuadrao.ai.";
+const body = "Si crees que es un error, escríbenos a hola@cuadrao.ai.";
 const logoutError = "No pudimos cerrar la sesión en este navegador. Inténtalo de nuevo.";
 
 function channel(value: number): number {
@@ -123,9 +123,9 @@ test.describe("signed-in home with business-only on", () => {
     const notice = page.getByTestId("business-home-closed");
     await expect(notice.getByRole("heading", { name: title })).toBeVisible();
     await expect(notice.getByRole("paragraph")).toHaveText(body);
-    await expect(notice.getByRole("link", { name: "admin@cuadrao.ai" })).toHaveAttribute(
+    await expect(notice.getByRole("link", { name: "hola@cuadrao.ai" })).toHaveAttribute(
       "href",
-      "mailto:admin@cuadrao.ai",
+      "mailto:hola@cuadrao.ai",
     );
     await expect(notice.getByRole("button")).toHaveCount(1);
     await expect(notice.getByRole("button", { name: "Cerrar sesión" })).toBeVisible();

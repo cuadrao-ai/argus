@@ -74,14 +74,33 @@ export type AuthConfirmVerifier = (
   input: { token_hash: string; type: AuthConfirmType },
 ) => Promise<{ error: unknown }>;
 
+const ERROR_TOKEN = /^[A-Za-z0-9_]{1,64}$/;
+
+function errorToken(value: string | null): string | null {
+  return value && ERROR_TOKEN.test(value) ? value : null;
+}
+
+export function confirmErrorLocation(requestUrl: URL, type: string | null): string {
+  const params = new URLSearchParams();
+  const error = errorToken(requestUrl.searchParams.get("error"));
+  const errorCode = errorToken(requestUrl.searchParams.get("error_code"));
+  const named = errorToken(type ?? requestUrl.searchParams.get("type"));
+  if (error) params.set("error", error);
+  if (errorCode) params.set("error_code", errorCode);
+  if (named) params.set("type", named);
+  const query = params.toString();
+  return query ? `/auth/confirm/error?${query}` : "/auth/confirm/error";
+}
+
 export async function confirmAuthGet(request: Request, verify: AuthConfirmVerifier): Promise<Response> {
-  const decision = resolveAuthConfirm(new URL(request.url));
-  if (!decision.ok) return redirect("/auth/confirm/error");
+  const requestUrl = new URL(request.url);
+  const decision = resolveAuthConfirm(requestUrl);
+  if (!decision.ok) return redirect(confirmErrorLocation(requestUrl, null));
   try {
     const result = await verify({ token_hash: decision.tokenHash, type: decision.type });
-    if (result.error) return redirect("/auth/confirm/error");
+    if (result.error) return redirect(confirmErrorLocation(requestUrl, decision.type));
   } catch {
-    return redirect("/auth/confirm/error");
+    return redirect(confirmErrorLocation(requestUrl, decision.type));
   }
   return redirect(decision.next);
 }

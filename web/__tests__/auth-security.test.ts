@@ -139,14 +139,12 @@ describe("account security actions", () => {
     });
   });
 
-  test("account security redirects only auth failures and retries unavailable checks", () => {
+  test("account security sends an ended session to login, a refusal to the closed state, and a 503 to the server screen", () => {
     expect(accountSecurityLoadFailureAction({ status: 401 })).toBe(
       "redirect_to_login",
     );
-    expect(accountSecurityLoadFailureAction({ status: 403 })).toBe(
-      "redirect_to_login",
-    );
-    expect(accountSecurityLoadFailureAction({ status: 503 })).toBe("retry");
+    expect(accountSecurityLoadFailureAction({ status: 403 })).toBe("closed");
+    expect(accountSecurityLoadFailureAction({ status: 503 })).toBe("server");
     expect(accountSecurityLoadFailureAction(new Error("network unavailable"))).toBe(
       "retry",
     );

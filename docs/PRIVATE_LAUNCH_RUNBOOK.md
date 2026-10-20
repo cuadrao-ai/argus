@@ -98,11 +98,12 @@ Auth settings and env names the connectors cannot read are in
 [Dashboard checks (founder, at promotion)](#dashboard-checks-founder-at-promotion).
 
 `render.yaml` names the production services `cuadrao-api` and `cuadrao-web`,
-the same names the dashboard uses. The release profile and `render-env-sync.sh`
-still use the audit labels `argus-api` and `argus-app`. A Blueprint sync
-matches services by name. Never Blueprint-sync until the `render.yaml` service
-names match the dashboard and someone has reviewed the sync diff. This
-checklist does not sync.
+the same names the dashboard uses. The release profile still uses the audit
+label `argus-api` for the API, and `argus-app` for the business-web contract.
+`render-env-sync.sh` labels the web audit `cuadrao-web`, not `argus-app`. A
+Blueprint sync matches services by name. Never Blueprint-sync until the
+`render.yaml` service names match the dashboard and someone has reviewed the
+sync diff. This checklist does not sync.
 
 - Integration tip: `origin/codex/private-alpha-next` at `651870a54be4e5506dbb38f3902fef1a97eef8df`
 - `origin/main` at `78e6f3f88ea6694711cc34c91973449a1446a0c2`
@@ -392,7 +393,7 @@ The daily RNC load is `.github/workflows/dgii-rnc-import.yml` in PR #1257. GitHu
 After promotion, confirm these steps.
 
 1. Confirm `.github/workflows/dgii-rnc-import.yml` is on `main`. The daily schedule does not run until that file is on `main`.
-2. The first production load needs Lucas's explicit yes at promotion time, and the size-gate check. The size gate reads `pg_database_size` before truncate. It refuses the load when that size plus the required headroom exceeds the limit. Headroom is the larger of the live `public.dgii_rnc` size and a 200 MB floor. The default limit is 450 MB.
+2. The first load needs Lucas's explicit yes at promotion time, and the size-gate check. PR #1257's job loads the staging registry only. That yes is enforced only by leaving `DGII_RNC_LOAD_ENABLED` unset and leaving the `SUPABASE_STAGING_DB_URL` secret unset until Lucas approves. The size gate reads `pg_database_size` before truncate. It refuses the load when that size plus the required headroom exceeds the limit. Headroom is the larger of the live `public.dgii_rnc` size and a 200 MB floor. The default limit is 450 MB.
 3. Confirm the first scheduled run of `.github/workflows/dgii-rnc-import.yml` on `main` succeeds.
 
 ### 5. Deploy order
@@ -409,7 +410,7 @@ After the landed gate reports `status=pass` and the env readbacks above match th
 
 `status=ready` is the promotion gate. `ARGUS_PRIVATE_LAUNCH_WEB_SERVICE_ID` is `srv-d7ap6bmslomc73eqp8m0`, dashboard `cuadrao-web`, the marketing site. The audit checks that service against the release profile `marketing` surface and labels the lines `cuadrao-web`. It does not check that service against the `web` surface. The `argus-app` label stays the business-web contract, and no production service carries it yet. Stop on any `argus-api`, `cuadrao-web`, or `argus-backtests` drift or `unexpected_live_env` line. The vision-model allow-list stop in section 3 still applies to `argus-api`.
 
-4. Deploy dashboard `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. Do not deploy `cuadrao-web` here. It serves `marketing/` from branch `main`, autoDeploy is off, and a person deploys it by hand when `main` should ship. This promotion does not deploy `web/`. The release-coherence canary requires the `cuadrao-api` commit and the `argus-backtests` workflow version to match the candidate. It still reads `web-deploy-status` for `srv-d7ap6bmslomc73eqp8m0`, records that commit as `canary_web_deploy_sha`, and does not require the commit to equal the candidate. The command reference in [Before Tester Sessions](#before-tester-sessions) still names the audit labels `argus-api`, then `argus-app`, then `argus-backtests`.
+4. Deploy dashboard `cuadrao-api`, then `argus-backtests`, from the landed SHA. Manual triggers, in that order. Do not deploy `cuadrao-web` here. It serves `marketing/` from branch `main`, autoDeploy is off, and a person deploys it by hand when `main` should ship. This promotion does not deploy `web/`. The release-coherence canary requires the `cuadrao-api` commit and the `argus-backtests` workflow version to match the candidate. It still reads `web-deploy-status` for `srv-d7ap6bmslomc73eqp8m0`, records that commit as `canary_web_deploy_sha`, and does not require the commit to equal the candidate. The command reference in [Before Tester Sessions](#before-tester-sessions) deploys `cuadrao-api`, then `argus-backtests`, and deploys `cuadrao-web` by hand from `main`.
 5. Read deploy status:
 
 ```bash
@@ -517,21 +518,25 @@ numbered commands in this section are the command reference that sequence calls.
 The promotion target is `main`, but `codex/private-alpha-next` remains the
 integration staging branch until the founder approves promotion. Do not merge
 to `main` or open a release PR before that approval. Deploys are manual. The
-release profile and `render.yaml` declare `autoDeployTrigger: off` for all three
-services (founder decision, 2026-09-13), so the release audit expects `off` and
-a Blueprint sync cannot turn autodeploy on. Every
-candidate still follows the gate below and needs a release manifest before
-testers are invited; start from
+release profile and `render.yaml` declare `autoDeployTrigger: off` for
+`cuadrao-api`, `argus-backtests`, and `cuadrao-web` (founder decision,
+2026-09-13), so the release audit expects `off` and a Blueprint sync cannot
+turn autodeploy on. Production deploys are `cuadrao-api` plus
+`argus-backtests`. `cuadrao-web` is deployed manually from `main` per
+[§5](#5-deploy-order). Every candidate still follows the gate below and needs
+a release manifest before testers are invited. Start from
 `docs/release-manifests/TEMPLATE.md` and fill it with the exact candidate SHA,
 API/web env fingerprint, workflow-service proof, canary evidence, rollback
-target, autodeploy proof for all three services, and approver.
+target, autodeploy proof for `cuadrao-api`, `argus-backtests`, and
+`cuadrao-web`, and the approver.
 
 The candidate below must be the exact would-be `main` promotion commit: the
 immutable commit produced from current `main` and the approved integration tree
 that will actually land and deploy. A worker or integration head is not
 sufficient when the landing method creates a different commit. If the landing
-method cannot preserve a pre-gated SHA, keep all three live autodeploy triggers
-manual through step 4 and gate the landed SHA before any deploy-capable action.
+method cannot preserve a pre-gated SHA, keep the `cuadrao-api`,
+`argus-backtests`, and `cuadrao-web` autodeploy triggers manual through step 4
+and gate the landed SHA before any deploy-capable action.
 
 Local preflight doctrine:
 
@@ -668,15 +673,15 @@ method that preserves the pre-gated commit SHA; otherwise code can deploy before
 the landed tree is verified.
 
 > [!NOTE]
-> **The deploy mode lives in the release profile.** The profile and
-> `render.yaml` declare `off` for `argus-api`, `argus-app`, and
-> `argus-backtests`, so a Blueprint sync and the companion Workflow API sync
-> (`.github/render-env-sync.sh workflow-runtime`) keep all three manual. Before
-> 2026-09-13 the repository declared `checksPass` while live Render stayed
-> manual, so any configuration sync could turn autodeploy on as a side effect
-> and every release audit reported drift. Enabling autodeploy is a founder
-> decision made by changing the profile and `render.yaml` together for all three
-> services, never by a sync.
+> **The deploy mode lives in the release profile.** The profile declares
+> `off` for `argus-api`, `argus-app`, and `argus-backtests`. `render.yaml`
+> declares `off` for `cuadrao-api` and `cuadrao-web`. A Blueprint sync and
+> the companion workflow sync (`.github/render-env-sync.sh workflow-runtime`)
+> keep those triggers manual. Before 2026-09-13 the repository declared
+> `checksPass` while the live services stayed manual, so a configuration sync
+> could turn autodeploy on as a side effect and every release audit reported
+> drift. Enabling autodeploy is a founder decision made by changing the profile
+> and `render.yaml` together, never by a sync.
 
 5. In Render, sync the Blueprint from `render.yaml` only when `argus-api` or
    `argus-app` config drift needs reconciliation. Render Blueprints cannot
@@ -724,12 +729,13 @@ For local founder/operator runs, `.github/canary-render.sh` also accepts
 
 Restart `argus-api` after changing Render env values.
 
-10. Deploy **all three live services** from the candidate commit:
-   `argus-api`, then `argus-app`, then **`argus-backtests`**.
+10. Deploy production `cuadrao-api`, then **`argus-backtests`**, from the candidate commit.
+   Deploy `cuadrao-web` manually from `main`, per [§5](#5-deploy-order).
 
-   When all three live triggers use `checksPass`, a commit on the configured
-   deployment branch deploys after its checks pass. In manual mode, explicitly
-   deploy the candidate using the same three-service order.
+   When those live triggers use `checksPass`, a commit on the configured
+   deployment branch deploys after its checks pass. In manual mode, deploy
+   `cuadrao-api` and `argus-backtests` from the candidate, and deploy
+   `cuadrao-web` from `main`.
 
    **`argus-backtests` is the easiest one to forget and the one that breaks the
    canary.** It is the Render Workflow service that actually runs backtests, it
@@ -737,12 +743,14 @@ Restart `argus-api` after changing Render env values.
    2026-08-11. On that promotion the API and web shipped while the workflow
    service stayed a week behind, and the canary stopped at
    `workflow_commit_mismatch` before spending money on a paid journey. Deploy it
-   every time, and never let a promotion finish with the three on different
-   commits.
+   every time, and never let a promotion finish with `cuadrao-api` and
+   `argus-backtests` on different commits. `cuadrao-web` keeps its own `main`
+   commit.
 
-11. Confirm the live `argus-api`, `argus-app`, and `argus-backtests` deploy
-   commits match the candidate commit you intend to test and that their latest
-   versions are ready:
+11. Confirm the live `cuadrao-api` deploy commit and the `argus-backtests`
+   ready version match the candidate commit you intend to test. Record the
+   `cuadrao-web` commit on its own. It does not have to equal the candidate.
+   Confirm that the `cuadrao-api` deploy and the `argus-backtests` version are ready:
 
 ```bash
 ARGUS_RELEASE_SHA="$(git rev-parse HEAD)"
