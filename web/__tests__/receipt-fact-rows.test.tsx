@@ -96,10 +96,10 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
     assert.ok(html.includes(">Faltan 2 datos<"));
     assert.ok(html.includes('data-fact="amount" data-standing="empty" data-blocked="true"'));
     assert.ok(html.includes('data-fact="funding" data-standing="empty" data-blocked="true"'));
-    assert.equal((html.match(/>Falta</g) ?? []).length, 2);
+    assert.ok(!html.includes(">Falta<"), "a missing value is an empty field, not a chip");
     assert.equal((html.match(/Necesita una decisión antes de aprobar/g) ?? []).length, 2);
     assert.ok(html.includes('data-fact="category_id" data-standing="empty" class'));
-    assert.ok(html.includes(">Sin dato<"));
+    assert.ok(!html.includes("Sin dato") && !html.includes("Desconocido"));
   });
 
   test("NCF or e-CF: a fiscal receipt with one of them never counts the other as missing", async () => {
@@ -118,7 +118,7 @@ describe("the counts line agrees with 'Antes de aprobar'", () => {
     const { html } = await render(dossier);
     assert.ok(!html.includes('data-testid="receipt-review-counts"'));
     assert.ok(!html.includes(">Falta<") && !html.includes("Faltan"));
-    assert.ok(html.includes('data-fact="ncf" data-standing="empty"') && html.includes(">Sin dato<"));
+    assert.ok(html.includes('data-fact="ncf" data-standing="empty"') && !html.includes("Sin dato"));
   });
 
   test("a blocked field that has a value is 'por resolver', never 'Falta': the line equals the chips (amount is a blocked suggestion)", async () => {
@@ -161,18 +161,18 @@ describe("the record facts on the review page", () => {
     } as unknown as BusinessDossier;
     const { html } = await render(dossier);
     assert.ok(html.includes('data-fact="counterparty" data-standing="suggestion"'));
-    assert.equal((html.match(/Leído del recibo/g) ?? []).length, 2);
+    assert.equal((html.match(/Leído del recibo/g) ?? []).length, 2, "once for each card that holds a read value");
+    for (const card of html.split('data-testid="receipt-facts-').slice(1)) assert.ok((card.match(/Leído del recibo/g) ?? []).length <= 1);
     assert.ok(!html.includes('data-testid="receipt-read-banner"'));
     assert.ok(!html.includes("Leído de la fuente · sugerencia sin verificar"));
     assert.ok(html.includes("Editar detalles · Comercio"));
     assert.ok(!html.includes("confirm-counterparty") && !html.includes("lucide-sparkles"));
-    assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes("Del código QR · sin verificar"));
-    assert.ok(html.includes('data-fact="category_id" data-standing="linked"') && html.includes("Vinculado a la fuente · sin verificar"));
-    assert.ok(html.includes("Indicado por el dueño · sin verificar"));
+    assert.ok(html.includes('data-fact="occurred_on" data-standing="qr"') && html.includes('data-fact="category_id" data-standing="linked"'));
+    for (const chip of ["Del código QR", "Vinculado a la fuente", "Indicado por el dueño", "Sin verificar", "lucide-circle-dashed"]) assert.ok(!html.includes(chip), chip);
     assert.ok(html.includes('data-fact="ecf" data-standing="suggestion"') && !html.includes("confirm-ecf"));
     assert.ok(html.indexOf('data-fact="occurred_on"') < html.indexOf('data-fact="counterparty"'));
     assert.ok(html.indexOf('data-fact="amount"') < html.indexOf('data-fact="counterparty"'));
-    assert.ok(html.includes("Desconocido"));
+    assert.ok(!html.includes("Desconocido"), "the unknown amount is an empty field");
     assert.ok(!html.includes("verificada") && !html.includes("—"));
   });
 
@@ -204,7 +204,7 @@ describe("the record facts on the review page", () => {
     const base = await fixture();
     const dossier = { ...base, facts: { ...base.facts, counterparty: known("extracted") } } as BusinessDossier;
     const { html } = await render(dossier, "en", false);
-    assert.equal((html.match(/Read from source · not verified/g) ?? []).length, 1);
+    assert.equal((html.match(/Read from the receipt/g) ?? []).length, 1);
     assert.ok(!html.includes("Read from the source · suggestion, not verified"));
     assert.ok(!html.includes("confirm-counterparty"));
     assert.ok(html.includes("suggestion to confirm") || html.includes("suggestions to confirm"));

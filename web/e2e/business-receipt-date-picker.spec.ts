@@ -11,7 +11,7 @@ for (const width of [1440, 390] as const) {
       await installReceiptBusiness(page);
       await openReceipt(page, /Ferretería La Esquina/);
       const fields = page.getByTestId("receipt-review-fields");
-      const input = fields.getByLabel("Fecha", { exact: true });
+      const input = fields.getByLabel("Fecha de actividad", { exact: true });
       await expect(page.locator('input[type="date"]')).toHaveCount(0);
       await expect(input).toHaveAttribute("placeholder", "dd/mm/aaaa");
       await expect(input).toHaveValue(/^\d{1,2} [a-z]+ \d{4}$/);
@@ -30,7 +30,7 @@ for (const width of [1440, 390] as const) {
         await expect.poll(async () => { const sheet = (await dialog.boundingBox())!; return Math.round(sheet.y + sheet.height); }, { message: "the sheet settles on the bottom edge" }).toBe(900);
         expect(Math.round((await dialog.boundingBox())!.width)).toBe(width);
         await expect(dialog).toHaveAttribute("aria-modal", "true");
-        await expect(dialog.getByRole("heading", { name: "Fecha" })).toBeAttached();
+        await expect(dialog.getByRole("heading", { name: "Fecha de actividad" })).toBeAttached();
       } else {
         const box = (await dialog.boundingBox())!;
         const field = (await input.boundingBox())!;

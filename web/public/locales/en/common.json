@@ -2356,11 +2356,15 @@
       "before_approval": "Before approval",
       "approve": "Approve expense",
       "approve_next": "Approve and next",
+      "approve_reason": {
+        "date": "Add the date to approve"
+      },
       "approved_by": "Approved by {{name}} · permission granted by {{issuer}}",
       "approving": "Approving…",
       "approval_effect": "Approval records this revision as one expense. Saving review details does not record it.",
       "prepare_only": "Your permission allows preparing this record. A person with approval permission must approve it.",
       "read_only": "Your permission allows viewing this record.",
+      "read_from_receipt": "Read from the receipt",
       "recorded": "One expense was recorded after approval of revision {{version}}.",
       "correction_unsupported": "Corrections after recording aren't available in this first flow.",
       "ecf_title": "Electronic invoice verification",

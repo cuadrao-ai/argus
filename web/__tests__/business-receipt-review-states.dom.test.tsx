@@ -133,9 +133,9 @@ test("a disabled Aprobar names the missing facts beside it", async () => {
     const approve = page.button("Aprobar");
     assert.ok(approve);
     assert.equal(approve.disabled, true);
-    const reason = page.host.querySelector('[data-testid="dossier-approve-reason"]');
+    const reason = page.host.querySelector('[data-testid="approve-reason"]');
     assert.equal(reason?.textContent, "Falta: Cómo se pagó, Parte del negocio");
-    assert.equal(reason?.parentElement, approve.parentElement?.parentElement, "the reason sits with the button");
+    assert.equal(reason?.parentElement, approve.parentElement, "the reason sits with the button");
   } finally {
     await page.close();
   }

@@ -41,6 +41,7 @@ export async function installReceiptBusiness(page: Page, override?: BusinessOver
       else if (parts[0] === "drafts" && parts[2] === "dossier") json = await source.dossier(parts[1]);
       else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
       else if (parts[0] === "month-close" && parts.length === 1) json = MONTH;
+      else if (parts.join("/") === "fiscal-profile/fields") json = { "606": [], "607": [] };
       else if (["captures", "updates", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
       else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       return route.fulfill({ json });

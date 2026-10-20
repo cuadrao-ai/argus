@@ -251,7 +251,7 @@ describe("receipt detail uses the picker for its date", () => {
     assert.equal(page.host.querySelector('input[type="date"]'), null);
     const fields = page.host.querySelector('[data-testid="receipt-review-fields"]')!;
     const input = fields.querySelector<HTMLInputElement>('input[placeholder="dd/mm/aaaa"]')!;
-    assert.equal(fields.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha");
+    assert.equal(fields.querySelector(`label[for="${CSS.escape(input.id)}"]`)?.textContent, "Fecha de actividad");
     assert.equal(input.value, formatDay(receipt.occurred_on, "es-419"));
     const save = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Guardar detalles de revisión")!;
     const merchant = [...fields.querySelectorAll("label")].find((label) => label.textContent?.startsWith("Comercio"))!.querySelector("input")!;

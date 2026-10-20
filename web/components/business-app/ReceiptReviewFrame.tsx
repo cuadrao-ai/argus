@@ -7,18 +7,20 @@ import { useBusiness } from "./BusinessWorkspace";
 import { takeTitleFocus } from "./bandeja-order";
 
 /**
- * The one receipt review page: a way back, the record's name and standing,
- * then the source on the left and the fields with their one action on the
- * right. On a phone the source comes first and the fields follow. Every
- * state of a receipt renders inside this frame, read or not, prepared or not.
+ * The one receipt review page: a way back, then the supplier, the total and
+ * the status before anything else. The fields come first in reading order;
+ * on a desktop the source sits to their left. The footer spans the pane and sticks to its bottom edge.
+ * Every state of a receipt renders inside this frame, read or not, prepared
+ * or not.
  */
-export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, badge, summary, source, children, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, source, children, footer }: {
   recordId: string;
   back: "inbox" | "expenses";
-  eyebrow?: ReactNode;
   title: ReactNode;
   badge?: ReactNode;
-  summary?: ReactNode;
+  /** The formatted total; absent while it is unknown, never a zero. */
+  amount?: string | null;
+  mark?: string | null;
   source: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -31,23 +33,28 @@ export default function ReceiptReviewFrame({ recordId, back, eyebrow, title, bad
   }, [recordId]);
   return (
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review">
-      <button type="button" onClick={() => openPanel({ kind: back })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/65">
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      <button type="button" onClick={() => openPanel({ kind: back })} className="mb-4 flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
+        <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         {back === "expenses" ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}
       </button>
-      <header className="mb-5">
-        {eyebrow ? <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{eyebrow}</p> : null}
+      <header className="mb-6" data-testid="receipt-top-block">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="-mx-1.5 min-w-0 break-words rounded-md px-1.5 font-display focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/30 text-[25px] font-medium tracking-tight text-black dark:text-white">{title}</h2>
+          <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="min-w-0 break-words rounded-[12px] font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
           {badge}
         </div>
-        {summary ? <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">{summary}</div> : null}
+        {amount ? <p data-testid="receipt-total" className="mt-2 text-[28px] font-medium leading-[34px] tabular-nums text-[#172b26] dark:text-white">{amount}</p> : null}
+        {mark ? <p data-testid="bill-mark" className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{mark}</p> : null}
       </header>
-      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-4" data-testid="receipt-review-source">{source}</div>
-        <div className="min-w-0 space-y-4" data-testid="receipt-review-fields">{children}</div>
+      <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:gap-6">
+        <div className="min-w-0 space-y-4 desktop:col-start-2 desktop:row-start-1 desktop:space-y-6" data-testid="receipt-review-fields">{children}</div>
+        <div className="min-w-0 space-y-4 desktop:col-start-1 desktop:row-start-1 desktop:space-y-6" data-testid="receipt-review-source">{source}</div>
       </div>
-      {footer ? <div data-testid="receipt-review-footer" className="sticky bottom-0 z-10 mt-4 border-t border-black/10 bg-[var(--cuadrao-cream)] px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-white/15 dark:bg-[#141517]">{footer}</div> : null}
+      {footer ? (
+        // The workspace region pads its bottom by 48px and sticky offsets count from inside that padding; -48px on both puts the footer on the pane's edge.
+        <div data-testid="receipt-review-footer" className="sticky bottom-[-48px] z-10 -mx-4 -mb-12 mt-6 border-t border-[#DCE0DA] bg-[#FFFEFA] px-6 py-4 tablet:-mx-8 dark:border-white/10 dark:bg-[#1f2225]">
+          {footer}
+        </div>
+      ) : null}
     </section>
   );
 }

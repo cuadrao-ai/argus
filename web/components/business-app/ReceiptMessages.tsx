@@ -3,7 +3,7 @@
 import { useTranslation } from "react-i18next";
 import type { BusinessSourceEvidence } from "@/lib/business-dossier";
 import { formatTimestamp } from "./business-format";
-import { cardClass } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 export default function ReceiptMessages({ sources }: { sources: BusinessSourceEvidence[] }) {
   const { t, i18n } = useTranslation();
@@ -13,7 +13,7 @@ export default function ReceiptMessages({ sources }: { sources: BusinessSourceEv
   if (!messages.length && !proposals.length && !actions.length) return null;
   return (
     <div className="space-y-4">
-    {messages.length ? <section className={cardClass} aria-label={t("business.dossier.messages", "Original messages")}>
+    {messages.length ? <section className={SURFACE_CARD} aria-label={t("business.dossier.messages", "Original messages")}>
       <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.messages", "Original messages")}</h3>
       <ol className="mt-4 space-y-4">
         {messages.map((source) => (
@@ -24,14 +24,14 @@ export default function ReceiptMessages({ sources }: { sources: BusinessSourceEv
         ))}
       </ol>
     </section> : null}
-    {proposals.length ? <section className={cardClass} aria-label={t("business.dossier.proposals", "Agent proposals")}>
+    {proposals.length ? <section className={SURFACE_CARD} aria-label={t("business.dossier.proposals", "Agent proposals")}>
       <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.proposals", "Agent proposals")}</h3>
       <ol className="mt-4 space-y-4">{proposals.map((source) => <li key={source.id}>
         <p className="text-[12px] text-black/55 dark:text-white/55">{source.channel === "whatsapp" ? "WhatsApp" : t("business.dossier.web_message", "Web message")} · {formatTimestamp(source.received_at, i18n.resolvedLanguage ?? "en")}</p>
         <blockquote className="mt-2 whitespace-pre-wrap break-words border-l-2 border-black/10 pl-3 text-[15px] leading-relaxed text-black/80 dark:border-white/15 dark:text-white/80">{source.text}</blockquote>
       </li>)}</ol>
     </section> : null}
-    {actions.length ? <section className={cardClass} aria-label={t("business.dossier.web_actions", "Web review actions")}>
+    {actions.length ? <section className={SURFACE_CARD} aria-label={t("business.dossier.web_actions", "Web review actions")}>
       <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.web_actions", "Web review actions")}</h3>
       <ol className="mt-4 space-y-4">
         {actions.map((source) => <li key={source.id}>

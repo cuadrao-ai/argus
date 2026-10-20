@@ -7,7 +7,7 @@ import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Download, RotateCcw } from "lucide-react";
+import { Check, CircleAlert, Download, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
@@ -22,14 +22,15 @@ import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptFactEditor from "./ReceiptFactEditor";
-import { recordFactRows, extractedConfirmationPatch } from "./receipt-fact-rows";
+import { ACTIVITY_FIELDS, MORE_FIELDS, extractedConfirmationPatch } from "./receipt-fact-rows";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { formatBusinessName, formatMoney } from "./business-format";
 import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
-import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, secondaryButtonClass, StatusPill } from "./business-ui";
+import { PRIMARY_BUTTON, SECONDARY_BUTTON, SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
@@ -41,7 +42,7 @@ export function approvalLine(canApprove: boolean, canPrepare: boolean): "prepare
 export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier }) {
   const { t } = useTranslation();
   if (!dossier.blockers.length || dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return null;
-  return <div className={`${cardClass} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
+  return <div className={`${SURFACE_CARD} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
 }
 
 /** The purchases a read showed on one receipt, what this record covers of its total, and the settle action once the record is recorded. */
@@ -61,7 +62,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
         ? t("business.dossier.read_unrecorded", "{{count}} purchases on this receipt are still unrecorded.", { count: unrecorded })
         : t("business.dossier.read_settled", "The rest of this receipt is settled.");
   return (
-    <div className={cardClass} data-testid="dossier-read-purchases">
+    <div className={SURFACE_CARD} data-testid="dossier-read-purchases">
       <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.read_purchases_title", "Purchases read on this receipt")}</h3>
       <p className="mb-3 mt-1 text-[13px] text-black/55 dark:text-white/55" data-testid="dossier-read-remainder">{note}</p>
       <ul className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
@@ -72,7 +73,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
           </li>
         ))}
       </ul>
-      {recorded && unrecorded > 0 && onSettle ? <button type="button" data-testid="dossier-settle-remainder" className={`${secondaryButtonClass} mt-3`} disabled={busy} onClick={onSettle}>{t("business.dossier.settle_remainder", "The rest is already handled")}</button> : null}
+      {recorded && unrecorded > 0 && onSettle ? <button type="button" data-testid="dossier-settle-remainder" className={`${SECONDARY_BUTTON} mt-3`} disabled={busy} onClick={onSettle}>{t("business.dossier.settle_remainder", "The rest is already handled")}</button> : null}
     </div>
   );
 }
@@ -296,12 +297,12 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
 
   const captureDialog = <ManualCaptureDialog isOpen={captureOpen} target={captureTarget} revision={captureRevision} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
-  const captureRecovery = captureRetained && !captureOpen ? <button type="button" className={`${secondaryButtonClass} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
+  const captureRecovery = captureRetained && !captureOpen ? <button type="button" className={`${SECONDARY_BUTTON} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
   if (unavailable || !dossier && problem) return (<>
     {captureRecovery}
-    <section className={cardClass}>
-      <p role="alert" className="text-[14px] text-black/75 dark:text-white/75">{problem ?? t("business.dossier.unavailable", "This record isn't available with your current access.")}</p>
-      <button type="button" disabled={checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
+    <section className={SURFACE_CARD} data-testid="receipt-load-error">
+      <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem ?? t("business.dossier.unavailable", "This record isn't available with your current access.")}</p>
+      <button type="button" disabled={checking} onClick={() => void refresh()} className={`${SECONDARY_BUTTON} mt-4`}>{t("common.retry", "Retry")}</button>
     </section>{captureDialog}</>
   );
   if (!dossier) return <>{captureRecovery}<Settle pending layout="detail" />{captureDialog}</>;
@@ -333,6 +334,15 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     } else if (next) void approveAndNext();
     else void write("approve");
   };
+  const reason = busy || supportedKind && approvable ? null
+    : dirty ? t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.")
+    : dossier.facts.occurred_on.state !== "known" && dossier.blockers.some((blocker) => blocker.field === "occurred_on") ? t("business.dossier.approve_reason.date", "Add the date to approve")
+    : missingFields.length ? t("business.dossier.missing_list", "Missing: {{fields}}", { fields: missingFields.map((field) => t(`business.dossier.field.${field}`, field)).join(", ") })
+    : dossier.blockers.length ? t(`business.dossier.blocker.${dossier.blockers[0].code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))
+    : t("business.dossier.blocker_fallback", "This record needs further review before approval.");
+  // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
+  const pillStatus = receipt?.status ?? (recorded || dossier.review_state === "accepted" ? "confirmed" : dossier.review_state === "open" ? "review_ready" : null);
+  const reasonId = `approve-reason-${dossier.draft_id}`;
   const approvalLabel = dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Aprobar ingreso") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Aprobar reembolso") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"));
 
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
@@ -342,8 +352,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
       ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
       ...(canPrepare && mutable ? { edit: () => {
         const focused = document.activeElement?.closest<HTMLElement>("[data-fact]")?.dataset.fact;
-        const rows = recordFactRows(dossier);
-        const field = rows.find((row) => row.key === focused)?.key ?? rows[0]?.key;
+        const order = [...ACTIVITY_FIELDS, ...MORE_FIELDS];
+        const field = order.find((key) => key === focused) ?? order[0];
         if (!field) return;
         const control = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-testid="edit-${field}"] input, [data-testid="edit-${field}"] select`);
         if (control) control.focus();
@@ -354,50 +364,48 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     <ReceiptReviewFrame
       recordId={receipt?.id ?? draftId}
       back={recorded ? "expenses" : "inbox"}
-      eyebrow={formatBusinessName(dossier.space_name, t("business.overview.title", "My business"))}
       title={title}
-      badge={<span className="rounded-full bg-black/5 px-3 py-1.5 text-[12px] text-black/70 dark:bg-white/10 dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
-      summary={<><p className="font-display text-[23px] font-medium tabular-nums text-black dark:text-white">{amount === null ? t("business.dossier.amount_unknown", "Amount unknown") : currency === null ? `${amount} · ${t("business.dossier.currency_unknown", "Currency unknown")}` : formatMoney(amount, currency, i18n.resolvedLanguage ?? "en")}</p>{dossier.bill_mark ? <span data-testid="bill-mark" className="text-[13px] text-black/70 dark:text-white/70">{dossier.bill_mark}</span> : null}<span className="text-[12px] text-black/50 dark:text-white/50">{t("business.dossier.revision", "Revision {{version}}", { version: factsRevision(dossier) })}</span></>}
-      footer={!approval && canApprove ? <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? t("business.dossier.approving", "Approving…") : approvalLabel}</button>
-          {receipt ? <button type="button" className={secondaryButtonClass} disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? t("business.dossier.approving", "Approving…") : t("business.dossier.approve_next", "Approve and next")}</button> : null}
-        </div>
-        {!approvable ? <p data-testid="dossier-approve-reason" className="text-[12px] text-black/65 dark:text-white/70">{dirty ? t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.") : missingFields.length ? t("business.dossier.missing_list", "Missing: {{fields}}", { fields: missingFields.map((field) => t(`business.dossier.field.${field}`, field)).join(", ") }) : dossier.blockers.length ? t(`business.dossier.blocker.${dossier.blockers[0].code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval.")) : t("business.dossier.blocker_fallback", "This record needs further review before approval.")}</p> : null}
+      badge={pillStatus ? <StatusPill status={pillStatus} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
+      amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? "en") : null}
+      mark={dossier.bill_mark}
+      footer={!approval && canApprove ? <div className="flex flex-wrap items-center gap-3">
+        <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${PRIMARY_BUTTON} w-full whitespace-nowrap tablet:w-auto`} aria-describedby={reason ? reasonId : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : approvalLabel}</button>
+        {receipt ? <button type="button" aria-busy={operation.kind === "approving" && advancing} className={`${SECONDARY_BUTTON} w-full whitespace-nowrap tablet:w-auto`} aria-describedby={reason ? reasonId : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval(true)}>{operation.kind === "approving" && advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : t("business.dossier.approve_next", "Approve and next")}</button> : null}
+        {reason ? <p id={reasonId} data-testid="approve-reason" className="w-full text-[13px] leading-[18px] text-[#56635e] tablet:w-auto tablet:flex-1 dark:text-white/70">{reason}</p> : null}
       </div> : undefined}
       source={<>
           {attachments.map((attachment) => <ReceiptSourcePreview key={attachment.id} detail={{ id: attachment.connection_id, filename: attachment.filename, media_type: attachment.media_type, received_at: attachment.received_at, channel: attachment.channel, email_delivery_ids: attachment.email_delivery_ids }} />)}
           <ReceiptMessages sources={dossier.sources} />
-          {!attachments.length ? <div className={`${cardClass} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
+          {!attachments.length ? <div className={`${SURFACE_CARD} text-[14px] text-black/65 dark:text-white/65`}>{dossier.facts.receipt_state.state === "known" && dossier.facts.receipt_state.value === "no_receipt" ? t("business.dossier.no_receipt", "No receipt was supplied.") : t("business.dossier.no_attachment", "No receipt file is attached to this record.")}</div> : null}
           <ReceiptReadPurchases dossier={dossier} busy={settling || busy} onSettle={canApprove ? settle : undefined} />
           <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
           <ReceiptHistory history={dossier.history} accounts={accounts} />
       </>}
     >
-          <div className={cardClass}>
-            <h3 className="mb-4 text-[14px] font-medium text-black dark:text-white">{operation.kind === "uncertain" && operation.action === "save" ? t("business.dossier.pending_details", "Your unconfirmed edits") : t("business.dossier.current_details", "Current details")}</h3>
-            {canPrepare && confirmationCount > 0 ? <button type="button" className={`${secondaryButtonClass} mb-4`} disabled={!mutable} onClick={() => void write("save", confirmations)}>{spanishReview ? `Confirmar ${confirmationCount} datos leídos` : `${t("business.dossier.confirm_value", "Confirm")} ${confirmationCount}`}</button> : null}
+          <div>
+            {operation.kind === "uncertain" && operation.action === "save" ? <h3 className="mb-4 font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.dossier.pending_details", "Your unconfirmed edits")}</h3> : null}
+            {canPrepare && confirmationCount > 0 ? <button type="button" className={`${SECONDARY_BUTTON} mb-4`} disabled={!mutable} onClick={() => void write("save", confirmations)}>{spanishReview ? `Confirmar ${confirmationCount} datos leídos` : `${t("business.dossier.confirm_value", "Confirm")} ${confirmationCount}`}</button> : null}
             <ReceiptRecordFacts dossier={dossier} accounts={accounts} onEdit={canPrepare && mutable ? (key) => setEditing((current) => current.includes(key) ? current : [...current, key]) : undefined} editor={canPrepare ? (key) => editing.includes(key) || key === "occurred_on" && dossier.facts.occurred_on.state === "unknown" ? <ReceiptFactEditor key={`${key}-${editReset}`} field={key} autoFocus={editing.includes(key)} facts={dossier.facts} patch={edits} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={(patch, invalid) => {
               setEdits((current) => ({ ...current, ...patch }));
               setInvalidFields((current) => invalid ? [...new Set([...current, key])] : current.filter((field) => field !== key));
             }} /> : null : undefined} />
-            {dirty ? <div className="mt-4 space-y-3"><p className="text-[12px] text-black/60 dark:text-white/65">{t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.")}</p><div className="flex flex-wrap gap-2"><button type="button" className={secondaryButtonClass} disabled={!mutable || invalidFields.length > 0} onClick={() => void write("save", edits)}>{t("business.dossier.save", "Save review details")}</button><button type="button" className={secondaryButtonClass} disabled={!mutable} onClick={() => { setEditing([]); setEdits({}); setInvalidFields([]); setEditReset((value) => value + 1); }}>{t("common.cancel", "Cancel")}</button></div></div> : null}
+            {dirty ? <div className="mt-4 space-y-3"><p className="text-[12px] text-black/60 dark:text-white/65">{t("business.dossier.edit_note", "Saving updates the review details. Approval is a separate action.")}</p><div className="flex flex-wrap gap-2"><button type="button" className={SECONDARY_BUTTON} disabled={!mutable || invalidFields.length > 0} onClick={() => void write("save", edits)}>{t("business.dossier.save", "Save review details")}</button><button type="button" className={SECONDARY_BUTTON} disabled={!mutable} onClick={() => { setEditing([]); setEdits({}); setInvalidFields([]); setEditReset((value) => value + 1); }}>{t("common.cancel", "Cancel")}</button></div></div> : null}
           </div>
-          {operation.kind === "uncertain" && operation.action === "save" ? <div className={cardClass}><h3 className="mb-5 text-[14px] font-medium text-black dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
-          {canPrepare && mutable && !editing.length && !dirty ? <button type="button" className={secondaryButtonClass} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
+          {operation.kind === "uncertain" && operation.action === "save" ? <div><h3 className="mb-4 font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.dossier.saved_details", "Current saved details")}</h3><ReceiptRecordFacts dossier={dossier} accounts={accounts} /></div> : null}
+          {canPrepare && mutable && !editing.length && !dirty ? <button type="button" className={SECONDARY_BUTTON} onClick={() => { setCaptureTarget({ draft_id: dossier.draft_id, version: dossier.version }); setCaptureRevision(factsRevision(dossier)); setCaptureOpen(true); }}>{t("business.capture.append", "Add a note to this record")}</button> : null}
           <ReceiptMarksCard dossier={dossier} busy={busy || fiscalBusy || fiscalDirty} onChanged={setDossier} />
           {source.mode === "live" ? <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} disabled={busy || dirty || capturePending || captureOpen} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} /> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptApprovalGuidance dossier={dossier} />
-          {problem ? <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
-          {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={cardClass}><p className="text-[14px] text-black/80 dark:text-white/80">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
-          <div className={cardClass}>
+          {problem ? <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p> : null}
+          {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${SECONDARY_BUTTON} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
+          <div className={SURFACE_CARD}>
             {approval ? <><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{(dossier.facts.kind.value === "income" ? t("business.dgii.recorded_income", "Se registró un ingreso después de aprobar la revisión {{version}}.", { version: approval.approved_revision }) : dossier.facts.kind.value === "refund" ? t("business.dgii.recorded_refund", "Se registró un reembolso después de aprobar la revisión {{version}}.", { version: approval.approved_revision }) : t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision }))}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
               {line ? <p className="text-[13px] leading-relaxed text-black/65 dark:text-white/65">{t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.")}</p> : null}
               {dossier.approval_result?.status === "failed" ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
             </>}
             {operation.kind === "uncertain" || dossier.approval_result?.status === "outcome_unknown" || dossier.review_state === "accepting" ? <p role="status" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.outcome_unknown", "The action's outcome isn't known yet. Check the saved status before taking another action.")}</p> : null}
-            <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
+            <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${SECONDARY_BUTTON} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
           </div>
     </ReceiptReviewFrame>
     {/* The note dialog keeps the third place in every branch, so a refused save keeps its message. */}

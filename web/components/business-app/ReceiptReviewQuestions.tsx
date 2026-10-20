@@ -2,14 +2,14 @@
 
 import { useTranslation } from "react-i18next";
 import type { BusinessReviewQuestion } from "@/lib/business-dossier";
-import { cardClass } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 export default function ReceiptReviewQuestions({ questions }: { questions: BusinessReviewQuestion[] }) {
   const { t } = useTranslation();
   const unresolved = questions.filter((question) => ["open", "owner_does_not_know", "waiting_for_window"].includes(question.state));
   if (!unresolved.length) return null;
   return (
-    <section className={`${cardClass} border-[#c2a44d]/30`} aria-labelledby="receipt-questions-title" data-testid="receipt-review-questions">
+    <section className={SURFACE_CARD} aria-labelledby="receipt-questions-title" data-testid="receipt-review-questions">
       <h3 id="receipt-questions-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.decisions", "Needs your decision")}</h3>
       <ul className="mt-3 space-y-3">
         {unresolved.map((question) => (
