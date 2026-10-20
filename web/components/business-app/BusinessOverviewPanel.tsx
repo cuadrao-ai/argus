@@ -78,30 +78,17 @@ export default function BusinessOverviewPanel() {
         ) : null}
       </div>
 
-      <button
-        type="button"
-        data-testid="inicio-por-revisar"
-        onClick={() => openPanel({ kind: "inbox" })}
-        className={`${cardClass} mb-6 flex min-h-11 w-full flex-col items-start justify-center text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40`}
-      >
-        <span className="font-display text-[20px] font-medium text-black dark:text-white">
-          {porRevisar === null
-            ? t("business.overview.open_inbox", "Open inbox")
-            : porRevisar === 0
-              ? t("business.overview.por_revisar_none", "Nothing to review")
-              : <><span data-testid="inicio-por-revisar-count">{porRevisar}</span>{" "}{t("business.overview.por_revisar", "to review")}</>}
-        </span>
-        {reading > 0 || problem > 0 ? (
-          <span data-testid="inicio-otras" className="mt-1 text-[14px] text-black/70 dark:text-white/75">
-            {[
-              reading > 0 ? t("business.overview.reading", { count: reading }) : null,
-              problem > 0 ? t("business.overview.problem", { count: problem }) : null,
-            ].filter(Boolean).join(" · ")}
-          </span>
-        ) : null}
-      </button>
-
-      <BusinessMonthClosePanel onMonthChange={setShownMonth} />
+      <BusinessMonthClosePanel
+        onMonthChange={setShownMonth}
+        review={porRevisar === null ? null : {
+          count: porRevisar,
+          detail: [
+            reading > 0 ? t("business.overview.reading", { count: reading }) : null,
+            problem > 0 ? t("business.overview.problem", { count: problem }) : null,
+          ].filter(Boolean).join(" · ") || null,
+          open: () => openPanel({ kind: "inbox" }),
+        }}
+      />
       {exportOpen ? <ExportRecordsPanel month={shownMonth} onClose={() => setExportOpen(false)} /> : null}
 
       {records.error ? (
