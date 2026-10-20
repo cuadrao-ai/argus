@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
 import { useProfileUpdates } from "@/components/chat/useProfileUpdates";
 import { useTranslation } from "react-i18next";
-import { readStored, writeStored } from "@/lib/browser-storage";
 import { signedInHomePath } from "@/lib/landing-intent";
 import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
-import ChatSidebar, { type SidebarMode } from "@/components/sidebar/ChatSidebar";
+import ChatSidebar from "@/components/sidebar/ChatSidebar";
 import SidebarPreferenceModal from "@/components/settings/SidebarPreferenceModal";
 import ConversationActivityAnnouncement from "@/components/chat/ConversationActivityAnnouncement";
 import ConversationActivityRail from "@/components/chat/ConversationActivityRail";
@@ -207,7 +206,7 @@ import { retirePendingBreakdown } from "@/lib/pending-result-breakdown";
 import SidebarShell from "@/components/sidebar/SidebarShell";
 import ChatShellMenuTrigger from "@/components/chat/ChatShellMenuTrigger";
 import BusinessPhoneAccount from "@/components/business-app/foundation/BusinessPhoneAccount";
-import { businessShellLayout, useMobileShell } from "@/components/chat/useMobileShell";
+import { businessShellLayout, useMobileShell, useSidebarRail } from "@/components/chat/useMobileShell";
 import { memoryRecallsFromFinalPayload, useMemoryChrome } from "./memory-chrome";
 import {
   isStarterSelectionMetadata,
@@ -277,7 +276,7 @@ export default function ChatInterface() {
   const workspace = useChatWorkspace();
   const [shellView, setCurrentView] = useState<View>(() => workspace?.initialView ?? "chat");
   const currentView = visibleShellView(workspace, shellView);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(workspace?.id === "business");
+  const { isSidebarOpen, setIsSidebarOpen, sidebarMode, chooseSidebarMode, toggleSidebar, closeRailForDialog } = useSidebarRail(workspace?.id);
   const mobileShell = useMobileShell();
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const [showChatOptions, setShowChatOptions] = useState(false);
@@ -315,7 +314,6 @@ export default function ChatInterface() {
   const { toast, showToast, hideToast } = useChatToast();
   const [isRecentsExpanded, setIsRecentsExpanded] = useState(true);
   const [feedbackState, setFeedbackState] = useState<ChatFeedbackDialogState>({ isOpen: false, type: "general" });
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(workspace?.id === "business" ? "expanded" : "collapsed");
   const [isSidebarPreferenceModalOpen, setIsSidebarPreferenceModalOpen] =
     useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -551,25 +549,6 @@ export default function ChatInterface() {
     }
   }, [isSidebarOpen]);
 
-  useEffect(() => {
-    const saved = readStored("argus:sidebar_mode") as SidebarMode | null;
-    if (saved === "expanded" || saved === "collapsed" || saved === "hover") {
-      setSidebarMode(saved);
-      setIsSidebarOpen(saved === "expanded");
-    }
-  }, []);
-
-  const handleSetSidebarMode = (mode: SidebarMode) => {
-    setSidebarMode(mode);
-    writeStored("argus:sidebar_mode", mode);
-    if (mode === "expanded") setIsSidebarOpen(true);
-    if (mode === "collapsed" || mode === "hover") setIsSidebarOpen(false);
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen((open) => !open);
-  };
-
   const closeDrawer = mobileShell.closeDrawer;
   const closeTransientSidebar = useCallback(() => {
     // Navigating out of the drawer always dismisses it; the rail keeps its own
@@ -581,7 +560,7 @@ export default function ChatInterface() {
         mode: sidebarMode,
       }),
     );
-  }, [closeDrawer, sidebarMode]);
+  }, [closeDrawer, setIsSidebarOpen, sidebarMode]);
   const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
@@ -971,9 +950,9 @@ export default function ChatInterface() {
       setFeedbackState(
         openFeedbackDialogState(type, context, rating, conversationId),
       );
-      setIsSidebarOpen(false);
+      closeRailForDialog();
     },
-    [conversationId, showToast, t],
+    [closeRailForDialog, conversationId, showToast, t],
   );
 
   // ── Send message ───────────────────────────────────────────────────────────
@@ -2069,7 +2048,7 @@ export default function ChatInterface() {
         variant={mobileShell.isBelowTablet ? "drawer" : "rail"}
         onRequestClose={mobileShell.closeDrawer}
         guestSettings={null}
-        isOpen={layout.sidebarIsOpen} railLocked={layout.railLocked}
+        isOpen={layout.sidebarIsOpen} railLocked={layout.railLocked} business={layout.businessShell}
         onToggle={toggleSidebar}
         currentView={currentView}
         conversationId={conversationId}
@@ -2414,7 +2393,7 @@ export default function ChatInterface() {
       {isSidebarPreferenceModalOpen && (
         <SidebarPreferenceModal
           mode={sidebarMode}
-          onSelect={handleSetSidebarMode}
+          onSelect={chooseSidebarMode}
           onClose={() => setIsSidebarPreferenceModalOpen(false)}
         />
       )}

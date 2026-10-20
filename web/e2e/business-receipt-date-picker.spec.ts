@@ -18,7 +18,7 @@ for (const width of [1440, 390] as const) {
       await input.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `${SHOT_DIR}/date-picker-closed-${width}.png` });
 
-      await fields.getByRole("button", { name: "[placeholder] business.date_picker.open" }).click();
+      await fields.getByRole("button", { name: "Abrir calendario" }).click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
       await expect(dialog.locator("th")).toHaveText(["lu", "ma", "mi", "ju", "vi", "sá", "do"]);

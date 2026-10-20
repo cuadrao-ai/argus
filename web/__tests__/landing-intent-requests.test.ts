@@ -86,7 +86,6 @@ describe("landing attribution on auth requests", () => {
       email: "alpha@example.com",
       password: "password123",
       language: "en",
-      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(bodies.at(-1)).toMatchObject({
       email: "alpha@example.com",
@@ -129,7 +128,6 @@ describe("landing attribution on auth requests", () => {
       email: "shared@example.com",
       password: "password123",
       language: "en",
-      age_confirmed_at: "2026-10-17T12:00:00.000Z",
     });
     expect(bodies.at(-1)).toMatchObject({
       attribution: {

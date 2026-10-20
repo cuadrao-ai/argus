@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   authLinkErrorRedirect,
+  confirmErrorView,
   mapAuthLinkError,
   notFoundHref,
   prefilledEmail,
@@ -130,6 +131,38 @@ describe("authLinkErrorRedirect", () => {
     expect(target?.searchParams.get("type")).toBe("recovery");
   });
 
+  test("an unknown type on recovery still opens the link screen as recovery", () => {
+    const target = authLinkErrorRedirect({
+      origin,
+      pathname: "/auth/recovery",
+      searchParams: new URLSearchParams("error=access_denied&error_code=otp_expired&type=not-a-flow"),
+    });
+    expect(target?.pathname).toBe("/auth/link-error");
+    expect(target?.searchParams.get("type")).toBe("recovery");
+    expect(target?.searchParams.get("error")).toBe("access_denied");
+    expect(
+      mapAuthLinkError({
+        search: target?.search ?? "",
+        hash: "",
+        pathname: "/auth/link-error",
+      }),
+    ).toEqual({
+      kind: "request",
+      flow: "recovery",
+      email: null,
+      href: "/auth/forgot-password",
+    });
+  });
+
+  test("a named invite on the recovery path is not replaced", () => {
+    const target = authLinkErrorRedirect({
+      origin,
+      pathname: "/auth/recovery",
+      searchParams: new URLSearchParams("error=access_denied&type=invite"),
+    });
+    expect(target?.searchParams.get("type")).toBe("invite");
+  });
+
   test("does not redirect a screen that is already the shared one", () => {
     expect(
       authLinkErrorRedirect({
@@ -151,7 +184,31 @@ describe("notFoundHref", () => {
 describe("prefilledEmail", () => {
   test("keeps a single address and drops anything else", () => {
     expect(prefilledEmail("ada@example.test")).toBe("ada@example.test");
+    expect(prefilledEmail(" ada@example.test ")).toBe("ada@example.test");
     expect(prefilledEmail("not an email")).toBe("");
     expect(prefilledEmail(null)).toBe("");
+    expect(prefilledEmail("a\r\nb@x.com")).toBe("");
+    expect(prefilledEmail("a\nb@x.com")).toBe("");
+    expect(prefilledEmail("a\tb@x.com")).toBe("");
+    expect(prefilledEmail("a b@x.com")).toBe("");
+  });
+});
+
+describe("confirmErrorView", () => {
+  test("a recovery confirm failure is the request screen", () => {
+    expect(confirmErrorView("?error=access_denied&error_code=otp_expired&type=recovery&email=ada@example.test")).toEqual({
+      kind: "request",
+      flow: "recovery",
+      email: "ada@example.test",
+      href: "/auth/forgot-password?email=ada%40example.test",
+    });
+  });
+
+  test("an invite confirm failure does not offer a request form", () => {
+    expect(confirmErrorView("?type=invite")).toEqual({ kind: "invite" });
+  });
+
+  test("a confirm type that is not a link flow still gets the request screen", () => {
+    expect(confirmErrorView("?type=signup")).toMatchObject({ kind: "request", flow: "recovery" });
   });
 });

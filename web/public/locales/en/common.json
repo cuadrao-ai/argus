@@ -1440,11 +1440,6 @@
     "close_dossier": "Close dossier"
   },
   "auth": {
-    "age_confirmation": {
-      "checkbox": "I confirm I'm 18 or older.",
-      "missing": "To continue, confirm you're 18 or older.",
-      "rejected": "We couldn't save your age confirmation. Check the box and try again."
-    },
     "captcha": {
       "verifying": "Verifying you’re not a bot…"
     },
@@ -1463,7 +1458,7 @@
       "error": "We couldn’t send your request. Please try again."
     },
     "business_unavailable": {
-      "body": "If you think this is a mistake, email us at admin@cuadrao.ai.",
+      "body": "If you think this is a mistake, email us at hola@cuadrao.ai.",
       "sign_out": "Sign out",
       "title": "Cuadrao Business isn't available for your account yet."
     },
@@ -1531,12 +1526,20 @@
       "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required."
     },
     "screen": {
+      "email_wait": "Wait a minute before requesting another email.",
+      "go_home": "Go to Home",
+      "go_to_businesses": "Go to my businesses",
       "go_to_cuadrao": "Go to Cuadrao",
       "invite_line": "Ask the person who invited you to send another invitation.",
       "link_expired_title": "This link expired or was already used.",
       "not_found_detail": "The link may be old or copied wrong.",
       "not_found_title": "We could not find this page.",
-      "request_new_link": "Request a new link"
+      "offline": "You are offline. Check your internet.",
+      "removed_title": "You do not have access to this business.",
+      "request_new_link": "Request a new link",
+      "server_title": "Something went wrong on our side.",
+      "session_ended": "Your session ended. Sign in again.",
+      "try_again": "Try again"
     },
     "errors": {
       "generic": "Something went wrong. Please try again.",

@@ -1,6 +1,9 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import { useBusiness } from "./BusinessWorkspace";
 import { useAccessBanner } from "./useAccessBanner";
 import BusinessSectionActions from "./BusinessSectionActions";
@@ -22,17 +25,13 @@ import { formatBusinessName } from "./business-format";
  */
 export function BusinessContextCue() {
   const { t } = useTranslation();
-  const { chosen, lostAccess } = useBusiness();
+  const { chosen, lostAccess, clearLostAccess } = useBusiness();
   const access = useAccessBanner();
   const client = chosen && chosen.role !== "owner" ? chosen : null;
   const clientName = formatBusinessName(client?.name, t("business.overview.title", "My business"));
   return (
     <>
-      {lostAccess ? (
-        <p role="status" data-testid="business-access-lost" className="mb-3 rounded-[14px] bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/75 dark:bg-white/[0.06] dark:text-white/80">
-          {t("business.switcher.lost", "You no longer have access to this Business.")}
-        </p>
-      ) : null}
+      {lostAccess ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
       {client ? (
         <p data-testid="business-client-cue" className="mb-3 text-[13px] font-medium text-[var(--cuadrao-green)]">
           {t("business.switcher.client_cue", "Client: {{name}}", { name: clientName })}
@@ -51,7 +50,22 @@ export function BusinessContextCue() {
 }
 
 export default function BusinessPanel() {
-  const { panel } = useBusiness();
+  const { panel, lostAccess, records, reload } = useBusiness();
+  if (records.closed) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl justify-center pb-6">
+        <BusinessClosedNotice />
+      </div>
+    );
+  }
+  if (records.serverReference) return <ServerErrorScreen reference={records.serverReference} onRetry={reload} />;
+  if (lostAccess) {
+    return (
+      <div className="mx-auto w-full max-w-3xl pb-6">
+        <BusinessContextCue />
+      </div>
+    );
+  }
   return (
     <div className={`mx-auto w-full ${panel.kind === "receipt" || panel.kind === "draft" ? "" : "max-w-3xl pb-6"}`}>
       <SampleDataNotice />

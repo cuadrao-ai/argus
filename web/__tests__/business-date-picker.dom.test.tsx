@@ -210,6 +210,23 @@ describe("the single-date picker", () => {
     assert.equal(page.input.placeholder, "dd/mm/aaaa");
     await page.close();
   });
+
+  test("the calendar button is Abrir calendario and no accessible name is a placeholder key", async () => {
+    const page = await picker("2026-10-14");
+    const names = () => [...document.body.querySelectorAll<HTMLElement>("*")].flatMap((element) => [
+      element.getAttribute("aria-label"),
+      element.getAttribute("title"),
+      element.getAttribute("placeholder"),
+      ...(element.getAttribute("aria-labelledby") ?? "").split(" ").filter(Boolean).map((id) => document.getElementById(id)?.textContent ?? null),
+      element.matches("button, a, label, th, [role]") ? element.textContent : null,
+    ]).filter((name): name is string => Boolean(name));
+    assert.equal(page.trigger.getAttribute("aria-label"), "Abrir calendario");
+    assert.deepEqual(names().filter((name) => name.trim().startsWith("[placeholder]")), [], "closed");
+    await page.act(async () => { page.trigger.click(); });
+    assert.ok(page.dialog());
+    assert.deepEqual(names().filter((name) => name.trim().startsWith("[placeholder]")), [], "open");
+    await page.close();
+  });
 });
 
 describe("receipt detail uses the picker for its date", () => {

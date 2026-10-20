@@ -418,9 +418,9 @@ describe("mobile top bar", () => {
     expect(chatInterface).not.toContain('placement="drawer"');
   });
 
-  test("the rail preference entry is absent in drawer mode, not greyed", () => {
+  test("the rail preference entry is absent in drawer mode and in Business, not greyed", () => {
     expect(chatSidebar).toContain(
-      "const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;",
+      "const sidebarPreferenceHandler = isDrawer || business ? undefined : onOpenSidebarPreference;",
     );
   });
 });

@@ -20,6 +20,16 @@ export function prefilledEmail(value: string | null | undefined): string {
   return readableEmail(value) ?? "";
 }
 
+export function confirmErrorView(search: string): AuthLinkErrorView {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const type = params.get("type");
+  const probe = new URLSearchParams(params);
+  if (!isUsedOrExpired(probe)) probe.set("error", "access_denied");
+  if (type !== "invite" && type !== "email_change" && type !== "recovery") probe.set("type", "recovery");
+  return mapAuthLinkError({ search: probe.toString(), hash: "", pathname: "/" })
+    ?? { kind: "request", flow: "recovery", email: null, href: requestHref("recovery", null) };
+}
+
 export function notFoundHref(signedIn: boolean, home: string): string {
   return signedIn ? home : "/?auth=login";
 }
@@ -54,7 +64,9 @@ export function authLinkErrorRedirect(input: {
   const next = new URL("/auth/link-error", input.origin);
   for (const key of ["error", "error_code", "type", "email"]) {
     const value = input.searchParams.get(key);
-    if (value) next.searchParams.set(key, value);
+    if (!value) continue;
+    if (key === "type" && !isFlow(value)) continue;
+    next.searchParams.set(key, value);
   }
   if (!next.searchParams.get("type")) {
     next.searchParams.set("type", view.kind === "invite" ? "invite" : view.flow);
@@ -107,7 +119,7 @@ function readableEmail(value: string | null | undefined): string | null {
   if (!value) return null;
   const email = value.trim();
   if (email.length < 3 || email.length > 254) return null;
-  if (email.includes(" ") || email.includes("/") || email.includes("?") || email.includes("#") || email.includes("\\")) return null;
+  if (/\s/.test(email) || email.includes("/") || email.includes("?") || email.includes("#") || email.includes("\\")) return null;
   const at = email.indexOf("@");
   if (at <= 0 || email.indexOf("@", at + 1) !== -1 || at === email.length - 1) return null;
   return email;
