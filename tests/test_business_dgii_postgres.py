@@ -27,6 +27,7 @@ from argus.domain.business.fiscal_profile import (
 )
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.recording.repository import NewAccount
+from psycopg.rows import dict_row
 
 from tests import test_business_actions_postgres as shared
 from tests.dgii.test_packet import packet
@@ -40,6 +41,7 @@ ORACLE = {
     row["id"]: row
     for row in json.loads((FIXTURES / "practice-oracle.json").read_text())["records"]
 }
+PRACTICE_NAME = "PRÁCTICA José"
 
 
 @pytest.fixture
@@ -47,11 +49,8 @@ def actions(shared_actions):
     from argus.domain.business.spaces import PostgresSpaceStore
 
     service, context, grant = shared_actions
-    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "Taller Ensayo")
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, PRACTICE_NAME)
     yield service, context, grant
-
-
-PRACTICE_NAME = "PRÁCTICA José"
 
 
 def filer_change(
@@ -701,12 +700,16 @@ def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
     )
     assert cedula["tax_id"] == {"type": "cedula", "value": "00100000001"}
     with service.authority.pool.connection() as db:
-        row = db.execute(
-            "select actor_id::text as actor_id, created_at, command"
-            " from public.business_action_receipts"
-            " where space_id=%s and idempotency_key=%s",
-            (context.actor.space_id, "profile-cedula"),
-        ).fetchone()
+        row = (
+            db.cursor(row_factory=dict_row)
+            .execute(
+                "select actor_id::text as actor_id, created_at, command"
+                " from public.business_action_receipts"
+                " where space_id=%s and idempotency_key=%s",
+                (context.actor.space_id, "profile-cedula"),
+            )
+            .fetchone()
+        )
         assert row["actor_id"] == str(context.actor.actor_id)
         assert row["created_at"] is not None
         assert row["command"]["tax_id"]["type"] == "cedula"
