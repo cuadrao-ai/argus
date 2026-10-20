@@ -90,6 +90,9 @@ class DocumentLine(_Wire):
     ncf: str | None
     ecf: str | None
     status: str
+    # Marked in review as having no comprobante fiscal: counted in the totals,
+    # left out of the 606 and 607, and never a missing RNC or NCF.
+    sin_comprobante: bool = False
 
 
 class MonthClose(_Wire):
