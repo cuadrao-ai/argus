@@ -92,6 +92,7 @@ def save_revision(
     read_total: str | None = None,
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
+    bill_mark: str | None = None,
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
     document_type: str | None = None,
@@ -114,12 +115,15 @@ def save_revision(
     if dgii_qr is None:
         kept_qr = previous.get("dgii_qr")
         dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
+    if bill_mark is None:
+        bill_mark = previous.get("bill_mark")
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
         read_total=read_total,
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
+        bill_mark=bill_mark,
         remainder_settled=bool(previous.get("remainder_settled", False)),
         dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
         document_type=document_type
@@ -382,9 +386,12 @@ def prepare_attachment(
         candidate.source.connection_id != draft.connection_id for candidate in candidates
     ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
+    bill = ncf_bill(batch)
     purchases = candidates or _observed_purchases(batch)
-    if not purchases and ncf_bill(batch) and batch.receipt is not None:
+    booked_from_bill = False
+    if not purchases and bill and batch.receipt is not None:
         purchases = [_bill_purchase(batch.receipt)]
+        booked_from_bill = True
     priced = () if purchases else priced_amounts(batch)
     chosen = review_amount(batch) if priced else None
     if chosen is not None:
@@ -500,11 +507,35 @@ def prepare_attachment(
         read_total,
         batch.ecf_checks,
         batch.dgii_qr,
+        None
+        if draft.document_type == "venta"
+        else _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
         document_type=draft.document_type,
     )
 
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
+PAYABLE_BILL_MARK = "Factura por pagar"
+PAID_BILL_MARK = "Factura pagada"
+
+
+def _due_notice_mark(
+    batch: ExtractionBatch, *, bill: bool, booked_from_bill: bool
+) -> str | None:
+    """The mark on the one expense an NCF due notice books.
+
+    A normal paid purchase keeps its own merchant and gets no mark. Paying
+    the same due notice later replaces the payable mark on that record.
+    """
+
+    if not bill or batch.receipt is None:
+        return None
+    due = any(row.evidence == "due_notice" for row in batch.observations)
+    if not due and not booked_from_bill:
+        return None
+    if batch.receipt.payment_status == "paid":
+        return PAID_BILL_MARK
+    return PAYABLE_BILL_MARK
 
 
 def _read_refusal(batch: ExtractionBatch) -> str | None:

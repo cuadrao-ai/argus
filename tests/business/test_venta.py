@@ -22,9 +22,11 @@ from argus.domain.business.contracts.facts import (
 from argus.domain.business.document_type import parse_document_type, require_venta_kind
 from argus.domain.business.month_close import formato_totals, project_documents, summarize
 from argus.domain.ingestion.contract import ImportCandidate, SourceRef
+from argus.domain.ingestion.documents.extractor import batch_from_result
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     ExtractionBatch,
+    ExtractionResult,
     ReceiptDetails,
 )
 from argus.domain.ingestion.documents.service import owner_purchase
@@ -64,7 +66,6 @@ def _actor() -> ActorProvenance:
 
 
 def _prepare(draft: DocumentDraft, receipt: ReceiptDetails, monkeypatch):
-    actor = _actor()
     candidate = ImportCandidate(
         source=SourceRef(
             source="statement",
@@ -86,6 +87,11 @@ def _prepare(draft: DocumentDraft, receipt: ReceiptDetails, monkeypatch):
         candidates=(candidate,),
         receipt=receipt,
     )
+    return _prepare_batch(draft, batch, monkeypatch)
+
+
+def _prepare_batch(draft: DocumentDraft, batch: ExtractionBatch, monkeypatch):
+    actor = _actor()
     tx = SimpleNamespace(
         context=SimpleNamespace(
             owner_id=str(uuid4()), actor=SimpleNamespace(space_id=uuid4())
@@ -258,3 +264,43 @@ def test_a_venta_cannot_be_changed_into_an_expense(monkeypatch):
         )
     assert refused.value.code == "activity_kind_unsupported"
     require_venta_kind("recibo", BusinessFacts())
+
+
+def test_a_venta_read_as_an_unpaid_fiscal_bill_is_income_without_a_payable_mark(
+    monkeypatch,
+):
+    draft = _draft(document_type="venta")
+    result = ExtractionResult.model_validate(
+        dict(
+            complete=True,
+            readable=True,
+            pages_read=[1],
+            observations=[
+                {
+                    "page": 1,
+                    "row": 1,
+                    "evidence": "due_notice",
+                    "amount": "118.00",
+                    "currency": "DOP",
+                    "occurred_on": "2026-10-05",
+                    "direction": "unknown",
+                    "kind_hint": "unknown",
+                    "merchant": "Cliente Norte",
+                }
+            ],
+            receipt=dict(
+                merchant="Cliente Norte",
+                occurred_on="2026-10-05",
+                currency="DOP",
+                total="118.00",
+                ncf="B0100000001",
+                payment_status="pending",
+            ),
+        )
+    )
+    batch = batch_from_result(
+        result, draft.sha256, draft.connection_id, draft.created_at, 1
+    )
+    resolution = _prepare_batch(draft, batch, monkeypatch)
+    assert resolution["facts"]["kind"]["value"] == "income"
+    assert resolution["bill_mark"] is None

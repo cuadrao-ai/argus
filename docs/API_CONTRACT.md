@@ -8768,7 +8768,13 @@ dispatched once. Settings are `ARGUS_DOCUMENT_JOBS_ENABLED`,
 `docs/specs/lanes/cuadrao-document-preparation-jobs.md`.
 
 Preparation preserves extracted observations and receipt itemization separately
-from canonical candidate projection. Compatible observations enter existing
+from canonical candidate projection. Receipt payment evidence is `paid|pending|unknown`,
+with missing evidence treated as unknown on a new read. Payment evidence does not
+gate projection: an unpaid bill or order confirmation keeps its read amount, which
+Business preparation leaves unverified for a person to approve.
+`receipt.tax` holds final tax only; `receipt.estimated_tax` retains a printed
+estimate without promoting it to final tax or ITBIS. Existing saved
+batches are not reinterpreted or reread automatically. Compatible observations enter existing
 reconciliation; incompatible observations remain on the draft with review issues.
 Opening, closing, available and running balances remain distinguishable; unknown
 scope is unresolved, never guessed. Receipt items, subtotal, tax/service, tip and
@@ -9789,7 +9795,12 @@ accept path recorded.
   fiscal bill. Replaying that batch refuses the same way, so the retry asks
   the provider for a new read. On a replay a fiscal bill becomes one expense
   from the receipt total, even when every observation is a due notice or a
-  statement period. Other interrupted hand-offs retry the same way. A terminal
+  statement period. An NCF due notice is that one expense, marked
+  `Factura por pagar` on the dossier as `bill_mark`. When the same record
+  is prepared again as paid, the mark becomes `Factura pagada`. The draft
+  id does not change and a second expense is not opened. A paid purchase
+  that is not a due notice carries `bill_mark: null`. Other interrupted
+  hand-offs retry the same way. A terminal
   refusal is never reported as `no_purchase_found`, which stays for a receipt
   that was read and found no purchase row. The stored `error_code` is not
   rewritten.

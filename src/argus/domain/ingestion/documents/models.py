@@ -72,7 +72,9 @@ class ReceiptDetails(_Frozen):
     currency: str | None = Field(default=None, max_length=20)
     items: tuple[ReceiptItem, ...] = Field(default=(), max_length=300)
     subtotal: str | None = Field(default=None, max_length=80)
+    payment_status: Literal["paid", "pending", "unknown"] = "unknown"
     tax: str | None = Field(default=None, max_length=80)
+    estimated_tax: str | None = Field(default=None, max_length=80)
     service: str | None = Field(default=None, max_length=80)
     tip: str | None = Field(default=None, max_length=80)
     total: str | None = Field(default=None, max_length=80)

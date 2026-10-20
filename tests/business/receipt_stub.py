@@ -32,6 +32,7 @@ PURCHASE: dict[str, Any] = {
     "merchant": "FERRETERIA LA ESQUINA SRL",
 }
 DETAILS: dict[str, Any] = {
+    "payment_status": "paid",
     "merchant": "FERRETERIA LA ESQUINA SRL",
     "occurred_on": "2026-10-06",
     "currency": "DOP",

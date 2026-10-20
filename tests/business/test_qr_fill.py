@@ -30,7 +30,7 @@ def _read(*, rows: list[dict], receipt: dict | None) -> ExtractionResult:
             readable=True,
             pages_read=[1],
             observations=rows,
-            receipt=receipt,
+            receipt={"payment_status": "paid", **receipt} if receipt else None,
         )
     )
 

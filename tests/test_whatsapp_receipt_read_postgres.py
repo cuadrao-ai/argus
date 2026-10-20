@@ -55,7 +55,7 @@ class Extractor:
                         merchant="Synthetic shop",
                     )
                 ],
-                receipt=dict(total="250.50", currency="DOP"),
+                receipt=dict(payment_status="paid", total="250.50", currency="DOP"),
             )
         )
         digest = sha256(kwargs["content"]).hexdigest()

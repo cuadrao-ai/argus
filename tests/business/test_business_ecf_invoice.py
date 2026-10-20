@@ -24,6 +24,7 @@ READ = {
     "merchant": HOTEL,
 }
 DETAILS = {
+    "payment_status": "paid",
     "merchant": HOTEL,
     "occurred_on": "2026-10-09",
     "currency": "DOP",

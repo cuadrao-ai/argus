@@ -251,6 +251,9 @@ class BusinessResolution(Contract):
     ecf_checks: EcfVerification | None = None
     #: The DGII QR the receipt carried, kept with the draft for the person to open.
     dgii_qr: DgiiQr | None = None
+    #: One NCF due notice is one expense. Unpaid it is marked payable. Paid,
+    #: the same record takes the paid mark. A later read does not open another.
+    bill_mark: Literal["Factura por pagar", "Factura pagada"] | None = None
     #: A person settled the read purchases this draft does not record.
     remainder_settled: bool = False
 
