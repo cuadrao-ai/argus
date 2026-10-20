@@ -97,6 +97,10 @@ export type ReceiptSummary = ReceiptReviewFields & {
   personal_editable?: boolean;
   /** `venta` is an invoice this business already issued. Absent means a receipt. */
   document_type?: "recibo" | "venta";
+  /** The type was read from the document (its RNC is the Business's own), not picked; absent when false. */
+  document_type_detected?: boolean;
+  /** True while the draft is open and the caller can prepare: the type can still change. */
+  document_type_editable?: boolean;
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;
@@ -193,6 +197,15 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
     method: "PATCH",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, facts }),
+  });
+}
+
+/** Compra or Venta on an open draft. Null clears a picked type so the server detects it again. */
+export async function setBusinessDraftDocumentType(draftId: string, version: number, documentType: "recibo" | "venta" | null, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
+    method: "PATCH",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, document_type: documentType }),
   });
 }
 
@@ -341,7 +354,8 @@ export type BusinessSearchResult = {
   accounts: BusinessAccount[];
 };
 
-export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number } };
+/** `document_type` only on a new note: a note on a draft is refused with it. Left out, the note is a detected receipt. */
+export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number }; document_type?: "recibo" | "venta" };
 export type BusinessCapture = {
   draft_id: string;
   /** The draft's current version, which also counts approvals and settlements. */
@@ -536,7 +550,8 @@ export async function uploadBusinessReceipt(
   file: File,
   consentToPrepare: boolean,
   idempotencyKey: string,
-  documentType: "recibo" | "venta" = "recibo",
+  /** Null leaves the header out so the server detects the type; a picked type turns detection off. */
+  documentType: "recibo" | "venta" | null = null,
   onProgress?: UploadProgressListener,
 ): Promise<ReceiptSummary> {
   const authHeaders = await authenticatedRequestHeaders();
@@ -545,7 +560,7 @@ export async function uploadBusinessReceipt(
       "Content-Type": file.type,
       "Idempotency-Key": idempotencyKey,
       "X-Document-Filename": encodeURIComponent(file.name),
-      ...(documentType === "venta" ? { "X-Document-Type": "venta" } : {}),
+      ...(documentType ? { "X-Document-Type": documentType } : {}),
       ...(consentToPrepare ? { "X-Extraction-Consent": "true" } : {}),
     },
     authHeaders,

@@ -15,7 +15,8 @@ mock.module("next/navigation", () => ({
 }));
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  // Below the desktop stop a record is the whole page; record-tray.dom.test.tsx covers the desktop tray.
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 800, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {

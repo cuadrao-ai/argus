@@ -818,17 +818,24 @@ export function BusinessMonthCloseView({
   );
 }
 
-export default function BusinessMonthClosePanel({ onMonthChange, review }: { onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null }) {
-  const { chosen, source, spaces, actions } = useBusiness();
-  const add = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
+export type MonthCloseSource = { client: MonthCloseClient; scopeKey: string | null };
+
+/** The month close the selected Business reads. One per view, so the sample books Inicio closes are the books its export sees. */
+export function useMonthCloseSource(): MonthCloseSource {
+  const { chosen, source, spaces } = useBusiness();
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
   const scopeKey = spaces === null ? null : chosen && chosen.role !== "owner" ? chosen.grant_id : "own";
   const [sampleClient] = useState(() => createMockMonthCloseClient());
-  const client = source.mode === "fixture" ? sampleClient : monthCloseClient;
+  return { client: source.mode === "fixture" ? sampleClient : monthCloseClient, scopeKey };
+}
+
+export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null }) {
+  const { chosen, actions } = useBusiness();
+  const add = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   return (
     <BusinessMonthCloseView
-      client={client}
-      scopeKey={scopeKey}
+      client={monthClose.client}
+      scopeKey={monthClose.scopeKey}
       canMutate={Boolean(chosen?.capabilities.includes("approve"))}
       onMonthChange={onMonthChange}
       review={review}

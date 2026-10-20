@@ -805,7 +805,10 @@ describe("Inicio month close source", () => {
     const { I18nextProvider } = await import("react-i18next");
     const spanish = (await import("../public/locales/es-419/common.json")).default;
     const { BusinessContext } = await import("../components/business-app/BusinessWorkspace");
-    const Panel = (await import("../components/business-app/BusinessMonthClosePanel")).default;
+    const { default: MonthClosePanel, useMonthCloseSource } = await import("../components/business-app/BusinessMonthClosePanel");
+    function Panel() {
+      return <MonthClosePanel monthClose={useMonthCloseSource()} />;
+    }
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     const value = {
@@ -953,7 +956,11 @@ describe("Inicio export records panel", () => {
     const { BusinessContext } = await import("../components/business-app/BusinessWorkspace");
     const { setChosenGrant } = await import("../lib/business-grant");
     const { currentMonthKey } = await import("../lib/business-month-close");
-    const Panel = (await import("../components/business-app/ExportRecordsPanel")).default;
+    const ExportRecordsPanel = (await import("../components/business-app/ExportRecordsPanel")).default;
+    const { useMonthCloseSource } = await import("../components/business-app/BusinessMonthClosePanel");
+    function Panel({ month }: { month: string }) {
+      return <ExportRecordsPanel month={month} monthClose={useMonthCloseSource()} onClose={() => undefined} />;
+    }
     setChosenGrant(chosen.role === "owner" ? null : chosen.grant_id);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
@@ -987,16 +994,19 @@ describe("Inicio export records panel", () => {
       root.render(
         <I18nextProvider i18n={i18n}>
           <BusinessContext.Provider value={value}>
-            <Panel month={startMonth ?? currentMonthKey()} onClose={() => undefined} />
+            <Panel month={startMonth ?? currentMonthKey()} />
           </BusinessContext.Provider>
         </I18nextProvider>,
       );
     });
     for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); });
     const panel = () => document.querySelector('[data-testid="export-records-panel"]');
-    const button = () => [...(panel()?.querySelectorAll("button") ?? [])].find((item) => item.textContent?.includes("Descargar CSV, Excel y originales"));
+    const button = () => document.querySelector<HTMLButtonElement>('[data-testid="export-download"]');
     const exports = () => calls.filter((call) => call.url.pathname.endsWith("/business/exports"));
-    return { act, host, root, panel, button, exports, currentMonthKey };
+    const segment = (key: string) => document.querySelector<HTMLButtonElement>(`[data-testid="export-period"] [data-segment="${key}"]`);
+    const fiscal = () => document.querySelector('[data-testid="export-fiscal"]')?.textContent ?? "";
+    const settle = async () => { for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); }); };
+    return { act, host, root, panel, button, exports, segment, fiscal, settle, currentMonthKey };
   }
 
   for (const chosen of [own, client]) test(`Inicio export downloads the open month ZIP for ${chosen.role}`, async () => {
@@ -1004,7 +1014,7 @@ describe("Inicio export records panel", () => {
     try {
       const button = view.button();
       assert.ok(button instanceof HTMLButtonElement);
-      assert.ok(view.panel()?.contains(button));
+      assert.equal(button.textContent, "Exportar");
       const month = view.currentMonthKey();
       await view.act(async () => { button.click(); });
       const sent = view.exports();
@@ -1014,34 +1024,52 @@ describe("Inicio export records panel", () => {
       assert.equal(new Headers(sent[0].init?.headers).get("X-Business-Grant"), chosen.role === "accountant" ? chosen.grant_id : null);
       assert.equal(downloads.length, 1);
       assert.equal(downloads[0].filename, `business-export-${month}-01-${monthEnd(month)}.zip`);
-      assert.ok(view.panel()?.textContent?.includes(chosen.name));
+      assert.ok(document.body.textContent?.includes(chosen.name));
     } finally {
       await view.act(async () => view.root.unmount());
       view.host.remove();
     }
   });
 
-  test("the download follows the month the panel opens on and the month picked in it", async () => {
+  test("the download follows the month the panel opens on and the period picked in it", async () => {
     const { currentMonthKey, shiftMonthKey } = await import("../lib/business-month-close");
     const opened = shiftMonthKey(currentMonthKey(), -2);
     const view = await renderExport(own, opened);
     try {
-      const previous = shiftMonthKey(opened, -1);
-      const first = view.button();
-      assert.ok(first instanceof HTMLButtonElement);
-      await view.act(async () => { first.click(); });
+      assert.ok(document.querySelector('[data-testid="export-custom-range"]'), "an older month opens as typed dates");
+      assert.equal(view.segment("this_month")?.getAttribute("aria-checked"), "false");
+      await view.act(async () => { view.button()!.click(); });
       assert.equal(view.exports().at(-1)?.url.searchParams.get("start"), `${opened}-01`);
       assert.equal(view.exports().at(-1)?.url.searchParams.get("end"), monthEnd(opened));
-      const control = view.panel()?.querySelector('[data-testid="month-close-month-prev"]');
-      assert.ok(control instanceof HTMLButtonElement);
-      await view.act(async () => { control.click(); });
-      for (let i = 0; i < 20; i += 1) await view.act(async () => { await Promise.resolve(); });
-      const button = view.button();
-      assert.ok(button instanceof HTMLButtonElement);
-      await view.act(async () => { button.click(); });
-      const sent = view.exports();
-      assert.equal(sent.at(-1)?.url.searchParams.get("start"), `${previous}-01`);
-      assert.equal(sent.at(-1)?.url.searchParams.get("end"), monthEnd(previous));
+      const previous = shiftMonthKey(currentMonthKey(), -1);
+      await view.act(async () => { view.segment("last_month")!.click(); });
+      await view.settle();
+      assert.equal(view.segment("last_month")?.getAttribute("aria-checked"), "true");
+      await view.act(async () => { view.button()!.click(); });
+      assert.equal(view.exports().at(-1)?.url.searchParams.get("start"), `${previous}-01`);
+      assert.equal(view.exports().at(-1)?.url.searchParams.get("end"), monthEnd(previous));
+      const year = currentMonthKey().slice(0, 4);
+      await view.act(async () => { view.segment("year")!.click(); });
+      await view.act(async () => { view.button()!.click(); });
+      assert.equal(view.exports().at(-1)?.url.searchParams.get("start"), `${year}-01-01`);
+      assert.equal(view.exports().at(-1)?.url.searchParams.get("end"), `${year}-12-31`);
+    } finally {
+      await view.act(async () => view.root.unmount());
+      view.host.remove();
+    }
+  });
+
+  test("the 606 and 607 line follows the month close and asks for a whole month", async () => {
+    const view = await renderExport(own);
+    try {
+      await view.settle();
+      const month = new Intl.DateTimeFormat("es-419", { month: "long" }).format(new Date());
+      assert.match(view.fiscal(), new RegExp(`Falta cerrar ${month}`));
+      await view.act(async () => { view.segment("year")!.click(); });
+      assert.match(view.fiscal(), /Solo por mes completo/);
+      await view.act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="export-other-dates"]')!.click(); });
+      assert.ok(document.querySelector('[data-testid="export-custom-range"]'));
+      assert.equal(view.segment("year")?.getAttribute("aria-checked"), "false");
     } finally {
       await view.act(async () => view.root.unmount());
       view.host.remove();
@@ -1056,13 +1084,13 @@ describe("Inicio export records panel", () => {
         const button = view.button();
         assert.ok(button instanceof HTMLButtonElement);
         await view.act(async () => { button.click(); });
-        assert.match(view.panel()?.querySelector('[role="alert"]')?.textContent ?? "", pattern);
+        assert.match(document.querySelector('[role="alert"]')?.textContent ?? "", pattern);
         assert.equal(downloads.length, 0);
         assert.equal(button.disabled, false);
         respond = async () => new Response(bytes, { headers: { "Content-Type": "application/zip" } });
         await view.act(async () => { button.click(); });
         assert.equal(downloads.length, 1);
-        assert.equal(view.panel()?.querySelector('[role="alert"]'), null);
+        assert.equal(document.querySelector('[role="alert"]'), null);
       } finally {
         await view.act(async () => view.root.unmount());
         view.host.remove();

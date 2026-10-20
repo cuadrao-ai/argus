@@ -51,9 +51,12 @@ for (const width of [1440, 390] as const) {
       const sourceBox = await box(page, '[data-testid="receipt-review-source"]');
       expect(topBox.y + topBox.height).toBeLessThanOrEqual(fieldsBox.y);
       if (width >= 1024) {
-        expect(sourceBox.x + sourceBox.width).toBeLessThanOrEqual(fieldsBox.x);
-        expect(fieldsBox.width).toBeLessThanOrEqual(641);
-        expect((await box(page, '[data-testid="business-record-review"]')).width).toBeGreaterThan(900);
+        // A desktop opens the record in a tray beside the Bandeja: one column, the source on top.
+        await expect(page.getByTestId("business-inbox-receipts")).toBeVisible();
+        expect(sourceBox.y + sourceBox.height).toBeLessThanOrEqual(fieldsBox.y + 0.5);
+        const trayBox = await box(page, '[data-testid="side-drawer"]');
+        expect(Math.round(trayBox.width), "the tray prefers 640px").toBe(640);
+        expect(Math.round(trayBox.x + trayBox.width)).toBe(width);
       } else {
         expect(fieldsBox.y + fieldsBox.height).toBeLessThanOrEqual(sourceBox.y);
       }
@@ -82,6 +85,23 @@ for (const width of [1440, 390] as const) {
       await expect(footer.getByRole("button", { name: "Aprobar y siguiente" })).toBeVisible();
       await expectTargets(page, '[data-testid="receipt-review-footer"] button');
       await expectTargets(page, '[data-testid="receipt-current-facts"] button');
+      await noHorizontalScroll(page);
+      if (width >= 1024) {
+        // The tray pins its footer under its own scroll area, across the tray.
+        const tray = page.getByTestId("side-drawer");
+        await expect(tray.locator('[data-footer-slot] [data-testid="receipt-review-footer"]')).toBeVisible();
+        const trayBox = await box(page, '[data-testid="side-drawer"]');
+        const slot = await box(page, "[data-footer-slot]");
+        expect(Math.round(slot.y + slot.height + 12), "the footer meets the tray's bottom edge").toBe(Math.round(trayBox.y + trayBox.height));
+        await page.screenshot({ path: `${SHOT_DIR}/full-receipt-${width}.png` });
+        const scroller = tray.locator(".argus-thin-scrollbar");
+        await scroller.evaluate((element) => element.scrollTo(0, element.scrollHeight));
+        const footerTop = (await box(page, "[data-footer-slot]")).y;
+        const cardBottoms = await review.locator("section, [data-testid='receipt-marks-card'], [data-testid='fiscal-declaration']").evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect()).filter((rect) => rect.height > 0).map((rect) => rect.bottom));
+        for (const bottom of cardBottoms) expect(bottom, "no card hides under the footer").toBeLessThanOrEqual(footerTop + 0.5);
+        await page.screenshot({ path: `${SHOT_DIR}/full-receipt-bottom-${width}.png` });
+        return;
+      }
       const region = await page.getByTestId("workspace-panel-region").evaluate((element) => ({ left: element.getBoundingClientRect().left, width: element.clientWidth }));
       const footerBox = await box(page, '[data-testid="receipt-review-footer"]');
       expect(Math.round(footerBox.width), "the footer spans the pane").toBe(Math.round(region.width));
@@ -104,7 +124,7 @@ for (const width of [1440, 390] as const) {
       await page.screenshot({ path: `${SHOT_DIR}/full-receipt-bottom-${width}.png` });
     });
 
-    test("the fields come before the source in reading order", async ({ page }) => {
+    test(width >= 1024 ? "the tray reads source, then fields" : "the fields come before the source in reading order", async ({ page }) => {
       await installReceiptBusiness(page, prepared());
       await openReceipt(page, /Ferretería La Esquina/);
       const order = await page.getByTestId("business-record-review").evaluate((review) => {
@@ -112,7 +132,7 @@ for (const width of [1440, 390] as const) {
         const source = review.querySelector('[data-testid="receipt-review-source"]')!;
         return Boolean(fields.compareDocumentPosition(source) & Node.DOCUMENT_POSITION_FOLLOWING);
       });
-      expect(order).toBe(true);
+      expect(order).toBe(width < 1024);
     });
 
     test("a disabled Aprobar always says why", async ({ page }) => {
@@ -150,13 +170,13 @@ for (const width of [1440, 390] as const) {
 
 test.describe("receipt detail at a narrow desktop", () => {
   test.use({ viewport: { width: 1100, height: 900 } });
-  test("the source column keeps room beside the fields", async ({ page }) => {
+  test("the tray takes at most half the screen and the Bandeja stays beside it", async ({ page }) => {
     await installReceiptBusiness(page, prepared());
     await openReceipt(page, /Ferretería La Esquina/);
-    const source = (await page.getByTestId("receipt-review-source").boundingBox())!;
-    const fields = (await page.getByTestId("receipt-review-fields").boundingBox())!;
-    expect(source.width).toBeGreaterThanOrEqual(279);
-    expect(source.x + source.width).toBeLessThanOrEqual(fields.x);
+    const tray = (await page.getByTestId("side-drawer").boundingBox())!;
+    expect(Math.round(tray.width)).toBe(550);
+    const list = (await page.getByTestId("business-inbox-receipts").boundingBox())!;
+    expect(list.x + list.width).toBeLessThanOrEqual(tray.x + 0.5);
     await noHorizontalScroll(page);
   });
 });

@@ -1,21 +1,19 @@
 "use client";
 
-import { useBusinessNaming } from "./BusinessNamingProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { rncStatus } from "@/lib/rnc-status";
 import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
 import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
 import type { ReceiptDetail } from "@/lib/business-api";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, CircleAlert, Download, Loader2, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, CircleAlert, Loader2, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import BusinessFiscalProfile from "./BusinessFiscalProfile";
 import { approveFiscalRecord } from "@/lib/business-dgii";
-import { businessExportPeriodValid, duplicateRecordId, fetchBusinessExport, type BusinessCaptureInput } from "@/lib/business-api";
+import { duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
@@ -26,11 +24,12 @@ import ReceiptFactEditor from "./ReceiptFactEditor";
 import { ACTIVITY_FIELDS, MORE_FIELDS, extractedConfirmationPatch } from "./receipt-fact-rows";
 import ReceiptReviewQuestions from "./ReceiptReviewQuestions";
 import ReceiptHistory from "./ReceiptHistory";
+import ReceiptDocumentType from "./ReceiptDocumentType";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import { formatBusinessName, formatMoney } from "./business-format";
+import { formatMoney } from "./business-format";
 import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
-import { cardClass, secondaryButtonClass, StatusPill } from "./business-ui";
+import { StatusPill } from "./business-ui";
 import { PRIMARY_BUTTON, SECONDARY_BUTTON, SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
 
@@ -77,75 +76,6 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
       {recorded && unrecorded > 0 && onSettle ? <button type="button" data-testid="dossier-settle-remainder" className={`${SECONDARY_BUTTON} mt-3`} disabled={busy} onClick={onSettle}>{t("business.dossier.settle_remainder", "The rest is already handled")}</button> : null}
     </div>
   );
-}
-
-export function finishPeriodExportRequest(request: { current: AbortController | null }, controller: AbortController, setBusy: (busy: boolean) => void) {
-  if (request.current !== controller) return;
-  request.current = null;
-  setBusy(false);
-}
-
-export function startPeriodExportRequest(request: { current: AbortController | null }, setBusy: (busy: boolean) => void): AbortController | null {
-  if (request.current) return null;
-  const controller = new AbortController();
-  request.current = controller;
-  setBusy(true);
-  controller.signal.addEventListener("abort", () => finishPeriodExportRequest(request, controller, setBusy), { once: true });
-  return controller;
-}
-
-export function saveBlobDownload(blob: Blob, filename: string, revokeAfterMs = 30_000) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  // Safari and Firefox read the object URL after click returns; revoke later.
-  try { link.click(); } finally { link.remove(); globalThis.setTimeout(() => URL.revokeObjectURL(url), revokeAfterMs); }
-}
-
-/** The period view supplies its selected Business; a record may supply an explicit draft anchor. */
-/** `bare` drops the card and its heading, for a panel that already names the export. */
-export function ReceiptPeriodExport({ scope, start: from, end: to, available, monthSwitcher, bare = false }: { scope: { draftId?: string; grantId?: string | null; name: string; capabilities: BusinessDossier["capabilities"] }; start: string; end: string; available: boolean; monthSwitcher?: ReactNode; bare?: boolean }) {
-  const { t } = useTranslation();
-  const naming = useBusinessNaming();
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const request = useRef<AbortController | null>(null);
-  const canRead = scope.capabilities.includes("read");
-  useEffect(() => () => request.current?.abort(), [scope.draftId, scope.grantId, canRead, available, from, to]);
-  if (!canRead) return null;
-  const download = async () => {
-    if (request.current || !available || !businessExportPeriodValid(from, to)) return;
-    const controller = startPeriodExportRequest(request, setBusy);
-    if (!controller) return;
-    setProblem(null);
-    try {
-      if (naming && !await naming.requireName()) return;
-      controller.signal.throwIfAborted();
-      const blob = await fetchBusinessExport(scope.draftId, from, to, controller.signal, scope.grantId);
-      controller.signal.throwIfAborted();
-      saveBlobDownload(blob, `business-export-${from}-${to}.zip`);
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      const status = (error as { status?: number }).status;
-      setProblem(status === 401 || status === 403 || status === 404 ? t("business.export.access_error", "This export isn't available with your current access.") : status === 413 ? t("business.export.limit_error", "This export exceeds a package limit. Choose a shorter period.") : t("business.export.error", "The export could not be downloaded. Check your access and try again."));
-    } finally {
-      finishPeriodExportRequest(request, controller, setBusy);
-    }
-  };
-  return <section className={bare ? "" : cardClass} aria-label={t("business.export.title", "Export Business records")}>
-    {bare ? null : <h3 className="text-[14px] font-medium text-black dark:text-white">{t("business.export.title", "Export Business records")}</h3>}
-    <p className={`${bare ? "" : "mt-2 "}text-[13px] text-black/65 dark:text-white/65`}>{t("business.export.scope", "{{name}} · CSV, Excel and retained originals in one ZIP.", { name: formatBusinessName(scope.name, t("business.overview.title", "My business")) })}</p>
-    {available ? <BusinessFiscalProfile draftId={scope.draftId} /> : null}
-    <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); void download(); }}>
-      {monthSwitcher}
-      <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.dgii.period_hint", "El 606 y el 607 requieren un mes completo y cerrado. El Excel muestra los datos fiscales pendientes y el resumen de consumo por separado.")}</p>
-      {problem ? <p role="alert" className="text-[13px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p> : null}
-      <button type="submit" disabled={busy || !available || !businessExportPeriodValid(from, to)} className={secondaryButtonClass}><Download className="h-4 w-4" aria-hidden="true" />{busy ? t("business.export.downloading", "Downloading…") : t("business.export.download", "Download CSV, Excel and originals")}</button>
-      {!available ? <p className="text-[12px] text-black/55 dark:text-white/55">{t("business.export.preview", "Downloads are available in the connected Business view.")}</p> : null}
-    </form>
-  </section>;
 }
 
 export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
@@ -387,6 +317,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           <ReceiptEcfChecks verification={dossier.ecf_checks ?? null} qr={dossier.dgii_qr ?? null} />
       </>}
     >
+          <ReceiptDocumentType dossier={dossier} busy={busy || dirty} onChanged={setDossier} />
           <div>
             {operation.kind === "uncertain" && operation.action === "save" ? <h3 className="mb-4 font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.dossier.pending_details", "Your unconfirmed edits")}</h3> : null}
             {canPrepare && confirmationCount > 0 ? <button type="button" className={`${SECONDARY_BUTTON} mb-4`} disabled={!mutable} onClick={() => void write("save", confirmations)}>{spanishReview ? `Confirmar ${confirmationCount} datos leídos` : `${t("business.dossier.confirm_value", "Confirm")} ${confirmationCount}`}</button> : null}

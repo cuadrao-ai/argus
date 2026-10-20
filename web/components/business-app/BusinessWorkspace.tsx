@@ -32,6 +32,7 @@ import {
 import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
+import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
@@ -61,8 +62,11 @@ export type BusinessPanelState =
   | { kind: "expense"; expenseId: string }
   | { kind: "updates" }
   | { kind: "access" }
-  | { kind: "receipt"; receiptId: string }
-  | { kind: "draft"; draftId: string };
+  // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
+  | { kind: "receipt"; receiptId: string; list?: RecordList }
+  | { kind: "draft"; draftId: string; list?: RecordList };
+
+export type RecordList = "inbox" | "expenses";
 
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
@@ -187,7 +191,8 @@ function BusinessWorkspaceContent({
   // A landing on a record URL (the sign-in return path) skips the space
   // bootstrap until the person leaves the record; opening a record later never
   // flips it, so a record's effects do not refetch on every address-bar write.
-  const [directRecord, setDirectRecord] = useState(() => searchParams.has("draft") || searchParams.has("receipt"));
+  // A desktop shows the record beside its list, so the list loads from the start.
+  const [directRecord, setDirectRecord] = useState(() => (searchParams.has("draft") || searchParams.has("receipt")) && responsiveLayoutSnapshot().isBelowDesktop);
   const workspaceSource = useMemo(
     () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
     [apiSource, i18n],
@@ -205,6 +210,9 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     if (directRecord && panel.kind !== "receipt" && panel.kind !== "draft") setDirectRecord(false);
   }, [directRecord, panel.kind]);
+  useEffect(() => subscribeResponsiveLayout(() => {
+    if (!responsiveLayoutSnapshot().isBelowDesktop) setDirectRecord(false);
+  }), []);
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);

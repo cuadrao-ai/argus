@@ -8,7 +8,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
 
-type Month = { year: number; month: number };
+export type Month = { year: number; month: number };
 
 export function dayText(iso: string): string {
   return iso ? iso.split("-").reverse().join("/") : "";
@@ -23,22 +23,22 @@ export function parseDayText(text: string): string | null {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
 }
 
-function monthOf(iso: string): Month {
+export function monthOf(iso: string): Month {
   const [year, month] = iso.split("-").map(Number);
   return { year, month: month - 1 };
 }
 
-function isoOf(year: number, month: number, day: number): string {
+export function isoOf(year: number, month: number, day: number): string {
   return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
 }
 
-function shiftDay(iso: string, days: number): string {
+export function shiftDay(iso: string, days: number): string {
   const [year, month, day] = iso.split("-").map(Number);
   return isoOf(year, month - 1, day + days);
 }
 
 /** The month's days in Monday-first weeks; null fills the cells outside the month. */
-function weeks({ year, month }: Month): (string | null)[][] {
+export function weeks({ year, month }: Month): (string | null)[][] {
   const lead = (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7;
   const length = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const cells = [...Array(lead).fill(null), ...Array.from({ length }, (_, index) => isoOf(year, month, index + 1))];

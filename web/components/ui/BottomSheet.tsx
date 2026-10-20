@@ -233,7 +233,7 @@ export function BottomSheetSurface({
         >
           <div className="mx-auto my-1 h-1.5 w-10 rounded-full bg-black/15 dark:bg-white/15" />
           <div className="mt-1 flex items-start gap-2">
-            {hasBelow ? (
+            {hasBelow && dismissible ? (
               <button
                 type="button"
                 onClick={onClose}

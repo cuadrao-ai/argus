@@ -1,29 +1,29 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronRight, Paperclip } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronRight, Download, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessExpense } from "@/lib/business-api";
-import { currentMonthKey, windowForMonth } from "@/lib/business-month-close";
+import { currentMonthKey } from "@/lib/business-month-close";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { expensePanel } from "./business-expense-target";
+import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
 import { cardClass, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
-import { ReceiptPeriodExport } from "./ReceiptDossierReview";
+import ExportRecordsPanel from "./ExportRecordsPanel";
 import { EmptyState } from "./foundation/EmptyState";
-import { MonthSwitcher } from "./BusinessMonthClosePanel";
+import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen, reload } = useBusiness();
-  const [exportMonth, setExportMonth] = useState(() => currentMonthKey());
-  const exportWindow = windowForMonth(exportMonth);
-  const exportHeading = useId();
+  const [exportOpen, setExportOpen] = useState(false);
+  const monthClose = useMonthCloseSource();
   const found = panel.kind === "expenses" ? panel.expenseId : undefined;
   const [items, setItems] = useState<BusinessExpense[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -71,25 +71,26 @@ export default function BusinessExpensesPanel() {
           to: formatDay(period.to ?? records.overview?.to ?? period.from, locale),
         })}
         action={
-          record ? (
-            <button type="button" className={secondaryButtonClass} onClick={record.run}>
-              {record.label}
-            </button>
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            {chosen?.capabilities.includes("read") ? (
+              <button type="button" data-testid="expenses-export" className={secondaryButtonClass} onClick={() => setExportOpen(true)}>
+                <Download className="h-4 w-4" aria-hidden="true" />
+                {t("business.export.action", "Export")}
+              </button>
+            ) : null}
+            {record ? (
+              <button type="button" className={secondaryButtonClass} onClick={record.run}>
+                {record.label}
+              </button>
+            ) : null}
+          </div>
         }
       />
       <div className="mb-4">
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
         {records.overview ? <OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /> : null}
       </div>
-      {chosen && exportWindow.to ? <div className="mb-4"><ReceiptPeriodExport
-        key={chosen.grant_id}
-        scope={{ name: chosen.name, capabilities: chosen.capabilities, grantId: chosen.role === "owner" ? null : chosen.grant_id }}
-        start={exportWindow.from}
-        end={exportWindow.to}
-        available={source.mode === "live"}
-        monthSwitcher={<MonthSwitcher month={exportMonth} current={currentMonthKey()} earliest={null} onMonth={setExportMonth} headingId={exportHeading} />}
-      /></div> : null}
+      {exportOpen ? <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={() => setExportOpen(false)} /> : null}
       {failed ? (
         <EmptyState kind="error" testId="business-expenses-error" title={t("business.empty.expenses_error", "We couldn't load your expenses")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : items === null ? (
@@ -123,17 +124,19 @@ export default function BusinessExpensesPanel() {
                 </span>
               </>
             );
+            const target = expensePanel(expense);
+            const current = expense.id === found || isOpenRecord(panel, target);
             return (
               <li
                 key={expense.id}
                 data-expense-id={expense.id}
-                aria-current={expense.id === found ? "true" : undefined}
-                ref={expense.id === found ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
-                className="rounded-[14px] px-3 py-1 aria-[current=true]:bg-black/[0.04] dark:aria-[current=true]:bg-white/[0.06]"
+                aria-current={current ? "true" : undefined}
+                ref={current ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
+                className={`rounded-[14px] px-3 py-1 ${OPEN_ROW_CLASS}`}
               >
                 <button
                   type="button"
-                  onClick={() => openPanel(expensePanel(expense))}
+                  onClick={() => openPanel(target)}
                   className="flex min-h-11 w-full items-center gap-3 rounded-[12px] py-2 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
                 >
                   {facts}

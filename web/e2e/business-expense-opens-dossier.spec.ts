@@ -42,9 +42,10 @@ test.describe("A saved expense opens its record", () => {
     await expect(dossier(page)).toContainText("Ferretería La Esquina");
     await expect(dossier(page).getByText(/Revision history/)).toBeVisible();
     await expect(dossier(page).getByText(/^Revision \d+$/)).toBeVisible();
-    // Back returns to Expenses, and the address follows.
-    await dossier(page).getByRole("button", { name: "Expenses" }).click();
+    // On a desktop the record sits in a tray beside Expenses; its close control returns, and the address follows.
     await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+    await page.getByTestId("side-drawer").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByTestId("side-drawer")).toHaveCount(0);
     await expect(page).not.toHaveURL(/[?&]receipt=/);
   });
 
@@ -61,8 +62,9 @@ test.describe("A saved expense opens its record", () => {
     await expect(detail).toContainText("No receipt attached");
     await expect(detail).toContainText(/Recorded on/);
     await expect(detail).toContainText("Revision 1");
-    await detail.getByRole("button", { name: "Expenses" }).click();
     await expect(panel.getByRole("heading", { name: "Expenses", exact: true })).toBeVisible();
+    await page.getByTestId("side-drawer").getByRole("button", { name: "Close", exact: true }).click();
+    await expect(panel.getByRole("button", { name: /Estación Ruta 3/ })).toBeFocused();
     await expect(page).not.toHaveURL(/[?&]expense=/);
   });
 
@@ -93,13 +95,13 @@ test.describe("A saved expense opens its record", () => {
     await expect(record).toBeVisible();
     await expect(page.getByTestId("business-expense-detail")).toHaveCount(0);
     await expect(record).not.toContainText("Sin recibo adjunto");
-    // An expense entered by hand opens its own detail, labelled by its title, focused, and says no receipt is attached.
+    // An expense entered by hand opens its own detail in the tray, labelled by its title, and says no receipt is attached; the tray title takes focus.
     await page.goto("/dev/business-preview?expense=exp-gas");
     const detail = page.getByTestId("business-expense-detail");
     await expect(detail).toBeVisible();
     await expect(detail.getByRole("heading", { name: "Estación Ruta 3" })).toHaveAttribute("id", "expense-detail-title");
     await expect(detail).toHaveAttribute("aria-labelledby", "expense-detail-title");
     await expect(detail).toContainText("Sin recibo adjunto");
-    await expect(page.getByTestId("business-expense-detail")).toBeFocused();
+    await expect(page.getByTestId("side-drawer").getByRole("heading", { level: 2 }).first()).toBeFocused();
   });
 });

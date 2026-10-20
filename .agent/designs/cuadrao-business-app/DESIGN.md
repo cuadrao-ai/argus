@@ -121,6 +121,24 @@ Sheet rules:
    and shows a back arrow that returns to it. One sheet, one swipe to leave.
 5. **Flat.** No blur, no shadow. Edges are hairlines and corners are 20px.
 
+Which container, screen by screen (Lucas, October 20, 2026):
+
+- **Pages:** Inicio, Bandeja, Gastos, Novedades, Acceso.
+- **Record tray:** a receipt, draft or expense opens beside its list on
+  desktop, without a scrim, so another row can be opened straight away. On a
+  phone it is a full page with a way back. It is the one sheet that is not
+  modal.
+- **Sheets:** Agregar, Exportar registros, settings, forms and lists.
+- **Popovers:** pickers (a date, a month, a menu).
+- **Alerts:** closing a month, deleting, removing someone's access.
+
+### Segmented control
+
+One control picks one of a few periods or views. A tinted track holds the
+segments; the chosen one is white. It is a radio group: arrow keys move the
+choice. Keep it to four short words or fewer. A rare choice (any other dates)
+is a link under the control, not another segment.
+
 ### Toasts and saves
 
 - One toast at a time, from one presenter, clear of the page's controls.
@@ -216,6 +234,15 @@ A month without receipts shows as empty, never as a closed month at RD$0.00.
 
 This guide sets the screen's presentation only, not the file formats. The
 screen shows amounts in RD$ and never converts currency.
+
+Exportar registros is one sheet, from Inicio and from Gastos. The period is a
+segmented control with this month, last month and this year by name, and
+"Otras fechas" for a typed range of up to 366 days. Under it, one line gives
+the exact dates. "Incluye" lists what the ZIP holds: records (Excel and CSV),
+originals, and the 606 and 607, whose line says whether they come with this
+period: included, close the month first, or whole month only. Exportar is the
+green action pinned at the bottom. A finished download closes the sheet and
+says so in a toast.
 
 **Behavior rules (pending from Product).**
 

@@ -8,7 +8,8 @@ import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { EmptyState } from "./foundation/EmptyState";
-import { cardClass, dangerButtonClass, dangerConfirmButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
 
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
@@ -192,19 +193,19 @@ export default function BusinessAccessPanel() {
         <>
           <AccessList access={access} busyId={busyId} onRemove={setPending} onResend={resend} />
           {removeError ? <p role="alert" className="mt-3 text-[14px] text-black/70 dark:text-white/70">{t("business_access.remove_error", "We couldn't remove access. Try again.")}</p> : null}
-          {pending ? (
-            <div role="alertdialog" aria-labelledby="business-access-confirm" className={`${cardClass} mt-4`}>
-              <p id="business-access-confirm" className="text-[15px] text-black dark:text-white">
-                {pending.kind === "grant"
-                  ? t("business_access.remove_confirm", "Remove access for {{who}}? They stop seeing and preparing at once.", { who })
-                  : t("business_access.remove_invite_confirm", "Cancel the invite for {{who}}?", { who })}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={dangerConfirmButtonClass} onClick={remove}>{t("business_access.confirm", "Yes, remove")}</button>
-                <button type="button" className={secondaryButtonClass} onClick={() => setPending(null)}>{t("business_access.cancel", "Cancel")}</button>
-              </div>
-            </div>
-          ) : null}
+          <ConfirmDialog
+            isOpen={pending !== null}
+            title={pending?.kind === "invite"
+              ? t("business_access.remove_invite_title", { who, defaultValue: "Cancel the invite for {{who}}?" })
+              : t("business_access.remove_title", { who, defaultValue: "Remove access for {{who}}?" })}
+            description={pending?.kind === "invite"
+              ? t("business_access.remove_invite_body", "You can invite them again at any time.")
+              : t("business_access.remove_body", "They stop seeing and preparing your records at once.")}
+            confirmLabel={pending?.kind === "invite" ? t("business_access.remove_invite", "Cancel invite") : t("business_access.remove", "Remove access")}
+            cancelLabel={t("business_access.keep", "Keep")}
+            onCancel={() => setPending(null)}
+            onConfirm={() => void remove()}
+          />
           <form onSubmit={give} className={`${cardClass} mt-6`} data-testid="business-access-give">
             <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business_access.give_title", "Give access to your accountant")}</h3>
             <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business_access.give_body", "Enter their email. They can see and prepare receipts. They can never approve.")}</p>

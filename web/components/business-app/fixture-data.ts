@@ -509,7 +509,7 @@ export function createFixtureBusinessDataSource(
         .filter((item) => item.occurred_on >= from && item.occurred_on <= to)
         .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
     },
-    uploadReceipt: async (file, consentToPrepare, key, _documentType, onProgress) => {
+    uploadReceipt: async (file, consentToPrepare, key, documentType, onProgress) => {
       const failOnce = /falla/i.test(file.name) && !failedOnce.has(key);
       const steps = 12;
       for (let step = 1; step <= steps; step += 1) {
@@ -534,6 +534,10 @@ export function createFixtureBusinessDataSource(
         enterable: !consentToPrepare,
         version: 0,
         missing_fields: UNREAD,
+        // The sample reads a sale from a file named "venta"; a picked type always wins.
+        document_type: documentType ?? (/venta/i.test(file.name) ? "venta" : "recibo"),
+        ...(documentType ? {} : { document_type_detected: true }),
+        document_type_editable: true,
       });
       receipts = [created, ...receipts];
       uploads.set(key, created);

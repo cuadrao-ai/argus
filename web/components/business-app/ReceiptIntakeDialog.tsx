@@ -16,6 +16,7 @@ import { useBusiness } from "./BusinessWorkspace";
 import { pillButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./receipt-file";
+import { SegmentedControl } from "./foundation/SegmentedControl";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { randomId } from "@/lib/random-id";
@@ -130,7 +131,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
   }, [failure]);
 
-  const [documentType, setDocumentType] = useState<DocumentType>("recibo");
+  const [documentType, setDocumentType] = useState<DocumentType | null>(null);
   const [writing, setWriting] = useState(false);
   const [draftText, setDraftText] = useState("");
   const [writeEmpty, setWriteEmpty] = useState(false);
@@ -145,7 +146,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const sendTyped = async (entry: TypedEntry) => {
     updateTyped(entry.key, { status: "saving", problem: null });
     try {
-      await source.captureNote({ text: entry.text }, entry.key);
+      await source.captureNote({ text: entry.text, ...(entry.documentType ? { document_type: entry.documentType } : {}) }, entry.key);
       updateTyped(entry.key, { status: "saved" });
       reload();
     } catch (error) {
@@ -163,7 +164,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       writeRef.current?.focus();
       return;
     }
-    const entry: TypedEntry = { key: randomId(), text: draftText.trim(), status: "saving", problem: null };
+    const entry: TypedEntry = { key: randomId(), text: draftText.trim(), documentType, status: "saving", problem: null };
     setTyped((current) => [entry, ...current]);
     setDraftText("");
     setWriting(false);
@@ -377,29 +378,27 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             }}
           />
 
-        <div hidden={writing}>
+        <div>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p id="intake-type-question" className={`text-[14px] ${MUTED}`}>{t("business.intake.saved_as", "Saved as")}</p>
-            <div role="radiogroup" aria-labelledby="intake-type-question" className="inline-flex rounded-full bg-black/[0.05] p-1 dark:bg-white/10" data-testid="intake-document-type">
-              {(["recibo", "venta"] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  role="radio"
-                  aria-checked={documentType === type}
-                  data-testid={`intake-type-${type}`}
-                  className={`min-h-11 rounded-full px-4 text-[14px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${documentType === type ? "bg-white text-[#172b26] shadow-[0_0_0_1px_rgba(0,0,0,0.08)] dark:bg-[#1f2225] dark:text-white" : `${MUTED} hover:text-[#172b26] dark:hover:text-white`}`}
-                  onClick={() => setDocumentType(type)}
-                >
-                  {t(type === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", type === "venta" ? "Sale" : "Purchase")}
-                </button>
-              ))}
-            </div>
+            <p className={`text-[14px] ${MUTED}`}>{t("business.intake.saved_as", "Saved as")}</p>
+            <SegmentedControl
+              testId="intake-document-type"
+              label={t("business.intake.saved_as", "Saved as")}
+              segments={[
+                { key: "auto" as const, label: t("business.intake.type_auto", "Automatic") },
+                { key: "recibo" as const, label: t("business.intake.type_recibo", "Purchase") },
+                { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
+              ]}
+              value={documentType ?? "auto"}
+              onChange={(key) => setDocumentType(key === "auto" ? null : key)}
+            />
           </div>
-          <p className={`mt-1 text-right text-[13px] ${MUTED}`}>
+          <p className={`mt-1 text-right text-[13px] ${MUTED}`} data-testid="intake-type-help">
             {documentType === "venta"
               ? t("business.intake.type_venta_help", "An invoice the business issued.")
-              : t("business.intake.type_recibo_help", "Something the business paid for.")}
+              : documentType === "recibo"
+                ? t("business.intake.type_recibo_help", "Something the business paid for.")
+                : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
           </p>
         </div>
 
@@ -534,7 +533,7 @@ export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting:
 }
 
 /** Text the owner typed instead of uploading a file; it becomes a Bandeja draft like any receipt. */
-type TypedEntry = { key: string; text: string; status: "saving" | "saved" | "uncertain" | "refused"; problem: string | null };
+type TypedEntry = { key: string; text: string; documentType: DocumentType | null; status: "saving" | "saved" | "uncertain" | "refused"; problem: string | null };
 
 function TypedRow({ entry, onRetry }: { entry: TypedEntry; onRetry: () => void }) {
   const { t } = useTranslation();
@@ -612,6 +611,8 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
   const left = bytes?.secondsLeft;
   const timeLeft = left == null || share >= 1 ? null : timeLeftText(t, left);
   const failedRetryable = item.status === "failed" && ROW_RETRY.has(item.failure);
+  // A picked type shows at once; a detected one only once the server has read it.
+  const shownType = item.documentType ?? (item.status === "saved" ? item.receipt.document_type ?? "recibo" : null);
   return (
     <li data-testid="receipt-upload-row" data-status={item.status} className={`rounded-[16px] border p-3 ${item.status === "failed" || item.status === "rejected" ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
       <div className="flex items-center gap-3">
@@ -620,9 +621,11 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
           <p className="break-words text-[14px] font-medium text-[#172b26] dark:text-white">{item.file.name}</p>
           <p className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] tabular-nums ${MUTED}`}>
             <span>{`${receiptFormatLabel(item.file.type)} · ${fileSize(item.file.size)}`}</span>
-            <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-full bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
-              {t(item.documentType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", item.documentType === "venta" ? "Sale" : "Purchase")}
-            </span>
+            {shownType ? (
+              <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-full bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
+                {t(shownType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", shownType === "venta" ? "Sale" : "Purchase")}
+              </span>
+            ) : null}
             {item.status === "queued" || retryWaiting ? (
               <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" />{t("business.intake.row_waiting", "Waiting")}</span>
             ) : null}

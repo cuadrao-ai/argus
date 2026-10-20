@@ -48,6 +48,7 @@ export type BusinessDataSource = Readonly<{
   receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
+  setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner marks the receipt as personal or takes the mark back. */
@@ -61,7 +62,7 @@ export type BusinessDataSource = Readonly<{
   search: (query: string) => Promise<BusinessSearchResult>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapture[]>;
-  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta", onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
+  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   saveReview: (
@@ -98,6 +99,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receipt: api.getBusinessReceipt,
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
+  setDocumentType: api.setBusinessDraftDocumentType,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
   markPersonal: api.markBusinessPersonal,
@@ -181,6 +183,7 @@ export function withBusinessSpace(
     expense: source.expense,
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
+    setDocumentType: source.setDocumentType,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
     markPersonal: source.markPersonal,

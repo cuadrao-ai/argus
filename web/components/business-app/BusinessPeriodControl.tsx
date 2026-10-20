@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SegmentedControl } from "./foundation/SegmentedControl";
 import { customPeriod, PERIOD_PRESETS, todayIso, type Period, type PeriodKey } from "./business-format";
 
 export function usePeriodLabel() {
@@ -23,17 +24,18 @@ export default function BusinessPeriodControl({ period, setPeriod }: { period: P
   const [typing, setTyping] = useState(period.key === "custom");
   const [from, setFrom] = useState(period.from);
   const [to, setTo] = useState(period.to ?? todayIso());
-  const chip = (key: PeriodKey, checked: boolean, onClick: () => void) => (
-    <button key={key} type="button" role="radio" aria-checked={checked} onClick={onClick} className={`min-h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 ${checked ? "bg-white text-black dark:bg-[#2a2d31] dark:text-white" : "text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"}`}>
-      {label(key)}
-    </button>
-  );
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="business-period-control">
-      <div role="radiogroup" aria-label={t("business.period.label", "Period")} className="flex flex-wrap gap-1 rounded-full bg-black/[0.04] p-1 dark:bg-white/[0.06]">
-        {PERIOD_PRESETS.map((key) => chip(key, period.key === key && !typing, () => { setTyping(false); setPeriod(key); }))}
-        {chip("custom", period.key === "custom" || typing, () => setTyping(true))}
-      </div>
+      <SegmentedControl
+        label={t("business.period.label", "Period")}
+        segments={[...PERIOD_PRESETS, "custom" as const].map((key) => ({ key, label: label(key) }))}
+        value={typing ? "custom" : period.key}
+        onChange={(key) => {
+          if (key === "custom") { setTyping(true); return; }
+          setTyping(false);
+          setPeriod(key);
+        }}
+      />
       {typing ? (
         <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); const next = customPeriod(from, to); if (next) setPeriod(next); }}>
           <label className="text-[12px] text-black/60 dark:text-white/60">{t("business.period.from", "From")}<input type="date" required value={from} max={to} onChange={(event) => setFrom(event.target.value)} className="mt-1 block min-h-9 rounded-lg border border-black/15 bg-transparent px-2 text-[13px] text-black dark:border-white/20 dark:text-white" /></label>

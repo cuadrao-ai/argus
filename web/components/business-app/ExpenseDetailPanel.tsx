@@ -9,6 +9,7 @@ import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
 import { Settle } from "./business-skeletons";
+import { useRecordTray } from "./record-tray";
 
 /**
  * One saved expense opened by its id (a direct ?expense= link). It resolves
@@ -18,7 +19,8 @@ import { Settle } from "./business-skeletons";
  * revision. Back returns to Expenses naming this expense, so the list focuses
  * that row once it renders again (the workspace shows one panel at a time,
  * so the row that opened this panel is not on the page while it is open).
- * The panel takes focus when it opens.
+ * The panel takes focus when it opens. Inside the desktop tray the list
+ * stays beside it, so there is no way back and the tray owns focus.
  */
 export default function ExpenseDetailPanel({ expenseId }: { expenseId: string }) {
   const { t, i18n } = useTranslation();
@@ -27,6 +29,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const locale = i18n.resolvedLanguage ?? "en";
   const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
   const panel = useRef<HTMLElement>(null);
+  const inTray = useRecordTray() !== null;
   const [attempt, setAttempt] = useState(0);
   // The fetch keys on the expense, not on the navigation callback: a workspace
   // re-render that hands out a new openPanel must not ask for the record again.
@@ -35,8 +38,8 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
     open.current = openPanel;
   }, [openPanel]);
   useEffect(() => {
-    panel.current?.focus();
-  }, []);
+    if (!inTray) panel.current?.focus();
+  }, [inTray]);
   useEffect(() => {
     let active = true;
     setState({ status: "loading" });
@@ -57,10 +60,10 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const title = state.status === "ready" ? (state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")) : t("business.expenses.detail_title", "Saved expense");
   return (
     <section ref={panel} tabIndex={-1} aria-labelledby="expense-detail-title" data-testid="business-expense-detail" className="outline-none">
-      <button type="button" onClick={() => openPanel({ kind: "expenses", expenseId })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
+      {inTray ? null : <button type="button" onClick={() => openPanel({ kind: "expenses", expenseId })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         {t("business.nav.expenses", "Expenses")}
-      </button>
+      </button>}
       {state.status !== "ready" ? <h2 id="expense-detail-title" className="sr-only">{title}</h2> : null}
       {state.status === "loading" ? <Settle pending layout="rows" /> : null}
       {state.status === "failed" ? (

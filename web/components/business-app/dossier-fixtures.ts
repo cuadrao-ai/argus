@@ -99,7 +99,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code }); };
   const get = (id: string) => {
     const found = dossiers.get(id);
-    return found ? structuredClone(found) : fail(404, "draft_not_found");
+    if (!found) return fail(404, "draft_not_found");
+    // The sample reads a type the way the server does: open and preparable means it can still change.
+    return structuredClone({ document_type: "recibo" as const, ...found, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare") });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;
@@ -193,6 +195,13 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       dossiers.set(id, next);
       reviewReceipts.set(key, { input, result: get(id) });
       if (id === dossierFixtureIds.saveUnknown && version === 2) throw new TypeError("Synthetic saved response interrupted");
+      return get(id);
+    },
+    setDocumentType: async (id: string, version: number, documentType: "recibo" | "venta") => {
+      const current = get(id);
+      if (current.version !== version) fail(409, "stale_version");
+      if (!current.document_type_editable) fail(422, "document_type_locked");
+      dossiers.set(id, { ...current, version: current.version + 1, document_type: documentType, document_type_detected: undefined });
       return get(id);
     },
     settleRemainder: async (id: string, version: number) => {

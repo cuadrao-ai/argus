@@ -13,6 +13,11 @@ async function capture(page: Page, name: string) {
   }
 }
 
+/** Where an open record renders: the page below the desktop stop, the tray beside its list from it. */
+function recordArea(page: Page) {
+  return page.getByTestId("workspace-panel-region").or(page.getByTestId("side-drawer"));
+}
+
 async function confirmRncWarning(page: Page) {
   const dialog = page.getByRole("alertdialog");
   if (await dialog.isVisible()) await dialog.getByRole("button", { name: /^(Approve expense|Aprobar gasto|Aprobar)$/ }).click();
@@ -158,12 +163,12 @@ test.describe("Server authority and uncertain outcomes", () => {
     await expect(page.getByLabel("Merchant", { exact: true })).toHaveValue("Papelería Central");
     await expect(page.getByTestId("receipt-review-amount")).toHaveValue("980.50");
     await expect(page.getByTestId("receipt-original-source")).toBeVisible();
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("prepared record isn't available");
+    await expect(recordArea(page).getByRole("alert")).toContainText("prepared record isn't available");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
     await page.getByTestId("receipt-review-amount").fill("1020.75");
     await page.getByRole("button", { name: "Save review details", exact: true }).click();
     await expect(page.getByTestId("receipt-review-amount")).toHaveValue("1,020.75");
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("prepared record isn't available");
+    await expect(recordArea(page).getByRole("alert")).toContainText("prepared record isn't available");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
   });
 
@@ -171,7 +176,7 @@ test.describe("Server authority and uncertain outcomes", () => {
     await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
     await installBreakpointFixture(page, { language: "en", theme: "light", emptyChat: true });
     await page.goto(`/dev/business-preview?draft=${dossierFixtureIds.unprepared}`);
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("prepared record isn't available");
+    await expect(recordArea(page).getByRole("alert")).toContainText("prepared record isn't available");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
     await expect(page.getByTestId("receipt-original-source")).toHaveCount(0);
   });
@@ -202,7 +207,7 @@ test.describe("Server authority and uncertain outcomes", () => {
     await openRecord(page, dossierFixtureIds.stale);
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
     await confirmRncWarning(page);
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("This record changed");
+    await expect(recordArea(page).getByRole("alert")).toContainText("This record changed");
     await capture(page, "stale-revision");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Check current record", exact: true }).click();
@@ -215,7 +220,7 @@ test.describe("Server authority and uncertain outcomes", () => {
     await openRecord(page, dossierFixtureIds.denied);
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
     await confirmRncWarning(page);
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("current access");
+    await expect(recordArea(page).getByRole("alert")).toContainText("current access");
     await capture(page, "denied-access");
     await expect(page.getByTestId("business-record-review")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
@@ -225,7 +230,7 @@ test.describe("Server authority and uncertain outcomes", () => {
     await openRecord(page, dossierFixtureIds.outcomeUnknown);
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
     await confirmRncWarning(page);
-    await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("outcome isn't known");
+    await expect(recordArea(page).getByRole("alert")).toContainText("outcome isn't known");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeDisabled();
     await page.getByRole("button", { name: "Check current record", exact: true }).click();
     await expect(page.getByText("Checking approval outcome", { exact: true })).toBeVisible();
@@ -241,14 +246,14 @@ test.describe("Server authority and uncertain outcomes", () => {
       const merchant = page.getByRole("textbox", { name: "Comercio o persona", exact: true });
       await merchant.fill("My retained correction");
       await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
-      await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("resultado de la acción");
+      await expect(recordArea(page).getByRole("alert")).toContainText("resultado de la acción");
       await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
       await expect(page.getByText("Revisión 3", { exact: true })).toBeVisible();
       await expect(merchant).toHaveValue("My retained correction");
       await expect(merchant).toBeDisabled();
       await expect(page.getByRole("button", { name: "Guardar detalles de revisión", exact: true })).toBeDisabled();
       await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeDisabled();
-      await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("Tus cambios se conservan");
+      await expect(recordArea(page).getByRole("alert")).toContainText("Tus cambios se conservan");
       await expect(page.getByTestId("receipt-current-facts")).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Other human correction");
       await page.getByTestId("receipt-history").locator("summary").click();
       await expect(page.getByTestId("receipt-history").locator("li")).toHaveCount(3);
@@ -323,7 +328,7 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
     await openRecord(page, dossierFixtureIds[scenario], "es-419");
     await page.getByRole("button", { name: "Aprobar gasto", exact: true }).click();
     await confirmRncWarning(page);
-    const alert = page.getByTestId("workspace-panel-region").getByRole("alert");
+    const alert = recordArea(page).getByRole("alert");
     await expect(alert).toBeVisible();
     if (scenario === "stale") await expect(alert).toContainText("Este registro cambió");
     if (scenario === "denied") await expect(alert).toContainText("acceso actual");

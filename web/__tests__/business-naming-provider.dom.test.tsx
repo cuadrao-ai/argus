@@ -10,8 +10,8 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import BusinessNamingProvider, { useBusinessNaming } from "@/components/business-app/BusinessNamingProvider";
 import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 import { ChatWorkspaceProvider, type ChatWorkspace } from "@/components/chat/ChatWorkspace";
-import { ReceiptPeriodExport } from "@/components/business-app/ReceiptDossierReview";
-import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
+import ExportRecordsPanel from "@/components/business-app/ExportRecordsPanel";
+import type { MonthCloseSource } from "@/components/business-app/BusinessMonthClosePanel";
 
 mock.module("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push() {} }), usePathname: () => "/biz" }));
 beforeAll(() => {
@@ -20,6 +20,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 const state = (id: string, show = false) => ({ id, name: "Mi negocio", name_required: true, name_prompt_seen: true, show_prompt: show });
+const pendingMonthClose = { client: { load: () => new Promise(() => {}) }, scopeKey: "own" } as unknown as MonthCloseSource;
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
 
 async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?: boolean; profile?: boolean } = {}) {
@@ -34,12 +35,11 @@ async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?
   const root = createRoot(host);
   let naming: ReturnType<typeof useBusinessNaming>;
   function Probe() { naming = useBusinessNaming(); return null; }
-  const dossier = await createDossierFixtures([{ id: "account-fixture", nickname: "Caja", type: "cash", currency: "DOP" }]).dossier(dossierFixtureIds.ready);
   const render = async (id: string, role: "owner" | "accountant" = "owner") => {
-    const context = { chosen: { space_id: id, role }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
+    const context = { chosen: { space_id: id, role, name: "Mi negocio", grant_id: `${id}-grant`, capabilities: ["read"] }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
     const ProfileMenu = options.profile ? (await import("@/components/sidebar/ProfileMenu")).default : null;
     const workspace = { conversationSurface: "business" } as ChatWorkspace;
-    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ReceiptPeriodExport scope={{ draftId: dossier.draft_id, name: dossier.space_name, capabilities: dossier.capabilities }} start="2026-10-01" end="2026-10-31" available /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
+    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ExportRecordsPanel month="2026-10" monthClose={pendingMonthClose} onClose={() => {}} /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
     await act(async () => { root.render(options.strict ? <StrictMode>{child}</StrictMode> : child); });
   };
   return { render, naming: () => naming!, close: async () => { await act(async () => root.unmount()); host.remove(); globalThis.fetch = originalFetch; if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; } };
@@ -109,7 +109,7 @@ test("an old required-name read cannot open a dialog after switching Business", 
   } finally { await view.close(); }
 });
 
-test("the existing export component waits for the same required-name dialog", async () => {
+test("the export panel waits for the same required-name dialog", async () => {
   let exports = 0;
   const view = await mount(async (url, init) => {
     if (String(url).includes("/exports")) { exports++; return new Response("PKfixture", { headers: { "Content-Type": "application/zip" } }); }
@@ -117,9 +117,9 @@ test("the existing export component waits for the same required-name dialog", as
   }, { export: true });
   try {
     await view.render("owner-space");
-    await act(async () => { document.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+    await act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="export-download"]')!.click(); });
     assert.equal(exports, 0);
-    const dialog = document.querySelector('[role="dialog"]');
+    const dialog = [...document.querySelectorAll('[role="dialog"]')].find((item) => !item.contains(document.querySelector('[data-testid="export-records-panel"]')));
     assert.match(dialog?.textContent ?? "", /Guardar y continuar/);
     assert.equal(dialog?.querySelectorAll("button").length, 1);
     await view.render("client-space", "accountant");

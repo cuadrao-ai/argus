@@ -13,6 +13,7 @@ import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { bandejaReceipts } from "./bandeja-order";
+import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
 import { countPorRevisar, countStillReading, countUnreadable, porRevisar } from "@/lib/business-review-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, PanelHeading, primaryButtonClass, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
@@ -47,7 +48,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
 
 export { inboxCount } from "./inbox-count";
 
-export function NotesAwaitingReview({ notes, error, truncated = false, onOpen, onRetry }: { notes: OpenNote[]; error: boolean; truncated?: boolean; onOpen: (draftId: string) => void; onRetry?: () => void }) {
+export function NotesAwaitingReview({ notes, error, truncated = false, openDraftId, onOpen, onRetry }: { notes: OpenNote[]; error: boolean; truncated?: boolean; openDraftId?: string; onOpen: (draftId: string) => void; onRetry?: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   if (!error && notes.length === 0) return null;
@@ -60,7 +61,7 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen, o
       ) : (
         <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-inbox-notes">
           {notes.map((note) => (
-            <li key={note.draftId}>
+            <li key={note.draftId} aria-current={note.draftId === openDraftId ? "true" : undefined} className={`rounded-[16px] ${OPEN_ROW_CLASS}`}>
               <button
                 type="button"
                 onClick={() => onOpen(note.draftId)}
@@ -86,7 +87,7 @@ export function NotesAwaitingReview({ notes, error, truncated = false, onOpen, o
   );
 }
 
-export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { receipt: ReceiptSummary; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void>; onUpload?: () => void }) {
+export function ReceiptRow({ receipt, open = false, onOpen, onMark, onRetry, onUpload }: { receipt: ReceiptSummary; open?: boolean; onOpen: () => void; onMark?: (receipt: ReceiptSummary) => void; onRetry?: () => Promise<void>; onUpload?: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const attentionLabel = useAttentionLabel();
@@ -109,7 +110,7 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
     }
   };
   return (
-    <li className="flex flex-wrap items-center gap-1">
+    <li aria-current={open ? "true" : undefined} className={`flex flex-wrap items-center gap-1 rounded-[16px] ${OPEN_ROW_CLASS}`}>
       <button
         type="button"
         onClick={onOpen}
@@ -143,14 +144,14 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
                   : savedUnreadLine(t, { enterable: receipt.enterable, preparable: receipt.preparable })
                 : formatRelativeTime(receipt.received_at, locale)}
           </span>
-          <span className="mt-1 block text-[15px] font-medium tabular-nums mobile:hidden">{formatMoney(receipt.amount, receipt.currency, locale)}</span>
-          <span className={`mt-2 block ${needsAttention ? "" : "mobile:hidden"}`}><StatusPill status={receipt.status} /></span>
+          <span className="mt-1 block text-[15px] font-medium tabular-nums @min-[28rem]:hidden">{formatMoney(receipt.amount, receipt.currency, locale)}</span>
+          <span className={`mt-2 block ${needsAttention ? "" : "@min-[28rem]:hidden"}`}><StatusPill status={receipt.status} /></span>
           <RecordMarks personal={receipt.personal} fiscalValue={receipt.fiscal_value} known={receipt.fiscal_known === true} markedBy={receipt.personal_marked_by} className="mt-1" />
         </span>
-        <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white mobile:block">
+        <span className="hidden text-right text-[15px] font-medium tabular-nums text-black dark:text-white @min-[28rem]:block">
           {formatMoney(receipt.amount, receipt.currency, locale)}
         </span>
-        {!needsAttention ? <span className="hidden mobile:block"><StatusPill status={receipt.status} /></span> : null}
+        {!needsAttention ? <span className="hidden @min-[28rem]:block"><StatusPill status={receipt.status} /></span> : null}
         <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" />
       </button>
       {onMark && receipt.personal_editable ? (
@@ -268,7 +269,7 @@ export default function BusinessInboxPanel() {
   ].filter((part): part is string => Boolean(part));
   const openReview = () => {
     const next = porRevisar(items ?? [])[0];
-    if (next) openPanel({ kind: "receipt", receiptId: next.id });
+    if (next) openPanel({ kind: "receipt", receiptId: next.id, list: "inbox" });
   };
 
   return (
@@ -301,7 +302,7 @@ export default function BusinessInboxPanel() {
             <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
           ) : (
             <>
-              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} onOpen={(draftId) => openPanel({ kind: "draft", draftId })} onRetry={reload} />
+              <NotesAwaitingReview notes={notes} error={records.notesError} truncated={records.notesTruncated} openDraftId={panel.kind === "draft" ? panel.draftId : undefined} onOpen={(draftId) => openPanel({ kind: "draft", draftId, list: "inbox" })} onRetry={reload} />
               {items.length ? (
                 <ListPager
                   items={items}
@@ -309,13 +310,14 @@ export default function BusinessInboxPanel() {
                   revealLabel={t("business.inbox.reveal_more", "Ver más")}
                   loadLabel={t("business.inbox.load_more", "Cargar más")}
                   retryLabel={t("common.retry", "Reintentar")}
-                  listClassName={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}
+                  listClassName={`${cardClass} @container divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}
                   listTestId="business-inbox-receipts"
                   renderItem={(receipt) => (
                     <ReceiptRow
                       key={receipt.id}
                       receipt={receipt}
-                      onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id })}
+                      open={isOpenRecord(panel, { kind: "receipt", receiptId: receipt.id })}
+                      onOpen={() => openPanel({ kind: "receipt", receiptId: receipt.id, list: "inbox" })}
                       onMark={personal.mark}
                       onRetry={async () => {
                         if (!consent.accepted) {

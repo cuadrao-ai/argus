@@ -10,7 +10,7 @@ import { EmptyState } from "./foundation/EmptyState";
 import { useForwardAddress } from "./useForwardAddress";
 import { cardClass, pillButtonClass } from "./business-ui";
 import { currentMonthKey } from "@/lib/business-month-close";
-import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
+import BusinessMonthClosePanel, { useMonthCloseSource } from "./BusinessMonthClosePanel";
 import ExportRecordsPanel from "./ExportRecordsPanel";
 import { CopyButton, useCopyLabels } from "./foundation/CopyButton";
 import { showToast } from "./foundation/toasts";
@@ -35,6 +35,7 @@ export default function BusinessOverviewPanel() {
 
   const [shownMonth, setShownMonth] = useState(() => currentMonthKey());
   const [exportOpen, setExportOpen] = useState(false);
+  const monthClose = useMonthCloseSource();
   const copyLabels = useCopyLabels(forwardAddress ?? "");
 
   return (
@@ -72,6 +73,7 @@ export default function BusinessOverviewPanel() {
       </div>
 
       <BusinessMonthClosePanel
+        monthClose={monthClose}
         onMonthChange={setShownMonth}
         review={porRevisar === null ? null : {
           count: porRevisar,
@@ -82,7 +84,7 @@ export default function BusinessOverviewPanel() {
           open: () => openPanel({ kind: "inbox" }),
         }}
       />
-      {exportOpen ? <ExportRecordsPanel month={shownMonth} onClose={() => setExportOpen(false)} /> : null}
+      {exportOpen ? <ExportRecordsPanel month={shownMonth} monthClose={monthClose} onClose={() => setExportOpen(false)} /> : null}
 
       {records.error ? (
         <div className={`${cardClass} mt-6`}>
