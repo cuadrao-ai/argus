@@ -95,6 +95,8 @@ export type ReceiptSummary = ReceiptReviewFields & {
   include_606_by?: string | null;
   /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
   personal_editable?: boolean;
+  /** `venta` is an invoice this business already issued. Absent means a receipt. */
+  document_type?: "recibo" | "venta";
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;
@@ -518,6 +520,7 @@ export async function uploadBusinessReceipt(
   file: File,
   consentToPrepare: boolean,
   idempotencyKey: string,
+  documentType: "recibo" | "venta" = "recibo",
 ): Promise<ReceiptSummary> {
   const authHeaders = await authenticatedRequestHeaders();
   const headers = argusApiRequestHeaders(
@@ -525,6 +528,7 @@ export async function uploadBusinessReceipt(
       "Content-Type": file.type,
       "Idempotency-Key": idempotencyKey,
       "X-Document-Filename": encodeURIComponent(file.name),
+      ...(documentType === "venta" ? { "X-Document-Type": "venta" } : {}),
       ...(consentToPrepare ? { "X-Extraction-Consent": "true" } : {}),
     },
     authHeaders,

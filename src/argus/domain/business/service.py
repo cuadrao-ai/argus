@@ -182,6 +182,7 @@ class BusinessService:
         media_type: str,
         consent: bool,
         on_capture: CaptureHook | None = None,
+        document_type: str = "recibo",
     ) -> Receipt:
         outcome = await self.documents.upload(
             user_id=scope.person_id,
@@ -191,6 +192,7 @@ class BusinessService:
             consent=consent,
             scope=scope.owner,
             on_capture=on_capture,
+            document_type=document_type,
         )
         # The same bytes saved before come back as that receipt, said so.
         return replace(

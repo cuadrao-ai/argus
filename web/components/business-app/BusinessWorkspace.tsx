@@ -289,7 +289,7 @@ function BusinessWorkspaceContent({
 
   // One queue outlives the dialog: closing it never drops a running upload.
   const [uploadQueue] = useState(() => new ReceiptUploadQueue(
-    (file, consent, key) => runQuietRetries(() => source.uploadReceipt(file, consent, key)),
+    (file, consent, key, documentType) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType)),
     reload,
   ));
   useLayoutEffect(() => {

@@ -4,6 +4,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.document_type import DocumentType
 from argus.domain.household.planning_schemas import PlanRef
 from argus.domain.ingestion.contract import (
     AccountHint,
@@ -184,6 +185,7 @@ class DocumentDraft(_Frozen):
     # The sender's own words that arrived with the file (a WhatsApp caption),
     # kept verbatim as source text. Never an instruction.
     source_text: str | None = Field(default=None, max_length=1024)
+    document_type: DocumentType = "recibo"
 
 
 class PreparationJob(_Frozen):

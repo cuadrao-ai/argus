@@ -18,13 +18,14 @@ export function composerUploadDisposition(origin: UploadOrigin, current: { conve
 
 export type ReceiptUpload = UploadFile & (
   | { status: "queued" }
-  | { status: "uploading"; consent: boolean }
-  | { status: "failed"; consent: boolean; failure: FailureClass }
-  | { status: "saved"; consent: boolean; receipt: ReceiptSummary }
+  | { status: "uploading"; consent: boolean; documentType: DocumentType }
+  | { status: "failed"; consent: boolean; documentType: DocumentType; failure: FailureClass }
+  | { status: "saved"; consent: boolean; documentType: DocumentType; receipt: ReceiptSummary }
   | { status: "rejected"; reason: UploadRejection }
 );
 
-type Upload = (file: File, consent: boolean, key: string) => Promise<ReceiptSummary>;
+export type DocumentType = "recibo" | "venta";
+type Upload = (file: File, consent: boolean, key: string, documentType: DocumentType) => Promise<ReceiptSummary>;
 /** Where the file stands in the running drain: "Subiendo 6 de 9". */
 export type UploadProgress = { target: IntakeTarget; position: number; total: number };
 
@@ -118,7 +119,7 @@ export class ReceiptUploadQueue {
     if (!this.running) this.publish(this.items.filter((item) => item.target !== target));
   }
 
-  async save(target: IntakeTarget, consent: boolean, onlyKey?: string) {
+  async save(target: IntakeTarget, consent: boolean, onlyKey?: string, documentType: DocumentType = "recibo") {
     if (this.running) return;
     this.running = true;
     const presentAtStart = new Set(this.items.map((item) => item.key));
@@ -133,11 +134,12 @@ export class ReceiptUploadQueue {
           const remaining = waitingUploads(this.items, target, attempted, seeded, presentAtStart).length;
           this.current = { target, position: attempted.size, total: attempted.size + remaining };
           const chosenConsent = item.status === "failed" ? item.consent : consent;
-          const attempt = { ...item, consent: chosenConsent };
+          const chosenType = item.status === "failed" ? item.documentType : documentType;
+          const attempt = { ...item, consent: chosenConsent, documentType: chosenType };
           this.replace({ ...attempt, status: "uploading" });
           let receipt: ReceiptSummary;
           try {
-            receipt = await this.uploadPastLimits(item.file, chosenConsent, item.key);
+            receipt = await this.uploadPastLimits(item.file, chosenConsent, item.key, chosenType);
           } catch (error: unknown) {
             if (error instanceof Error && "status" in error && error.status === 415) {
               this.replace({ ...item, status: "rejected", reason: "unsupported" });
@@ -162,10 +164,10 @@ export class ReceiptUploadQueue {
     }
   }
 
-  private async uploadPastLimits(file: File, consent: boolean, key: string): Promise<ReceiptSummary> {
+  private async uploadPastLimits(file: File, consent: boolean, key: string, documentType: DocumentType): Promise<ReceiptSummary> {
     for (;;) {
       try {
-        return await this.upload(file, consent, key);
+        return await this.upload(file, consent, key, documentType);
       } catch (error: unknown) {
         const waitMs = limitedFor(error);
         if (waitMs === null) throw error;

@@ -33,7 +33,7 @@ authorize Apple TestFlight or change public signup or marketing publication.
 - **Legal drafts.** [docs/legal](legal/OPEN_QUESTIONS.md) holds draft privacy, terms and
   data-use documents. They use placeholders, the company is not formed, and a lawyer
   must review them before any publication. They are not published policy.
-- **Month close.** Request and response shapes, error codes, and the settlement grain are in [the month-close contract](contracts/business-month-close.md). `API_CONTRACT.md` points there. The migration is the schema.
+- **Month close.** Request and response shapes, error codes, the settlement grain, and the Bandeja Venta type are in [the month-close contract](contracts/business-month-close.md). `API_CONTRACT.md` points there. The migration is the schema.
 - **"Already included" is server-owned.** The API decides whether to ask if a movement
   was already counted in a balance. It asks only when a movement is backdated to a date
   on or before a balance check made after it. A skipped question is recorded with a

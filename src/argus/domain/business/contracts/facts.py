@@ -21,6 +21,7 @@ from typing_extensions import TypeAliasType
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
 from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseReview
+from argus.domain.business.document_type import DocumentType
 
 T = TypeVar("T")
 
@@ -238,6 +239,7 @@ class ReadPurchase(Contract):
 
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
+    document_type: DocumentType = "recibo"
     facts: BusinessFacts
     dgii: DgiiDeclaration | None = None
     #: Empty for a single clean read. Several entries mean the read showed

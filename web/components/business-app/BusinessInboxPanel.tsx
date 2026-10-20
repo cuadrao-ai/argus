@@ -120,6 +120,7 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
         </span>
         <span className="min-w-0 flex-1">
           <span className={`block ${needsAttention ? "break-words" : "truncate"} text-[15px] font-medium text-black dark:text-white`}>
+            {receipt.document_type === "venta" ? <span className="mr-2 rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-black/70 dark:bg-white/10 dark:text-white/70" data-testid="inbox-venta">{t("business.inbox.venta", "Venta")}</span> : null}
             {receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}
           </span>
           <span className={`mt-0.5 flex gap-1.5 ${needsAttention ? "items-start whitespace-normal break-words text-black/70 dark:text-white/75" : "items-center truncate text-[#56635e] dark:text-white/60"} text-[13px]`}>

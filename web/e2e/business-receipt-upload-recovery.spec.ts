@@ -7,7 +7,7 @@ async function openIntake(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
-  const attempts: { key: string; consent: string | undefined; bytes: Buffer }[] = [];
+  const attempts: { key: string; consent: string | undefined; bytes: Buffer; documentType?: string }[] = [];
   const state: { status: number; limitOnce?: string } = { status: 422 };
   await page.route("**/api/v1/business/**", async (route) => {
     const request = route.request();
@@ -17,7 +17,7 @@ async function openIntake(page: Page) {
       return route.fulfill({ json: { ...workspace, receipt_limits: { ...workspace.receipt_limits, media_types: [...workspace.receipt_limits.media_types, "application/xml", "text/xml"] } } });
     }
     if (path === "receipts" && request.method() === "POST") {
-      attempts.push({ key: request.headers()["idempotency-key"], consent: request.headers()["x-extraction-consent"], bytes: request.postDataBuffer() ?? Buffer.alloc(0) });
+      attempts.push({ key: request.headers()["idempotency-key"], consent: request.headers()["x-extraction-consent"], bytes: request.postDataBuffer() ?? Buffer.alloc(0), documentType: request.headers()["x-document-type"] });
       const filename = decodeURIComponent(request.headers()["x-document-filename"] ?? "");
       if (state.limitOnce === filename) {
         state.limitOnce = undefined;
@@ -98,3 +98,25 @@ for (const width of [1280, 390]) {
     });
   });
 }
+
+test("a Venta upload names its type, and its retry keeps it", async ({ page }) => {
+  const { dialog, attempts, state } = await openIntake(page);
+  await dialog.getByTestId("intake-type-venta").click();
+  await dialog.locator('input[type="file"]').first().setInputFiles({ name: "factura.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
+  await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await dialog.getByTestId("intake-type-recibo").click();
+  state.status = 201;
+  await dialog.getByRole("button", { name: "Reintentar", exact: true }).click();
+  await expect.poll(() => attempts.length).toBe(2);
+  expect(attempts.map((attempt) => attempt.documentType)).toEqual(["venta", "venta"]);
+});
+
+test("a receipt upload sends no document type", async ({ page }) => {
+  const { dialog, attempts, state } = await openIntake(page);
+  state.status = 201;
+  await dialog.locator('input[type="file"]').first().setInputFiles({ name: "recibo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
+  await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
+  await expect.poll(() => attempts.length).toBe(1);
+  expect(attempts[0].documentType).toBeUndefined();
+});
