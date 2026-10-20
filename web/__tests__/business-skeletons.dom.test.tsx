@@ -106,7 +106,8 @@ describe("business skeletons", () => {
     const markup = detail.host.querySelector('[data-layout="detail"]')?.innerHTML ?? "";
     expect(markup).toContain("desktop:min-h-[280px]");
     expect(markup).toContain("min-h-[200px]");
-    expect(markup).toContain("desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]");
+    expect(markup).toContain("desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)]");
+    expect(markup).toContain("data-testid=\"business-skeleton-top\"");
     await detail.close();
 
     const inbox = await open("inbox");

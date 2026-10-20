@@ -2575,6 +2575,21 @@
       "retry": "Reintentar",
       "account_unknown": "Desconocida"
     },
+    "history": {
+      "am": "a.m.",
+      "approved": "Aprobado",
+      "changed": "{{field}} cambiado de {{before}} a {{after}}",
+      "changed_female": "{{field}} cambiada de {{before}} a {{after}}",
+      "channel_email": "Correo",
+      "channel_web": "Subido",
+      "pm": "p.m.",
+      "read": "Leído",
+      "received": "Recibido",
+      "rnc_verified": "RNC verificado",
+      "see_all": "Ver todo",
+      "set": "{{field}}: {{after}}",
+      "title": "Historial"
+    },
     "home": {
       "body": "Agrega un recibo, registra un gasto o pregunta por lo que ya guardaste.",
       "title": "¿Qué hacemos hoy por tu negocio?"
@@ -2825,6 +2840,11 @@
       "last_30_days": "Últimos 30 días",
       "last_month": "Mes pasado",
       "this_month": "Este mes"
+    },
+    "reading": {
+      "line": "Leyendo tu recibo…",
+      "supplier": "Proveedor",
+      "total": "Total"
     },
     "receipt": {
       "untitled": "Recibo"

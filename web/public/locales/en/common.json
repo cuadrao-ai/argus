@@ -2526,6 +2526,26 @@
       "retry": "Try again",
       "account_unknown": "Unknown"
     },
+    "history": {
+      "am": "AM",
+      "approved": "Approved",
+      "changed": "{{field}} changed from {{before}} to {{after}}",
+      "changed_female": "{{field}} changed from {{before}} to {{after}}",
+      "channel_email": "Email",
+      "channel_web": "Uploaded",
+      "pm": "PM",
+      "read": "Read",
+      "received": "Received",
+      "rnc_verified": "RNC verified",
+      "see_all": "See all",
+      "set": "{{field}}: {{after}}",
+      "title": "History"
+    },
+    "reading": {
+      "line": "Reading your receipt…",
+      "supplier": "Supplier",
+      "total": "Total"
+    },
     "sample": {
       "notice": "Design preview with sample data. Nothing here is saved, uploaded or sent."
     },
