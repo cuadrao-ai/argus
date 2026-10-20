@@ -208,6 +208,8 @@ def _paths(
         ("GET", "/business/captures", {}),
         ("GET", f"/business/drafts/{draft}/dossier", {}),
         ("GET", "/business/exports", {"start": PERIOD["from"], "end": PERIOD["to"]}),
+        ("GET", "/business/month-close", {"month": "2026-10"}),
+        ("GET", "/business/open-items", {}),
         ("GET", "/business/workspace", {}),
         ("GET", "/business/email", {}),
         ("GET", "/business/email/deliveries", {}),

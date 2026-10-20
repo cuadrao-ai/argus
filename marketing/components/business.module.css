@@ -4,6 +4,9 @@
   --line: #dce0da;
   --paper: #fafbf8;
   --accent: #d7ddc0;
+  --cta-hover: #30463a;
+  --cta-rest: #2f5a49;
+  --cta-deep: #1d4236;
   min-height: 100svh;
   background: var(--paper);
   color: var(--ink);
@@ -172,6 +175,12 @@
   background: #e8ede3;
   border-color: transparent;
   color: var(--ink) !important;
+}
+.header[data-condensed="true"] .utilityNav > .buttonSmall {
+  background: var(--cta-rest);
+}
+.header[data-condensed="true"] .utilityNav > .buttonSmall:hover {
+  background: var(--cta-deep);
 }
 .header .utilityNav > .buttonSmall {
   transition:
@@ -840,6 +849,10 @@
 }
 .closing .button {
   margin-top: 25px;
+  background: var(--cta-rest);
+}
+.closing .button:hover {
+  background: var(--cta-deep);
 }
 .closing small {
   display: block;
@@ -1124,7 +1137,13 @@
 }
 .button:hover,
 .buttonSmall:hover {
-  background: #30463a;
+  background: var(--cta-hover);
+}
+.submit {
+  background: var(--cta-rest);
+}
+.submit:hover {
+  background: var(--cta-deep);
 }
 .button:hover svg {
   transform: translate(2px, -2px);

@@ -62,7 +62,7 @@ def _prepared(checked, monkeypatch, batch):  # noqa: ANN001, F811
     monkeypatch.setattr(sources, "attach", lambda *args: None)
     monkeypatch.setattr(mutations, "validate_facts", lambda *args: None)
     tx.imports = Mock()
-    tx.rows = Mock(return_value=[])
+    tx.rows = Mock(return_value=[{"business_rnc": None}])
     tx.context = Mock(actor=Mock(space_id=binding.space_id))
     monkeypatch.setattr(mutations, "new_candidate", lambda *args: event)
     result = mutations.prepare_attachment(tx, None, batch, draft, binding.actor)

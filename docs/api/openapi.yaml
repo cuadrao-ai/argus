@@ -2659,6 +2659,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/open-items:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenItems'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/v1/business/fiscal-profile:
     get:
@@ -14519,6 +14561,18 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        document_type:
+          type: string
+          enum:
+          - recibo
+          - venta
+          default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -14974,6 +15028,13 @@ components:
         draft:
           anyOf:
           - $ref: '#/components/schemas/ExistingDraft'
+          - type: 'null'
+        document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
           - type: 'null'
       additionalProperties: false
       type: object
@@ -17156,11 +17217,35 @@ components:
           format: date
         total_minor:
           type: integer
+        total:
+          type: string
         before_itbis_minor:
           type: integer
+        before_itbis:
+          type: string
         itbis_minor:
           anyOf:
           - type: integer
+          - type: 'null'
+        itbis:
+          anyOf:
+          - type: string
+          - type: 'null'
+        counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        rnc:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ncf:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ecf:
+          anyOf:
+          - type: string
           - type: 'null'
         status:
           type: string
@@ -17172,8 +17257,15 @@ components:
       - currency
       - occurred_on
       - total_minor
+      - total
       - before_itbis_minor
+      - before_itbis
       - itbis_minor
+      - itbis
+      - counterparty
+      - rnc
+      - ncf
+      - ecf
       - status
     DocumentResponse:
       properties:
@@ -22166,6 +22258,49 @@ components:
         old profile rows carry it and deployed clients may still read the `/me`
 
         shape during a rollout.'
+    OpenItems:
+      properties:
+        cuentas_por_cobrar:
+          $ref: '#/components/schemas/OpenList'
+        cuentas_por_pagar:
+          $ref: '#/components/schemas/OpenList'
+      additionalProperties: false
+      type: object
+      required:
+      - cuentas_por_cobrar
+      - cuentas_por_pagar
+    OpenList:
+      properties:
+        count:
+          type: integer
+        totals:
+          items:
+            $ref: '#/components/schemas/OpenTotal'
+          type: array
+        items:
+          items:
+            $ref: '#/components/schemas/DocumentLine'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - count
+      - totals
+      - items
+    OpenTotal:
+      properties:
+        currency:
+          type: string
+        total_minor:
+          type: integer
+        total:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - currency
+      - total_minor
+      - total
     OpeningActivityQuestion:
       properties:
         activity_id:
@@ -24385,6 +24520,12 @@ components:
           - recibo
           - venta
           default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -25027,6 +25168,12 @@ components:
           - recibo
           - venta
           default: recibo
+        document_type_detected:
+          type: boolean
+          default: false
+        document_type_editable:
+          type: boolean
+          default: false
         expense_id:
           anyOf:
           - type: string
@@ -25496,6 +25643,13 @@ components:
         dgii:
           anyOf:
           - $ref: '#/components/schemas/FiscalReview'
+          - type: 'null'
+        document_type:
+          anyOf:
+          - type: string
+            enum:
+            - recibo
+            - venta
           - type: 'null'
       additionalProperties: false
       type: object

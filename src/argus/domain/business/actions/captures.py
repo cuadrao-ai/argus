@@ -15,6 +15,7 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.dossier import MessageSource
 from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.document_type import typed_facts
 from argus.domain.business.transactions import transaction
 
 if TYPE_CHECKING:
@@ -36,16 +37,6 @@ def capture(
             try:
                 with tx.connection.transaction():
                     now = datetime.now(timezone.utc)
-                    if request.draft is None:
-                        event = mutations.new_candidate(context.owner_id, now)
-                        before = None
-                        after = BusinessFacts(
-                            currency=Known(value="DOP", origin="default", source_ids=())
-                        )
-                    else:
-                        event = mutations.event_at(tx, request.draft)
-                        before = after = facts_of(event)
-                        event = replace(event, version=event.version + 1, updated_at=now)
                     evidence = MessageSource(
                         id=uuid4(),
                         kind="message",
@@ -56,6 +47,28 @@ def capture(
                     source_id = sources.record_source(
                         tx, f"capture:{context.actor.actor_id}:{key}", evidence
                     )
+                    typed = {}
+                    if request.draft is None:
+                        event = mutations.new_candidate(context.owner_id, now)
+                        before = None
+                        after = BusinessFacts(
+                            currency=Known(value="DOP", origin="default", source_ids=())
+                        )
+                        # A typed note prints no issuer RNC, so the read's rule
+                        # finds no Business number in it: a receipt.
+                        document_type = request.document_type or "recibo"
+                        if document_type == "venta":
+                            after = typed_facts(
+                                after, "venta", (source_id,), "owner_stated", None
+                            )
+                        typed = {
+                            "document_type": document_type,
+                            "document_type_detected": request.document_type is None,
+                        }
+                    else:
+                        event = mutations.event_at(tx, request.draft)
+                        before = after = facts_of(event)
+                        event = replace(event, version=event.version + 1, updated_at=now)
                     result = mutations.save_revision(
                         tx,
                         event,
@@ -64,6 +77,7 @@ def capture(
                         (source_id,),
                         tx.authorization.provenance,
                         None,
+                        **typed,
                     )
             except ActionError as error:
                 result = error.result

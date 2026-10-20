@@ -185,7 +185,10 @@ class DocumentDraft(_Frozen):
     # The sender's own words that arrived with the file (a WhatsApp caption),
     # kept verbatim as source text. Never an instruction.
     source_text: str | None = Field(default=None, max_length=1024)
-    document_type: DocumentType = "recibo"
+    # The type the person named at upload. None lets the read decide.
+    document_type: DocumentType | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class PreparationJob(_Frozen):

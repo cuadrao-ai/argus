@@ -1,4 +1,4 @@
-"""Month close. Transport only: auth, validation, and the settlement store."""
+"""Month close and open items. Transport only: auth, validation, and the settlement store."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from argus.api.business import BusinessPerson, require_business_person
 from argus.api.business_drafts import DraftContext, action_problem, require_drafts
 from argus.api.business_month_close_schemas import (
     MonthClose,
+    OpenItems,
     SettlementResult,
     SettlementUpdate,
 )
@@ -20,16 +21,22 @@ from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.domain.business.authority import ActionError
 from argus.domain.business.month_close import Settlement
-from argus.domain.business.month_close_store import read_month, settle_document
+from argus.domain.business.month_close_store import (
+    read_month,
+    read_open,
+    settle_document,
+)
 
+_GRANT_REFUSALS = {
+    403: {
+        "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
+    }
+}
 router = APIRouter(
-    prefix="/business/month-close",
-    tags=["business"],
-    responses={
-        403: {
-            "description": "`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is missing, someone else's, revoked or expired; `business_permission_denied`: the live grant does not allow this."
-        }
-    },
+    prefix="/business/month-close", tags=["business"], responses=_GRANT_REFUSALS
+)
+open_items_router = APIRouter(
+    prefix="/business/open-items", tags=["business"], responses=_GRANT_REFUSALS
 )
 
 
@@ -84,6 +91,31 @@ def month_summary(
             detail="month_invalid",
             headers=NO_STORE,
         ) from None
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
+    except (PostgresError, PoolTimeout):
+        _unavailable(request)
+
+
+@open_items_router.get("", response_model=OpenItems)
+def open_items(
+    request: Request,
+    response: Response,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+):
+    response.headers.update(NO_STORE)
+    if request.query_params:
+        raise problem(
+            request,
+            status_code=422,
+            code="validation_error",
+            title="Validation Error",
+            detail="No query parameters are accepted.",
+            headers=NO_STORE,
+        )
+    try:
+        return read_open(context.service.authority, _owner(request, context, person))
     except ActionError as error:
         raise action_problem(request, error.result) from None
     except (PostgresError, PoolTimeout):

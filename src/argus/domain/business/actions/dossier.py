@@ -242,5 +242,9 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         dgii_qr=resolution.dgii_qr,
         bill_mark=resolution.bill_mark,
         dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
+        document_type=resolution.document_type,
+        document_type_detected=resolution.document_type_detected,
+        document_type_editable=event.state == "open"
+        and "prepare" in tx.authorization.capabilities,
         **draft_marks(tx, draft_id, facts),
     )

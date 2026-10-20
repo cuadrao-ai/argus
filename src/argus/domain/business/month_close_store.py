@@ -1,4 +1,5 @@
-"""Load and settle a month from the same activities the export already reads.
+"""Load and settle a month, and read open items across months, from the same
+activities the export already reads.
 
 The settlement row is an annotation. This module does not copy amounts.
 """
@@ -17,6 +18,7 @@ from argus.domain.business.month_close import (
     IMPLICIT,
     Settlement,
     month_period,
+    open_items,
     project_documents,
     set_document_status,
     summarize,
@@ -88,6 +90,12 @@ def read_month(authority, context: ActionContext, month: str) -> dict:
         documents, _by_id = _collect(authority, connection, auth.context)
     summary = summarize(documents, start, end)
     return {"month": month, **summary}
+
+
+def read_open(authority, context: ActionContext) -> dict:
+    with _session(authority, context, "read") as (connection, auth):
+        documents, _by_id = _collect(authority, connection, auth.context)
+    return open_items(documents)
 
 
 def settle_document(
