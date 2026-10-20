@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AlertCircle, BadgeCheck, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Clock, FileWarning, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   calendarDay,
   canCloseMonth,
@@ -742,6 +742,8 @@ export function BusinessMonthCloseView({
               <div className="mt-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
                 {reason ? (
                   <p id="month-close-reason" data-testid="month-close-reason" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{reason}</p>
+                ) : !gate.ok && gate.reason === "closed" && !locked ? (
+                  <p data-testid="month-close-filing" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.filing_ready", "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.")}</p>
                 ) : gate.ok && tasks.length > 0 ? (
                   <p data-testid="month-close-close-note" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.close_with_open_tasks", "You can close now; whatever is left stays as it is.")}</p>
                 ) : null}
@@ -793,20 +795,17 @@ export function BusinessMonthCloseView({
         </>
       )}
 
-      {confirming ? (
-        <AdaptivePanel
-          title={t("business.month_close.close_confirm_title", "Close this month?")}
-          closeLabel={t("business.month_close.close_back", "Back")}
-          onClose={() => setConfirming(false)}
-          footer={
-            <button type="button" data-testid="month-close-confirm" className={`${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} disabled={busyClose} onClick={() => void confirmClose()}>
-              {t("business.month_close.close_confirm_action", "Yes, close the month")}
-            </button>
-          }
-        >
-          <p className="px-5 py-4 text-[14px] text-black/70 dark:text-white/70">{t("business.month_close.close_confirm_body", "The month becomes read-only. Statuses cannot be changed.")}</p>
-        </AdaptivePanel>
-      ) : null}
+      <ConfirmDialog
+        isOpen={confirming}
+        tone="primary"
+        title={t("business.month_close.close_confirm_title", "Close this month?")}
+        description={t("business.month_close.close_confirm_body", "The month becomes read-only. Statuses cannot be changed.")}
+        confirmLabel={t("business.month_close.close_confirm_action", "Yes, close the month")}
+        cancelLabel={t("business.month_close.close_back", "Back")}
+        isBusy={busyClose}
+        onCancel={() => { if (!busyClose) setConfirming(false); }}
+        onConfirm={() => void confirmClose()}
+      />
 
       {toast ? (
         <div role="alert" data-testid="month-close-toast" className="fixed inset-x-4 bottom-24 z-[60] mx-auto max-w-md rounded-[14px] bg-black px-4 py-3 text-[13px] text-white shadow-lg dark:bg-white dark:text-black">

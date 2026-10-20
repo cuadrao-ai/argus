@@ -2623,6 +2623,7 @@
       "checklist_overdue_one": "{{count}} overdue",
       "checklist_overdue_other": "{{count}} overdue",
       "checklist_required": "Needed to close the month",
+      "filing_ready": "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.",
       "checklist_ready": "Everything is ready to close {{month}}.",
       "action_review": "Review",
       "action_see": "See",

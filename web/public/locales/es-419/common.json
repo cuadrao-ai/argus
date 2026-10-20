@@ -2756,6 +2756,7 @@
       "checklist_overdue_one": "{{count}} vencido",
       "checklist_overdue_other": "{{count}} vencidos",
       "checklist_required": "Necesario para cerrar el mes",
+      "filing_ready": "Ya tienes todo para el 606 y el 607. Cierra el mes cuando termines de marcar lo cobrado y lo pagado.",
       "checklist_ready": "Todo listo para cerrar {{month}}.",
       "action_review": "Revisar",
       "action_see": "Ver",

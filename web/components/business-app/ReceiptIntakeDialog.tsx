@@ -109,6 +109,11 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const [savedOpen, setSavedOpen] = useState(false);
   const many = target === "inbox";
   const progress = many && queue.progress?.target === target ? queue.progress : null;
+  const batchSummary = [
+    progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : null,
+    !progress && batch.saved.length > 0 ? t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" }) : null,
+    batch.attention.length > 0 ? t("business.intake.summary_failed", { count: batch.attention.length, defaultValue: "{{count}} not uploaded" }) : null,
+  ].filter(Boolean).join(" · ");
   const failed = entries.find((item) => item.status === "failed");
   const failure: FailureClass | null = failed?.status === "failed" ? failed.failure : null;
   const [serverReference, setServerReference] = useState("");
@@ -215,6 +220,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       closeLabel={t("common.close", "Close")}
       onClose={onClose}
       width="md"
+      summary={batchSummary || undefined}
+      snaps={["peek", "half", "full"]}
+      initialSnap="half"
       footer={entries.length === 0 ? undefined : (
         <div className="flex flex-wrap items-center justify-end gap-2" data-testid="receipt-intake-footer">
           {saved.length > 0 && !unfinished && !uploading ? (
@@ -326,21 +334,15 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
 
         {entries.length > 0 ? (
           <section aria-label={t("business.intake.queue_title", "Upload receipts")}>
-            <div data-testid="receipt-upload-summary-bar" className="sticky top-0 z-10 -mx-4 mb-2 bg-white px-4 py-2 dark:bg-[#1f2225]">
-              <p role="status" aria-live="polite" data-testid="receipt-upload-summary" className="text-[14px] font-medium tabular-nums text-[#172b26] dark:text-white">
-                {[
-                  progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : null,
-                  progress && batch.secondsLeft !== null ? timeLeftText(t, batch.secondsLeft) : null,
-                  !progress && batch.saved.length > 0 ? t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" }) : null,
-                  batch.attention.length > 0 ? t("business.intake.summary_failed", { count: batch.attention.length, defaultValue: "{{count}} not uploaded" }) : null,
-                ].filter(Boolean).join(" · ")}
-              </p>
-              {progress ? (
-                <div role="progressbar" aria-label={t("business.intake.queue_title", "Upload receipts")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(batch.share * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-[#2f5a49]/15">
+            <p role="status" aria-live="polite" data-testid="receipt-upload-summary" className="sr-only">{batchSummary}</p>
+            {progress ? (
+              <div data-testid="receipt-upload-summary-bar" className="sticky top-0 z-10 -mx-4 mb-2 bg-white px-4 py-2 dark:bg-[#1f2225]">
+                <div role="progressbar" aria-label={t("business.intake.queue_title", "Upload receipts")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(batch.share * 100)} className="h-1 overflow-hidden rounded-full bg-[#2f5a49]/15">
                   <div className="h-full rounded-full bg-[#2f5a49] transition-[width] duration-200 ease-out motion-reduce:transition-none dark:bg-[#8fcbb0]" style={{ width: `${batch.share * 100}%` }} />
                 </div>
-              ) : null}
-            </div>
+                {batch.secondsLeft !== null ? <p className={`mt-1 text-[13px] tabular-nums ${MUTED}`}>{timeLeftText(t, batch.secondsLeft)}</p> : null}
+              </div>
+            ) : null}
             <ul className="space-y-2" data-testid="receipt-upload-queue">
               {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
               {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
