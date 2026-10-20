@@ -187,9 +187,8 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
   }
   const inicio = row("Inicio")!;
   await view.act(async () => {
-    inicio.dispatchEvent(new FocusEvent("focus", { bubbles: false }));
-    inicio.focus();
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    inicio.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: document.body }));
+    await new Promise((resolve) => setTimeout(resolve, 350));
   });
   const tooltip = document.getElementById(inicio.getAttribute("aria-describedby") ?? "");
   assert.ok(tooltip?.textContent?.includes("Inicio"), "the collapsed row names itself in a tooltip");

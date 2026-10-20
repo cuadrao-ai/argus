@@ -63,7 +63,6 @@ export default function SidebarHeader({
     <Tooltip
       content={isOpen ? t("sidebar.close", "Close sidebar") : t("sidebar.open", "Open sidebar")}
       side="right"
-      delay={150}
     >
       <button
         type="button"
@@ -96,7 +95,6 @@ export default function SidebarHeader({
       <Tooltip
         content={isOpen ? t("sidebar.close", "Close sidebar") : t("sidebar.open", "Open sidebar")}
         side="right"
-        delay={150}
       >
         <button
           onClick={onToggle}

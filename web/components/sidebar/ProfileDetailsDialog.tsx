@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
 import { useId, useRef } from "react";
@@ -240,52 +241,55 @@ function ProfileDetailsDialogSurface({
                         "Display name",
                       )}
                     />
-                    <button
-                      onClick={() => void handleSaveName()}
-                      disabled={isSavingName}
-                      className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                      title={t("common.save", "Save")}
-                      aria-label={t("common.save", "Save")}
-                    >
-                      <Check
-                        className={`h-3.5 w-3.5 text-[#5ba897] ${
-                          isSavingName ? "opacity-40" : ""
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={stopEditingName}
-                      disabled={isSavingName}
-                      className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                      title={t("common.cancel", "Cancel")}
-                      aria-label={t("common.cancel", "Cancel")}
-                    >
-                      <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
-                    </button>
+                    <Tooltip content={t("common.save", "Save")} side="top">
+                      <button
+                        onClick={() => void handleSaveName()}
+                        disabled={isSavingName}
+                        className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
+                        aria-label={t("common.save", "Save")}
+                      >
+                        <Check
+                          className={`h-3.5 w-3.5 text-[#5ba897] ${
+                            isSavingName ? "opacity-40" : ""
+                          }`}
+                        />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={t("common.cancel", "Cancel")} side="top">
+                      <button
+                        onClick={stopEditingName}
+                        disabled={isSavingName}
+                        className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
+                        aria-label={t("common.cancel", "Cancel")}
+                      >
+                        <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
+                      </button>
+                    </Tooltip>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleStartEditName}
-                    className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:focus-visible:ring-white/25"
-                    title={t(
+                  <Tooltip content={t(
                       "settings.profile.edit_display_name",
                       "Edit display name",
-                    )}
-                    aria-label={t(
-                      "settings.profile.edit_display_name",
-                      "Edit display name",
-                    )}
-                  >
-                    <span className="font-display truncate text-[15px] font-medium text-black dark:text-white">
-                      {profile?.display_name ??
-                        t("settings.profile.default_user", "User")}
-                    </span>
-                    <Edit2
-                      className="h-3 w-3 shrink-0 text-black/40 dark:text-white/40"
-                      aria-hidden="true"
-                    />
-                  </button>
+                    )} side="top">
+                    <button
+                      type="button"
+                      onClick={handleStartEditName}
+                      className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:focus-visible:ring-white/25"
+                      aria-label={t(
+                        "settings.profile.edit_display_name",
+                        "Edit display name",
+                      )}
+                    >
+                      <span className="font-display truncate text-[15px] font-medium text-black dark:text-white">
+                        {profile?.display_name ??
+                          t("settings.profile.default_user", "User")}
+                      </span>
+                      <Edit2
+                        className="h-3 w-3 shrink-0 text-black/40 dark:text-white/40"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </Tooltip>
                 )}
                 {nameError && (
                   <span className="mt-1 text-[12px] text-[#d66d75]">
@@ -365,43 +369,43 @@ function ProfileDetailsDialogSurface({
                           theme.token,
                         );
                         return (
-                          <button
-                            key={theme.token}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            aria-label={themeLabel}
-                            title={themeLabel}
-                            aria-disabled={isSavingAvatarTheme || undefined}
-                            onClick={() => void handleAvatarThemeSelect(theme.token)}
-                            onKeyDown={(event) =>
-                              handleAvatarThemeKeyDown(event, index)
-                            }
-                            tabIndex={selected ? 0 : -1}
-                            className={`col-span-2 flex h-11 w-11 items-center justify-center rounded-full outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-black/30 dark:focus-visible:ring-white/50 sm:col-span-1 ${
-                              isSavingAvatarTheme
-                                ? "cursor-wait opacity-60"
-                                : ""
-                            } ${
-                              index === 4 ? "col-start-2 sm:col-auto" : ""
-                            }`}
-                          >
-                            <span
-                              className={`flex h-9 w-9 items-center justify-center rounded-full border text-[12px] font-bold ${theme.className} ${
-                                theme.token === "ocean"
-                                  ? "border-black/20 dark:border-white/20"
-                                  : "border-transparent"
-                              } ${
-                                selected
-                                  ? "ring-2 ring-black/70 dark:ring-white/80"
+                          <Tooltip key={theme.token} content={themeLabel} side="top">
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={selected}
+                              aria-label={themeLabel}
+                              aria-disabled={isSavingAvatarTheme || undefined}
+                              onClick={() => void handleAvatarThemeSelect(theme.token)}
+                              onKeyDown={(event) =>
+                                handleAvatarThemeKeyDown(event, index)
+                              }
+                              tabIndex={selected ? 0 : -1}
+                              className={`col-span-2 flex h-11 w-11 items-center justify-center rounded-full outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-black/30 dark:focus-visible:ring-white/50 sm:col-span-1 ${
+                                isSavingAvatarTheme
+                                  ? "cursor-wait opacity-60"
                                   : ""
+                              } ${
+                                index === 4 ? "col-start-2 sm:col-auto" : ""
                               }`}
-                              style={avatarThemeStyle(theme.token, "picker")}
-                              aria-hidden="true"
                             >
-                              {profileInitial(profile)}
-                            </span>
-                          </button>
+                              <span
+                                className={`flex h-9 w-9 items-center justify-center rounded-full border text-[12px] font-bold ${theme.className} ${
+                                  theme.token === "ocean"
+                                    ? "border-black/20 dark:border-white/20"
+                                    : "border-transparent"
+                                } ${
+                                  selected
+                                    ? "ring-2 ring-black/70 dark:ring-white/80"
+                                    : ""
+                                }`}
+                                style={avatarThemeStyle(theme.token, "picker")}
+                                aria-hidden="true"
+                              >
+                                {profileInitial(profile)}
+                              </span>
+                            </button>
+                          </Tooltip>
                         );
                       })}
                     </div>
@@ -448,28 +452,30 @@ function ProfileDetailsDialogSurface({
                       "Leave blank for no name",
                     )}
                   />
-                  <button
-                    onClick={() => void handleSavePreferredName()}
-                    disabled={isSavingPreferredName}
-                    className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                    title={t("common.save", "Save")}
-                    aria-label={t("common.save", "Save")}
-                  >
-                    <Check
-                      className={`h-3.5 w-3.5 text-[#5ba897] ${
-                        isSavingPreferredName ? "opacity-40" : ""
-                      }`}
-                    />
-                  </button>
-                  <button
-                    onClick={stopEditingPreferredName}
-                    disabled={isSavingPreferredName}
-                    className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
-                    title={t("common.cancel", "Cancel")}
-                    aria-label={t("common.cancel", "Cancel")}
-                  >
-                    <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
-                  </button>
+                  <Tooltip content={t("common.save", "Save")} side="top">
+                    <button
+                      onClick={() => void handleSavePreferredName()}
+                      disabled={isSavingPreferredName}
+                      className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
+                      aria-label={t("common.save", "Save")}
+                    >
+                      <Check
+                        className={`h-3.5 w-3.5 text-[#5ba897] ${
+                          isSavingPreferredName ? "opacity-40" : ""
+                        }`}
+                      />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={t("common.cancel", "Cancel")} side="top">
+                    <button
+                      onClick={stopEditingPreferredName}
+                      disabled={isSavingPreferredName}
+                      className="rounded-md p-1 hover:bg-black/5 dark:hover:bg-white/10"
+                      aria-label={t("common.cancel", "Cancel")}
+                    >
+                      <X className="h-3.5 w-3.5 text-black/40 dark:text-white/40" />
+                    </button>
+                  </Tooltip>
                 </div>
               ) : (
                 <button

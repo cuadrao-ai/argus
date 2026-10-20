@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, UsersRound } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -116,7 +117,22 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
 
   return (
     <div data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
-      <button
+      {collapsed ? <Tooltip content={name} side="right"><button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={mode !== "closed"}
+        aria-controls={menuId}
+        aria-label={name}
+        onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+      >
+        {badge}
+        {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
+          <span data-testid="business-current-name" className="min-w-0 flex-1 break-words text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+        )}
+      </button></Tooltip> : (
+        <button
         ref={buttonRef}
         type="button"
         aria-haspopup="menu"
@@ -131,6 +147,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
           <span data-testid="business-current-name" className="min-w-0 flex-1 break-words text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
         )}
       </button>
+      )}
       {mode !== "closed" ? createPortal(
         <div
           ref={menuRef}

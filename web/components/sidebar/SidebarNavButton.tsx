@@ -145,7 +145,7 @@ export default function SidebarNavButton({
 
   if (collapsed) {
     return (
-      <Tooltip content={shortcutOnInteraction && shortcutHint ? `${label} · ${shortcutHint}` : label} side="right" delay={150}>
+      <Tooltip content={shortcutOnInteraction && shortcutHint ? `${label} · ${shortcutHint}` : label} side="right">
         {button}
       </Tooltip>
     );
