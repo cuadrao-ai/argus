@@ -15,6 +15,8 @@ type ConfirmDialogProps = {
   cancelLabel: string;
   isBusy?: boolean;
   showKeyboardHints?: boolean;
+  /** `danger` for a delete; `primary` for a full stop that removes nothing, such as closing a month. */
+  tone?: "danger" | "primary";
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -52,6 +54,7 @@ function ConfirmDialogSurface({
   cancelLabel,
   isBusy = false,
   showKeyboardHints = false,
+  tone = "danger",
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -121,7 +124,7 @@ function ConfirmDialogSurface({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm dark:bg-black/60">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
       <button
         tabIndex={-1}
         type="button"
@@ -170,7 +173,7 @@ function ConfirmDialogSurface({
             onClick={confirmOnce}
             disabled={isBusy}
             data-testid="confirm-dialog-confirm"
-            style={{ backgroundColor: CONFIRM_ACTION }}
+            style={{ backgroundColor: tone === "danger" ? CONFIRM_ACTION : "#2f5a49" }}
             className="min-h-11 rounded-full px-4 text-[16px] font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             <span className="inline-flex items-center gap-2">

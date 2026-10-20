@@ -11,34 +11,28 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { useModalSurface } from "@/components/layout/useModalSurface";
+import { useSheetStack } from "@/components/ui/sheetStack";
 
 /**
- * Detents from the mobile shell spec: run dossier, sources pane, capital editor.
- * `auto` is for menus, which have no natural detent: it hugs its content and
- * only starts scrolling once the content would take more than the tall detent.
+ * A sheet rests at one of three snap points and nowhere in between: peek shows
+ * a summary, half holds a form, full takes long content. Each sheet names the
+ * snaps it allows. `fit` is only for menus and pickers, which hug their content.
  */
-export type BottomSheetHeight = "full" | "tall" | "short" | "auto";
+export type SheetSnap = "peek" | "half" | "full";
+export type SheetSnaps = readonly SheetSnap[] | "fit";
 
-const HEIGHT_CLASS: Record<BottomSheetHeight, string> = {
-  full: "h-[96dvh]",
-  tall: "h-[70dvh]",
-  short: "h-[40dvh]",
-  auto: "max-h-[70dvh]",
-};
+/** Share of the screen height each snap takes. */
+export const SHEET_SNAP_SHARE: Record<SheetSnap, number> = { peek: 0.32, half: 0.6, full: 0.94 };
+const SNAP_ORDER: readonly SheetSnap[] = ["peek", "half", "full"];
+const FIT_MAX_SHARE = 0.7;
 
 const INTERACTIVE_SELECTOR = "a[href],button,input,select,textarea,[role='button']";
 
-/** A downward drag past a quarter of the sheet, or any flick, dismisses. */
-const DISMISS_TRAVEL_FLOOR_PX = 64;
-const DISMISS_TRAVEL_RATIO = 0.25;
-const DISMISS_FLICK_VELOCITY = 0.6;
+/** A flick at this speed (px/ms) closes the sheet from any height, or lifts it a snap when upward. */
+const FLICK_VELOCITY = 0.6;
 const DRAG_CAPTURE_THRESHOLD_PX = 3;
-
-export function bottomSheetHeightClass(height: BottomSheetHeight): string {
-  return HEIGHT_CLASS[height];
-}
 
 /**
  * Whether the gesture ended because the user let go, or because the browser
@@ -48,26 +42,48 @@ export function bottomSheetHeightClass(height: BottomSheetHeight): string {
  * that read as a dismissal.
  */
 export type SheetGesturePhase = "release" | "cancel";
+export type SheetRelease = { kind: "dismiss" } | { kind: "snap"; snap: SheetSnap | "fit" };
 
-export function bottomSheetDragOutcome({
-  deltaY,
-  sheetHeight,
+/**
+ * Where a let-go sheet goes. Speed decides before distance: a downward flick
+ * closes from any height and an upward flick lifts one snap. A slow drag closes
+ * only below half of the lowest snap; otherwise it springs to the nearest snap.
+ */
+export function sheetRelease({
+  heightPx,
+  snapPx,
+  from,
   velocityY,
   phase = "release",
 }: {
-  deltaY: number;
-  sheetHeight: number;
+  heightPx: number;
+  /** Each allowed snap and its height in px. */
+  snapPx: readonly { snap: SheetSnap | "fit"; px: number }[];
+  from: SheetSnap | "fit";
+  /** Positive is downward. */
   velocityY: number;
   phase?: SheetGesturePhase;
-}): "dismiss" | "settle" {
-  if (phase === "cancel") return "settle";
-  if (deltaY <= 0) return "settle";
-  if (velocityY >= DISMISS_FLICK_VELOCITY) return "dismiss";
-  const travelThreshold = Math.max(
-    DISMISS_TRAVEL_FLOOR_PX,
-    sheetHeight * DISMISS_TRAVEL_RATIO,
-  );
-  return deltaY >= travelThreshold ? "dismiss" : "settle";
+}): SheetRelease {
+  if (phase === "cancel" || snapPx.length === 0) return { kind: "snap", snap: from };
+  if (velocityY >= FLICK_VELOCITY) return { kind: "dismiss" };
+  const ordered = [...snapPx].sort((a, b) => a.px - b.px);
+  if (velocityY <= -FLICK_VELOCITY) {
+    const higher = ordered.find((item) => item.px > (snapPx.find((entry) => entry.snap === from)?.px ?? heightPx));
+    return { kind: "snap", snap: (higher ?? ordered[ordered.length - 1]).snap };
+  }
+  if (heightPx < ordered[0].px / 2) return { kind: "dismiss" };
+  const nearest = ordered.reduce((best, item) => (Math.abs(item.px - heightPx) < Math.abs(best.px - heightPx) ? item : best));
+  return { kind: "snap", snap: nearest.snap };
+}
+
+function useViewportHeight(): number {
+  const [height, setHeight] = useState(() => (typeof window === "undefined" ? 800 : window.innerHeight));
+  useEffect(() => {
+    const update = () => setHeight(window.innerHeight);
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return height;
 }
 
 type BottomSheetProps = {
@@ -77,9 +93,14 @@ type BottomSheetProps = {
   title: string;
   /** Accessible name for the close control. */
   closeLabel: string;
+  /** Accessible name for the back arrow shown when another sheet waits beneath. */
+  backLabel?: string;
   dismissible?: boolean;
-  height?: BottomSheetHeight;
+  snaps?: SheetSnaps;
+  /** Where the sheet opens; the first allowed snap by default. */
+  initialSnap?: SheetSnap;
   titleHidden?: boolean;
+  /** A line under the title; it is what the peek snap shows. */
   description?: string;
   /** Pinned below the scrolling body, for a sticky primary action. */
   footer?: ReactNode;
@@ -87,14 +108,16 @@ type BottomSheetProps = {
   children: ReactNode;
 };
 
-/** Bottom sheet primitive: swipe, scrim tap, or the close control dismisses. */
+/** Bottom sheet primitive: snaps, flick or drag, scrim tap, or the close control. */
 export function BottomSheetSurface({
   isOpen,
   onClose,
   title,
   closeLabel,
+  backLabel,
   dismissible = true,
-  height = "tall",
+  snaps = ["half", "full"],
+  initialSnap,
   titleHidden = false,
   description,
   footer,
@@ -106,8 +129,14 @@ export function BottomSheetSurface({
   const overlayId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const dragOriginRef = useRef<{ y: number; at: number } | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
+  const dragOriginRef = useRef<{ y: number; at: number; height: number } | null>(null);
+  const viewport = useViewportHeight();
+  const fit = snaps === "fit";
+  const allowed = fit ? [] : SNAP_ORDER.filter((snap) => snaps.includes(snap));
+  const firstSnap: SheetSnap | "fit" = fit ? "fit" : initialSnap && allowed.includes(initialSnap) ? initialSnap : allowed[0] ?? "half";
+  const [snap, setSnap] = useState<SheetSnap | "fit">(firstSnap);
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const { drawn, hasBelow } = useSheetStack(overlayId, isOpen);
 
   useModalSurface({
     isOpen,
@@ -123,73 +152,67 @@ export function BottomSheetSurface({
 
   useEffect(() => {
     if (!isOpen) return;
-    setDragOffset(0);
+    setSnap(firstSnap);
+    setDragHeight(null);
     dragOriginRef.current = null;
+    // Opening again starts at the declared snap, not where the last drag left it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  const snapHeight = (target: SheetSnap) => Math.round(viewport * SHEET_SNAP_SHARE[target]);
 
   const handleDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!dismissible) return;
+    if (!dismissible && fit) return;
     // Controls in the header keep their own clicks; capturing here would eat them.
-    if (
-      event.target instanceof Element &&
-      event.target.closest(INTERACTIVE_SELECTOR)
-    ) {
-      return;
-    }
-    dragOriginRef.current = { y: event.clientY, at: event.timeStamp };
+    if (event.target instanceof Element && event.target.closest(INTERACTIVE_SELECTOR)) return;
+    dragOriginRef.current = { y: event.clientY, at: event.timeStamp, height: panelRef.current?.offsetHeight ?? 0 };
+    // Grab the pointer at once: a fast first move would otherwise leave the grip before the drag is seen.
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handleDragMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const origin = dragOriginRef.current;
     if (!origin) return;
     const deltaY = event.clientY - origin.y;
-    // Capture only once this reads as a drag, so a tap stays a tap.
-    if (
-      Math.abs(deltaY) > DRAG_CAPTURE_THRESHOLD_PX &&
-      !event.currentTarget.hasPointerCapture(event.pointerId)
-    ) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-    setDragOffset(Math.max(0, deltaY));
+    // A tap stays a tap: the height only follows once the pointer has really moved.
+    if (Math.abs(deltaY) <= DRAG_CAPTURE_THRESHOLD_PX) return;
+    const tallest = fit ? origin.height : snapHeight("full");
+    setDragHeight(Math.max(0, Math.min(tallest, origin.height - deltaY)));
   };
 
-  const endGesture = (
-    event: ReactPointerEvent<HTMLDivElement>,
-    phase: SheetGesturePhase,
-  ) => {
+  const endGesture = (event: ReactPointerEvent<HTMLDivElement>, phase: SheetGesturePhase) => {
     const origin = dragOriginRef.current;
     dragOriginRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    setDragOffset(0);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    setDragHeight(null);
     if (!origin) return;
     const deltaY = event.clientY - origin.y;
     const elapsed = Math.max(1, event.timeStamp - origin.at);
-    const outcome = bottomSheetDragOutcome({
-      deltaY,
-      sheetHeight: panelRef.current?.offsetHeight ?? 0,
+    const outcome = sheetRelease({
+      heightPx: origin.height - deltaY,
+      snapPx: fit ? [{ snap: "fit", px: origin.height }] : allowed.map((item) => ({ snap: item, px: snapHeight(item) })),
+      from: snap,
       velocityY: deltaY / elapsed,
       phase,
     });
-    if (outcome === "dismiss") onClose();
+    if (outcome.kind === "dismiss") {
+      if (dismissible) onClose();
+      return;
+    }
+    setSnap(outcome.snap);
   };
-
-  const handleDragEnd = (event: ReactPointerEvent<HTMLDivElement>) =>
-    endGesture(event, "release");
-
-  const handleDragCancel = (event: ReactPointerEvent<HTMLDivElement>) =>
-    endGesture(event, "cancel");
 
   if (!isOpen) return null;
 
+  const height = dragHeight ?? (snap === "fit" ? null : snapHeight(snap));
+  const dragging = dragHeight !== null;
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-end justify-center">
+    <div className="fixed inset-0 z-[120] flex items-end justify-center" hidden={!drawn} data-sheet-stacked={hasBelow ? "true" : undefined}>
       <div
         aria-hidden="true"
         onClick={dismissible ? onClose : undefined}
-        className="argus-sheet-scrim absolute inset-0 bg-black/25 backdrop-blur-sm dark:bg-black/60"
+        className="argus-sheet-scrim absolute inset-0 bg-black/20 dark:bg-black/50"
       />
       <div
         ref={panelRef}
@@ -197,67 +220,64 @@ export function BottomSheetSurface({
         aria-modal="true"
         aria-labelledby={headingId}
         aria-describedby={description ? descriptionId : undefined}
-        style={
-          dragOffset > 0 ? { transform: `translate3d(0, ${dragOffset}px, 0)` } : undefined
-        }
-        className={`argus-sheet relative flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-[28px] border-t border-black/5 bg-white dark:border-white/5 dark:bg-[#1f2225] ${bottomSheetHeightClass(height)} ${dragOffset > 0 ? "" : "argus-sheet-enter"}`}
+        data-snap={snap}
+        style={height === null ? { maxHeight: `${Math.round(viewport * FIT_MAX_SHARE)}px` } : { height: `${height}px` }}
+        className={`argus-sheet relative flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-[20px] border-t border-black/[0.06] bg-white dark:border-white/10 dark:bg-[#1f2225] ${dragging ? "" : "transition-[height] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.08)] motion-reduce:transition-none"} ${hasBelow ? "" : "argus-sheet-enter"}`}
       >
         <div
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragCancel}
-          className="argus-sheet-grip shrink-0 cursor-grab px-4 pb-2 pt-2 active:cursor-grabbing"
+          onPointerUp={(event) => endGesture(event, "release")}
+          onPointerCancel={(event) => endGesture(event, "cancel")}
+          className="argus-sheet-grip shrink-0 cursor-grab touch-none px-4 pb-2 pt-2 active:cursor-grabbing"
         >
-          <div className="mx-auto my-1 h-1.5 w-12 rounded-full bg-black/10 dark:bg-white/10" />
-          <div className="mt-1 flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 pt-2">
-              <h2
-                id={headingId}
-                className={
-                  titleHidden
-                    ? "sr-only"
-                    : "font-display truncate text-[17px] font-semibold tracking-tight text-black dark:text-white"
-                }
+          <div className="mx-auto my-1 h-1.5 w-10 rounded-full bg-black/15 dark:bg-white/15" />
+          <div className="mt-1 flex items-start gap-2">
+            {hasBelow ? (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={backLabel ?? closeLabel}
+                className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/70 dark:hover:bg-white/5"
               >
+                <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
+            ) : null}
+            <div className="min-w-0 flex-1 pt-2">
+              <h2 id={headingId} className={titleHidden ? "sr-only" : "font-display text-[17px] font-medium tracking-tight text-black dark:text-white"}>
                 {title}
               </h2>
-              {description && (
-                <p
-                  id={descriptionId}
-                  className="mt-1 text-[13px] leading-relaxed text-black/55 dark:text-white/55"
-                >
+              {description ? (
+                <p id={descriptionId} className="mt-1 text-[13px] leading-relaxed text-[#56635e] dark:text-white/70">
                   {description}
                 </p>
-              )}
+              ) : null}
             </div>
-            {dismissible ? <button
-              ref={closeButtonRef}
-              type="button"
-              onClick={onClose}
-              aria-label={closeLabel}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/60 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/60 dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
-            >
-              <X className="h-5 w-5" aria-hidden="true" />
-            </button> : null}
+            {dismissible && !hasBelow ? (
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={onClose}
+                aria-label={closeLabel}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/60 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/60 dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         </div>
-        <div
-          className={`argus-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 ${footer ? "pb-4" : "pb-[max(1rem,env(safe-area-inset-bottom))]"}`}
-        >
+        <div className={`argus-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 ${footer ? "pb-4" : "pb-[max(1rem,env(safe-area-inset-bottom))]"}`}>
           {children}
         </div>
-        {footer && (
+        {footer ? (
           <div className="argus-sheet-footer shrink-0 border-t border-black/5 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-white/5">
             {footer}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
-
-
 
 export const BottomSheet = withViewportPortal(BottomSheetSurface);
 export default BottomSheet;

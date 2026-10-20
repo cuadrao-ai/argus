@@ -93,6 +93,34 @@ loading and error. A disabled control shows why it is disabled next to it.
 - Trap focus in the dialog. Escape and the backdrop cancel. When the dialog
   closes, focus returns to the control that opened it.
 
+### Sheets and alerts
+
+Lucas set these rules on October 20, 2026. Every overlay is one of two
+containers, chosen by what the owner is doing:
+
+- **Sheet** for work done while the page stays in view: a form, a picker, a
+  list, a record's details. `AdaptivePanel` owns it.
+- **Alert** for a full stop: deleting, closing a month, anything that cannot be
+  undone. `ConfirmDialog` owns it. It is centred with a scrim at every width.
+  A delete confirms in `#9e2f39`; a full stop that removes nothing confirms in
+  the brand green.
+
+Sheet rules:
+
+1. **Snap points.** Below 1024px a sheet is a bottom sheet that rests at peek
+   (a summary), half (a form) or full (long content), never in between. Each
+   sheet names the snaps it allows. Let go between two and it springs to the
+   nearest. Menus and pickers are the only sheets that hug their content.
+2. **Speed before distance.** A quick downward flick closes a sheet from any
+   height; a quick upward flick lifts it one snap. A slow drag closes it only
+   below half of its lowest snap.
+3. **Side drawer on desktop.** From 1024px a sheet is a drawer on the right,
+   at least 320px and at most 40% of the screen wide. No blur and no dimming:
+   the page stays readable beside it, and a click beside it closes it.
+4. **One sheet at a time.** Opening something from inside a sheet replaces it
+   and shows a back arrow that returns to it. One sheet, one swipe to leave.
+5. **Flat.** No blur, no shadow. Edges are hairlines and corners are 20px.
+
 ### Toasts and saves
 
 - One toast at a time, from one presenter, clear of the page's controls.

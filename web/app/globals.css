@@ -311,6 +311,20 @@ body {
   touch-action: pan-y;
 }
 
+@keyframes cuadrao_side_drawer_enter {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* A desktop sheet slides in from the right edge; the page stays in view beside it. */
+.cuadrao-side-drawer-enter {
+  animation: cuadrao_side_drawer_enter 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
 /* The trailing fade is what makes the next starter pill read as a peek. */
 .argus-starter-peek {
   mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent 100%);
@@ -340,6 +354,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .argus-sheet-enter,
+  .cuadrao-side-drawer-enter,
   .argus-sheet-scrim,
   .argus-drawer-enter,
   .argus-drawer-scrim {

@@ -239,7 +239,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
         </div>
       ) : null}
       {isBelowTablet ? (
-        <BottomSheet isOpen={open} onClose={close} title={label} titleHidden closeLabel={t("common.close", "Close")} height="auto" initialFocusRef={activeDay}>
+        <BottomSheet isOpen={open} onClose={close} title={label} titleHidden closeLabel={t("common.close", "Close")} snaps="fit" initialFocusRef={activeDay}>
           {month}
         </BottomSheet>
       ) : null}

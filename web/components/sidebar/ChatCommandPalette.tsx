@@ -33,6 +33,7 @@ import CommandPaletteDossierSheet from "@/components/sidebar/command-palette/Com
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
+import { useSheetStack } from "@/components/ui/sheetStack";
 import { useRunDossierHistory } from "@/components/sidebar/command-palette/useRunDossierHistory";
 import { CommandPaletteFooter, useCommandPaletteShortcutLegend } from "@/components/sidebar/command-palette/CommandPaletteShortcutLegend";
 import { SearchHighlight } from "@/components/sidebar/SearchHighlight";
@@ -1140,6 +1141,8 @@ function ChatCommandPaletteSurface({
 
   // Owns more than Escape, so it hands over a whole keydown, and takes system
   // back with it: without an entry, back left Argus from an open search.
+  // A result's details open as a sheet on a phone; the palette steps aside for it and comes back with its back arrow.
+  const { drawn: paletteDrawn } = useSheetStack(paletteOverlayId, true);
   useModalSurface({
     isOpen: true,
     overlayId: paletteOverlayId,
@@ -1364,7 +1367,7 @@ function ChatCommandPaletteSurface({
               );
 
   return (
-    <div ref={paletteRef} className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6">
+    <div ref={paletteRef} hidden={!paletteDrawn} className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6">
       <button
         tabIndex={-1}
         type="button"
@@ -1814,7 +1817,7 @@ function ChatCommandPaletteSurface({
           )}
         </div>
 
-        {workspaceSheet && selectedWorkspaceHit && workspaceDossier ? <BottomSheet isOpen height="full" title={selectedWorkspaceHit.title} closeLabel={t("command_palette.close_dossier", "Close dossier")} onClose={() => setWorkspaceSheet(false)}>{workspaceDossier}</BottomSheet> : null}
+        {workspaceSheet && selectedWorkspaceHit && workspaceDossier ? <BottomSheet isOpen snaps={["full"]} title={selectedWorkspaceHit.title} closeLabel={t("command_palette.close_dossier", "Close dossier")} backLabel={t("common.back", "Back")} onClose={() => setWorkspaceSheet(false)}>{workspaceDossier}</BottomSheet> : null}
         {isBelowDesktop && isDossierSheetOpen && selectedPreview ? (
           <CommandPaletteDossierSheet
             preview={selectedPreview}
