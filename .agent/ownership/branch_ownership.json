@@ -2369,6 +2369,23 @@
         "web/public/locales/**"
       ]
     },
+    "codex/marketing-business-contact-ctas": {
+      "description": "Marketing Business CTA destinations only; Personal waitlist and language switches remain unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/components/business-header.tsx",
+        "marketing/components/business-footer.tsx",
+        "marketing/components/touchup-landing.tsx",
+        "marketing/e2e/business-cta.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
+      ]
+    },
     "codex/marketing-personal-waitlist": {
       "description": "Personal waitlist form, approved legal source, opt-in lifecycle and email integration. Staging only. Business CTAs and shared account email renderer belong to separate writers.",
       "base_ref": "origin/codex/private-alpha-next",

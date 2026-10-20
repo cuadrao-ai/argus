@@ -3549,7 +3549,13 @@ Existing source lifecycle, receipt immutability and client privileges are unchan
 Migration `20261018220000_business_dgii_period_export.sql` adds only nullable
 columns to the existing owners. `spaces.business_rnc` holds the owner's explicit
 nine-digit RNC or eleven-digit cédula. Existing server-only RLS and client revocations
-also protect this column. `business_draft_revisions.before_dgii` and `after_dgii`
+also protect this column. Migration `20261019070000_business_fiscal_profile.sql`
+adds `spaces.business_tax_id_type` (`rnc` or `cedula`) on the same row. The pair
+constraint requires both null, or digits whose length matches the type and which
+are not all zero. A value already stored as 9 or 11 digits receives the matching
+type. The Business name remains `spaces.name`. Profile changes stay on the existing
+action receipt, which already records the actor and the time. No second name,
+tax-id, or history table is added. `business_draft_revisions.before_dgii` and `after_dgii`
 retain immutable typed declaration snapshots alongside the existing facts,
 actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
