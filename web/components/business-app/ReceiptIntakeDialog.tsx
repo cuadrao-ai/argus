@@ -4,7 +4,7 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
-import { Camera, ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Clock, Copy, FileText, FileUp, Mail, RotateCw, X } from "lucide-react";
+import { Camera, ChevronDown, CircleAlert, CircleCheck, ClipboardPaste, Clock, FileText, FileUp, Mail, RotateCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
 import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
@@ -17,6 +17,7 @@ import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./receipt-file";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
+import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
 import { useForwardAddress } from "./useForwardAddress";
 import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
 
@@ -80,7 +81,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const consent = false;
   const [drag, setDrag] = useState<DragState>({ kind: "idle" });
   const [clipboardEmpty, setClipboardEmpty] = useState(false);
-  const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle");
+  const [copyFailed, setCopyFailed] = useState(false);
+  const addressRef = useRef<HTMLParagraphElement>(null);
+  const copyLabels = useCopyLabels(forwardAddress ?? "");
   const uploading = queue.uploading;
   const unfinished = entries.some(isUnfinishedUpload);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
@@ -154,9 +157,16 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     replacingRef.current = null;
     fileInputRef.current?.click();
   };
-  const copyAddress = (address: string) => {
-    const copying = navigator.clipboard?.writeText(address) ?? Promise.reject(new Error("clipboard_unavailable"));
-    copying.then(() => setCopied("done"), () => setCopied("failed"));
+  /** Nothing could copy: select the address so the owner can copy it by hand. */
+  const selectAddress = () => {
+    setCopyFailed(true);
+    const node = addressRef.current;
+    const selection = window.getSelection();
+    if (!node || !selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    selection.removeAllRanges();
+    selection.addRange(range);
   };
 
   const sizeLabel = (bytes: number) =>
@@ -388,16 +398,19 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.intake.email_way", "Forward them by email")}</p>
                 <p className={`text-[13px] ${MUTED}`}>{t("business.intake.email_way_help", "They land in your Inbox.")}</p>
-                <p data-testid="intake-forward-address" className="mt-1 select-all break-all text-[14px] text-[#172b26] dark:text-white">{forwardAddress}</p>
-                {copied !== "idle" ? (
-                  <p role="status" className={`mt-1 text-[13px] ${copied === "done" ? "text-[#2f5a49] dark:text-[#8fcbb0]" : DANGER}`}>
-                    {copied === "done" ? t("business.email.copied", "Address copied.") : t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}
-                  </p>
+                <p ref={addressRef} data-testid="intake-forward-address" className="mt-1 select-all break-words text-[14px] text-[#172b26] dark:text-white"><WrappingAddress address={forwardAddress} /></p>
+                {copyFailed ? (
+                  <p className={`mt-1 text-[13px] ${DANGER}`}>{t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}</p>
                 ) : null}
               </div>
-              <button type="button" data-testid="intake-forward-copy" aria-label={t("business.email.copy", "Copy address")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]" onClick={() => copyAddress(forwardAddress)}>
-                <Copy className="h-5 w-5" aria-hidden="true" />
-              </button>
+              <CopyButton
+                value={forwardAddress}
+                label={t("business.email.copy", "Copy address")}
+                {...copyLabels}
+                onFailed={selectAddress}
+                testId="intake-forward-copy"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+              />
             </div>
           </section>
         ) : null}

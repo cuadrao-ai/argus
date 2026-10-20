@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/business-review-count";
 import { useBusiness } from "./BusinessWorkspace";
 import { useForwardAddress } from "./useForwardAddress";
 import { cardClass, pillButtonClass } from "./business-ui";
 import BusinessMonthClosePanel, { INICIO_EXPORT_ID } from "./BusinessMonthClosePanel";
+import { CopyButton, useCopyLabels } from "./foundation/CopyButton";
 import { ToastNotice, type QueuedToast } from "./foundation/ToastNotice";
 
 /** The Inicio action row: four pills fit one row from 1024px; 44px tall like every target. */
@@ -38,13 +39,7 @@ export default function BusinessOverviewPanel() {
     target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     target.focus({ preventScroll: true });
   };
-  const copyForward = (address: string) => {
-    const copied = navigator.clipboard?.writeText(address) ?? Promise.reject(new Error("clipboard_unavailable"));
-    copied.then(
-      () => setToast({ id: Date.now(), kind: "confirm", text: t("business.email.copied", "Address copied.") }),
-      () => setToast({ id: Date.now(), kind: "error", text: t("business.overview.copy_forward_failed", { address, defaultValue: "Could not copy. Your forwarding address is {{address}}" }) }),
-    );
-  };
+  const copyLabels = useCopyLabels(forwardAddress ?? "");
 
   return (
     <section aria-labelledby="business-overview-title">
@@ -73,10 +68,16 @@ export default function BusinessOverviewPanel() {
           {t("business.overview.export_records", "Export records")}
         </button>
         {owner && forwardAddress ? (
-          <button type="button" data-testid="inicio-forward-copy" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => copyForward(forwardAddress)}>
-            <Copy className="h-4 w-4" aria-hidden="true" />
+          <CopyButton
+            value={forwardAddress}
+            label={t("business.overview.copy_forward", "Copy forwarding address")}
+            {...copyLabels}
+            onFailed={() => setToast({ id: Date.now(), kind: "error", text: copyLabels.failedLabel })}
+            testId="inicio-forward-copy"
+            className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`}
+          >
             {t("business.overview.copy_forward", "Copy forwarding address")}
-          </button>
+          </CopyButton>
         ) : null}
       </div>
 
