@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
 import { BusinessContext } from "./BusinessWorkspace";
 import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
-import { ToastNotice } from "./foundation/ToastNotice";
 
 export const cardClass =
   "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
@@ -199,7 +198,3 @@ export function RecordMarks({ personal, fiscalValue, known, markedBy = null, cla
 }
 
 /** A short announcement with one way back, for a change the person can undo. */
-export function UndoToast({ text, onUndo, onClose }: { text: string; onUndo?: () => void; onClose: () => void }) {
-  return <ToastNotice text={text} kind={onUndo ? "undo" : "confirm"} onUndo={onUndo} onClose={onClose} />;
-}
-

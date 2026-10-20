@@ -18,7 +18,7 @@ import { formatMoney, formatRelativeTime } from "./business-format";
 import { cardClass, PanelHeading, primaryButtonClass, secondaryButtonClass, RecordMarks, StatusPill, useAttentionLabel, useTerminalRead } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
-import { ToastQueue, type QueuedToast } from "./foundation/ToastNotice";
+import { showToast } from "./foundation/toasts";
 import { Settle } from "./business-skeletons";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
@@ -188,19 +188,12 @@ export function ReceiptRow({ receipt, onOpen, onMark, onRetry, onUpload }: { rec
   );
 }
 
-/** One tap marks or unmarks. Toasts wait in line and only the first is on screen. */
+/** One tap marks or unmarks; the shared toast offers Deshacer. */
 export function usePersonalMark() {
   const { t } = useTranslation();
   const { source, reload } = useBusiness();
-  const [toasts, setToasts] = useState<QueuedToast[]>([]);
-  const nextToastId = useRef(0);
-  const dismiss = useCallback(() => setToasts((items) => items.slice(1)), []);
-  const push = useCallback((item: Omit<QueuedToast, "id">) => {
-    nextToastId.current += 1;
-    const id = nextToastId.current;
-    setToasts((items) => [...items, { ...item, id }]);
-  }, []);
   const mark = useCallback(async (receipt: ReceiptSummary) => {
+    const failed = () => showToast({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
     try {
       const detail = await source.receipt(receipt.id);
       const draftId = detail.draft_id;
@@ -208,21 +201,21 @@ export function usePersonalMark() {
       const next = !receipt.personal;
       const marked = await source.markPersonal(draftId, detail.version, next, crypto.randomUUID());
       reload();
-      push({
-        kind: "undo",
+      showToast({
+        kind: "success",
         text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
-        onUndo: () => {
-          dismiss();
-          void source.markPersonal(draftId, marked.version, !next, crypto.randomUUID()).then(() => reload()).catch(() => {
-            push({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
-          });
+        action: {
+          label: t("business.marks.undo", "Undo"),
+          run: () => {
+            void source.markPersonal(draftId, marked.version, !next, crypto.randomUUID()).then(() => reload()).catch(failed);
+          },
         },
       });
     } catch {
-      push({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
+      failed();
     }
-  }, [dismiss, push, reload, source, t]);
-  return { mark, toast: <ToastQueue items={toasts} onDismiss={dismiss} /> };
+  }, [reload, source, t]);
+  return { mark };
 }
 
 function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | null }) {
@@ -345,7 +338,6 @@ export default function BusinessInboxPanel() {
       )}
       <InboxForwardingCard />
       <BusinessEmailDeliveries openEmailId={panel.kind === "inbox" ? panel.emailId : undefined} />
-      {personal.toast}
     </section>
   );
 }

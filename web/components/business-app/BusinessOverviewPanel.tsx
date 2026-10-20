@@ -12,7 +12,7 @@ import { currentMonthKey } from "@/lib/business-month-close";
 import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
 import ExportRecordsPanel from "./ExportRecordsPanel";
 import { CopyButton, useCopyLabels } from "./foundation/CopyButton";
-import { ToastNotice, type QueuedToast } from "./foundation/ToastNotice";
+import { showToast } from "./foundation/toasts";
 
 /** The Inicio action row: four pills fit one row from 1024px; 44px tall like every target. */
 const actionPill = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:focus-visible:ring-white/30";
@@ -24,7 +24,6 @@ export default function BusinessOverviewPanel() {
   const owner = chosen?.role !== "accountant";
   const upload = owner ? actions.create?.find((action) => action.id === "upload_receipt") ?? null : null;
   const forwardAddress = useForwardAddress();
-  const [toast, setToast] = useState<QueuedToast | null>(null);
   const items = records.inbox;
   const porRevisar = items ? countPorRevisar(items) : null;
   const reading = items ? countStillReading(items) : 0;
@@ -62,7 +61,7 @@ export default function BusinessOverviewPanel() {
             value={forwardAddress}
             label={t("business.overview.copy_forward", "Copy forwarding address")}
             {...copyLabels}
-            onFailed={() => setToast({ id: Date.now(), kind: "error", text: copyLabels.failedLabel })}
+            onFailed={() => showToast({ kind: "error", text: copyLabels.failedLabel })}
             testId="inicio-forward-copy"
             className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`}
           >
@@ -90,7 +89,6 @@ export default function BusinessOverviewPanel() {
         </div>
       ) : null}
 
-      {toast ? <ToastNotice key={toast.id} text={toast.text} kind={toast.kind} onClose={() => setToast(null)} /> : null}
     </section>
   );
 }

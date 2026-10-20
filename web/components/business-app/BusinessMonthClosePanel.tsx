@@ -38,6 +38,7 @@ import {
 import { formatDay, formatMoney } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
+import { showToast } from "./foundation/toasts";
 
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
@@ -319,7 +320,6 @@ export function BusinessMonthCloseView({
   const [pickerRequest, setPickerRequest] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const [busyClose, setBusyClose] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(() => new Set());
   const inFlight = useRef(new Set<string>());
   const generation = useRef(0);
@@ -346,12 +346,6 @@ export function BusinessMonthCloseView({
       },
     );
   }, [attempt, client, month, preview, scopeKey]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 6000);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   const summary = snapshot ? monthCloseSummary(snapshot.documents) : null;
   const itbis = snapshot && summary
@@ -406,7 +400,7 @@ export function BusinessMonthCloseView({
             }
           : current,
       );
-      setToast(t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was."));
+      showToast({ kind: "error", text: t("business.month_close.mark_failed", "We couldn't save that change. The status is back to what it was.") });
     } finally {
       inFlight.current.delete(documentId);
       setPendingIds((current) => {
@@ -425,7 +419,7 @@ export function BusinessMonthCloseView({
       setSnapshot(next);
       setConfirming(false);
     } catch {
-      setToast(t("business.month_close.close_failed", "We couldn't close the month. Try again."));
+      showToast({ kind: "error", text: t("business.month_close.close_failed", "We couldn't close the month. Try again.") });
     } finally {
       setBusyClose(false);
     }
@@ -814,11 +808,6 @@ export function BusinessMonthCloseView({
         onConfirm={() => void confirmClose()}
       />
 
-      {toast ? (
-        <div role="alert" data-testid="month-close-toast" className="fixed inset-x-4 bottom-24 z-[60] mx-auto max-w-md rounded-[14px] bg-black px-4 py-3 text-[13px] text-white shadow-lg dark:bg-white dark:text-black">
-          {toast}
-        </div>
-      ) : null}
 
     </section>
   );

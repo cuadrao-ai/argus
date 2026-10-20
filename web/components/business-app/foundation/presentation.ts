@@ -13,8 +13,6 @@ export const CANVAS = "#F7F5EE";
 export const LOADING_TRACK = "#7d8a84";
 export const MUTED_TEXT = "#56635e";
 export const CONFIRM_ACTION = "#9e2f39";
-export const PLAIN_TOAST_MS = 3000;
-export const UNDO_TOAST_MS = 8000;
 
 export function statusNameForReceipt(status: ReceiptStatus): BusinessStatusName {
   if (status === "confirmed") return "approved";

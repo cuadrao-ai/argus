@@ -38,6 +38,8 @@ import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
 import BusinessSwitcher from "./BusinessSwitcher";
+import { ToastViewport } from "./foundation/ToastViewport";
+import { clearToasts } from "./foundation/toasts";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
 import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
 import BusinessBottomTabs from "./BusinessBottomTabs";
@@ -266,6 +268,7 @@ function BusinessWorkspaceContent({
     writePanelToUrl("workspace", { kind: "overview" });
     setDirectRecord(false);
     setIntakeTarget(null);
+    clearToasts();
     setAttachedReceipt(null);
     setRecords(EMPTY_RECORDS);
     setRevision((value) => value + 1);
@@ -495,6 +498,7 @@ function BusinessWorkspaceContent({
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
+        <ToastViewport />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
   );

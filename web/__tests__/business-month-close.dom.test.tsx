@@ -87,7 +87,19 @@ describe("month close optimistic marks", () => {
     });
     assert.equal(row()?.getAttribute("data-status"), "pendiente");
     assert.match(settleTask(), /Marca 4 documentos/);
-    assert.match(host.querySelector('[data-testid="month-close-toast"]')?.textContent ?? "", /volvió al anterior/);
+    const { useToasts } = await import("@/components/business-app/foundation/toasts");
+    let shown: { kind: string; text: string }[] = [];
+    function Probe() {
+      shown = useToasts().map(({ kind, text }) => ({ kind, text }));
+      return null;
+    }
+    const probeHost = document.createElement("div");
+    const { createRoot: createProbeRoot } = await import("react-dom/client");
+    const probe = createProbeRoot(probeHost);
+    await act(async () => { probe.render(<Probe />); });
+    assert.equal(shown.at(-1)?.kind, "error", "a failed mark is an error toast, which stays until closed");
+    assert.match(shown.at(-1)?.text ?? "", /volvió al anterior/);
+    await act(async () => { probe.unmount(); });
     assert.equal(host.querySelector('[data-testid="month-close-close"]')?.hasAttribute("disabled"), true);
     await act(async () => root.unmount());
     host.remove();
