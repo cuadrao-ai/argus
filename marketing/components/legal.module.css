@@ -1,4 +1,6 @@
 .layout {
+  --header: 76px;
+  --bar: 0px;
   padding: 64px 24px 96px;
 }
 .document {
@@ -17,6 +19,7 @@
   margin-top: 40px;
   margin-bottom: 16px;
   line-height: 1.25;
+  scroll-margin-top: calc(var(--header) + var(--bar) + 24px);
 }
 .document p,
 .document ul,
@@ -36,4 +39,133 @@
 }
 @media (max-width: 360px) {
   .layout { padding-inline: 20px; }
+}
+@media (min-width: 801px) {
+  .layout { --header: 90px; }
+}
+
+.index {
+  --index-green: #2f5a49;
+}
+.card {
+  display: none;
+  padding: 16px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.cardTitle {
+  padding: 0 12px 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.card a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.card a:hover {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.card a:focus-visible {
+  outline-offset: 0;
+}
+.card a[aria-current] {
+  color: var(--ink);
+  font-weight: 500;
+}
+.dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background-color 150ms ease;
+}
+.card a[aria-current] .dot {
+  background: var(--index-green);
+}
+.jump {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 13px;
+}
+.jump label {
+  flex: none;
+  color: var(--muted);
+  font-weight: 500;
+}
+.jump select {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+
+@media (max-width: 1023px) {
+  .indexed {
+    --bar: 61px;
+    padding-top: 0;
+  }
+  /* The band starts at the top edge so text never shows around the floating header. */
+  .index {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: calc(-1 * var(--header)) -24px 40px;
+  }
+  .jump {
+    padding-top: calc(var(--header) + 8px);
+  }
+  @media (max-width: 360px) {
+    .index { margin-inline: -20px; }
+    .jump { padding-inline: 20px; }
+  }
+  @media (scripting: none) {
+    .indexed { --bar: 0px; padding-top: 40px; }
+    .index { position: static; margin: 0 auto 40px; max-width: 70ch; }
+    .jump { display: none; }
+    .card { display: block; }
+  }
+}
+@media (min-width: 1024px) {
+  .indexed {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 70ch);
+    justify-content: center;
+    align-items: start;
+    column-gap: 64px;
+  }
+  .indexed .document {
+    margin-inline: 0;
+  }
+  .index {
+    position: sticky;
+    top: calc(var(--header) + 24px);
+    max-height: calc(100vh - var(--header) - 48px);
+    overflow-y: auto;
+  }
+  .jump {
+    display: none;
+  }
+  .card {
+    display: block;
+  }
 }
