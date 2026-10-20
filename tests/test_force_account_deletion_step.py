@@ -75,7 +75,7 @@ def test_confirm_forces_the_step_then_resumes_the_run(service, capsys) -> None: 
     args = [*ARGS, "--reason", "Apple invalid_request for 7 days", "--confirm"]
     assert force.main(args) == 0
     assert service.force_complete_step.call_args.kwargs["confirm"] is True
-    service.delete_account.assert_called_once_with(user_id=USER)
+    service.delete_account.assert_called_once_with(user_id=USER, origin="force")
     assert _last(capsys) == {"forced": True, "status": "done"}
 
 

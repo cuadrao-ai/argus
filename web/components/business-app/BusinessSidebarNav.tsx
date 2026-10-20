@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { Bell, Inbox, LayoutGrid, ReceiptText } from "lucide-react";
+import { Bell, House, Inbox, ReceiptText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
@@ -32,7 +32,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
       className="mt-2 border-t border-black/5 pt-2 dark:border-white/5"
     >
       <SidebarNavButton
-        icon={LayoutGrid}
+        icon={House}
         label={t("business.nav.overview", "Overview")}
         active={isActive("overview")}
         shortcutHint={quickJumpHintDisplay(1, command)}
@@ -40,6 +40,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "overview" })}
         iconSize={20}
+        wrapLabel
       />
       <SidebarNavButton
         icon={Inbox}
@@ -49,6 +50,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "inbox" })}
+        wrapLabel
         trailing={count(inboxCount)}
         activityPresentation={records.receiptActivity?.presentation === "working" ? "working" : records.receiptActivity?.presentation === "unread" ? "new_activity" : "none"}
         iconSize={20}
@@ -62,6 +64,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "expenses" })}
         iconSize={20}
+        wrapLabel
       />
       <SidebarNavButton
         icon={Bell}
@@ -72,6 +75,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "updates" })}
         iconSize={20}
+        wrapLabel
       />
 
     </nav>

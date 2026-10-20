@@ -139,14 +139,13 @@ checkpoints or memory infrastructure needed by its successor. Preserve current
 behavior until its authorized transition and verify secret consumers before
 revocation or renaming.
 
-## Agent Quality Pillars
+## Agent Quality
 
-The four assistant-quality pillars (Intelligence, Evaluation, Platform, User
-Experience) that keep AI work grounded in this architecture are defined once, in
-`AGENTS.md` → "Agent Quality Pillars". That is their canonical home; do not
-restate them here (a second copy drifts). This doc only adds architecture-
-specific emphasis: durable facts come from product records, engine outputs, and
-provider-backed validation — LLMs interpret and voice, they do not own truth.
+The engineering rules that keep AI work grounded in this architecture live once,
+in `AGENTS.md` under "Codebase rules" and "Checks". Do not restate them here (a
+second copy drifts). This doc only adds architecture-specific emphasis: durable
+facts come from product records, engine outputs, and provider-backed validation.
+LLMs interpret and voice; they do not own truth.
 
 ---
 

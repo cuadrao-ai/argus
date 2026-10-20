@@ -159,7 +159,7 @@ the answer into something runnable.
   survived here. No skill store, no menu, no picker: the range is reached
   through natural language, never a capability list.
 - **Spec is written and founder-locked:**
-  [`2026-08-07-research-to-test-rail.md`](../superpowers/specs/2026-08-07-research-to-test-rail.md).
+  [`2026-08-07-research-to-test-rail.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-07-research-to-test-rail.md).
   It supersedes the narrow competitor-comparison framing: Argus is no longer
   bounded to backtesting. Perplexity `finance_search` at $5 per 1,000
   invocations grounds quotes, fundamentals, segments, earnings, peers, screening
@@ -264,7 +264,7 @@ account security unreachable below 1024, since fixed, and **#422** seven
 lower-severity findings still open. Neither blocks promotion.
 
 **Spec is written and founder-locked:**
-[`2026-08-06-mobile-pwa-responsive-shell.md`](../superpowers/specs/2026-08-06-mobile-pwa-responsive-shell.md).
+[`2026-08-06-mobile-pwa-responsive-shell.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-06-mobile-pwa-responsive-shell.md).
 
 Shape as built:
 
@@ -290,7 +290,7 @@ system. The records already exist and are already written; what was missing is
 reliable versioning and a way to read them back.
 
 **Spec is written and founder-locked:**
-[`2026-08-07-compare-your-own-work.md`](../superpowers/specs/2026-08-07-compare-your-own-work.md).
+[`2026-08-07-compare-your-own-work.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-07-compare-your-own-work.md).
 
 - Serves three real questions: which of my ideas did best, did my change help,
   should I do A or B.
@@ -323,7 +323,7 @@ defect cannot be tolerated.
 Distribution, once there is something worth spreading.
 
 **Spec is written and founder-locked:**
-[`2026-08-07-sharing-evidence-receipts.md`](../superpowers/specs/2026-08-07-sharing-evidence-receipts.md).
+[`2026-08-07-sharing-evidence-receipts.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-07-sharing-evidence-receipts.md).
 Complete, all decisions made, dispatchable when the pillar comes up.
 
 - An immutable, sanitized evidence receipt frozen at creation. Not a shared chat
@@ -348,7 +348,7 @@ with no noindex at all.
 ### Follow up on unfinished work
 
 **Spec is written and founder-locked:**
-[`2026-08-09-follow-up-on-unfinished-work.md`](../superpowers/specs/2026-08-09-follow-up-on-unfinished-work.md).
+[`2026-08-09-follow-up-on-unfinished-work.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-09-follow-up-on-unfinished-work.md).
 Rank against the five is a founder call and is deliberately not claimed here.
 
 Argus brings a user back by finishing a turn they started and abandoned. "You
@@ -983,7 +983,7 @@ profile and fall back to the nameless pool.
 
   **Follow-up is specced and ready to dispatch, not pending decisions.** The
   recall loop is locked in
-  [`2026-08-06-personalization-memory-recall-loop.md`](../superpowers/specs/2026-08-06-personalization-memory-recall-loop.md).
+  [`2026-08-06-personalization-memory-recall-loop.md`](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-06-personalization-memory-recall-loop.md).
   Four Mem0 parameters
   are ratified: index-only over confirmed content, so Mem0 never sees
   unconfirmed material; storage on the existing Supabase database with no new

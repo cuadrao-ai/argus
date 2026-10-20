@@ -44,6 +44,7 @@ from argus.api.schemas import (
     User,
     guest_safe_user,
 )
+from argus.domain.login_browser_check import CaptchaVerificationError
 from argus.domain.supabase_guest_accounts import EmailAlreadyRegisteredError
 from argus.domain.username_signup import (
     serialized_guest_signup,
@@ -81,7 +82,28 @@ def _login_auth_problem(request: Request) -> HTTPException:
     )
 
 
-def _signup_auth_problem(request: Request) -> HTTPException:
+def _browser_check_problem(request: Request) -> HTTPException:
+    return problem(
+        request,
+        status_code=400,
+        code="captcha_unavailable",
+        title="Browser Check Failed",
+        detail="The browser check did not complete. Try again.",
+    )
+
+
+def _signup_auth_problem(
+    request: Request,
+    *,
+    reason: Literal["access_denied", "username_unavailable", "signup_failed"],
+    surface: Literal["direct_signup", "guest_conversion"],
+) -> HTTPException:
+    logger.warning(
+        "Signup rejected: surface={surface} reason={reason} request_id={request_id}",
+        surface=surface,
+        reason=reason,
+        request_id=request.state.request_id,
+    )
     return problem(
         request,
         status_code=400,
@@ -598,7 +620,9 @@ def signup_guest_account(
         )
     _enforce_auth_attempt_limit(request, action="signup", email=body.email)
     if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
-        raise _signup_auth_problem(request)
+        raise _signup_auth_problem(
+            request, reason="access_denied", surface="guest_conversion"
+        )
 
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()
     opaque_secret = request.cookies.get(_GUEST_HANDOFF_COOKIE, "").strip()
@@ -662,7 +686,9 @@ def signup_guest_account(
                     }
             else:
                 if body.username is not None and not prevalidation.username_available:
-                    raise _signup_auth_problem(request)
+                    raise _signup_auth_problem(
+                        request, reason="username_unavailable", surface="guest_conversion"
+                    )
                 result = api_state.supabase_gateway.signup(
                     email=body.email,
                     password=body.password,
@@ -670,6 +696,7 @@ def signup_guest_account(
                     display_name=body.display_name,
                     username=body.username,
                     language=body.language,
+                    age_confirmed_at=body.age_confirmed_at,
                     guest_signup_handoff={
                         "handoff_id": handoff_id,
                         "proof": str(handoff["proof"]),
@@ -695,6 +722,10 @@ def signup_guest_account(
             profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                 auth_user
             )
+            if body.age_confirmed_at is not None:
+                api_state.supabase_gateway.record_age_confirmation(
+                    profile.id, body.age_confirmed_at
+                )
             result["user"] = profile.model_dump(mode="json")
             _emit_account_registration_completed_event(
                 profile, surface="guest_conversion"
@@ -740,7 +771,9 @@ def signup_guest_account(
             ),
         ) from None
     except Exception:
-        raise _signup_auth_problem(request) from None
+        raise _signup_auth_problem(
+            request, reason="signup_failed", surface="guest_conversion"
+        ) from None
 
 
 @router.post("/auth/signup")
@@ -755,7 +788,9 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
         )
     _enforce_auth_attempt_limit(request, action="signup", email=body.email)
     if not permanent_account_access_allowed(api_state.supabase_gateway, body.email):
-        raise _signup_auth_problem(request)
+        raise _signup_auth_problem(
+            request, reason="access_denied", surface="direct_signup"
+        )
     try:
         with serialized_username_signup(
             api_state.DATABASE_URL,
@@ -767,7 +802,9 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 and not prevalidation.auth_user_exists
                 and not prevalidation.username_available
             ):
-                raise _signup_auth_problem(request)
+                raise _signup_auth_problem(
+                    request, reason="username_unavailable", surface="direct_signup"
+                )
             result = api_state.supabase_gateway.signup(
                 email=body.email,
                 password=body.password,
@@ -775,6 +812,7 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 display_name=body.display_name,
                 username=body.username,
                 language=body.language,
+                age_confirmed_at=body.age_confirmed_at,
             )
             auth_user = result.get("user")
             if not isinstance(auth_user, dict):
@@ -786,6 +824,10 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
                 profile = api_state.supabase_gateway.get_or_create_profile_for_auth_user(
                     auth_user
                 )
+                if body.age_confirmed_at is not None:
+                    api_state.supabase_gateway.record_age_confirmation(
+                        profile.id, body.age_confirmed_at
+                    )
                 _emit_account_registration_completed_event(
                     profile,
                     surface="direct_signup",
@@ -794,7 +836,9 @@ def signup(request: Request, body: SignupRequest) -> JSONResponse:
     except HTTPException:
         raise
     except Exception:
-        raise _signup_auth_problem(request) from None
+        raise _signup_auth_problem(
+            request, reason="signup_failed", surface="direct_signup"
+        ) from None
 
 
 @router.post(
@@ -856,6 +900,8 @@ def login(request: Request, body: LoginRequest) -> JSONResponse:
             password=body.password,
             captcha_token=body.captcha_token,
         )
+    except CaptchaVerificationError:
+        raise _browser_check_problem(request) from None
     except Exception:
         raise _login_auth_problem(request) from None
     handoff_id = request.cookies.get(_GUEST_HANDOFF_ID_COOKIE, "").strip()

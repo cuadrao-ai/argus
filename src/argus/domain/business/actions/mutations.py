@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
+from loguru import logger
 from psycopg.types.json import Jsonb
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
@@ -22,15 +23,26 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.contracts.dgii import (
+    DgiiDeclaration,
+    FiscalReview,
+    PurchaseDeclaration,
+    SalesDeclaration,
+)
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    Known,
     ReadPurchase,
 )
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
-from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
+from argus.domain.ingestion.documents.models import (
+    DocumentDraft,
+    ExtractionBatch,
+    ReceiptDetails,
+)
 from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 
 
@@ -79,6 +91,8 @@ def save_revision(
     read_total: str | None = None,
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
+    dgii: DgiiDeclaration | None = None,
+    clear_dgii: bool = False,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -105,14 +119,15 @@ def save_revision(
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
         remainder_settled=bool(previous.get("remainder_settled", False)),
+        dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
     tx.rows(
         "insert into public.business_draft_revisions"
-        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s)",
+        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,before_dgii,after_dgii)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -122,6 +137,10 @@ def save_revision(
             Jsonb(after.model_dump(mode="json")),
             list(source_ids),
             turn_key,
+            Jsonb(previous.get("dgii")) if previous.get("dgii") else None,
+            Jsonb(resolution["business"].get("dgii"))
+            if resolution["business"].get("dgii")
+            else None,
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
@@ -130,12 +149,13 @@ def save_revision(
 def revise(
     tx: ActionTransaction,
     ref: ExistingDraft | None,
-    patch: BusinessFactPatch,
+    patch: BusinessFactPatch | None,
     source_ids: tuple[UUID, ...],
     actor: ActorProvenance,
     *,
     turn_key: str | None = None,
     answer_id: UUID | None = None,
+    fiscal_review: FiscalReview | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
@@ -152,12 +172,20 @@ def revise(
         "extractor": "extracted",
     }[actor.actor_kind]
     try:
-        after = patched_facts(before, patch, source_ids, origin=origin)
+        after = (
+            patched_facts(before, patch, source_ids, origin=origin)
+            if patch is not None
+            else before
+        )
+        if fiscal_review is not None:
+            from argus.domain.business.actions.fiscal import reviewed_fiscal_facts
+
+            after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
-    elif actor.actor_kind == "member":
+    elif actor.actor_kind == "member" and patch is not None:
         for question in tx.rows(
             "select id,field from public.business_questions where space_id=%s"
             " and draft_id=%s and state in ('open','owner_does_not_know','waiting_for_window')",
@@ -166,7 +194,41 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
-    return save_revision(tx, event, before, after, source_ids, actor, turn_key)
+    declared = fiscal_review.declaration if fiscal_review else None
+    if patch is not None and patch.purchase is not None:
+        current = declared
+        if current is None:
+            raw = (event.resolution.get("business") or {}).get("dgii")
+            current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
+        kind = after.kind.value if isinstance(after.kind, Known) else None
+        if not isinstance(current, SalesDeclaration) and not (
+            current is None and kind == "income"
+        ):
+            from argus.domain.business.purchase_review import apply_purchase
+
+            amount = after.amount.value if isinstance(after.amount, Known) else None
+            fiscal = after.fiscal
+            itbis = (
+                fiscal.itbis.value
+                if fiscal is not None and isinstance(fiscal.itbis, Known)
+                else None
+            )
+            declared = apply_purchase(
+                current if isinstance(current, PurchaseDeclaration) else None,
+                patch.purchase,
+                amount,
+                itbis,
+            )
+    return save_revision(
+        tx,
+        event,
+        before,
+        after,
+        source_ids,
+        actor,
+        turn_key,
+        dgii=declared,
+    )
 
 
 def answer_question(
@@ -295,18 +357,32 @@ def prepare_attachment(
     actor: ActorProvenance,
 ) -> Applied:
     from argus.domain.business.contracts.dossier import AttachmentSource
-    from argus.domain.ingestion.documents.extractor import fiscal_facts_from_receipt
+    from argus.domain.ingestion.documents.extractor import (
+        fiscal_facts_from_receipt,
+        ncf_bill,
+        priced_amounts,
+        review_amount,
+    )
 
     candidates = [
         candidate for candidate in batch.candidates if candidate.evidence == "transaction"
     ]
-    if batch.complete is not True or batch.readable is not True or batch.receipt is None:
-        raise ActionError("invalid_input", "receipt_requires_review")
+    refusal = _read_refusal(batch)
+    if refusal is not None:
+        raise ActionError("invalid_input", refusal)
     if any(
         candidate.source.connection_id != draft.connection_id for candidate in candidates
     ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
     purchases = candidates or _observed_purchases(batch)
+    if not purchases and ncf_bill(batch) and batch.receipt is not None:
+        purchases = [_bill_purchase(batch.receipt)]
+    priced = () if purchases else priced_amounts(batch)
+    chosen = review_amount(batch) if priced else None
+    if chosen is not None:
+        purchases = [_review_purchase(item) for item in priced]
+    if not purchases and _notice_only(batch):
+        raise ActionError("invalid_input", "not_a_receipt")
     # One clean purchase becomes the draft's facts. Several purchases, or an
     # ambiguous read, still become one draft: it keeps only what every read
     # purchase shares, leaves the amount for a person, and carries each read
@@ -329,7 +405,7 @@ def prepare_attachment(
         if ambiguous
         else ()
     )
-    read_total = batch.receipt.total if ambiguous else None
+    read_total = batch.receipt.total if ambiguous and batch.receipt is not None else None
     candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
@@ -358,6 +434,7 @@ def prepare_attachment(
         "kind": _kind(candidate.kind_hint),
     }
     uncertain = set(candidate.uncertain)
+    _fill_unknown_purchase(values, uncertain, batch)
     if "merchant" in uncertain:
         uncertain.add("counterparty")
     if "direction" in uncertain:
@@ -372,6 +449,8 @@ def prepare_attachment(
             "verified": False,
             "source_ids": [str(source_id)],
         }
+    if chosen is not None:
+        facts = _mark_unverified_review(facts, _review_purchase(chosen))
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
@@ -408,6 +487,87 @@ def prepare_attachment(
 
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
+
+
+def _read_refusal(batch: ExtractionBatch) -> str | None:
+    """Why this read cannot become a draft, before its purchases are considered.
+
+    An unreadable file is terminal. A readable fiscal bill is not. Any other
+    readable read with a positive amount and a currency is not: it becomes a
+    review draft and a person decides. A readable read with no such amount
+    and no receipt is not a receipt. An incomplete receipt that still has no
+    priced amount stays on the retryable review. A complete receipt still
+    reaches purchase handling.
+    """
+
+    from argus.domain.ingestion.documents.extractor import ncf_bill, review_amount
+
+    if batch.readable is not True:
+        return "unreadable_document"
+    if ncf_bill(batch) or review_amount(batch) is not None:
+        return None
+    if batch.receipt is None:
+        return "not_a_receipt"
+    if batch.complete is not True:
+        return "receipt_requires_review"
+    return None
+
+
+def _notice_only(batch: ExtractionBatch) -> bool:
+    """Rows that name a balance, a period, or an amount due, and no purchase."""
+
+    if not batch.observations:
+        return False
+    return not any(row.evidence == "transaction" for row in batch.observations)
+
+
+def _review_purchase(priced) -> SimpleNamespace:  # noqa: ANN001
+    """One expense from a priced amount. The amount stays off the draft
+    until the review mark places it unverified."""
+
+    purchase = _bill_purchase(
+        ReceiptDetails(
+            merchant=priced.merchant,
+            occurred_on=priced.occurred_on,
+            currency=priced.currency,
+            total=priced.amount,
+        )
+    )
+    purchase.uncertain = frozenset(set(purchase.uncertain) | {"amount"})
+    return purchase
+
+
+def _mark_unverified_review(facts: dict, purchase: SimpleNamespace) -> dict:
+    """Publish the priced amount as a known value a person still has to review."""
+
+    amount = facts["amount"]
+    facts["amount"] = {
+        **amount,
+        "state": "known",
+        "value": purchase.amount,
+        "verified": False,
+    }
+    return facts
+
+
+def _bill_purchase(receipt: ReceiptDetails) -> SimpleNamespace:
+    """One expense from the fiscal bill's own total. The notice row is not it."""
+
+    uncertain: set[str] = set()
+    if receipt.currency is None:
+        uncertain.add("currency")
+    if receipt.occurred_on is None:
+        uncertain.add("occurred_on")
+    if not receipt.merchant:
+        uncertain.add("merchant")
+    return SimpleNamespace(
+        amount=receipt.total,
+        currency=receipt.currency,
+        occurred_on=receipt.occurred_on,
+        merchant=receipt.merchant,
+        kind_hint="expense",
+        uncertain=frozenset(uncertain),
+    )
 
 
 def _observed_purchases(batch: ExtractionBatch) -> list[SimpleNamespace]:
@@ -470,6 +630,37 @@ def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
         kind_hint=shared({_kind(c.kind_hint) for c in purchases}),
         uncertain=frozenset(uncertain),
     )
+
+
+def _fill_unknown_purchase(
+    values: dict, uncertain: set[str], batch: ExtractionBatch
+) -> None:
+    """A candidate that left the supplier or the currency unknown takes the receipt's.
+
+    The currency is the one every part of the read names, never a raw symbol.
+    A later merge still runs ``_retain_or_fill``, so a member or owner value stays.
+    """
+
+    from argus.domain.ingestion.documents.extractor import _agreed_currency
+
+    filled = []
+    merchant = batch.receipt.merchant if batch.receipt is not None else None
+    if (
+        values["counterparty"] is None
+        or "counterparty" in uncertain
+        or "merchant" in uncertain
+    ) and merchant:
+        values["counterparty"] = merchant
+        uncertain.discard("counterparty")
+        uncertain.discard("merchant")
+        filled.append("counterparty")
+    currency = _agreed_currency(batch) if batch.receipt is not None else None
+    if values["currency"] is None and currency:
+        values["currency"] = currency
+        uncertain.discard("currency")
+        filled.append("currency")
+    if filled:
+        logger.info("business.receipt_filled_purchase fields={}", filled)
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:

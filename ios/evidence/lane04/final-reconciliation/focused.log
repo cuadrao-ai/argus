@@ -1,0 +1,14 @@
+xcodebuild test -project ios/ArgusFoundation.xcodeproj -scheme ArgusFoundation -configuration Debug -destination 'platform=iOS Simulator,id=15027D5D-9314-4490-9BB8-0AF5289FA986' -derivedDataPath /private/tmp/pr1170-reconcile-derived -resultBundlePath temp/pr1170-final/focused.xcresult -parallel-testing-enabled NO CODE_SIGNING_REQUIRED=NO -collect-test-diagnostics never -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testGuestPlansInSpanish -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpDocumentLinksOpenTheOwnerDestinations -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpHidesAcceptanceWhenOnlyOneDocumentExists -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpHidesTheLegalLinksUntilThePagesArePublished -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpRemainsReachableAtLargeTextSizes -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSignUpShowsTheLegalLinksFromTheOwner -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSpanishGuestToastWrapsAtLargeTextSizes -only-testing:ArgusFoundationUITests/FinancialLoopUITests/testSpanishModeLineDoesNotReturnOnSecondLaunch
+
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' passed (63.081 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpDocumentLinksOpenTheOwnerDestinations]' passed (25.800 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceWhenOnlyOneDocumentExists]' passed (28.758 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesTheLegalLinksUntilThePagesArePublished]' passed (14.481 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' passed (31.239 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpShowsTheLegalLinksFromTheOwner]' passed (16.496 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' passed (30.809 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishModeLineDoesNotReturnOnSecondLaunch]' passed (20.230 seconds).
+	 Executed 8 tests, with 0 failures (0 unexpected) in 230.895 (230.918) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 230.895 (230.919) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 230.895 (230.920) seconds
+** TEST SUCCEEDED **

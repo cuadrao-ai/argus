@@ -321,7 +321,7 @@ struct CuadraoProfileEditor: View {
                     .textContentType(.nickname).disabled(saving)
             } footer: {
                 Text(spanish ? "Usaremos tu nombre preferido al conversar contigo."
-                     : "We’ll use your preferred name when we talk with you.")
+                     : "We'll use your preferred name when we talk with you.")
             }.listRowBackground(CanvasSettingsStyle.surface)
             if let emailAddress {
                 Section {
@@ -338,7 +338,7 @@ struct CuadraoProfileEditor: View {
             }
             if saveFailed {
                 Text(spanish ? "No pudimos guardar tu nombre. Inténtalo de nuevo."
-                     : "We couldn’t save your name. Try again.")
+                     : "We couldn't save your name. Try again.")
                     .font(.footnote).foregroundStyle(.secondary).listRowBackground(Color.clear)
                     .accessibilityIdentifier("cuadrao.profile.save.error")
             }

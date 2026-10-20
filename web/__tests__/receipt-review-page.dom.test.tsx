@@ -29,6 +29,7 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
@@ -56,9 +57,11 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -147,6 +150,74 @@ describe("one receipt review page", () => {
     // Saving review details never approves: the record is still awaiting review.
     assert.equal(after.review_state, "open");
     assert.equal(after.approval_result, null);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("enter details is offered on every terminal read only when the viewer can prepare", async () => {
+    for (const [attention, errorCode, withPrepare, labels] of [
+      ["unreadable", "unreadable_document", true, ["Subir otro archivo", "Escribir datos"]],
+      ["unreadable", "unreadable_document", false, ["Subir otro archivo"]],
+      ["not_a_receipt", "not_a_receipt", true, ["Escribir datos"]],
+      ["not_a_receipt", "not_a_receipt", false, []],
+    ] as const) {
+      const page = await mount((fixture) => ({
+        receipt: async (id, signal) => {
+          const found = await fixture.receipt(id, signal);
+          assert.ok(found.record_context);
+          return {
+            ...found,
+            attention,
+            error_code: errorCode,
+            preparable: false,
+            enterable: true,
+            record_context: {
+              ...found.record_context,
+              capabilities: withPrepare ? ["read", "prepare"] : ["read"],
+            },
+          };
+        },
+      }));
+      await page.open(
+        { kind: "receipt", receiptId: "rcpt-blurry" },
+        () => page.host.querySelector('[data-testid="receipt-attention"]') !== null
+          && (attention !== "unreadable" || page.host.textContent?.includes("Subir otro archivo") === true),
+      );
+      const shown = [...page.host.querySelector('[data-testid="receipt-attention"]')!.querySelectorAll("button")].map((button) => button.textContent);
+      assert.deepEqual(shown, [...labels], `${attention} prepare=${withPrepare}`);
+      await page.act(async () => page.root.unmount());
+    }
+  });
+
+  test("an unreadable file and a notice name their next step and offer no sale and no AI retry", async () => {
+    const page = await mount((fixture) => ({
+      receipt: async (id, signal) => {
+        const found = await fixture.receipt(id, signal);
+        return id === "rcpt-unknown"
+          ? { ...found, attention: "not_a_receipt", error_code: "not_a_receipt", preparable: false, enterable: true }
+          : found;
+      },
+    }));
+    await page.open({ kind: "receipt", receiptId: "rcpt-blurry" }, () => page.host.textContent?.includes("Subir otro archivo") === true);
+    const unreadable = page.host.querySelector('[data-testid="receipt-attention"]');
+    assert.equal(unreadable?.querySelector(".font-medium")?.textContent, "No pudimos leer este archivo");
+    assert.equal(
+      unreadable?.querySelector(".mt-1")?.textContent,
+      "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
+    );
+    const unreadableLabels = [...unreadable!.querySelectorAll("button")].map((button) => button.textContent);
+    assert.deepEqual(unreadableLabels, ["Subir otro archivo", "Escribir datos"]);
+
+    await page.open(
+      { kind: "receipt", receiptId: "rcpt-unknown" },
+      () => page.host.textContent?.includes("Esto no parece un recibo.") === true,
+    );
+    const notice = page.host.querySelector('[data-testid="receipt-attention"]');
+    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
+    assert.equal(notice?.querySelector(".mt-1")?.textContent, "Sube la foto o el PDF de un comprobante.");
+    assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
+    assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
+    const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
+    assert.deepEqual(noticeLabels, ["Subir otro archivo", "Escribir datos"]);
     await page.act(async () => page.root.unmount());
   });
 

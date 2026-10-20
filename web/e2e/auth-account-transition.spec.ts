@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
+import { fulfillAcceptedBusinessConsent } from "./support/breakpoint-fixture";
 const oldId = "11111111-1111-4111-8111-111111111111";
 const newId = "22222222-2222-4222-8222-222222222222";
 function token(id: string) {
@@ -53,9 +54,9 @@ test("a fresh account drops persisted old Business context and waits for its own
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
   const session = { access_token: token(newId), refresh_token: "new-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: "bearer", user: user(newId) };
   await context.addCookies([{ name: "sb-127-auth-token", value: `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`, url: baseURL! }]);
-  await page.addInitScript(({ oldId }) => {
+  await page.addInitScript((oldId) => {
     window.localStorage.setItem("argus:business-grant:v1", JSON.stringify({ userId: oldId, grantId: "44444444-4444-4444-8444-444444444444" }));
-  }, { oldId });
+  }, oldId);
   let started = false;
   const calls: string[] = [];
   const failures: string[] = [];
@@ -63,6 +64,7 @@ test("a fresh account drops persisted old Business context and waits for its own
     const path = new URL(route.request().url()).pathname.replace("/api/v1", "");
     calls.push(path);
     if (route.request().headers()["x-business-grant"]) failures.push(`old-grant:${path}`);
+    if (path === "/business/consent") return fulfillAcceptedBusinessConsent(route);
     if (path === "/business/space") { started = true; return route.fulfill({ json: { id: "new-space", name: "New Business" } }); }
     if ((path.startsWith("/business/") || path === "/conversations") && !started) failures.push(`before-space:${path}`);
     if (path === "/me") return route.fulfill({ json: { user: { ...user(newId), display_name: "New Owner", username: null, language: "en", locale: "en-US", onboarding: { completed: true, stage: "completed", language_confirmed: true, primary_goal: null } }, account_kind: "registered", guest: null, public_account_access_enabled: false, capabilities: { can_create_additional_conversation: true, can_manage_conversation: true, can_manage_account: true, can_use_omnisearch: true, can_submit_feedback: true } } });
@@ -80,4 +82,34 @@ test("a fresh account drops persisted old Business context and waits for its own
   await page.reload();
   await expect(page.getByText("New Business", { exact: true }).first()).toBeVisible();
   expect(failures).toEqual([]);
+});
+
+test("signing out of Business opens login without the account-changed alert", async ({ page, context, baseURL }) => {
+  const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
+  const session = { access_token: token(newId), refresh_token: "new-refresh", expires_at: Math.floor(Date.now() / 1000) + 3600, token_type: "bearer", user: user(newId) };
+  await context.addCookies([{ name: "sb-127-auth-token", value: `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`, url: baseURL! }]);
+  await page.route("**/auth/v1/logout?**", route => route.fulfill({ status: 204 }));
+  await page.route("**/api/v1/**", async route => {
+    const path = new URL(route.request().url()).pathname.replace("/api/v1", "");
+    if (path === "/auth/logout") return route.fulfill({ json: { success: true } });
+    if (path === "/business/consent") return fulfillAcceptedBusinessConsent(route);
+    if (path === "/business/space") return route.fulfill({ json: { id: "new-space", name: "New Business" } });
+    if (path === "/me") return route.fulfill({ json: { user: { ...user(newId), display_name: "New Owner", username: null, language: "es", locale: "es-419", onboarding: { completed: true, stage: "completed", language_confirmed: true, primary_goal: null } }, account_kind: "registered", guest: null, public_account_access_enabled: false, capabilities: { can_create_additional_conversation: true, can_manage_conversation: true, can_manage_account: true, can_use_omnisearch: true, can_submit_feedback: true } } });
+    if (path === "/business/workspace") return route.fulfill({ json: await fixture.workspace() });
+    if (path === "/business/overview") return route.fulfill({ json: await fixture.overview("2026-10-01", "2026-10-31") });
+    if (path === "/business/spaces") return route.fulfill({ json: { spaces: [{ space_id: "new-space", name: "New Business", grant_id: "new-owner-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }] } });
+    if (path === "/business/receipts") return route.fulfill({ json: { items: [], activity: { unread_count: 0, pending_review_count: 0, reading_count: 0, needs_attention_count: 0, presentation: "none" } } });
+    if (path === "/business/captures" || path === "/conversations") return route.fulfill({ json: { items: [], next_cursor: null } });
+    return route.fulfill({ status: 404, json: { code: "fixture_route_unavailable" } });
+  });
+  await page.goto("/biz");
+  await expect(page.getByText("New Business", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/\?auth=login/);
+  await expect(page.getByText("Your account changed")).toHaveCount(0);
+  await page.screenshot({
+    path: "../docs/reports/evidence/business-signin-browser-check/business-sign-out-login.png",
+    fullPage: true,
+  });
 });

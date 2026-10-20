@@ -25,7 +25,7 @@ surface, ingestion method, household feature, or native app is implemented.
 - [Product overview](docs/PRODUCT.md): audience, purpose, experience, and existing behavior.
 - [MVEE](docs/specs/argus-minimum-viable-ecosystem-experience.md): detailed approved experience and open decisions.
 - [Documentation authority](docs/DOCUMENTATION_AUTHORITY.md): what each document owns and where historical work belongs.
-- [AGENTS.md](AGENTS.md): repository rules, required reading, and delivery safeguards.
+- [AGENTS.md](AGENTS.md): codebase facts, checks, and safety rules for coding agents.
 
 Technical work starts from an explicit assignment and the relevant architecture,
 API, and data contracts. The experience specification does not select a new

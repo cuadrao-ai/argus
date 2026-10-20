@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Inbox,
   MessageSquareText,
   PenLine,
   ReceiptText,
@@ -19,14 +18,13 @@ import {
   type ReceiptSummary,
 } from "@/lib/business-api";
 import type { BusinessPanelState } from "./BusinessWorkspace";
-import { inboxCount } from "./inbox-count";
+import { useBusinessConsent } from "./business-consent-context";
 import type { IntakeTarget } from "./ReceiptIntakeDialog";
 
 export type BusinessActionId =
   | "upload_receipt"
   | "record_expense"
   | "capture_note"
-  | "review_inbox"
   | "ask_spending";
 
 export type BusinessAction = Readonly<{
@@ -73,12 +71,11 @@ export function useBusinessActions({
   openIntake,
   openRecordExpense,
   openCapture,
-  openPanel,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
-  // The Bandeja's own number, the same one its badge and the Resumen show.
-  const awaiting = inboxCount(records) ?? 0;
+  const consent = useBusinessConsent();
   const canAsk =
+    consent.accepted &&
     businessChatAvailable(records.workspace) &&
     Boolean(records.workspace?.assistant_available) &&
     (records.overview?.totals ?? []).some((total) => total.count > 0);
@@ -104,12 +101,6 @@ export function useBusinessActions({
       openRecordExpense,
     );
     const captureActions = records.workspace && !records.error && openCapture ? [action("capture_note", t("business.capture.write", "Save a note"), PenLine, openCapture)] : [];
-    const reviewInbox = action(
-      "review_inbox",
-      t("business.actions.review_inbox", "Review {{count}} receipts", { count: awaiting }),
-      Inbox,
-      () => openPanel({ kind: "inbox" }),
-    );
     const askSpending = action(
       "ask_spending",
       t("business.actions.ask_spending", "What did I spend this month?"),
@@ -126,11 +117,11 @@ export function useBusinessActions({
       () => openIntake("composer"),
     );
 
-    const chips = [uploadReceipt, ...(awaiting > 0 ? [reviewInbox] : []), ...(canAsk ? [askSpending] : [recordExpense])];
+    const chips = [uploadReceipt, ...(canAsk ? [askSpending] : [recordExpense])];
     return {
       create: [uploadReceipt, recordExpense, ...captureActions],
       composer: [attachReceipt, recordExpense],
       starterEntries: chips.map(({ id, icon, label, run }) => ({ key: id, icon, label, onSelect: run })),
     };
-  }, [awaiting, bridge, canAsk, openCapture, openIntake, openPanel, openRecordExpense, records.workspace, records.error, t]);
+  }, [bridge, canAsk, openCapture, openIntake, openRecordExpense, records.workspace, records.error, t]);
 }

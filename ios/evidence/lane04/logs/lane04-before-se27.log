@@ -1,0 +1,10 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:211: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (52.931 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/CuadraoLegalLinksUITests.swift:93: error: -[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists] : XCTAssertFalse failed
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' failed (20.924 seconds).
+	 Executed 2 tests, with 2 failures (0 unexpected) in 73.855 (73.858) seconds
+	 Executed 2 tests, with 2 failures (0 unexpected) in 73.855 (73.859) seconds
+	 Executed 2 tests, with 2 failures (0 unexpected) in 73.855 (73.860) seconds
+** TEST FAILED **

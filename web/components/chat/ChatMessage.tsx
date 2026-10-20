@@ -52,7 +52,6 @@ import {
 } from "@/lib/failure-treatment";
 import { GUEST_COMPUTE_CLAIM_RETRY_IN_KEY } from "@/lib/compute-claim-error";
 import { useRetryAfterCountdown } from "@/lib/use-retry-after-countdown";
-import GuestArtifactHint from "@/components/guest/GuestArtifactHint";
 import { isSettledStrategyResult } from "@/lib/chat-result-message";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { actionHasCardScopedOwnership } from "@/lib/chat-action-ownership";
@@ -390,7 +389,6 @@ export default function ChatMessage({
                 resumeDecisionArtifactId={resumeDecisionArtifactId}
                 onDecisionResumeHandled={onDecisionResumeHandled}
               />
-              {isGuest ? <GuestArtifactHint kind="result" /> : null}
               {displayContent && (
                 <ResultReadout
                   content={displayContent}
@@ -442,7 +440,6 @@ export default function ChatMessage({
                     : undefined
                 }
               />
-              {isGuest ? <GuestArtifactHint kind="confirmation" /> : null}
             </div>
           ) : message.contentPresentation === "result_readout" ? (
             <ResultReadout content={displayContent} label={t("chat.result_readout.quick_take", "Quick take")} />

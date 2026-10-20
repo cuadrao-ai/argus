@@ -99,17 +99,24 @@ struct ConnectedCuadraoShell: View {
             }
         }
         .fullScreenCover(item: $capturing, onDismiss: {
+            ScanTrace.mark("scanner closed")
             if let files = captured { captured = nil; keep(files) }
         }) { source in
             ReceiptNativePicker(source: source, spanish: spanish) { result in
-                capturing = nil
                 switch result {
                 case .success(let files):
-                    captured = SavedReceiptFiles.prepared(files, source: source, spanish: spanish)
+                    // The scanner stays up until the files are ready; it then closes and the consent sheet opens.
+                    Task {
+                        captured = await SavedReceiptFiles.preparing(files, source: source, spanish: spanish)
+                        ScanTrace.mark("prepared files=\(captured?.count ?? 0)")
+                        capturing = nil
+                    }
+                    return
                 case .failure(let error) where (error as NSError).code != NSUserCancelledError || (error as NSError).domain != NSCocoaErrorDomain:
+                    capturing = nil
                     auth.savedReceipts?.fail(.unusableFile)
                 case .failure:
-                    break
+                    capturing = nil
                 }
             }.ignoresSafeArea()
         }

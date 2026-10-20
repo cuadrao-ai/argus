@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as landingEntry from "../lib/landing-entry";
 import { conversationExitHref, surfacePath } from "../lib/conversation-surface-guard";
@@ -93,14 +93,12 @@ describe("landing entry routing", () => {
     ).toBe("chat");
   });
 
-  test("uses the shared chat-entry decision without bouncing guests to root", () => {
-    const chatPage = readFileSync(join(root, "app/chat/page.tsx"), "utf-8");
-
-    expect(chatPage).toContain("resolveChatEntrySurface");
-    expect(chatPage).not.toContain('redirect("/")');
-    expect(chatPage).toContain("authLoginPathFromSearch");
-    expect(chatPage).toContain('authLoginPathFromSearch(await searchParams, "/chat")');
-    expect(chatPage).toContain("<ChatInterface />");
+  test("the investing chat route is gone so it cannot bounce guests to root", () => {
+    expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
+    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
+    expect(page).not.toContain('redirect("/")');
+    expect(page).not.toContain("<ChatInterface");
+    expect(page).not.toContain("<GuestEntry");
   });
 });
 
@@ -147,12 +145,8 @@ describe("a Cuadrao Business build has no guest chat", () => {
     expect(followup.indexOf("if (!target.send) { router.push(target.href); return; }")).toBeLessThan(followup.indexOf("saveReceiptFollowup("));
   });
 
-  test("the pages wire the build flag: /chat sends everyone to the Business shell; the Security link and the reload button use the signed-in home (source pins: rendering those pages needs the whole account shell)", () => {
-    const chatPage = readFileSync(join(root, "app/chat/page.tsx"), "utf-8");
-    // Signed in or not: on a Business build the old chat page is not a surface.
-    expect(chatPage).toContain("if (businessPilotEnabled) redirect(businessShellPath(await searchParams));");
-    expect(chatPage.indexOf("if (businessPilotEnabled) redirect(")).toBeLessThan(chatPage.indexOf("supabase.auth.getUser()"));
-    expect(chatPage).toContain("businessBuild: businessPilotEnabled");
+  test("the investing chat route is gone; the Security link and the reload button use the signed-in home", () => {
+    expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
     const security = readFileSync(join(root, "app/account/security/page.tsx"), "utf-8");
     expect(security).toContain("href={signedInHomePath()}");
     expect(security).not.toContain('href="/chat"');

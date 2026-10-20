@@ -1,6 +1,7 @@
 services:
+  # Production cuadrao-api service: srv-d78tanmuk2gs73e17nn0.
   - type: web
-    name: argus-api
+    name: cuadrao-api
     runtime: python
     repo: https://github.com/lagarcess/argus
     branch: main
@@ -73,6 +74,10 @@ services:
         value: "false"
       - key: ARGUS_INGESTION_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
+        value: "false"
       - key: ARGUS_INGESTION_SECRET_KEY
         sync: false
       - key: ARGUS_INVITE_CODE_SECRET
@@ -138,7 +143,7 @@ services:
       - key: ARGUS_RESEARCH_GLOBAL_DAILY_CEILING
         value: "5000"
       - key: ARGUS_TRUSTED_CLIENT_IP_HEADER
-        value: &trusted-client-ip-header CF-Connecting-IP
+        value: CF-Connecting-IP
       - key: ARGUS_GUEST_SESSION_DAILY_TURN_CEILING
         value: "100"
       - key: ARGUS_REGISTERED_DAILY_TURN_CEILING
@@ -205,45 +210,115 @@ services:
         value: "true"
 
   - type: web
-    name: argus-app
+    name: cuadrao-web
     runtime: node
     repo: https://github.com/lagarcess/argus
     branch: main
-    rootDir: web
+    rootDir: marketing
     region: virginia
     plan: starter
     autoDeployTrigger: "off"
-    buildCommand: npm install -g bun && bun install --frozen-lockfile && bun run build
+    buildCommand: bun install --frozen-lockfile && bun run build --webpack
     startCommand: bun run start -- -p $PORT
+
+  - type: web
+    name: cuadrao-api-staging
+    runtime: python
+    repo: https://github.com/lagarcess/argus
+    branch: codex/private-alpha-next
+    rootDir: .
+    plan: 0.5c-512mb
+    autoDeployTrigger: checksPass
+    renderSubdomainPolicy: enabled
+    buildCommand: poetry install
+    startCommand: poetry run uvicorn argus.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
-      - key: ARGUS_TRUSTED_CLIENT_IP_HEADER
-        value: *trusted-client-ip-header
-      - key: ARGUS_APP_ORIGIN
-        value: https://arguschat.ai
-      - key: NEXT_PUBLIC_APP_ENV
-        value: production
-      - key: NEXT_PUBLIC_SUPABASE_URL
-        value: https://lgdhvepyrzbnscqssgqq.supabase.co
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+      - key: APP_ENV
         sync: false
-      - key: NEXT_PUBLIC_POSTHOG_KEY
+      - key: ARGUS_CHECKPOINTER_MODE
         sync: false
-      - key: NEXT_PUBLIC_MOCK_AUTH
+      - key: ARGUS_DEV_MEMORY_FALLBACK
+        sync: false
+      - key: ARGUS_MOCK_AUTH
+        sync: false
+      - key: ARGUS_PERSISTENCE_MODE
+        sync: false
+      - key: ARGUS_PROD_OPENROUTER_API_KEY
+        sync: false
+      - key: ARGUS_GUEST_ACCESS_OPENROUTER_API_KEY
+        sync: false
+      - key: CUADRAO_APP_ORIGIN
+        sync: false
+      - key: CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED
         value: "false"
-      - key: NEXT_PUBLIC_ENABLE_SPANISH
+      - key: CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED
         value: "true"
-      - key: NEXT_PUBLIC_ARGUS_API_URL
-        value: https://api.arguschat.ai/api/v1
-      - key: NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY
+      - key: CUADRAO_BUSINESS_EMAIL_DOMAIN
         sync: false
-      - key: NEXT_PUBLIC_ARGUS_SUPPORT_EMAIL
-        value: support@get-argus.com
-      - key: NEXT_PUBLIC_OMNISEARCH_ENABLED
+      - key: CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED
         value: "true"
-      - key: NEXT_PUBLIC_RESEARCH_RAIL_ENABLED
+      - key: CUADRAO_BUSINESS_PILOT_ENABLED
         value: "true"
-      - key: NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED
+      - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
+        value: "false"
+      - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
+        value: "true"
+      - key: CUADRAO_FINANCIAL_ACCOUNTS_ENABLED
+        value: "true"
+      - key: CUADRAO_INGESTION_ENABLED
+        value: "true"
+      - key: CUADRAO_VISION_MODEL
+        sync: false
+      - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
+        sync: false
+      - key: CUADRAO_WHATSAPP_INTAKE_ENABLED
+        value: "true"
+      - key: CUADRAO_WHATSAPP_NUMBER_ID
+        sync: false
+      - key: CUADRAO_WHATSAPP_OUTBOUND_ENABLED
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: CUADRAO_WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: CUADRAO_WHATSAPP_SENDER_KEY
+        sync: false
+      - key: CUADRAO_WHATSAPP_APP_SECRET
+        sync: false
+      - key: CUADRAO_WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: CUADRAO_RESEND_WEBHOOK_SECRET
+        sync: false
+      - key: RESEND_BUSINESS_API_KEY
+        sync: false
+      # Live staging turns these on. The manifest records that. The blueprint stays false.
+      - key: ARGUS_HOUSEHOLDS_ENABLED
+        value: "false"
+      - key: ARGUS_BETA_INVITES_ENABLED
+        value: "false"
+      - key: ARGUS_IN_PLACE_CARD_EDITS_ENABLED
+        value: "true"
+      - key: ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED
+        value: "true"
+      - key: ARGUS_INVITE_CODE_SECRET
+        sync: false
+      - key: ARGUS_VISITOR_KEY_SECRET
+        sync: false
+      - key: CUADRAO_INGESTION_SECRET_KEY
+        sync: false
+      - key: ARGUS_INVITE_FOUNDER_USER_ID
+        sync: false
+      - key: ARGUS_CORS_ALLOW_ORIGINS
+        value: https://cuadrao-web-staging.onrender.com
 
   # Existing staging service: srv-db5ihr7lot8c73f3b3h0.
   - type: web
@@ -252,7 +327,7 @@ services:
     repo: https://github.com/lagarcess/argus
     branch: codex/private-alpha-next
     rootDir: web
-    autoDeployTrigger: "off"
+    autoDeployTrigger: checksPass
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run start -- -p $PORT
     envVars:
@@ -268,6 +343,8 @@ services:
         sync: false
       - key: CUADRAO_AUTH_EMAIL_RESEND_API_KEY
         sync: false
+      - key: CUADRAO_EMAIL_ASSET_ORIGIN
+        sync: false
       - key: NEXT_PUBLIC_APP_ENV
         value: staging
       - key: NEXT_PUBLIC_SUPABASE_URL
@@ -278,6 +355,16 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_BUSINESS_PILOT_ENABLED
         value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
+        value: "true"
+      - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
+      - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED
+        value: "false"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
         value: https://cuadrao-api-staging.onrender.com/api/v1
       - key: NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY
@@ -290,7 +377,7 @@ services:
     runtime: node
     plan: free
     repo: https://github.com/lagarcess/argus
-    branch: codex/private-alpha-next
+    branch: main
     rootDir: marketing
     autoDeployTrigger: "off"
     buildCommand: bun install --frozen-lockfile && bun run build --webpack

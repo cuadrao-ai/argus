@@ -13,6 +13,11 @@ async function capture(page: Page, name: string) {
   }
 }
 
+async function confirmRncWarning(page: Page) {
+  const dialog = page.getByRole("alertdialog");
+  if (await dialog.isVisible()) await dialog.getByRole("button", { name: /^(Approve expense|Aprobar gasto|Aprobar)$/ }).click();
+}
+
 async function openRecord(page: Page, id: string, language: "en" | "es-419" = "en") {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
   await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
@@ -44,6 +49,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await capture(page, `ready-approval-${viewport.width}`);
       await approve.focus();
       await page.keyboard.press("Enter");
+      await confirmRncWarning(page);
       await expect(page.getByText("One expense was recorded after approval of revision 3.", { exact: true })).toBeVisible();
       await expect(approve).toHaveCount(0);
       await expect(page.getByText("Corrections after recording aren't available in this first flow.", { exact: true })).toBeVisible();
@@ -77,7 +83,8 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       const fiscal = page.getByTestId("receipt-fiscal-facts");
       await expect(fiscal).toContainText("Datos fiscales");
       await expect(fiscal).toContainText("RNC");
-      await expect(fiscal).toContainText("131999888");
+      await expect(fiscal).toContainText("1-31-99988-8");
+      await expect(fiscal.getByRole("status", { name: "Estado del RNC: RNC sin verificar" })).toBeVisible();
       await expect(fiscal).toContainText("B0100000099");
       await expect(fiscal).toContainText("e-CF");
       await expect(fiscal).toContainText("El dueño no sabe");
@@ -119,6 +126,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(page.getByText("Registrado", { exact: true })).toHaveCount(0);
       await capture(page, `ready-approval-spanish-${viewport.width}`);
       await page.getByRole("button", { name: "Aprobar gasto", exact: true }).click();
+      await confirmRncWarning(page);
       await expect(page.getByText("Se registró un gasto tras aprobar la revisión 3.", { exact: true })).toBeVisible();
       await page.getByTestId("receipt-history").locator("summary").click();
       await expect(page.getByTestId("receipt-history")).toContainText("Permiso otorgado por Lucía Mateo");
@@ -193,6 +201,7 @@ test.describe("Server authority and uncertain outcomes", () => {
   test("stale version requires opening and reviewing the new revision", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.stale);
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+    await confirmRncWarning(page);
     await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("This record changed");
     await capture(page, "stale-revision");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
@@ -205,6 +214,7 @@ test.describe("Server authority and uncertain outcomes", () => {
   test("revoked grant removes action controls and the unavailable record", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.denied);
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+    await confirmRncWarning(page);
     await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("current access");
     await capture(page, "denied-access");
     await expect(page.getByTestId("business-record-review")).toHaveCount(0);
@@ -214,6 +224,7 @@ test.describe("Server authority and uncertain outcomes", () => {
   test("unknown approval outcome checks status without resubmitting", async ({ page }) => {
     await openRecord(page, dossierFixtureIds.outcomeUnknown);
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+    await confirmRncWarning(page);
     await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toContainText("outcome isn't known");
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toBeDisabled();
     await page.getByRole("button", { name: "Check current record", exact: true }).click();
@@ -311,6 +322,7 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   test(`Spanish authority evidence: ${scenario}`, async ({ page }) => {
     await openRecord(page, dossierFixtureIds[scenario], "es-419");
     await page.getByRole("button", { name: "Aprobar gasto", exact: true }).click();
+    await confirmRncWarning(page);
     const alert = page.getByTestId("workspace-panel-region").getByRole("alert");
     await expect(alert).toBeVisible();
     if (scenario === "stale") await expect(alert).toContainText("Este registro cambió");
@@ -366,6 +378,7 @@ test("after approving from the inbox, the home card and the inbox count change w
   await page.getByLabel(/Paid from/).selectOption({ label: "Operating account · DOP" });
   await page.getByRole("button", { name: "Save review details" }).click();
   await page.getByRole("button", { name: "Approve expense", exact: true }).click();
+  await confirmRncWarning(page);
   await expect(panel).toContainText("One expense was recorded after approval");
   // No reload, no navigation beyond the panel switch: the home already knows.
   await nav.getByRole("button", { name: /^Overview/ }).click();

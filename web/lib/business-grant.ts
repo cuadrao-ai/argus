@@ -34,6 +34,12 @@ export function getChosenGrant(): string | null {
   return current;
 }
 
+/** The only Business a viewer can enter when they have no Business of their own. */
+export function soleClientGrantId(spaces: readonly { grant_id: string; role: string }[]): string | null {
+  if (spaces.length !== 1 || spaces[0].role === "owner") return null;
+  return spaces[0].grant_id;
+}
+
 export function setChosenGrant(grantId: string | null): void {
   current = grantId;
   // The memory is a convenience; the server decides on every request.

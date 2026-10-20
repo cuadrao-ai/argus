@@ -42,6 +42,7 @@ import {
   resultMetricDisplayOrder,
 } from "./result-card-display";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
+import { postPasswordAuth } from "./password-auth-request";
 import { attributionBody } from "./landing-intent";
 import { resultReadoutContentFromMetadata, type ResultReadoutContent } from "./result-readout-content";
 import { resultReadoutFacts } from "./result-readout-facts";
@@ -665,30 +666,38 @@ export async function signupWithEmail(payload: {
   language: ApiLanguage;
   display_name?: string | null;
   username?: string | null;
+  age_confirmed_at: string;
 }) {
+  if (!payload.age_confirmed_at) {
+    throw Object.assign(new Error("age_confirmation_required"), {
+      code: "age_confirmation_required",
+    });
+  }
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>("/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ ...payload, captcha_token: captchaToken, ...attributionBody() }),
+  const response = await postPasswordAuth<AuthResponsePayload>("/auth/signup", {
+    ...payload,
+    captcha_token: captchaToken,
+    ...attributionBody(),
   });
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
   return { response, needsEmailConfirmation: !response.session };
 }
 
-export async function loginWithEmail(payload: {
-  email: string;
-  password: string;
-}) {
+export async function loginWithEmail(
+  payload: {
+    email: string;
+    password: string;
+  },
+  options?: { requestTimeoutMs?: number },
+) {
   const generation = browserAuthGeneration();
   const captchaToken = await acquirePasswordAuthCaptchaToken();
-  const response = await unauthenticatedApiFetch<AuthResponsePayload>(
+  const response = await postPasswordAuth<AuthResponsePayload>(
     "/auth/login",
-    {
-      method: "POST",
-      body: JSON.stringify({ ...payload, captcha_token: captchaToken }),
-    },
+    { ...payload, captcha_token: captchaToken },
+    options?.requestTimeoutMs,
   );
   requireBrowserAuthGeneration(generation);
   await persistBrowserSession(response);
@@ -902,17 +911,6 @@ export async function deleteConversation(conversationId: string) {
     method: "DELETE",
   });
 }
-
-export async function deleteAllConversations(surface?: ConversationSurface) {
-  return apiFetch<{ success: boolean; deleted_count: number }>(
-    `/conversations${surfaceQuery(surface)}`,
-    {
-      method: "DELETE",
-    },
-  );
-}
-
-// ─── History and search ───────────────────────────────────────────────────────
 
 export { listHistory, searchGlobal } from "./conversation-surface-api";
 

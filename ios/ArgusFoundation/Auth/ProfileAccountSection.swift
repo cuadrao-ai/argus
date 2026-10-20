@@ -88,6 +88,11 @@ private struct AuthFormView: View {
     private struct Challenge: Identifiable { let id = UUID(); let url: URL }
 
     var body: some View {
+        if signup { AgeRangeObservationView(observation: model.ageRangeObservation) { form } }
+        else { form }
+    }
+
+    private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             if model.confirmationRequired {
                 Text("auth.confirmation.title").font(ArgusStyle.display(24, relativeTo: .title2))

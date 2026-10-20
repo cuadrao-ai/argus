@@ -61,12 +61,12 @@ def test_release_profile_is_non_secret_and_defines_the_fixed_canary() -> None:
     serialized = json.dumps(profile).lower()
 
     assert profile["release_mode"] == "real-workflow"
-    assert set(profile["services"]) == {"api", "web", "workflow"}
+    assert set(profile["services"]) == {"api", "web", "workflow", "marketing"}
     assert profile["services"]["api"]["name"] == "argus-api"
     assert profile["services"]["web"]["name"] == "argus-app"
+    assert profile["services"]["marketing"]["name"] == "cuadrao-web"
     assert profile["services"]["workflow"]["name"] == "argus-backtests"
-    # Founder decision, 2026-09-13 (#614): deploys are manual on all three.
-    for surface in ("api", "web", "workflow"):
+    for surface in ("api", "web", "workflow", "marketing"):
         assert profile["services"][surface]["auto_deploy_trigger"] == "off"
     assert profile["services"]["api"]["env"]["ARGUS_APP_ORIGIN"] == (
         "https://arguschat.ai"
@@ -172,7 +172,7 @@ def test_public_account_access_is_open_in_every_release_contract() -> None:
     render_api = next(
         service
         for service in render_config["services"]
-        if service["name"] == "argus-api"
+        if service["name"] == "cuadrao-api"
     )
     render_api_env = {
         item["key"]: item.get("value") for item in render_api["envVars"]
@@ -281,17 +281,22 @@ def test_render_blueprint_matches_the_authoritative_nonsecret_profile() -> None:
         for service in render_blueprint["services"]
     }
 
+    blueprint_name = {"api": "cuadrao-api", "web": "cuadrao-web"}
     for surface in ("api", "web"):
         service_profile = profile["services"][surface]
         rendered_service = next(
             service
             for service in render_blueprint["services"]
-            if service["name"] == service_profile["name"]
+            if service["name"] == blueprint_name[surface]
         )
         assert rendered_service["autoDeployTrigger"] == service_profile[
             "auto_deploy_trigger"
         ]
-        rendered_env = render_services[service_profile["name"]]
+        if surface == "web":
+            assert rendered_service["rootDir"] == "marketing"
+            assert "envVars" not in rendered_service
+            continue
+        rendered_env = render_services[blueprint_name[surface]]
         expected_keys = set(service_profile["env"])
         expected_keys.update(service_profile["required_present"])
         expected_keys.update(service_profile["optional"])
@@ -316,13 +321,14 @@ def test_api_and_app_share_a_registrable_domain() -> None:
     """
 
     blueprint = (ROOT / "render.yaml").read_text(encoding="utf-8")
+    env_contract = (ROOT / ".github" / "argus-env.sh").read_text(encoding="utf-8")
     app_origin = re.search(
         r"key: ARGUS_APP_ORIGIN\s*\n\s*value: (\S+)", blueprint
     )
     api_url = re.search(
-        r"key: NEXT_PUBLIC_ARGUS_API_URL\s*\n\s*value: (\S+)", blueprint
+        r'ARGUS_PRIVATE_LAUNCH_API_URL="([^"]+)"', env_contract
     )
-    assert app_origin and api_url, "render.yaml must declare both hosts"
+    assert app_origin and api_url, "API origin and app URL must both be declared"
 
     def registrable(url: str) -> str:
         host = urlparse(url).hostname or ""
