@@ -42,6 +42,9 @@ import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui"
 import { BusinessContext, useBusiness } from "./BusinessWorkspace";
 import { ReceiptPeriodExport } from "./ReceiptDossierReview";
 
+/** Where the Inicio "Export records" button takes the owner. */
+export const INICIO_EXPORT_ID = "inicio-export-records";
+
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
 
@@ -830,7 +833,7 @@ export function BusinessMonthCloseView({
       ) : null}
 
       {workspace?.chosen && bounds.to ? (
-        <div className="mt-6">
+        <div id={INICIO_EXPORT_ID} tabIndex={-1} className="mt-6 scroll-mt-6 focus:outline-none">
           <ReceiptPeriodExport
             key={`${workspace.chosen.grant_id}:${bounds.from}:${bounds.to}`}
             scope={{

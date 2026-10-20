@@ -21,6 +21,8 @@ export type ChatShellBridge = Readonly<{
   conversationId: string | null;
   isBelowTablet: boolean;
   sidebarCollapsed: boolean;
+  /** The name the person asked to be greeted by; null when they set none. */
+  greetingName: string | null;
   /** Opens the shared search. Absent when this shell has no search. */
   openSearch?: () => void;
   /** Shows the workspace's main panel, leaving any open conversation. */

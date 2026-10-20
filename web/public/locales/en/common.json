@@ -2911,6 +2911,11 @@
       "label": "Period"
     },
     "overview": {
+      "copy_forward": "Copy forwarding address",
+      "copy_forward_failed": "Could not copy. Your forwarding address is {{address}}",
+      "export_records": "Export records",
+      "greeting": "Welcome, {{name}}",
+      "greeting_unnamed": "Welcome",
       "title": "My business",
       "error": "We couldn't load your business records. Your saved receipts and expenses are safe. Try again.",
       "in_inbox": "In your inbox",

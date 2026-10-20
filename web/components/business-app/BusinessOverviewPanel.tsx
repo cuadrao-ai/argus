@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import StarterActions from "@/components/chat/StarterActions";
+import { Copy, Download } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { businessReceivingAddress } from "@/lib/business-email";
 import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/business-review-count";
 import { useBusiness } from "./BusinessWorkspace";
-import { formatBusinessName } from "./business-format";
 import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
-import BusinessMonthClosePanel from "./BusinessMonthClosePanel";
+import BusinessMonthClosePanel, { INICIO_EXPORT_ID } from "./BusinessMonthClosePanel";
 import { PrimaryUpload } from "./foundation/PrimaryUpload";
+import { ToastNotice, type QueuedToast } from "./foundation/ToastNotice";
 
-function ForwardCard() {
-  const { t } = useTranslation();
+function useForwardAddress(): string | null {
   const { source } = useBusiness();
   const [address, setAddress] = useState<string | null>(null);
   useEffect(() => {
@@ -28,51 +27,70 @@ function ForwardCard() {
       live = false;
     };
   }, [source]);
-  if (!address) return null;
-  return (
-    <section data-testid="inicio-forward" className={`${cardClass} mt-6`}>
-      <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business.email.forward_to", "Forward receipts to this address:")}</h3>
-      <p data-testid="inicio-forward-address" className="mt-2 break-all text-[14px] text-black/70 dark:text-white/70">{address}</p>
-      <button
-        type="button"
-        data-testid="inicio-forward-copy"
-        className={`${secondaryButtonClass} mt-3 min-w-11`}
-        onClick={() => { void navigator.clipboard?.writeText(address); }}
-      >
-        {t("business.email.copy", "Copy address")}
-      </button>
-    </section>
-  );
+  return address;
 }
 
 export default function BusinessOverviewPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, openPanel, actions, chosen } = useBusiness();
+  const { records, openPanel, actions, chosen, bridge } = useBusiness();
   const owner = chosen?.role !== "accountant";
   const upload = owner ? actions.create?.find((action) => action.id === "upload_receipt") ?? null : null;
+  const recordExpense = owner ? actions.create?.find((action) => action.id === "record_expense") ?? null : null;
+  const forwardAddress = useForwardAddress();
+  const [toast, setToast] = useState<QueuedToast | null>(null);
   const items = records.inbox;
   const porRevisar = items ? countPorRevisar(items) : null;
   const reading = items ? countStillReading(items) : 0;
   const problem = items ? countUnreadable(items) : 0;
   const primaryClass = `${pillButtonClass} min-w-11 bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
+  const name = bridge?.greetingName?.trim();
+  const greeting = name ? t("business.overview.greeting", { name, defaultValue: "Welcome, {{name}}" }) : t("business.overview.greeting_unnamed", "Welcome");
+
+  const showExport = () => {
+    const target = document.getElementById(INICIO_EXPORT_ID);
+    if (!target) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    target.focus({ preventScroll: true });
+  };
+  const copyForward = (address: string) => {
+    const copied = navigator.clipboard?.writeText(address) ?? Promise.reject(new Error("clipboard_unavailable"));
+    copied.then(
+      () => setToast({ id: Date.now(), kind: "confirm", text: t("business.email.copied", "Address copied.") }),
+      () => setToast({ id: Date.now(), kind: "error", text: t("business.overview.copy_forward_failed", { address, defaultValue: "Could not copy. Your forwarding address is {{address}}" }) }),
+    );
+  };
 
   return (
     <section aria-labelledby="business-overview-title">
-      {upload && isBelowTablet ? <div className="mb-4"><PrimaryUpload fullWidth label={upload.label} onClick={upload.run} /></div> : null}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
-          {formatBusinessName(chosen?.name, t("business.overview.title", "My business"))}
-        </h2>
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          {upload ? (
-            isBelowTablet ? null : <PrimaryUpload label={upload.label} onClick={upload.run} />
-          ) : chosen?.role === "accountant" ? (
-            <button type="button" data-testid="inicio-primary-review" data-primary="true" className={primaryClass} onClick={() => openPanel({ kind: "inbox" })}>
-              {t("business.actions.review_receipts", "Review receipts")}
-            </button>
-          ) : null}
-        </div>
+      <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
+        {greeting}
+      </h2>
+      <div data-testid="inicio-actions" className={`mb-6 mt-4 ${isBelowTablet ? "flex flex-col gap-2" : "flex flex-wrap items-center gap-3"}`}>
+        {upload ? (
+          <PrimaryUpload fullWidth={isBelowTablet} label={upload.label} onClick={upload.run} />
+        ) : chosen?.role === "accountant" ? (
+          <button type="button" data-testid="inicio-primary-review" data-primary="true" className={primaryClass} onClick={() => openPanel({ kind: "inbox" })}>
+            {t("business.actions.review_receipts", "Review receipts")}
+          </button>
+        ) : null}
+        {recordExpense ? (
+          <button type="button" data-testid="inicio-record-expense" className={secondaryButtonClass} onClick={recordExpense.run}>
+            <recordExpense.icon className="h-4 w-4" aria-hidden="true" />
+            {recordExpense.label}
+          </button>
+        ) : null}
+        <button type="button" data-testid="inicio-export" className={secondaryButtonClass} onClick={showExport}>
+          <Download className="h-4 w-4" aria-hidden="true" />
+          {t("business.overview.export_records", "Export records")}
+        </button>
+        {owner && forwardAddress ? (
+          <button type="button" data-testid="inicio-forward-copy" className={secondaryButtonClass} onClick={() => copyForward(forwardAddress)}>
+            <Copy className="h-4 w-4" aria-hidden="true" />
+            {t("business.overview.copy_forward", "Copy forwarding address")}
+          </button>
+        ) : null}
       </div>
 
       <button
@@ -106,15 +124,7 @@ export default function BusinessOverviewPanel() {
         </div>
       ) : null}
 
-      <ForwardCard />
-
-      <div className="mt-8">
-        <StarterActions
-          onSelect={() => undefined}
-          entries={actions.starterEntries.filter((entry) => entry.key !== "upload_receipt" && entry.key !== "review_inbox")}
-          layout={isBelowTablet ? "scroll" : "wrap"}
-        />
-      </div>
+      {toast ? <ToastNotice key={toast.id} text={toast.text} kind={toast.kind} onClose={() => setToast(null)} /> : null}
     </section>
   );
 }

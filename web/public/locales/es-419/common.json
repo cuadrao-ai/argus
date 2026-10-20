@@ -2812,6 +2812,11 @@
       "due_future_other": "En {{count}} días"
     },
     "overview": {
+      "copy_forward": "Copiar dirección de reenvío",
+      "copy_forward_failed": "No se pudo copiar. Tu dirección de reenvío es {{address}}",
+      "export_records": "Exportar registros",
+      "greeting": "Hola, {{name}}",
+      "greeting_unnamed": "Hola",
       "attention_one": "{{count}} recibo necesita tu atención",
       "attention_other": "{{count}} recibos necesitan tu atención",
       "in_inbox": "En tu bandeja",
