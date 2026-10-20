@@ -240,6 +240,10 @@ class ReadPurchase(Contract):
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
     document_type: DocumentType = "recibo"
+    #: The read set the type because the upload named none; false once a person sets it.
+    document_type_detected: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
     facts: BusinessFacts
     dgii: DgiiDeclaration | None = None
     #: Empty for a single clean read. Several entries mean the read showed

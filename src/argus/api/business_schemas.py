@@ -211,6 +211,14 @@ class ReceiptSummary(_Wire):
     # cannot be prepared or approved; its attachment is the receipt.
     email_original: bool = False
     document_type: DocumentType = "recibo"
+    # The read set the type because the upload named none.
+    document_type_detected: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
+    # The caller may change the type now: its draft is open and they hold prepare.
+    document_type_editable: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
     expense_id: str | None
     merchant: str | None
     occurred_on: str | None

@@ -18,6 +18,7 @@ from argus.domain import financial_search
 from argus.domain.business import ledger
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_chat_enabled
+from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import (
     CLOSED,
     Receipt,
@@ -182,7 +183,7 @@ class BusinessService:
         media_type: str,
         consent: bool,
         on_capture: CaptureHook | None = None,
-        document_type: str = "recibo",
+        document_type: DocumentType | None = None,
     ) -> Receipt:
         outcome = await self.documents.upload(
             user_id=scope.person_id,

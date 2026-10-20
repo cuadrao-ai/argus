@@ -36,7 +36,12 @@ from argus.domain.business.contracts.facts import (
     Known,
     ReadPurchase,
 )
-from argus.domain.business.document_type import require_venta_kind
+from argus.domain.business.document_type import (
+    DocumentType,
+    detected_document_type,
+    require_venta_kind,
+    typed_facts,
+)
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
 from argus.domain.ingestion.documents.models import (
@@ -95,7 +100,8 @@ def save_revision(
     bill_mark: str | None = None,
     dgii: DgiiDeclaration | None = None,
     clear_dgii: bool = False,
-    document_type: str | None = None,
+    document_type: DocumentType | None = None,
+    document_type_detected: bool = False,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -117,6 +123,12 @@ def save_revision(
         dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
     if bill_mark is None:
         bill_mark = previous.get("bill_mark")
+    if document_type is None:
+        document_type = previous.get("document_type", "recibo")
+        document_type_detected = previous.get("document_type_detected", False)
+    if document_type == "venta":
+        # An issued invoice is never a bill the business owes.
+        bill_mark = None
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
@@ -126,9 +138,8 @@ def save_revision(
         bill_mark=bill_mark,
         remainder_settled=bool(previous.get("remainder_settled", False)),
         dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
-        document_type=document_type
-        if document_type is not None
-        else previous.get("document_type", "recibo"),
+        document_type=document_type,
+        document_type_detected=document_type_detected,
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
@@ -165,6 +176,7 @@ def revise(
     turn_key: str | None = None,
     answer_id: UUID | None = None,
     fiscal_review: FiscalReview | None = None,
+    document_type: DocumentType | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
@@ -172,7 +184,11 @@ def revise(
         event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
-        event = event_at(tx, ref)
+        event = (
+            _open_for_type(tx, ref, document_type)
+            if document_type is not None
+            else event_at(tx, ref)
+        )
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {
@@ -180,11 +196,20 @@ def revise(
         "owner_via_agent": "owner_stated",
         "extractor": "extracted",
     }[actor.actor_kind]
+    previous_type = (event.resolution.get("business") or {}).get(
+        "document_type", "recibo"
+    )
+    retyped = document_type is not None and document_type != previous_type
+    base = (
+        typed_facts(before, document_type, source_ids, origin, _business_tax_id(tx))
+        if retyped and before is not None
+        else before
+    )
     try:
         after = (
-            patched_facts(before, patch, source_ids, origin=origin)
+            patched_facts(base, patch, source_ids, origin=origin)
             if patch is not None
-            else before
+            else base
         )
         if fiscal_review is not None:
             from argus.domain.business.actions.fiscal import reviewed_fiscal_facts
@@ -192,9 +217,7 @@ def revise(
             after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
-    require_venta_kind(
-        (event.resolution.get("business") or {}).get("document_type"), after
-    )
+    require_venta_kind(document_type or previous_type, after)
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
     elif actor.actor_kind == "member" and patch is not None:
@@ -209,7 +232,7 @@ def revise(
     declared = fiscal_review.declaration if fiscal_review else None
     if patch is not None and patch.purchase is not None:
         current = declared
-        if current is None:
+        if current is None and not retyped:
             raw = (event.resolution.get("business") or {}).get("dgii")
             current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
         kind = after.kind.value if isinstance(after.kind, Known) else None
@@ -240,7 +263,33 @@ def revise(
         actor,
         turn_key,
         dgii=declared,
+        # A declaration filled under the other type no longer applies.
+        clear_dgii=retyped and declared is None,
+        document_type=document_type,
     )
+
+
+def _open_for_type(
+    tx: ActionTransaction, ref: ExistingDraft, document_type: DocumentType
+) -> ImportEvent:
+    """The draft whose document type a person sets: open, and from an upload
+    when the type changes."""
+
+    try:
+        event = event_at(tx, ref)
+    except ActionError as error:
+        if error.code == "recorded_correction_unsupported":
+            raise ActionError("invalid_input", "document_type_locked") from None
+        raise
+    current = (event.resolution.get("business") or {}).get("document_type", "recibo")
+    if document_type != current and not tx.rows(
+        "select 1 from public.business_draft_sources l join public.business_sources s"
+        " on s.id=l.source_id and s.space_id=l.space_id"
+        " where l.space_id=%s and l.draft_id=%s and s.kind='attachment' limit 1",
+        (tx.context.actor.space_id, event.id),
+    ):
+        raise ActionError("invalid_input", "document_type_unsupported")
+    return event
 
 
 def answer_question(
@@ -485,16 +534,20 @@ def prepare_attachment(
             for name, incoming in facts["fiscal"].items():
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
-    if draft.document_type == "venta":
-        facts["kind"] = {
-            "state": "known",
-            "value": "income",
-            "origin": "owner_stated",
-            "verified": False,
-            "source_ids": [str(source_id)],
-        }
+    document_type, detected = _read_document_type(tx, event, draft, batch)
     after = BusinessFacts.model_validate(facts)
-    require_venta_kind(draft.document_type, after)
+    if document_type == "venta":
+        read_rnc = after.fiscal.rnc if after.fiscal is not None else None
+        after = typed_facts(
+            after,
+            "venta",
+            (source_id,),
+            "extracted" if detected else "owner_stated",
+            _business_tax_id(tx),
+        )
+        if isinstance(read_rnc, Known) and not isinstance(after.fiscal.rnc, Known):
+            logger.info("business_venta_issuer_rnc_cleared detected={}", detected)
+    require_venta_kind(document_type, after)
     return save_revision(
         tx,
         event,
@@ -507,11 +560,52 @@ def prepare_attachment(
         read_total,
         batch.ecf_checks,
         batch.dgii_qr,
-        None
-        if draft.document_type == "venta"
-        else _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
-        document_type=draft.document_type,
+        _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
+        document_type=document_type,
+        document_type_detected=detected,
     )
+
+
+def _read_document_type(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    draft: DocumentDraft,
+    batch: ExtractionBatch,
+) -> tuple[DocumentType, bool]:
+    """The type the upload named wins. A later document on a draft keeps the
+    draft's type. Otherwise a document the business itself issued is a Venta:
+    the QR's issuer when there is one, else the RNC the read found."""
+
+    if draft.document_type is not None:
+        return draft.document_type, False
+    previous = event.resolution.get("business")
+    if previous is not None:
+        return previous.get("document_type", "recibo"), previous.get(
+            "document_type_detected", False
+        )
+    if batch.dgii_qr is not None:
+        issuer = batch.dgii_qr.rnc_emisor
+    else:
+        issuer = batch.receipt.rnc if batch.receipt is not None else None
+    detected = (
+        "recibo"
+        if issuer is None
+        else detected_document_type(issuer, _business_tax_id(tx))
+    )
+    logger.info(
+        "business_document_type_detected type={} issuer_from_qr={}",
+        detected,
+        batch.dgii_qr is not None,
+    )
+    return detected, True
+
+
+def _business_tax_id(tx: ActionTransaction) -> str | None:
+    [space] = tx.rows(
+        "select business_rnc from public.spaces where id=%s",
+        (tx.context.actor.space_id,),
+    )
+    return space["business_rnc"]
 
 
 KINDS = frozenset({"expense", "income", "transfer", "refund"})

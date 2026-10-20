@@ -14,6 +14,8 @@ from pydantic import (
     model_validator,
 )
 
+from argus.domain.business.document_type import DocumentType
+
 from .authority import ActorProvenance
 from .dgii import FiscalReview
 from .facts import (
@@ -140,11 +142,13 @@ class ReviewDraft(Contract):
     version: int = Field(ge=1)
     facts: BusinessFactPatch | None = None
     dgii: FiscalReview | None = None
+    #: Sets the uploaded document's type while the draft is open.
+    document_type: DocumentType | None = None
 
     @model_validator(mode="after")
     def some_review_input(self):
-        if self.facts is None and self.dgii is None:
-            raise ValueError("supply review facts or fiscal declaration")
+        if self.facts is None and self.dgii is None and self.document_type is None:
+            raise ValueError("supply review facts, fiscal declaration or document type")
         return self
 
 

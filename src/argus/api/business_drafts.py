@@ -409,7 +409,8 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
     if not drafts or legacy == str(drafts[0]["id"]):
         return summary
     row = drafts[0]
-    facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
+    resolution = BusinessResolution.model_validate(row["resolution"]["business"])
+    facts = resolution.facts
 
     def value(fact):  # noqa: ANN001, ANN202
         return fact.value if isinstance(fact, Known) else None
@@ -433,6 +434,9 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         if isinstance(funding, BusinessAccountFunding)
         else None,
         **row["marks"],
+        "document_type": resolution.document_type,
+        "document_type_detected": resolution.document_type_detected,
+        "document_type_editable": row["state"] == "open",
     }
     for key, item in (("draft_id", str(row["id"])), ("version", row["version"])):
         if key in summary:
@@ -467,8 +471,17 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
         context.record_context.capabilities if context.record_context else ()
     )
     # The overlay names "personal" only for a receipt one draft owns: nothing else to mark.
+    # The same people set its document type while that draft is open.
     return [
-        {**view, "personal_editable": editable} if "personal" in view else view
+        {
+            **view,
+            **({"personal_editable": editable} if "personal" in view else {}),
+            **(
+                {"document_type_editable": editable}
+                if view.get("document_type_editable")
+                else {}
+            ),
+        }
         for view in views
     ]
 
