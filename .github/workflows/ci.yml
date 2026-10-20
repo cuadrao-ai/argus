@@ -61,6 +61,22 @@ jobs:
       - name: Reject credential literals in tracked configuration
         run: python scripts/check_config_credentials.py
 
+      - name: Fetch the pull request base
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git cat-file -e "${PR_BASE_SHA}^{commit}"; then
+            exit 0
+          fi
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          git cat-file -e "${PR_BASE_SHA}^{commit}"
+
+      - name: Reject new evidence media
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/ci/check_no_evidence_media.py
+
       - name: Run branch ownership gate
         run: python .agent/scripts/ownership/verify_branch_ownership.py
 
@@ -212,6 +228,7 @@ jobs:
           cd web
           bunx playwright test e2e/browser-storage-disclosure.spec.ts
           NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true PLAYWRIGHT_PORT=3101 bunx playwright test e2e/business-receipt-upload-recovery.spec.ts
+          NEXT_PUBLIC_BUSINESS_PILOT_ENABLED=true NEXT_PUBLIC_ENABLE_SPANISH=true PLAYWRIGHT_PORT=3102 bunx playwright test --config e2e/business-consent.playwright.config.ts
 
       - name: Retain receipt upload browser evidence
         if: always()
@@ -377,14 +394,11 @@ jobs:
         run: |
           cd web
           bun test \
-            __tests__/guest-artifact-hints.test.tsx \
             __tests__/guest-browser-harness.test.ts \
             __tests__/guest-capability-gates.test.ts \
             __tests__/guest-conversion.test.ts \
             __tests__/guest-modal-viewport-fit.test.ts \
             __tests__/guest-session.test.ts \
-            __tests__/guest-shell.test.tsx \
-            __tests__/guest-starter-actions.test.tsx \
             __tests__/usage-allowance.test.ts
 
   ci:

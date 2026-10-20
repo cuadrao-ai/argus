@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { indexingEnabled } from "./lib/indexing";
+import { indexingEnabled, omitsPrivateHostRobotsHeader } from "./lib/indexing";
 import { lowercaseRedirectPath } from "./lib/site-routes";
 
 export function proxy(request: NextRequest) {
@@ -13,7 +13,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
   const response = NextResponse.next();
-  if (!indexingEnabled(process.env.CUADRAO_SITE_INDEXING)) {
+  if (
+    !indexingEnabled(process.env.CUADRAO_SITE_INDEXING) &&
+    !omitsPrivateHostRobotsHeader(request.nextUrl.pathname)
+  ) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
   return response;

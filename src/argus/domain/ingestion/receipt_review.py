@@ -92,6 +92,8 @@ class ReceiptReview:
     owner_entry: bool = False
     # The receipt this one may repeat; set with the ``possible_duplicate`` blocker.
     duplicate_of: str | None = None
+    # A stored refusal the owner cannot finish by reading the same bytes again.
+    terminal: Literal["unreadable", "not_a_receipt"] | None = None
 
 
 def _is_receipt(batch: ExtractionBatch | None) -> bool:
@@ -183,6 +185,9 @@ def receipt_review(
             event_version=None,
             expense_id=None,
             read_purchases=read,
+            terminal=_terminal_refusal(draft, batch)
+            if blocker == "not_prepared"
+            else None,
         )
     [event] = purchases
     facts = event["facts"]
@@ -219,6 +224,47 @@ def receipt_review(
         if repeated
         else None,
     )
+
+
+def _terminal_refusal(
+    draft: DocumentDraft, batch: ExtractionBatch | None
+) -> Literal["unreadable", "not_a_receipt"] | None:
+    """How a stored refusal should read, from the saved batch.
+
+    The draft keeps the code it stored. An NCF bill stays unset so another
+    preparation can finish it. A readable read with a positive priced amount
+    stays unset for the same reason. An incomplete receipt that already has
+    a plain total stays unset too.
+    """
+
+    from argus.domain.ingestion.documents.extractor import (
+        ncf_bill,
+        plain_amount,
+        review_amount,
+    )
+
+    code = draft.error_code
+    if batch is None or code not in {
+        "receipt_requires_review",
+        "unreadable_document",
+        "not_a_receipt",
+    }:
+        return None
+    if batch.readable is not True or any(
+        issue.code == "unreadable_document" for issue in batch.issues
+    ):
+        return "unreadable"
+    if ncf_bill(batch) or review_amount(batch) is not None:
+        return None
+    receipt = batch.receipt
+    if (
+        code == "receipt_requires_review"
+        and batch.complete is not True
+        and receipt is not None
+        and plain_amount(receipt.total)
+    ):
+        return None
+    return "not_a_receipt"
 
 
 def _handoff_failed(draft: DocumentDraft, batch: ExtractionBatch) -> bool:

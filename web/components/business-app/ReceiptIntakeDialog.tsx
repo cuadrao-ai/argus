@@ -5,12 +5,18 @@ import ReceiptReadingControl from "./ReceiptReadingControl";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Camera, ClipboardPaste, FileUp, ReceiptText, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { OfflineBanner } from "@/components/status/OfflineBanner";
+import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { LoadingRows, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabels } from "./receipt-file";
-import { ReceiptUploadQueue, isUnfinishedUpload, type IntakeTarget, type UploadRejection } from "./receipt-upload-queue";
+import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type UploadRejection } from "./receipt-upload-queue";
 import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
@@ -37,7 +43,7 @@ function IntakeSurface(props: IntakeProps) {
   ) : (
     <AdaptivePanel title={t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
       <div className="px-4 pb-4">
-        <LoadingRows rows={2} />
+        <Settle pending layout="rows" rows={2} />
       </div>
     </AdaptivePanel>
   );
@@ -46,7 +52,7 @@ function IntakeSurface(props: IntakeProps) {
 function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
   const capabilities = useInputCapabilities();
-  const { bridge } = useBusiness();
+  const { bridge, clearLostAccess } = useBusiness();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -59,12 +65,25 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
   const unfinished = entries.some(isUnfinishedUpload);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
   const many = target === "inbox";
+  const progress = many && queue.progress?.target === target ? queue.progress : null;
+  const failed = entries.find((item) => item.status === "failed");
+  const failure: FailureClass | null = failed?.status === "failed" ? failed.failure : null;
+  const [serverReference, setServerReference] = useState("");
 
-  const [busy, setBusy] = useState(false);
-  const [documentType, setDocumentType] = useState<"recibo" | "venta">("recibo");
+  useEffect(() => {
+    if (failure !== "server" && failure !== "unavailable") return;
+    setServerReference((current) => current || referenceCode(null));
+  }, [failure]);
+
+  useEffect(() => {
+    if (failure !== "session_ended") return;
+    window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
+  }, [failure]);
+
+  const [documentType, setDocumentType] = useState<DocumentType>("recibo");
   const choose = (files: readonly File[]) => {
     setClipboardEmpty(false);
-    setBusy(!queue.add(files, limits, target, bridge?.conversationId ?? null));
+    queue.add(files, limits, target, bridge?.conversationId ?? null);
   };
   const chooseRef = useRef(choose);
   useEffect(() => {
@@ -126,7 +145,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           ) : null}
           {pending || uploading ? (
             <button type="button" className={primaryButtonClass} disabled={uploading} onClick={() => void queue.save(target, consent, undefined, documentType)}>
-              {uploading ? t("business.intake.saving", "Saving…") : many ? t("business.intake.save_pending", "Save remaining files") : t("business.intake.save", "Save to Inbox")}
+              {progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : uploading ? t("business.intake.saving", "Saving…") : many ? t("business.intake.save_pending", "Save remaining files") : t("business.intake.save", "Save to Inbox")}
             </button>
           ) : null}
         </div>
@@ -160,7 +179,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
 
         <div
           onDragOver={(event) => {
-            if (!capabilities.dragAndDrop || uploading) return;
+            if (!capabilities.dragAndDrop) return;
             event.preventDefault();
             setDragging(true);
           }}
@@ -181,18 +200,18 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => { replacingRef.current = null; fileInputRef.current?.click(); }}>
+            <button type="button" className={secondaryButtonClass} onClick={() => { replacingRef.current = null; fileInputRef.current?.click(); }}>
               <FileUp className="h-4 w-4" />
               {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
             </button>
             {capabilities.clipboardRead ? (
-              <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
+              <button type="button" className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
                 <ClipboardPaste className="h-4 w-4" />
                 {t("business.intake.paste", "Paste")}
               </button>
             ) : null}
             {capabilities.cameraCapture ? (
-              <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
+              <button type="button" className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
                 <Camera className="h-4 w-4" />
                 {t("business.intake.camera", "Take photo")}
               </button>
@@ -202,7 +221,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             ref={fileInputRef}
             type="file"
             multiple={many}
-            disabled={uploading}
             accept={receiptFileAccept(limits)}
             className="sr-only"
             tabIndex={-1}
@@ -218,7 +236,6 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           <input
             ref={cameraInputRef}
             type="file"
-            disabled={uploading}
             accept={limits.media_types.filter((type) => type.startsWith("image/")).join(",")}
             capture="environment"
             className="sr-only"
@@ -231,11 +248,13 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           />
         </div>
 
-        {busy ? (
-          <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
-            {t("business.intake.busy", "Wait for the current upload to finish before adding files.")}
-          </p>
+        {failure === "offline" ? <OfflineBanner onRetry={() => void queue.save(target, consent, undefined, documentType)} /> : null}
+        {failure === "server" || failure === "unavailable" ? (
+          <ServerErrorScreen reference={serverReference} onRetry={() => void queue.save(target, consent, undefined, documentType)} />
         ) : null}
+        {failure === "removed" ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
+        {failure === "closed" ? <BusinessClosedNotice /> : null}
+
         {clipboardEmpty ? (
           <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
             {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}
@@ -269,12 +288,12 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
                     </button>
                   </div>
                 ) : null}
-                {item.status === "failed" ? (
+                {item.status === "failed" && item.failure === "other" ? (
                   <div className="mt-2 space-y-2">
                     <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">
                       {t("business.intake.failed", "We couldn't read the receipt. Try again.")}
                     </p>
-                    <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void queue.save(target, consent, item.key)}>
+                    <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void queue.save(target, consent, item.key, documentType)}>
                       {t("common.retry", "Retry")}
                     </button>
                   </div>

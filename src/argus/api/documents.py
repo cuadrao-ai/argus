@@ -206,15 +206,29 @@ def require_connection_removal(
     return IngestionContext(hub=hub, user_id=accounts.user_id)
 
 
+def _minute_scope(path: str) -> str:
+    if path.endswith(("/prepare", "/resume", "/retry")):
+        return "prepare"
+    if path.endswith("/receipt-reading"):
+        return "reading"
+    return "upload"
+
+
 def require_document_context(
     request: Request,
     service: DocumentsService = Depends(require_document_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> DocumentContext:
-    limits = ((_minute, 5, 60), (_day, 30, 86400)) if request.method == "POST" else ()
-    for limiter, limit, seconds in limits:
+    if request.method == "POST":
+        checks = (
+            (_minute, (f"{context.user_id}:{_minute_scope(request.url.path)}",), 5, 60),
+            (_day, (context.user_id,), 30, 86400),
+        )
+    else:
+        checks = ()
+    for limiter, keys, limit, seconds in checks:
         retry = limiter.record_or_retry_after(
-            keys=(context.user_id,), limit=limit, window_seconds=seconds
+            keys=keys, limit=limit, window_seconds=seconds
         )
         if retry is not None:
             raise problem(

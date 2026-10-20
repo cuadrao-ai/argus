@@ -96,6 +96,33 @@ def settle_document(
     activity_id: str,
     command: Settlement,
 ) -> dict:
+    """Settle one document. A lost insert race retries in a new transaction.
+
+    The first attempt can miss a row that commits after its snapshot. Repeating
+    the insert in that same transaction raises again, and the route would turn
+    that into a 503. The second attempt starts clean. If it still collides,
+    the caller gets a conflict, not an outage.
+    """
+    for attempt in (1, 2):
+        try:
+            return _settle_once(
+                authority, context, activity_id, command, retry=attempt == 1
+            )
+        except _Race:
+            continue
+    raise ActionError(
+        "idempotency_conflict", "business_document_settlement_conflict"
+    )
+
+
+def _settle_once(
+    authority,
+    context: ActionContext,
+    activity_id: str,
+    command: Settlement,
+    *,
+    retry: bool,
+) -> dict:
     with _session(authority, context, "prepare") as (connection, auth):
         documents, by_id = _collect(authority, connection, auth.context)
         found = by_id.get(activity_id)
@@ -103,53 +130,41 @@ def settle_document(
             raise ActionError("not_found", "business_record_not_found")
         if found["kind"] not in {"income", "expense"}:
             raise ActionError("invalid_input", "activity_kind_unsupported")
-        for attempt in (1, 2):
-            row = _lock(connection, auth.context, activity_id)
-            current = (
-                IMPLICIT
-                if row is None
-                else Settlement(row["status"], row["settled_on"], row["payment_method"])
+        row = _lock(connection, auth.context, activity_id)
+        current = (
+            IMPLICIT
+            if row is None
+            else Settlement(row["status"], row["settled_on"], row["payment_method"])
+        )
+
+        def write(previous: Settlement, planned: Settlement) -> None:
+            _persist(
+                connection,
+                auth.context,
+                found,
+                previous,
+                planned,
+                existed=row is not None,
+                retry=retry,
             )
-            existed = row is not None
-            retry = attempt == 1
 
-            def write(
-                previous: Settlement,
-                planned: Settlement,
-                existed: bool = existed,
-                retry: bool = retry,
-            ) -> None:
-                _persist(
-                    connection,
-                    auth.context,
-                    found,
-                    previous,
-                    planned,
-                    existed=existed,
-                    retry=retry,
-                )
-
-            try:
-                role, settlement, changed = set_document_status(
-                    auth,
-                    documents,
-                    str(auth.context.actor.space_id),
-                    activity_id,
-                    command,
-                    current,
-                    write,
-                )
-            except _Race:
-                continue
-            return {
-                "activity_id": activity_id,
-                "document_kind": role,
-                "status": settlement.status,
-                "settled_on": settlement.settled_on,
-                "payment_method": settlement.payment_method,
-                "changed": changed,
-            }
-        raise UniqueViolation("business_document_settlement_conflict")
+        role, settlement, changed = set_document_status(
+            auth,
+            documents,
+            str(auth.context.actor.space_id),
+            activity_id,
+            command,
+            current,
+            write,
+        )
+        return {
+            "activity_id": activity_id,
+            "document_kind": role,
+            "status": settlement.status,
+            "settled_on": settlement.settled_on,
+            "payment_method": settlement.payment_method,
+            "changed": changed,
+        }
 
 
 def _lock(connection, context: ActionContext, activity_id: str):
@@ -212,7 +227,9 @@ def _persist(
     except UniqueViolation:
         if retry:
             raise _Race() from None
-        raise
+        raise ActionError(
+            "idempotency_conflict", "business_document_settlement_conflict"
+        ) from None
 
 
 @contextmanager

@@ -32,6 +32,7 @@ export const RECEIPT_ATTENTIONS = [
   "interrupted",
   "outcome_unknown",
   "no_purchase_found",
+  "not_a_receipt",
   "several_purchases",
   "source_unavailable",
   "check_details",
@@ -195,17 +196,19 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
   });
 }
 
-export async function approveBusinessDraft(
-  draftId: string,
-  version: number,
-  idempotencyKey: string,
-  action: "record_expense" | "record_income" = "record_expense",
-): Promise<BusinessDossier> {
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ version, action }),
+    body: JSON.stringify({ version, action: "record_expense" }),
   });
+}
+
+/** The draft an approval refused as a second copy of: `duplicate_comprobante` names it in `context.existing_record_id`. */
+export function duplicateRecordId(error: unknown): string | null {
+  const { code, context } = (error ?? {}) as { code?: unknown; context?: { existing_record_id?: unknown } | null };
+  const id = context?.existing_record_id;
+  return code === "duplicate_comprobante" && typeof id === "string" && id ? id : null;
 }
 
 /** The owner or a prepare-holder marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
@@ -435,6 +438,21 @@ export async function markBusinessAccessSeen(grantId: string): Promise<void> {
   if (!response.ok) throw new Error(`API error ${response.status}`);
 }
 
+/** The person's acceptance of one wording of the consent screen, kept server side; null until accepted. */
+export type BusinessConsent = { version: string; accepted_at: string | null };
+
+export function getBusinessConsent(version: string): Promise<BusinessConsent> {
+  return apiFetch(`/business/consent?version=${encodeURIComponent(version)}`);
+}
+
+export function acceptBusinessConsent(version: string): Promise<BusinessConsent> {
+  return apiFetch("/business/consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
+}
+
 export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
   return apiFetch("/business/workspace");
 }
@@ -489,6 +507,15 @@ export async function listBusinessExpenses(
   return page.items;
 }
 
+/** Retry-After as seconds or an HTTP date, in milliseconds from now; null when absent or unreadable. */
+export function retryAfterMs(header: string | null, now = Date.now()): number | null {
+  if (header === null || header.trim() === "") return null;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(header);
+  return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
 export async function uploadBusinessReceipt(
   file: File,
   consentToPrepare: boolean,
@@ -517,9 +544,11 @@ export async function uploadBusinessReceipt(
     const error = new Error(body.code ?? `API error ${response.status}`) as Error & {
       status: number;
       code: string;
+      retryAfterMs: number | null;
     };
     error.status = response.status;
     error.code = body.code ?? "unknown";
+    error.retryAfterMs = retryAfterMs(response.headers.get("Retry-After"));
     throw error;
   }
   return response.json() as Promise<ReceiptSummary>;
@@ -621,8 +650,8 @@ export type BusinessAccessGrant = {
   created_at: string;
   owner: boolean;
 };
-export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string };
-export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[] };
+export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired" };
+export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[]; invite_delivery?: "not_configured" | "accepted" | "failed" | null };
 
 export async function getBusinessAccess(): Promise<BusinessAccess> {
   return apiFetch("/business/access");
@@ -635,6 +664,10 @@ export async function giveBusinessAccess(email: string): Promise<BusinessAccess>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
   });
+}
+
+export async function resendBusinessAccessInvite(id: string): Promise<BusinessAccess> {
+  return apiFetch(`/business/access/invites/${encodeURIComponent(id)}/resend`, { method: "POST" });
 }
 
 export async function revokeBusinessAccessGrant(id: string): Promise<void> {

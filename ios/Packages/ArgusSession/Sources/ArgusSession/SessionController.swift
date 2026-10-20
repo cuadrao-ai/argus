@@ -99,11 +99,12 @@ public actor SessionController {
     }
 
     public func signup(email: String, password: String, captchaToken: String, language: String,
-                       displayName: String? = nil) async throws -> SignupOutcome {
+                       displayName: String? = nil, ageConfirmedAt: Date? = nil) async throws -> SignupOutcome {
         try beginMutation(); defer { mutating = false }
         try requireEntry()
         var body = ["email": email, "password": password, "captcha_token": captchaToken, "language": language]
         if let displayName { body["display_name"] = displayName }
+        if let ageConfirmedAt { body["age_confirmed_at"] = InvitationDates.string(ageConfirmedAt) }
         let response = try await entry(path: "auth/signup", body: body)
         guard let credentials = response.session else { return .confirmationRequired }
         return .authenticated(try await adopt(credentials, method: .email))

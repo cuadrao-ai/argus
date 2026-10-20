@@ -1,68 +1,86 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { Tooltip } from "@/components/ui/Tooltip";
-import { useOverlayLayer } from "@/components/layout/overlayStack";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeftRight, UsersRound } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useOverlayLayer } from "@/components/layout/overlayStack";
 import type { GrantedSpace } from "@/lib/business-api";
 import { formatBusinessName } from "./business-format";
-
-/**
- * The Business the person is working in, always visible at the top left, and
- * the way to change it when they may enter more than one. The names are the
- * server's, the choice is a grant the server proves on every request. With
- * only their own Business the control is a plain label.
- */
 
 function initial(name: string): string {
   const letter = name.trim().charAt(0);
   return letter ? letter.toLocaleUpperCase() : "·";
 }
 
-export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }: {
+type MenuMode = "closed" | "menu" | "choose";
+
+export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, onOpenAccess }: {
   spaces: GrantedSpace[] | null;
   chosen: GrantedSpace | null;
   collapsed: boolean;
   onChoose: (grantId: string | null) => void;
+  onOpenAccess: () => void;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<MenuMode>("closed");
   const [active, setActive] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const listId = useId();
-  const [position, setPosition] = useState({ left: 8, top: 80 });
-  useOverlayLayer({ isOpen: open, overlayId: listId, containerRef: listRef, onEscape: () => { setOpen(false); buttonRef.current?.focus(); } });
+  const menuId = useId();
+  const [position, setPosition] = useState({ left: 8, top: 80, above: false });
   const options = useMemo(() => spaces ?? [], [spaces]);
-  const switchable = options.length > 1 || (options.length === 1 && options[0].role !== "owner");
   const current = chosen ?? options[0] ?? null;
+  const canSwitch = options.length > 1;
+
+  useOverlayLayer({
+    isOpen: mode !== "closed",
+    overlayId: menuId,
+    containerRef: menuRef,
+    onEscape: () => {
+      setMode("closed");
+      buttonRef.current?.focus();
+    },
+  });
 
   useEffect(() => {
-    if (!open) return;
+    if (mode === "closed") return;
     const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setPosition({ left: Math.min(Math.max(8, collapsed ? rect.right + 8 : rect.left), window.innerWidth - 304), top: rect.bottom + 4 });
+    if (rect) {
+      const above = rect.bottom > window.innerHeight - 220;
+      setPosition({
+        left: Math.min(Math.max(8, collapsed ? rect.right + 8 : rect.left), window.innerWidth - 304),
+        top: above ? rect.top - 8 : rect.bottom + 4,
+        above,
+      });
+    }
     const index = Math.max(0, options.findIndex((space) => space.grant_id === current?.grant_id));
     setActive(index);
     const close = (event: MouseEvent) => {
-      if (!listRef.current?.contains(event.target as Node) && !buttonRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && !buttonRef.current?.contains(target)) setMode("closed");
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, [open, options, current?.grant_id, collapsed]);
+  }, [mode, options, current?.grant_id, collapsed]);
 
   useEffect(() => {
-    if (open) listRef.current?.focus();
-  }, [open]);
+    if (mode === "menu") menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus();
+    if (mode === "choose") listRef.current?.focus();
+  }, [mode]);
 
   if (!current) return null;
-  const roleLine = current.role === "owner" ? t("business.switcher.own", "Your Business") : t("business.switcher.role_accountant", "View and prepare");
-  const fallback = t("business.overview.title", "My business");
+  const fallback = t("business.overview.title", "Mi negocio");
   const name = formatBusinessName(current.name, fallback);
 
+  const closeToButton = () => {
+    setMode("closed");
+    buttonRef.current?.focus();
+  };
+
   const choose = (space: GrantedSpace) => {
-    setOpen(false);
+    setMode("closed");
     onChoose(space.role === "owner" ? null : space.grant_id);
     buttonRef.current?.focus();
   };
@@ -73,7 +91,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
     else if (event.key === "Home") { event.preventDefault(); setActive(0); }
     else if (event.key === "End") { event.preventDefault(); setActive(options.length - 1); }
     else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); if (options[active]) choose(options[active]); }
-    else if (event.key === "Escape" || event.key === "Tab") { setOpen(false); buttonRef.current?.focus(); if (event.key === "Escape") event.preventDefault(); }
+    else if (event.key === "Escape" || event.key === "Tab") { closeToButton(); if (event.key === "Escape") event.preventDefault(); }
     else if (event.key.length === 1 && /\S/.test(event.key)) {
       const letter = event.key.toLocaleLowerCase();
       const index = options.findIndex((space, i) => i > active && formatBusinessName(space.name, fallback).toLocaleLowerCase().startsWith(letter));
@@ -83,86 +101,92 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose }
   };
 
   const badge = (
-    <span aria-hidden="true" className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-[13px] font-semibold ${current.role === "owner" ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "bg-[var(--cuadrao-cream)] text-[var(--cuadrao-green)] ring-1 ring-[var(--cuadrao-green)]/30"}`}>
+    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#2f5a49] text-[13px] font-medium text-[#fffefa]">
       {initial(name)}
     </span>
   );
 
-  if (!switchable) {
-    return (
-      <Tooltip content={name} side="right" delay={150}><div tabIndex={collapsed ? 0 : undefined} data-testid="business-switcher" data-switchable="false" className={`mx-[6px] mb-1 flex items-center gap-2.5 rounded-[14px] px-2 py-2 ${collapsed ? "justify-center" : ""}`} title={collapsed ? name : undefined}>
-        {badge}
-        {!collapsed ? (
-          <span className="min-w-0">
-            <span data-testid="business-current-name" className="block truncate text-[14px] font-medium text-black dark:text-white">{name}</span>
-            <span className="block truncate text-[11.5px] text-black/50 dark:text-white/50">{roleLine}</span>
-          </span>
-        ) : <span className="sr-only" data-testid="business-current-name">{name}</span>}
-      </div></Tooltip>
-    );
-  }
-
   return (
-    <div className="relative mx-[6px] mb-1" data-testid="business-switcher" data-switchable="true">
-      <Tooltip content={`${name} · ${t("business.switcher.change", "Switch Business")}`} side="right" delay={150}><span className="block"><button
+    <div data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
+      <button
         ref={buttonRef}
         type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={listId}
-        aria-label={`${t("business.switcher.label", "Business")}: ${name}. ${t("business.switcher.change", "Switch Business")}`}
-        title={collapsed ? `${name} · ${t("business.switcher.change", "Switch Business")}` : undefined}
-        onClick={() => setOpen((value) => !value)}
-        onKeyDown={(event) => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); } }}
-        className={`flex h-12 w-full items-center gap-2.5 rounded-[14px] px-2 text-left transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 dark:hover:bg-white/5 ${collapsed ? "justify-center" : ""}`}
+        aria-haspopup="menu"
+        aria-expanded={mode !== "closed"}
+        aria-controls={menuId}
+        aria-label={name}
+        onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
       >
         {badge}
-        {!collapsed ? (
-          <>
-            <span className="min-w-0 flex-1">
-              <span data-testid="business-current-name" className="block truncate text-[14px] font-medium text-black dark:text-white">{name}</span>
-              <span className="block truncate text-[11.5px] text-black/50 dark:text-white/50">{current.role === "owner" ? roleLine : t("business.switcher.client_cue", "Client: {{name}}", { name: "" }).replace(/:\s*$/, "") + " · " + roleLine}</span>
-            </span>
-            <ChevronsUpDown className="h-4 w-4 shrink-0 text-black/40 dark:text-white/40" aria-hidden="true" />
-          </>
-        ) : <span className="sr-only" data-testid="business-current-name">{name}</span>}
-      </button></span></Tooltip>
-      {open ? createPortal(
-        <ul
-          ref={listRef}
-          id={listId}
-          role="listbox"
-          tabIndex={-1}
-          aria-label={t("business.switcher.choose", "Choose a Business")}
-          aria-activedescendant={options[active] ? `${listId}-${options[active].grant_id}` : undefined}
-          onKeyDown={onListKey}
-          style={{ left: Math.max(8, position.left), top: position.top }}
-          className="fixed z-[100] mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+        {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
+          <span data-testid="business-current-name" className="min-w-0 flex-1 break-words text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+        )}
+      </button>
+      {mode !== "closed" ? createPortal(
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          aria-label={name}
+          style={{ left: Math.max(8, position.left), top: position.top, transform: position.above ? "translateY(-100%)" : undefined }}
+          className="fixed z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-[12px] border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
-          {options.map((space, index) => {
-            const selected = space.grant_id === current.grant_id;
-            const optionName = formatBusinessName(space.name, fallback);
-            return (
-              <li
-                key={space.grant_id}
-                id={`${listId}-${space.grant_id}`}
-                role="option"
-                aria-selected={selected}
-                data-active={index === active ? "true" : undefined}
-                onMouseEnter={() => setActive(index)}
-                onClick={() => choose(space)}
-                className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[12px] px-2 text-[14px] ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
+          <p className="break-words px-2 py-2 text-[16px] font-medium text-[#172b26] dark:text-white">{name}</p>
+          {mode === "menu" ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex min-h-11 w-full items-center gap-2 rounded-[12px] px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
+                onClick={() => { setMode("closed"); onOpenAccess(); }}
               >
-                <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[12px] font-semibold ${space.role === "owner" ? "bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]" : "bg-[var(--cuadrao-cream)] text-[var(--cuadrao-green)] ring-1 ring-[var(--cuadrao-green)]/30"}`}>{initial(optionName)}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-black dark:text-white">{optionName}</span>
-                  <span className="block truncate text-[11.5px] text-black/50 dark:text-white/50">{space.role === "owner" ? t("business.switcher.own", "Your Business") : `${t("business.switcher.client", "Client")} · ${t("business.switcher.role_accountant", "View and prepare")}`}</span>
-                </span>
-                {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
-              </li>
-            );
-          })}
-        </ul>, document.body
+                <UsersRound className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                {t("business.switcher.team", "Equipo y accesos")}
+              </button>
+              {canSwitch ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-[12px] px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
+                  onClick={() => setMode("choose")}
+                >
+                  <ArrowLeftRight className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                  {t("business.switcher.change", "Cambiar de negocio")}
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <ul
+              ref={listRef}
+              role="listbox"
+              tabIndex={-1}
+              aria-label={t("business.switcher.choose", "Elige un negocio")}
+              aria-activedescendant={options[active] ? `${menuId}-${options[active].grant_id}` : undefined}
+              onKeyDown={onListKey}
+              className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]"
+            >
+              {options.map((space, index) => {
+                const optionName = formatBusinessName(space.name, fallback);
+                return (
+                  <li
+                    key={space.grant_id}
+                    id={`${menuId}-${space.grant_id}`}
+                    role="option"
+                    aria-selected={space.grant_id === current.grant_id}
+                    data-active={index === active ? "true" : undefined}
+                    onMouseEnter={() => setActive(index)}
+                    onClick={() => choose(space)}
+                    className={`flex min-h-11 cursor-pointer items-center rounded-[12px] px-2 text-[16px] ${index === active ? "bg-[#efebdf]" : ""}`}
+                  >
+                    <span className="min-w-0 break-words">{optionName}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

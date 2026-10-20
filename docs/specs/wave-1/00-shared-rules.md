@@ -51,11 +51,11 @@ only adds the wave 1 delivery rules below.
 Two older rule files conflict with the delivery rules here. For wave 1 work,
 this file wins:
 
-- `.agent/rules/git-workflow.md` says "Squash merge to main" and "Parallel PRs
-  OK". Wave 1 PRs target `codex/private-alpha-next`, never `main`, and land one
-  at a time (E4).
-- There is no `.github/pull_request_template.md` on the branch. The PR body
-  headings in E4 are the template until the docs owner commits one.
+- The old git-workflow rule file (since removed) said "Squash merge to main"
+  and "Parallel PRs OK". Wave 1 PRs target `codex/private-alpha-next`, never
+  `main`, and land one at a time (E4).
+- The pull request template is `.github/pull_request_template.md`. The headings
+  in E4 are that template.
 
 ### E2. Work from worktrees off the integration branch
 
@@ -92,9 +92,8 @@ writing before any work on the next stage starts.
   4. `## Out of scope`
   5. `## Testing` (commands run and results; named tests; for any
      user-visible change, before and after screenshots in EN and es-419, at
-     360 px wide (Iris's target phone) and at desktop width, committed under
-     `docs/reports/evidence/<issue>/` and embedded by raw GitHub URL, the way
-     PR #681 does it)
+     360 px wide (Iris's target phone) and at desktop width, attached on the
+     pull request or uploaded with actions/upload-artifact)
   6. `## Risks/Rollback`
   7. `## Docs affected`
   8. `## Status` (head SHA, integration SHA it was reconciled onto, CI state,

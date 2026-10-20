@@ -37,3 +37,11 @@ web/tests/vrt/**/*-snapshots/*.png filter=lfs diff=lfs merge=lfs -text
 *.eot binary
 *.lockb binary
 tests/document_extraction_fixtures/*.pdf binary
+# Period annex fixtures keep their CRLF packet bytes.
+tests/dgii/fixtures/period-202609-606.txt -text -eol
+tests/dgii/fixtures/period-202609-607.txt -text -eol
+
+# Practice 606/607 files keep CRLF and no final newline. Normalizing them
+# would change the bytes the layout check compares.
+fixtures/dgii/*.txt -text -eol
+fixtures/dgii/*.TXT -text -eol

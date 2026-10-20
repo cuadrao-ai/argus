@@ -63,7 +63,13 @@ test("sessionless signup focuses check-email state without navigating", async ({
   await expect(state).toBeVisible();
   await expect(state.getByRole("heading", { name: "Check your email" }))
     .toBeFocused();
+  await expect(page.getByTestId("auth-confirmation-code")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm" })).toBeVisible();
   await expectOneCanonicalCard(state.locator("xpath=.."));
+  await page.screenshot({
+    path: "../docs/reports/evidence/signup-email-code/confirmation-code-en.png",
+    fullPage: true,
+  });
   await expect(page).not.toHaveURL(/\/chat(?:\?|$)/);
 });
 
@@ -99,6 +105,12 @@ test("Spanish sessionless signup renders and focuses the localized check-email s
   await expect(state).toBeVisible();
   await expect(state.getByRole("heading", { name: "Revisa tu correo" }))
     .toBeFocused();
+  await expect(page.getByLabel("Código de confirmación")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirmar" })).toBeVisible();
+  await page.screenshot({
+    path: "../docs/reports/evidence/signup-email-code/confirmation-code-es-419.png",
+    fullPage: true,
+  });
   await expect(page).not.toHaveURL(/\/chat(?:\?|$)/);
 });
 

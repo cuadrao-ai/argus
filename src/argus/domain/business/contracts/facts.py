@@ -20,6 +20,7 @@ from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseReview
 from argus.domain.business.document_type import DocumentType
 
 T = TypeVar("T")
@@ -240,6 +241,7 @@ class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
     document_type: DocumentType = "recibo"
     facts: BusinessFacts
+    dgii: DgiiDeclaration | None = None
     #: Empty for a single clean read. Several entries mean the read showed
     #: several purchases; the facts above hold only what they all share.
     read_purchases: tuple[ReadPurchase, ...] = ()
@@ -312,6 +314,9 @@ class BusinessFactPatch(Contract):
     business_share: FactInput[BusinessShare] | SkipJsonSchema[None] = None
     receipt_state: FactInput[ReceiptState] | SkipJsonSchema[None] = None
     category_id: FactInput[str] | SkipJsonSchema[None] = None
+    #: Human review only. Kept out of the model schema so a tax field never
+    #: becomes something the interpreter is asked to fill.
+    purchase: SkipJsonSchema[PurchaseReview | None] = None
 
     @model_serializer(mode="wrap")
     def serialize_patch(

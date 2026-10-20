@@ -41,6 +41,7 @@ Attention = Literal[
     "interrupted",
     "outcome_unknown",
     "no_purchase_found",
+    "not_a_receipt",
     "several_purchases",
     "source_unavailable",
     "check_details",
@@ -191,6 +192,7 @@ class Receipt:
             and self.review.blocker == "not_prepared"
             and self.draft.source_available
             and not self.busy
+            and self.review.terminal is None
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
         )
 
@@ -201,6 +203,8 @@ class Receipt:
 
         if self.status != "needs_attention":
             return None
+        if self.review.terminal is not None:
+            return self.review.terminal
         blocker = self.review.blocker
         if blocker is None:
             return "check_details"

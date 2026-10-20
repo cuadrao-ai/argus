@@ -76,7 +76,7 @@ def test_resolver_fails_closed_on_invalid_workflow_version_proof(
         )
 
 
-def test_resolver_names_the_same_commit_check_when_services_disagree() -> None:
+def test_resolver_keeps_the_marketing_commit_off_the_candidate() -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -95,11 +95,32 @@ def test_resolver_names_the_same_commit_check_when_services_disagree() -> None:
     )
 
     assert _same_commit_check() == "services_same_commit"
-    assert result.returncode == 1
-    assert result.stdout == ""
-    assert result.stderr.strip() == (
-        f"ERROR: canary failed at {_same_commit_check()}: api_web_deploy_sha_mismatch"
+    assert result.returncode == 0
+    assert result.stdout.strip() == FULL_SHA
+    assert result.stderr == ""
+
+
+def test_resolver_rejects_a_missing_web_deploy_sha() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(MODULE_PATH),
+            "--api-status",
+            _service_status(),
+            "--web-status",
+            _service_status(commit="<missing>"),
+            "--workflow-status",
+            _workflow_status(),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
+
+    assert result.returncode == 1
+    assert "web_deploy_sha_missing" in result.stderr
+    assert result.stdout == ""
 
 
 def test_resolver_script_names_the_same_commit_check_for_every_status_read() -> None:

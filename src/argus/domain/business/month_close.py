@@ -16,12 +16,15 @@ from loguru import logger
 from pydantic import ValidationError
 
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.dgii import SalesDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
     fiscal_inclusion,
     is_personal,
 )
+from argus.domain.business.dgii_validation import credit_note, reportable_607
+from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.currency import (
     currency_exponent,
@@ -55,6 +58,7 @@ class MonthDocument:
     status: str
     settled_on: date | None
     payment_method: str | None
+    declared_base_minor: int | None = None
 
 
 @dataclass(frozen=True)
@@ -126,7 +130,10 @@ def in_close(document: MonthDocument) -> bool:
 
 
 def in_606(document: MonthDocument) -> bool:
-    if document.role != "receipt" or not _fiscal(document):
+    if (
+        document.role != "receipt"
+        or normalized_ncf(document.ecf or document.ncf) is None
+    ):
         return False
     if document.personal:
         return document.include_606 is True
@@ -134,7 +141,27 @@ def in_606(document: MonthDocument) -> bool:
 
 
 def in_607(document: MonthDocument) -> bool:
-    return document.role == "invoice" and not document.personal and _fiscal(document)
+    return (
+        document.role == "invoice"
+        and not document.personal
+        and reportable_607(document.ecf or document.ncf)
+    )
+
+
+def sales_base(document: MonthDocument) -> int:
+    """607 Monto Facturado when the draft declares it, otherwise total minus ITBIS.
+
+    A credit note is stored positive and subtracted, the same way the 607 export nets it.
+    """
+
+    base = (
+        document.declared_base_minor
+        if document.declared_base_minor is not None
+        else before_itbis(document.total_minor, document.itbis_minor)
+    )
+    if credit_note(document.ecf or document.ncf):
+        return -base
+    return base
 
 
 @dataclass(frozen=True)
@@ -153,12 +180,12 @@ def formato_totals(
         if not in_month(document, start, end):
             continue
         bucket = totals.setdefault(document.currency, [0, 0, 0, 0])
-        part = before_itbis(document.total_minor, document.itbis_minor)
         if in_607(document):
-            bucket[0] += part
-            bucket[2] += document.itbis_minor or 0
+            bucket[0] += sales_base(document)
+            tax = document.itbis_minor or 0
+            bucket[2] += -tax if credit_note(document.ecf or document.ncf) else tax
         elif in_606(document):
-            bucket[1] += part
+            bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
             bucket[3] += document.itbis_minor or 0
     return {
         currency: FormatoCurrency(*parts)
@@ -252,7 +279,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 }
             )
             missing_rnc.append(_line(document))
-        if not _fiscal(document):
+        if (
+            not _fiscal(document)
+            or normalized_ncf(document.ecf or document.ncf) is None
+        ):
             reasons.append(
                 {
                     "code": "missing_ncf",
@@ -291,8 +321,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
             group = "invoices" if document.role == "invoice" else "receipts"
             cell = status[group][document.status]
             cell["count"] += 1
-            cell["before_itbis_minor"] += before_itbis(
-                document.total_minor, document.itbis_minor
+            cell["before_itbis_minor"] += (
+                sales_base(document)
+                if document.role == "invoice"
+                else before_itbis(document.total_minor, document.itbis_minor)
             )
         income = part.income_before_itbis
         expense = part.expense_before_itbis
@@ -366,6 +398,7 @@ class FiscalParts:
     itbis_minor: int | None
     personal: bool
     include_606: bool | None
+    declared_base_minor: int | None = None
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -386,10 +419,11 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
     if not isinstance(typed, Mapping):
         return _NO_FISCAL
     try:
-        facts = BusinessResolution.model_validate(typed).facts
+        parsed = BusinessResolution.model_validate(typed)
     except ValidationError:
         logger.info("month_close_resolution_unreadable")
         return _NO_FISCAL
+    facts = parsed.facts
     fiscal = facts.fiscal
     rnc = ncf = ecf = None
     itbis_minor = None
@@ -398,8 +432,17 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         ncf = _text(_known(fiscal.ncf))
         ecf = _text(_known(fiscal.ecf))
         itbis_minor = itbis_or_none(_text(_known(fiscal.itbis)), currency)
+    declared = None
+    if isinstance(parsed.dgii, SalesDeclaration) and parsed.dgii.billed_amount is not None:
+        declared = itbis_or_none(parsed.dgii.billed_amount, currency)
     return FiscalParts(
-        rnc, ncf, ecf, itbis_minor, is_personal(facts), fiscal_inclusion(facts)
+        rnc,
+        ncf,
+        ecf,
+        itbis_minor,
+        is_personal(facts),
+        fiscal_inclusion(facts),
+        declared,
     )
 
 
@@ -464,6 +507,7 @@ def project_documents(
                 ecf=parts.ecf,
                 personal=parts.personal,
                 include_606=parts.include_606,
+                declared_base_minor=parts.declared_base_minor,
                 status=status,
                 settled_on=settled_on,
                 payment_method=method,

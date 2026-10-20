@@ -11,7 +11,8 @@ extension FinancialLoopUITests {
         app.terminate()
         app.launchArguments = ["-AppleLanguages", spanish ? "(es-419)" : "(en)", "-AppleLocale", spanish ? "es_DO" : "en_US",
                                "-appearancePreference", dark ? "dark" : "light",
-                               "--cuadrao-guest-book", "--cuadrao-guest-notices-seen", "--cuadrao-guest-reset"]
+                               "--cuadrao-guest-book", "--cuadrao-guest-notices-seen", "--cuadrao-guest-reset",
+                               "--age-confirmation-harness", "--age-legal-entry", "--age-response=under18"]
             + (testURLs ? [Self.legalTestURLs] : []) + arguments
         app.launch()
     }
@@ -31,6 +32,7 @@ extension FinancialLoopUITests {
         XCTAssertTrue(signUp.waitForExistence(timeout: 15))
         signUp.tap()
         XCTAssertTrue(app.buttons["cuadrao.signup.email"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Crea tu cuenta."].exists || app.staticTexts["Create your account."].exists)
     }
 
     func testGuestProfileHidesTheLegalLinksUntilThePagesArePublished() throws {
@@ -104,6 +106,7 @@ extension FinancialLoopUITests {
                     let signUp = app.buttons["Crear cuenta"]
                     XCTAssertTrue(signUp.waitForExistence(timeout: 15))
                     signUp.tap()
+                    XCTAssertTrue(app.staticTexts["Crea tu cuenta."].waitForExistence(timeout: 10))
                 } else {
                     openSignUp()
                 }

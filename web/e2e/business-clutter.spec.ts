@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 const baseline = process.env.CUADRAO_CLUTTER_BASELINE === "true";
 const evidence = process.env.CUADRAO_CLUTTER_EVIDENCE_DIR;
 type Scenario = "pending" | "new" | "approved" | "dismissed" | "filtered" | "unknown" | "unapproved" | "unavailable";
@@ -23,6 +23,7 @@ async function setup(page: Page, scenario: Scenario = "pending", language: "en" 
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures", "updates"].includes(path)) return route.fulfill({ json: { items: [] } });
+    if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
 }
@@ -32,16 +33,21 @@ for (const width of [1280, 390]) {
     await setup(page);
     for (const view of ["overview", "inbox"]) {
       await page.goto(view === "overview" ? "/biz" : "/biz?view=inbox");
-      await expect(page.getByTestId(view === "overview" ? "overview-real-expenses" : "business-inbox-receipts")).toBeVisible();
+      await expect(page.getByTestId(view === "overview" ? "inicio-por-revisar" : "business-inbox-receipts")).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/${baseline ? "before" : "after"}-${view}-${width}.png`, fullPage: true });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (baseline) continue;
       if (view === "overview") {
-        const action = page.getByTestId("overview-inbox");
-        await expect(action).toContainText("8 por revisar");
-        await expect(action).toContainText("1 con problema");
-        expect((await action.boundingBox())!.y).toBeLessThan((await page.getByTestId("overview-real-expenses").boundingBox())!.y);
-        await expect(page.getByTestId("overview-real-expenses")).not.toContainText("RD$ 0");
+        const action = page.getByTestId("inicio-por-revisar");
+        await expect(page.getByTestId("inicio-por-revisar-count")).toHaveText("1");
+        await expect(action).toContainText("por revisar");
+        await expect(action).not.toContainText("8 por revisar");
+        await expect(action).not.toContainText("con problema");
+        await expect(page.getByTestId("inicio-otras")).toHaveCount(0);
+        const cards = page.getByTestId("month-close-cards");
+        await expect(cards).toBeVisible();
+        expect((await action.boundingBox())!.y).toBeLessThan((await cards.boundingBox())!.y);
+        await expect(cards).not.toContainText("RD$ 0");
       } else {
         await expect(page.getByTestId("receipt-reading-control")).toHaveCount(0);
         await expect(page.getByText(/Nada aquí es un gasto hasta que lo confirmes\./)).toHaveCount(1);

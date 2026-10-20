@@ -9,7 +9,8 @@ for (const slug of Object.keys(documents) as (keyof typeof documents)[]) {
       await page.emulateMedia({ reducedMotion: "reduce" });
       const response = await page.goto(`/${slug}`);
       expect(response?.status()).toBe(200);
-      expect(response?.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+      const omitsRobotsHeader = slug === "privacidad" || slug === "eliminar-datos";
+      expect(response?.headers()["x-robots-tag"]).toBe(omitsRobotsHeader ? undefined : "noindex, nofollow");
       await page.evaluate(() => document.fonts.ready);
       const document = documents[slug];
       const expected = [document.title, ...document.blocks.flatMap((block) =>

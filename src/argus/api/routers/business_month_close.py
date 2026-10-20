@@ -93,6 +93,14 @@ def month_summary(
 @router.patch(
     "/documents/{activity_id}",
     response_model=SettlementResult,
+    responses={
+        409: {
+            "description": "`business_document_settlement_conflict`: another first settlement of this document landed, and a fresh retry still collided.",
+            "content": {
+                "application/json": {"schema": {"$ref": "#/components/schemas/Error"}}
+            },
+        }
+    },
 )
 def update_document(
     request: Request,

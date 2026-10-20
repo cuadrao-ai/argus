@@ -28,6 +28,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | 404 | `business_record_not_found` | The activity is not in this Business |
 | 403 | `business_permission_denied` | The grant cannot prepare, or cannot read |
 | 403 | `business_grant_not_live` | The grant header does not name a live grant |
+| 409 | `business_document_settlement_conflict` | Two first settlements of the same document collided again after one fresh retry |
 | 503 | `business_month_close_unavailable` | The authorized snapshot could not be read or written |
 
 The error body is the usual problem document. `code` is the field above.
@@ -86,15 +87,15 @@ The sample minors are illustrative. Each currency the month actually contains is
 
 | Field | Meaning |
 | --- | --- |
-| `closed` | True when every business document in the month has an RNC and a fiscal number (NCF or e-CF). |
+| `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
-| `income_before_itbis_minor` | Sales lines that would go on the 607, total minus ITBIS. |
+| `income_before_itbis_minor` | Sales lines that would go on the 607. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
-| `itbis_charged_minor` | ITBIS on the 607 lines. |
+| `itbis_charged_minor` | ITBIS on the 607 lines. A credit note subtracts. |
 | `itbis_paid_minor` | ITBIS on the 606 lines. |
 | `itbis_owed_minor` | Charged minus paid. Negative when the business paid more ITBIS than it charged. |
-| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Those incomplete documents are not part of the net. |
+| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS. Those incomplete documents are not part of the net. |
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
@@ -197,4 +198,4 @@ where space_id = $space
   and owner_id = $owner
 ```
 
-The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the personal mark, and the inclusion answer. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.
+The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the 607 billed amount when the draft declares one, the personal mark, and the inclusion answer. That draft is the current `resolution` on the import event. The 607 reads a different row: the approved revision at or before the approval receipt version, and it requires that receipt. The two agree until a personal mark or a 606 inclusion answer is written after approval, or until an accepted draft has no approval receipt. Month close keeps reading the current draft. This note records the gap and does not change the read. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.

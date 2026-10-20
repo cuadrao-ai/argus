@@ -183,5 +183,71 @@ and retains its local data. Shut down only assigned simulators; never erase a
 shared device or stop unrelated containers. Local synthetic evidence is not
 hosted readiness. Guest transfer, resend and callbacks remain separate work.
 Financial wiring has its own [setup and evidence](ACCOUNTS_SETUP.md).
-See the [lane spec](../docs/superpowers/specs/2026-09-28-ios-auth-session.md)
+See the [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-ios-auth-session.md)
 for ownership and exact integration/design/auth reference commits.
+
+
+## Native age signal
+
+Signup and guest entry have no custom age gate. A shared MainActor task requests
+`ageGates: 18` through the system UI on iOS 26.2 and later and logs a coarse result.
+It saves no raw range, birthday, account identity or preference. No result, pending
+request, failure or cancellation controls entry or signup. Redraws do not repeat
+the request. Only a completed adult result retains its completion time in memory.
+Signup snapshots that time as RFC3339 `age_confirmed_at`; every other result,
+including a pending request, omits it without waiting or creating a substitute.
+
+Integration `d7fdf5a55` requires `age_confirmed_at`. Its separately owned backend
+change must make the field optional before omitted-timestamp signup can work.
+
+The device target requests `com.apple.developer.declared-age-range` through
+`Config/DeclaredAgeRange.entitlements`; simulator and optional Apple-sign-in
+entitlement files request it too. `run_age_build_settings.py` checks each effective
+path without writing Local.xcconfig or device provisioning. Physical-device
+provisioning and an actual Apple account response remain separate acceptance.
+
+Release social sign-in remains off in `NativeProviderConfiguration.load` and
+Release settings. Its parked DEBUG ID-token path creates Supabase identities and
+hydrates `/me`; it does not use the signup API.
+
+Offline checks:
+
+```sh
+python3 ios/DesignPreviewTests/run_age_confirmation.py
+python3 ios/DesignPreviewTests/run_age_build_settings.py
+python3 ios/DesignPreviewTests/run_cuadrao_legal_urls.py
+python3 ios/DesignPreviewTests/run_native_provider_config.py
+swift test --package-path ios/Packages/ArgusSession
+```
+
+The `AgeConfirmationUITests` suite uses `--age-confirmation-harness` in DEBUG.
+Its Apple results are synthetic. Set only process-level synthetic auth build
+values for the existing Cuadrao build gate; no server or provider is called.
+The CI workflow contains that command and retains its result bundle.
+
+`AgeSignupPayloadUITests` separately captures real `ProfileAuthModel` signup
+requests with synthetic observations. Start `python3 ios/scripts/auth/apple-session-server.py`
+in another terminal, then add `TEST_RUNNER_ARGUS_AGE_PAYLOAD_PROOF=true` to the
+same synthetic `xcodebuild test` command and select
+`-only-testing:ArgusFoundationUITests/AgeSignupPayloadUITests`. The fixture uses
+only loopback port 59920 and an isolated synthetic Keychain service. Adult uses a
+fixed observation instant; declined, unavailable, under18 and pending omit it.
+Use normal simulator ad-hoc signing so the isolated Keychain is available.
+The suite skips unless opted in; normal age UI tests need no server.
+
+Apple API and availability sources checked October 17, 2026:
+[requesting age ranges](https://developer.apple.com/documentation/declaredagerange/requesting-people-share-their-age-range-with-your-app),
+[regulatory features](https://developer.apple.com/documentation/declaredagerange/agerangeservice/requiredregulatoryfeatures),
+and the installed iOS 27.1 SDK Swift interface. The request API exists from iOS
+26.0 but this lane intentionally uses the approved 26.2 runtime guard. The
+regulatory symbols require the 26.4 build SDK even with an availability guard.
+[GitHub's Xcode 27 image](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md)
+lists `/Applications/Xcode_27.1.app`, its iOS 27.1 SDK, and an iOS 27.0 iPhone 17 runtime.
+The existing native swipe and reorder UI requires SDK 27 symbols. CI uses
+`xcode-27` and pins Xcode 27.1 while retaining the iOS 17 deployment target.
+[GitHub announced this runner as generally available on October 15](https://github.blog/changelog/2026-10-15-xcode-27-runner-image-generally-available/).
+
+Legal entry UI tests add `--age-legal-entry` to the Debug age harness. It mounts
+the real welcome, signup and guest views with a signed-out model that has no
+session controller. Synthetic results never block these views. The tests use the
+real signup controls and guest book without age-key resets or auth requests.

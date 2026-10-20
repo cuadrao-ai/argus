@@ -5,7 +5,7 @@ import { conversationPreviewText } from "@/lib/conversation-preview-display";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useChatWorkspace, useChatAvailable, useConversationSurface, type ChatShellView } from "@/components/chat/ChatWorkspace";
+import { useChatWorkspace, useChatAvailable, type ChatShellView } from "@/components/chat/ChatWorkspace";
 import {
   ChevronDown,
   History,
@@ -28,7 +28,6 @@ import SidebarHeader, { type SidebarVariant } from "./SidebarHeader";
 import ProfileMenu from "./ProfileMenu";
 import RecentChatActions from "./RecentChatActions";
 import {
-  deleteAllConversations,
   patchConversation,
   deleteConversation as apiDeleteConversation,
 } from "@/lib/argus-api";
@@ -50,6 +49,7 @@ import {
 import type { ApiUser, HistoryItem, SearchConversationItem } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import { sidebarShortcutHintsVisible } from "@/lib/sidebar-shortcuts";
+import { businessSearchEntryEnabled } from "@/lib/private-alpha-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,10 @@ type ConversationActivityReadOwner = Readonly<{
 export type ChatSidebarProps = {
   /** Whether the sidebar is expanded or collapsed */
   isOpen: boolean;
+  /** Tablet icon strip stays collapsed. The mark does not expand it. */
+  railLocked?: boolean;
+  /** Business rail: 240px labeled or 64px icons on the cream canvas. */
+  business?: boolean;
   onToggle: () => void;
 
   /** Sidebar behavior mode */
@@ -110,13 +114,7 @@ export type ChatSidebarProps = {
   onProfileUpdated?: (user: ApiUser) => void;
   /** Callback when archive/delete removes a chat from the active recents surface */
   onConversationRemoved?: (conversationId: string) => void;
-  /** Callback when every non-deleted conversation is moved to Recently Deleted */
-  onAllConversationsDeleted?: () => void;
-  /** User-facing toast presenter owned by the chat shell */
-  onToast?: (message: string) => void;
-  /** Logout handler */
   onLogout: (options?: LogoutOptions) => void;
-  /** Feedback handler */
   onFeedback?: (type: "bug" | "feature" | "general") => void;
   /** Sidebar preference handler */
   onOpenSidebarPreference?: () => void;
@@ -156,6 +154,8 @@ function historyConversationId(item: HistoryItem): string {
 
 export default function ChatSidebar({
   isOpen,
+  railLocked = false,
+  business = false,
   onToggle,
   mode = "expanded",
   currentView,
@@ -176,8 +176,6 @@ export default function ChatSidebar({
   onHistoryMutated,
   onProfileUpdated,
   onConversationRemoved,
-  onAllConversationsDeleted,
-  onToast,
   onLogout,
   onFeedback,
   onOpenSidebarPreference,
@@ -198,9 +196,10 @@ export default function ChatSidebar({
   profileSlot = null,
 }: ChatSidebarProps) {
   const { t, i18n } = useTranslation();
-  const surface = useConversationSurface();
   const chatAvailable = useChatAvailable();
-  const workspaceShortcuts = useChatWorkspace()?.keyboardShortcuts;
+  const workspace = useChatWorkspace();
+  const workspaceShortcuts = workspace?.keyboardShortcuts;
+  const searchVisible = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const { selectPresentation, selectAggregatePresentation, selectOperationLabel } =
     useConversationActivityPresentation();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -208,8 +207,6 @@ export default function ChatSidebar({
   const [renameError, setRenameError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
-  const [isDeletingAllConversations, setIsDeletingAllConversations] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [expandedRecentGroups, setExpandedRecentGroups] = useState<
     Set<RecentChatGroupKey>
@@ -230,7 +227,7 @@ export default function ChatSidebar({
 
   const handleMouseEnter = () => {
     isPointerInsideSidebarRef.current = true;
-    if (mode !== "hover") return;
+    if (railLocked || mode !== "hover") return;
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     
     hoverTimeoutRef.current = setTimeout(() => {
@@ -419,48 +416,6 @@ export default function ChatSidebar({
     }
   }, [isDeleting, onConversationRemoved, onHistoryMutated, pendingDeleteId]);
 
-  const handleRequestDeleteAllConversations = useCallback(() => {
-    setIsProfileMenuOpen(false);
-    setIsDeleteAllDialogOpen(true);
-  }, []);
-
-  const handleConfirmDeleteAllConversations = useCallback(async () => {
-    if (isDeletingAllConversations) return;
-    setIsDeletingAllConversations(true);
-    try {
-      const response = await deleteAllConversations(surface);
-      setIsDeleteAllDialogOpen(false);
-      if (response.deleted_count > 0) {
-        onAllConversationsDeleted?.();
-        onToast?.(t("settings.data.delete_all_success", {
-          count: response.deleted_count,
-          defaultValue_one: "Moved {{count}} conversation to Recently Deleted.",
-          defaultValue_other: "Moved {{count}} conversations to Recently Deleted.",
-        }));
-      } else {
-        onHistoryMutated?.();
-        onToast?.(t(
-          "settings.data.delete_all_empty",
-          "No conversations to delete.",
-        ));
-      }
-    } catch {
-      onToast?.(t(
-        "settings.data.delete_all_error",
-        "Couldn’t delete conversations. Try again.",
-      ));
-    } finally {
-      setIsDeletingAllConversations(false);
-    }
-  }, [
-    isDeletingAllConversations,
-    onAllConversationsDeleted,
-    onHistoryMutated,
-    onToast,
-    surface,
-    t,
-  ]);
-
   const handleStartRename = useCallback((id: string) => {
     const item = chatItems.find((i) => i.id === id);
     setRenamingId(id);
@@ -499,7 +454,11 @@ export default function ChatSidebar({
 
   const isDrawer = variant === "drawer";
   // No rail exists in drawer mode, so its preference entry is absent, not greyed.
-  const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;
+  // Business has no rail preference: only its toggle collapses it.
+  const sidebarPreferenceHandler = isDrawer || business ? undefined : onOpenSidebarPreference;
+  const businessRail = business && !isDrawer;
+  const railInset = isOpen ? "px-3" : "px-[10px]";
+  const rowVariant = businessRail ? "business" : undefined;
 
   return (
     <aside
@@ -508,6 +467,10 @@ export default function ChatSidebar({
       className={
         isDrawer
           ? "flex h-full w-full flex-col border-r border-black/5 bg-white dark:border-white/5 dark:bg-[#141517]"
+          : businessRail
+            ? `flex shrink-0 flex-col overflow-hidden border-r border-black/5 bg-[var(--cuadrao-cream)] transition-[width] duration-300 ease-in-out will-change-[width] dark:border-white/5 ${
+                isOpen ? "w-60" : "w-16"
+              }`
           : `flex shrink-0 flex-col border-r border-black/5 bg-white transition-[width] duration-300 ease-in-out overflow-hidden will-change-[width] dark:border-white/5 dark:bg-[#141517] ${
               isOpen ? "w-72" : "w-14"
             }`
@@ -516,13 +479,17 @@ export default function ChatSidebar({
       <SidebarHeader
         variant={variant}
         isOpen={isOpen}
+        railLocked={railLocked}
+        business={businessRail}
         onToggle={onToggle}
         onRequestClose={onRequestClose}
       />
 
-      {headerSlot}
+      {businessRail && headerSlot ? (
+        <div className={`shrink-0 ${isOpen ? "px-3" : "flex justify-center"}`}>{headerSlot}</div>
+      ) : headerSlot}
 
-      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-[6px] pb-4 pt-2">
+      <div className={`flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${businessRail ? `${railInset} pt-2` : "px-[6px] pb-4 pt-2"}`}>
         {/* Main Navigation */}
         {chatAvailable && !workspaceShortcuts && (
           <SidebarNavButton
@@ -538,11 +505,12 @@ export default function ChatSidebar({
           />
         )}
 
-        {omnisearchEnabled && (
+        {searchVisible && (
           <SidebarNavButton
             icon={Search}
             label={t("common.search", "Search")}
             collapsed={!isOpen}
+            variant={rowVariant}
             shortcutHint={keyboardShortcutHintDisplay("omnisearch", usesCommandKey)}
             showShortcutHint={Boolean(workspaceShortcuts) || shortcutHintsVisible}
             onClick={onOpenSearch}
@@ -895,27 +863,6 @@ export default function ChatSidebar({
             }}
             onConfirm={() => void handleConfirmDelete()}
           />
-          <ConfirmDialog
-            isOpen={isDeleteAllDialogOpen}
-            title={t(
-              "settings.data.delete_all_confirm.title",
-              "Delete all conversations?",
-            )}
-            description={t(
-              "settings.data.delete_all_confirm.description",
-              "This moves all active and archived conversations to Recently Deleted. You can restore them before permanent removal.",
-            )}
-            confirmLabel={t(
-              "settings.data.delete_all_confirm.confirm",
-              "Delete all conversations",
-            )}
-            cancelLabel={t("common.cancel", "Cancel")}
-            isBusy={isDeletingAllConversations}
-            onCancel={() => {
-              if (!isDeletingAllConversations) setIsDeleteAllDialogOpen(false);
-            }}
-            onConfirm={() => void handleConfirmDeleteAllConversations()}
-          />
         </>
       )}
 
@@ -932,7 +879,7 @@ export default function ChatSidebar({
       {footerActions ? (
         <div
           data-testid="sidebar-workspace-actions"
-          className="border-t border-black/5 p-[6px] dark:border-white/5"
+          className={businessRail ? `shrink-0 ${railInset}` : "border-t border-black/5 p-[6px] dark:border-white/5"}
         >
           {footerActions}
         </div>
@@ -946,7 +893,6 @@ export default function ChatSidebar({
                 onClose={() => setIsProfileMenuOpen(false)}
                 onLogout={onLogout}
                 onFeedback={onFeedback}
-                onDeleteAllConversations={handleRequestDeleteAllConversations}
                 onHistoryMutated={onHistoryMutated}
                 onProfileUpdated={onProfileUpdated}
                 onOpenSidebarPreference={sidebarPreferenceHandler}
@@ -974,13 +920,12 @@ export default function ChatSidebar({
 
       {/* Footer: Profile menu trigger */}
       {showProfileMenu && !profileSlot ? (
-        <div className="relative border-t border-black/5 p-[6px] dark:border-white/5">
+        <div className={businessRail ? `relative shrink-0 ${railInset} pb-3` : "relative border-t border-black/5 p-[6px] dark:border-white/5"}>
           <ProfileMenu
             isOpen={isProfileMenuOpen}
             onClose={() => setIsProfileMenuOpen(false)}
             onLogout={onLogout}
             onFeedback={onFeedback}
-            onDeleteAllConversations={handleRequestDeleteAllConversations}
             onHistoryMutated={onHistoryMutated}
             onProfileUpdated={onProfileUpdated}
             onOpenSidebarPreference={sidebarPreferenceHandler}
@@ -994,6 +939,7 @@ export default function ChatSidebar({
               icon={User}
               label={t("common.settings")}
               collapsed={!isOpen}
+              variant={rowVariant}
               shortcutHint={keyboardShortcutHintDisplay(
                 "open_settings",
                 usesCommandKey,
