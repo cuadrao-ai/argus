@@ -110,6 +110,15 @@ def before_itbis(total_minor: int, itbis_minor: int | None) -> int:
     return total_minor - (itbis_minor or 0)
 
 
+def expense_base(document: MonthDocument) -> int:
+    """A purchase's cost before creditable ITBIS. ITBIS without a comprobante
+    cannot be credited, so a sin comprobante purchase costs its whole total."""
+
+    if document.sin_comprobante:
+        return document.total_minor
+    return before_itbis(document.total_minor, document.itbis_minor)
+
+
 def net_result(income_before: int, expense_before: int) -> int:
     return income_before - expense_before
 
@@ -179,7 +188,8 @@ def formato_totals(
     documents: Sequence[MonthDocument], start: date, end: date
 ) -> dict[str, FormatoCurrency]:
     """Income and expense from the 607 and 606 lines plus the business
-    documents marked sin comprobante. ITBIS comes only from the 606 and 607."""
+    documents marked sin comprobante. ITBIS stated on a sin comprobante sale
+    is charged; a sin comprobante purchase pays no creditable ITBIS."""
 
     totals: dict[str, list[int]] = {}
     for document in documents:
@@ -196,8 +206,9 @@ def formato_totals(
         elif document.sin_comprobante and in_close(document):
             if document.role == "invoice":
                 bucket[0] += sales_base(document)
+                bucket[2] += document.itbis_minor or 0
             else:
-                bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
+                bucket[1] += expense_base(document)
     return {
         currency: FormatoCurrency(*parts)
         for currency, parts in sorted(totals.items())
@@ -348,7 +359,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
             cell["before_itbis_minor"] += (
                 sales_base(document)
                 if document.role == "invoice"
-                else before_itbis(document.total_minor, document.itbis_minor)
+                else expense_base(document)
             )
         income = part.income_before_itbis
         expense = part.expense_before_itbis

@@ -9610,8 +9610,9 @@ person starts their space, every route below except POST `/space` answers 404
     `personal_editable` for anyone with prepare on a receipt that has a
     draft. They also carry `sin_comprobante`, true when a person stated the
     record has no comprobante fiscal (`receipt_state` `no_receipt` or
-    `informal_receipt`) and the draft has no NCF or e-CF, present only when
-    true on lists and always on the dossier; month close counts such a record
+    `informal_receipt`) and the draft has no NCF or e-CF; receipt and expense
+    reads, list and detail, leave it out when false, and the dossier and the
+    month-close lines always carry it; month close counts such a record
     and leaves it out of the 606, the 607 and the close reasons (see the
     [month-close contract](contracts/business-month-close.md)). The
     overview's `totals` are "Gastos reales" (approved expenses that are not

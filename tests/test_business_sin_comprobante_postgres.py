@@ -20,6 +20,7 @@ import pytest
 from argus.api.business_drafts import receipt_detail, receipt_summaries
 from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
 from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.month_close_store import read_month
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
@@ -71,11 +72,11 @@ def _draft(world, account: str, kind: str, amount: str, day: str, name: str, **e
         for field, value in {
             "kind": kind,
             "amount": amount,
-            "currency": "DOP",
             "occurred_on": day,
             "counterparty": name,
             "funding": {"kind": "business_account", "account_id": account},
-            "business_share": {"kind": "all"},
+            "business_share": {"kind": extra.pop("share", "all")},
+            "currency": extra.pop("currency", "DOP"),
         }.items()
     }
     receipt_state = extra.pop("receipt_state", None)
@@ -167,12 +168,43 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
     _, fiscal_sale = _record(
         web, pesos, "income", "2360", "2026-09-16", "PRÁCTICA S01", dgii=PRACTICE["S01"]
     )
+    dollars = _send(
+        web,
+        "POST",
+        "/business/accounts",
+        {"nickname": "Caja USD", "type": "cash", "currency": "USD"},
+        web.alice.headers,
+    )["id"]
+    _, dollar_purchase = _record(
+        web,
+        dollars,
+        "expense",
+        "80",
+        "2026-09-10",
+        "Tienda en Miami",
+        currency="USD",
+        receipt_state="no_receipt",
+    )
+    personal_draft, personal_purchase = _record(
+        web,
+        pesos,
+        "expense",
+        "900",
+        "2026-09-11",
+        "Supermercado",
+        share="none",
+        receipt_state="no_receipt",
+    )
+    personal = _get(web, f"/business/drafts/{personal_draft}/dossier").json()
+    assert (personal["personal"], personal["sin_comprobante"]) == (True, True)
 
     september = _close(web, "2026-09")
     assert september["closed"] is True
     assert september["reasons"] == []
     assert september["missing_rnc"] == september["missing_ncf"] == []
-    [dop] = september["currencies"]
+    dop, usd = september["currencies"]
+    assert (usd["currency"], usd["expense_before_itbis_minor"]) == ("USD", 8000)
+    assert (usd["itbis_paid_minor"], usd["income_before_itbis_minor"]) == (0, 0)
     # P01 is 1000 before ITBIS and S01 is 2000; the cash records add their totals.
     assert (dop["expense_before_itbis_minor"], dop["income_before_itbis_minor"]) == (
         150000,
@@ -186,6 +218,7 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
     assert lines == {
         cash_purchase: True,
         cash_sale: True,
+        dollar_purchase: True,
         fiscal_purchase: False,
         fiscal_sale: False,
     }
@@ -202,7 +235,7 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
         packet["forms"]["607"]["record_count"],
     ) == (1, 1)
     bridge_rows = {row["activity_id"]: row for row in packet["reconciliation"]}
-    for activity in (cash_purchase, cash_sale):
+    for activity in (cash_purchase, cash_sale, dollar_purchase, personal_purchase):
         assert (
             bridge_rows[activity]["disposition"],
             bridge_rows[activity]["reason"],
@@ -215,7 +248,7 @@ def test_sin_comprobante_counts_in_the_month_and_stays_out_of_the_606_and_607(
         "607",
     }
     named = {issue.get("activity_id") for issue in packet["issues"]}
-    assert not named & {cash_purchase, cash_sale}
+    assert not named & {cash_purchase, cash_sale, dollar_purchase, personal_purchase}
 
     # Every read carries the mark: the dossier, the expense list and the detail.
     assert (
@@ -291,10 +324,12 @@ def test_a_record_with_a_comprobante_and_no_number_still_holds_the_month_open(
 
 @pytest.mark.owner_acts
 @pytest.mark.parametrize(
-    ("receipt", "marked"),
+    ("receipt", "marked", "expense", "itbis_paid"),
     [
-        ({"rnc": None, "ecf": None, "itbis": None}, True),
-        ({}, False),
+        # 4676.47 ITBIS without a comprobante cannot be credited: the whole
+        # 33254.91 is cost. With the e-CF it is creditable ITBIS paid.
+        ({"rnc": None, "ecf": None}, True, 3325491, 0),
+        ({}, False, 2857844, 467647),
     ],
     ids=["read-without-a-fiscal-number", "read-with-an-e-cf"],
 )
@@ -303,6 +338,8 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     monkeypatch: pytest.MonkeyPatch,
     receipt: dict,
     marked: bool,
+    expense: int,
+    itbis_paid: int,
 ) -> None:
     monkeypatch.setattr(single, "RECEIPT", {**single.RECEIPT, **receipt})
     saved = single._saved(actions, "expense")
@@ -344,3 +381,11 @@ def test_an_uploaded_receipt_reads_its_mark_after_prepare(
     assert row.get("sin_comprobante", False) is marked
     assert detail.get("sin_comprobante", False) is marked
     assert service.dossier(context, prepared.draft_id).sin_comprobante is marked
+    october = read_month(service.authority, context, "2026-10")
+    [dop] = october["currencies"]
+    assert (dop["expense_before_itbis_minor"], dop["itbis_paid_minor"]) == (
+        expense,
+        itbis_paid,
+    )
+    [line] = october["cuentas_por_pagar"]
+    assert line["sin_comprobante"] is marked

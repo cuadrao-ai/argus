@@ -95,12 +95,12 @@ The sample minors are illustrative. Each currency the month actually contains is
 | `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes, or is sin comprobante. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
 | `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
-| `expense_before_itbis_minor` | Purchase lines that would go on the 606, plus sin comprobante purchases, total minus ITBIS. |
+| `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
-| `itbis_charged_minor` | ITBIS on the 607 lines. A credit note subtracts. A sin comprobante sale adds none. |
+| `itbis_charged_minor` | ITBIS on the 607 lines, plus ITBIS stated on a sin comprobante sale. A credit note subtracts. |
 | `itbis_paid_minor` | ITBIS on the 606 lines. A sin comprobante purchase adds none. |
 | `itbis_owed_minor` | Charged minus paid. Negative when the business paid more ITBIS than it charged. |
-| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS. Those incomplete documents are not part of the net. |
+| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS, and the whole total for a sin comprobante receipt. Those incomplete documents are not part of the net. |
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
@@ -112,11 +112,18 @@ An invoice is a recorded income activity. A receipt is a recorded expense activi
 
 A document is sin comprobante when a person states in review that it has no comprobante fiscal and the draft carries no NCF or e-CF. The statement is the draft fact `receipt_state` with the value `no_receipt` or `informal_receipt`. The owner sets it in chat or a prepare-holder sets it in review. It is editable while the draft is open, it is kept in the draft history, and it is locked when the draft is approved. A missing NCF alone never makes a document sin comprobante. A draft that carries an NCF or an e-CF has a comprobante, whatever `receipt_state` says.
 
-A sin comprobante document counts in `income_before_itbis` or `expense_before_itbis` and in `by_status`. It adds no ITBIS charged or paid. It is not a 606 or 607 line, and the DGII export lists it as excluded with the reason `no_fiscal_number`. It never adds a `missing_rnc` or `missing_ncf` reason, so it never keeps the month open. A personal sin comprobante purchase stays out of the month like any personal purchase.
+A sin comprobante document counts in `income_before_itbis` or `expense_before_itbis` and in `by_status`. It is not a 606 or 607 line, and the DGII export lists it as excluded with the reason `no_fiscal_number`. It never adds a `missing_rnc` or `missing_ncf` reason, so it never keeps the month open. A personal sin comprobante purchase stays out of the month like any personal purchase.
 
 A document that has a comprobante, or whose `receipt_state` is unknown, and has no RNC or fiscal number still keeps the month open.
 
-Receipt summaries and details, expenses and their detail, and the draft dossier carry the same mark as `sin_comprobante`. Lists leave it out when it is false. The dossier always has it.
+Two ITBIS rules are decisions, recorded on 2026-10-20 by the coordinator. Lucas can overrule them.
+
+- A sin comprobante purchase counts its whole total as expense, and none of its ITBIS is ITBIS paid. ITBIS paid without a valid comprobante cannot be credited, so it is part of the cost. Example: a 500.00 purchase that states 76.27 ITBIS adds 500.00 to `expense_before_itbis` and 0.00 to `itbis_paid`.
+- A sin comprobante sale counts its total minus the ITBIS it states as income, and that ITBIS stays in `itbis_charged`, so the tax owed is never understated. Example: a 300.00 sale that states 45.76 ITBIS adds 254.24 to `income_before_itbis` and 45.76 to `itbis_charged`.
+
+Receipt summaries and details, and expenses and their detail, carry the mark as `sin_comprobante` only when it is true. The draft dossier and every month-close and open-items line always carry it.
+
+This mark is not the bank matching state `sin_comprobante`. That state is an outgoing bank charge with no matched receipt. This mark is a recorded document that a person stated has no comprobante fiscal.
 
 ## Venta
 

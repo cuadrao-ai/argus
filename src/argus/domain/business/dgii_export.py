@@ -236,6 +236,9 @@ def build_fiscal_packet(
             warnings.extend(line_warnings)
 
         if record.currency != "DOP":
+            if is_sin_comprobante(record.facts):
+                item.update(disposition="excluded", reason="no_fiscal_number")
+                continue
             item["reason"] = "fiscal_conversion_required"
             issues.extend(collect(record))
             continue

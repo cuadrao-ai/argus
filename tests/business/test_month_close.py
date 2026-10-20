@@ -311,7 +311,7 @@ def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
         activity_id="cash-purchase",
         role="receipt",
         total_minor=50000,
-        itbis_minor=None,
+        itbis_minor=7627,
         rnc=None,
         ncf=None,
         sin_comprobante=True,
@@ -343,13 +343,16 @@ def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
     summary = summarize(documents, start, end)
     [dop] = summary["currencies"]
 
+    # The purchase's 76.27 ITBIS cannot be credited: its whole 500.00 is cost and
+    # none of it is ITBIS paid. The sale's stated 45.76 ITBIS is charged.
     assert (totals.income_before_itbis, totals.expense_before_itbis) == (25424, 52000)
-    assert (totals.itbis_charged, totals.itbis_paid) == (0, 360)
+    assert (totals.itbis_charged, totals.itbis_paid) == (4576, 360)
     assert (dop["income_before_itbis_minor"], dop["expense_before_itbis_minor"]) == (
         25424,
         52000,
     )
     assert dop["net_result_minor"] == -26576
+    assert dop["itbis_owed_minor"] == 4216
     assert dop["by_status"]["receipts"]["pendiente"] == {
         "count": 1,
         "before_itbis_minor": 50000,
