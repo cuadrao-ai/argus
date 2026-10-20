@@ -95,34 +95,46 @@ async function mount(
 }
 
 const overviewTitle = (page: Mounted) => page.host.querySelector("#business-overview-title")?.textContent ?? null;
+const markName = (page: Mounted) => page.host.querySelector('[data-testid="business-current-name"]')?.textContent ?? null;
 
 describe("§1.8 line 100: the Business is named by its name, and Argus is not named", () => {
   const ownSpace = (name: string): Partial<BusinessDataSource> => ({
     spaces: async () => [{ space_id: "own", name, grant_id: "own-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }],
   });
+  const mountMark = async (name: string) => {
+    const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+    function Mark() {
+      const workspace = useChatWorkspace();
+      return <header>{workspace?.sidebarHeader?.(shell())}</header>;
+    }
+    const page = await mount(() => <Mark />, ownSpace(name));
+    await page.settle(() => markName(page) !== null);
+    return page;
+  };
 
-  test("the Resumen title is the owner's business name", async () => {
+  test("the sidebar Business mark is the owner's business name and the Inicio title greets instead", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
+    const mark = await mountMark("Colmado Lucía");
+    assert.equal(markName(mark), "Colmado Lucía");
+    await mark.close();
     const page = await mount(() => <BusinessOverviewPanel />, ownSpace("Colmado Lucía"));
-    await page.settle(() => overviewTitle(page) === "Colmado Lucía");
-    assert.equal(overviewTitle(page), "Colmado Lucía");
+    await page.settle(() => page.business().spaces !== null);
+    assert.equal(overviewTitle(page), "Hola");
     await page.close();
   });
 
   test("a Business without a name is called Mi negocio, never Tu negocio or My business", async () => {
-    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
-    const page = await mount(() => <BusinessOverviewPanel />, ownSpace(""));
-    await page.settle(() => page.business().spaces !== null);
-    assert.equal(overviewTitle(page), "Mi negocio");
+    const page = await mountMark("");
+    assert.equal(markName(page), "Mi negocio");
+    assert.equal(page.host.textContent?.includes("Tu negocio"), false);
+    assert.equal(page.host.textContent?.includes("My business"), false);
     await page.close();
   });
 
   test("a saved English default uses the Spanish fallback without changing a custom name", async () => {
-    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     for (const [saved, displayed] of [["My business", "Mi negocio"], ["My business supplies", "My business supplies"]]) {
-      const page = await mount(() => <BusinessOverviewPanel />, ownSpace(saved));
-      await page.settle(() => page.business().spaces !== null);
-      assert.equal(overviewTitle(page), displayed);
+      const page = await mountMark(saved);
+      assert.equal(markName(page), displayed);
       assert.equal(page.business().chosen?.name, saved, "the saved name remains unchanged");
       await page.close();
     }
@@ -162,13 +174,13 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
     assert.ok(html.includes("Desde 1 oct 2026"));
   });
 
-  test("changing the period changes the Resumen card labels and the covered dates", async () => {
+  test("the Resumen leads with what to review, ahead of the month figures", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const page = await mount(() => <BusinessOverviewPanel />);
-    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null);
+    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null && page.host.querySelector('[data-testid="month-close-task-review"]') !== null);
     assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
-    assert.ok(page.host.querySelector('[data-testid="inicio-por-revisar"]'));
-    const action = page.host.querySelector('[data-testid="inicio-por-revisar"]');
+    assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
+    const action = page.host.querySelector('[data-testid="month-close-task-review"]');
     const cards = page.host.querySelector('[data-testid="month-close-cards"]');
     assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
     await page.close();

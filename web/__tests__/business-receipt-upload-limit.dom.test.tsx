@@ -13,19 +13,51 @@ import spanish from "@/public/locales/es-419/common.json";
 
 const limits = { max_bytes: 1024, media_types: ["image/jpeg"] };
 const names = Array.from({ length: 9 }, (_, index) => `recibo-${index + 1}.jpg`);
-const original = { fetch: globalThis.fetch, mock: process.env.NEXT_PUBLIC_MOCK_AUTH };
+const original = { xhr: undefined as unknown, mock: process.env.NEXT_PUBLIC_MOCK_AUTH };
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  original.xhr = globalThis.XMLHttpRequest;
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, writable: true, value: true });
 });
 afterAll(async () => {
-  globalThis.fetch = original.fetch;
   if (original.mock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
   else process.env.NEXT_PUBLIC_MOCK_AUTH = original.mock;
+  Object.defineProperty(globalThis, "XMLHttpRequest", { configurable: true, writable: true, value: original.xhr });
   await GlobalRegistrator.unregister();
 });
+
+type FakeReply = { status: number; body: unknown; headers?: Record<string, string> };
+
+/** The upload dialog sends bytes over XMLHttpRequest so it can show progress; this stands in for the server. */
+function fakeXhr(respond: (request: { url: string; method: string; headers: Headers }) => FakeReply) {
+  return class FakeXhr {
+    upload: { onprogress: ((event: { loaded: number; total: number; lengthComputable: boolean }) => void) | null } = { onprogress: null };
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onabort: (() => void) | null = null;
+    withCredentials = false;
+    status = 0;
+    responseText = "";
+    private url = "";
+    private method = "";
+    private sent = new Headers();
+    private received = new Headers();
+    open(method: string, url: string) { this.method = method; this.url = url; }
+    setRequestHeader(name: string, value: string) { this.sent.set(name, value); }
+    getResponseHeader(name: string) { return this.received.get(name); }
+    send() {
+      queueMicrotask(() => {
+        const reply = respond({ url: this.url, method: this.method, headers: this.sent });
+        this.status = reply.status;
+        this.responseText = JSON.stringify(reply.body);
+        for (const [name, value] of Object.entries(reply.headers ?? {})) this.received.set(name, value);
+        this.onload?.();
+      });
+    }
+  };
+}
 
 function saved(id: string, filename: string): ReceiptSummary {
   return {
@@ -43,8 +75,7 @@ test("nine files under the upload limit wait out Retry-After, retry the same fil
   let limitedOnce = false;
   let limited!: () => void;
   const sawLimit = new Promise<void>((resolve) => { limited = resolve; });
-  globalThis.fetch = async (url, init) => {
-    const request = new Request(url, init);
+  Object.defineProperty(globalThis, "XMLHttpRequest", { configurable: true, writable: true, value: fakeXhr((request) => {
     assert.ok(new URL(request.url).pathname.endsWith("/business/receipts"), request.url);
     assert.equal(request.method, "POST");
     const filename = decodeURIComponent(request.headers.get("X-Document-Filename") ?? "");
@@ -52,13 +83,14 @@ test("nine files under the upload limit wait out Retry-After, retry the same fil
     if (filename === "recibo-6.jpg" && !limitedOnce) {
       limitedOnce = true;
       limited();
-      return Response.json(
-        { code: "document_rate_limited", title: "Too Many Requests", detail: "Wait before uploading another document." },
-        { status: 429, headers: { "Retry-After": "1" } },
-      );
+      return {
+        status: 429,
+        body: { code: "document_rate_limited", title: "Too Many Requests", detail: "Wait before uploading another document." },
+        headers: { "Retry-After": "1" },
+      };
     }
-    return Response.json(saved(`receipt-${requests.length}`, filename), { status: 201 });
-  };
+    return { status: 201, body: saved(`receipt-${requests.length}`, filename) };
+  }) });
   const queue = new ReceiptUploadQueue(uploadBusinessReceipt, () => undefined);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
@@ -88,9 +120,7 @@ test("nine files under the upload limit wait out Retry-After, retry the same fil
       input.files = transfer.files;
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    const save = [...document.querySelectorAll("button")].find((button) => button.textContent === "Guardar los archivos pendientes");
-    assert.ok(save, "the owner can start the upload");
-    await act(async () => { save.click(); });
+    assert.equal([...document.querySelectorAll("button")].some((button) => /Guardar/.test(button.textContent ?? "")), false, "there is no save button to press");
     await act(async () => { await sawLimit; });
 
     assert.match(text(), /Subiendo 6 de 9…/);

@@ -81,20 +81,24 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
     }
   };
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
+  // The Resumen's number is the first line of the month checklist: "Revisa N recibos en la Bandeja".
+  const reviewTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-review"]');
+  const reviewCount = () => reviewTask()?.querySelector("p")?.textContent?.match(/^Revisa (\d+) recibos?/)?.[1] ?? null;
   const rows = () => host.querySelectorAll('[data-testid="business-inbox-receipts"] > li, [data-testid="business-inbox-notes"] > li').length;
-  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null);
-  return { act, root, host, settle, text, rows, api: () => api!, source };
+  await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && reviewCount() !== null);
+  return { act, root, host, settle, text, rows, reviewCount, reviewTask, api: () => api!, source };
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
   test("the Resumen card, the sidebar badge and the Bandeja rows agree; attention is its own count", async () => {
     const page = await mount();
     assert.equal(page.rows(), 5, "five receipts listed; the email itself is not a row");
-    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
-    assert.match(page.text('[data-testid="inicio-otras"]') ?? "", /1 con problema/);
+    assert.equal(page.reviewCount(), "4");
+    assert.match(page.reviewTask()?.textContent ?? "", /1 con problema/);
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     assert.equal(page.text('[data-testid="bandeja-por-revisar"]'), "4 por revisar");
     assert.equal(page.text('[data-testid="bandeja-aside"]'), "1 no se pudo leer.");
+    assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
     assert.equal(page.host.querySelector('[data-testid="overview-inbox-count"]'), null);
     assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
@@ -113,14 +117,14 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.settle(() => page.host.querySelectorAll('[data-testid="business-inbox-notes"] li').length === 1);
     assert.equal(page.host.querySelectorAll('[data-testid="business-inbox-notes"] li').length, 1);
     assert.equal(page.rows(), 6);
-    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
+    assert.equal(page.reviewCount(), "4");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     await page.act(async () => page.root.unmount());
   });
 
   test("an approval leaves the Bandeja and the Resumen together", async () => {
     const page = await mount();
-    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
+    assert.equal(page.reviewCount(), "4");
     await page.act(async () => {
       const receipt = await page.source.receipt("rcpt-ferreteria");
       const saved = await page.source.saveReview(receipt.id, receipt.version, { account_id: "acct-ops" });
@@ -128,13 +132,13 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       await page.source.approveDraft(record.draft_id, record.version, "approve-1113");
       page.api().reload();
     });
-    await page.settle(() => page.text('[data-testid="inicio-por-revisar-count"]') === "3");
-    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "3");
+    await page.settle(() => page.reviewCount() === "3");
+    assert.equal(page.reviewCount(), "3");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "3");
     assert.equal(page.rows(), 4);
     await page.act(async () => page.api().reload());
     await page.settle(() => false);
-    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "3");
+    assert.equal(page.reviewCount(), "3");
     await page.act(async () => page.root.unmount());
   });
 
@@ -146,13 +150,20 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     assert.equal(primaries[0]?.getAttribute("data-testid"), "business-primary-upload");
     assert.equal(primaries[0]?.textContent, "Subir recibo");
     assert.match(primaries[0]?.className ?? "", /min-h-11/);
-    const action = resumen.querySelector('[data-testid="inicio-por-revisar"]');
+    const actions = resumen.querySelector('[data-testid="inicio-actions"]');
     const cards = resumen.querySelector('[data-testid="month-close-cards"]');
-    assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
-    await owner.settle(() => (resumen.querySelector('[data-testid="inicio-forward-address"]')?.textContent ?? "").includes("@"));
-    const forward = resumen.querySelector('[data-testid="inicio-forward"]');
-    assert.ok(cards && forward && (cards.compareDocumentPosition(forward) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
-    assert.match(resumen.querySelector('[data-testid="inicio-forward-copy"]')?.className ?? "", /min-h-11/);
+    assert.ok(actions && cards && (actions.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "the action row comes before the month figures");
+    assert.ok(actions.contains(primaries[0]!));
+    for (const id of ["inicio-record-expense", "inicio-export"]) assert.ok(actions.querySelector(`[data-testid="${id}"]`), id);
+    await owner.settle(() => resumen.querySelector('[data-testid="inicio-forward-copy"]') !== null);
+    const copy = resumen.querySelector('[data-testid="inicio-forward-copy"]') as HTMLButtonElement | null;
+    assert.ok(copy && actions.contains(copy), "the forwarding address copies from the action row");
+    assert.match(copy.className, /min-h-11/);
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+    await owner.act(async () => { copy.click(); });
+    assert.equal(copied.length, 1);
+    assert.match(copied[0]!, /@/);
     await owner.act(async () => owner.root.unmount());
 
     const accountant = await mount({ grant: "fixture-grant-client" });
@@ -167,7 +178,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
 
   test("a missing activity object does not invent a zero", async () => {
     const page = await mount({ activity: () => null });
-    assert.equal(page.text('[data-testid="inicio-por-revisar-count"]'), "4");
+    assert.equal(page.reviewCount(), "4");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     assert.equal(page.text('[data-testid="bandeja-por-revisar"]'), "4 por revisar");
     assert.equal(page.host.textContent?.includes("0 por revisar"), false);

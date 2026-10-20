@@ -73,7 +73,7 @@ describe("the chips", () => {
 });
 
 describe("the Overview's two totals", () => {
-  test("Gastos reales and Con valor fiscal stand side by side with the 606 line under the second, from the server's numbers", async () => {
+  test("the Overview no longer carries the Gastos reales and Con valor fiscal cards, and an empty Bandeja adds no review line or zero count", async () => {
     const env = await setup();
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: BusinessOverviewPanel } = await import("@/components/business-app/BusinessOverviewPanel");
@@ -82,8 +82,10 @@ describe("the Overview's two totals", () => {
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><BusinessOverviewPanel /></BusinessContext.Provider></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(env.host.querySelector('[data-testid="overview-fiscal-expenses"]'), null);
-    assert.ok(env.host.querySelector('[data-testid="inicio-por-revisar"]'));
-    assert.equal(env.host.textContent?.includes("0 por revisar"), false);
+    assert.ok(env.host.querySelector('[data-testid="inicio-actions"]'), "the Inicio renders");
+    assert.equal(env.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old review card is gone");
+    assert.equal(env.host.querySelector('[data-testid="month-close-task-review"]'), null, "nothing to review adds no checklist line");
+    assert.equal(/Revisa 0 |0 por revisar/.test(env.host.textContent ?? ""), false);
     await env.act(async () => env.root.unmount());
   });
 });
