@@ -37,18 +37,45 @@ for (const { path, cta, contact, earlyAccess } of [
   });
 }
 
-for (const path of ["/", "/en", "/personal"]) {
-  test(`${path} header button rests on its hover color once the header floats`, async ({ page }) => {
+const GREEN = "rgb(47, 90, 73)";
+const DEEP = "rgb(29, 66, 54)";
+
+for (const { path, cta } of [
+  { path: "/", cta: "Hablemos de tu negocio" },
+  { path: "/en", cta: "Let’s talk about your business" },
+]) {
+  test(`${path} dark buttons rest on the green and darken on hover`, async ({ page }) => {
     test.skip(test.info().project.name === "mobile", "the header button is in the mobile menu on phones");
     await page.goto(path);
-    const button = page.locator("header nav > div:last-child > a:last-child");
-    const background = () => button.evaluate((node) => getComputedStyle(node).backgroundColor);
-    await expect.poll(background).toBe("rgb(232, 237, 227)");
-    await page.evaluate(() => window.scrollTo(0, 600));
+    const background = (node: ReturnType<typeof page.locator>) => node.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const header = page.locator("header nav > div:last-child > a:last-child");
+    const hero = page.locator("main").getByRole("link", { name: cta, exact: true }).first();
+    const closing = page.locator("footer").getByRole("link", { name: cta, exact: true });
+
+    await expect.poll(() => background(header)).toBe("rgb(232, 237, 227)");
+    for (const button of [hero, closing]) {
+      await button.scrollIntoViewIfNeeded();
+      await page.mouse.move(2, 2);
+      await expect.poll(() => background(button)).toBe(GREEN);
+      await button.hover();
+      await expect.poll(() => background(button)).toBe(DEEP);
+    }
+
+    await page.evaluate(() => window.scrollTo(0, 800));
     await expect(page.locator("header")).toHaveAttribute("data-condensed", "true");
-    await page.mouse.move(5, 400);
-    await expect.poll(background).toBe("rgb(48, 70, 58)");
-    await button.hover();
-    await expect.poll(background).toBe("rgb(48, 70, 58)");
+    await page.mouse.move(2, 2);
+    await expect.poll(() => background(header)).toBe(GREEN);
+    await header.hover();
+    await expect.poll(() => background(header)).toBe(DEEP);
   });
 }
+
+test("/personal header button rests on the green once the header floats", async ({ page }) => {
+  test.skip(test.info().project.name === "mobile", "the header button is in the mobile menu on phones");
+  await page.goto("/personal");
+  const button = page.locator("header nav > div:last-child > a:last-child");
+  await page.evaluate(() => window.scrollTo(0, 800));
+  await expect(page.locator("header")).toHaveAttribute("data-condensed", "true");
+  await page.mouse.move(2, 2);
+  await expect.poll(() => button.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(GREEN);
+});

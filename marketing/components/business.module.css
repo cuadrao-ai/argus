@@ -5,6 +5,8 @@
   --paper: #fafbf8;
   --accent: #d7ddc0;
   --cta-hover: #30463a;
+  --cta-rest: #2f5a49;
+  --cta-deep: #1d4236;
   min-height: 100svh;
   background: var(--paper);
   color: var(--ink);
@@ -175,7 +177,10 @@
   color: var(--ink) !important;
 }
 .header[data-condensed="true"] .utilityNav > .buttonSmall {
-  background: var(--cta-hover);
+  background: var(--cta-rest);
+}
+.header[data-condensed="true"] .utilityNav > .buttonSmall:hover {
+  background: var(--cta-deep);
 }
 .header .utilityNav > .buttonSmall {
   transition:
@@ -844,6 +849,10 @@
 }
 .closing .button {
   margin-top: 25px;
+  background: var(--cta-rest);
+}
+.closing .button:hover {
+  background: var(--cta-deep);
 }
 .closing small {
   display: block;
@@ -1131,10 +1140,10 @@
   background: var(--cta-hover);
 }
 .submit {
-  background: #2f5a49;
+  background: var(--cta-rest);
 }
 .submit:hover {
-  background: #1d4236;
+  background: var(--cta-deep);
 }
 .button:hover svg {
   transform: translate(2px, -2px);
