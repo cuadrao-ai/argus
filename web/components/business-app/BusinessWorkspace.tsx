@@ -36,7 +36,7 @@ import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
-import BusinessSidebarNav from "./BusinessSidebarNav";
+import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
 import BusinessSwitcher from "./BusinessSwitcher";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
 import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
@@ -453,7 +453,8 @@ function BusinessWorkspaceContent({
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
+      sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
       headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} /> : null,
       headerActions: (shell) => <>
         {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-[16px] text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>

@@ -73,6 +73,8 @@ export type ChatSidebarProps = {
   isOpen: boolean;
   /** Tablet icon strip stays collapsed. The mark does not expand it. */
   railLocked?: boolean;
+  /** Business rail: 240px labeled or 64px icons on the cream canvas. */
+  business?: boolean;
   onToggle: () => void;
 
   /** Sidebar behavior mode */
@@ -153,6 +155,7 @@ function historyConversationId(item: HistoryItem): string {
 export default function ChatSidebar({
   isOpen,
   railLocked = false,
+  business = false,
   onToggle,
   mode = "expanded",
   currentView,
@@ -451,7 +454,11 @@ export default function ChatSidebar({
 
   const isDrawer = variant === "drawer";
   // No rail exists in drawer mode, so its preference entry is absent, not greyed.
-  const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;
+  // Business has no rail preference: only its toggle collapses it.
+  const sidebarPreferenceHandler = isDrawer || business ? undefined : onOpenSidebarPreference;
+  const businessRail = business && !isDrawer;
+  const railInset = isOpen ? "px-3" : "px-[10px]";
+  const rowVariant = businessRail ? "business" : undefined;
 
   return (
     <aside
@@ -460,6 +467,10 @@ export default function ChatSidebar({
       className={
         isDrawer
           ? "flex h-full w-full flex-col border-r border-black/5 bg-white dark:border-white/5 dark:bg-[#141517]"
+          : businessRail
+            ? `flex shrink-0 flex-col overflow-hidden border-r border-black/5 bg-[var(--cuadrao-cream)] transition-[width] duration-300 ease-in-out will-change-[width] dark:border-white/5 ${
+                isOpen ? "w-60" : "w-16"
+              }`
           : `flex shrink-0 flex-col border-r border-black/5 bg-white transition-[width] duration-300 ease-in-out overflow-hidden will-change-[width] dark:border-white/5 dark:bg-[#141517] ${
               isOpen ? "w-72" : "w-14"
             }`
@@ -469,13 +480,16 @@ export default function ChatSidebar({
         variant={variant}
         isOpen={isOpen}
         railLocked={railLocked}
+        business={businessRail}
         onToggle={onToggle}
         onRequestClose={onRequestClose}
       />
 
-      {headerSlot}
+      {businessRail && headerSlot ? (
+        <div className={`shrink-0 ${isOpen ? "px-3" : "flex justify-center"}`}>{headerSlot}</div>
+      ) : headerSlot}
 
-      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-[6px] pb-4 pt-2">
+      <div className={`flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${businessRail ? `${railInset} pt-2` : "px-[6px] pb-4 pt-2"}`}>
         {/* Main Navigation */}
         {chatAvailable && !workspaceShortcuts && (
           <SidebarNavButton
@@ -496,6 +510,7 @@ export default function ChatSidebar({
             icon={Search}
             label={t("common.search", "Search")}
             collapsed={!isOpen}
+            variant={rowVariant}
             shortcutHint={keyboardShortcutHintDisplay("omnisearch", usesCommandKey)}
             showShortcutHint={Boolean(workspaceShortcuts) || shortcutHintsVisible}
             onClick={onOpenSearch}
@@ -864,7 +879,7 @@ export default function ChatSidebar({
       {footerActions ? (
         <div
           data-testid="sidebar-workspace-actions"
-          className="border-t border-black/5 p-[6px] dark:border-white/5"
+          className={businessRail ? `shrink-0 ${railInset}` : "border-t border-black/5 p-[6px] dark:border-white/5"}
         >
           {footerActions}
         </div>
@@ -905,7 +920,7 @@ export default function ChatSidebar({
 
       {/* Footer: Profile menu trigger */}
       {showProfileMenu && !profileSlot ? (
-        <div className="relative border-t border-black/5 p-[6px] dark:border-white/5">
+        <div className={businessRail ? `relative shrink-0 ${railInset} pb-3` : "relative border-t border-black/5 p-[6px] dark:border-white/5"}>
           <ProfileMenu
             isOpen={isProfileMenuOpen}
             onClose={() => setIsProfileMenuOpen(false)}
@@ -924,6 +939,7 @@ export default function ChatSidebar({
               icon={User}
               label={t("common.settings")}
               collapsed={!isOpen}
+              variant={rowVariant}
               shortcutHint={keyboardShortcutHintDisplay(
                 "open_settings",
                 usesCommandKey,

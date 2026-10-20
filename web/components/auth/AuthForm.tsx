@@ -1,7 +1,6 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import AgeConfirmation from "./AgeConfirmation";
 import { Eye, EyeClosed } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
@@ -19,7 +18,6 @@ export type AuthFormSubmission = {
   displayName: string;
   email: string;
   password: string;
-  ageConfirmedAt: string | null;
 };
 
 export type AuthFormSubmissionResult = {
@@ -54,10 +52,6 @@ const GENERIC_AUTH_ERROR: AuthErrorTranslation = {
 const AUTH_ERROR_MESSAGE_BY_CODE: Readonly<
   Record<string, AuthErrorTranslation>
 > = {
-  age_confirmation_required: {
-    key: "auth.age_confirmation.missing",
-    fallback: "To continue, confirm you're 18 or older.",
-  },
   captcha_unavailable: {
     key: "auth.errors.browser_check_failed",
     fallback: "We couldn’t verify your browser. Try again.",
@@ -173,17 +167,8 @@ export function localizedAuthErrorMessage(
   error: unknown,
   translate: AuthErrorTranslator,
 ): string {
-  const code = authErrorCode(error);
   const message =
-    code === "age_confirmation_required"
-      ? AUTH_ERROR_MESSAGE_BY_CODE.age_confirmation_required
-      : code.startsWith("age_confirmation_")
-        ? {
-            key: "auth.age_confirmation.rejected",
-            fallback:
-              "We couldn't save your age confirmation. Check the box and try again.",
-          }
-        : (AUTH_ERROR_MESSAGE_BY_CODE[code] ?? GENERIC_AUTH_ERROR);
+    AUTH_ERROR_MESSAGE_BY_CODE[authErrorCode(error)] ?? GENERIC_AUTH_ERROR;
   return translate(message.key, message.fallback);
 }
 
@@ -213,13 +198,11 @@ export default function AuthForm({
   const [codeError, setCodeError] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
-  const [ageConfirmedAt, setAgeConfirmedAt] = useState<string | null>(null);
   const isSignup = mode === "signup";
   const acceptance = acceptanceLinks();
 
   useEffect(() => {
     setNeedsEmailConfirmation(false);
-    setAgeConfirmedAt(null);
     setConfirmationCode("");
     setCodeError(null);
   }, [mode]);
@@ -234,17 +217,6 @@ export default function AuthForm({
     event.preventDefault();
     setAuthError(null);
     setAuthErrorKind(null);
-    if (isSignup && !ageConfirmedAt) {
-      setAuthError(
-        String(
-          t(
-            "auth.age_confirmation.missing",
-            "To continue, confirm you're 18 or older.",
-          ),
-        ),
-      );
-      return;
-    }
     setIsSubmitting(true);
     try {
       const result = await onSubmit({
@@ -252,7 +224,6 @@ export default function AuthForm({
         displayName: displayName.trim(),
         email: email.trim(),
         password,
-        ageConfirmedAt,
       });
       setNeedsEmailConfirmation(
         Boolean(result && result.status === "email_confirmation_required"),
@@ -438,13 +409,6 @@ export default function AuthForm({
               </a>
             )}
 
-            {isSignup && (
-              <AgeConfirmation
-                confirmedAt={ageConfirmedAt}
-                onConfirmedAt={setAgeConfirmedAt}
-              />
-            )}
-
             {authError && (
               <p role="alert" className={blockingErrorBannerClass}>
                 {authError}
@@ -453,7 +417,7 @@ export default function AuthForm({
 
             <button
               type="submit"
-              disabled={isSubmitting || (isSignup && !ageConfirmedAt)}
+              disabled={isSubmitting}
               className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
             >
               {isSubmitting ? (
