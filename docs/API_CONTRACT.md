@@ -9231,7 +9231,18 @@ approval's declaration; a declaration a person saved stays. If that clear cannot
 run, the next approval rebuilds the declaration instead of keeping it.
 
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
-and `Idempotency-Key`. The same existing
+and `Idempotency-Key`. It may also carry `document_type` (`recibo` or `venta`),
+alone or with facts and `dgii`, for a draft that came from an upload. A change
+is one revision: a `venta` becomes income and loses a payable bill mark, a
+`recibo` becomes an expense, and a declaration saved under the other type is
+cleared unless the same request saves one. The printed RNC, NCF and ITBIS stay
+as read. Setting the type, changed or not, ends `document_type_detected`. After
+approval the change is `422` `document_type_locked`; a draft with no uploaded
+document is `422` `document_type_unsupported`. `BusinessDossier` carries
+`document_type`, `document_type_detected` and `document_type_editable` (open,
+from an upload, and the caller holds `prepare`). Sending the current type on a
+draft with no upload is accepted. A stale `version` is still `409`
+`stale_version` first. The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
 `ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
 `{version, action: "record_income"}`, with the existing required
@@ -9660,13 +9671,23 @@ accept path recorded.
   receipt's identity is its bytes, so a retry returns the same receipt. It
   ignores `X-Extraction-Consent`. It answers a `ReceiptSummary` that is
   `queued` while the owner's receipt-reading setting is on and `saved`
-  while it is off. Optional `X-Document-Type` is `recibo` or `venta`. Absent
-  means `recibo`, a purchase. `venta` is an invoice the business has already
-  issued: the same capture, prepared as income, so month close and the 607
-  selection can read it. The type is stored on the first save of those bytes.
-  Naming the other type later is `409` `document_type_conflict`. Any other
-  value is `422` `document_type_invalid`. `ReceiptSummary.document_type`
-  reports the stored type. The field meanings are in the
+  while it is off. Optional `X-Document-Type` is `recibo` or `venta`. `recibo`
+  is a purchase. `venta` is an invoice the business has already issued: the
+  same capture, prepared as income, so month close and the 607 selection can
+  read it. A named type is stored on the first save of those bytes and wins
+  over the read. Naming the other type later is `409` `document_type_conflict`.
+  A retry that names no type, or names one over an upload that named none,
+  returns the stored receipt; review changes the type. Any other value is
+  `422` `document_type_invalid`. Absent, the read sets the type: `venta` when
+  the issuer RNC (the DGII QR's `RncEmisor` when the document carries one, else
+  the RNC the read found) equals the Business's own tax id from the fiscal
+  profile after both are reduced to digits, else `recibo`. The draft records
+  that the read set it. `ReceiptSummary.document_type` reports the current
+  type (`recibo` until a read or a person sets it),
+  `document_type_detected` is true while the read's choice stands, and
+  `document_type_editable` is true while the receipt's draft is open and the
+  caller holds `prepare`. Both flags are left out of the wire when false. The
+  field meanings are in the
   [month-close contract](contracts/business-month-close.md).
 - Business email receiving (default off; `CUADRAO_BUSINESS_EMAIL_CAPTURE_ENABLED`,
   `CUADRAO_BUSINESS_EMAIL_INTAKE_ENABLED`, `CUADRAO_BUSINESS_EMAIL_DOMAIN`,
