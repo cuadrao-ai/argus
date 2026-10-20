@@ -97,7 +97,7 @@ def _prepare_batch(draft: DocumentDraft, batch: ExtractionBatch, monkeypatch):
             owner_id=str(uuid4()), actor=SimpleNamespace(space_id=uuid4())
         ),
         imports=SimpleNamespace(put_event=Mock()),
-        rows=Mock(return_value=[]),
+        rows=Mock(return_value=[{"business_rnc": None}]),
     )
     monkeypatch.setattr(sources, "record_source", lambda *args: uuid4())
     monkeypatch.setattr(sources, "attach", lambda *args: None)
@@ -135,7 +135,8 @@ def _close(resolution: dict, *, status: str = "pendiente"):
 
 
 def test_parse_accepts_the_two_capture_types():
-    assert parse_document_type(None) == "recibo"
+    assert parse_document_type(None) is None
+    assert parse_document_type("recibo") == "recibo"
     assert parse_document_type("venta") == "venta"
     with pytest.raises(ValueError, match="document_type_invalid"):
         parse_document_type("invoice")

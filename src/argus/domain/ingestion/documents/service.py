@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
 
+from argus.domain.business.document_type import DocumentType
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -305,7 +306,7 @@ class DocumentsService:
         scope: OwnerScope,
         on_capture: CaptureHook | None = None,
         context_only: bool = False,
-        document_type: str = "recibo",
+        document_type: DocumentType | None = None,
     ) -> DocumentOutcome:
         consent_id = None
         if space_id(scope) is not None:
@@ -369,7 +370,7 @@ class DocumentsService:
         scope: OwnerScope,
         on_capture: CaptureHook | None,
         consent_id: str | None = None,
-        document_type: str = "recibo",
+        document_type: DocumentType | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -390,7 +391,12 @@ class DocumentsService:
             connection = self._connection(user_id, error.existing_id, scope=scope)
             replayed = True
             stored = self.store.draft(user_id=user_id, connection_id=connection.id)
-            if stored is not None and stored.document_type != document_type:
+            if (
+                document_type is not None
+                and stored is not None
+                and stored.document_type is not None
+                and stored.document_type != document_type
+            ):
                 raise DocumentServiceError("document_type_conflict") from None
         draft = DocumentDraft(
             connection_id=connection.id,

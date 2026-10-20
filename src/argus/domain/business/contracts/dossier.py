@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from argus.domain.business.document_type import DocumentType
+
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
 from .dgii import DgiiDeclaration
@@ -166,3 +168,9 @@ class BusinessDossier(RecordContext):
     include_606: bool | None = None
     include_606_by: str | None = None
     sin_comprobante: bool = False
+    #: The document type: a receipt (recibo) or an invoice the business issued
+    #: (venta). Detected when no person named it. Editable while the draft is
+    #: open and the caller may prepare.
+    document_type: DocumentType = "recibo"
+    document_type_detected: bool = False
+    document_type_editable: bool = False
