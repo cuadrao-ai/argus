@@ -7,10 +7,12 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { businessReceivingAddress } from "@/lib/business-email";
 import { countPorRevisar, countStillReading, countUnreadable } from "@/lib/business-review-count";
 import { useBusiness } from "./BusinessWorkspace";
-import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, pillButtonClass } from "./business-ui";
 import BusinessMonthClosePanel, { INICIO_EXPORT_ID } from "./BusinessMonthClosePanel";
-import { PrimaryUpload } from "./foundation/PrimaryUpload";
 import { ToastNotice, type QueuedToast } from "./foundation/ToastNotice";
+
+/** The Inicio action row: four pills fit one row from 1024px; 44px tall like every target. */
+const actionPill = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:focus-visible:ring-white/30";
 
 function useForwardAddress(): string | null {
   const { source } = useBusiness();
@@ -67,26 +69,29 @@ export default function BusinessOverviewPanel() {
       <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
         {greeting}
       </h2>
-      <div data-testid="inicio-actions" className={`mb-6 mt-4 ${isBelowTablet ? "flex flex-col gap-2" : "flex flex-wrap items-center gap-3"}`}>
+      <div data-testid="inicio-actions" className={`mb-6 mt-4 ${isBelowTablet ? "flex flex-col gap-2" : "flex flex-wrap items-center gap-2"}`}>
         {upload ? (
-          <PrimaryUpload fullWidth={isBelowTablet} label={upload.label} onClick={upload.run} />
+          <button type="button" data-testid="business-primary-upload" data-primary="true" className={`${actionPill} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`} onClick={upload.run}>
+            <upload.icon className="h-4 w-4" aria-hidden="true" />
+            {upload.label}
+          </button>
         ) : chosen?.role === "accountant" ? (
           <button type="button" data-testid="inicio-primary-review" data-primary="true" className={primaryClass} onClick={() => openPanel({ kind: "inbox" })}>
             {t("business.actions.review_receipts", "Review receipts")}
           </button>
         ) : null}
         {recordExpense ? (
-          <button type="button" data-testid="inicio-record-expense" className={secondaryButtonClass} onClick={recordExpense.run}>
+          <button type="button" data-testid="inicio-record-expense" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={recordExpense.run}>
             <recordExpense.icon className="h-4 w-4" aria-hidden="true" />
             {recordExpense.label}
           </button>
         ) : null}
-        <button type="button" data-testid="inicio-export" className={secondaryButtonClass} onClick={showExport}>
+        <button type="button" data-testid="inicio-export" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={showExport}>
           <Download className="h-4 w-4" aria-hidden="true" />
           {t("business.overview.export_records", "Export records")}
         </button>
         {owner && forwardAddress ? (
-          <button type="button" data-testid="inicio-forward-copy" className={secondaryButtonClass} onClick={() => copyForward(forwardAddress)}>
+          <button type="button" data-testid="inicio-forward-copy" className={`${actionPill} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`} onClick={() => copyForward(forwardAddress)}>
             <Copy className="h-4 w-4" aria-hidden="true" />
             {t("business.overview.copy_forward", "Copy forwarding address")}
           </button>
