@@ -875,7 +875,7 @@ describe("Inicio month close export", () => {
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
     globalThis.fetch = async (input, init) => {
       const url = new URL(String(input), "http://localhost");
-      if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ rnc: null, can_edit: false });
+      if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ name: "Taller Luna", tax_id: null, can_edit: false });
       calls.push({ url, init });
       if (url.pathname.endsWith("/business/exports")) return respond(init);
       const month = url.searchParams.get("month") ?? currentMonthKey();

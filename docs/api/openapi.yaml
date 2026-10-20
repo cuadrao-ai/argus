@@ -18149,34 +18149,66 @@ components:
       - itbis
     FiscalProfile:
       properties:
-        rnc:
+        name:
+          type: string
+        tax_id:
           anyOf:
-          - type: string
+          - $ref: '#/components/schemas/TaxId'
           - type: 'null'
         can_edit:
           type: boolean
       additionalProperties: false
       type: object
       required:
-      - rnc
+      - name
+      - tax_id
       - can_edit
     FiscalProfileInput:
       properties:
-        rnc:
+        name:
+          type: string
+        previous_name:
+          type: string
+        tax_id:
           anyOf:
-          - type: string
-            pattern: ^(?:[0-9]{9}|[0-9]{11})$
+          - $ref: '#/components/schemas/TaxIdDraft'
           - type: 'null'
-        previous_rnc:
+        previous_tax_id:
           anyOf:
-          - type: string
-            pattern: ^(?:[0-9]{9}|[0-9]{11})$
+          - $ref: '#/components/schemas/TaxIdDraft'
           - type: 'null'
       additionalProperties: false
       type: object
       required:
-      - rnc
-      - previous_rnc
+      - name
+      - previous_name
+      - tax_id
+      - previous_tax_id
+    TaxId:
+      properties:
+        type:
+          type: string
+          enum:
+          - rnc
+          - cedula
+        value:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - type
+      - value
+    TaxIdDraft:
+      properties:
+        type:
+          type: string
+        value:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - type
+      - value
     FiscalReview:
       properties:
         fiscal:
