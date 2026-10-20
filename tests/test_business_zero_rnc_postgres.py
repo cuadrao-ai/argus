@@ -61,6 +61,7 @@ def _saved_with_rnc(actions, printed: str):  # noqa: ANN001, ANN202
                     )
                 ],
                 receipt=dict(
+                    payment_status="paid",
                     currency="DOP",
                     merchant="Ferretería Prueba",
                     total="850.00",

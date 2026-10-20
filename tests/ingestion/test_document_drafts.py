@@ -116,6 +116,7 @@ def test_receipt_items_are_retained_and_ambiguous_purchases_withheld(ambiguous):
         else (purchase, purchase.model_copy(update={"row": 3, "amount": "20"}))
     )
     receipt = ReceiptDetails(
+        payment_status="paid",
         total=purchase.amount,
         currency=purchase.currency,
         items=(ReceiptItem(id="item-1", quantity="2", unit_price="10", total="20"),),
@@ -460,6 +461,7 @@ def test_receipt_conflicting_fields_remain_reviewable_not_confirmable(field, val
     )
     detail = ReceiptDetails.model_validate(
         {
+            "payment_status": "paid",
             "currency": observation.currency,
             "occurred_on": observation.occurred_on,
             "total": observation.amount,

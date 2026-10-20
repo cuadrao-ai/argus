@@ -31,7 +31,7 @@ beforeAll(() => {
   HTMLAnchorElement.prototype.click = function () { downloads.at(-1)!.filename = this.download; };
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ rnc: null, can_edit: false });
+    if (url.pathname.endsWith("/business/fiscal-profile")) return Response.json({ name: "Taller Luna", tax_id: null, can_edit: false });
     calls.push({ url, init }); return respond(init);
   };
 });

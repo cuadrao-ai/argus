@@ -81,7 +81,7 @@ def saved_two_purchases(actions):  # noqa: ANN001
                     )
                     for row, amount in ((1, "245.00"), (2, "95.00"))
                 ],
-                receipt=dict(total="340.00", currency="DOP"),
+                receipt=dict(payment_status="paid", total="340.00", currency="DOP"),
             )
         )
         batch = batch_from_result(result, digest, cid, now, 1)

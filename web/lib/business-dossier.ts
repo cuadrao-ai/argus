@@ -90,6 +90,8 @@ export type BusinessDossier = BusinessRecordContext & {
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
   dgii_qr?: DgiiQr | null;
+  /** One NCF due notice. Unpaid is Factura por pagar. Paid, the same record is Factura pagada. */
+  bill_mark?: "Factura por pagar" | "Factura pagada" | null;
   /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
   personal?: boolean;
   personal_marked_by?: string | null;

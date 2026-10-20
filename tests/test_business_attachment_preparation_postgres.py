@@ -60,7 +60,7 @@ def prepared(actions):
                         merchant="Synthetic shop",
                     )
                 ],
-                receipt=dict(total="250.50", currency="DOP"),
+                receipt=dict(payment_status="paid", total="250.50", currency="DOP"),
             )
         )
         batch = batch_from_result(result, digest, connection_id, now, 1)

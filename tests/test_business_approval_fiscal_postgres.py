@@ -46,11 +46,17 @@ def actions(shared_actions):
     from argus.domain.business.spaces import PostgresSpaceStore
 
     service, context, grant = shared_actions
-    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, fake.company())
+    name = fake.company()
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, name)
     set_profile(
         service.authority,
         context,
-        FiscalProfileChange(rnc=FILER, previous_rnc=None),
+        FiscalProfileChange(
+            name=name,
+            previous_name=name,
+            tax_id={"type": "rnc", "value": FILER},
+            previous_tax_id=None,
+        ),
         "rnc",
     )
     yield service, context

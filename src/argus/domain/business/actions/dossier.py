@@ -240,6 +240,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        bill_mark=resolution.bill_mark,
         dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
         **draft_marks(tx, draft_id, facts),
     )

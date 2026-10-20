@@ -13,13 +13,14 @@ import { takeTitleFocus } from "./bandeja-order";
  * Every state of a receipt renders inside this frame, read or not, prepared
  * or not.
  */
-export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, source, children, history, footer }: {
+export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, source, children, history, footer }: {
   recordId: string;
   back: "inbox" | "expenses";
   title: ReactNode;
   badge?: ReactNode;
   /** The formatted total; absent while it is unknown, never a zero. */
   amount?: string | null;
+  mark?: string | null;
   source: ReactNode;
   children: ReactNode;
   /** Under the fields on a desktop; last of all on a phone. */
@@ -44,6 +45,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
           {badge}
         </div>
         {amount ? <p data-testid="receipt-total" className="mt-2 text-[28px] font-medium leading-[34px] tabular-nums text-[#172b26] dark:text-white">{amount}</p> : null}
+        {mark ? <p data-testid="bill-mark" className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{mark}</p> : null}
       </header>
       <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:grid-rows-[auto_1fr] desktop:gap-6">
         <div className="min-w-0 space-y-4 desktop:col-start-2 desktop:row-start-1 desktop:space-y-6" data-testid="receipt-review-fields">{children}</div>

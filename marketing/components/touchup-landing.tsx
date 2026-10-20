@@ -25,7 +25,7 @@ export function TouchupLanding({ locale }: { locale: BusinessLocale }) {
           <RotatingUseCase phrases={c.useCases} />
           <p className={styles.lead}>{c.description}</p>
           <div className={styles.actions}>
-            <a className={styles.cta} href={businessPath(locale, "contact")}>
+            <a className={styles.cta} href={businessPath("es", "contact")}>
               {original.cta}
               <ArrowUpRight size={18} aria-hidden="true" />
             </a>

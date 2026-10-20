@@ -27,6 +27,7 @@ users = bridge.users
 pytestmark = bridge.pytestmark
 
 RECEIPT = dict(
+    payment_status="paid",
     suggested_category="lodging",
     merchant="Hotel Brisa del Este SRL",
     occurred_on="2026-10-09",
