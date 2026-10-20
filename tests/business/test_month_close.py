@@ -305,6 +305,122 @@ def test_a_personal_sale_is_not_607_income():
     }
 
 
+def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
+    start, end = month_period("2026-10")
+    bought = document(
+        activity_id="cash-purchase",
+        role="receipt",
+        total_minor=50000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        sin_comprobante=True,
+        status="pendiente",
+        settled_on=None,
+        payment_method=None,
+    )
+    sold = document(
+        activity_id="cash-sale",
+        total_minor=30000,
+        itbis_minor=4576,
+        rnc=None,
+        ncf=None,
+        sin_comprobante=True,
+    )
+    personal = document(
+        activity_id="personal-cash",
+        role="receipt",
+        total_minor=7000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        personal=True,
+        sin_comprobante=True,
+    )
+    fiscal = october()[2]
+    documents = [bought, sold, personal, fiscal]
+    totals = formato_totals(documents, start, end)["DOP"]
+    summary = summarize(documents, start, end)
+    [dop] = summary["currencies"]
+
+    assert (totals.income_before_itbis, totals.expense_before_itbis) == (25424, 52000)
+    assert (totals.itbis_charged, totals.itbis_paid) == (0, 360)
+    assert (dop["income_before_itbis_minor"], dop["expense_before_itbis_minor"]) == (
+        25424,
+        52000,
+    )
+    assert dop["net_result_minor"] == -26576
+    assert dop["by_status"]["receipts"]["pendiente"] == {
+        "count": 1,
+        "before_itbis_minor": 50000,
+    }
+    assert summary["closed"] is True
+    assert summary["reasons"] == []
+    assert summary["missing_rnc"] == summary["missing_ncf"] == []
+    [line] = summary["cuentas_por_pagar"]
+    assert (line["activity_id"], line["sin_comprobante"]) == ("cash-purchase", True)
+
+
+def test_a_purchase_with_a_comprobante_and_no_number_still_blocks_the_close():
+    start, end = month_period("2026-10")
+    missing = document(
+        activity_id="missing-number",
+        role="receipt",
+        total_minor=1000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        status="pagado",
+    )
+    stated = document(
+        activity_id="stated",
+        role="receipt",
+        total_minor=2000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        sin_comprobante=True,
+        status="pagado",
+    )
+    summary = summarize([missing, stated], start, end)
+    [dop] = summary["currencies"]
+
+    assert summary["closed"] is False
+    assert summary["reasons"] == [
+        {"code": "missing_rnc", "activity_id": "missing-number", "document_kind": "receipt"},
+        {"code": "missing_ncf", "activity_id": "missing-number", "document_kind": "receipt"},
+    ]
+    assert [line["activity_id"] for line in summary["missing_ncf"]] == ["missing-number"]
+    assert dop["expense_before_itbis_minor"] == 2000
+
+
+def _stated(receipt_state, **fiscal):
+    source = uuid4()
+
+    def known(value):
+        return Known(value=value, origin="member_set", source_ids=(source,))
+
+    facts = BusinessFacts(
+        kind=known("expense"),
+        receipt_state=known(receipt_state) if receipt_state else BusinessFacts().receipt_state,
+        fiscal=FiscalFacts(**{name: known(value) for name, value in fiscal.items()})
+        if fiscal
+        else None,
+    )
+    resolution = {"business": BusinessResolution(facts=facts).model_dump(mode="json")}
+    return read_fiscal(resolution, "DOP").sin_comprobante
+
+
+def test_sin_comprobante_is_the_stated_receipt_state_without_a_fiscal_number():
+    assert _stated("no_receipt") is True
+    assert _stated("informal_receipt") is True
+    assert _stated("fiscal_receipt") is False
+    assert _stated(None) is False
+    assert _stated("no_receipt", ncf="B0100000001") is False
+    assert _stated("no_receipt", ecf="E310000000001") is False
+    assert _stated("no_receipt", rnc="131000001") is True
+
+
 def test_pending_rolls_into_open_balances_and_missing_fiscal_data_keeps_the_month_open():
     start, end = month_period("2026-10")
     open_month = summarize(october(), start, end)
@@ -461,6 +577,7 @@ def test_an_open_line_keeps_its_currency_parts_and_unknown_itbis_stays_null():
         "ncf": None,
         "ecf": "E310000000001",
         "status": "pendiente",
+        "sin_comprobante": False,
     }
 
 

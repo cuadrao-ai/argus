@@ -22,6 +22,7 @@ from argus.domain.business.contracts.facts import (
     Known,
     fiscal_inclusion,
     is_personal,
+    is_sin_comprobante,
 )
 from argus.domain.business.dgii_validation import credit_note, reportable_607
 from argus.domain.business.fiscal_identity import normalized_ncf
@@ -60,6 +61,7 @@ class MonthDocument:
     payment_method: str | None
     declared_base_minor: int | None = None
     counterparty: str | None = None
+    sin_comprobante: bool = False
 
 
 @dataclass(frozen=True)
@@ -176,6 +178,9 @@ class FormatoCurrency:
 def formato_totals(
     documents: Sequence[MonthDocument], start: date, end: date
 ) -> dict[str, FormatoCurrency]:
+    """Income and expense from the 607 and 606 lines plus the business
+    documents marked sin comprobante. ITBIS comes only from the 606 and 607."""
+
     totals: dict[str, list[int]] = {}
     for document in documents:
         if not in_month(document, start, end):
@@ -188,6 +193,11 @@ def formato_totals(
         elif in_606(document):
             bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
             bucket[3] += document.itbis_minor or 0
+        elif document.sin_comprobante and in_close(document):
+            if document.role == "invoice":
+                bucket[0] += sales_base(document)
+            else:
+                bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
     return {
         currency: FormatoCurrency(*parts)
         for currency, parts in sorted(totals.items())
@@ -263,6 +273,7 @@ def _line(document: MonthDocument) -> dict:
         "ncf": document.ncf,
         "ecf": document.ecf,
         "status": document.status,
+        "sin_comprobante": document.sin_comprobante,
     }
 
 
@@ -281,6 +292,8 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     missing_rnc = []
     missing_ncf = []
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
+        if document.sin_comprobante:
+            continue
         if not document.rnc:
             reasons.append(
                 {
@@ -458,6 +471,7 @@ class FiscalParts:
     include_606: bool | None
     declared_base_minor: int | None = None
     counterparty: str | None = None
+    sin_comprobante: bool = False
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -468,7 +482,7 @@ def _known(fact: object) -> object | None:
 
 
 def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
-    """RNC, fiscal number, ITBIS, personal mark, and counterparty from one draft.
+    """RNC, fiscal number, ITBIS, marks, and counterparty from one draft.
 
     An unreadable draft contributes no fiscal parts. The activity total is not
     read from the draft.
@@ -503,6 +517,7 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         fiscal_inclusion(facts),
         declared,
         _text(_known(facts.counterparty)),
+        is_sin_comprobante(facts),
     )
 
 
@@ -569,6 +584,7 @@ def project_documents(
                 include_606=parts.include_606,
                 declared_base_minor=parts.declared_base_minor,
                 counterparty=parts.counterparty,
+                sin_comprobante=parts.sin_comprobante,
                 status=status,
                 settled_on=settled_on,
                 payment_method=method,

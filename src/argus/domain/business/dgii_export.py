@@ -15,7 +15,7 @@ from argus.domain.business.contracts.dgii import (
     amount_or_zero,
     money_text,
 )
-from argus.domain.business.contracts.facts import Known
+from argus.domain.business.contracts.facts import is_sin_comprobante
 from argus.domain.business.dgii_columns import COLUMNS, OPTIONAL_AMOUNTS
 from argus.domain.business.dgii_line import (
     confirmed_declaration,
@@ -250,11 +250,7 @@ def build_fiscal_packet(
             continue
         ncf = fact_value(record, "ecf") or fact_value(record, "ncf")
         if not ncf:
-            receipt = record.facts.receipt_state
-            if isinstance(receipt, Known) and receipt.value in {
-                "informal_receipt",
-                "no_receipt",
-            }:
+            if is_sin_comprobante(record.facts):
                 item.update(disposition="excluded", reason="no_fiscal_number")
             else:
                 item["reason"] = "fiscal_fact_required"

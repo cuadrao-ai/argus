@@ -237,6 +237,8 @@ class ReceiptSummary(_Wire):
     include_606_by: str | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    # Marked in review as having no comprobante fiscal; absent otherwise.
+    sin_comprobante: bool = Field(default=False, exclude_if=lambda value: value is False)
     # Whether the caller may mark or unmark it: anyone holding prepare.
     personal_editable: bool = Field(
         default=False, exclude_if=lambda value: value is False
@@ -315,6 +317,7 @@ class BusinessExpense(_Wire):
     include_606_by: str | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    sin_comprobante: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
 class ExpenseDetail(BusinessExpense):
