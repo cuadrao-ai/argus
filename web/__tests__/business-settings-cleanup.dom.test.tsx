@@ -55,7 +55,9 @@ for (const business of [true, false]) {
     const anchor = document.createElement("button");
     document.body.appendChild(anchor);
     const { act } = await mount(<ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />, business);
-    assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, business ? 0 : 2);
+    const published = 'a[href="https://cuadrao.ai/terminos"],a[href="https://cuadrao.ai/privacidad"]';
+    assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
+    assert.equal(document.querySelectorAll(published).length, business ? 0 : 2);
     await act(async () => button("Preferencias")!.click());
     assert.equal(Boolean(button("País y moneda")), !business);
     await act(async () => button("Controles de datos")!.click());
@@ -64,8 +66,13 @@ for (const business of [true, false]) {
     assert.equal(button("Eliminar todas las conversaciones"), undefined);
     assert.ok(button("Seguridad"));
     await act(async () => button("Ayuda y legal")!.click());
-    assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, business ? 0 : 4);
-    assert.equal(document.querySelector("[data-testid=help-legal-empty]"), null);
+    assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
+    const links = [...document.querySelectorAll<HTMLAnchorElement>(published)];
+    assert.equal(links.length, business ? 2 : 4);
+    for (const link of links) {
+      assert.equal(link.getAttribute("target"), "_blank");
+      assert.equal(link.getAttribute("rel"), "noreferrer");
+    }
   });
 }
 
@@ -89,7 +96,6 @@ test("Ayuda y legal links the published Cuadrao pages, and a setting overrides t
     assert.equal(privacyLink?.textContent?.trim(), "Privacidad");
     assert.equal(termsLink?.getAttribute("target"), "_blank");
     assert.equal(privacyLink?.getAttribute("rel"), "noreferrer");
-    assert.equal(document.querySelector("[data-testid=help-legal-empty]"), null);
     assert.equal(document.querySelector('a[href^="mailto:"]'), null);
   };
   await open();

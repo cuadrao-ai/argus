@@ -3,15 +3,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  COOKIE_DISCLOSURE_RULES,
   disclosedCookieConcept,
   undisclosedCookies,
 } from "../lib/browser-cookies";
-import en from "../public/locales/en/common.json";
-import es419 from "../public/locales/es-419/common.json";
 
 const REPO_ROOT = join(import.meta.dir, "..", "..");
-const CATALOGS = { en, "es-419": es419 } as const;
 
 /** The name @supabase/ssr derives, built the way the library builds it. */
 function supabaseCookieName(projectUrl: string): string {
@@ -65,21 +61,6 @@ describe("web cookie disclosure rules", () => {
     // web rule covers would pass the server adapter and fail observation.
     for (const name of Object.keys(backendCookieRegistry())) {
       expect(disclosedCookieConcept(name), name).not.toBeNull();
-    }
-  });
-
-  test("every rule concept is a section item that exists in both locales", () => {
-    for (const [locale, catalog] of Object.entries(CATALOGS)) {
-      const items = catalog.legal.privacy.sections.cookies.items as Record<
-        string,
-        unknown
-      >;
-      for (const rule of COOKIE_DISCLOSURE_RULES) {
-        expect(
-          items,
-          `${locale}: rule for ${rule.writer} maps to item "${rule.concept}", which the copy does not have`,
-        ).toHaveProperty(rule.concept);
-      }
     }
   });
 
