@@ -1,4 +1,4 @@
-import { currencyDigits } from "@/lib/money-entry";
+import { minorToDecimal } from "@/lib/money-entry";
 import type { NoComprobanteReason } from "./transacciones-model";
 
 /**
@@ -75,14 +75,6 @@ function shift(day: string, daysAgo: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Minor units as the wire's decimal text, in the currency's own exponent. */
-export function formatMinor(minor: number, currency: string): string {
-  const digits = currencyDigits(currency);
-  const sign = minor < 0 ? "-" : "";
-  const whole = String(Math.abs(minor)).padStart(digits + 1, "0");
-  return digits ? `${sign}${whole.slice(0, -digits)}.${whole.slice(-digits)}` : `${sign}${whole}`;
-}
-
 type Row = { kind: "movement" | "document"; id: string; occurredOn: string; amountMinor: number; currency: string; state: string; confidence: number; item: Record<string, unknown> };
 
 /** A fresh sample bank per preview or test. Dates count back from the period's last day, so any month the preview opens has its rows. */
@@ -107,9 +99,9 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
     occurred_on: shift(anchor, document.daysAgo),
     currency: document.currency,
     total_minor: document.totalMinor,
-    total: formatMinor(document.totalMinor, document.currency),
+    total: minorToDecimal(document.totalMinor, document.currency),
     itbis_minor: document.itbisMinor,
-    itbis: document.itbisMinor === null ? null : formatMinor(document.itbisMinor, document.currency),
+    itbis: document.itbisMinor === null ? null : minorToDecimal(document.itbisMinor, document.currency),
     rnc: document.rnc,
     ncf: document.ncf,
     ecf: null,
@@ -147,7 +139,7 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
         sense,
         currency: line.currency,
         amount_minor: line.amountMinor,
-        amount: formatMinor(line.amountMinor, line.currency),
+        amount: minorToDecimal(line.amountMinor, line.currency),
         state,
         reason: mark ? mark.reason : state === "no_lleva_comprobante" ? "monto_cero" : null,
         category_id: matched ? matched.categoryId : line.categoryId,
@@ -170,7 +162,7 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
       currency: document.currency,
       state: "sin_movimiento",
       confidence: 0,
-      item: { kind: "document", id: document.id, occurred_on: occurredOn, description: null, counterparty: document.counterparty, sense: signed < 0 ? "charge" : "deposit", currency: document.currency, amount_minor: signed, amount: formatMinor(signed, document.currency), state: "sin_movimiento", reason: null, category_id: document.categoryId, account: ACCOUNTS.corriente, method: "transferencia", document: documentWire(document, anchor), suggestions: [] },
+      item: { kind: "document", id: document.id, occurred_on: occurredOn, description: null, counterparty: document.counterparty, sense: signed < 0 ? "charge" : "deposit", currency: document.currency, amount_minor: signed, amount: minorToDecimal(signed, document.currency), state: "sin_movimiento", reason: null, category_id: document.categoryId, account: ACCOUNTS.corriente, method: "transferencia", document: documentWire(document, anchor), suggestions: [] },
     };
   }
 
@@ -198,7 +190,7 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
         block.counts.por_igualar += 1;
       }
     }
-    return [...blocks].map(([currency, block]) => ({ currency, entradas_minor: block.entradas, entradas: formatMinor(block.entradas, currency), salidas_minor: block.salidas, salidas: formatMinor(block.salidas, currency), por_igualar_minor: block.porIgualar, por_igualar: formatMinor(block.porIgualar, currency), counts: block.counts }));
+    return [...blocks].map(([currency, block]) => ({ currency, entradas_minor: block.entradas, entradas: minorToDecimal(block.entradas, currency), salidas_minor: block.salidas, salidas: minorToDecimal(block.salidas, currency), por_igualar_minor: block.porIgualar, por_igualar: minorToDecimal(block.porIgualar, currency), counts: block.counts }));
   }
 
   const newestFirst = (left: Row, right: Row) => right.occurredOn.localeCompare(left.occurredOn) || left.id.localeCompare(right.id);

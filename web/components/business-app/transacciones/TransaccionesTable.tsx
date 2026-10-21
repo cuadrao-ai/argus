@@ -45,7 +45,7 @@ export function TransaccionesTable({ controller, view, density, onSegmentStep, o
   const commandsOf = useRowCommands(controller);
   const sections = segmentSections(view);
   const rows = sections.flatMap((section) => section.rows);
-  const header = headerCurrency(view.movements);
+  const header = headerCurrency(view.movements, view.accountCurrency);
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const table = useRef<HTMLTableElement>(null);

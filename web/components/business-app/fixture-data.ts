@@ -595,7 +595,7 @@ export function createFixtureBusinessDataSource(
       if (current.version !== version) {
         throw Object.assign(new Error("stale_version"), { status: 409, code: "stale_version" });
       }
-      if (current.missing_fields.length > 0) {
+      if (current.missing_fields.length > 0 || current.currency === null) {
         throw Object.assign(new Error("missing_fields"), { status: 422, code: "missing_fields" });
       }
       const account = accounts.find((item) => item.id === current.account_id);
@@ -608,7 +608,7 @@ export function createFixtureBusinessDataSource(
           id: expenseId,
           merchant: current.merchant,
           amount: current.amount ?? "0",
-          currency: current.currency ?? "DOP",
+          currency: current.currency,
           category_id: current.category_id,
           account_id: current.account_id ?? "acct-ops",
           occurred_on: current.occurred_on ?? dayOnly(new Date().toISOString()),

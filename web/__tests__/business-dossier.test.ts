@@ -132,7 +132,19 @@ test("fiscal values preserve unknown, exact tax and verified server states", asy
   assert.equal(presentFiscalFact("itbis", dossier.facts, "en", labels), "RD$ 526.27");
   assert.equal(dossier.facts.fiscal?.itbis.verified, true);
   assert.equal(presentFiscalFact("rnc", dossier.history[0].before!, "en", labels), "Unknown");
-  assert.equal(presentFiscalFact("itbis", { ...dossier.facts, currency: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } }, "en", labels), "526.27");
+  assert.equal(presentFiscalFact("itbis", { ...dossier.facts, currency: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } }, "en", labels), "-");
+});
+
+test("an amount whose currency is unknown reads as a dash, never a bare number or pesos", async () => {
+  const fixture = createDossierFixtures([{ id: "scoped-account", nickname: "Client cash", type: "cash", currency: "DOP" }]);
+  const dossier = await fixture.dossier(dossierFixtureIds.fiscal);
+  const labels = { unknown: "Unknown", ownerUnknown: "Owner doesn't know", ownerFunds: "Owner's money", businessAccount: "Business account" };
+  const noCurrency = { ...dossier.facts, currency: { state: "unknown", value: null, origin: null, verified: false, source_ids: [] } } as typeof dossier.facts;
+  assert.equal(dossier.facts.amount.state, "known");
+  assert.notEqual(presentBusinessFact("amount", dossier.facts, [], "en", labels), "-");
+  assert.equal(presentBusinessFact("amount", noCurrency, [], "en", labels), "-");
+  const partial = { ...noCurrency, business_share: { state: "known", value: { kind: "partial", amount: "100.00" }, origin: "owner_stated", verified: false, source_ids: [] } } as typeof dossier.facts;
+  assert.equal(presentBusinessFact("business_share", partial, [], "en", labels), "-");
 });
 
 test("owner-funded expense projection preserves its null account and funding kind", async () => {

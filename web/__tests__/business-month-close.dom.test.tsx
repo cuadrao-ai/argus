@@ -261,7 +261,7 @@ describe("month close optimistic marks", () => {
 });
 
 describe("month close layouts", () => {
-  async function renderView(client: MonthCloseClient) {
+  async function renderView(client: MonthCloseClient, businessCurrency: string | null = null) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -276,7 +276,7 @@ describe("month close layouts", () => {
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
-          <BusinessMonthCloseView client={client} now={now} />
+          <BusinessMonthCloseView client={client} now={now} businessCurrency={businessCurrency} />
         </I18nextProvider>,
       );
     });
@@ -842,8 +842,8 @@ describe("foreign currency lines", () => {
     counterparty: `Cliente ${activityId}`,
   });
 
-  test("the total names RD$, a USD row keeps US$, each currency has its own total, and the DOP cards leave both out", async () => {
-    const client = createHttpMonthCloseClient(async (path) => path === "/business/open-items" ? ({
+  const mixedCurrencyClient = () =>
+    createHttpMonthCloseClient(async (path) => path === "/business/open-items" ? ({
       cuentas_por_cobrar: {
         count: 2,
         totals: [{ currency: "USD", total_minor: 5000, total: "50.00" }, { currency: "DOP", total_minor: 118000, total: "1180.00" }],
@@ -872,7 +872,9 @@ describe("foreign currency lines", () => {
       cuentas_por_cobrar: [line("act-usd", "invoice", "USD", "2026-10-06", 5000, null)],
       cuentas_por_pagar: [line("act-eur", "receipt", "EUR", "2026-10-07", 2000, null)],
     }));
-    const { act, host, root } = await renderView(client);
+
+  test("the total names RD$, a USD row keeps US$, each currency has its own total, and the DOP cards leave both out", async () => {
+    const { act, host, root } = await renderView(mixedCurrencyClient(), "DOP");
     const receivable = host.querySelector('[data-testid="month-close-receivable"]');
     const payable = host.querySelector('[data-testid="month-close-payable"]');
     const amountOf = (id: string) => host.querySelector(`[data-document-id="${id}"] .cuadrao-amount`)?.textContent;
@@ -888,6 +890,18 @@ describe("foreign currency lines", () => {
     assert.equal(amountOf("act-eur"), "20.00");
     assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 1,000\.00/);
     assert.equal(host.querySelector('[data-testid="month-close-income"]')?.textContent?.includes("US$"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("with no known Business currency no header is guessed: every row keeps its own symbol and totals keep the server's order", async () => {
+    const { act, host, root } = await renderView(mixedCurrencyClient());
+    const receivable = host.querySelector('[data-testid="month-close-receivable"]');
+    const amountOf = (id: string) => host.querySelector(`[data-document-id="${id}"] .cuadrao-amount`)?.textContent;
+    assert.equal(amountOf("act-dop"), "RD$ 1,180.00");
+    assert.equal(amountOf("act-usd"), "US$ 50.00");
+    const totals = [...(receivable?.querySelectorAll('[data-testid="month-close-receivable-total"]') ?? [])].map((node) => node.getAttribute("data-currency"));
+    assert.deepEqual(totals, ["USD", "DOP"]);
     await act(async () => root.unmount());
     host.remove();
   });

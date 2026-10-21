@@ -2,6 +2,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
+import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { currencySymbol } from "@/lib/money-entry";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
@@ -34,10 +35,10 @@ function Proof({ row }: { row: RecordRow }) {
  */
 export function RecordsTable({ records, density, rowRef }: { records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
-  const { panel, openPanel } = useBusiness();
+  const { panel, openPanel, records: workspace } = useBusiness();
   const [order, setOrder] = useState<"desc" | "asc">("desc");
   const rows = order === "desc" ? records : [...records].reverse();
-  const header = headerCurrency(records);
+  const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const tabStop = focusedId && rows.some((row) => row.id === focusedId) ? focusedId : rows[0]?.id;
@@ -118,8 +119,8 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
 /** The saved records on a phone: two-line rows of at least 64px; a row with a record opens it as a full page. */
 export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
-  const { panel, openPanel } = useBusiness();
-  const header = headerCurrency(records);
+  const { panel, openPanel, records: workspace } = useBusiness();
+  const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const today = todayIso();
   return (
     <ul data-testid="transacciones-records" className="overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">

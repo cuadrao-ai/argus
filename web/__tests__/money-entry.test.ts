@@ -10,6 +10,7 @@ import {
   group,
   localeUsesCommaDecimal,
   logicalIndex,
+  minorToDecimal,
   moneyPlaceholder,
   moneyProblemFromServer,
   nextRenderedHistory,
@@ -49,6 +50,17 @@ describe("currency facts", () => {
     expect(currencyDigits("USD")).toBe(2);
     expect(currencyDigits("JPY")).toBe(0);
     expect(currencyDigits("")).toBe(2);
+  });
+
+  test("minor units read as decimal text in the currency's own digits, exact for any size and sign", () => {
+    expect(minorToDecimal(345000, "DOP")).toBe("3450.00");
+    expect(minorToDecimal(5, "USD")).toBe("0.05");
+    expect(minorToDecimal(-518, "DOP")).toBe("-5.18");
+    expect(minorToDecimal(1500, "JPY")).toBe("1500");
+    expect(minorToDecimal(-7, "JPY")).toBe("-7");
+    expect(minorToDecimal(0, "DOP")).toBe("0.00");
+    expect(minorToDecimal(BigInt("123456789012345678901"), "USD")).toBe("1234567890123456789.01");
+    expect(minorToDecimal(BigInt(-1050), "KWD")).toBe("-1.050");
   });
 
   test("the prefix names DOP and USD unambiguously", () => {

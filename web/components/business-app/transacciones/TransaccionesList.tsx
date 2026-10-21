@@ -21,7 +21,7 @@ export function TransaccionesList({ controller, view, rowRef }: {
 }) {
   const { t, locale, stateWord, detail } = useTransaccionesWords();
   const commandsOf = useRowCommands(controller);
-  const header = headerCurrency(view.movements);
+  const header = headerCurrency(view.movements, view.accountCurrency);
   const today = todayIso();
   return (
     <div data-testid="transacciones-list" className="overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">

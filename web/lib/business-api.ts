@@ -286,6 +286,12 @@ export type BusinessWorkspaceInfo = {
   receipt_limits: ReceiptLimits;
 };
 
+/** The Business's own currency when the payload carries it (it arrives with the Business's country); otherwise unknown, never pesos. */
+export function businessWorkspaceCurrency(workspace: BusinessWorkspaceInfo | null | undefined): string | null {
+  const { currency } = (workspace ?? {}) as { currency?: unknown };
+  return typeof currency === "string" && currency !== "" ? currency : null;
+}
+
 /**
  * The one reader of `chat_available`. Closed until the backend says so, so a
  * workspace still loading, or an older payload without the field, offers no chat.

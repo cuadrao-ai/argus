@@ -209,9 +209,9 @@ export function suggestionRun(view: IgualarView): Movement[] {
   return view.segment === "por_igualar" ? view.movements.filter((movement) => movement.match.state === "sugerencia") : [];
 }
 
-/** The currency the Monto header names: DOP when any row is in pesos. One owner: `openItemsHeaderCurrency`. */
-export function headerCurrency(rows: readonly Readonly<{ money: Money }>[]): string | null {
-  return openItemsHeaderCurrency({ count: 0, items: [], totals: rows.map((row) => ({ currency: row.money.currency, total: row.money.amount })) });
+/** The currency the Monto header names: the Business currency when a row holds it, else the only currency, else none. One owner: `openItemsHeaderCurrency`. */
+export function headerCurrency(rows: readonly Readonly<{ money: Money }>[], businessCurrency: string | null = null): string | null {
+  return openItemsHeaderCurrency({ count: 0, items: [], totals: rows.map((row) => ({ currency: row.money.currency, total: row.money.amount })) }, businessCurrency);
 }
 
 /** Totals in one currency each, the header's first. Never added across currencies. */

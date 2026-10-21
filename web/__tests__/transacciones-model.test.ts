@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, test } from "bun:test";
 import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisionProblem, parseHistory, parseMovementItem, parseMovementsPage } from "@/components/business-app/transacciones/transacciones-adapter";
 import { createSampleBankServer } from "@/components/business-app/transacciones/transacciones-sample";
-import { inverse, perCurrency, periodCount, segmentSections, suggestionRun, type Decision, type IgualarView } from "@/components/business-app/transacciones/transacciones-model";
+import { headerCurrency, inverse, perCurrency, periodCount, segmentSections, suggestionRun, type Decision, type IgualarView } from "@/components/business-app/transacciones/transacciones-model";
 import { DEFAULT_DENSITY, resetTableDensity, setTableDensity, type DensityProfile } from "@/components/business-app/transacciones/table-density";
 import { formatMoney } from "@/components/business-app/business-format";
 
@@ -62,6 +62,18 @@ const page = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const refusal = (status: number, code: string) => Object.assign(new Error(code), { status, code });
+
+describe("Monto header currency", () => {
+  const row = (currency: string) => ({ money: { amount: "1.00", currency } });
+  test("it names the Business currency when a row holds it, else the only currency, and never guesses pesos", () => {
+    assert.equal(headerCurrency([row("USD"), row("DOP")], "DOP"), "DOP");
+    assert.equal(headerCurrency([row("USD"), row("DOP")], "USD"), "USD");
+    assert.equal(headerCurrency([row("USD"), row("DOP")]), null);
+    assert.equal(headerCurrency([row("USD"), row("EUR")], "DOP"), null);
+    assert.equal(headerCurrency([row("USD"), row("USD")]), "USD");
+    assert.equal(headerCurrency([]), null);
+  });
+});
 
 describe("bank adapter: the movements read", () => {
   test("the contract's own answer maps to the view: state, suggestion, reasons, account, totals and coverage", () => {

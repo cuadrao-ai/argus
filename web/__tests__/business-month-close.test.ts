@@ -535,15 +535,20 @@ describe("open items", () => {
     expect((await client.openItems("other-grant")).cuentas_por_cobrar.count).toBe(3);
   });
 
-  test("totals are one per currency and never added together; the header names DOP when the list holds any", () => {
+  test("totals are one per currency and never added together; the header is the Business currency, never a guessed one", () => {
     const pending = (id: string, currency: string, amount: string): MonthCloseDocument => ({ ...document({ id, kind: "invoice", amount, itbis: null, status: "pendiente" }), currency });
     const list = openItemsFrom([pending("usd", "USD", "50.00"), pending("dop-1", "DOP", "100.00"), pending("dop-2", "DOP", "18.50"), pending("eur", "EUR", "20.00")]).cuentas_por_cobrar;
     expect(list.totals).toEqual([{ currency: "DOP", total: "118.50" }, { currency: "EUR", total: "20.00" }, { currency: "USD", total: "50.00" }]);
-    expect(openItemsHeaderCurrency(list)).toBe("DOP");
+    expect(openItemsHeaderCurrency(list, "DOP")).toBe("DOP");
+    expect(openItemsHeaderCurrency(list, "USD")).toBe("USD");
+    expect(openItemsHeaderCurrency(list)).toBe(null);
+    expect(openItemsHeaderCurrency(list, "JPY")).toBe(null);
     const serverOrder = { ...list, totals: [{ currency: "USD", total: "50.00" }, { currency: "EUR", total: "20.00" }, { currency: "DOP", total: "118.50" }] };
-    expect(openItemsTotalsInOrder(serverOrder).map((total) => total.currency)).toEqual(["DOP", "USD", "EUR"]);
+    expect(openItemsTotalsInOrder(serverOrder, "DOP").map((total) => total.currency)).toEqual(["DOP", "USD", "EUR"]);
+    expect(openItemsTotalsInOrder(serverOrder).map((total) => total.currency)).toEqual(["USD", "EUR", "DOP"]);
     const usdOnly = openItemsFrom([pending("usd", "USD", "50.00")]).cuentas_por_cobrar;
     expect(openItemsHeaderCurrency(usdOnly)).toBe("USD");
+    expect(openItemsHeaderCurrency(usdOnly, "DOP")).toBe("USD");
     expect(openItemsHeaderCurrency(openItemsFrom([]).cuentas_por_cobrar)).toBe(null);
   });
 

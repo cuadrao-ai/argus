@@ -73,6 +73,15 @@ export function currencyDigits(currency: string): number {
   }
 }
 
+/** Integer minor units as exact decimal text in `currency`'s own digits: 1500 yen is "1500", 1050 fils is "1.050". A non-integer throws. */
+export function minorToDecimal(minor: bigint | number, currency: string): string {
+  const value = BigInt(minor);
+  const digits = currencyDigits(currency);
+  const negative = value < BigInt(0);
+  const text = (negative ? -value : value).toString().padStart(digits + 1, "0");
+  return `${negative ? "-" : ""}${digits > 0 ? `${text.slice(0, -digits)}.${text.slice(-digits)}` : text}`;
+}
+
 export function currencySymbol(currency: string): string {
   if (!currency) return "";
   if (SYMBOLS[currency]) return SYMBOLS[currency];

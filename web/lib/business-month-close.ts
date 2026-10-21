@@ -1,5 +1,5 @@
 import { apiFetch } from "./argus-api-transport";
-import { currencyDigits } from "./money-entry";
+import { currencyDigits, minorToDecimal } from "./money-entry";
 
 /**
  * Cuadrar el mes. `monthCloseClient` is the live client `/biz` uses.
@@ -213,14 +213,6 @@ function toMinor(amount: string, currency: string): bigint {
   return trimmed.startsWith("-") ? -minor : minor;
 }
 
-/** Integer minor units as decimal text in `currency`'s own digits: 1500 yen is "1500", 1050 fils is "1.050". */
-function fromMinor(minor: bigint, currency: string): string {
-  const digits = currencyDigits(currency);
-  const negative = minor < ZERO;
-  const text = (negative ? -minor : minor).toString().padStart(digits + 1, "0");
-  return `${negative ? "-" : ""}${digits > 0 ? `${text.slice(0, -digits)}.${text.slice(-digits)}` : text}`;
-}
-
 export type ItbisBalanceDisplay =
   | { kind: "payable"; amount: string }
   | { kind: "credit"; amount: string };
@@ -273,10 +265,10 @@ export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]):
   }
   return [...books].sort(([left], [right]) => left.localeCompare(right)).map(([currency, book]) => ({
     currency,
-    income_before_itbis: fromMinor(book.invoiceBase, currency),
-    expense_before_itbis: fromMinor(book.receiptBase, currency),
-    net_before_itbis: fromMinor(book.invoiceBase - book.receiptBase, currency),
-    itbis_owed: fromMinor(book.invoiceItbis - book.receiptItbis, currency),
+    income_before_itbis: minorToDecimal(book.invoiceBase, currency),
+    expense_before_itbis: minorToDecimal(book.receiptBase, currency),
+    net_before_itbis: minorToDecimal(book.invoiceBase - book.receiptBase, currency),
+    itbis_owed: minorToDecimal(book.invoiceItbis - book.receiptItbis, currency),
   }));
 }
 
@@ -300,13 +292,14 @@ export function monthCloseNetDisplay(
 
 /**
  * The currency a Por cobrar or Por pagar header names: the Business currency
- * when the list holds it, else DOP when the list holds any, otherwise its
- * first. A row or total in it shows the number alone.
+ * when the list holds it, else the list's only currency. Mixed currencies with
+ * no known Business currency name none, and every amount keeps its own symbol.
+ * A row or total in the header currency shows the number alone.
  */
 export function openItemsHeaderCurrency(list: OpenItemsList, businessCurrency: string | null = null): string | null {
-  const currencies = [...list.totals.map((total) => total.currency), ...list.items.map((item) => item.currency)].filter((currency): currency is string => currency !== null);
-  if (businessCurrency && currencies.includes(businessCurrency)) return businessCurrency;
-  return currencies.includes("DOP") ? "DOP" : currencies[0] ?? null;
+  const currencies = new Set([...list.totals.map((total) => total.currency), ...list.items.map((item) => item.currency)].filter((currency): currency is string => currency !== null));
+  if (businessCurrency && currencies.has(businessCurrency)) return businessCurrency;
+  return currencies.size === 1 ? [...currencies][0] : null;
 }
 
 /** One total per currency, the header's first. */
@@ -359,7 +352,7 @@ export function openItemsOverdue(list: OpenItemsList, today: string, businessCur
     sums.set(item.currency, (sums.get(item.currency) ?? ZERO) + toMinor(item.amount, item.currency));
   }
   const header = openItemsHeaderCurrency(list, businessCurrency);
-  const totals = [...sums].map(([currency, minor]) => ({ currency, total: fromMinor(minor, currency) }));
+  const totals = [...sums].map(([currency, minor]) => ({ currency, total: minorToDecimal(minor, currency) }));
   return { count, totals: totals.sort((left, right) => Number(right.currency === header) - Number(left.currency === header)) };
 }
 
@@ -617,7 +610,7 @@ export function openItemsFrom(documents: readonly MonthCloseDocument[]): OpenIte
     }
     return {
       count: pending.length,
-      totals: [...sums].map(([currency, minor]) => ({ currency, total: fromMinor(minor, currency) })),
+      totals: [...sums].map(([currency, minor]) => ({ currency, total: minorToDecimal(minor, currency) })),
       items: pending.slice(0, OPEN_ITEMS_CAP),
     };
   };
@@ -747,7 +740,7 @@ export function monthCloseReopenRequest(activityId: string): MonthCloseRequest {
 /** Minor units in the line's currency. A line with no currency has no amount anyone can read. */
 function minorToAmount(minor: number, currency: string | null): string | null {
   if (!Number.isInteger(minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-  return currency === null ? null : fromMinor(BigInt(minor), currency);
+  return currency === null ? null : minorToDecimal(minor, currency);
 }
 
 type WireLine = {
@@ -825,7 +818,7 @@ function readFigures(value: unknown): MonthCloseFigures[] {
       const minor = block[`${field}_minor`];
       if (minor === undefined || minor === null) return null;
       if (typeof minor !== "number" || !Number.isInteger(minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-      return fromMinor(BigInt(minor), currency);
+      return minorToDecimal(minor, currency);
     };
     return {
       currency,
@@ -884,7 +877,7 @@ function readOpenItemsList(value: unknown, kind: MonthCloseKind): OpenItemsList 
   const totals = value.totals.map((total) => {
     if (!isRecord(total) || typeof total.currency !== "string" || !CURRENCY_CODE.test(total.currency)) throw new MonthCloseError("unavailable", "open items currency is unknown");
     if (typeof total.total_minor !== "number" || !Number.isInteger(total.total_minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-    return { currency: total.currency, total: fromMinor(BigInt(total.total_minor), total.currency) };
+    return { currency: total.currency, total: minorToDecimal(total.total_minor, total.currency) };
   });
   const items = value.items.map((item) => {
     const line = readWireLine(item);
