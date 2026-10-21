@@ -134,7 +134,7 @@ export function WorkspaceMain({
     <div className="relative mx-auto flex h-[100dvh] w-full max-w-5xl flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
       <div
         data-testid="workspace-panel-region"
-        className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[86px] tablet:px-8"
+        className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-24 tablet:px-8 tablet:pt-28"
         style={{ paddingBottom: hasComposer ? 190 : 48 }}
       >
         {workspace.panel(bridge)}

@@ -202,6 +202,9 @@ top right is who you are.
   dirección de reenvío and Ver correos; the **Ocultar montos** eye, which
   blurs every amount for screen sharing; then the account. No screen repeats
   these buttons. Phones keep Agregar ▾ at the top of each screen instead.
+  Content scrolls under the bar through a soft fade in the surface's own
+  color, on every screen the bar is on. A screen starts 32px below the bar
+  (16px on a phone), and Inicio's cards sit 24px apart from the tablet up.
 - **Top right of the canvas:** the person's account (Perfil, Preferencias,
   Datos y privacidad, Ayuda, Comentarios, Cerrar sesión). Its sheets open on
   the same side, so the eye does not cross the screen. Phones already put it

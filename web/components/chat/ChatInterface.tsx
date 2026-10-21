@@ -563,6 +563,8 @@ export default function ChatInterface() {
     );
   }, [closeDrawer, setIsSidebarOpen, sidebarMode]);
   const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
+  // The fades under the top bar and above the composer take the surface's own color.
+  const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
   const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
@@ -2158,6 +2160,10 @@ export default function ChatInterface() {
 
       <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
+        {/* Content scrolls under the bar through a soft fade, on every screen the bar is on. */}
+        {currentView === "workspace" || (currentView === "chat" && !showEmptyChatSurface) ? (
+          <div data-testid="header-fade" className={`pointer-events-none absolute inset-x-0 top-0 z-[40] h-32 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
+        ) : null}
         {currentView !== "settings" && (
           // A workspace with a search field in its bar lines the bar up with its centred content column (48rem), so search and avatar sit on the column's edges.
           <header className={`absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-48rem)/2))]" : "tablet:px-8"}`}>
@@ -2247,8 +2253,6 @@ export default function ChatInterface() {
               />
             ) : (
               <>
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-32 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] dark:bg-[#141517]/80" />
-
                 {showConversationRetrievalState && isHydratingConversation && (
                   <ConversationRetrievalAnnouncement business={workspace?.id === "business"} />
                 )}
@@ -2347,7 +2351,7 @@ export default function ChatInterface() {
                 />
 
                 {/* Input fade + bar */}
-                <div className="pointer-events-none absolute bottom-0 inset-x-0 z-10 h-40 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] dark:bg-[#141517]/80" />
+                <div className={`pointer-events-none absolute bottom-0 inset-x-0 z-10 h-40 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] ${surfaceFade}`} />
                 <div className="pointer-events-none absolute bottom-6 inset-x-0 z-20 px-4">
                   <div className="pointer-events-auto mx-auto max-w-3xl rounded-full">
                     {showJumpToLatest && (

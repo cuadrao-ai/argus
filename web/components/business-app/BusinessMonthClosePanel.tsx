@@ -651,7 +651,7 @@ export function BusinessMonthCloseView({
     if (locked) return null;
     if (!openItems) {
       return openPhase === "error" ? moneyError() : (
-        <div id="month-close-money" role="status" aria-busy="true" data-testid="month-close-money-loading" className="grid scroll-mt-6 grid-cols-1 gap-4 tablet:grid-cols-2">
+        <div id="month-close-money" role="status" aria-busy="true" data-testid="month-close-money-loading" className="grid scroll-mt-6 grid-cols-1 gap-4 tablet:grid-cols-2 tablet:gap-6">
           <span className="sr-only">{t("business.month_close.loading", "Loading the month")}</span>
           {[t("business.month_close.receivable_title", "To collect"), t("business.month_close.payable_title", "To pay")].map((title) => (
             <div key={title} aria-hidden="true" className={cardClass}>
@@ -673,7 +673,7 @@ export function BusinessMonthCloseView({
       );
     }
     return (
-      <div id="month-close-money" className="grid scroll-mt-6 grid-cols-1 gap-4 tablet:grid-cols-2">
+      <div id="month-close-money" className="grid scroll-mt-6 grid-cols-1 gap-4 tablet:grid-cols-2 tablet:gap-6">
         {moneyColumn("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, t("business.month_close.receivable_empty", "Nothing to collect."))}
         {moneyColumn("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, t("business.month_close.payable_empty", "Nothing to pay."))}
       </div>
@@ -729,7 +729,7 @@ export function BusinessMonthCloseView({
   ].filter((value): value is string => Boolean(value)) : [];
 
   return (
-    <div aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={locked ? "true" : "false"} className="mb-8 space-y-4">
+    <div aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={locked ? "true" : "false"} className="mb-8 space-y-4 tablet:space-y-6">
       {header(
         <MonthSwitcher
           month={month}
