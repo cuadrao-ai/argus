@@ -115,7 +115,7 @@ export default function ActionMenu({ actions, label, placement, portal = false, 
         const Icon = action.icon;
         return (
           <button
-            key={`${action.id}-${index}`}
+            key={action.id}
             ref={(element) => {
               itemRefs.current[index] = element;
             }}
