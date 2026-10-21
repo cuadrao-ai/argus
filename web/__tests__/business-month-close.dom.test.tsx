@@ -88,19 +88,10 @@ describe("month close optimistic marks", () => {
     });
     assert.equal(row()?.getAttribute("data-status"), "pendiente");
     assert.match(settleTask(), /Marca 4 documentos/);
-    const { useToasts } = await import("@/components/business-app/foundation/toasts");
-    let shown: { kind: string; text: string }[] = [];
-    function Probe() {
-      shown = useToasts().map(({ kind, text }) => ({ kind, text }));
-      return null;
-    }
-    const probeHost = document.createElement("div");
-    const { createRoot: createProbeRoot } = await import("react-dom/client");
-    const probe = createProbeRoot(probeHost);
-    await act(async () => { probe.render(<Probe />); });
-    assert.equal(shown.at(-1)?.kind, "error", "a failed mark is an error toast, which stays until closed");
-    assert.match(shown.at(-1)?.text ?? "", /volvió al anterior/);
-    await act(async () => { probe.unmount(); });
+    const problem = host.querySelector('[data-testid="month-close-work-problem"]');
+    assert.equal(problem?.getAttribute("role"), "alert", "a failed mark says so beside the work, not in a toast");
+    assert.match(problem?.textContent ?? "", /volvió al anterior/);
+    assert.ok([...(problem?.querySelectorAll("button") ?? [])].some((button) => button.textContent === "Reintentar"));
     assert.equal(host.querySelector('[data-testid="month-close-close"]')?.hasAttribute("disabled"), true);
     await act(async () => root.unmount());
     host.remove();
@@ -261,6 +252,7 @@ describe("month close layouts", () => {
       openItems: () => new Promise(() => undefined),
       markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
       markPagado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
+      markPendiente: () => Promise.reject(new MonthCloseError("unavailable", "undo failed")),
       closeMonth: () => Promise.reject(new MonthCloseError("unavailable", "close failed")),
     };
     const { act, host, root } = await renderView(client);
@@ -281,6 +273,7 @@ describe("month close layouts", () => {
       openItems: noOpenItems,
       markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
       markPagado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
+      markPendiente: () => Promise.reject(new MonthCloseError("unavailable", "undo failed")),
       closeMonth: () => Promise.reject(new MonthCloseError("unavailable", "close failed")),
     };
     const { act, host, root } = await renderView(client);
@@ -302,27 +295,28 @@ describe("month close layouts", () => {
     host.remove();
   });
 
-  test("overdue rows sit inside the money columns marked Vencida, and settled rows leave them", async () => {
+  test("overdue rows sit inside the money cards with how late they are, and settled rows leave them", async () => {
     const { act, host, root } = await renderView(createMockMonthCloseClient({ now }));
     const receivable = host.querySelector('[data-testid="month-close-receivable"]');
     const payable = host.querySelector('[data-testid="month-close-payable"]');
     const mark = host.querySelector('[data-testid="month-close-mark-cobrado"]');
     const close = host.querySelector('[data-testid="month-close-close"]');
-    assert.match(mark?.className ?? "", /min-h-11/);
+    assert.match(mark?.className ?? "", /h-11 w-11/);
     assert.match(close?.className ?? "", /min-h-11/);
     assert.equal(host.querySelector('[data-testid="month-close-state-overdue"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-state-matched"]'), null);
 
     const farmacia = receivable?.querySelector('[data-document-id="inv-farmacia"]');
     assert.equal(farmacia?.getAttribute("data-overdue"), "true");
-    assert.match(farmacia?.textContent ?? "", /Vencida · 2 oct/, "sixteen days late reads as the date");
+    assert.equal(farmacia?.querySelector('[data-testid="month-close-lateness"]')?.textContent, "16 días tarde");
+    assert.equal(farmacia?.querySelector('[data-testid="month-close-lateness"]')?.getAttribute("data-tone"), "overdue");
     assert.equal(receivable?.querySelector('[data-document-id="inv-taller"]')?.getAttribute("data-overdue"), "false");
-    assert.doesNotMatch(receivable?.querySelector('[data-document-id="inv-taller"]')?.textContent ?? "", /Vencida/);
+    assert.equal(receivable?.querySelector('[data-document-id="inv-taller"] [data-testid="month-close-lateness"]')?.textContent, "vence en 10 días");
     const transporte = payable?.querySelector('[data-document-id="rcpt-transporte"]');
     assert.equal(transporte?.getAttribute("data-overdue"), "true");
-    assert.match(transporte?.textContent ?? "", /Vencida · 5 oct/);
+    assert.match(transporte?.textContent ?? "", /13 días tarde/);
     assert.equal(payable?.querySelector('[data-document-id="rcpt-edenorte"]')?.getAttribute("data-overdue"), "false");
-    assert.match(payable?.querySelector('[data-document-id="rcpt-edenorte"]')?.textContent ?? "", /Vence 25 oct/);
+    assert.match(payable?.querySelector('[data-document-id="rcpt-edenorte"]')?.textContent ?? "", /vence en 7 días/);
     assert.ok(receivable?.querySelector('[data-document-id="inv-luna"]'), "a September invoice still pending stays in Por cobrar while October is open");
     assert.ok(payable?.querySelector('[data-document-id="rcpt-rosa"]'), "a September receipt still pending stays in Por pagar");
 
@@ -333,7 +327,7 @@ describe("month close layouts", () => {
     host.remove();
   });
 
-  test("a money column shows three rows, then Ver N más and Ver menos", async () => {
+  test("a money card shows four rows, then Ver las N and Ver menos", async () => {
     const invoice = (id: string, day: number): MonthCloseDocument => ({
       id,
       kind: "invoice",
@@ -363,25 +357,26 @@ describe("month close layouts", () => {
       async openItems() { return openItemsFrom(snapshot.documents); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
       async closeMonth() { throw new Error("no close"); },
     };
     const { act, host, root } = await renderView(client);
     const column = () => host.querySelector('[data-testid="month-close-receivable"]');
     const order = [...host.querySelectorAll('[data-testid="month-close-checklist"], [data-testid="month-close-receivable"], [data-testid="month-close-payable"], [data-testid="month-close-cards"]')].map((node) => node.getAttribute("data-testid"));
-    assert.deepEqual(order, ["month-close-checklist", "month-close-receivable", "month-close-payable", "month-close-cards"], "what to do, then who owes whom, then how the month went");
-    assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 3);
-    assert.equal(column()?.querySelector('[data-document-id="d"]'), null);
-    assert.equal(column()?.querySelector("h4")?.textContent, "Por cobrar · RD$");
-    assert.equal(column()?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent, "500.00", "the header names the currency, so the total is the number");
+    assert.deepEqual(order, ["month-close-checklist", "month-close-cards", "month-close-receivable", "month-close-payable"], "the month and its figures, then what is pending from every month");
+    assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 4);
+    assert.equal(column()?.querySelector('[data-document-id="e"]'), null);
+    assert.equal(column()?.querySelector("h4")?.textContent, "Por cobrar");
+    assert.equal(column()?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent, "RD$ 500.00", "the total carries the currency, so a row is the number");
     assert.equal(column()?.querySelector('[data-document-id="a"] .cuadrao-amount')?.textContent, "100.00");
     assert.match(column()?.querySelector('[data-document-id="a"] .cuadrao-amount')?.className ?? "", /text-right.*tabular-nums/);
     const toggle = () => [...(column()?.querySelectorAll("button") ?? [])].find((item) => item.hasAttribute("aria-expanded"));
-    assert.equal(toggle()?.textContent, "Ver 2 más");
+    assert.equal(toggle()?.textContent, "Ver las 5");
     await act(async () => { toggle()?.click(); });
     assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 5);
     assert.equal(toggle()?.textContent, "Ver menos");
     await act(async () => { toggle()?.click(); });
-    assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 3);
+    assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 4);
     await act(async () => root.unmount());
     host.remove();
   });
@@ -404,6 +399,7 @@ describe("month close layouts", () => {
       async openItems() { return openItemsFrom(snapshot.documents); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
       async closeMonth() { throw new Error("no close"); },
     };
     const { host, root, act } = await renderView(client);
@@ -443,6 +439,7 @@ describe("month close layouts", () => {
         marks += 1;
         return inner.markPagado(id, scope, day);
       },
+      markPendiente: (id, scope) => inner.markPendiente(id, scope),
       closeMonth: (month, scope) => inner.closeMonth(month, scope),
     };
     const { act, host, root } = await renderView(client);
@@ -535,8 +532,8 @@ describe("fiscal complete months stay editable", () => {
     assert.ok(pagado instanceof HTMLButtonElement);
     assert.equal(cobrado.disabled, false);
     assert.equal(pagado.disabled, false);
-    assert.equal(cobrado.textContent, "Marcar cobrado");
-    assert.equal(pagado.textContent, "Marcar pagado");
+    assert.equal(cobrado.getAttribute("aria-label"), "Marcar cobrado, Factura");
+    assert.equal(pagado.getAttribute("aria-label"), "Marcar pagado, Gasto");
     assert.equal(host.querySelector('[data-testid="month-close-closed"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close"]')?.getAttribute("data-closed"), "false");
     assert.equal(host.querySelector('[data-testid="month-close-task-fiscal"]'), null);
@@ -561,7 +558,7 @@ describe("fiscal complete months stay editable", () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.equal(calls.filter((call) => call.path === "/business/open-items").length, 2, "marking rereads the open items");
     assert.equal(host.querySelector('[data-document-id="act-invoice"]'), null, "the reread no longer lists it");
-    assert.match(host.querySelector('[data-testid="month-close-receivable-empty"]')?.textContent ?? "", /Nada por cobrar/);
+    assert.match(host.querySelector('[data-testid="month-close-receivable-empty"]')?.textContent ?? "", /Todo cobrado/);
     await act(async () => root.unmount());
     host.remove();
   });
@@ -606,6 +603,7 @@ describe("fiscal complete months stay editable", () => {
       async openItems() { return openItemsFrom(snapshot.documents); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
       async closeMonth() { throw new Error("no close"); },
     };
     const { act, host, root } = await renderView(client);
@@ -616,6 +614,48 @@ describe("fiscal complete months stay editable", () => {
     assert.equal(host.querySelector('[data-testid="month-close-checklist"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-close"]'), null);
     assert.equal(host.textContent?.includes("Ya puedes cerrar"), false);
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
+  test("a closed month still shows Pendiente hoy, and other months' items stay markable", async () => {
+    const september: MonthCloseDocument = {
+      id: "inv-september",
+      kind: "invoice",
+      currency: "DOP",
+      counterparty: "Panadería Luna",
+      occurred_on: "2026-09-10",
+      due_on: "2026-09-20",
+      amount: "5900.00",
+      itbis: "900.00",
+      rnc: "101-23456-7",
+      ncf: "B0100000043",
+      ecf: null,
+      status: "pendiente",
+    };
+    const snapshot: MonthCloseSnapshot = {
+      month: "2026-10",
+      from: "2026-10-01",
+      to: "2026-10-31",
+      currency: "DOP",
+      closed_at: "2026-10-18T15:00:00",
+      closed: true,
+      earliest_month: null,
+      documents: [{ ...september, id: "inv-october", occurred_on: "2026-10-04", status: "cobrado" }],
+    };
+    const client: MonthCloseClient = {
+      mode: "mock",
+      async load() { return snapshot; },
+      async openItems() { return openItemsFrom([september]); },
+      async markCobrado() { throw new Error("no mark"); },
+      async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
+      async closeMonth() { throw new Error("no close"); },
+    };
+    const { act, host, root } = await renderView(client);
+    assert.ok(host.querySelector('[data-testid="month-close-money"]'), "Pendiente hoy covers every month, closed or not");
+    const check = host.querySelector<HTMLButtonElement>('[data-testid="month-close-mark-cobrado"]');
+    assert.ok(check && !check.disabled, "September's invoice can still be marked from a closed October");
     await act(async () => root.unmount());
     host.remove();
   });
@@ -660,6 +700,7 @@ describe("Inicio ITBIS balance", () => {
       async openItems() { return openItemsFrom(snapshot.documents); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
       async closeMonth() { throw new Error("no close"); },
     };
   }
@@ -736,11 +777,11 @@ describe("a fully settled month", () => {
     assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000\.00/);
     assert.match(host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent ?? "", /Todo listo para cerrar octubre\./);
     assert.equal(host.querySelector('[data-testid="month-close-checklist-left"]'), null);
-    assert.match(host.querySelector('[data-testid="month-close-nothing-open"]')?.textContent ?? "", /Nada por cobrar ni por pagar/);
+    assert.match(host.querySelector('[data-testid="month-close-nothing-open"]')?.textContent ?? "", /Todo al día/);
     assert.equal(host.querySelector('[data-testid="month-close-receivable"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-payable"]'), null);
     const order = [...host.querySelectorAll('[data-testid="month-close-checklist"], [data-testid="month-close-nothing-open"], [data-testid="month-close-cards"]')].map((node) => node.getAttribute("data-testid"));
-    assert.deepEqual(order, ["month-close-checklist", "month-close-nothing-open", "month-close-cards"]);
+    assert.deepEqual(order, ["month-close-checklist", "month-close-cards", "month-close-nothing-open"]);
     assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 4,000\.00/);
     assert.equal(host.querySelector('[data-testid="month-close-empty"]'), null);
     assert.equal(host.textContent?.includes("Este mes no tiene documentos"), false);
@@ -762,7 +803,7 @@ describe("foreign currency lines", () => {
     counterparty: `Cliente ${activityId}`,
   });
 
-  test("the header names RD$, a USD row keeps US$, each currency has its own total, and the DOP cards leave both out", async () => {
+  test("the total names RD$, a USD row keeps US$, each currency has its own total, and the DOP cards leave both out", async () => {
     const client = createHttpMonthCloseClient(async (path) => path === "/business/open-items" ? ({
       cuentas_por_cobrar: {
         count: 2,
@@ -796,14 +837,15 @@ describe("foreign currency lines", () => {
     const receivable = host.querySelector('[data-testid="month-close-receivable"]');
     const payable = host.querySelector('[data-testid="month-close-payable"]');
     const amountOf = (id: string) => host.querySelector(`[data-document-id="${id}"] .cuadrao-amount`)?.textContent;
-    assert.equal(receivable?.querySelector("h4")?.textContent, "Por cobrar · RD$");
-    assert.equal(amountOf("act-dop"), "1,180.00", "a row in the header's currency is the number alone");
+    assert.equal(receivable?.querySelector("h4")?.textContent, "Por cobrar");
+    assert.equal(amountOf("act-dop"), "1,180.00", "a row in the total's currency is the number alone");
     assert.equal(amountOf("act-usd"), "US$ 50.00", "a row in another currency keeps its own symbol");
     assert.match(host.querySelector('[data-document-id="act-dop"]')?.textContent ?? "", /Cliente act-dop/, "the open item names its counterparty");
     const totals = [...(receivable?.querySelectorAll('[data-testid="month-close-receivable-total"]') ?? [])].map((node) => [node.getAttribute("data-currency"), node.textContent]);
-    assert.deepEqual(totals, [["DOP", "1,180.00"], ["USD", "US$ 50.00"]], "one total per currency, the header's first, never added together");
+    assert.deepEqual(totals, [["DOP", "RD$ 1,180.00"], ["USD", "US$ 50.00"]], "one total per currency, DOP first, never added together");
     assert.equal(receivable?.textContent?.includes("1,230"), false);
-    assert.equal(payable?.querySelector("h4")?.textContent, "Por pagar · €");
+    assert.equal(payable?.querySelector("h4")?.textContent, "Por pagar");
+    assert.equal(payable?.querySelector('[data-testid="month-close-payable-total"]')?.textContent, "€ 20.00");
     assert.equal(amountOf("act-eur"), "20.00");
     assert.match(host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /RD\$ 1,000\.00/);
     assert.equal(host.querySelector('[data-testid="month-close-income"]')?.textContent?.includes("US$"), false);
@@ -813,7 +855,7 @@ describe("foreign currency lines", () => {
 });
 
 describe("open items across months", () => {
-  test("pending documents past the cap say how many more exist, and Ver N más reveals only loaded ones", async () => {
+  test("pending documents past the cap say how many more exist, and Ver las N reveals only loaded ones", async () => {
     const items = Array.from({ length: 5 }, (_, index) => ({
       activity_id: `act-${index}`,
       document_kind: "invoice",
@@ -843,10 +885,10 @@ describe("open items across months", () => {
     const { act, host, root } = await renderView(client);
     const column = () => host.querySelector('[data-testid="month-close-receivable"]');
     assert.ok(column()?.querySelector('[data-document-id="act-0"]'), "an April invoice shows while October is open");
-    assert.equal(column()?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent, "107,000.00", "the total is the server's, past the cap, exact in a column");
+    assert.equal(column()?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent, "RD$ 107,000.00", "the total is the server's, past the cap, exact");
     assert.equal(column()?.querySelector('[data-testid="month-close-receivable-beyond"]')?.textContent, "Y 102 más que no se muestran aquí.");
     const toggle = [...(column()?.querySelectorAll("button") ?? [])].find((item) => item.hasAttribute("aria-expanded"));
-    assert.equal(toggle?.textContent, "Ver 2 más");
+    assert.equal(toggle?.textContent, "Ver las 5");
     await act(async () => { toggle?.click(); });
     assert.equal(column()?.querySelectorAll('[data-testid="month-close-row"]').length, 5);
     assert.ok(host.querySelector('[data-testid="month-close-payable-empty"]'));
@@ -875,6 +917,7 @@ describe("open items across months", () => {
       async openItems() { return openItemsFrom([pending]); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
+      async markPendiente() { throw new Error("no undo"); },
       async closeMonth() { throw new Error("no close"); },
     };
     const { act, host, root } = await renderView(client);
@@ -1249,4 +1292,161 @@ describe("Inicio export records panel", () => {
       }
     });
   }
+});
+
+describe("Pendiente hoy cards", () => {
+  async function renderCards(client: MonthCloseClient, openDocument?: (document: MonthCloseDocument) => (() => void) | null) {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const { useToasts, clearToasts } = await import("../components/business-app/foundation/toasts");
+    clearToasts();
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const toasts: { current: ReturnType<typeof useToasts> } = { current: [] };
+    function Probe() {
+      toasts.current = useToasts();
+      return null;
+    }
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessMonthCloseView client={client} now={now} openDocument={openDocument} />
+          <Probe />
+        </I18nextProvider>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const card = (testId: string) => host.querySelector(`[data-testid="${testId}"]`);
+    const rowIds = (testId: string) => [...(card(testId)?.querySelectorAll('[data-testid="month-close-row"]') ?? [])].map((row) => row.getAttribute("data-document-id"));
+    const cleanup = async () => {
+      await act(async () => root.unmount());
+      host.remove();
+      clearToasts();
+    };
+    return { act, host, card, rowIds, toasts, cleanup };
+  }
+
+  test("each card leads with its total in RD$, then a red line with what is overdue, summed exactly", async () => {
+    const view = await renderCards(createMockMonthCloseClient({ now }));
+    const receivable = view.card("month-close-receivable");
+    assert.equal(receivable?.querySelector("h4")?.textContent, "Por cobrar");
+    const total = receivable?.querySelector('[data-testid="month-close-receivable-total"]');
+    assert.equal(total?.textContent, "RD$ 33,540.00");
+    assert.match(total?.className ?? "", /cuadrao-amount/);
+    assert.match(total?.className ?? "", /text-\[22px\].*tabular-nums/);
+    const overdue = receivable?.querySelector('[data-testid="month-close-receivable-overdue"]');
+    assert.equal(overdue?.textContent, "2 vencidas · RD$ 12,300.00");
+    assert.equal(overdue?.querySelector(".cuadrao-amount")?.textContent, "RD$ 12,300.00", "Ocultar montos hides the overdue sum too");
+    assert.equal(view.card("month-close-payable")?.querySelector('[data-testid="month-close-payable-overdue"]')?.textContent, "2 vencidas · RD$ 2,444.00");
+    assert.equal(view.host.querySelector("#month-close-money-title")?.tagName, "H3");
+    assert.equal(view.host.querySelector("#month-close-money-title")?.textContent, "Pendiente hoy");
+    await view.cleanup();
+  });
+
+  test("overdue rows lead oldest first, then the nearest due, and a card shows four before Ver las N", async () => {
+    const invoice = (id: string, due_on: string | null): MonthCloseDocument => ({ id, kind: "invoice", currency: "DOP", counterparty: `Cliente ${id}`, occurred_on: "2026-09-01", due_on, amount: "100.00", itbis: null, rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "pendiente" });
+    const documents = [invoice("soon", "2026-10-26"), invoice("none", null), invoice("late-1", "2026-10-17"), invoice("today", "2026-10-18"), invoice("late-30", "2026-09-18"), invoice("far", "2026-11-30")];
+    const client: MonthCloseClient = { ...createMockMonthCloseClient({ now }), async openItems() { return openItemsFrom(documents); } };
+    const view = await renderCards(client);
+    assert.deepEqual(view.rowIds("month-close-receivable"), ["late-30", "late-1", "today", "soon"]);
+    const chip = (id: string) => view.host.querySelector(`[data-document-id="${id}"] [data-testid="month-close-lateness"]`)?.textContent;
+    assert.equal(chip("late-30"), "30 días tarde");
+    assert.equal(chip("late-1"), "1 día tarde");
+    assert.equal(chip("today"), "vence hoy");
+    assert.equal(chip("soon"), "vence en 8 días");
+    const reveal = view.host.querySelector('[data-testid="month-close-receivable-reveal"]');
+    assert.equal(reveal?.textContent, "Ver las 6");
+    await view.act(async () => { (reveal as HTMLButtonElement).click(); });
+    assert.deepEqual(view.rowIds("month-close-receivable"), ["late-30", "late-1", "today", "soon", "far", "none"]);
+    assert.equal(view.host.querySelector('[data-document-id="none"] [data-testid="month-close-issued"]')?.getAttribute("datetime"), "2026-09-01", "no due day shows the issue day, never a made-up lateness");
+    await view.cleanup();
+  });
+
+  test("the round check removes the row, Deshacer brings it back, and the totals follow the server", async () => {
+    const view = await renderCards(createMockMonthCloseClient({ now }));
+    const check = view.host.querySelector('[data-document-id="inv-luna"] [data-testid="month-close-mark-cobrado"]');
+    assert.ok(check instanceof HTMLButtonElement);
+    assert.equal(check.getAttribute("aria-label"), "Marcar cobrado, Panadería Luna");
+    assert.match(check.className, /h-11 w-11/, "a 44px target");
+    assert.equal(view.host.querySelectorAll('[data-testid="month-close-row"] button:not([aria-label])').length, 0, "no row repeats a Marcar text link");
+    await view.act(async () => {
+      check.click();
+      await Promise.resolve();
+    });
+    assert.equal(view.rowIds("month-close-receivable").includes("inv-luna"), false);
+    await view.act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.equal(view.card("month-close-receivable")?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent, "RD$ 27,640.00");
+    const toast = view.toasts.current.at(-1);
+    assert.equal(toast?.kind, "success");
+    assert.equal(toast?.text, "Factura de Panadería Luna cobrada.");
+    assert.equal(toast?.action?.label, "Deshacer");
+    await view.act(async () => {
+      toast?.action?.run();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(view.rowIds("month-close-receivable").includes("inv-luna"), true);
+    assert.equal(view.card("month-close-receivable")?.querySelector('[data-testid="month-close-receivable-total"]')?.textContent, "RD$ 33,540.00");
+    await view.cleanup();
+  });
+
+  test("marks in a row share one toast, its Deshacer brings them all back, and a finished card says so", async () => {
+    const view = await renderCards(createMockMonthCloseClient({ now }));
+    for (const id of view.rowIds("month-close-receivable")) {
+      await view.act(async () => {
+        (view.host.querySelector(`[data-document-id="${id}"] [data-testid="month-close-mark-cobrado"]`) as HTMLButtonElement).click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+    const marked = view.toasts.current.filter((toast) => toast.kind === "success");
+    assert.equal(marked.length, 1, "one toast, not a stack");
+    assert.equal(marked[0]?.text, "3 facturas cobradas.");
+    const done = view.host.querySelector('[data-testid="month-close-receivable-empty"]');
+    assert.equal(done?.querySelector("[data-empty-kind]")?.getAttribute("data-empty-kind"), "done");
+    assert.match(done?.textContent ?? "", /Todo cobrado/);
+    await view.act(async () => {
+      marked[0]?.action?.run();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(view.rowIds("month-close-receivable").length, 3, "Deshacer reopens every row the toast named");
+    await view.cleanup();
+  });
+
+  test("a failed Deshacer says so and leaves the row marked", async () => {
+    const client: MonthCloseClient = { ...createMockMonthCloseClient({ now }), async markPendiente() { throw new MonthCloseError("unavailable", "undo failed"); } };
+    const view = await renderCards(client);
+    await view.act(async () => {
+      (view.host.querySelector('[data-document-id="rcpt-rosa"] [data-testid="month-close-mark-pagado"]') as HTMLButtonElement).click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(view.toasts.current.at(-1)?.text, "Gasto de Limpieza Rosa pagado.");
+    await view.act(async () => {
+      view.toasts.current.at(-1)?.action?.run();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(view.toasts.current.some((toast) => toast.kind === "error"), false, "toasts only confirm");
+    assert.match(view.host.querySelector('[data-testid="month-close-work-problem"]')?.textContent ?? "", /No pudimos deshacer el cambio\. Inténtalo de nuevo\.Reintentar/);
+    assert.equal(view.rowIds("month-close-payable").includes("rcpt-rosa"), false);
+    await view.cleanup();
+  });
+
+  test("a row with a record opens it; a row without one is not a button", async () => {
+    const opened: string[] = [];
+    const view = await renderCards(createMockMonthCloseClient({ now }), (document) => (document.kind === "receipt" ? () => opened.push(document.id) : null));
+    assert.equal(view.card("month-close-receivable")?.querySelector('[data-testid="month-close-row-open"]'), null);
+    const open = view.host.querySelector('[data-document-id="rcpt-edenorte"] [data-testid="month-close-row-open"]');
+    assert.ok(open instanceof HTMLButtonElement);
+    await view.act(async () => { open.click(); });
+    assert.deepEqual(opened, ["rcpt-edenorte"]);
+    assert.equal(view.toasts.current.length, 0, "opening a row never marks it");
+    await view.cleanup();
+  });
 });

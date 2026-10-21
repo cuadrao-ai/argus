@@ -15,6 +15,7 @@ import {
   monthCloseBlockers,
   monthCloseLoadRequest,
   monthCloseNetDisplay,
+  monthCloseReopenRequest,
   monthCloseRequestPath,
   monthCloseSampleDocuments,
   monthCloseSettlementRequest,
@@ -23,6 +24,8 @@ import {
   monthPickerMonths,
   openItemsFrom,
   openItemsHeaderCurrency,
+  openItemsInDueOrder,
+  openItemsOverdue,
   openItemsRequest,
   openItemsTotalsInOrder,
   OPEN_ITEMS_CAP,
@@ -575,5 +578,40 @@ describe("open items", () => {
     expect(list.items.length).toBe(100);
     expect(list.items[0]?.occurred_on).toBe("2026-01-01");
     expect(list.totals).toEqual([{ currency: "DOP", total: "107.00" }]);
+  });
+});
+
+describe("Pendiente hoy order and overdue sum", () => {
+  const today = "2026-10-18";
+  const pending = (id: string, due_on: string | null, amount = "1.00", currency = "DOP", occurred_on = "2026-10-01"): MonthCloseDocument => ({ ...document({ id, kind: "invoice", amount, itbis: null, status: "pendiente", due_on, occurred_on }), currency });
+
+  test("overdue rows lead, oldest first, then the nearest due, then rows with no due day by issue day", () => {
+    const rows = [pending("soon", "2026-10-20"), pending("none-late", null, "1.00", "DOP", "2026-10-09"), pending("late-2", "2026-10-16"), pending("today", today), pending("late-30", "2026-09-18"), pending("none-early", null, "1.00", "DOP", "2026-09-02"), pending("far", "2026-11-30")];
+    expect(openItemsInDueOrder(rows).map((row) => row.id)).toEqual(["late-30", "late-2", "today", "soon", "far", "none-early", "none-late"]);
+  });
+
+  test("the overdue sum is exact decimal math, one total per currency with the list's currency first", () => {
+    const items = [pending("a", "2026-10-01", "0.10"), pending("b", "2026-10-02", "0.20"), pending("c", "2026-10-17", "12299.70"), pending("usd", "2026-09-30", "50.00", "USD"), pending("due-today", today, "999.00"), pending("none", null, "5.00")];
+    const list = { count: items.length, totals: [{ currency: "USD", total: "50.00" }, { currency: "DOP", total: "13304.00" }], items };
+    expect(openItemsOverdue(list, today)).toEqual({ count: 4, totals: [{ currency: "DOP", total: "12300.00" }, { currency: "USD", total: "50.00" }] });
+    expect(openItemsOverdue({ ...list, items: [pending("due-today", today)] }, today)).toEqual({ count: 0, totals: [] });
+  });
+
+  test("Deshacer is a PATCH back to pendiente with neither a day nor a method, and the mock returns the row to the open items", async () => {
+    expect(monthCloseReopenRequest("act-1")).toEqual({ method: "PATCH", path: "/business/month-close/documents/act-1", body: { status: "pendiente" } });
+    const bodies: unknown[] = [];
+    const http = createHttpMonthCloseClient(async (_path, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return { activity_id: "act-1", document_kind: "invoice", status: "pendiente", settled_on: null, payment_method: null, changed: true };
+    });
+    await http.markPendiente("act-1");
+    expect(bodies).toEqual([{ status: "pendiente" }]);
+    const refused = createHttpMonthCloseClient(async () => ({ activity_id: "act-1", status: "cobrado" }));
+    await expect(refused.markPendiente("act-1")).rejects.toMatchObject({ code: "unavailable" });
+    const mock = createMockMonthCloseClient({ now: new Date(2026, 9, 18) });
+    await mock.markCobrado("inv-luna");
+    expect((await mock.openItems()).cuentas_por_cobrar.items.some((item) => item.id === "inv-luna")).toBe(false);
+    await mock.markPendiente("inv-luna");
+    expect((await mock.openItems()).cuentas_por_cobrar.items.some((item) => item.id === "inv-luna")).toBe(true);
   });
 });

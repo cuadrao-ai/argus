@@ -1,21 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { pillButtonClass } from "../business-ui";
+import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 
 /**
- * The four ways a screen can be empty, each designed on its own:
+ * The ways a screen can be empty, each designed on its own:
  * first run (nothing yet: teach what the screen is for), no results (a search
- * found nothing), filtered (records exist outside the current filter) and error
+ * found nothing), filtered (records exist outside the current filter), done
+ * (the work is finished: say so and offer what comes next, quietly) and error
  * (we could not load: the one kind whose action is to try again).
  */
-export type EmptyKind = "first_run" | "no_results" | "filtered" | "error";
+export type EmptyKind = "first_run" | "no_results" | "filtered" | "done" | "error";
 
 export type EmptyMark = "inbox" | "receipt" | "bell" | "mail" | "calendar" | "check" | "search" | "filter" | "cloud";
 
 export type EmptyAction = { label: string; run: () => void; icon?: ReactNode };
 
-const KIND_MARK: Record<EmptyKind, EmptyMark | null> = { first_run: null, no_results: "search", filtered: "filter", error: "cloud" };
+const KIND_MARK: Record<EmptyKind, EmptyMark | null> = { first_run: null, no_results: "search", filtered: "filter", done: "check", error: "cloud" };
 
 export function EmptyState({ kind, mark, title, body, action, secondary, testId, compact = false }: {
   kind: EmptyKind;
@@ -47,9 +48,9 @@ export function EmptyState({ kind, mark, title, body, action, secondary, testId,
             <button
               type="button"
               onClick={action.run}
-              className={kind === "error"
-                ? `${pillButtonClass} border border-[#7d8a84] bg-white text-[#172b26] dark:bg-[#1f2225] dark:text-white`
-                : `${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] dark:bg-[#8fcbb0] dark:text-[#172b26]`}
+              className={kind === "error" || kind === "done"
+                ? secondaryButtonClass
+                : primaryButtonClass}
             >
               {action.icon}
               {action.label}
@@ -59,7 +60,7 @@ export function EmptyState({ kind, mark, title, body, action, secondary, testId,
             <button
               type="button"
               onClick={secondary.run}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+              className={quietButtonClass}
             >
               {secondary.icon}
               {secondary.label}

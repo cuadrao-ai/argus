@@ -1,3 +1,4 @@
+import { dueDistance } from "@/lib/business-month-close";
 import { currencyDigits, currencySymbol } from "@/lib/money-entry";
 
 const DECIMAL_AMOUNT = /^(-?)(\d+)(?:\.(\d+))?$/;
@@ -161,6 +162,17 @@ export function formatRelativeDay(day: string, today: string, locale: string): s
   if (Number.isNaN(days)) return day;
   if (Math.abs(days) >= RELATIVE_WINDOW_DAYS) return formatShortDay(day, locale, new Date(`${today}T12:00:00`));
   return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(days, "day");
+}
+
+export type Lateness = { tone: "overdue" | "today" | "upcoming"; text: string };
+
+/** A pending document's due day against today, in calendar days: "30 días tarde", "vence hoy", "vence en 8 días". Null when the day is not a calendar day. */
+export function formatLateness(dueOn: string, today: string, t: (key: string, options: { count?: number; defaultValue: string }) => string): Lateness | null {
+  const distance = dueDistance(dueOn, today);
+  if (!distance) return null;
+  if (distance.direction === "past") return { tone: "overdue", text: t("business.month_close.late_days", { count: distance.days, defaultValue: "{{count}} days late" }) };
+  if (distance.direction === "today") return { tone: "today", text: t("business.month_close.due_today", { defaultValue: "due today" }) };
+  return { tone: "upcoming", text: t("business.month_close.due_in_days", { count: distance.days, defaultValue: "due in {{count}} days" }) };
 }
 
 export type PeriodKey = "this_month" | "last_month" | "last_30_days" | "all" | "custom";

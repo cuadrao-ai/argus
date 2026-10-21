@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { formatAmount, formatHeadlineMoney, formatMoney, formatRelativeDay, formatRelativeTime, formatShortDay } from "../components/business-app/business-format";
+import i18next from "i18next";
+import spanish from "../public/locales/es-419/common.json";
+import { formatAmount, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, formatRelativeTime, formatShortDay } from "../components/business-app/business-format";
 
 const now = new Date(2026, 9, 20, 12, 0, 0);
 const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
@@ -66,5 +68,27 @@ describe("relative time", () => {
     expect(formatRelativeDay("2026-10-13", "2026-10-20", "es-419")).toBe("13 oct");
     expect(formatRelativeDay("2026-10-27", "2026-10-20", "es-419")).toBe("27 oct");
     expect(formatShortDay("2025-10-02", "es-419", now)).toBe("2 oct 2025");
+  });
+});
+
+describe("lateness chip", () => {
+  const i18n = i18next.createInstance();
+  void i18n.init({ lng: "es-419", initImmediate: false, resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  const t = (key: string, options: { count?: number; defaultValue: string }) => i18n.t(key, options);
+  const today = "2026-10-20";
+  const late = (due: string) => formatLateness(due, today, t);
+
+  test("calendar days on both sides of today, at 0, 1, 7 and 30", () => {
+    expect(late("2026-10-20")).toEqual({ tone: "today", text: "vence hoy" });
+    expect(late("2026-10-21")).toEqual({ tone: "upcoming", text: "vence en 1 día" });
+    expect(late("2026-10-27")).toEqual({ tone: "upcoming", text: "vence en 7 días" });
+    expect(late("2026-11-19")).toEqual({ tone: "upcoming", text: "vence en 30 días" });
+    expect(late("2026-10-19")).toEqual({ tone: "overdue", text: "1 día tarde" });
+    expect(late("2026-10-13")).toEqual({ tone: "overdue", text: "7 días tarde" });
+    expect(late("2026-09-20")).toEqual({ tone: "overdue", text: "30 días tarde" });
+  });
+
+  test("a day that is not a calendar day has no chip", () => {
+    expect(late("pronto")).toBe(null);
   });
 });
