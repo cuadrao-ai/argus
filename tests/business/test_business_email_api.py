@@ -228,11 +228,11 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     assert source.content == documents_service().store.source(
         user_id=alice.scope().person_id, connection_id=original_id
     )
-    searched = {
-        item["id"]: item
-        for item in alice.get("/search", q="forwarded").json()["receipts"]
-    }
-    assert searched[original_id]["email_original"] is True
+    # The original is the email, never a receipt hit; its delivery is the hit.
+    assert alice.get("/search", q="forwarded").json()["receipts"] == []
+    found = alice.get("/search", q="Factura 0041").json()
+    assert [item["id"] for item in found["email_deliveries"]] == [delivery.id]
+    assert found["receipts"] == []
     # The attachment is the receipt; the owner opts in to its reading.
     assert alice.reading(True).status_code == 200
     prepared = alice.post(

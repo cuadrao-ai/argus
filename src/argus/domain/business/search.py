@@ -38,10 +38,11 @@ def digits(value: str) -> str:
 
 def parse(q: str) -> SearchQuery:
     """The query as words, as its digits, and as an amount when it reads as
-    exactly one: "3450", "3,450.00", "$ 50" or "RD$3,450.00", never
-    "ferretería 3450" or a signed amount."""
+    exactly one: "3450", "3,450", "3,450.00", "$ 50" or "RD$3,450.00", never
+    "ferretería 3450" or a signed amount. A comma before three digits groups
+    thousands, as the search box is typed."""
 
-    read = parse_amount(q)
+    read = parse_amount(q, grouping=",")
     bare = "currency" not in read.uncertain or set(q.strip()) <= _BARE_AMOUNT
     amount = (
         Decimal(read.amount)

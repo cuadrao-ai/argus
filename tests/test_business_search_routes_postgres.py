@@ -74,7 +74,15 @@ def test_rnc_ncf_and_amount_find_receipts_expenses_and_ventas(web) -> None:  # n
         "1180.00",
     )
     saved = {"expenses": [expense["id"]], "ventas": [], "receipts": []}
-    for q in ("B0100000001", "199-99002-1", "1180", "1,180.00", "RD$1,180.00"):
+    for q in (
+        "B0100000001",
+        "199-99002-1",
+        "1180",
+        "1,180",
+        "1,180.00",
+        "RD$ 1,180",
+        "RD$1,180.00",
+    ):
         assert _ids(web, q) == saved, q
 
     [venta] = _search(web, "B0100000002")["ventas"]
@@ -90,7 +98,7 @@ def test_rnc_ncf_and_amount_find_receipts_expenses_and_ventas(web) -> None:  # n
         sale["id"],
     )
     sold_ids = {"expenses": [], "ventas": [venta["id"]], "receipts": []}
-    for q in ("B0100000002", CLIENT_RNC, "2360", "2,360.00"):
+    for q in ("B0100000002", CLIENT_RNC, "2360", "2,360", "2,360.00"):
         assert _ids(web, q) == sold_ids, q
     assert _ids(web, "práctica cliente") == {
         "expenses": [expense["id"]],
@@ -99,5 +107,13 @@ def test_rnc_ncf_and_amount_find_receipts_expenses_and_ventas(web) -> None:  # n
     }
 
     nothing = {"expenses": [], "ventas": [], "receipts": []}
-    for q in ("B0100000003", "19999002", "1999900211", "1180.01", "US$1,180.00"):
+    for q in (
+        "B0100000003",
+        "19999002",
+        "1999900211",
+        "1180.01",
+        "US$1,180.00",
+        "1,18",
+        "1.180",
+    ):
         assert _ids(web, q) == nothing, q

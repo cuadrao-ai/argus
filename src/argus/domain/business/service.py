@@ -429,7 +429,8 @@ class BusinessService:
         owns merchant, amount and expense), so the match sees what the person
         sees. ``numbers`` are the fiscal numbers each record's draft carries, by
         activity or receipt id. A receipt whose record is already a hit is left
-        out: the record opens it.
+        out: the record opens it. An email original is left out: it is the
+        email, and its delivery is the hit.
         """
 
         known = numbers or {}
@@ -461,6 +462,7 @@ class BusinessService:
             for receipt in self.receipts(scope)
             for summary in [shown.get(receipt.id) or receipt.summary()]
             if summary["expense_id"] not in listed
+            and not summary["email_original"]
             and business_search.matches(
                 query,
                 _summary_text(summary),
