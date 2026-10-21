@@ -13,16 +13,21 @@ from argus.domain.business.bank.movements import (
     Account,
     Document,
     InvalidCursor,
+    LiveOutcome,
     StoredPair,
+    applied_settlement,
     build_movements,
     decode_cursor,
     item_payload,
+    match_refusal,
     method_for,
     movement_state,
     page,
+    taken_documents,
     totals,
     unmoved_documents,
 )
+from argus.domain.business.month_close import Settlement
 from faker import Faker
 
 fake = Faker("es_ES")
@@ -86,6 +91,10 @@ def _document(
     )
 
 
+def _matched(line: BankLine, document: Document) -> LiveOutcome:
+    return LiveOutcome(str(line.id), "match", document.activity_id, None)
+
+
 def _pair(line: BankLine, document: Document, status: str) -> StoredPair:
     return StoredPair(
         suggestion_id=str(uuid4()),
@@ -98,17 +107,24 @@ def _pair(line: BankLine, document: Document, status: str) -> StoredPair:
 
 
 @pytest.mark.parametrize(
-    ("amount", "matched", "has_offer", "expected"),
+    ("amount", "matched", "disposition", "has_offer", "expected"),
     [
-        ("-10", True, True, ("igualada", None)),
-        ("0", False, True, ("no_lleva_comprobante", "monto_cero")),
-        ("-10", False, True, ("sugerencia", None)),
-        ("25", False, False, ("falta_comprobante", None)),
+        ("-10", True, None, True, ("igualada", None)),
+        ("-10", False, "cargo_banco", True, ("no_lleva_comprobante", "cargo_banco")),
+        ("0", False, "personal", False, ("no_lleva_comprobante", "personal")),
+        ("0", False, None, True, ("no_lleva_comprobante", "monto_cero")),
+        ("-10", False, None, True, ("sugerencia", None)),
+        ("25", False, None, False, ("falta_comprobante", None)),
     ],
 )
-def test_one_rule_names_the_state(amount, matched, has_offer, expected) -> None:  # noqa: ANN001
+def test_one_rule_names_the_state(
+    amount, matched, disposition, has_offer, expected
+) -> None:  # noqa: ANN001
     assert (
-        movement_state(Decimal(amount), matched=matched, has_offer=has_offer) == expected
+        movement_state(
+            Decimal(amount), matched=matched, disposition=disposition, has_offer=has_offer
+        )
+        == expected
     )
 
 
@@ -140,10 +156,15 @@ def test_a_taken_document_is_neither_offered_nor_an_open_offer() -> None:
     assert offered is document
 
     documents = {document.activity_id: document}
-    pairs = [_pair(line, document, "pending"), _pair(other, document, "confirmed")]
-    taken = frozenset({document.activity_id})
+    pairs = [_pair(line, document, "pending"), _pair(other, document, "pending")]
+    outcomes = {str(other.id): _matched(other, document)}
     movements = build_movements(
-        [line, other], {CHECKING.bank_account_id: CHECKING}, documents, pairs, taken
+        [line, other],
+        {CHECKING.bank_account_id: CHECKING},
+        documents,
+        pairs,
+        outcomes,
+        taken_documents(outcomes),
     )
     assert [(m.state, len(m.offers)) for m in movements] == [
         ("falta_comprobante", 0),
@@ -166,6 +187,7 @@ def test_a_pending_pair_of_a_vanished_or_other_kind_document_is_not_an_offer() -
         {CHECKING.bank_account_id: CHECKING},
         {sale.activity_id: sale},
         pairs,
+        {},
         frozenset(),
     )
     assert movement.state == "falta_comprobante"
@@ -197,6 +219,7 @@ def test_offers_run_best_first() -> None:
         {CHECKING.bank_account_id: CHECKING},
         {weak.activity_id: weak, strong.activity_id: strong},
         pairs,
+        {},
         frozenset(),
     )
     assert [offer.document for offer in movement.offers] == [strong, weak]
@@ -243,7 +266,8 @@ def test_totals_keep_currencies_apart_and_count_por_igualar() -> None:
         [deposit, charge, fee],
         accounts,
         {sale.activity_id: sale},
-        [_pair(deposit, sale, "confirmed")],
+        [],
+        {str(deposit.id): _matched(deposit, sale)},
         frozenset({sale.activity_id}),
     )
     dollars = _document(
@@ -279,7 +303,7 @@ def test_totals_keep_currencies_apart_and_count_por_igualar() -> None:
 def test_pages_are_keyed_so_a_walk_sees_every_row_once() -> None:
     lines = [_line(day, f"-{day}") for day in (3, 9, 9, 1, 5)]
     movements = build_movements(
-        lines, {CHECKING.bank_account_id: CHECKING}, {}, [], frozenset()
+        lines, {CHECKING.bank_account_id: CHECKING}, {}, [], {}, frozenset()
     )
     whole, _ = page(movements, segment="todas", sense=None, limit=10, cursor=None)
     days = [item.line.occurred_on.day for item in whole]
@@ -303,3 +327,50 @@ def test_pages_are_keyed_so_a_walk_sees_every_row_once() -> None:
 def test_a_cursor_that_is_not_ours_is_refused(cursor: str) -> None:
     with pytest.raises(InvalidCursor):
         decode_cursor(cursor)
+
+
+def test_a_marked_line_offers_nothing_and_says_why() -> None:
+    line = _line(12, "-150.00")
+    document = _document(12, 15000)
+    [movement] = build_movements(
+        [line],
+        {CHECKING.bank_account_id: CHECKING},
+        {document.activity_id: document},
+        [_pair(line, document, "pending")],
+        {str(line.id): LiveOutcome(str(line.id), "no_receipt", None, "entre_cuentas")},
+        frozenset(),
+    )
+    assert (movement.state, movement.reason, movement.offers) == (
+        "no_lleva_comprobante",
+        "entre_cuentas",
+        (),
+    )
+
+
+@pytest.mark.parametrize(
+    ("amount", "kind", "currency", "total_minor", "refusal"),
+    [
+        ("-150.00", "receipt", "DOP", 15000, None),
+        ("150.00", "venta", "DOP", 15000, None),
+        ("150.00", "receipt", "DOP", 15000, "document_not_matchable"),
+        ("-150.00", "receipt", "USD", 15000, "document_not_matchable"),
+        ("-150.00", "receipt", "DOP", 15001, "document_not_matchable"),
+        ("0", "receipt", "DOP", 0, "document_not_matchable"),
+    ],
+)
+def test_a_manual_match_is_one_to_one_and_exact(
+    amount, kind, currency, total_minor, refusal
+) -> None:  # noqa: ANN001
+    document = _document(1, total_minor, kind=kind, currency=currency)
+    assert match_refusal(_line(20, amount), document) == refusal
+
+
+def test_igualar_settles_on_the_movement_date_by_the_account_method() -> None:
+    card = Account(**{**CHECKING.__dict__, "type": "credit_card"})
+    line = _line(17, "-150.00")
+    assert applied_settlement("receipt", line, card) == Settlement(
+        "pagado", date(2026, 10, 17), "tarjeta"
+    )
+    assert applied_settlement("venta", line, CHECKING) == Settlement(
+        "cobrado", date(2026, 10, 17), "transferencia"
+    )

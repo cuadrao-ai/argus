@@ -8,11 +8,11 @@ A suggestion pairs a line with a recorded document of the Business: a receipt is
 
 `unmatched_charge_count(space_id: UUID, period_start: date, period_end: date) -> int`
 
-Defined in `src/argus/domain/business/bank/service.py`. The period is inclusive. The count is charges whose amount is below zero and that have no confirmed receipt. Deposits are not included. The function raises `business_bank_matching_off` when the process service is unset.
+Defined in `src/argus/domain/business/bank/service.py`. The period is inclusive. The count is charges whose amount is below zero and whose state is `falta_comprobante` or `sugerencia`: no live match and no "no lleva comprobante" reason. Deposits are not included. The function raises `business_bank_matching_off` when the process service is unset.
 
 ## Endpoints
 
-All routes are under `/api/v1/business/bank`. They require a signed-in Business person. `prepare` can import, confirm, and decline. `read` can list. Responses send `Cache-Control: no-store`.
+All routes are under `/api/v1/business/bank`. They require a signed-in Business person. `prepare` can import and decide (confirm, decline, match, unmatch, mark). `read` can list. Every decision needs the durable Business store and answers 404 `business_unavailable` without it. Responses send `Cache-Control: no-store`.
 
 ### POST /imports
 
@@ -56,7 +56,7 @@ Multipart file field `statement`. Form field `account_id`. Optional `reader_id` 
 }
 ```
 
-`sense` is `charge`, `deposit`, or `zero`. `state` is `igualada`, `sugerencia`, `falta_comprobante`, or `no_lleva_comprobante`, by the rule in the movements read below. The line state is not stored and is not the document mark `sin_comprobante`. `target_kind` is `receipt` or `venta`. `status` is `pending`, `confirmed`, or `declined`. `actionable` is true only while the suggestion is pending and the line has no confirmed suggestion.
+`sense` is `charge`, `deposit`, or `zero`. `state` is `igualada`, `sugerencia`, `falta_comprobante`, or `no_lleva_comprobante`, by the rule in the movements read below. The line state is not stored and is not the document mark `sin_comprobante`. `target_kind` is `receipt` or `venta`. `status` is `pending`, `confirmed`, or `declined`. `confirmed` is not stored: a suggestion is confirmed while its line holds a live match to its target. `actionable` is true only while the suggestion is pending, its line has no live outcome, and no other line holds its document.
 
 ### GET /suggestions
 
@@ -67,6 +67,50 @@ Optional query `status` of `pending`, `confirmed`, or `declined`. Returns the su
 ### POST /suggestions/{suggestion_id}/decline
 
 Header `Idempotency-Key`. Returns one suggestion. The same key and the same decision returns the same row.
+
+Confirm is igualar. In one transaction it records a live match of the line and the document and sets the document's settlement: `pagado` for a receipt, `cobrado` for a venta, `settled_on` the movement's date, and `payment_method` from the account type (the method rule in the movements read). The settlement it replaced is stored on the match. Confirming a declined pair is 409 `pair_declined`. A line that already has a live outcome is 409 `line_already_confirmed` or `line_marked_no_receipt`. A document another line holds is 409 `document_already_matched`. A pair that no longer passes the offer rules is 409 `target_not_approved`.
+
+Declining a pair that is confirmed is 409 `suggestion_not_pending`. Undo it with unmatch first.
+
+### POST /movements/{line_id}/match
+
+Igualar with a document the person chose. Body `{"activity_id": "uuid"}`. Header `Idempotency-Key`. The document must be a recorded receipt or venta of this Business (404 `business_record_not_found` otherwise) of the line's sense (a charge takes a receipt, a deposit a venta), in the line's currency, for exactly the line's amount (422 `document_not_matchable` otherwise). The date window and the name do not apply. It writes the settlement as confirm does. Returns the line as one movements item.
+
+### POST /movements/{line_id}/unmatch
+
+Desigualar. Header `Idempotency-Key`. Ends the live match and writes back the settlement stored on it: the same status, date, and method the document had before igualar. A document that had no settlement row before keeps a `pendiente` row, which every read shows as before. Both writes add a settlement revision. A line with no live match is 409 `line_not_matched`; the same key again returns the line. The pair's suggestion is pending again, so the line shows `sugerencia`. Returns the line as one movements item.
+
+### PUT /movements/{line_id}/disposition
+
+No lleva comprobante. Body `{"reason": "cargo_banco" | "entre_cuentas" | "compra_informal" | "personal"}`. Header `Idempotency-Key`. A new reason ends the old one. The same reason again changes nothing. A matched line is 409 `line_already_confirmed`. `compra_informal` here is a line reason; it does not create a document or the document mark `sin_comprobante`. Returns the line as one movements item.
+
+### DELETE /movements/{line_id}/disposition
+
+Header `Idempotency-Key`. Ends the reason. A line with no reason is 409 `line_not_marked`; the same key again returns the line.
+
+### GET /movements/{line_id}/history
+
+Every outcome the line has had, oldest first, ended ones included.
+
+```json
+[
+  {
+    "id": "uuid",
+    "kind": "match",
+    "target_kind": "receipt",
+    "activity_id": "uuid",
+    "reason": null,
+    "created_at": "2026-10-21T12:00:00Z",
+    "ended_at": "2026-10-21T12:01:00Z"
+  }
+]
+```
+
+`kind` is `match` or `no_receipt`. `reason` is set only on `no_receipt`.
+
+### One owner for cobrado and pagado
+
+While a document has a live match, its settlement is the one the match wrote. `PATCH /business/month-close/documents/{activity_id}` with anything else is 409 `business_document_matched`, so Inicio and Transacciones cannot disagree. The same values are a no-op. The database enforces it with a trigger on `business_document_settlements`. Unmatch ends the match before it restores the settlement.
 
 ### GET /unmatched
 
@@ -179,8 +223,8 @@ Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` o
 
 | Field | Meaning |
 | --- | --- |
-| `state` | `igualada`: the line has a confirmed pair. `no_lleva_comprobante`: the line needs no comprobante; `reason` says why. `sugerencia`: the line has at least one pending pair whose document no other line holds. `falta_comprobante`: none of these. A document row is `sin_movimiento`. |
-| `reason` | Set only with `no_lleva_comprobante`. `monto_cero` is a zero-amount line. |
+| `state` | `igualada`: the line has a live match. `no_lleva_comprobante`: the line needs no comprobante; `reason` says why. `sugerencia`: the line has at least one pending pair whose document no other line holds. `falta_comprobante`: none of these. A document row is `sin_movimiento`. |
+| `reason` | Set only with `no_lleva_comprobante`. A person's reason (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`), or `monto_cero` for a zero-amount line with no reason. |
 | `kind` | `movement` is a bank line. `document` is a settled document recorded on a bank account that the statement does not show (`sin_movimiento`). Its `description` is null, its amount is signed by kind (a receipt is negative), and its `method` is the settlement's method. |
 | `counterparty` | The matched document's counterparty when igualada. Otherwise the bank text with runs of spaces joined. |
 | `category_id` | The matched document's category, or null. |
@@ -219,6 +263,13 @@ The read stores the offers the rules allow that were never stored. A declined pa
 | business_bank_unavailable | 503 |
 | one_account | 409 |
 | suggestion_not_pending | 409 |
+| line_not_found | 404 |
+| line_marked_no_receipt | 409 |
+| line_not_matched | 409 |
+| line_not_marked | 409 |
+| document_already_matched | 409 |
+| document_not_matchable | 422 |
+| business_document_matched | 409 |
 | pair_declined | 409 |
 | line_already_confirmed | 409 |
 | target_not_approved | 409 |

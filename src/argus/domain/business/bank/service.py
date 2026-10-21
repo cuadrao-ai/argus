@@ -1,4 +1,6 @@
-"""Import a statement, offer pairs, and record the person's decision.
+"""Import a statement, offer pairs, and read line states.
+
+Decisions on a pair and the settlement they write live in ``outcomes_store``.
 
 ``unmatched_charge_count`` counts the charges with no confirmed receipt for
 one space and period. Month close reads that function. It does not own these
@@ -18,7 +20,6 @@ from argus.domain.business.bank.matching import (
     expected_kind,
     new_offers,
     normalize_description,
-    score_parts,
 )
 from argus.domain.business.bank.model import (
     MATCH_WINDOW_DAYS,
@@ -33,7 +34,7 @@ from argus.domain.business.bank.model import (
     Suggestion,
     TargetCatalog,
 )
-from argus.domain.business.bank.movements import movement_state
+from argus.domain.business.bank.movements import movement_state, taken_documents
 from argus.domain.business.bank.readers import select_reader
 from argus.domain.business.bank.store import MemoryBankStore, new_id
 
@@ -73,10 +74,6 @@ class EmptyCatalog:
     ) -> tuple[MatchTarget, ...]:
         del space_id, kind, period_start, period_end
         return ()
-
-    def get(self, space_id: UUID, *, kind: str, target_id: str) -> MatchTarget | None:
-        del space_id, kind, target_id
-        return None
 
 
 class BankMatchingService:
@@ -200,7 +197,27 @@ class BankMatchingService:
         self, *, space_id: UUID, capabilities: frozenset[str], status: str | None = None
     ) -> tuple[Suggestion, ...]:
         self._require(capabilities, "read")
-        return self.store.list_suggestions(space_id, status=status)  # type: ignore[arg-type]
+        rows = self.store.list_suggestions(space_id)
+        return tuple(
+            row
+            for row in rows
+            if status is None or self.suggestion_view(row)[0] == status
+        )
+
+    def suggestion_view(self, row: Suggestion) -> tuple[str, bool]:
+        """The status a person sees and whether they can still confirm it. A
+        pair is confirmed while its line holds a live match to its target."""
+
+        outcomes = self.store.live_outcomes(row.space_id)
+        live = outcomes.get(str(row.line_id))
+        if live is not None and live.kind == "match" and live.target_id == row.target_id:
+            return "confirmed", False
+        actionable = (
+            row.status == "pending"
+            and live is None
+            and row.target_id not in taken_documents(outcomes)
+        )
+        return row.status, actionable
 
     def list_lines(
         self,
@@ -215,70 +232,20 @@ class BankMatchingService:
             space_id, period_start=period_start, period_end=period_end
         )
 
-    def confirm_suggestion(
-        self,
-        *,
-        space_id: UUID,
-        actor_id: UUID,
-        capabilities: frozenset[str],
-        suggestion_id: UUID,
-        idempotency_key: str,
-    ) -> Suggestion:
-        self._require(capabilities, "prepare")
-        current = self.store.get_suggestion(space_id, suggestion_id)
-        if current.status == "declined":
-            raise BankMatchingError("pair_declined")
-        if current.status == "confirmed" and current.decision_key == idempotency_key:
-            return current
-        if self.store.confirmed_for_line(current.line_id) not in (None, current):
-            if current.status != "confirmed":
-                raise BankMatchingError("line_already_confirmed")
-        self._recheck(space_id, current)
-        return self.store.decide(
-            space_id,
-            suggestion_id,
-            status="confirmed",
-            actor_id=actor_id,
-            decision_key=idempotency_key,
-        )
-
-    def decline_suggestion(
-        self,
-        *,
-        space_id: UUID,
-        actor_id: UUID,
-        capabilities: frozenset[str],
-        suggestion_id: UUID,
-        idempotency_key: str,
-    ) -> Suggestion:
-        self._require(capabilities, "prepare")
-        current = self.store.get_suggestion(space_id, suggestion_id)
-        if current.status == "declined" and current.decision_key == idempotency_key:
-            return current
-        return self.store.decide(
-            space_id,
-            suggestion_id,
-            status="declined",
-            actor_id=actor_id,
-            decision_key=idempotency_key,
-        )
-
     def unmatched_charges(
         self, *, space_id: UUID, period_start: date, period_end: date
     ) -> tuple[BankLine, ...]:
-        """Charges in the period with no confirmed receipt. Not a stored flag."""
+        """Charges in the period still waiting for a comprobante. Not a stored flag."""
 
         lines = self.store.list_lines(
             space_id, period_start=period_start, period_end=period_end
         )
-        unmatched: list[BankLine] = []
-        for line in lines:
-            if line.amount >= 0:
-                continue
-            confirmed = self.store.confirmed_for_line(line.id)
-            if confirmed is None or confirmed.target_kind != "receipt":
-                unmatched.append(line)
-        return tuple(unmatched)
+        return tuple(
+            line
+            for line in lines
+            if line.amount < 0
+            and self.line_state(line) in ("falta_comprobante", "sugerencia")
+        )
 
     def unmatched_charge_count(
         self, space_id: UUID, period_start: date, period_end: date
@@ -292,22 +259,20 @@ class BankMatchingService:
         )
 
     def line_state(self, line: BankLine) -> str:
+        outcomes = self.store.live_outcomes(line.space_id)
+        live = outcomes.get(str(line.id))
+        taken = taken_documents(outcomes)
         pairs = self.store.list_suggestions(line.space_id, line_id=line.id)
-        taken = self._taken(line.space_id)
         state, _reason = movement_state(
             line.amount,
-            matched=any(pair.status == "confirmed" for pair in pairs),
-            has_offer=any(
+            matched=live is not None and live.kind == "match",
+            disposition=live.reason if live is not None else None,
+            has_offer=live is None
+            and any(
                 pair.status == "pending" and pair.target_id not in taken for pair in pairs
             ),
         )
         return state
-
-    def _taken(self, space_id: UUID) -> frozenset[str]:
-        return frozenset(
-            row.target_id
-            for row in self.store.list_suggestions(space_id, status="confirmed")
-        )
 
     def _offer(self, space_id: UUID, lines: tuple[BankLine, ...]) -> list[Suggestion]:
         if not lines:
@@ -330,7 +295,7 @@ class BankMatchingService:
         )
         created: list[Suggestion] = []
         for line, target, parts in new_offers(
-            lines, targets, known, self._taken(space_id)
+            lines, targets, known, taken_documents(self.store.live_outcomes(space_id))
         ):
             suggestion = Suggestion(
                 id=new_id(),
@@ -348,16 +313,6 @@ class BankMatchingService:
             self.store.put_suggestion(suggestion)
             created.append(suggestion)
         return created
-
-    def _recheck(self, space_id: UUID, suggestion: Suggestion) -> None:
-        target = self.catalog.get(
-            space_id, kind=suggestion.target_kind, target_id=suggestion.target_id
-        )
-        if target is None or not target.approved:
-            raise BankMatchingError("target_not_approved")
-        line = self.store.get_line(space_id, suggestion.line_id)
-        if score_parts(line, target) is None:
-            raise BankMatchingError("target_not_approved")
 
     def _bind(
         self, space_id: UUID, owner_id: UUID, account_id: UUID

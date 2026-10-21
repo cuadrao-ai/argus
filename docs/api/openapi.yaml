@@ -996,6 +996,306 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/disposition:
+    put:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: No lleva comprobante, with the reason.
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispositionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/history:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: Every outcome the line has had, oldest first, ended ones included.
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OutcomeHistoryEntry'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/match:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: Igualar with a document the person chose. Same sense, currency, and amount.
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/unmatch:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: 'Desigualar: end the match and put back the settlement it replaced.'
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/bank/suggestions:
     get:
       tags:
@@ -1058,6 +1358,7 @@ paths:
       - financial-accounts
       - business
       - business-bank
+      description: 'Igualar: match the line to this document and mark it pagado or cobrado.'
       parameters:
       - name: suggestion_id
         in: path
@@ -1094,12 +1395,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: '`document_not_matchable`.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1150,12 +1453,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: '`document_not_matchable`.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -17593,6 +17898,18 @@ components:
       type: object
       required:
       - items
+    DispositionRequest:
+      properties:
+        reason:
+          type: string
+          enum:
+          - cargo_banco
+          - entre_cuentas
+          - compra_informal
+          - personal
+      type: object
+      required:
+      - reason
     DocumentLine:
       properties:
         activity_id:
@@ -21572,6 +21889,15 @@ components:
       - settled_on
       - payment_method
       - category_id
+    MatchRequest:
+      properties:
+        activity_id:
+          type: string
+          format: uuid
+          description: An approved receipt or venta of this Business.
+      type: object
+      required:
+      - activity_id
     MemberRecord:
       properties:
         membership_id:
@@ -22711,6 +23037,12 @@ components:
         reason:
           anyOf:
           - type: string
+            enum:
+            - cargo_banco
+            - entre_cuentas
+            - compra_informal
+            - personal
+          - type: string
             const: monto_cero
           - type: 'null'
         category_id:
@@ -23234,6 +23566,54 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OutcomeHistoryEntry:
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - match
+          - no_receipt
+        target_kind:
+          anyOf:
+          - type: string
+            enum:
+            - receipt
+            - venta
+          - type: 'null'
+        activity_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            enum:
+            - cargo_banco
+            - entre_cuentas
+            - compra_informal
+            - personal
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - kind
+      - target_kind
+      - activity_id
+      - reason
+      - created_at
+      - ended_at
     OwnerDoesNotKnow:
       properties:
         state:
