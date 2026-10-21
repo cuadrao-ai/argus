@@ -239,6 +239,8 @@ Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` o
 
 A document is `sin_movimiento` when it is recorded on the bank-bound account, it is settled (`pagado` or `cobrado`), its date is in the period, no line is matched to it, and its settlement date plus the 5-day match window is on or before `covered_through`.
 
+`GET /business/receipt-activity` and `GET /business/overview` carry `por_igualar_count`: the number of `sugerencia`, `falta_comprobante`, and `sin_movimiento` rows over every period, the same rule as `counts.por_igualar` here. It is null while this switch is off. Inicio and the sidebar render that one number.
+
 The read stores the offers the rules allow that were never stored. A declined pair is never offered again. Storing an offer confirms nothing.
 
 ## Errors

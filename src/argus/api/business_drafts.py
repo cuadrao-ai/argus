@@ -528,6 +528,7 @@ def overview_with_drafts(context: BusinessContext, start, end) -> dict:  # noqa:
     data["needs_attention"] = counts["needs_attention_count"]
     data["awaiting_review"] = counts["pending_review_count"] - data["needs_attention"]
     data["ready_to_review_count"] = counts["ready_to_review_count"]
+    data["por_igualar_count"] = counts["por_igualar_count"]
     # Gastos reales leave the owner's personal receipts out; con valor fiscal
     # are the real ones that carry an NCF or an e-CF; the rest do not go into
     # the 606. All three from the same rows, so the line never disagrees.

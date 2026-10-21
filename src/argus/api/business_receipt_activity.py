@@ -136,14 +136,21 @@ def inbox(
 
     store = context.service.imports.store
     notes = 0
+    por_igualar = None
     if isinstance(store, GrantImportStore):
         from argus.domain.business.actions.captures import awaiting_notes
 
         with transaction(store.authority, store.context) as tx:
             notes = awaiting_notes(tx)
+        from argus.domain.business.bank.service import bank_matching_on
+
+        if bank_matching_on():
+            from argus.domain.business.bank.movements_store import por_igualar_count
+
+            por_igualar = por_igualar_count(store.authority.pool, store.context)
     if emails is None:
         emails = email_standings(str(context.scope.owner.space_id))
-    return inbox_counts(views, notes, emails)
+    return inbox_counts(views, notes, emails, por_igualar)
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001

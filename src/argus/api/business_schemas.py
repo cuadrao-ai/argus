@@ -190,6 +190,9 @@ class ReceiptActivityCounts(_Wire):
     # "Por revisar": the receipts a person can review now (not being read,
     # not unreadable) plus those notes. An email never counts here.
     ready_to_review_count: int
+    # Transacciones "Por igualar": every movement and document still to
+    # igualar, from any period. Null while bank matching is off.
+    por_igualar_count: int | None
 
 
 class ReceiptReadingBody(_Wire):
@@ -395,6 +398,8 @@ class BusinessOverview(_Wire):
     needs_attention: int
     #: "Por revisar": the Bandeja's ``ready_to_review_count``.
     ready_to_review_count: int
+    #: "Por igualar": the same ``por_igualar_count`` the Bandeja counts carry.
+    por_igualar_count: int | None = None
     last_received_at: datetime | None
     last_confirmed_at: datetime | None
     # Saved expenses the chosen period leaves out, so none looks vanished.
