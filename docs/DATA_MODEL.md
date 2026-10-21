@@ -3580,6 +3580,18 @@ actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
 
+Migration `20261021020000_business_country.sql` adds `spaces.country` (`DO`,
+`US` or `CA`, default `DO`) and `spaces.currency` (ISO 4217, three upper-case
+letters, default `DOP`). The check constraints and the
+`business_country_immutable` trigger, which refuses an update that changes
+`country`, apply to `kind = 'business'` rows only, so a later Personal or
+Household space row carries no fiscal country. The server sets `currency` from the country when
+the space starts. Existing rows are `DO` and `DOP`. The registry
+`argus.domain.business.country` is the one owner of what each country implies,
+and a test keeps the `business_country_known` check equal to its codes. The
+person's profile `home_country` never decides a Business. See the
+[Business country plan](specs/business-country.md).
+
 The existing human `ReviewCommand` carries the tax input. It updates the current
 open resolution and appends one source-linked revision atomically. Every later
 revision preserves the declaration. Owner approval binds the reviewed revision.
