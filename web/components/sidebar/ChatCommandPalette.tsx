@@ -1154,11 +1154,7 @@ function ChatCommandPaletteSurface({
   });
 
   const changeQuery = (nextQuery: string) => {
-    const nextSignature = JSON.stringify([
-      nextQuery.trim(),
-      false,
-      null,
-    ]);
+    const nextSignature = JSON.stringify([nextQuery.trim(), false, null]);
     if (nextSignature !== searchSignatureRef.current) {
       historyRequestIdRef.current += 1;
     }
@@ -1177,10 +1173,7 @@ function ChatCommandPaletteSurface({
     }
   };
   // A recent search fills the bar and searches, as typing it would.
-  const fillQuery = (text: string) => {
-    changeQuery(text);
-    inputRef.current?.focus();
-  };
+  const fillQuery = (text: string) => { changeQuery(text); inputRef.current?.focus(); };
 
   const toggleLayout = () => {
     setLayoutMode((current) => {
