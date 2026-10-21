@@ -25,11 +25,11 @@ afterEach(async () => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-const source = createFixtureBusinessDataSource();
 const added: string[] = [];
 const actions: BusinessActions = { create: [{ id: "upload_receipt", label: "Agregar", icon: Plus, run: () => added.push("add") }], composer: [], starterEntries: [] };
 
 async function mount() {
+  const source = createFixtureBusinessDataSource();
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const opened: (BusinessPanelState | "export")[] = [];
@@ -166,8 +166,8 @@ test("a search that led to a record comes back as a recent search, and one click
     await type(view.input(), "ferreteria");
     await act(async () => group("Recibos")!.querySelector("button")!.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 })));
     await view.openSearch();
-    assert.deepEqual(rows("Búsquedas recientes"), ["ferreteria"]);
-    await act(async () => (group("Búsquedas recientes")!.querySelector("button") as HTMLButtonElement).click());
+    assert.deepEqual(Array.from(group("Búsquedas recientes")!.querySelectorAll("[data-recent-search]")).map((row) => row.textContent), ["ferreteria"]);
+    await act(async () => (group("Búsquedas recientes")!.querySelector("[data-recent-search]") as HTMLButtonElement).click());
     await settle();
     assert.equal(view.input().value, "ferreteria");
     assert.ok(rows("Recibos").length > 0, "the filled query searches");

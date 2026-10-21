@@ -12,7 +12,8 @@ import { periodContaining } from "../components/business-app/business-format";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { useBusinessSearch } from "../components/business-app/useBusinessSearch";
 import type { BusinessPanelState } from "../components/business-app/BusinessWorkspace";
-import type { BusinessCapture, BusinessSearchResult } from "../lib/business-api";
+import type { BusinessCapture } from "../lib/business-api";
+import type { BusinessSearchResult } from "../lib/business-search-api";
 
 const COPY: WorkspaceSearch["copy"] = {
   placeholder: "Search a merchant, amount or note",
@@ -24,6 +25,11 @@ const COPY: WorkspaceSearch["copy"] = {
   recent: "Recent searches",
   showMore: (count) => `See more (${count})`,
   showLess: "See less",
+  loadMore: "Load more",
+  loadMoreFailed: "We couldn't load more results.",
+  retryLoad: "Retry",
+  removeRecent: (query) => `Remove ${query}`,
+  clearRecents: "Clear all",
   noMatch: (query) => `Nothing matched “${query}”.`,
   keepTyping: "Type at least 3 letters to search your records.",
   readError: "We couldn't load your chats.",
@@ -112,9 +118,12 @@ describe("the sample source answers like the API", () => {
   });
 });
 
-async function businessSearch(found: BusinessSearchResult, notes: BusinessCapture[] | Error = []) {
+const NO_RESULTS: BusinessSearchResult = { expenses: [], ventas: [], receipts: [], accounts: [], email_deliveries: [], email_senders: [], next_cursors: {} };
+
+async function businessSearch(partial: Partial<BusinessSearchResult>, notes: BusinessCapture[] | Error = []) {
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "en", resources: {} });
+  const found = { ...NO_RESULTS, ...partial };
   const opened: BusinessPanelState[] = [];
   const periods: string[] = [];
   const source = { search: async () => found, captures: async () => { if (notes instanceof Error) throw notes; return notes; } } as unknown as BusinessDataSource;
@@ -199,8 +208,8 @@ describe("Business hits open the panel that holds them", () => {
     const { groups, opened } = await businessSearch({ expenses: [], receipts: [receipt, pdf], accounts: [] });
     const receipts = groups.find((group) => group.id === "receipts")!;
     expect(receipts.hits.map((hit) => [hit.title, hit.icon, hit.amount])).toEqual([
-      ["IMG_2214.jpg", ImageIcon, null],
-      ["factura.pdf", FileText, null],
+      ["IMG_2214.jpg", ImageIcon, "—"],
+      ["factura.pdf", FileText, "—"],
     ]);
     expect(receipts.hits[0].detail).toContain("Ready to review");
     expect(receipts.hits[0].badge).toBe("Receipt");

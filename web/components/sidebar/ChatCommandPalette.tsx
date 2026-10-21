@@ -1521,7 +1521,7 @@ function ChatCommandPaletteSurface({
             data-command-palette-action-region
             {...shortcutLegend.actionRegionProps}
           >
-            {workspaceSearch && !isFiltering && !isLedgerMode ? <WorkspaceSearchHome search={workspaceSearch} recent={workspaceRecents.items} onFill={fillQuery} onOpened={onClose} /> : null}
+            {workspaceSearch && !isFiltering && !isLedgerMode ? <WorkspaceSearchHome search={workspaceSearch} recents={workspaceRecents} onFill={fillQuery} onOpened={onClose} /> : null}
             {workspaceSearch && isFiltering && <WorkspaceSearchResults search={workspaceSearch} {...workspaceResults} onOpened={onClose} onChosen={() => workspaceRecents.remember(query)} selectedKey={workspaceSelection ?? undefined} onPreview={workspaceSearch.previewAvailable ? (group, hit) => setWorkspaceSelection(`${group}:${hit.id}`) : undefined} onSelect={workspaceSearch.previewAvailable ? (group, hit) => { setWorkspaceSelection(`${group}:${hit.id}`); if (isBelowDesktop || effectiveLayoutMode === "collapsed") setWorkspaceSheet(true); } : undefined} />}
             {isLoading ? (
               <div className="flex items-center justify-center py-20">

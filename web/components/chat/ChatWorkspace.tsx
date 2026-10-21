@@ -61,11 +61,28 @@ export type WorkspaceSearchHit = Readonly<{
   preview?: ReactNode;
 }>;
 
+/** The next rows of a group. `restarted` rows replace the group's, as after a stale cursor. */
+export type WorkspaceSearchPage = Readonly<{
+  hits: readonly WorkspaceSearchHit[];
+  loadMore?: () => Promise<WorkspaceSearchPage>;
+  restarted?: boolean;
+}>;
+
 export type WorkspaceSearchGroup = Readonly<{
   id: string;
   label: string;
   hits: readonly WorkspaceSearchHit[];
   error?: string;
+  /** Present while the backend holds more rows for this group; Cargar más calls it. */
+  loadMore?: () => Promise<WorkspaceSearchPage>;
+}>;
+
+/** The server's memory of recent searches. A call may fail with a 404 on a backend without it. */
+export type WorkspaceRecentSearchesServer = Readonly<{
+  list: () => Promise<readonly { id: string; q: string }[]>;
+  add: (query: string) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+  clear: () => Promise<void>;
 }>;
 
 /**
@@ -82,7 +99,7 @@ export type WorkspaceSearch = Readonly<{
    */
   shortcuts: readonly WorkspaceSearchGroup[];
   /** Where this browser keeps the queries that led to a record, per scope. */
-  recents: Readonly<{ key: StorageKey; scope: string }>;
+  recents: Readonly<{ key: StorageKey; scope: string; server?: WorkspaceRecentSearchesServer }>;
   copy: Readonly<{
     placeholder: string;
     noResultsHint: string;
@@ -93,6 +110,11 @@ export type WorkspaceSearch = Readonly<{
     recent: string;
     showMore: (count: number) => string;
     showLess: string;
+    loadMore: string;
+    loadMoreFailed: string;
+    retryLoad: string;
+    removeRecent: (query: string) => string;
+    clearRecents: string;
     noMatch: (query: string) => string;
     keepTyping: string;
     readError: string;

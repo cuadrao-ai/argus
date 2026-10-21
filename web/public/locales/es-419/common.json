@@ -2646,8 +2646,7 @@
       "more": "Más acciones"
     },
     "amounts": {
-      "hide": "Ocultar montos",
-      "show": "Mostrar montos"
+      "hide": "Ocultar montos"
     },
     "attention_short": {
       "unreadable": "No se pudo leer",
@@ -3074,10 +3073,33 @@
       "badge_receipt": "Recibo",
       "badge_note": "Nota",
       "badge_account": "Cuenta",
+      "badge_email": "Correo",
+      "badge_sender": "Remitente",
+      "badge_venta": "Venta",
       "accounts": "Cuentas",
+      "emails": "Correos",
+      "senders": "Remitentes",
+      "ventas": "Ventas",
+      "email_from": "De",
+      "email_received": "Recibido",
+      "email_state": "Estado",
+      "sender_type": "Tipo",
+      "sender_kind": {
+        "address": "Dirección",
+        "domain": "Dominio"
+      },
+      "sender_status": {
+        "authorized": "Autorizado",
+        "blocked": "Bloqueado"
+      },
       "recent": "Búsquedas recientes",
+      "recent_clear": "Borrar todo",
+      "recent_remove": "Quitar «{{query}}» de las búsquedas recientes",
       "show_more": "Ver más ({{count}})",
       "show_less": "Ver menos",
+      "load_more": "Cargar más",
+      "load_more_failed": "No pudimos cargar más resultados. Los que ves siguen aquí.",
+      "retry_load": "Reintentar",
       "no_match": "No encontramos nada con «{{query}}».",
       "keep_typing": "Escribe al menos 3 letras para buscar en tus registros.",
       "chats_failed": "No pudimos cargar tus chats. Tus registros siguen aquí.",

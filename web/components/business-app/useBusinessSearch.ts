@@ -1,15 +1,15 @@
 "use client";
 
 import { createElement, useMemo } from "react";
-import { Banknote, Building2, Copy, Download, FileText, House, ImageIcon, Inbox, Landmark, Mail, Plus, ReceiptText, Users } from "lucide-react";
+import { Building2, Copy, Download, FileText, House, Inbox, Mail, Plus, ReceiptText, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { WorkspaceSearch, WorkspaceSearchGroup, WorkspaceSearchHit } from "@/components/chat/ChatWorkspace";
+import type { WorkspaceRecentSearchesServer, WorkspaceSearch, WorkspaceSearchGroup, WorkspaceSearchHit } from "@/components/chat/ChatWorkspace";
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessActions } from "./business-actions";
 import type { BusinessDataSource } from "./business-data";
 import BusinessSearchDossier, { type BusinessSearchRecord } from "./BusinessSearchDossier";
-import { expensePanel } from "./business-expense-target";
-import { formatDay, formatMoney } from "./business-format";
+import { searchKindGroups } from "./business-search-groups";
+import { formatDay } from "./business-format";
 import { useCategoryLabel } from "./business-ui";
 import type { BusinessPanelState } from "./BusinessWorkspace";
 import { copyText } from "./foundation/CopyButton";
@@ -18,12 +18,13 @@ import { useReceiptStateWord } from "./receipt-state-word";
 import { useSourceForwardAddress } from "./useForwardAddress";
 
 /**
- * Business expenses, receipts, notes and accounts in the shared omnisearch,
- * with the screens and actions a person reaches for. Hovering or focusing a
- * record previews it beside the results; opening it shows the panel that
- * holds it: an expense's receipt, with its original, the expense in its
- * period's list when it has no receipt, or a note's draft. An account has no
- * screen of its own, so its row only shows it.
+ * Business expenses, sales, receipts, notes, accounts, emails and email
+ * senders in the shared omnisearch, with the screens and actions a person
+ * reaches for. Hovering or focusing a record previews it beside the results;
+ * opening it shows the panel that holds it: an expense's receipt, with its
+ * original, the expense in its period's list when it has no receipt, a note's
+ * draft, or an email in the Bandeja's record tray. An account has no screen
+ * of its own, so its row only shows it.
  */
 export function useBusinessSearch({
   source,
@@ -50,8 +51,13 @@ export function useBusinessSearch({
   const forwardAddress = useSourceForwardAddress(owner ? source : null);
   const locale = i18n.resolvedLanguage ?? "en";
 
+  const recentsServer = useMemo<WorkspaceRecentSearchesServer | undefined>(() => {
+    const { searchRecents, addSearchRecent, removeSearchRecent, clearSearchRecents } = source;
+    if (!searchRecents || !addSearchRecent || !removeSearchRecent || !clearSearchRecents) return undefined;
+    return { list: searchRecents, add: addSearchRecent, remove: removeSearchRecent, clear: clearSearchRecents };
+  }, [source]);
+
   return useMemo<WorkspaceSearch>(() => {
-    const nickname = new Map(accounts.map((account) => [account.id, account.nickname]));
     const line = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(" · ");
     const preview = (record: BusinessSearchRecord) => createElement(BusinessSearchDossier, { record, source, accounts });
     const screen = t("business.search.badge_screen", "Screen");
@@ -90,7 +96,7 @@ export function useBusinessSearch({
     return {
       previewAvailable: true,
       shortcuts,
-      recents: { key: "cuadrao:business_recent_searches:v1", scope },
+      recents: { key: "cuadrao:business_recent_searches:v1", scope, server: recentsServer },
       copy: {
         placeholder: t("business.search.placeholder", "Search a merchant, amount or note"),
         noResultsHint: t("business.search.no_results_hint", "Search by merchant, amount, category, account or note text."),
@@ -101,6 +107,11 @@ export function useBusinessSearch({
         recent: t("business.search.recent", "Recent searches"),
         showMore: (count) => t("business.search.show_more", { count, defaultValue: "See {{count}} more" }),
         showLess: t("business.search.show_less", "See less"),
+        loadMore: t("business.search.load_more", "Load more"),
+        loadMoreFailed: t("business.search.load_more_failed", "We couldn't load more results. The ones shown are still here."),
+        retryLoad: t("business.search.retry_load", "Retry"),
+        removeRecent: (query) => t("business.search.recent_remove", { query, defaultValue: "Remove “{{query}}” from recent searches" }),
+        clearRecents: t("business.search.recent_clear", "Clear all"),
         noMatch: (query) => t("business.search.no_match", { query, defaultValue: "Nothing matched “{{query}}”." }),
         keepTyping: t("business.search.keep_typing", "Type at least 3 letters to search your records."),
         readError: t("business.search.chats_failed", "We couldn't load your chats. Your records are still shown."),
@@ -111,65 +122,24 @@ export function useBusinessSearch({
       find: async (query) => {
         const [records, captures] = await Promise.allSettled([source.search(query), source.captures(query)]);
         if (records.status === "rejected") throw records.reason;
-        const found = records.value;
-        return [
-          {
-            id: "expenses",
-            label: t("business.expenses.title", "Expenses"),
-            hits: found.expenses.map((expense) => ({
-              id: expense.id,
-              icon: Banknote,
-              title: expense.merchant ?? t("business.expenses.no_merchant", "Expense"),
-              detail: line(formatDay(expense.occurred_on, locale), categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
-              amount: formatMoney(expense.amount, expense.currency, locale),
-              badge: t("business.search.badge_expense", "Expense"),
-              preview: preview({ kind: "expense", expense }),
-              open: () => openPanel(expensePanel(expense)),
-            })),
-          },
-          {
-            id: "receipts",
-            label: t("business.search.receipts", "Receipts"),
-            hits: found.receipts.filter((receipt) => !receipt.email_original).map((receipt) => ({
-              id: receipt.id,
-              icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
-              title: receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt"),
-              detail: line(stateWord(receipt), formatDay(receipt.occurred_on ?? receipt.received_at, locale)),
-              amount: formatMoney(receipt.amount, receipt.currency, locale) || null,
-              badge: t("business.search.badge_receipt", "Receipt"),
-              preview: preview({ kind: "receipt", receipt }),
-              open: () => openPanel({ kind: "receipt", receiptId: receipt.id, list: "inbox" }),
-            })),
-          },
-          {
-            id: "captures",
-            label: t("business.capture.notes", "Original notes"),
-            ...(captures.status === "rejected" ? { error: t("business.capture.search_failed", "Notes are unavailable. Other record results are shown below.") } : {}),
-            hits: captures.status === "fulfilled" ? captures.value.map((note) => ({
-              id: note.source_id,
-              icon: FileText,
-              title: note.text,
-              detail: line(t("business.capture.saved_note", "Saved original note"), formatDay(note.received_at, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), t(`business.dossier.state.${note.review_state}`, note.review_state)),
-              amount: null,
-              badge: t("business.search.badge_note", "Note"),
-              preview: preview({ kind: "note", note }),
-              open: () => openPanel({ kind: "draft", draftId: note.draft_id, list: "inbox" }),
-            })) : [],
-          },
-          {
-            id: "accounts",
-            label: t("business.search.accounts", "Accounts"),
-            hits: found.accounts.map((account) => ({
-              id: account.id,
-              icon: Landmark,
-              title: account.nickname ?? t("business.search.badge_account", "Account"),
-              detail: account.currency,
-              amount: null,
-              badge: t("business.search.badge_account", "Account"),
-            })),
-          },
-        ];
+        const kinds = searchKindGroups({ t, locale, source, accounts, openPanel, stateWord, categoryLabel }, query, records.value);
+        const notes: WorkspaceSearchGroup = {
+          id: "captures",
+          label: t("business.capture.notes", "Original notes"),
+          ...(captures.status === "rejected" ? { error: t("business.capture.search_failed", "Notes are unavailable. Other record results are shown below.") } : {}),
+          hits: captures.status === "fulfilled" ? captures.value.map((note) => ({
+            id: note.source_id,
+            icon: FileText,
+            title: note.text,
+            detail: line(t("business.capture.saved_note", "Saved original note"), formatDay(note.received_at, locale), t("business.dossier.revision", "Revision {{version}}", { version: note.revision }), t(`business.dossier.state.${note.review_state}`, note.review_state)),
+            amount: null,
+            badge: t("business.search.badge_note", "Note"),
+            preview: preview({ kind: "note", note }),
+            open: () => openPanel({ kind: "draft", draftId: note.draft_id, list: "inbox" }),
+          })) : [],
+        };
+        return [kinds.expenses, kinds.ventas, kinds.receipts, notes, kinds.accounts, kinds.email_deliveries, kinds.email_senders];
       },
     };
-  }, [accounts, actions.create, categoryLabel, forwardAddress, locale, openPanel, owner, scope, source, stateWord, t]);
+  }, [accounts, actions.create, categoryLabel, forwardAddress, locale, openPanel, owner, recentsServer, scope, source, stateWord, t]);
 }

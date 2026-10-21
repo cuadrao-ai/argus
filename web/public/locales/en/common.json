@@ -2762,8 +2762,7 @@
       "more": "More actions"
     },
     "amounts": {
-      "hide": "Hide amounts",
-      "show": "Show amounts"
+      "hide": "Hide amounts"
     },
     "attention_short": {
       "unreadable": "Couldn't read it",
@@ -3074,10 +3073,33 @@
       "badge_receipt": "Receipt",
       "badge_note": "Note",
       "badge_account": "Account",
+      "badge_email": "Email",
+      "badge_sender": "Sender",
+      "badge_venta": "Sale",
       "accounts": "Accounts",
+      "emails": "Emails",
+      "senders": "Senders",
+      "ventas": "Sales",
+      "email_from": "From",
+      "email_received": "Received",
+      "email_state": "Status",
+      "sender_type": "Type",
+      "sender_kind": {
+        "address": "Address",
+        "domain": "Domain"
+      },
+      "sender_status": {
+        "authorized": "Authorized",
+        "blocked": "Blocked"
+      },
       "recent": "Recent searches",
+      "recent_clear": "Clear all",
+      "recent_remove": "Remove “{{query}}” from recent searches",
       "show_more": "See more ({{count}})",
       "show_less": "See less",
+      "load_more": "Load more",
+      "load_more_failed": "We couldn't load more results. The ones shown are still here.",
+      "retry_load": "Retry",
       "no_match": "Nothing matched “{{query}}”.",
       "keep_typing": "Type at least 3 letters to search your records.",
       "chats_failed": "We couldn't load your chats. Your records are still here.",

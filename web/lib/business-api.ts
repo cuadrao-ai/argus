@@ -337,16 +337,6 @@ export type BusinessOverview = {
   outside_period_latest_on: string | null;
 };
 
-/**
- * Business records matching a query, each list capped by `limit`. A receipt
- * whose expense also matched is only under its expense, as `receipt_id`.
- */
-export type BusinessSearchResult = {
-  expenses: BusinessExpense[];
-  receipts: ReceiptSummary[];
-  accounts: BusinessAccount[];
-};
-
 /** `document_type` only on a new note: a note on a draft is refused with it. Left out, the note is a detected receipt. */
 export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number }; document_type?: "recibo" | "venta" };
 export type BusinessCapture = {
@@ -479,11 +469,6 @@ export async function listBusinessReceipts(
 
 export async function getBusinessReceipt(id: string, signal?: AbortSignal): Promise<ReceiptDetail> {
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}`, { signal });
-}
-
-export async function searchBusiness(q: string, limit = 5): Promise<BusinessSearchResult> {
-  const query = new URLSearchParams({ q, limit: String(limit) });
-  return apiFetch(`/business/search?${query}`);
 }
 
 export async function getBusinessExpense(expenseId: string): Promise<BusinessExpenseDetail> {

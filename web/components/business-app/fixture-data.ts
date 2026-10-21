@@ -10,6 +10,7 @@ import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
 import type { BusinessDataSource } from "./business-data";
+import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
 
 /**
  * Synthetic records for the local design preview only. Every merchant and
@@ -351,6 +352,15 @@ export function createFixtureBusinessDataSource(
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
   /** A sample file named with "falla" loses its connection once at 90%, so the retry can be seen. */
   const failedOnce = new Set<string>();
+  const search = createFixtureSearch({
+    expenses: () => expenses,
+    receipts: () => receipts,
+    accounts: () => accounts,
+    emails: () => SAMPLE_EMAILS.map(({ id, sender, subject, received_at, state }) => ({ id, sender, subject, received_at, state, inbox_group: "bandeja" as const })),
+    matches,
+    delay,
+    injected: injectedWriteError,
+  });
 
   return {
     mode: "fixture",
@@ -496,7 +506,7 @@ export function createFixtureBusinessDataSource(
     },
     expense: async (id) => {
       await delay();
-      const found = expenses.find((item) => item.id === id);
+      const found = expenses.find((item) => item.id === id) ?? SAMPLE_VENTAS.find((item) => item.id === id);
       if (!found) throw Object.assign(new Error("expense_not_found"), { status: 404, code: "expense_not_found" });
       return { ...found, recorded_at: `${found.occurred_on}T15:00:00Z`, revision: 1 };
     },
@@ -603,25 +613,7 @@ export function createFixtureBusinessDataSource(
       ];
       return replace({ ...current, status: "confirmed", expense_id: expenseId });
     },
-    search: async (query) => {
-      await delay();
-      const injected = injectedWriteError();
-      if (injected) throw injected;
-      const found = expenses
-        .filter((item) => matches(query, [item.merchant, item.category_id].join(" ")))
-        .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
-      const listed = new Set(found.map((item) => item.id));
-      return {
-        expenses: found.slice(0, 5),
-        receipts: receipts
-          .filter((item) => !listed.has(item.expense_id ?? ""))
-          .filter((item) => matches(query, [item.merchant, item.filename, item.amount].join(" ")))
-          .slice(0, 5),
-        accounts: accounts.filter((item) =>
-          matches(query, [item.nickname, item.type, item.currency].join(" ")),
-        ).slice(0, 5),
-      };
-    },
+    ...search,
     emailIntake: async () => {
       await delay();
       return { enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" };

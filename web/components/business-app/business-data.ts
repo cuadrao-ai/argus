@@ -2,6 +2,8 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/brows
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { getChosenGrant } from "@/lib/business-grant";
+import * as searchApi from "@/lib/business-search-api";
+import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import { getFiscalProfile, setFiscalProfile, type FiscalProfile, type FiscalProfileInput } from "@/lib/business-dgii";
@@ -14,7 +16,6 @@ import type {
   BusinessExpense,
   BusinessExpenseDetail,
   BusinessOverview,
-  BusinessSearchResult,
   BusinessSpace,
   BusinessWorkspaceInfo,
   ReceiptDetail,
@@ -59,6 +60,15 @@ export type BusinessDataSource = Readonly<{
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
   expense: (id: string) => Promise<BusinessExpenseDetail>;
   search: (query: string) => Promise<BusinessSearchResult>;
+  /** The next page of one list, by the cursor the last answer gave for it. */
+  searchMore?: (query: string, kind: BusinessSearchKind, cursor: string) => Promise<BusinessSearchResult>;
+  /** What this person searched lately; a backend without them answers 404 and the browser keeps its own. */
+  searchRecents?: () => Promise<BusinessSearchRecent[]>;
+  addSearchRecent?: (query: string) => Promise<void>;
+  removeSearchRecent?: (id: string) => Promise<void>;
+  clearSearchRecents?: () => Promise<void>;
+  /** A result was opened, so it ranks first next time. Best effort. */
+  recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapture[]>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
@@ -109,7 +119,13 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receiptSource: api.fetchBusinessReceiptSource,
   expenses: api.listBusinessExpenses,
   expense: api.getBusinessExpense,
-  search: (query) => api.searchBusiness(query),
+  search: (query) => searchApi.searchBusiness(query),
+  searchMore: (query, kind, cursor) => searchApi.searchBusinessMore(query, kind, cursor),
+  searchRecents: searchApi.listBusinessSearchRecents,
+  addSearchRecent: searchApi.addBusinessSearchRecent,
+  removeSearchRecent: searchApi.removeBusinessSearchRecent,
+  clearSearchRecents: searchApi.clearBusinessSearchRecents,
+  recordSearchOpen: searchApi.recordBusinessSearchOpen,
   captureNote: api.captureBusinessNote,
   captures: api.listBusinessCaptures,
   uploadReceipt: api.uploadBusinessReceipt,
@@ -194,6 +210,12 @@ export function withBusinessSpace(
     receiptSource: source.receiptSource,
     expenses: after(source.expenses),
     search: after(source.search),
+    searchMore: source.searchMore ? after(source.searchMore) : undefined,
+    searchRecents: source.searchRecents ? after(source.searchRecents) : undefined,
+    addSearchRecent: source.addSearchRecent ? after(source.addSearchRecent) : undefined,
+    removeSearchRecent: source.removeSearchRecent ? after(source.removeSearchRecent) : undefined,
+    clearSearchRecents: source.clearSearchRecents ? after(source.clearSearchRecents) : undefined,
+    recordSearchOpen: source.recordSearchOpen ? after(source.recordSearchOpen) : undefined,
     captureNote: source.captureNote,
     captures: source.captures,
     uploadReceipt: after(source.uploadReceipt),
