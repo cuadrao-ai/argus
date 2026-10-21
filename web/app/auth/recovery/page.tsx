@@ -90,7 +90,7 @@ export default function RecoveryPage() {
 
   return (
     <main data-auth-brand="cuadrao" className="flex min-h-[100dvh] items-center justify-center bg-[var(--auth-paper)] px-6 py-12">
-      <section className="w-full max-w-md rounded-[24px] border border-[var(--auth-line)] bg-[var(--auth-paper)] p-7">
+      <section className="w-full max-w-md rounded-[20px] border border-[var(--auth-line)] bg-[var(--auth-paper)] p-7">
         <h1 className="font-display text-3xl font-medium tracking-tight text-[var(--auth-ink)]">
           {t("auth.recovery.reset_title", "Choose a new password")}
         </h1>
