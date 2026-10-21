@@ -64,3 +64,22 @@ describe("the Bandeja counts with emails", () => {
     assert.equal(problemCount({ inbox, emails: null, emailsError: true }), 1);
   });
 });
+
+describe("the Bandeja counts from the server when it has them", () => {
+  const inbox = [{ status: "review_ready" }];
+  const activity = { reading_count: 3, unread_count: 0, presentation: "working" as const, pending_review_count: 40, needs_attention_count: 7, ready_to_review_count: 30 };
+  const serverEmails = [email({ id: "a", standing: "no_receipt" })];
+
+  test("past one page of rows, the numbers are the server's, not the loaded lists'", () => {
+    assert.equal(inboxCount({ inbox, notes: [], emails: serverEmails, receiptActivity: activity }), 30);
+    assert.equal(problemCount({ inbox, emails: serverEmails, receiptActivity: activity }), 7);
+    assert.equal(readingCount({ inbox, emails: serverEmails, receiptActivity: activity }), 3);
+  });
+
+  test("a server that does not count emails yet keeps the lists for the email part", () => {
+    const older = { ...activity, ready_to_review_count: undefined };
+    const browserEmails = [email({ id: "a", state: "rejected", parts: [] })];
+    assert.equal(inboxCount({ inbox, notes: [], emails: browserEmails, receiptActivity: older }), 1);
+    assert.equal(problemCount({ inbox: [{ status: "needs_attention" }], emails: browserEmails, receiptActivity: older }), 2);
+  });
+});
