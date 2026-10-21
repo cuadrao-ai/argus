@@ -22,7 +22,7 @@ struct AssetShareControl: View {
                 }.frame(minHeight: 44)
                 if custom {
                     PercentField(title: NSLocalizedString("accounts.share", comment: ""), text: $share, bounds: .share,
-                                 spanish: Locale.current.language.languageCode?.identifier == "es", identifier: "assets.share.percent")
+                                 spanish: CuadraoCopy.isSpanish(), identifier: "assets.share.percent")
                 }
             }
         }.font(ArgusStyle.body(13, relativeTo: .subheadline))

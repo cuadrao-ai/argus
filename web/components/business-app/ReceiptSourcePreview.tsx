@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatTimestamp } from "./business-format";
-import { cardClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
+import { quietButtonClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
 import { DelayedSourceWell } from "./business-skeletons";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
@@ -36,7 +37,7 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
   }, [detail.id, source, retry]);
 
   return (
-    <figure className={`${cardClass} p-3`} data-testid="receipt-original-source">
+    <figure className={SURFACE_CARD} data-testid="receipt-original-source">
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left text-[14px] font-medium text-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:text-white/85 desktop:hidden">
         {!expanded && state.kind === "ready" && (detail.media_type.startsWith("image/") || source.mode === "fixture") ? <Image unoptimized src={state.url} width={64} height={80} alt="" className="h-20 w-16 rounded-md object-contain" /> : null}
         {expanded ? t("common.close", "Close") : t("business.review.source", "Original receipt")}
@@ -62,13 +63,13 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
       <figcaption className={`${expanded ? "" : "hidden desktop:block"} mt-3 px-1 text-[13px] text-black/60 dark:text-white/60`}>
         <div className="flex items-center justify-between gap-2">
           <span className="min-w-0 break-all">{detail.filename ?? t("business.review.source", "Original receipt")}</span>
-          {state.kind === "ready" ? <a href={state.url} download={detail.filename ?? "receipt"} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:hover:bg-white/5 dark:focus-visible:ring-white/20"><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
+          {state.kind === "ready" ? <a href={state.url} download={detail.filename ?? "receipt"} className={`${quietButtonClass} shrink-0 px-3`}><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
         </div>
         <p data-testid="receipt-source-channel">
-          {channelLabel(detail.channel)}
-          {detail.channel === "email" && firstEmail ? <>{" · "}<button type="button" className="font-medium underline underline-offset-4" onClick={() => openPanel({ kind: "inbox", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}
+          {detail.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(detail.channel)}
+          {detail.channel === "email" && firstEmail ? <>{" · "}<button type="button" data-testid="receipt-see-email" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_email", "See email")}</button></> : null}
         </p>
-        {deliveries > 1 ? <p className="mt-1" data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{firstEmail && detail.channel !== "email" ? <>{" "}<button type="button" className="font-medium underline underline-offset-4" onClick={() => openPanel({ kind: "inbox", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}</p> : null}
+        {deliveries > 1 ? <p className="mt-1" data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{firstEmail && detail.channel !== "email" ? <>{" "}<button type="button" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}</p> : null}
         <p className="mt-1">{t("business.dossier.received", "Received {{time}}", { time: formatTimestamp(detail.received_at, i18n.resolvedLanguage ?? "en") })}</p>
       </figcaption>
     </figure>

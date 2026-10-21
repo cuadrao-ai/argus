@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -21,6 +20,7 @@ from argus.domain.business.contracts.actions import (
     Applied,
     ApproveExpense,
     ApproveIncome,
+    ApproveRefund,
     AttachmentPreparationBinding,
     CaptureNote,
     DecideFiscalInclusion,
@@ -46,6 +46,7 @@ from argus.domain.business.contracts.dossier import (
     RecordContext,
     SourceEvidence,
     WebActionSource,
+    web_action_text,
 )
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
@@ -113,6 +114,16 @@ class BusinessActions:
         view: str = "all",
     ) -> list[dict]:
         return captures.entries(self, context, query=query, limit=limit, view=view)
+
+    def captures_page(
+        self,
+        context: ActionContext,
+        *,
+        query: str = "",
+        limit: int = 20,
+        view: str = "all",
+    ) -> dict:
+        return captures.page(self, context, query=query, limit=limit, view=view)
 
     def persist_plan(
         self,
@@ -217,7 +228,18 @@ class BusinessActions:
 
     def dossier(self, context: ActionContext, draft_id: UUID) -> BusinessDossier:
         with transaction(self.authority, context) as tx:
-            return views.dossier(tx, draft_id)
+            return views.dossier(tx, draft_id, ledger=lambda: self._activities(context))
+
+    def _activities(self, context: ActionContext) -> list[dict]:
+        """The Business's current money activities, as the Resumen reads them."""
+
+        from argus.domain.recording.money_reads import current_activities
+
+        return current_activities(
+            self.imports.money.accounts.list_accounts(
+                user_id=context.owner_id, scope=context.scope
+            )
+        )
 
     def record_context(self, context: ActionContext) -> RecordContext:
         with transaction(self.authority, context) as tx:
@@ -294,11 +316,8 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=json.dumps(
-                                command.model_dump(mode="json", exclude_none=True),
-                                sort_keys=True,
-                                separators=(",", ":"),
-                                ensure_ascii=False,
+                            text=web_action_text(
+                                command.model_dump(mode="json", exclude_none=True)
                             ),
                         )
                         source_id = sources.record_source(
@@ -310,6 +329,9 @@ class BusinessActions:
                             request.facts,
                             (source_id,),
                             tx.authorization.provenance,
+                            fiscal_review=request.dgii,
+                            document_type=request.document_type,
+                            due_on=request.due_on,
                         )
                 except ActionError as error:
                     result = error.result
@@ -437,14 +459,13 @@ class BusinessActions:
         from argus.domain.business.contracts.facts import (
             FiscalFacts,
             Known,
-            fiscal_value,
-            is_personal,
+            fiscal_question_applies,
         )
 
         command = DecideFiscalInclusionCommand(draft_id=draft_id, request=request)
 
         def change(facts, source_id, acting_owner):  # noqa: ANN001, ANN202
-            if not is_personal(facts) or fiscal_value(facts) is None:
+            if not fiscal_question_applies(facts):
                 raise ActionError("invalid_input", "business_606_not_applicable")
             fiscal = facts.fiscal or FiscalFacts()
             return facts.model_copy(
@@ -520,11 +541,8 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=json.dumps(
-                                command.model_dump(mode="json", exclude_none=True),
-                                sort_keys=True,
-                                separators=(",", ":"),
-                                ensure_ascii=False,
+                            text=web_action_text(
+                                command.model_dump(mode="json", exclude_none=True)
                             ),
                         )
                         source_id = sources.record_source(
@@ -569,6 +587,13 @@ class BusinessActions:
         draft_id: UUID,
         request: ApproveIncome,
         key: str,
+    ) -> ActionOutcome:
+        from argus.domain.business.actions.approval import approve
+
+        return approve(self, context, draft_id, request, key)
+
+    def approve_refund(
+        self, context: ActionContext, draft_id: UUID, request: ApproveRefund, key: str
     ) -> ActionOutcome:
         from argus.domain.business.actions.approval import approve
 

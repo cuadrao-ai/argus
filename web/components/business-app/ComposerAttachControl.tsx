@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
 import { Plus, ReceiptText, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "./ActionMenu";
@@ -23,23 +24,25 @@ export default function ComposerAttachControl() {
           className="absolute bottom-full left-0 mb-3 flex max-w-[min(20rem,80vw)] items-center gap-2 rounded-full border border-black/10 bg-white py-1 pl-3 pr-1 text-[13px] text-black/75 dark:border-white/10 dark:bg-[#1f2225] dark:text-white/75"
         >
           <ReceiptText className="h-4 w-4 shrink-0" />
-          <button
-            type="button"
-            title={attachedReceipt.filename ?? undefined}
-            className="min-w-0 truncate text-left font-medium hover:underline"
-            onClick={() => openPanel({ kind: "receipt", receiptId: attachedReceipt.id })}
-          >
-            {t("business.composer_receipt.saved", "Saved to Inbox")}
-          </button>
-          <button
-            type="button"
-            aria-label={t("business.composer_receipt.dismiss", "Dismiss")}
-            title={t("business.composer_receipt.dismiss", "Dismiss")}
-            onClick={clearAttachedReceipt}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <Tooltip content={attachedReceipt.filename ?? t("business.composer_receipt.open", "Open receipt")} side="top">
+            <button
+              type="button"
+              className="min-w-0 truncate text-left font-medium hover:underline"
+              onClick={() => openPanel({ kind: "receipt", receiptId: attachedReceipt.id })}
+            >
+              {t("business.composer_receipt.saved", "Saved to Inbox")}
+            </button>
+          </Tooltip>
+          <Tooltip content={t("business.composer_receipt.dismiss", "Dismiss")} side="top">
+            <button
+              type="button"
+              aria-label={t("business.composer_receipt.dismiss", "Dismiss")}
+              onClick={clearAttachedReceipt}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/5 dark:focus-visible:ring-white/30"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </Tooltip>
         </div>
       ) : null}
       <ActionMenu

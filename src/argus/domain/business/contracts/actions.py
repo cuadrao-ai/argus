@@ -14,11 +14,15 @@ from pydantic import (
     model_validator,
 )
 
+from argus.domain.business.document_type import DocumentType
+
 from .authority import ActorProvenance
+from .dgii import FiscalReview
 from .facts import (
     BusinessFactPatch,
     BusinessShare,
     Contract,
+    DueOnInput,
     FactField,
     FactInput,
     Funding,
@@ -137,7 +141,25 @@ class TurnPlan(Contract):
 
 class ReviewDraft(Contract):
     version: int = Field(ge=1)
-    facts: BusinessFactPatch
+    facts: BusinessFactPatch | None = None
+    dgii: FiscalReview | None = None
+    #: Sets the uploaded document's type while the draft is open.
+    document_type: DocumentType | None = None
+    #: Sets the due date, or takes it back to unknown, while the draft is open.
+    due_on: DueOnInput | None = None
+
+    @model_validator(mode="after")
+    def some_review_input(self):
+        if (
+            self.facts is None
+            and self.dgii is None
+            and self.document_type is None
+            and self.due_on is None
+        ):
+            raise ValueError(
+                "supply review facts, fiscal declaration, document type or due date"
+            )
+        return self
 
 
 class ApproveExpense(Contract):
@@ -148,6 +170,21 @@ class ApproveExpense(Contract):
 class ApproveIncome(Contract):
     version: int = Field(ge=1, strict=True)
     action: Literal["record_income"]
+
+
+class ApproveRefund(Contract):
+    version: int = Field(ge=1, strict=True)
+    action: Literal["record_refund"]
+
+
+ApprovalAction = Literal["record_expense", "record_income", "record_refund"]
+#: The approve action each kind of draft takes: what the dossier names as
+#: ``approval_action`` and what the approve route's body discriminates on.
+APPROVAL_ACTION: dict[str, ApprovalAction] = {
+    "expense": "record_expense",
+    "income": "record_income",
+    "refund": "record_refund",
+}
 
 
 class SettleRemainder(Contract):
@@ -206,6 +243,10 @@ class ApprovalCommand(Contract):
 class CaptureNote(Contract):
     text: str = Field(min_length=1, max_length=20000)
     draft: ExistingDraft | None = None
+    #: The type of the new draft this note starts; a review changes it later.
+    document_type: DocumentType | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @field_validator("draft", mode="before")
     @classmethod
@@ -222,6 +263,8 @@ class CaptureNote(Contract):
             raise ValueError("capture text must not be blank")
         if "\x00" in self.text:
             raise ValueError("capture text must not contain NUL")
+        if self.draft is not None and self.document_type is not None:
+            raise ValueError("a document type names a new capture only")
         return self
 
 
@@ -234,6 +277,12 @@ class IncomeApprovalCommand(Contract):
     action: Literal["approve_income"] = "approve_income"
     draft_id: UUID
     request: ApproveIncome
+
+
+class RefundApprovalCommand(Contract):
+    action: Literal["approve_refund"] = "approve_refund"
+    draft_id: UUID
+    request: ApproveRefund
 
 
 class AttachmentPreparationBinding(Contract):
@@ -302,6 +351,7 @@ Command = (
     | ApprovalCommand
     | CaptureCommand
     | IncomeApprovalCommand
+    | RefundApprovalCommand
     | PrepareAttachmentCommand
     | SettleRemainderCommand
     | RebindAttachmentCommand
@@ -327,6 +377,17 @@ class Refused(Contract):
         "idempotency_conflict",
     ]
     code: str
+    # The approved record a duplicate_comprobante refusal points at.
+    existing_record_id: UUID | None = None
+
+    @model_serializer(mode="wrap")
+    def omit_absent_record(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        payload = handler(self)
+        if self.existing_record_id is None:
+            payload.pop("existing_record_id", None)
+        return payload
 
 
 class OutcomeUnknown(Contract):

@@ -7,7 +7,7 @@ struct CuadraoWelcomeLockup: View {
 
     var body: some View {
         CuadraoBrand(maxWidth: Self.width)
-            .accessibilityLabel("cuadrao")
+            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoWelcomeLockup.d6c2cf736d", spanish: CuadraoCopy.isSpanish()))
             .accessibilityIdentifier("cuadrao.welcome.lockup")
     }
 }

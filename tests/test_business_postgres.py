@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from argus.domain import financial_search
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.search import parse
 from argus.domain.business.service import BusinessService
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections import ConnectionNotFound
@@ -380,7 +381,7 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     receipt_id, version = _reviewed(rig)
     expense_id = service.confirm(scope, receipt_id, version, "k").review.expense_id
 
-    found = service.search(scope, "ferreteria", 5)
+    found = service.search(scope, parse("ferreteria"))
 
     assert [(e["id"], e["receipt_id"]) for e in found["expenses"]] == [
         (expense_id, receipt_id)
@@ -390,12 +391,13 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     assert media_type == "image/jpeg" and content.startswith(b"\xff\xd8")
     assert content != RECEIPT
     assert service.documents.store.source(user_id=scope.person_id, connection_id=receipt_id) == RECEIPT
-    assert [r["id"] for r in service.search(scope, "recibo", 5)["receipts"]] == [
+    assert [r["id"] for r in service.search(scope, parse("recibo"))["receipts"]] == [
         receipt_id
     ]
-    assert [a["nickname"] for a in service.search(scope, "ops", 5)["accounts"]] == ["Ops"]
-    assert service.search(rig["other"], "ferreteria", 5) == {
+    assert [a["nickname"] for a in service.search(scope, parse("ops"))["accounts"]] == ["Ops"]
+    assert service.search(rig["other"], parse("ferreteria")) == {
         "expenses": [],
+        "ventas": [],
         "receipts": [],
         "accounts": [],
     }

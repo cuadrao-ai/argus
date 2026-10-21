@@ -59,7 +59,7 @@ def _receipt(actions, content: bytes, merchant: str = "Synthetic shop"):  # noqa
                         merchant=merchant,
                     )
                 ],
-                receipt=dict(total="250.50", currency="DOP"),
+                receipt=dict(payment_status="paid", total="250.50", currency="DOP"),
             )
         )
         batch = batch_from_result(result, digest, cid, now, 1)

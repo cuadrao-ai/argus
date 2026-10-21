@@ -4,56 +4,54 @@ import ArgusSession
 
 struct ReleaseInvitationsGallery: View {
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         List {
             Section {
-                Text(spanish ? "Galería de estados. Los ejemplos no dan acceso ni crean invitaciones."
-                     : "State gallery. Examples do not grant access or create invitations.")
+                Text(CuadraoCopy.text("copy.releaseInvitationsGallery.2a39b56bcd", spanish: spanish))
             }
-            Section(spanish ? "Entrada a la beta" : "Beta entry") {
+            Section(CuadraoCopy.text("copy.releaseInvitationsGallery.faf72f6575", spanish: spanish)) {
                 ForEach(ReleaseInviteGateState.allCases, id: \.rawValue) { state in
                     NavigationLink(state.title(spanish: spanish)) {
                         ReleaseInviteGateFixture(initialState: state, spanish: spanish)
                     }.accessibilityIdentifier("release.invites.gallery.gate." + state.rawValue)
                 }
             }
-            Section(spanish ? "Invitaciones personales" : "Personal invitations") {
-                NavigationLink(spanish ? "7 de 10 · Enlace, código y QR" : "7 of 10 · Link, code and QR") {
+            Section(CuadraoCopy.text("copy.releaseInvitationsGallery.48a1e769ec", spanish: spanish)) {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.a027f19e14", spanish: spanish)) {
                     ReleasePersonalInvitationFixture(spanish: spanish)
                 }.accessibilityIdentifier("release.invites.gallery.personal")
-                NavigationLink(spanish ? "Sin invitaciones disponibles" : "No invitations left") {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.e7ff74dc02", spanish: spanish)) {
                     ReleasePersonalInvitationFixture(spanish: spanish, initialRemaining: 0)
                 }
-                NavigationLink(spanish ? "No disponible" : "Unavailable") {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.3350acd647", spanish: spanish)) {
                     ReleasePersonalInvitationFixture(spanish: spanish, unavailable: true)
                 }
             }
-            Section(spanish ? "Hogar · Solo administradores" : "Household · Admins only") {
-                NavigationLink(spanish ? "Invitación actual de Hogar" : "Current Household invitation") {
+            Section(CuadraoCopy.text("copy.releaseInvitationsGallery.a81dad5195", spanish: spanish)) {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.146a1f810b", spanish: spanish)) {
                     Form {
-                        Text(spanish ? "Ejemplo. Este enlace no permite unirse a un Hogar."
-                             : "Example. This link cannot join a Household.")
+                        Text(CuadraoCopy.text("copy.releaseInvitationsGallery.b7b164756d", spanish: spanish))
                         if let invitation = householdFixture {
                             HouseholdInvitationShareView(invitation: invitation, spanish: spanish)
                         }
                     }
                 }.accessibilityIdentifier("release.invites.gallery.household")
             }
-            Section(spanish ? "Enlace de grupo · Solo Lucas" : "Group link · Lucas only") {
-                NavigationLink(spanish ? "Crear con límite y vencimiento" : "Create with cap and expiry") {
+            Section(CuadraoCopy.text("copy.releaseInvitationsGallery.5fcfa2448d", spanish: spanish)) {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.20ed08d57a", spanish: spanish)) {
                     ReleaseGroupInvitationFixture(spanish: spanish)
                 }.accessibilityIdentifier("release.invites.gallery.group.create")
-                NavigationLink(spanish ? "Enlace preparado" : "Prepared link") {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.fadf046ebd", spanish: spanish)) {
                     ReleaseGroupInvitationFixture(spanish: spanish, prepared: true)
                 }.accessibilityIdentifier("release.invites.gallery.group.ready")
-                NavigationLink(spanish ? "Cuenta sin permiso" : "Account without permission") {
+                NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.dd17dcf59e", spanish: spanish)) {
                     ReleaseGroupInvitationFixture(spanish: spanish, isFounder: false)
                 }
             }
         }
-        .navigationTitle(spanish ? "Invitaciones · Galería" : "Invitations · Gallery")
+        .navigationTitle(CuadraoCopy.text("copy.releaseInvitationsGallery.a30249c514", spanish: spanish))
     }
 
     private var householdFixture: HouseholdInvitation? {
@@ -75,8 +73,7 @@ private enum ReleaseInvitationFixtures {
 private struct ReleaseInvitationFixtureNotice: View {
     let spanish: Bool
     var body: some View {
-        Text(spanish ? "Ejemplo local. El menú Resultado completa la solicitud. No cambia tu acceso ni tu Hogar."
-             : "Local fixture. Use Result to complete the request. Your access and Household do not change.")
+        Text(CuadraoCopy.text("copy.releaseInvitationsGallery.b9513fe8fe", spanish: spanish))
             .font(CuadraoTypography.caption).foregroundStyle(.secondary)
             .padding(12).frame(maxWidth: .infinity)
             .background(WelcomePalette.surface)
@@ -99,14 +96,13 @@ private struct ReleaseInviteGateFixture: View {
     var body: some View {
         Group {
             if accepted {
-                ReleaseInvitationPage(title: spanish ? "Invitación aceptada." : "Invitation accepted.",
-                                      subtitle: spanish ? "Este resultado es un ejemplo local. No se cambió tu acceso a Cuadrao."
-                                      : "This result is a local fixture. Your Cuadrao access has not changed.") {
-                    NavigationLink(spanish ? "Explorar invitaciones personales" : "Explore personal invitations") {
+                ReleaseInvitationPage(title: CuadraoCopy.text("copy.releaseInvitationsGallery.461de6a3b6", spanish: spanish),
+                                      subtitle: CuadraoCopy.text("copy.releaseInvitationsGallery.681593dcd5", spanish: spanish)) {
+                    NavigationLink(CuadraoCopy.text("copy.releaseInvitationsGallery.d62438ffc8", spanish: spanish)) {
                         ReleasePersonalInvitationFixture(spanish: spanish)
                     }.buttonStyle(.borderedProminent).modifier(ReleaseProminentLabel())
                         .accessibilityIdentifier("release.invites.fixture.accepted.continue")
-                    Button(spanish ? "Probar otro resultado" : "Try another result") {
+                    Button(CuadraoCopy.text("copy.releaseInvitationsGallery.14202e8693", spanish: spanish)) {
                         accepted = false; state = .ready
                     }.frame(minHeight: 44)
                 }.accessibilityIdentifier("release.invites.fixture.accepted")
@@ -119,8 +115,8 @@ private struct ReleaseInviteGateFixture: View {
         .safeAreaInset(edge: .top) { ReleaseInvitationFixtureNotice(spanish: spanish) }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu(spanish ? "Resultado" : "Result") {
-                    Button(spanish ? "Aceptada" : "Accepted") { accepted = true }
+                Menu(CuadraoCopy.text("copy.releaseInvitationsGallery.6421b20f7a", spanish: spanish)) {
+                    Button(CuadraoCopy.text("copy.releaseInvitationsGallery.5c2a07b862", spanish: spanish)) { accepted = true }
                         .accessibilityIdentifier("release.invites.fixture.result.accepted")
                     ForEach([ReleaseInviteGateState.invalid, .expired, .full, .consumed, .revoked, .unavailable], id: \.rawValue) { outcome in
                         Button(outcome.title(spanish: spanish)) { state = outcome }
@@ -156,8 +152,8 @@ private struct ReleasePersonalInvitationFixture: View {
         .safeAreaInset(edge: .top) { ReleaseInvitationFixtureNotice(spanish: spanish) }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu(spanish ? "Resultado" : "Result") {
-                    Button(spanish ? "Invitación creada" : "Invitation created") {
+                Menu(CuadraoCopy.text("copy.releaseInvitationsGallery.6421b20f7a", spanish: spanish)) {
+                    Button(CuadraoCopy.text("copy.invitationViews.3b2351f33d", spanish: spanish)) {
                         guard pending, remaining > 0 else { return }
                         remaining -= 1
                         invitation = ReleaseInvitationFixtures.share()
@@ -165,10 +161,10 @@ private struct ReleasePersonalInvitationFixture: View {
                         showReady()
                     }.disabled(!pending)
                         .accessibilityIdentifier("release.invites.fixture.personal.complete")
-                    Button(spanish ? "No disponible" : "Unavailable") {
+                    Button(CuadraoCopy.text("copy.releaseInvitationsGallery.3350acd647", spanish: spanish)) {
                         pending = false; state = .unavailable
                     }.disabled(!pending)
-                    Button(spanish ? "Volver a intentar" : "Try again") {
+                    Button(CuadraoCopy.text("copy.releaseInvitationsGallery.e4bd371375", spanish: spanish)) {
                         pending = false; showReady()
                     }.accessibilityIdentifier("release.invites.fixture.personal.retry")
                 }.accessibilityIdentifier("release.invites.fixture.result")
@@ -202,18 +198,18 @@ private struct ReleaseGroupInvitationFixture: View {
         .toolbar {
             if isFounder {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu(spanish ? "Resultado" : "Result") {
-                        Button(spanish ? "Enlace creado" : "Link created") {
+                    Menu(CuadraoCopy.text("copy.releaseInvitationsGallery.6421b20f7a", spanish: spanish)) {
+                        Button(CuadraoCopy.text("copy.releaseInvitationsGallery.0e49ae7f72", spanish: spanish)) {
                             guard let values = pending else { return }
                             state = .ready(cap: values.cap, used: 0,
                                            invitation: ReleaseInvitationFixtures.share(expiry: values.expiry))
                             pending = nil
                         }.disabled(pending == nil)
                             .accessibilityIdentifier("release.invites.fixture.group.complete")
-                        Button(spanish ? "No disponible" : "Unavailable") {
+                        Button(CuadraoCopy.text("copy.releaseInvitationsGallery.3350acd647", spanish: spanish)) {
                             pending = nil; state = .unavailable
                         }.disabled(pending == nil)
-                        Button(spanish ? "Editar otro enlace" : "Edit another link") {
+                        Button(CuadraoCopy.text("copy.releaseInvitationsGallery.7ebef64246", spanish: spanish)) {
                             pending = nil; state = .draft
                         }.accessibilityIdentifier("release.invites.fixture.group.edit")
                     }.accessibilityIdentifier("release.invites.fixture.result")

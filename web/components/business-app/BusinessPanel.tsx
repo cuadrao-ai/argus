@@ -1,19 +1,27 @@
 "use client";
 
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { useBusiness } from "./BusinessWorkspace";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
+import { useBusiness, type BusinessPanelState, type RecordList } from "./BusinessWorkspace";
 import { useAccessBanner } from "./useAccessBanner";
-import BusinessSectionActions from "./BusinessSectionActions";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import BusinessExpensesPanel from "./BusinessExpensesPanel";
+import TransaccionesPanel from "./transacciones/TransaccionesPanel";
+import { useTransaccionesEnabled } from "./transacciones/transacciones-gate";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
-import BusinessAccessPanel from "./BusinessAccessPanel";
-import BusinessUpdatesPanel from "./BusinessUpdatesPanel";
+import BusinessSettingsPanel from "./BusinessSettingsPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
+import { EmailRecord } from "./BusinessEmailDeliveries";
 import PanelErrorBoundary from "./PanelErrorBoundary";
-import { SampleDataNotice } from "./business-ui";
 import { formatBusinessName } from "./business-format";
+import { RecordTrayContext, recordList } from "./record-tray";
+import { primaryButtonClass } from "./business-ui";
 
 /**
  * Inside a client's Business every screen says so, and the first landing
@@ -22,17 +30,13 @@ import { formatBusinessName } from "./business-format";
  */
 export function BusinessContextCue() {
   const { t } = useTranslation();
-  const { chosen, lostAccess } = useBusiness();
+  const { chosen, lostAccess, clearLostAccess } = useBusiness();
   const access = useAccessBanner();
   const client = chosen && chosen.role !== "owner" ? chosen : null;
   const clientName = formatBusinessName(client?.name, t("business.overview.title", "My business"));
   return (
     <>
-      {lostAccess ? (
-        <p role="status" data-testid="business-access-lost" className="mb-3 rounded-[14px] bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/75 dark:bg-white/[0.06] dark:text-white/80">
-          {t("business.switcher.lost", "You no longer have access to this Business.")}
-        </p>
-      ) : null}
+      {lostAccess ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
       {client ? (
         <p data-testid="business-client-cue" className="mb-3 text-[13px] font-medium text-[var(--cuadrao-green)]">
           {t("business.switcher.client_cue", "Client: {{name}}", { name: clientName })}
@@ -41,7 +45,7 @@ export function BusinessContextCue() {
       {access.visible ? (
         <div role="status" data-testid="business-access-line" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-[var(--cuadrao-green)]/30 bg-[var(--cuadrao-cream)] px-3.5 py-2.5 text-[13px] text-black/80 dark:bg-white/[0.06] dark:text-white/85">
           <span>{t("business.switcher.access_line", "You now have access to {{name}} · View and prepare", { name: clientName })}</span>
-          <button type="button" disabled={access.busy} onClick={() => void access.dismiss()} className="inline-flex min-h-9 items-center rounded-full bg-[var(--cuadrao-green)] px-3 text-[12px] font-medium text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40">
+          <button type="button" disabled={access.busy} onClick={() => void access.dismiss()} className={primaryButtonClass}>
             {t("business.switcher.got_it", "Got it")}
           </button>
         </div>
@@ -50,23 +54,102 @@ export function BusinessContextCue() {
   );
 }
 
-export default function BusinessPanel() {
-  const { panel } = useBusiness();
+type RecordPanel = Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" | "email" }>;
+
+function recordKey(panel: RecordPanel): string {
+  switch (panel.kind) {
+    case "receipt": return `receipt:${panel.receiptId}`;
+    case "draft": return `draft:${panel.draftId}`;
+    case "expense": return `expense:${panel.expenseId}`;
+    case "email": return `email:${panel.emailId}`;
+  }
+}
+
+function RecordContent({ panel }: { panel: RecordPanel }) {
+  if (panel.kind === "expense") return <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} />;
+  if (panel.kind === "email") return <EmailRecord key={panel.emailId} emailId={panel.emailId} />;
+  if (panel.kind === "receipt") return <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} />;
+  return <ReceiptReviewPanel key={panel.draftId} target={{ kind: "draft", id: panel.draftId }} />;
+}
+
+/**
+ * A record beside the list it came from, on a desktop. The tray is not modal:
+ * a click on another row swaps the record, and closing returns to the list
+ * with focus on the row that was open.
+ */
+function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null> }) {
+  const { t } = useTranslation();
+  const { openPanel } = useBusiness();
+  const [footer, setFooter] = useState<HTMLDivElement | null>(null);
+  const settleList = useCallback((next: RecordList) => {
+    if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined && next !== list) openPanel({ ...panel, list: next });
+  }, [list, openPanel, panel]);
+  const tray = useMemo(() => ({ footer, settleList }), [footer, settleList]);
+  const close = () => {
+    const host = listRef.current;
+    (host?.querySelector<HTMLElement>('[aria-current="true"] button') ?? host)?.focus();
+    openPanel({ kind: list });
+  };
   return (
-    <div className="mx-auto w-full max-w-3xl pb-6">
-      <SampleDataNotice />
+    <AdaptivePanel
+      modal={false}
+      width="record"
+      title={t("business.tray.title", "Details")}
+      closeLabel={t("common.close", "Close")}
+      onClose={close}
+      footer={<div ref={setFooter} data-footer-slot="" />}
+    >
+      <RecordTrayContext.Provider value={tray}>
+        <div className="px-5 py-5">
+          <PanelErrorBoundary key={recordKey(panel)}>
+            <RecordContent panel={panel} />
+          </PanelErrorBoundary>
+        </div>
+      </RecordTrayContext.Provider>
+    </AdaptivePanel>
+  );
+}
+
+export default function BusinessPanel() {
+  const { panel, lostAccess, records, reload } = useBusiness();
+  const { isBelowDesktop } = useResponsiveLayout();
+  const transacciones = useTransaccionesEnabled();
+  const listRef = useRef<HTMLDivElement>(null);
+  if (records.closed) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl justify-center pb-6">
+        <BusinessClosedNotice />
+      </div>
+    );
+  }
+  if (records.serverReference) return <ServerErrorScreen reference={records.serverReference} onRetry={reload} />;
+  if (lostAccess) {
+    return (
+      <div className="mx-auto w-full max-w-3xl pb-6">
+        <BusinessContextCue />
+      </div>
+    );
+  }
+  const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email" ? panel : null;
+  // On a desktop a record opens in a tray beside its list; below it the record is the whole page.
+  const tray = record && !isBelowDesktop ? recordList(record) : null;
+  // With the flag off a Transacciones link lands on Gastos, as today.
+  const shown = tray ?? (panel.kind === "transactions" && !transacciones ? "expenses" : panel.kind);
+  // A ledger needs the canvas: Transacciones is the one list that is not held to the reading column.
+  const wide = shown === "transactions" || (record && !tray && (record.kind === "receipt" || record.kind === "draft"));
+  return (
+    <div ref={listRef} tabIndex={-1} className={`mx-auto w-full outline-none ${wide ? "" : "max-w-3xl pb-6"}`}>
       <BusinessContextCue />
-      <BusinessSectionActions />
-      <PanelErrorBoundary key={panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : panel.kind === "expense" ? `expense:${panel.expenseId}` : panel.kind}>
-        {panel.kind === "overview" ? <BusinessOverviewPanel /> : null}
-        {panel.kind === "inbox" ? <BusinessInboxPanel /> : null}
-        {panel.kind === "expenses" ? <BusinessExpensesPanel /> : null}
-        {panel.kind === "expense" ? <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} /> : null}
-        {panel.kind === "updates" ? <BusinessUpdatesPanel /> : null}
-        {panel.kind === "access" ? <BusinessAccessPanel /> : null}
-        {panel.kind === "receipt" ? <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} /> : null}
-        {panel.kind === "draft" ? <ReceiptReviewPanel key={panel.draftId} target={{ kind: "draft", id: panel.draftId }} /> : null}
+      {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
+      <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
+        {shown === "overview" ? <BusinessOverviewPanel /> : null}
+        {shown === "inbox" ? <BusinessInboxPanel /> : null}
+        {shown === "expenses" ? <BusinessExpensesPanel /> : null}
+        {shown === "transactions" ? <TransaccionesPanel /> : null}
+        {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
+        {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
+      {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} /> : null}
     </div>
   );
 }

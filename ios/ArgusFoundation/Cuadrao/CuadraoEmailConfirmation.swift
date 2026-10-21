@@ -18,41 +18,39 @@ struct CuadraoEmailConfirmation: View {
                         .accessibilityHidden(true)
                         .padding(.bottom, 28)
                     RegistrationHeading(
-                        title: spanish ? "Confirma tu correo." : "Confirm your email.",
-                        detail: spanish ? "Abre el enlace de confirmación en:" : "Open the confirmation link at:")
+                        title: CuadraoCopy.text("copy.connectedCuadraoAuth.2096f1a523", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoAuth.1132cc3fad", spanish: spanish))
                     Text(email)
                         .font(.body.weight(.semibold))
                         .textSelection(.enabled)
                         .padding(.top, 10)
-                    Button(spanish ? "Cambiar correo" : "Change email") { dismiss() }
+                    Button(CuadraoCopy.text("copy.connectedCuadraoAuth.2883c17995", spanish: spanish)) { dismiss() }
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(WelcomePalette.pine)
                         .frame(minHeight: 44)
                         .padding(.top, 6)
                     Spacer(minLength: 40)
-                    Text(spanish ? "Después, vuelve a Cuadrao para iniciar sesión."
-                         : "Then return to Cuadrao to sign in.")
+                    Text(CuadraoCopy.text("copy.connectedCuadraoAuth.ab25824af2", spanish: spanish))
                         .font(.body).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.bottom, 24)
                     NavigationLink {
                         CuadraoEmailSignIn(spanish: spanish, initialEmail: email)
                     } label: {
-                        Text(spanish ? "Ir a iniciar sesión" : "Go to sign in")
+                        Text(CuadraoCopy.text("copy.connectedCuadraoAuth.93dde646b9", spanish: spanish))
                             .font(.body.weight(.semibold))
                             .frame(maxWidth: .infinity, minHeight: 56)
                             .foregroundStyle(WelcomePalette.onAccent)
                             .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
                     }.buttonStyle(.plain)
-                    Button(spanish ? "¿No encuentras el correo?" : "Can’t find the email?") {
+                    Button(CuadraoCopy.text("copy.cuadraoEmailConfirmation.0036b29e79", spanish: spanish)) {
                         showingHelp.toggle()
                     }
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .padding(.top, 8)
                     if showingHelp {
-                        Text(spanish ? "Revisa la carpeta de correo no deseado y comprueba que la dirección esté bien escrita."
-                             : "Check your spam folder and make sure the email address is correct.")
+                        Text(CuadraoCopy.text("copy.cuadraoEmailConfirmation.8e69c00c3a", spanish: spanish))
                             .font(.footnote).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 8)

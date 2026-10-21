@@ -6,7 +6,11 @@ import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
+import BusinessNamingProvider from "./BusinessNamingProvider";
 import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
+import BusinessConsentGate from "./BusinessConsentGate";
+import { BusinessConsentTestProvider } from "./business-consent-context";
+import { MOCK_AUTH_CONSENT_USER_ID } from "@/lib/business-privacy-notice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
 import { createFixtureBusinessDataSource, type FixtureOptions } from "./fixture-data";
@@ -14,6 +18,7 @@ import { getClosedBusinessSpaces, getOwnedBusinessSpaces } from "@/lib/business-
 import BusinessLifecycleControls from "./BusinessLifecycleControls";
 import BusinessLifecycleEntry from "./BusinessLifecycleEntry";
 import BusinessTransferEntry from "./BusinessTransferEntry";
+import { primaryButtonClass } from "./business-ui";
 
 export default function BusinessApp({ sample, transferId, lifecycle, manageLifecycle }: { sample?: FixtureOptions; transferId?: string; lifecycle?: { action: "close" | "transfer"; spaceId: string }; manageLifecycle?: boolean }) {
   const { t } = useTranslation();
@@ -23,6 +28,12 @@ export default function BusinessApp({ sample, transferId, lifecycle, manageLifec
   const [lifecycleHome, setLifecycleHome] = useState<"loading" | "workspace" | "closed" | "unavailable">(source.mode === "fixture" || lifecycle || transferId || manageLifecycle ? "workspace" : "loading");
   const [lifecycleActor, setLifecycleActor] = useState<string | null | undefined>(undefined);
   const [owner, setOwner] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = "es";
+    return () => { root.lang = previous; };
+  }, []);
   useEffect(() => {
     if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
     const client = getSupabaseClient();
@@ -53,7 +64,7 @@ export default function BusinessApp({ sample, transferId, lifecycle, manageLifec
     if (owner === undefined || (owner === null && isLeavingSession())) return null;
     if (owner === null) return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 p-6 text-center">
       <p role="alert">{t("chat.account_changed")}</p>
-      <button type="button" className="min-h-11 rounded-full px-6 py-3" onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
+      <button type="button" className={primaryButtonClass} onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
     </main>;
   }
   if (lifecycle) return <BusinessLifecycleEntry key={`${owner}/${lifecycle.action}/${lifecycle.spaceId}`} {...lifecycle} />;
@@ -61,12 +72,22 @@ export default function BusinessApp({ sample, transferId, lifecycle, manageLifec
   if (manageLifecycle || lifecycleHome === "closed") return <main className="mx-auto max-w-xl p-6"><h1 className="font-display text-xl">{t("business.overview.title", "My business")}</h1><BusinessLifecycleControls key={owner ?? "fixture"} /></main>;
   if (lifecycleHome === "loading") return null;
   if (lifecycleHome === "unavailable") return <p role="alert" className="p-6">{t("common.error_occurred")}</p>;
-  return (
+  const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;
+  const workspace = (
     <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
+      <BusinessNamingProvider>
       <ConversationShellGuard />
       <ConversationUnavailableNotice />
       <ChatInterface />
       {!sample && transferId ? <BusinessTransferEntry transferId={transferId} /> : null}
+      </BusinessNamingProvider>
     </BusinessWorkspaceProvider>
+  );
+  if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
+  if (!consentUserId) return workspace;
+  return (
+    <BusinessConsentGate key={consentUserId} source={source}>
+      {workspace}
+    </BusinessConsentGate>
   );
 }

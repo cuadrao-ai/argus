@@ -18,13 +18,13 @@ struct CuadraoChatSheet: View {
     private var heading: String {
         switch destination {
         case .history: "Chats"
-        case .rename: es ? "Cambiar nombre" : "Rename"
-        case .temporary: es ? "Chat temporal" : "Temporary chat"
-        case .sources: es ? "Sobre esta respuesta" : "About this answer"
-        case .calculation: es ? "El cálculo" : "The calculation"
-        case .share: es ? "Compartir chat" : "Share chat"
-        case .states: es ? "Vista previa" : "Preview"
-        case .attachment: es ? "Añadir al mensaje" : "Add to message"
+        case .rename: CuadraoCopy.text("copy.cuadraoChatSheet.be04335b17", spanish: es)
+        case .temporary: CuadraoCopy.text("copy.cuadraoChatSheet.9d6f2322f8", spanish: es)
+        case .sources: CuadraoCopy.text("copy.cuadraoChatSheet.98180ee4aa", spanish: es)
+        case .calculation: CuadraoCopy.text("copy.cuadraoChatSheet.cf5a9b0030", spanish: es)
+        case .share: CuadraoCopy.text("copy.cuadraoChatSheet.ebf2baf694", spanish: es)
+        case .states: CuadraoCopy.text("copy.cuadraoChatSheet.50a58652a9", spanish: es)
+        case .attachment: CuadraoCopy.text("copy.cuadraoChatSheet.dd02d37730", spanish: es)
         }
     }
     var body: some View {
@@ -37,14 +37,14 @@ struct CuadraoChatSheet: View {
             }
             .background(WelcomePalette.background).foregroundStyle(WelcomePalette.ink)
             .navigationTitle(heading).navigationBarTitleDisplayMode(.inline)
-            .toolbar { CuadraoDoneToolbar(title: es ? "Listo" : "Done") { dismiss() } }
+            .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.cuadraoChatSheet.bd6b05a681", spanish: es)) { dismiss() } }
         }
         .presentationDragIndicator(.visible)
         .onAppear { title = store.current.title }
-        .confirmationDialog(es ? "¿Terminar el chat temporal?" : "End temporary chat?", isPresented: $endTemporary, titleVisibility: .visible) {
-            Button(es ? "Terminar chat" : "End chat", role: .destructive) { finishExit() }
-            Button(es ? "Seguir aquí" : "Stay here", role: .cancel) {}
-        } message: { Text(es ? "Se descartarán los mensajes y adjuntos de este chat temporal. Tu chat anterior quedará intacto." : "This temporary chat’s messages and attachments will be discarded. Your previous chat stays intact.") }
+        .confirmationDialog(CuadraoCopy.text("copy.cuadraoChatSheet.b5ea512511", spanish: es), isPresented: $endTemporary, titleVisibility: .visible) {
+            Button(CuadraoCopy.text("copy.cuadraoChatSheet.adbbfa6b0f", spanish: es), role: .destructive) { finishExit() }
+            Button(CuadraoCopy.text("copy.cuadraoChatSheet.32a630a211", spanish: es), role: .cancel) {}
+        } message: { Text(CuadraoCopy.text("copy.cuadraoChatSheet.4017ca0336", spanish: es)) }
     }
 
     @ViewBuilder private var content: some View {
@@ -53,28 +53,28 @@ struct CuadraoChatSheet: View {
             switch destination {
             case .history: EmptyView()
             case .rename:
-                TextField(es ? "Nombre del chat" : "Chat name", text: $title).textFieldStyle(.roundedBorder)
-                action(es ? "Guardar" : "Save") { store.current.title = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)); dismiss() }
+                TextField(CuadraoCopy.text("copy.cuadraoChatSheet.d48f4627c6", spanish: es), text: $title).textFieldStyle(.roundedBorder)
+                action(CuadraoCopy.text("copy.cuadraoChatSheet.553ab1bf1a", spanish: es)) { store.current.title = String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)); dismiss() }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             case .temporary:
                 CuadraoTemporaryChatSettings(store: store, spanish: es) { requestExit(.returnToRegular) }
             case .calculation:
                 Text("DOP " + CanvasChatCalculation.amount(CanvasChatCalculation.total)).font(CuadraoTypography.amount)
-                detail(es ? "Aporte mensual" : "Monthly contribution", "DOP " + CanvasChatCalculation.amount(CanvasChatCalculation.monthly))
-                detail(es ? "Meses" : "Months", String(CanvasChatCalculation.months))
+                detail(CuadraoCopy.text("copy.cuadraoChatSheet.db4c3e00e8", spanish: es), "DOP " + CanvasChatCalculation.amount(CanvasChatCalculation.monthly))
+                detail(CuadraoCopy.text("copy.cuadraoChatSheet.e4558bee29", spanish: es), String(CanvasChatCalculation.months))
                 Divider()
-                Text(es ? "Aporte mensual × meses. Sin intereses, comisiones ni retiros." : "Monthly contribution × months. No interest, fees or withdrawals.")
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.dd9303bf15", spanish: es))
                 previewNote
             case .sources:
-                Label(es ? "Conocimiento general" : "General knowledge", systemImage: "book")
-                Text(es ? "Esta respuesta de ejemplo explica conceptos. No consultó fuentes externas ni tasas actuales." : "This example explains concepts. It did not consult external sources or current rates.")
-                Text(es ? "Cuando una respuesta use fuentes, podrás abrir aquí cada título, fecha y enlace." : "When an answer uses sources, you will be able to open each title, date and link here.").foregroundStyle(.secondary)
+                Label(CuadraoCopy.text("copy.cuadraoChatSheet.5e4a5a023f", spanish: es), systemImage: "book")
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.2712c66473", spanish: es))
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.36de23a94b", spanish: es)).foregroundStyle(.secondary)
             case .share:
                 Text(store.current.title).font(.title3)
-                Text(es ? "Revisa lo que compartirás antes de crear un enlace." : "Review what you will share before creating a link.")
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.22acf8b60e", spanish: es))
                 previewNote
             case .states:
-                Text(es ? "Explora los estados del diseño. No se envían mensajes a una IA." : "Explore the design states. No messages are sent to an AI.")
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.f454963e45", spanish: es))
                 ForEach(CanvasChatResponseState.allCases, id: \.self) { value in
                     Button { store.responseState = value; dismiss() } label: {
                         HStack {
@@ -85,14 +85,14 @@ struct CuadraoChatSheet: View {
                 }
             case .attachment(let symbol):
                 Image(systemName: symbol).font(.system(size: 36)).foregroundStyle(WelcomePalette.pine)
-                let name = symbol == "doc" ? (es ? "Documento de ejemplo.pdf" : "Example document.pdf") : (es ? "Recibo de ejemplo" : "Example receipt")
+                let name = symbol == "doc" ? (CuadraoCopy.text("copy.cuadraoChatSheet.ca2f2bd73f", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatSheet.941cb12fc5", spanish: es))
                 Text(name).font(.title3)
-                Text(es ? "Prueba cómo aparece un archivo antes de enviarlo." : "Try how a file appears before sending it.")
-                action(es ? "Adjuntar ejemplo" : "Attach example") {
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.e3548be203", spanish: es))
+                action(CuadraoCopy.text("copy.cuadraoChatSheet.6fd1ba1633", spanish: es)) {
                     store.current.attachments.append(CanvasChatAttachment(name: name, symbol: symbol))
                     dismiss()
                 }
-                Text(es ? "No se accede a tus archivos, fotos ni cámara." : "Your files, photos and camera are not accessed.").font(.footnote).foregroundStyle(.secondary)
+                Text(CuadraoCopy.text("copy.cuadraoChatSheet.9b1aac232a", spanish: es)).font(.footnote).foregroundStyle(.secondary)
             }
         }
     }
@@ -103,7 +103,7 @@ struct CuadraoChatSheet: View {
     }
     private func finishExit() { store.leaveTemporary(for: pendingExit); dismiss() }
     private var previewNote: some View {
-        Text(es ? "Vista previa de diseño. No se crea un enlace, se guarda información ni se conecta a un servicio." : "Design preview. No link is created, information saved or service connected.")
+        Text(CuadraoCopy.text("copy.cuadraoChatSheet.d331ecc43f", spanish: es))
             .font(.footnote).foregroundStyle(.secondary)
     }
     private func detail(_ label: String, _ value: String) -> some View {
@@ -115,9 +115,9 @@ struct CuadraoChatSheet: View {
     }
     private func stateTitle(_ value: CanvasChatResponseState) -> String {
         switch value {
-        case .complete: es ? "Respuesta completa" : "Complete answer"
-        case .waiting: es ? "Esperando respuesta" : "Waiting for an answer"
-        case .failed: es ? "Error de conexión" : "Connection error"
+        case .complete: CuadraoCopy.text("copy.cuadraoChatSheet.a2728a2e9f", spanish: es)
+        case .waiting: CuadraoCopy.text("copy.cuadraoChatSheet.95846cdde3", spanish: es)
+        case .failed: CuadraoCopy.text("copy.cuadraoChatSheet.b165cd53c9", spanish: es)
         }
     }
 }

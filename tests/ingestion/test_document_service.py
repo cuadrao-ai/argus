@@ -70,6 +70,74 @@ async def upload(service: DocumentsService, user: str) -> DocumentOutcome:
 
 
 @pytest.mark.asyncio
+async def test_a_venta_keeps_its_type_and_a_retitle_is_refused(rig: Rig) -> None:
+    service, _, _, _ = rig
+    user = fake.uuid4()
+    saved = await service.upload(
+        user_id=user,
+        content=b"%PDF-fixture",
+        filename="factura.pdf",
+        media_type="application/pdf",
+        consent=False,
+        scope=PERSONAL,
+        document_type="venta",
+    )
+    draft = service.get(user_id=user, connection_id=saved.connection_id, scope=PERSONAL)
+    assert draft.document_type == "venta"
+    again = await service.upload(
+        user_id=user,
+        content=b"%PDF-fixture",
+        filename="factura.pdf",
+        media_type="application/pdf",
+        consent=False,
+        scope=PERSONAL,
+        document_type="venta",
+    )
+    assert again.replayed is True
+    with pytest.raises(DocumentServiceError) as refused:
+        await service.upload(
+            user_id=user,
+            content=b"%PDF-fixture",
+            filename="factura.pdf",
+            media_type="application/pdf",
+            consent=False,
+            scope=PERSONAL,
+            document_type="recibo",
+        )
+    assert refused.value.code == "document_type_conflict"
+    unnamed = await service.upload(
+        user_id=user,
+        content=b"%PDF-fixture",
+        filename="factura.pdf",
+        media_type="application/pdf",
+        consent=False,
+        scope=PERSONAL,
+    )
+    assert unnamed.replayed is True
+
+
+@pytest.mark.asyncio
+async def test_a_named_retry_of_an_unnamed_upload_is_that_receipt(rig: Rig) -> None:
+    service, _, _, _ = rig
+    user = fake.uuid4()
+    upload = dict(
+        user_id=user,
+        content=b"%PDF-unnamed",
+        filename="factura.pdf",
+        media_type="application/pdf",
+        consent=False,
+        scope=PERSONAL,
+    )
+    saved = await service.upload(**upload)
+    stored = service.get(user_id=user, connection_id=saved.connection_id, scope=PERSONAL)
+    assert stored.document_type is None
+    assert "document_type" not in stored.model_dump(mode="json")
+    for named in ("recibo", "venta"):
+        again = await service.upload(**upload, document_type=named)
+        assert (again.replayed, again.connection_id) == (True, saved.connection_id)
+
+
+@pytest.mark.asyncio
 async def test_same_document_replays_without_extracting_again(rig: Rig) -> None:
     service, hub, extractor, sink = rig
     user = fake.uuid4()

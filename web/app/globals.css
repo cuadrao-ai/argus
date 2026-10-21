@@ -48,7 +48,7 @@
   --rui-color-danger: #d66d75;
   /* Cuadrao Business: the cream canvas and the deep green of the approved
      landing, as tokens so Business surfaces share one owner for them. */
-  --cuadrao-cream: #fafbf8;
+  --cuadrao-cream: #F7F5EE;
   --cuadrao-green: #2f5a49;
   /* A floating menu's surface, light and dark, one owner for Business menus. */
   --cuadrao-menu-surface: #ffffff;
@@ -67,6 +67,15 @@
 body {
   background: var(--color-background);
   color: var(--color-foreground);
+  /* An open side drawer takes this much room, so the page re-centres beside it instead of under it. */
+  padding-right: var(--cuadrao-drawer-space, 0px);
+  transition: padding-right 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
 }
 
 :where(
@@ -311,6 +320,20 @@ body {
   touch-action: pan-y;
 }
 
+@keyframes cuadrao_side_drawer_enter {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* A desktop sheet slides in from the right edge; the page stays in view beside it. */
+.cuadrao-side-drawer-enter {
+  animation: cuadrao_side_drawer_enter 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
 /* The trailing fade is what makes the next starter pill read as a peek. */
 .argus-starter-peek {
   mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent 100%);
@@ -340,6 +363,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .argus-sheet-enter,
+  .cuadrao-side-drawer-enter,
   .argus-sheet-scrim,
   .argus-drawer-enter,
   .argus-drawer-scrim {
@@ -853,6 +877,12 @@ body {
   outline-offset: 3px;
 }
 
+/* A primary link or button that is not the form's submit, such as "Volver a iniciar sesión" after a recovery. */
+[data-auth-brand="cuadrao"] :is(a, button).auth-primary {
+  background-color: var(--auth-pine);
+  color: var(--auth-on-pine);
+}
+
 [data-auth-brand="cuadrao"] button[type="submit"] {
   background-color: var(--auth-pine);
   color: var(--auth-on-pine);
@@ -867,4 +897,46 @@ body {
   background-color: var(--auth-sage);
   color: var(--auth-muted);
   opacity: 1;
+}
+
+.business-foundation :is(h1, h2, h3) {
+  font-weight: 500;
+}
+
+.business-foundation :is(input, textarea, select) {
+  font-size: 16px;
+  border-color: #7d8a84;
+}
+
+.business-foundation :is(button, a, input, textarea, select, [role="button"], [role="menuitem"]):focus-visible {
+  outline: 2px solid #2f5a49;
+  outline-offset: 2px;
+}
+
+.dark .business-foundation :is(button, a, input, textarea, select, [role="button"], [role="menuitem"]):focus-visible {
+  outline-color: #8fcbb0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .business-foundation,
+  .business-foundation::before,
+  .business-foundation::after,
+  .business-foundation *,
+  .business-foundation *::before,
+  .business-foundation *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Ocultar montos: amounts keep their place and blur, so nothing reflows when it turns on. */
+:root[data-amounts-hidden="true"] .cuadrao-amount {
+  color: transparent !important;
+  text-shadow: 0 0 10px rgba(23, 43, 38, 0.65);
+  user-select: none;
+}
+:root.dark[data-amounts-hidden="true"] .cuadrao-amount {
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
 }

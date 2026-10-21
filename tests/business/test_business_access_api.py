@@ -10,7 +10,14 @@ from argus.api.business_spaces import accept_business_invites, business_access
 from fastapi.testclient import TestClient
 
 from tests.business.conftest import ALICE, BOB
-from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
+from tests.business.test_business_api import Owner, bob  # noqa: F401
+
+
+@pytest.fixture
+def alice(biz: TestClient, identities) -> Owner:  # noqa: ANN001
+    owner = Owner(biz, ALICE, identities[ALICE]["id"])
+    assert owner.start({"name": "Colmado La Esquina"}).status_code == 201
+    return owner
 
 
 def test_starting_a_space_gives_the_owner_a_live_grant_once(

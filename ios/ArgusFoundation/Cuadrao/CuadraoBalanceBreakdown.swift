@@ -12,26 +12,26 @@ struct CuadraoBalanceBreakdown: View {
     private func money(_ value: Decimal) -> String { CanvasMoney.format(value, currency: currency) }
     private func signed(_ value: Decimal) -> String { (value > 0 ? "+" : "") + money(value) }
     private func date(_ value: Date) -> String {
-        value.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+        value.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(period.change == nil ? (spanish ? "Tu punto de partida" : "Your starting point") : (spanish ? "Qué cambió" : "What changed"))
+            Text(period.change == nil ? (CuadraoCopy.text("copy.cuadraoBalanceBreakdown.81d154c4ef", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoBalanceBreakdown.ab384258cf", spanish: spanish)))
                 .font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
             if let opening = period.opening, let closing = period.closing {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 20) {
-                        snapshot(opening, title: spanish ? "Inicio registrado" : "Recorded opening")
+                        snapshot(opening, title: CuadraoCopy.text("copy.cuadraoBalanceBreakdown.33e2af4e9c", spanish: spanish))
                         Image(systemName: "arrow.right").font(CuadraoTypography.supporting).foregroundStyle(.secondary).accessibilityHidden(true)
-                        snapshot(closing, title: spanish ? "Último balance" : "Latest balance")
+                        snapshot(closing, title: CuadraoCopy.text("copy.cuadraoBalanceBreakdown.9a5e853dda", spanish: spanish))
                     }
                     VStack(alignment: .leading, spacing: 16) {
-                        snapshot(opening, title: spanish ? "Inicio registrado" : "Recorded opening")
-                        snapshot(closing, title: spanish ? "Último balance" : "Latest balance")
+                        snapshot(opening, title: CuadraoCopy.text("copy.cuadraoBalanceBreakdown.33e2af4e9c", spanish: spanish))
+                        snapshot(closing, title: CuadraoCopy.text("copy.cuadraoBalanceBreakdown.9a5e853dda", spanish: spanish))
                     }
                 }.accessibilityIdentifier("home-balance-comparison")
             } else {
-                Text(spanish ? "Con otro balance registrado podrás ver cuánto cambió cada cuenta." : "Another recorded balance will show how much each account changed.")
+                Text(CuadraoCopy.text("copy.cuadraoBalanceBreakdown.094154545b", spanish: spanish))
                     .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
             }
             VStack(spacing: 0) {
@@ -48,13 +48,13 @@ struct CuadraoBalanceBreakdown: View {
             if let change = period.change {
                 Divider()
                 HStack {
-                    Text(spanish ? "Cambio neto" : "Net change").font(CuadraoTypography.supporting)
+                    Text(CuadraoCopy.text("copy.cuadraoBalanceBreakdown.ba753e1499", spanish: spanish)).font(CuadraoTypography.supporting)
                     Spacer(minLength: 12)
                     Text(signed(change)).font(CuadraoTypography.rowAmount).accessibilityIdentifier("home-balance-net-change")
                 }
             }
             if period.isPartial {
-                Text(spanish ? "El total incluye solo las cuentas con balance conocido." : "The total includes only accounts with known balances.")
+                Text(CuadraoCopy.text("copy.cuadraoBalanceBreakdown.6d250ddcd8", spanish: spanish))
                     .font(CuadraoTypography.caption).foregroundStyle(.secondary)
             }
         }.padding(.top, 20).accessibilityElement(children: .contain).accessibilityIdentifier("home-balance-breakdown")
@@ -104,9 +104,9 @@ struct CuadraoBalanceBreakdown: View {
     }
     private func caption(_ row: CanvasBalanceChange) -> String? {
         if let change = row.change {
-            return change == 0 ? (spanish ? "Sin cambio" : "Unchanged") : change > 0 ? (spanish ? "Suma al balance" : "Adds to balance") : (spanish ? "Resta al balance" : "Reduces balance")
+            return change == 0 ? (CuadraoCopy.text("copy.cuadraoBalanceBreakdown.d7bc67be8b", spanish: spanish)) : change > 0 ? (CuadraoCopy.text("copy.cuadraoBalanceBreakdown.2fee63b543", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoBalanceBreakdown.02659db112", spanish: spanish))
         }
-        if row.closing == nil { return spanish ? "Sin balance" : "No balance" }
-        return missingCoverage && period.change != nil ? (spanish ? "Sin inicio registrado" : "No recorded opening") : nil
+        if row.closing == nil { return CuadraoCopy.text("copy.cuadraoBalanceBreakdown.51a5a24fed", spanish: spanish) }
+        return missingCoverage && period.change != nil ? (CuadraoCopy.text("copy.cuadraoBalanceBreakdown.7b8ca04530", spanish: spanish)) : nil
     }
 }

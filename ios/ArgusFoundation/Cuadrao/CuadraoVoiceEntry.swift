@@ -18,7 +18,7 @@ struct CuadraoVoiceEntry: UIViewRepresentable {
         let view = VoiceTouchSurface()
         if composer {
             let label = UILabel()
-            label.text = spanish ? "Escribe o mantén para hablar" : "Type or hold to speak"
+            label.text = CuadraoCopy.text("copy.cuadraoVoiceEntry.678688ec61", spanish: spanish)
             label.font = .preferredFont(forTextStyle: .body)
             label.adjustsFontForContentSizeCategory = true
             label.textColor = .placeholderText; label.numberOfLines = 2
@@ -54,11 +54,11 @@ struct CuadraoVoiceEntry: UIViewRepresentable {
     func updateUIView(_ view: VoiceTouchSurface, context: Context) {
         context.coordinator.parent = self
         view.backgroundColor = composer ? .clear : UIColor(cancelArmed ? .red : WelcomePalette.pine)
-        view.accessibilityLabel = composer ? (spanish ? "Escribe o mantén para hablar" : "Type or hold to speak") : (spanish ? "Hablar con Cuadrao" : "Talk to Cuadrao")
-        view.accessibilityHint = composer ? (spanish ? "Toca para escribir. Mantén para grabar un mensaje." : "Tap to type. Hold to record a message.") : (spanish ? "Toca para conversar. Mantén para grabar un mensaje." : "Tap to converse. Hold to record a message.")
+        view.accessibilityLabel = composer ? (CuadraoCopy.text("copy.cuadraoVoiceEntry.678688ec61", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoVoiceEntry.dd673e8d1c", spanish: spanish))
+        view.accessibilityHint = composer ? (CuadraoCopy.text("copy.cuadraoVoiceEntry.e24d685b7b", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoVoiceEntry.a6a492770f", spanish: spanish))
         view.activate = tap
         view.accessibilityCustomActions = [UIAccessibilityCustomAction(
-            name: spanish ? "Grabar sin mantener" : "Record hands-free",
+            name: CuadraoCopy.text("copy.cuadraoVoiceEntry.f988b56925", spanish: spanish),
             target: context.coordinator, selector: #selector(Coordinator.recordAccessibly))]
     }
     static func dismantleUIView(_ uiView: VoiceTouchSurface, coordinator: Coordinator) {

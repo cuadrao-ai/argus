@@ -99,8 +99,14 @@ final class ConnectedDetailPresentationTests: XCTestCase {
 
     private func strings(_ language: String) throws -> [String: String] {
         let root = try XCTUnwrap(ProcessInfo.processInfo.environment["ARGUS_REPO_ROOT"])
-        let url = URL(fileURLWithPath: root + "/ios/ArgusFoundation/Resources/" + language + ".lproj/Localizable.strings")
-        return try XCTUnwrap(NSDictionary(contentsOf: url) as? [String: String])
+        let url = URL(fileURLWithPath: root + "/ios/ArgusFoundation/Resources/Localizable.xcstrings")
+        let catalog = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        let entries = catalog["strings"] as! [String: [String: Any]]
+        return entries.reduce(into: [:]) { values, entry in
+            let locales = entry.value["localizations"] as! [String: [String: Any]]
+            let unit = locales[language]?["stringUnit"] as? [String: String]
+            values[entry.key] = unit?["value"]
+        }
     }
 
     private func occurrence(kind: String, status: String, amount: String) throws -> FinancialPlanOccurrence {

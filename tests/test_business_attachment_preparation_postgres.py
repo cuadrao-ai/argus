@@ -60,7 +60,7 @@ def prepared(actions):
                         merchant="Synthetic shop",
                     )
                 ],
-                receipt=dict(total="250.50", currency="DOP"),
+                receipt=dict(payment_status="paid", total="250.50", currency="DOP"),
             )
         )
         batch = batch_from_result(result, digest, connection_id, now, 1)
@@ -330,6 +330,113 @@ def test_disconnected_source_refuses_completion(prepared):
     )
     with pytest.raises(ActionError):
         finish(prepared)
+
+
+@pytest.mark.owner_acts
+def test_approve_refuses_a_body_that_names_other_ids(prepared):
+    service, context, _, cid, _, _ = prepared
+    bind(prepared)
+    draft_id = finish(prepared).draft_id
+    assert str(draft_id) != str(cid)
+    foreign = str(uuid4())
+    refused = post_approve(
+        service,
+        context,
+        draft_id,
+        extra={"document_id": foreign, "source_id": foreign, "connection_id": foreign},
+    )
+    assert refused.status_code == 422, refused.text
+
+
+def post_approve(service, context, draft_id, *, version=1, extra=None):
+    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.email_intake import configure_email_intake, email_intake
+    from argus.api.routers.business_drafts import router
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "approve-origin"
+        return await call_next(request)
+
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(
+        service, context.actor.actor_id, str(context.actor.space_id)
+    )
+    previous = email_intake()
+    configure_email_intake(None)
+    try:
+        with TestClient(app) as drafts:
+            return drafts.post(
+                f"/business/drafts/{draft_id}/approve",
+                json={"version": version, "action": "record_expense", **(extra or {})},
+                headers={"Idempotency-Key": str(uuid4())},
+            )
+    finally:
+        configure_email_intake(previous)
+
+
+def stored_origin(service, draft_id):
+    with service.authority.pool.connection() as db:
+        return db.execute(
+            "select s.origin from public.business_draft_sources l "
+            "join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id "
+            "where l.draft_id=%s",
+            (draft_id,),
+        ).fetchone()[0]
+
+
+@pytest.mark.owner_acts
+def test_email_origin_with_no_delivery_is_refused(prepared):
+    service, context, _, cid, _, _ = prepared
+    space = str(context.actor.space_id)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_sources"
+            " (space_id,kind,channel,source_key,connection_id,received_at,origin)"
+            " values (%s,'attachment','web',%s,%s,now(),'email')",
+            (space, f"attachment:{cid}", cid),
+        )
+        assert (
+            db.execute(
+                "select count(*) from public.business_email_deliveries where space_id=%s",
+                (space,),
+            ).fetchone()[0]
+            == 0
+        )
+    bind(prepared)
+    draft_id = finish(prepared).draft_id
+    assert stored_origin(service, draft_id) == "email"
+    blocked = post_approve(service, context, draft_id)
+    assert blocked.status_code == 403, blocked.text
+    assert blocked.json()["detail"]["code"] == "email_sender_unauthorized"
+
+
+@pytest.mark.owner_acts
+def test_upload_origin_with_no_delivery_still_approves(prepared):
+    service, context, _, _, _, _ = prepared
+    bind(prepared)
+    draft_id = finish(prepared).draft_id
+    assert stored_origin(service, draft_id) == "direct"
+    reviewed = service.review(
+        context,
+        draft_id,
+        ReviewDraft(
+            version=1,
+            facts={
+                "occurred_on": {"state": "known", "value": "2026-10-01"},
+                "funding": {"state": "known", "value": {"kind": "owner_funds"}},
+                "business_share": {"state": "known", "value": {"kind": "all"}},
+            },
+        ),
+        str(uuid4()),
+    )
+    assert reviewed.outcome == "applied", reviewed
+    approved = post_approve(service, context, draft_id, version=reviewed.version)
+    assert approved.status_code == 200, approved.text
 
 
 def test_nonexistent_target_refuses_binding(prepared):

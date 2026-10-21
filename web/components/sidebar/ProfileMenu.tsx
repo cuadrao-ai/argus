@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -161,6 +162,18 @@ export default function ProfileMenu({
   const { isBelowDesktop } = useResponsiveLayout();
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
+  // From the header the menu hangs from the trigger itself, wherever the bar puts it, right edges aligned.
+  const [headerAnchor, setHeaderAnchor] = useState<{ right: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!isOpen || placement !== "header") return undefined;
+    const place = () => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (rect) setHeaderAnchor({ right: Math.max(8, window.innerWidth - rect.right), top: rect.bottom + 8 });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [isOpen, placement, anchorRef]);
   const handlePageLinkClick = useCallback(
     (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
       if (
@@ -1033,6 +1046,7 @@ export default function ProfileMenu({
       className={menuClassName}
       style={{
         left: menuLeft,
+        ...(placement === "header" && !asSheet && headerAnchor ? { right: headerAnchor.right, top: headerAnchor.top } : {}),
         boxShadow: "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
       }}
     >

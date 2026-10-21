@@ -15,7 +15,8 @@ mock.module("next/navigation", () => ({
 }));
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  // Below the desktop stop a record is the whole page; record-tray.dom.test.tsx covers the desktop tray.
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 800, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
@@ -29,6 +30,7 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { setChosenGrant } = await import("@/lib/business-grant");
@@ -56,9 +58,11 @@ async function mount(overrides: (fixture: BusinessDataSource) => Partial<Busines
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -103,7 +107,7 @@ describe("one receipt review page", () => {
     ] as const) {
       await page.open(panel, () => page.frame().fields !== null);
       const review = page.host.querySelector('[data-testid="business-record-review"]');
-      assert.ok(review?.querySelector("header")?.textContent?.includes("Mi negocio"));
+      assert.ok(review?.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]'), "the top block is supplier, total and status");
       assert.ok(!review?.textContent?.includes("My business"));
       await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     }
@@ -141,7 +145,7 @@ describe("one receipt review page", () => {
     });
     await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     await page.open({ kind: "draft", draftId: id }, () => page.frame().title === "Ferretería Prueba Revisada");
-    assert.match(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/);
+    assert.doesNotMatch(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/, "the revision number is not part of the top block");
     const after = await page.source.dossier(id);
     assert.equal(after.version, before.version + 1);
     // Saving review details never approves: the record is still awaiting review.
@@ -196,16 +200,25 @@ describe("one receipt review page", () => {
     }));
     await page.open({ kind: "receipt", receiptId: "rcpt-blurry" }, () => page.host.textContent?.includes("Subir otro archivo") === true);
     const unreadable = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.ok(unreadable?.textContent?.includes("No pudimos leer este archivo"));
-    assert.ok(unreadable?.textContent?.includes("La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano."));
+    assert.equal(unreadable?.querySelector(".font-medium")?.textContent, "No pudimos leer este archivo");
+    assert.equal(
+      unreadable?.querySelector(".mt-1")?.textContent,
+      "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
+    );
     const unreadableLabels = [...unreadable!.querySelectorAll("button")].map((button) => button.textContent);
     assert.deepEqual(unreadableLabels, ["Subir otro archivo", "Escribir datos"]);
 
-    await page.open({ kind: "receipt", receiptId: "rcpt-unknown" }, () => page.host.textContent?.includes("Esto no parece un recibo") === true);
+    await page.open(
+      { kind: "receipt", receiptId: "rcpt-unknown" },
+      () => page.host.textContent?.includes("Esto no parece un recibo.") === true,
+    );
     const notice = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.ok(notice?.textContent?.includes("Leímos el archivo, pero no encontramos una compra con su total. Los estados de cuenta y los avisos de pago no van aquí. Si es una factura que tú emitiste, márcala como Venta."));
+    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
+    assert.equal(notice?.querySelector(".mt-1")?.textContent, "Sube la foto o el PDF de un comprobante.");
+    assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
+    assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
     const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(noticeLabels, ["Escribir datos"]);
+    assert.deepEqual(noticeLabels, ["Subir otro archivo", "Escribir datos"]);
     await page.act(async () => page.root.unmount());
   });
 
@@ -214,13 +227,15 @@ describe("one receipt review page", () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     await page.open({ kind: "draft", draftId: dossierFixtureIds.ready }, () => page.host.querySelector('[data-testid="receipt-mark-personal"]') !== null);
     const toggle = () => page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
-    assert.equal(toggle().getAttribute("aria-pressed"), "false");
+    const saved = (on: boolean) => toggle().getAttribute("aria-checked") === String(on) && !toggle().hasAttribute("aria-busy");
+    const chip = () => page.host.querySelector('[data-testid="receipt-marks-card"] [data-mark="personal"]');
+    assert.equal(toggle().getAttribute("role"), "switch");
+    assert.equal(toggle().getAttribute("aria-checked"), "false");
+    assert.equal(chip(), null);
     await page.act(async () => toggle().click());
-    await page.wait(() => toggle().getAttribute("aria-pressed") === "true");
-    assert.equal(toggle().textContent, "Ya no es personal");
+    await page.wait(() => saved(true) && chip() !== null);
     await page.act(async () => toggle().click());
-    await page.wait(() => toggle().getAttribute("aria-pressed") === "false");
-    assert.equal(toggle().textContent, "Marcar como personal");
+    await page.wait(() => saved(false) && chip() === null);
     await page.act(async () => page.root.unmount());
   });
 });

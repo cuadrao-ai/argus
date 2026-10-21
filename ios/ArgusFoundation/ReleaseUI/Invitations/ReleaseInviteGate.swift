@@ -5,30 +5,30 @@ enum ReleaseInviteGateState: String, CaseIterable {
 
     func title(spanish: Bool) -> String {
         switch self {
-        case .ready: spanish ? "Escribir código" : "Enter code"
-        case .checking: spanish ? "Comprobando" : "Checking"
-        case .invalid: spanish ? "Código inválido" : "Invalid code"
-        case .expired: spanish ? "Invitación vencida" : "Expired invitation"
-        case .full: spanish ? "Enlace lleno" : "Full link"
-        case .waitlist: spanish ? "Lista de espera" : "Waitlist"
-        case .consumed: spanish ? "Invitación utilizada" : "Used invitation"
-        case .revoked: spanish ? "Invitación revocada" : "Revoked invitation"
-        case .rateLimited: spanish ? "Demasiados intentos" : "Too many attempts"
-        case .unavailable: spanish ? "No disponible" : "Unavailable"
+        case .ready: CuadraoCopy.text("copy.releaseInviteGate.86d60f9707", spanish: spanish)
+        case .checking: CuadraoCopy.text("copy.releaseInviteGate.35b91d9108", spanish: spanish)
+        case .invalid: CuadraoCopy.text("copy.releaseInviteGate.0b5e9dd244", spanish: spanish)
+        case .expired: CuadraoCopy.text("copy.releaseInviteGate.014fa66195", spanish: spanish)
+        case .full: CuadraoCopy.text("copy.releaseInviteGate.7359d3c619", spanish: spanish)
+        case .waitlist: CuadraoCopy.text("copy.releaseInviteGate.3889fe8db3", spanish: spanish)
+        case .consumed: CuadraoCopy.text("copy.releaseInviteGate.b84951f8f4", spanish: spanish)
+        case .revoked: CuadraoCopy.text("copy.releaseInviteGate.9d438b1cc5", spanish: spanish)
+        case .rateLimited: CuadraoCopy.text("copy.releaseInviteGate.85d408eb2c", spanish: spanish)
+        case .unavailable: CuadraoCopy.text("copy.releaseInvitationsGallery.3350acd647", spanish: spanish)
         }
     }
 
     func message(spanish: Bool) -> String? {
         switch self {
         case .ready, .checking: nil
-        case .invalid: spanish ? "No reconocemos ese código. Revísalo e intenta de nuevo." : "We don't recognize that code. Check it and try again."
-        case .expired: spanish ? "Esta invitación venció. Pide otra o visita la lista de espera." : "This invitation expired. Ask for another or visit the waitlist."
-        case .full: spanish ? "Este enlace alcanzó su límite. Puedes unirte a la lista de espera en cuadrao.ai." : "This link has reached its limit. You can join the waitlist at cuadrao.ai."
-        case .waitlist: spanish ? "Necesitas una invitación para entrar. Puedes unirte a la lista de espera en cuadrao.ai." : "You need an invitation to enter. You can join the waitlist at cuadrao.ai."
-        case .consumed: spanish ? "Esta invitación ya fue utilizada. Pide una nueva." : "This invitation has already been used. Ask for a new one."
-        case .revoked: spanish ? "Esta invitación ya no está disponible. Pide una nueva." : "This invitation is no longer available. Ask for a new one."
-        case .rateLimited: spanish ? "Hiciste muchos intentos. Espera unos minutos y vuelve a intentarlo." : "You've made too many attempts. Wait a few minutes and try again."
-        case .unavailable: spanish ? "No pudimos comprobar tu invitación. Intenta de nuevo más tarde." : "We couldn't check your invitation. Try again later."
+        case .invalid: CuadraoCopy.text("copy.releaseInviteGate.c25455a0fb", spanish: spanish)
+        case .expired: CuadraoCopy.text("copy.releaseInviteGate.157d5684fd", spanish: spanish)
+        case .full: CuadraoCopy.text("copy.releaseInviteGate.a0d1b555ba", spanish: spanish)
+        case .waitlist: CuadraoCopy.text("copy.releaseInviteGate.b57fe5014e", spanish: spanish)
+        case .consumed: CuadraoCopy.text("copy.releaseInviteGate.fe75190e9e", spanish: spanish)
+        case .revoked: CuadraoCopy.text("copy.releaseInviteGate.b1f0006a6a", spanish: spanish)
+        case .rateLimited: CuadraoCopy.text("copy.householdInvitationOutcome.d25b70018b", spanish: spanish)
+        case .unavailable: CuadraoCopy.text("copy.releaseInviteGate.ad2d417e9d", spanish: spanish)
         }
     }
 }
@@ -42,11 +42,11 @@ struct ReleaseInviteGate: View {
     var showsWaitlist = true
 
     var body: some View {
-        ReleaseInvitationPage(title: spanish ? "Tu invitación\na Cuadrao." : "Your invitation\nto Cuadrao.",
-                              subtitle: spanish ? "Ya iniciaste sesión. Escribe tu código para entrar a la beta." : "You're signed in. Enter your code to join the beta.") {
+        ReleaseInvitationPage(title: CuadraoCopy.text("copy.releaseInviteGate.9b4304b2ce", spanish: spanish),
+                              subtitle: CuadraoCopy.text("copy.releaseInviteGate.6d5e9008f2", spanish: spanish)) {
             VStack(alignment: .leading, spacing: 16) {
-                Text(spanish ? "Código de invitación" : "Invitation code").font(CuadraoTypography.supporting)
-                TextField(spanish ? "Escribe tu código" : "Enter your code", text: $code)
+                Text(CuadraoCopy.text("copy.releaseInvitationShare.0da28c8201", spanish: spanish)).font(CuadraoTypography.supporting)
+                TextField(CuadraoCopy.text("copy.releaseInviteGate.e17513380c", spanish: spanish), text: $code)
                     .font(.system(.title3, design: .monospaced))
                     .textInputAutocapitalization(.characters).autocorrectionDisabled()
                     .submitLabel(.go).padding(16)
@@ -62,21 +62,20 @@ struct ReleaseInviteGate: View {
                 Button(action: submit) {
                     HStack {
                         if state == .checking { ProgressView().tint(WelcomePalette.onAccent) }
-                        Text(state == .checking ? (spanish ? "Comprobando…" : "Checking…") : (spanish ? "Continuar" : "Continue"))
+                        Text(state == .checking ? (CuadraoCopy.text("copy.releaseInviteGate.073bc99acd", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoDesignGallery.c27a4762b9", spanish: spanish)))
                     }.frame(maxWidth: .infinity, minHeight: 48).modifier(ReleaseProminentLabel())
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state == .checking)
                 .accessibilityIdentifier("release.inviteGate.submit")
-                Text(spanish ? "TestFlight instala la app. Tu invitación te da acceso a la beta."
-                     : "TestFlight installs the app. Your invitation gives you beta access.")
+                Text(CuadraoCopy.text("copy.releaseInviteGate.a6714b9a91", spanish: spanish))
                     .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 if showsWaitlist {
                     Button(action: onWaitlist) {
-                        Text(spanish ? "No tengo código · Lista de espera" : "No code? Visit the waitlist")
+                        Text(CuadraoCopy.text("copy.releaseInviteGate.bc43d8a224", spanish: spanish))
                             .frame(minHeight: 44)
                     }.accessibilityIdentifier("release.inviteGate.waitlist")
-                    Text("cuadrao.ai").font(CuadraoTypography.caption).foregroundStyle(.secondary)
+                    Text(CuadraoCopy.text("copy.releaseInviteGate.64be81e0d0", spanish: CuadraoCopy.isSpanish())).font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 }
             }
         }

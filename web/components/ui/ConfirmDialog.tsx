@@ -2,9 +2,10 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useId, useRef, useCallback } from "react";
+import { useId, useRef, useCallback, useEffect } from "react";
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import { KeyboardShortcutKeycap } from "@/components/keyboard/KeyboardShortcutKeycap";
+import { CONFIRM_ACTION } from "@/components/business-app/foundation/presentation";
 
 type ConfirmDialogProps = {
   isOpen: boolean;
@@ -14,6 +15,10 @@ type ConfirmDialogProps = {
   cancelLabel: string;
   isBusy?: boolean;
   showKeyboardHints?: boolean;
+  /** `danger` for a delete; `primary` for a full stop that removes nothing, such as closing a month. */
+  tone?: "danger" | "primary";
+  /** The confirm failed: says so inside the alert, and the confirm button tries again. */
+  error?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -51,11 +56,32 @@ function ConfirmDialogSurface({
   cancelLabel,
   isBusy = false,
   showKeyboardHints = false,
+  tone = "danger",
+  error = null,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
   const overlayId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const confirmLock = useRef(false);
+  const sawBusy = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      confirmLock.current = false;
+      sawBusy.current = false;
+      return;
+    }
+    if (isBusy) sawBusy.current = true;
+    if (!isBusy && sawBusy.current) {
+      sawBusy.current = false;
+      confirmLock.current = false;
+    }
+  }, [isBusy, isOpen]);
+  const confirmOnce = useCallback(() => {
+    if (confirmLock.current || isBusy) return;
+    confirmLock.current = true;
+    onConfirm();
+  }, [isBusy, onConfirm]);
   // A confirmation is the topmost surface wherever it opens, so it registers
   // for Escape, for focus, and for system back: without the last one, hardware
   // back closed the drawer underneath and took the confirmation with it.
@@ -78,10 +104,10 @@ function ConfirmDialogSurface({
       if (action === "confirm") {
         event.preventDefault();
         event.stopPropagation();
-        onConfirm();
+        confirmOnce();
       }
     },
-    [isBusy, onCancel, onConfirm, showKeyboardHints],
+    [confirmOnce, isBusy, onCancel, showKeyboardHints],
   );
 
   useModalSurface({
@@ -101,7 +127,7 @@ function ConfirmDialogSurface({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm dark:bg-black/60">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
       <button
         tabIndex={-1}
         type="button"
@@ -119,7 +145,7 @@ function ConfirmDialogSurface({
       >
         <h2
           id="argus-confirm-title"
-          className="font-display text-[17px] font-semibold tracking-tight text-black dark:text-white"
+          className="font-display text-[17px] font-medium tracking-tight text-black dark:text-white"
         >
           {title}
         </h2>
@@ -129,12 +155,17 @@ function ConfirmDialogSurface({
         >
           {description}
         </p>
+        {error ? (
+          <p role="alert" data-testid="confirm-dialog-error" className="mt-3 text-[13px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+            {error}
+          </p>
+        ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={isBusy}
-            className="rounded-full border border-black/10 px-4 py-2 text-[13px] font-medium text-black transition-colors hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+            className="min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
           >
             <span className="inline-flex items-center gap-2">
               {cancelLabel}
@@ -147,9 +178,11 @@ function ConfirmDialogSurface({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={confirmOnce}
             disabled={isBusy}
-            className="rounded-full bg-[#d66d75] px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            data-testid="confirm-dialog-confirm"
+            style={{ backgroundColor: tone === "danger" ? CONFIRM_ACTION : "#2f5a49" }}
+            className="min-h-11 rounded-full px-4 text-[16px] font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             <span className="inline-flex items-center gap-2">
               {confirmLabel}

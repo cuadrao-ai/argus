@@ -2,17 +2,29 @@
 
 import ReceiptReadingControl from "./ReceiptReadingControl";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Camera, ClipboardPaste, FileUp, ReceiptText, X } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
+import { ArrowLeft, Camera, ChevronDown, ChevronRight, CircleAlert, CircleCheck, Clock, FileText, FolderOpen, PenLine, FileUp, Mail, RotateCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { RemovedMemberScreen } from "@/components/status/RemovedMemberScreen";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { pillButtonClass, primaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
-import { receiptFileAccept, receiptFormatLabels } from "./receipt-file";
-import { ReceiptUploadQueue, isUnfinishedUpload, type IntakeTarget, type UploadRejection } from "./receipt-upload-queue";
-import { readClipboardFile, useInputCapabilities } from "./useInputCapabilities";
+import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./receipt-file";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
+import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
+import { EmptyState } from "./foundation/EmptyState";
+import { randomId } from "@/lib/random-id";
+import { captureOutcomeUnknown, validCaptureText } from "./ManualCaptureDialog";
+import { useForwardAddress } from "./useForwardAddress";
+import { useInputCapabilities } from "./useInputCapabilities";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
 
@@ -24,46 +36,154 @@ type IntakeProps = {
   onReview: (receipts: ReceiptSummary[]) => void;
 };
 
+/** What a file dragged over the drop zone would do: nothing yet, upload, or be refused. */
+type DragState = { kind: "idle" } | { kind: "accept"; count: number } | { kind: "reject" };
+
+const MUTED = "text-[#56635e] dark:text-white/70";
+const DANGER = "text-[#9e2f39] dark:text-[#ec9aa0]";
+const smallAction = "inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-40 dark:text-[#8fcbb0]";
+/** Upload failures a tap on the row can fix; the rest have their own screen above the list. */
+const ROW_RETRY: ReadonlySet<FailureClass> = new Set(["offline", "other", "server", "unavailable", "rate_limited"]);
+
 export default function ReceiptIntakeDialog({ target, ...props }: Omit<IntakeProps, "target"> & { target: IntakeTarget | null }) {
   if (!target) return null;
   return <IntakeSurface target={target} {...props} />;
 }
 
+/** The form needs the business's upload limits; until they arrive the sheet shows the load's own state. */
 function IntakeSurface(props: IntakeProps) {
   const { t } = useTranslation();
-  const { records } = useBusiness();
+  const { records, reload } = useBusiness();
   const limits = records.workspace?.receipt_limits;
-  return limits ? (
-    <IntakeForm limits={limits} {...props} />
-  ) : (
-    <AdaptivePanel title={t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
+  if (limits) return <IntakeForm limits={limits} {...props} />;
+  const failed = records.error || Boolean(records.serverReference);
+  return (
+    <AdaptivePanel title={props.target === "inbox" ? t("business.intake.add_title", "Add") : t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
       <div className="px-4 pb-4">
-        <Settle pending layout="rows" rows={2} />
+        {records.closed ? (
+          <div className="flex justify-center"><BusinessClosedNotice /></div>
+        ) : failed ? (
+          <EmptyState kind="error" compact testId="receipt-intake-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
+        ) : (
+          <Settle pending layout="rows" rows={2} />
+        )}
       </div>
     </AdaptivePanel>
   );
 }
 
+function dragStateFor(event: DragEvent, limits: ReceiptLimits): DragState {
+  const files = Array.from(event.dataTransfer.items ?? []).filter((item) => item.kind === "file");
+  if (!files.length) return { kind: "idle" };
+  const known = (type: string) => !type || (limits.media_types.includes(type) && type !== "image/heic" && type !== "image/heif");
+  return files.every((item) => known(item.type.toLowerCase())) ? { kind: "accept", count: files.length } : { kind: "reject" };
+}
+
 function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? "es-419";
   const capabilities = useInputCapabilities();
-  const { bridge } = useBusiness();
+  const { isBelowTablet } = useResponsiveLayout();
+  /** The photo row is for phones: a camera, file capture and a phone-sized screen. */
+  const showCamera = capabilities.cameraCapture && isBelowTablet;
+  const pasteKeys = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
+  const { bridge, clearLostAccess, source, reload } = useBusiness();
+  const forwardAddress = useForwardAddress();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const replacingRef = useRef<string | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
   const entries = useSyncExternalStore(queue.subscribe, queue.snapshot, queue.snapshot).filter((item) => item.target === target);
   const consent = false;
-  const [dragging, setDragging] = useState(false);
-  const [clipboardEmpty, setClipboardEmpty] = useState(false);
+  const [drag, setDrag] = useState<DragState>({ kind: "idle" });
+  const [copyFailed, setCopyFailed] = useState(false);
+  const addressRef = useRef<HTMLParagraphElement>(null);
+  const copyLabels = useCopyLabels(forwardAddress ?? "");
   const uploading = queue.uploading;
-  const pending = entries.some((item) => item.status === "queued" || item.status === "failed");
   const unfinished = entries.some(isUnfinishedUpload);
   const saved = entries.flatMap((item) => (item.status === "saved" ? [item.receipt] : []));
+  const batch = uploadBatchView(entries, queue.retryWaiting);
+  const renderRow = (item: ReceiptUpload) => (
+    <UploadRow
+      key={item.key}
+      item={item}
+      locale={locale}
+      fileSize={fileSize}
+      rejection={item.status === "rejected" ? rejectionText[item.reason] : null}
+      retryWaiting={queue.retryWaiting(item.key)}
+      canRemove={!uploading && item.status !== "uploading" && item.status !== "saved"}
+      onRemove={() => queue.remove(item.key)}
+      onRetry={() => queue.retry(item.key)}
+      onReplace={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}
+    />
+  );
+  const [savedOpen, setSavedOpen] = useState(false);
   const many = target === "inbox";
+  const progress = many && queue.progress?.target === target ? queue.progress : null;
+  const batchSummary = [
+    progress ? t("business.intake.uploading_progress", "Uploading {{position}} of {{total}}…", { position: progress.position, total: progress.total }) : null,
+    !progress && batch.saved.length > 0 ? t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" }) : null,
+    batch.attention.length > 0 ? t("business.intake.summary_failed", { count: batch.attention.length, defaultValue: "{{count}} not uploaded" }) : null,
+  ].filter(Boolean).join(" · ");
+  const failed = entries.find((item) => item.status === "failed");
+  const failure: FailureClass | null = failed?.status === "failed" ? failed.failure : null;
+  const [serverReference, setServerReference] = useState("");
 
+  useEffect(() => {
+    if (failure !== "server" && failure !== "unavailable") return;
+    setServerReference((current) => current || referenceCode(null));
+  }, [failure]);
+
+  useEffect(() => {
+    if (failure !== "session_ended") return;
+    window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
+  }, [failure]);
+
+  const [documentType, setDocumentType] = useState<DocumentType | null>(null);
+  const [writing, setWriting] = useState(false);
+  const [draftText, setDraftText] = useState("");
+  const [writeEmpty, setWriteEmpty] = useState(false);
+  const [typed, setTyped] = useState<readonly TypedEntry[]>([]);
+  const writeRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (writing) writeRef.current?.focus();
+  }, [writing]);
+  const updateTyped = (key: string, change: Partial<TypedEntry>) =>
+    setTyped((current) => current.map((entry) => (entry.key === key ? { ...entry, ...change } : entry)));
+  /** A typed entry becomes a Bandeja draft through the note path; a retry repeats the same key, so it is never saved twice. */
+  const sendTyped = async (entry: TypedEntry) => {
+    updateTyped(entry.key, { status: "saving", problem: null });
+    try {
+      await source.captureNote({ text: entry.text, ...(entry.documentType ? { document_type: entry.documentType } : {}) }, entry.key);
+      updateTyped(entry.key, { status: "saved" });
+      reload();
+    } catch (error) {
+      const { status, code } = error as { status?: number; code?: string };
+      if (status && status >= 400 && status < 500 && !captureOutcomeUnknown(status, code)) {
+        updateTyped(entry.key, { status: "refused", problem: t("business.capture.refused", "The note could not be saved. Your text is retained; review the request before trying again.") });
+      } else {
+        updateTyped(entry.key, { status: "uncertain", problem: t("business.intake.typed_uncertain", "We couldn't confirm it was saved. Try again; it won't be saved twice.") });
+      }
+    }
+  };
+  const saveWriting = () => {
+    if (!validCaptureText(draftText)) {
+      setWriteEmpty(true);
+      writeRef.current?.focus();
+      return;
+    }
+    const entry: TypedEntry = { key: randomId(), text: draftText.trim(), documentType, status: "saving", problem: null };
+    setTyped((current) => [entry, ...current]);
+    setDraftText("");
+    setWriting(false);
+    void sendTyped(entry);
+  };
+  /** Files start uploading as soon as they arrive; a running drain takes them at its tail. */
   const choose = (files: readonly File[]) => {
-    setClipboardEmpty(false);
-    queue.add(files, limits, target, bridge?.conversationId ?? null);
+    const before = new Set(queue.snapshot().map((item) => item.key));
+    queue.add(files, limits, target, bridge?.conversationId ?? null, documentType);
+    const fresh = queue.snapshot().filter((item) => !before.has(item.key) && item.status === "queued").map((item) => item.key);
+    if (fresh.length) void queue.save(target, consent, new Set(fresh));
   };
   const chooseRef = useRef(choose);
   useEffect(() => {
@@ -81,101 +201,155 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  const pasteFromClipboard = async () => {
-    try {
-      const pasted = await readClipboardFile(limits.media_types);
-      if (pasted) choose([pasted]);
-      else setClipboardEmpty(true);
-    } catch {
-      setClipboardEmpty(true);
-    }
+  const openPicker = () => {
+    replacingRef.current = null;
+    fileInputRef.current?.click();
+  };
+  /** Nothing could copy: select the address so the owner can copy it by hand. */
+  const selectAddress = () => {
+    setCopyFailed(true);
+    const node = addressRef.current;
+    const selection = window.getSelection();
+    if (!node || !selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    selection.removeAllRanges();
+    selection.addRange(range);
   };
 
   const sizeLabel = (bytes: number) =>
-    new Intl.NumberFormat(i18n.resolvedLanguage ?? "en", { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024);
+    new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024);
+  const fileSize = (bytes: number) => bytes < 1024 * 1024
+    ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.max(1, bytes / 1024))} KB`
+    : `${sizeLabel(bytes)} MB`;
+  const compact = entries.length > 0;
   const formats = receiptFormatLabels(limits).join(", ");
   const rejectionText: Record<UploadRejection, string> = {
     unsupported: t("business.intake.unsupported", "This file isn't supported. Try {{formats}}.", { formats }),
     too_large: t("business.intake.too_large", "This file is larger than {{size}} MB. Use a smaller photo or PDF.", { size: sizeLabel(limits.max_bytes) }),
     heic: t("business.intake.heic", "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first."),
   };
-  const statusText: Record<string, string> = {
-    queued: t("business.intake.queue_status.queued", "Ready to upload"),
-    uploading: t("business.intake.queue_status.uploading", "Saving…"),
-    saved: t("business.intake.queue_status.saved", "Saved to Inbox"),
-    failed: t("business.intake.queue_status.failed", "Not saved. Try again."),
-    rejected: t("business.intake.queue_status.rejected", "Cannot upload"),
+
+  const onDragEnter = (event: DragEvent) => {
+    if (!capabilities.dragAndDrop) return;
+    event.preventDefault();
+    dragDepth.current += 1;
+    setDrag(dragStateFor(event, limits));
   };
+  const onDragLeave = () => {
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDrag({ kind: "idle" });
+  };
+  const onDrop = (event: DragEvent) => {
+    if (!capabilities.dragAndDrop) return;
+    event.preventDefault();
+    dragDepth.current = 0;
+    setDrag({ kind: "idle" });
+    choose(Array.from(event.dataTransfer.files));
+  };
+
+  const zoneTone =
+    drag.kind === "accept"
+      ? "border-2 border-solid border-[#2f5a49] bg-[#e3ebe1] ring-4 ring-[#2f5a49]/15 dark:border-[#8fcbb0] dark:bg-[#8fcbb0]/10"
+      : drag.kind === "reject"
+        ? "border-2 border-solid border-[#9e2f39] bg-[#f6dfe0] ring-4 ring-[#9e2f39]/15 dark:border-[#ec9aa0] dark:bg-[#ec9aa0]/10"
+        : "border border-dashed border-[#7d8a84] bg-[#FFFEFA] hover:border-[#2f5a49] hover:bg-[#2f5a49]/[0.03] dark:border-white/30 dark:bg-white/[0.02]";
+  const zoneTitle =
+    drag.kind === "accept"
+      ? t("business.intake.drop_release", { count: drag.count, defaultValue: "Drop to upload {{count}} files" })
+      : drag.kind === "reject"
+        ? t("business.intake.drop_reject", "That file type can't be uploaded. Use {{formats}}.", { formats })
+        : capabilities.dragAndDrop && !isBelowTablet
+          ? many ? t("business.intake.drop_title_multiple", "Drag your receipts here") : t("business.intake.drop_title", "Drag your receipt here")
+          : many ? t("business.intake.touch_title_multiple", "Choose your receipts") : t("business.intake.touch_title", "Choose your receipt");
 
   return (
     <AdaptivePanel
-      title={many ? t("business.intake.queue_title", "Upload receipts") : t("business.intake.title", "Upload receipt")}
+      title={many ? t("business.intake.add_title", "Add") : t("business.intake.title", "Upload receipt")}
       closeLabel={t("common.close", "Close")}
       onClose={onClose}
       width="md"
-      footer={
-        <div className="flex flex-wrap justify-end gap-2" data-testid="receipt-intake-footer">
-          <button type="button" className={secondaryButtonClass} onClick={onClose}>
-            {t("common.close", "Close")}
+      summary={batchSummary || undefined}
+      snaps={["peek", "half", "full"]}
+      initialSnap="half"
+      // The X closes; the footer holds only the next step, once there is one.
+      footer={saved.length > 0 && !unfinished && !uploading ? (
+        <div className="flex justify-end" data-testid="receipt-intake-footer">
+          <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target); onReview(saved); }}>
+            {t("business.intake.review_saved", "Review saved receipts")}
           </button>
-          {saved.length > 0 && !unfinished && !uploading ? (
-            <button type="button" className={primaryButtonClass} onClick={() => { queue.clear(target); onReview(saved); }}>
-              {t("business.intake.review_saved", "Review saved receipts")}
-            </button>
-          ) : null}
-          {pending || uploading ? (
-            <button type="button" className={primaryButtonClass} disabled={uploading} onClick={() => void queue.save(target, consent)}>
-              {uploading ? t("business.intake.saving", "Saving…") : many ? t("business.intake.save_pending", "Save remaining files") : t("business.intake.save", "Save to Inbox")}
-            </button>
-          ) : null}
         </div>
-      }
+      ) : undefined}
     >
-      <div className="space-y-4 px-4 pb-6">
-        <p className="text-[14px] text-black/60 dark:text-white/60">
-          {t("business.intake.formats", "{{formats}}, up to {{size}} MB. The original stays private to you.", { formats, size: sizeLabel(limits.max_bytes) })}
-        </p>
-
-        <div
-          onDragOver={(event) => {
-            if (!capabilities.dragAndDrop) return;
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(event) => {
-            if (!capabilities.dragAndDrop) return;
-            event.preventDefault();
-            setDragging(false);
-            choose(Array.from(event.dataTransfer.files));
-          }}
-          className={`rounded-[16px] border border-dashed p-5 text-center transition-colors ${
-            dragging ? "border-black/40 bg-black/[0.03] dark:border-white/40" : "border-black/15 dark:border-white/15"
-          }`}
-        >
-          {capabilities.dragAndDrop ? (
-            <p className="text-[14px] text-black/55 dark:text-white/55">
-              {many ? t("business.intake.drop_multiple", "Drop your receipts here.") : t("business.intake.drop", "Drop a receipt here.")}
-            </p>
-          ) : null}
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" className={secondaryButtonClass} onClick={() => { replacingRef.current = null; fileInputRef.current?.click(); }}>
-              <FileUp className="h-4 w-4" />
-              {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
-            </button>
-            {capabilities.clipboardRead ? (
-              <button type="button" className={secondaryButtonClass} onClick={() => void pasteFromClipboard()}>
-                <ClipboardPaste className="h-4 w-4" />
-                {t("business.intake.paste", "Paste")}
+      <div className="space-y-5 px-4 pb-6">
+        {writing ? (
+          <div data-testid="intake-write" className="rounded-[20px] border border-[#7d8a84] bg-[#FFFEFA] p-4 dark:border-white/30 dark:bg-white/[0.02]">
+            <label htmlFor="intake-write-text" className="font-display text-[17px] font-medium text-[#172b26] dark:text-white">{t("business.intake.write_title", "Write it")}</label>
+            <textarea
+              id="intake-write-text"
+              ref={writeRef}
+              value={draftText}
+              rows={5}
+              aria-invalid={writeEmpty}
+              aria-describedby="intake-write-help"
+              placeholder={t("business.intake.write_placeholder", "For example: I paid RD$500 for gas today at Isla, in cash.")}
+              onChange={(event) => { setDraftText(event.target.value); setWriteEmpty(false); }}
+              className="mt-2 block w-full resize-y rounded-[12px] border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
+            />
+            {writeEmpty ? <p role="alert" className={`mt-1 text-[13px] ${DANGER}`}>{t("business.intake.write_empty", "Write what happened before saving.")}</p> : null}
+            <p id="intake-write-help" className={`mt-2 text-[13px] ${MUTED}`}>{t("business.intake.write_help", "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.")}</p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <button type="button" className={smallAction} onClick={() => { setWriting(false); setWriteEmpty(false); }}>
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                {t("business.intake.write_back", "Upload files")}
               </button>
-            ) : null}
-            {capabilities.cameraCapture ? (
-              <button type="button" className={secondaryButtonClass} onClick={() => cameraInputRef.current?.click()}>
-                <Camera className="h-4 w-4" />
-                {t("business.intake.camera", "Take photo")}
+              <button type="button" data-testid="intake-write-save" className={`${pillButtonClass} bg-[#2f5a49] text-[#FFFEFA] dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={saveWriting}>
+                {t("business.intake.write_save", "Save")}
               </button>
+            </div>
+          </div>
+        ) : (
+          <div
+            data-testid="intake-drop-zone"
+            data-drag={drag.kind}
+            onDragEnter={onDragEnter}
+            onDragOver={(event) => { if (capabilities.dragAndDrop) event.preventDefault(); }}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onClick={openPicker}
+            data-compact={compact}
+            className={`group cursor-pointer rounded-[20px] transition-[background-color,border-color,box-shadow] duration-150 motion-reduce:transition-none ${compact ? "flex items-center gap-3 px-4 py-3 text-left" : "px-5 py-8 text-center"} ${zoneTone}`}
+          >
+            <div className={`${compact ? "h-11 w-11 rounded-[12px]" : "mx-auto h-14 w-14 rounded-[16px]"} flex shrink-0 items-center justify-center transition-transform duration-150 motion-reduce:transition-none ${drag.kind === "reject" ? "bg-[#9e2f39]/10 text-[#9e2f39]" : "bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]"} ${drag.kind === "accept" ? "-translate-y-1 motion-reduce:translate-y-0" : ""}`}>
+              {drag.kind === "reject" ? <CircleAlert className={compact ? "h-5 w-5" : "h-7 w-7"} aria-hidden="true" /> : <FileUp className={compact ? "h-5 w-5" : "h-7 w-7"} aria-hidden="true" />}
+            </div>
+            <div className={compact ? "min-w-0 flex-1" : ""}>
+              <p role="status" aria-live="polite" className={`font-display font-medium ${compact ? "text-[15px] leading-5" : "mt-4 text-[18px] leading-6"} ${drag.kind === "reject" ? DANGER : "text-[#172b26] dark:text-white"}`}>{zoneTitle}</p>
+              {compact && drag.kind === "idle" ? <p className={`text-[13px] ${MUTED}`}>{t("business.intake.formats_short", "{{formats}} · up to {{size}} MB", { formats, size: sizeLabel(limits.max_bytes) })}</p> : null}
+            </div>
+            {drag.kind === "idle" && !compact ? (
+              <>
+                <p className={`mt-1 text-[13px] ${MUTED}`}>{t("business.intake.formats_short", "{{formats}} · up to {{size}} MB", { formats, size: sizeLabel(limits.max_bytes) })}</p>
+                <button type="button" data-testid="intake-choose" className={`${pillButtonClass} mt-5 bg-[#2f5a49] text-[#FFFEFA] dark:bg-[#8fcbb0] dark:text-[#172b26]`} onClick={(event) => { event.stopPropagation(); openPicker(); }}>
+                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
+                  {many ? t("business.intake.choose_multiple", "Choose files") : t("business.intake.choose", "Choose file")}
+                </button>
+                {capabilities.dragAndDrop && !isBelowTablet ? (
+                  <p className={`mt-3 text-[12px] ${MUTED}`}>{t("business.intake.paste_hint", { keys: pasteKeys, defaultValue: "or paste with {{keys}}" })}</p>
+                ) : null}
+              </>
             ) : null}
           </div>
+        )}
+        {many && !writing ? (
+          <p className={`-mt-2 text-center text-[13px] ${MUTED}`}>
+            {t("business.intake.no_paper", "No paper?")}
+            <button type="button" data-testid="intake-write-open" className={`${smallAction} ml-1`} onClick={() => setWriting(true)}>
+              <PenLine className="h-4 w-4" aria-hidden="true" />
+              {t("business.intake.write", "Write it")}
+            </button>
+          </p>
+        ) : null}
           <input
             ref={fileInputRef}
             type="file"
@@ -184,6 +358,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
+            onClick={(event) => event.stopPropagation()}
             onChange={(event) => {
               const files = Array.from(event.target.files ?? []);
               if (files.length && replacingRef.current) queue.remove(replacingRef.current);
@@ -200,71 +375,320 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             className="sr-only"
             tabIndex={-1}
             aria-hidden="true"
+            onClick={(event) => event.stopPropagation()}
             onChange={(event) => {
               choose(Array.from(event.target.files ?? []));
               event.target.value = "";
             }}
           />
+
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className={`text-[14px] ${MUTED}`}>{t("business.intake.saved_as", "Saved as")}</p>
+            <SegmentedControl
+              testId="intake-document-type"
+              label={t("business.intake.saved_as", "Saved as")}
+              segments={[
+                { key: "auto" as const, label: t("business.intake.type_auto", "Automatic") },
+                { key: "recibo" as const, label: t("business.intake.type_recibo", "Purchase") },
+                { key: "venta" as const, label: t("business.intake.type_venta", "Sale") },
+              ]}
+              value={documentType ?? "auto"}
+              onChange={(key) => setDocumentType(key === "auto" ? null : key)}
+            />
+          </div>
+          <p className={`mt-1 text-right text-[13px] ${MUTED}`} data-testid="intake-type-help">
+            {documentType === "venta"
+              ? t("business.intake.type_venta_help", "An invoice the business issued.")
+              : documentType === "recibo"
+                ? t("business.intake.type_recibo_help", "Something the business paid for.")
+                : t("business.intake.type_auto_help", "With your business's RNC it is a sale; otherwise a purchase.")}
+          </p>
         </div>
 
-        {clipboardEmpty ? (
-          <p role="status" className="text-[14px] text-black/60 dark:text-white/60">
-            {t("business.intake.clipboard_empty", "There's no receipt image or PDF to paste. Copy one first, or choose a file.")}
-          </p>
+        {failure === "server" || failure === "unavailable" ? (
+          <ServerErrorScreen reference={serverReference} onRetry={() => failed && queue.retry(failed.key)} />
+        ) : null}
+        {failure === "removed" ? <RemovedMemberScreen onReturn={clearLostAccess} /> : null}
+        {failure === "closed" ? <BusinessClosedNotice /> : null}
+
+        {entries.length > 0 || typed.length > 0 ? (
+          <section aria-label={t("business.intake.queue_title", "Upload receipts")}>
+            <p role="status" aria-live="polite" data-testid="receipt-upload-summary" className="sr-only">{batchSummary}</p>
+            {progress ? (
+              <div data-testid="receipt-upload-summary-bar" className="sticky top-0 z-10 -mx-4 mb-2 bg-white px-4 py-2 dark:bg-[#1f2225]">
+                <div role="progressbar" aria-label={t("business.intake.queue_title", "Upload receipts")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(batch.share * 100)} className="h-1 overflow-hidden rounded-full bg-[#2f5a49]/15">
+                  <div className="h-full rounded-full bg-[#2f5a49] transition-[width] duration-200 ease-out motion-reduce:transition-none dark:bg-[#8fcbb0]" style={{ width: `${batch.share * 100}%` }} />
+                </div>
+                {batch.secondsLeft !== null ? <p className={`mt-1 text-[13px] tabular-nums ${MUTED}`}>{timeLeftText(t, batch.secondsLeft)}</p> : null}
+              </div>
+            ) : null}
+            <ul className="space-y-2" data-testid="receipt-upload-queue">
+              {typed.map((entry) => <TypedRow key={entry.key} entry={entry} onRetry={() => void sendTyped(entry)} />)}
+              {[...batch.attention, ...batch.active, ...batch.waiting].map(renderRow)}
+              {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
+            </ul>
+            {batch.saved.length > 1 ? (
+              <div className="mt-2 rounded-[16px] border border-[#DCE0DA] dark:border-white/10" data-testid="receipt-upload-saved-fold">
+                <button
+                  type="button"
+                  aria-expanded={savedOpen}
+                  aria-controls="receipt-upload-saved"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-[16px] px-3 text-left text-[14px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+                  onClick={() => setSavedOpen((open) => !open)}
+                >
+                  <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  <span className="flex-1 tabular-nums">{t("business.intake.summary_saved", { count: batch.saved.length, defaultValue: "{{count}} saved" })}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${savedOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                </button>
+                {savedOpen ? <ul id="receipt-upload-saved" className="space-y-2 px-2 pb-2">{batch.saved.map(renderRow)}</ul> : null}
+              </div>
+            ) : null}
+          </section>
         ) : null}
 
-        {entries.length > 0 ? (
-          <ul className="space-y-2" aria-live="polite" aria-label={t("business.intake.queue_title", "Upload receipts")} data-testid="receipt-upload-queue">
-            {entries.map((item) => (
-              <li key={item.key} className="rounded-xl border border-black/10 p-3 dark:border-white/15">
-                <div className="flex items-center gap-2">
-                  <ReceiptText className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 break-words text-sm font-medium">{item.file.name}</span>
-                  <span className="shrink-0 text-xs text-black/50 dark:text-white/50">{`${sizeLabel(item.file.size)} MB`}</span>
-                  <button
-                    type="button"
-                    disabled={uploading}
-                    onClick={() => queue.remove(item.key)}
-                    aria-label={t("business.intake.remove_file", "Remove {{name}} from this upload list", { name: item.file.name })}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-40"
-                  >
-                    <X className="h-4 w-4" />
+        {many && (forwardAddress || showCamera) ? (
+          <section aria-labelledby="intake-other-ways" data-testid="intake-other-ways">
+            <h3 id="intake-other-ways" className={`mb-2 text-[14px] font-medium ${MUTED}`}>{t("business.intake.other_ways", "Other ways to add receipts")}</h3>
+            <ul className="divide-y divide-[#DCE0DA] rounded-[16px] border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">
+              {forwardAddress ? (
+                <li className="flex items-center gap-3 p-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
+                    <Mail className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.intake.email_way", "Forward them by email")}</p>
+                    <p ref={addressRef} data-testid="intake-forward-address" className={`select-all break-words text-[13px] ${MUTED}`}><WrappingAddress address={forwardAddress} /></p>
+                    {copyFailed ? (
+                      <p className={`mt-1 text-[13px] ${DANGER}`}>{t("business.email.copy_failed", "Could not copy. Select the address to copy it.")}</p>
+                    ) : null}
+                  </div>
+                  <CopyButton
+                    value={forwardAddress}
+                    label={t("business.email.copy", "Copy address")}
+                    {...copyLabels}
+                    onFailed={selectAddress}
+                    testId="intake-forward-copy"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+                  />
+                </li>
+              ) : null}
+              {showCamera ? (
+                <li>
+                  <button type="button" data-testid="intake-camera" className="flex min-h-11 w-full items-center gap-3 p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]" onClick={() => cameraInputRef.current?.click()}>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
+                      <Camera className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.intake.camera_way", "Take a photo")}</span>
+                      <span className={`block text-[13px] ${MUTED}`}>{t("business.intake.camera_way_help", "With your phone's camera")}</span>
+                    </span>
+                    <ChevronRight className={`h-4 w-4 shrink-0 ${MUTED}`} aria-hidden="true" />
                   </button>
-                </div>
-                <p className="text-sm text-black/60 dark:text-white/60">{item.status === "saved" && item.receipt.replayed ? t("business.intake.replayed", "Already saved before. This is that receipt.") : statusText[item.status]}</p>
-                {item.status === "rejected" ? (
-                  <div className="mt-2 space-y-2">
-                    <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">{rejectionText[item.reason]}</p>
-                    <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => { replacingRef.current = item.key; fileInputRef.current?.click(); }}>
-                      {t("business.intake.choose_another", "Choose another file")}
-                    </button>
-                  </div>
-                ) : null}
-                {item.status === "failed" ? (
-                  <div className="mt-2 space-y-2">
-                    <p role="alert" className="text-sm text-[#a8434c] dark:text-[#ec9aa0]">
-                      {t("business.intake.failed", "We couldn't read the receipt. Try again.")}
-                    </p>
-                    <button type="button" disabled={uploading} className={secondaryButtonClass} onClick={() => void queue.save(target, consent, item.key)}>
-                      {t("common.retry", "Retry")}
-                    </button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {entries.some((item) => item.status === "failed") ? (
-          <p className="text-xs text-black/60 dark:text-white/60">{t("business.intake.retry_consent", "Retries keep the AI choice from the first attempt.")}</p>
+                </li>
+              ) : null}
+            </ul>
+          </section>
         ) : null}
 
         <ReceiptReadingControl />
         {unfinished ? (
-          <p className="text-xs text-black/60 dark:text-white/60">
+          <p className={`text-[13px] ${MUTED}`}>
             {t("business.intake.keep_open", "You can close this panel and come back to your uploads. Keep this page open until every file is saved.")}
           </p>
         ) : null}
       </div>
     </AdaptivePanel>
+  );
+}
+
+type Translate = ReturnType<typeof useTranslation>["t"];
+
+function timeLeftText(t: Translate, seconds: number): string {
+  return seconds < 60
+    ? t("business.intake.row_seconds_left", { count: Math.max(1, seconds), defaultValue: "{{count}} s left" })
+    : t("business.intake.row_minutes_left", { count: Math.ceil(seconds / 60), defaultValue: "{{count}} min left" });
+}
+
+/**
+ * A batch read for attention: files that need the owner first, then the one
+ * uploading, then the ones waiting, then the saved ones. The share and time
+ * left cover the bytes still to send at the current file's rate.
+ */
+export function uploadBatchView(entries: readonly ReceiptUpload[], retryWaiting: (key: string) => boolean) {
+  const attention = entries.filter((item) => item.status === "rejected" || (item.status === "failed" && !retryWaiting(item.key)));
+  const active = entries.filter((item) => item.status === "uploading");
+  const waiting = entries.filter((item) => item.status === "queued" || (item.status === "failed" && retryWaiting(item.key)));
+  const saved = entries.filter((item) => item.status === "saved");
+  const bytesOf = (items: readonly ReceiptUpload[]) => items.reduce((sum, item) => sum + item.file.size, 0);
+  const sending = active.reduce((sum, item) => sum + (item.status === "uploading" && item.bytes ? item.bytes.sent : 0), 0);
+  const total = bytesOf([...active, ...waiting, ...saved]);
+  const done = bytesOf(saved) + sending;
+  const rate = active.flatMap((item) => (item.status === "uploading" && item.bytes?.bytesPerSecond ? [item.bytes.bytesPerSecond] : []))[0] ?? null;
+  const remaining = total - done;
+  return {
+    attention,
+    active,
+    waiting,
+    saved,
+    share: total > 0 ? Math.min(1, done / total) : 0,
+    secondsLeft: rate ? Math.ceil(remaining / rate) : null,
+  };
+}
+
+/** Text the owner typed instead of uploading a file; it becomes a Bandeja draft like any receipt. */
+type TypedEntry = { key: string; text: string; documentType: DocumentType | null; status: "saving" | "saved" | "uncertain" | "refused"; problem: string | null };
+
+function TypedRow({ entry, onRetry }: { entry: TypedEntry; onRetry: () => void }) {
+  const { t } = useTranslation();
+  const failed = entry.status === "uncertain" || entry.status === "refused";
+  return (
+    <li data-testid="receipt-typed-row" data-status={entry.status} className={`rounded-[16px] border p-3 ${failed ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
+      <div className="flex items-start gap-3">
+        <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-[8px] border border-[#DCE0DA] bg-[#F7F5EE] dark:border-white/10 dark:bg-white/5">
+          <PenLine className="h-5 w-5 text-[#56635e] dark:text-white/70" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="whitespace-pre-line break-words text-[14px] text-[#172b26] dark:text-white">{entry.text}</p>
+          <p className={`text-[13px] ${MUTED}`}>{t("business.intake.typed_kind", "Typed")}</p>
+        </div>
+        {entry.status === "saved" ? <CircleCheck className="h-6 w-6 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" aria-hidden="true" /> : null}
+      </div>
+      {entry.status === "saving" ? <p className={`mt-2 text-[13px] ${MUTED}`}>{t("business.intake.typed_saving", "Saving…")}</p> : null}
+      {entry.status === "saved" ? <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">{t("business.intake.typed_saved", "Saved to the Inbox")}</p> : null}
+      {failed ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p role="alert" className={`text-[13px] ${DANGER}`}>{entry.problem}</p>
+          {entry.status === "uncertain" ? (
+            <button type="button" className={smallAction} onClick={onRetry}>
+              <RotateCw className="h-4 w-4" aria-hidden="true" />
+              {t("common.retry", "Retry")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+/** A small preview of an image file; a PDF or other file shows its kind instead. */
+function FileThumb({ file }: { file: File }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file.type.startsWith("image/") || typeof createImageBitmap === "undefined") return undefined;
+    let live = true;
+    createImageBitmap(file).then((bitmap) => {
+      const scale = Math.min(1, 112 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      if (live) setSrc(canvas.toDataURL("image/jpeg", 0.8));
+    }).catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [file]);
+  return (
+    <span className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-[#DCE0DA] bg-[#F7F5EE] dark:border-white/10 dark:bg-white/5">
+      {src ? <Image unoptimized src={src} alt="" width={44} height={56} className="h-full w-full object-cover" /> : <FileText className="h-5 w-5 text-[#56635e] dark:text-white/70" aria-hidden="true" />}
+    </span>
+  );
+}
+
+function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove, onRemove, onRetry, onReplace }: {
+  item: ReceiptUpload;
+  locale: string;
+  fileSize: (bytes: number) => string;
+  rejection: string | null;
+  retryWaiting: boolean;
+  canRemove: boolean;
+  onRemove: () => void;
+  onRetry: () => void;
+  onReplace: () => void;
+}) {
+  const { t } = useTranslation();
+  const bytes = item.status === "uploading" ? item.bytes : null;
+  const share = bytes && bytes.total > 0 ? Math.min(1, bytes.sent / bytes.total) : 0;
+  const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 }).format(share);
+  const left = bytes?.secondsLeft;
+  const timeLeft = left == null || share >= 1 ? null : timeLeftText(t, left);
+  const failedRetryable = item.status === "failed" && ROW_RETRY.has(item.failure);
+  // A picked type shows at once; a detected one only once the server has read it.
+  const shownType = item.documentType ?? (item.status === "saved" ? item.receipt.document_type ?? "recibo" : null);
+  return (
+    <li data-testid="receipt-upload-row" data-status={item.status} className={`rounded-[16px] border p-3 ${item.status === "failed" || item.status === "rejected" ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
+      <div className="flex items-center gap-3">
+        <FileThumb file={item.file} />
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-[14px] font-medium text-[#172b26] dark:text-white">{item.file.name}</p>
+          <p className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] tabular-nums ${MUTED}`}>
+            <span>{`${receiptFormatLabel(item.file.type)} · ${fileSize(item.file.size)}`}</span>
+            {shownType ? (
+              <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-full bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
+                {t(shownType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", shownType === "venta" ? "Sale" : "Purchase")}
+              </span>
+            ) : null}
+            {item.status === "queued" || retryWaiting ? (
+              <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" />{t("business.intake.row_waiting", "Waiting")}</span>
+            ) : null}
+          </p>
+        </div>
+        {item.status === "saved" ? <CircleCheck className="h-6 w-6 shrink-0 text-[#2f5a49] dark:text-[#8fcbb0]" aria-hidden="true" /> : null}
+        {canRemove ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={t("business.intake.remove_file", "Remove {{name}} from this upload list", { name: item.file.name })}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${MUTED}`}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+
+      {item.status === "uploading" ? (
+        <div className="mt-3">
+          <div
+            role="progressbar"
+            aria-label={item.file.name}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(share * 100)}
+            className="h-1.5 overflow-hidden rounded-full bg-[#2f5a49]/15"
+          >
+            <div className="h-full rounded-full bg-[#2f5a49] transition-[width] duration-200 ease-out motion-reduce:transition-none dark:bg-[#8fcbb0]" style={{ width: `${share * 100}%` }} />
+          </div>
+          <p className={`mt-1.5 text-[13px] tabular-nums ${MUTED}`}>{[percent, timeLeft].filter(Boolean).join(" · ")}</p>
+        </div>
+      ) : null}
+      {item.status === "saved" ? (
+        <p className="mt-2 text-[13px] text-[#2f5a49] dark:text-[#8fcbb0]">
+          {item.receipt.replayed ? t("business.intake.replayed", "Already saved before. This is that receipt.") : t("business.intake.row_saved", "Saved")}
+        </p>
+      ) : null}
+      {item.status === "failed" && !retryWaiting ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p role="alert" className={`text-[13px] ${DANGER}`}>
+            {item.failure === "offline" ? t("business.intake.row_failed_offline", "Connection lost. Your file is still here.") : t("business.intake.row_failed", "Couldn't upload. Your file is still here.")}
+          </p>
+          {failedRetryable ? (
+            <button type="button" className={smallAction} aria-label={t("business.intake.retry_file", "Retry {{name}}", { name: item.file.name })} onClick={onRetry}>
+              <RotateCw className="h-4 w-4" aria-hidden="true" />
+              {t("common.retry", "Retry")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {item.status === "rejected" && rejection ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p role="alert" className={`text-[13px] ${DANGER}`}>{rejection}</p>
+          <button type="button" className={smallAction} onClick={onReplace}>
+            {t("business.intake.choose_another", "Choose another file")}
+          </button>
+        </div>
+      ) : null}
+    </li>
   );
 }

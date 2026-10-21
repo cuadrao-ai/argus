@@ -15,14 +15,13 @@ struct CuadraoHomeEmptyState: View {
     var body: some View {
         if shared {
             VStack(alignment: .leading, spacing: 28) {
-                CuadraoChartState(title: spanish ? "Un lugar para\nlo de ustedes." : "A place for\nwhat you share.",
-                    detail: spanish ? "Añade una cuenta que lleven juntos. Las cuentas personales siguen siendo privadas."
-                        : "Add an account you manage together. Personal accounts stay private.")
-                RegistrationButton(title: spanish ? "Añadir cuenta conjunta" : "Add a joint account", action: addAccount)
+                CuadraoChartState(title: CuadraoCopy.text("copy.cuadraoHomeEmptyState.c598130645", spanish: spanish),
+                    detail: CuadraoCopy.text("copy.cuadraoHomeEmptyState.d5472c73fa", spanish: spanish))
+                RegistrationButton(title: CuadraoCopy.text("copy.cuadraoHomeEmptyState.c4386d1150", spanish: spanish), action: addAccount)
                 if case .alone = data.household {
-                    secondary(spanish ? "Invitar a alguien" : "Invite someone", action: household)
+                    secondary(CuadraoCopy.text("copy.cuadraoHomeEmptyState.d9987908d0", spanish: spanish), action: household)
                 } else {
-                    secondary(spanish ? "Personas" : "People", action: household)
+                    secondary(CuadraoCopy.text("copy.cuadraoHomeEmptyState.bede691c92", spanish: spanish), action: household)
                 }
             }.padding(.top, 16).frame(maxWidth: .infinity, alignment: .leading)
         } else {
@@ -40,10 +39,9 @@ struct CuadraoPersonalAccountsEmpty: View {
     let addAccount: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 28) {
-            CuadraoChartState(title: spanish ? "Empieza con una cuenta." : "Start with one account.",
-                detail: spanish ? "Tu banco, tu efectivo o tus ahorros. Tú eliges por dónde empezar."
-                    : "Your bank, cash or savings. Choose where to begin.")
-            RegistrationButton(title: spanish ? "Añadir cuenta" : "Add account", action: addAccount)
+            CuadraoChartState(title: CuadraoCopy.text("copy.cuadraoHomeEmptyState.deb93bf23e", spanish: spanish),
+                detail: CuadraoCopy.text("copy.cuadraoHomeEmptyState.9ba4d39d99", spanish: spanish))
+            RegistrationButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f", spanish: spanish), action: addAccount)
                 .accessibilityIdentifier("accounts.add")
         }.padding(.top, 16).frame(maxWidth: .infinity, alignment: .leading)
     }

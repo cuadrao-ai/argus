@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { BottomSheetSurface as BottomSheet,
-  bottomSheetDragOutcome,
-  bottomSheetHeightClass,
+  SHEET_SNAP_SHARE,
+  sheetRelease,
 } from "../components/ui/BottomSheet";
 import { nextFocusIndex } from "../components/layout/useModalFocusTrap";
 
@@ -34,46 +34,51 @@ function renderSheet(
   );
 }
 
-describe("bottom sheet heights", () => {
-  test("maps the three spec detents to distinct heights", () => {
-    expect(bottomSheetHeightClass("full")).toBe("h-[96dvh]");
-    expect(bottomSheetHeightClass("tall")).toBe("h-[70dvh]");
-    expect(bottomSheetHeightClass("short")).toBe("h-[40dvh]");
+const VIEWPORT = 800;
+const px = (snap: "peek" | "half" | "full") => VIEWPORT * SHEET_SNAP_SHARE[snap];
+const threeSnaps = (["peek", "half", "full"] as const).map((snap) => ({ snap, px: px(snap) }));
+
+describe("bottom sheet snap points", () => {
+  test("peek, half and full are three distinct, rising heights", () => {
+    expect(SHEET_SNAP_SHARE.peek).toBeLessThan(SHEET_SNAP_SHARE.half);
+    expect(SHEET_SNAP_SHARE.half).toBeLessThan(SHEET_SNAP_SHARE.full);
   });
 
-  test("renders the requested height on the panel", () => {
-    expect(renderSheet({ height: "full" })).toContain("h-[96dvh]");
-    expect(renderSheet({ height: "short" })).toContain("h-[40dvh]");
+  test("opens at half by default, with its height set from the screen", () => {
+    expect(renderSheet()).toContain('data-snap="half"');
   });
 
-  test("defaults to the sources detent", () => {
-    expect(renderSheet()).toContain("h-[70dvh]");
+  test("opens at the declared snap", () => {
+    expect(renderSheet({ snaps: ["peek", "half", "full"], initialSnap: "peek" })).toContain('data-snap="peek"');
+  });
+
+  test("a menu hugs its content instead of resting on a snap", () => {
+    expect(renderSheet({ snaps: "fit" })).toContain('data-snap="fit"');
   });
 });
 
-describe("bottom sheet dismissal", () => {
-  test("an upward drag never dismisses", () => {
-    expect(
-      bottomSheetDragOutcome({ deltaY: -200, sheetHeight: 600, velocityY: 2 }),
-    ).toBe("settle");
+describe("bottom sheet release", () => {
+  test("let go between two snaps, it springs to the nearest", () => {
+    expect(sheetRelease({ heightPx: px("half") + 40, snapPx: threeSnaps, from: "half", velocityY: 0.1 })).toEqual({ kind: "snap", snap: "half" });
+    expect(sheetRelease({ heightPx: px("full") - 50, snapPx: threeSnaps, from: "half", velocityY: -0.1 })).toEqual({ kind: "snap", snap: "full" });
   });
 
-  test("a short slow drag settles back", () => {
-    expect(
-      bottomSheetDragOutcome({ deltaY: 40, sheetHeight: 600, velocityY: 0.05 }),
-    ).toBe("settle");
+  test("a slow drag down from full lands on a lower snap, not closed", () => {
+    expect(sheetRelease({ heightPx: px("peek") + 10, snapPx: threeSnaps, from: "full", velocityY: 0.2 })).toEqual({ kind: "snap", snap: "peek" });
   });
 
-  test("a drag past a quarter of the sheet dismisses", () => {
-    expect(
-      bottomSheetDragOutcome({ deltaY: 160, sheetHeight: 600, velocityY: 0.1 }),
-    ).toBe("dismiss");
+  test("a slow drag closes only past half of the lowest snap", () => {
+    expect(sheetRelease({ heightPx: px("peek") / 2 + 5, snapPx: threeSnaps, from: "peek", velocityY: 0.2 })).toEqual({ kind: "snap", snap: "peek" });
+    expect(sheetRelease({ heightPx: px("peek") / 2 - 5, snapPx: threeSnaps, from: "peek", velocityY: 0.2 })).toEqual({ kind: "dismiss" });
   });
 
-  test("a flick dismisses before the travel threshold", () => {
-    expect(
-      bottomSheetDragOutcome({ deltaY: 70, sheetHeight: 600, velocityY: 1.2 }),
-    ).toBe("dismiss");
+  test("a quick flick down closes from any height", () => {
+    expect(sheetRelease({ heightPx: px("full") - 30, snapPx: threeSnaps, from: "full", velocityY: 1.2 })).toEqual({ kind: "dismiss" });
+  });
+
+  test("a quick flick up lifts one snap", () => {
+    expect(sheetRelease({ heightPx: px("peek") + 30, snapPx: threeSnaps, from: "peek", velocityY: -1.2 })).toEqual({ kind: "snap", snap: "half" });
+    expect(sheetRelease({ heightPx: px("full"), snapPx: threeSnaps, from: "full", velocityY: -1.2 })).toEqual({ kind: "snap", snap: "full" });
   });
 
   /*
@@ -83,39 +88,11 @@ describe("bottom sheet dismissal", () => {
    * dismissal, and the sheet closed under the user's thumb.
    */
   test("a cancelled gesture never dismisses, however far or fast it went", () => {
-    for (const [deltaY, velocityY] of [
-      [160, 0.1],
-      [70, 1.2],
-      [600, 5],
-    ]) {
-      expect(
-        bottomSheetDragOutcome({
-          deltaY,
-          sheetHeight: 600,
-          velocityY,
-          phase: "cancel",
-        }),
-      ).toBe("settle");
-      // The same numbers on a release, so the case cannot pass by being inert.
-      expect(
-        bottomSheetDragOutcome({
-          deltaY,
-          sheetHeight: 600,
-          velocityY,
-          phase: "release",
-        }),
-      ).toBe("dismiss");
+    for (const [heightPx, velocityY] of [[10, 0.1], [px("half"), 1.2], [0, 5]]) {
+      expect(sheetRelease({ heightPx, snapPx: threeSnaps, from: "half", velocityY, phase: "cancel" })).toEqual({ kind: "snap", snap: "half" });
     }
-  });
-
-  test("short sheets still need real travel", () => {
-    // 25 percent of a 40dvh sheet is under the floor, so the floor governs.
-    expect(
-      bottomSheetDragOutcome({ deltaY: 50, sheetHeight: 200, velocityY: 0.1 }),
-    ).toBe("settle");
-    expect(
-      bottomSheetDragOutcome({ deltaY: 70, sheetHeight: 200, velocityY: 0.1 }),
-    ).toBe("dismiss");
+    // The same flick on a release, so the case cannot pass by being inert.
+    expect(sheetRelease({ heightPx: px("half"), snapPx: threeSnaps, from: "half", velocityY: 1.2 })).toEqual({ kind: "dismiss" });
   });
 
   test("the scrim dismisses and the close control is visible", () => {
@@ -125,12 +102,19 @@ describe("bottom sheet dismissal", () => {
   });
 });
 
+describe("bottom sheet required action", () => {
+  test("removes the close control when dismissal is disabled", () => {
+    expect(renderSheet({ dismissible: false })).not.toContain('aria-label="Close sheet"');
+    expect(renderSheet()).toContain('aria-label="Close sheet"');
+  });
+});
+
 describe("bottom sheet keyboard handling", () => {
   test("Escape is routed to it by the registry, not listened for", () => {
     // The sheet installs nothing. The registry offers Escape to the topmost
     // layer only, so a menu or confirmation above it answers first without the
     // sheet needing to know that anything is above it.
-    expect(source).toContain("onEscape: onClose,");
+    expect(source).toContain("onEscape: dismissible ? onClose : () => {},");
     expect(source).not.toContain('document.addEventListener("keydown"');
     expect(source).not.toContain("hasOverlayAbove");
   });
@@ -222,7 +206,7 @@ describe("bottom sheet accessibility and touch baseline", () => {
 
   test("sits on the bottom edge rather than centered", () => {
     expect(renderSheet()).toContain("items-end");
-    expect(renderSheet()).toContain("rounded-t-[28px]");
+    expect(renderSheet()).toContain("rounded-t-[20px]");
   });
 
   test("the scrolling body contains its overscroll", () => {
@@ -243,8 +227,12 @@ describe("bottom sheet accessibility and touch baseline", () => {
     );
   });
 
-  test("the pointer is captured only once a press reads as a drag", () => {
-    expect(source).toContain("Math.abs(deltaY) > DRAG_CAPTURE_THRESHOLD_PX");
+  test("the grip grabs the pointer on press, skips header controls, and only moves past the tap threshold", () => {
+    const start = source.slice(source.indexOf("const handleDragStart"), source.indexOf("const handleDragMove"));
+    expect(start).toContain("closest(INTERACTIVE_SELECTOR)");
+    expect(start).toContain("setPointerCapture(event.pointerId)");
+    expect(start.indexOf("closest(INTERACTIVE_SELECTOR)")).toBeLessThan(start.indexOf("setPointerCapture"));
+    expect(source).toContain("Math.abs(deltaY) <= DRAG_CAPTURE_THRESHOLD_PX");
   });
 
   test("honors reduced motion", () => {

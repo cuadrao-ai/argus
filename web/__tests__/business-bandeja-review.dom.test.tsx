@@ -25,6 +25,7 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
@@ -32,7 +33,7 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-  const source = { ...fixture, captures: async () => [], ...overrides };
+  const source = { ...fixture, captures: async () => [], emailDeliveries: async () => [], ...overrides };
   let panel = "";
   function Probe() {
     const business = useBusiness();
@@ -45,9 +46,11 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as BusinessDataSource}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as BusinessDataSource}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -73,9 +76,13 @@ test("a Bandeja that has never been used keeps the plain empty copy", async () =
   });
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-inbox-empty"]') !== null);
-    const empty = page.host.querySelector('[data-testid="business-inbox-empty"]')?.textContent ?? "";
+    const card = page.host.querySelector('[data-testid="business-inbox-empty"]')!;
+    const empty = card.textContent ?? "";
+    assert.equal(card.querySelector("[data-empty-kind]")?.getAttribute("data-empty-kind"), "first_run");
+    assert.equal(card.querySelector("h3")?.textContent, "Aquí llegan tus recibos");
     assert.equal(empty.includes("Todo aprobado"), false);
-    assert.equal(empty.includes("Sube un recibo"), true);
+    assert.equal(empty.includes("Súbelos, escríbelos o reenvíalos por correo."), true);
+    assert.equal([...card.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Agregar"), true, "the empty Bandeja offers Agregar");
   } finally { await page.close(); }
 });
 
@@ -101,9 +108,12 @@ test("still-reading and unreadable receipts stay off the por revisar number", as
     receiptPage: async (view) => ({ items: view === "all" ? items : items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1 } }),
   });
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="bandeja-por-revisar"]') !== null);
-    assert.equal(page.host.querySelector('[data-testid="bandeja-por-revisar"]')?.textContent, "1 por revisar");
-    assert.equal(page.host.querySelector('[data-testid="bandeja-aside"]')?.textContent, "1 todavía leyéndose. 1 no se pudo leer.");
+    const segment = (key: string) => page.host.querySelector(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)?.textContent;
+    // The bar shows while the list loads; its counts arrive with it.
+    await page.settle(() => /\d/.test(segment("review") ?? ""));
+    assert.equal(segment("review"), "Por revisar1");
+    assert.equal(segment("problem"), "Con problema1");
+    assert.equal(segment("all"), "Todo");
     assert.equal(page.host.textContent?.includes("necesita tu atención"), false);
     assert.equal(/Revisar \d+ recibo/.test(page.host.textContent ?? ""), false);
     assert.match(page.host.textContent ?? "", /RD\$/);
@@ -122,5 +132,15 @@ test("a contador gets Revisar recibos as the green primary and no upload", async
     assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Subir recibo"), false);
     await page.act(async () => { review.click(); });
     assert.equal(page.panel(), "rcpt-ferreteria");
+  } finally { await page.close(); }
+});
+
+test("the segment bar stays while the list loads, with no count until one is known", async () => {
+  const page = await mount({ receiptPage: () => new Promise(() => {}) });
+  try {
+    await page.settle(() => page.host.querySelector('[data-testid="bandeja-segments"]') !== null);
+    const bar = page.host.querySelector('[data-testid="bandeja-segments"]')?.textContent ?? "";
+    assert.match(bar, /Por revisar/);
+    assert.equal(/\d/.test(bar), false, "an unknown count is never shown as 0");
   } finally { await page.close(); }
 });

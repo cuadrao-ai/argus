@@ -1,4 +1,5 @@
 import type { BusinessAccount } from "./business-api";
+import type { DgiiDeclaration } from "./business-dgii";
 
 export type BusinessFact<T> =
   | { state: "known"; value: T; origin: "extracted" | "qr_decoded" | "owner_stated" | "member_set" | "matched" | "default"; verified: boolean; source_ids: string[] }
@@ -46,6 +47,8 @@ export type BusinessReviewQuestion = {
 };
 
 export type BusinessDraftRevision = {
+  before_dgii?: DgiiDeclaration | null;
+  after_dgii?: DgiiDeclaration | null;
   draft_id: string;
   version: number;
   actor: BusinessActor;
@@ -82,16 +85,21 @@ export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string 
 export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
 
 export type BusinessDossier = BusinessRecordContext & {
+  dgii?: DgiiDeclaration | null;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;
   /** The DGII QR the receipt carried; null when there was none. */
   dgii_qr?: DgiiQr | null;
+  /** One NCF due notice. Unpaid is Factura por pagar. Paid, the same record is Factura pagada. */
+  bill_mark?: "Factura por pagar" | "Factura pagada" | null;
   /** The record's marks from the server, the same reading every list shows: Personal, who last changed it when not the owner, the fiscal number, the 606 answer. */
   personal?: boolean;
   personal_marked_by?: string | null;
   /** The record's facts exist, so an empty fiscal_value means no fiscal number. */
   fiscal_known?: boolean;
   fiscal_value?: "ncf" | "ecf" | null;
+  /** Always present on the dossier: no comprobante fiscal stated and no NCF or e-CF. */
+  sin_comprobante?: boolean;
   include_606?: boolean | null;
   /** Who gave the 606 answer, while one applies. */
   include_606_by?: string | null;
@@ -99,6 +107,12 @@ export type BusinessDossier = BusinessRecordContext & {
   /** The receipt total the read showed, and how many read purchases this record leaves unrecorded (0 once settled). */
   read_total?: string | null;
   unrecorded_purchases?: number;
+  /** Compra (`recibo`) or Venta: the draft's current type. */
+  document_type?: "recibo" | "venta";
+  /** The type was read from the document, not picked; absent when false. */
+  document_type_detected?: boolean;
+  /** True while the draft is open and the caller can prepare. The server refuses a change after approval. */
+  document_type_editable?: boolean;
   draft_id: string;
   version: number;
   review_state: "open" | "accepting" | "accepted" | "dismissed";

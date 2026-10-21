@@ -17,19 +17,18 @@ public struct ReleaseSocialSignInView: View {
         self.onSignIn = onSignIn; self.onSaveName = onSaveName; self.onContinue = onContinue
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
-    private func text(_ es: String, _ en: String) -> String { spanish ? es : en }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text(text("Entra a Cuadrao", "Sign in to Cuadrao"))
+                Text(CuadraoCopy.text("copy.releaseSocialSignInView.1b2acf5dfd", spanish: spanish))
                     .font(CuadraoTypography.screen).accessibilityAddTraits(.isHeader)
                 if let pendingInvite {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(pendingInvite.title).font(CuadraoTypography.action)
-                            Text(text("Tu invitación te espera al entrar.", "Your invitation will be waiting after sign-in."))
+                            Text(CuadraoCopy.text("copy.releaseSocialSignInView.d1ffc4095d", spanish: spanish))
                                 .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                         }
                     } icon: { Image(systemName: "envelope") }
@@ -38,8 +37,8 @@ public struct ReleaseSocialSignInView: View {
                 if state == .missingName || state == .savingName || state == .nameFailed {
                     nameForm
                 } else if state == .complete {
-                    Label(text("Ya estás dentro", "You're signed in"), systemImage: "checkmark.circle")
-                    Button(text("Continuar", "Continue")) { onContinue(pendingInvite) }
+                    Label(CuadraoCopy.text("copy.releaseSocialSignInView.0e746f0a2a", spanish: spanish), systemImage: "checkmark.circle")
+                    Button(CuadraoCopy.text("copy.releaseSocialSignInView.c27a4762b9", spanish: spanish)) { onContinue(pendingInvite) }
                         .buttonStyle(.borderedProminent)
                         .accessibilityIdentifier("identity.social.complete")
                 } else {
@@ -54,7 +53,7 @@ public struct ReleaseSocialSignInView: View {
         .background(Color(uiColor: .systemBackground))
         .font(CuadraoTypography.body)
         .tint(WelcomePalette.pine)
-        .navigationTitle(text("Iniciar sesión", "Sign in"))
+        .navigationTitle(CuadraoCopy.text("copy.releaseSocialSignInView.99024c1d78", spanish: spanish))
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("identity.social.screen")
     }
@@ -65,7 +64,7 @@ public struct ReleaseSocialSignInView: View {
                 Button { onSignIn(provider, pendingInvite) } label: {
                     HStack(spacing: 10) {
                         if provider == .apple { Image(systemName: "apple.logo").accessibilityHidden(true) }
-                        Text(text("Continuar con \(provider.title)", "Continue with \(provider.title)"))
+                        Text(CuadraoCopy.text("copy.releaseSocialSignInView.08580b4d44", spanish: spanish, String(describing: provider.title)))
                             .multilineTextAlignment(.center)
                     }
                     .font(CuadraoTypography.action)
@@ -85,14 +84,13 @@ public struct ReleaseSocialSignInView: View {
     @ViewBuilder private var status: some View {
         switch state {
         case .loading(let provider):
-            ProgressView(text("Conectando con \(provider.title)…", "Connecting with \(provider.title)…"))
+            ProgressView(CuadraoCopy.text("copy.releaseSocialSignInView.55beef0fe5", spanish: spanish, String(describing: provider.title)))
                 .accessibilityIdentifier("identity.social.loading")
         case .cancelled:
-            Text(text("Cancelaste el inicio de sesión. Puedes intentarlo otra vez.",
-                      "Sign-in was cancelled. You can try again."))
+            Text(CuadraoCopy.text("copy.releaseSocialSignInView.2bd47177f5", spanish: spanish))
                 .foregroundStyle(.secondary).accessibilityIdentifier("identity.social.cancelled")
         case .failed:
-            Label(text("No pudimos iniciar sesión. Inténtalo otra vez.", "We couldn't sign you in. Try again."),
+            Label(CuadraoCopy.text("copy.releaseSocialSignInView.bd6090d050", spanish: spanish),
                   systemImage: "exclamationmark.circle")
                 .accessibilityIdentifier("identity.social.error")
         default: EmptyView()
@@ -101,17 +99,17 @@ public struct ReleaseSocialSignInView: View {
 
     private var nameForm: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(text("¿Cómo te llamas?", "What should we call you?")).font(CuadraoTypography.section)
-            TextField(text("Tu nombre", "Your name"), text: $name)
+            Text(CuadraoCopy.text("copy.releaseSocialSignInView.47ff37592a", spanish: spanish)).font(CuadraoTypography.section)
+            TextField(CuadraoCopy.text("copy.releaseSocialSignInView.ef3db0bd59", spanish: spanish), text: $name)
                 .textContentType(.givenName).textInputAutocapitalization(.words)
                 .textFieldStyle(.roundedBorder).disabled(state.isBusy)
                 .accessibilityIdentifier("identity.social.name")
             if state == .nameFailed {
-                Text(text("No pudimos guardar tu nombre. Inténtalo otra vez.", "We couldn't save your name. Try again."))
+                Text(CuadraoCopy.text("copy.releaseSocialSignInView.5bfb080c11", spanish: spanish))
                     .foregroundStyle(.secondary)
             }
-            if state == .savingName { ProgressView(text("Guardando…", "Saving…")) }
-            Button(text("Continuar", "Continue")) {
+            if state == .savingName { ProgressView(CuadraoCopy.text("copy.releaseSocialSignInView.5f4c79aff9", spanish: spanish)) }
+            Button(CuadraoCopy.text("copy.releaseSocialSignInView.c27a4762b9", spanish: spanish)) {
                 onSaveName(name.trimmingCharacters(in: .whitespacesAndNewlines), pendingInvite)
             }
             .buttonStyle(.borderedProminent)
@@ -127,7 +125,7 @@ struct ReleaseIdentityLegalLinks: View {
     init(legal: CuadraoLegalURLs = .current) { self.legal = legal }
 
     var body: some View {
-        let spanish = locale.language.languageCode?.identifier == "es"
+        let spanish = CuadraoCopy.isSpanish()
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 24) { links(spanish) }
             VStack(alignment: .leading, spacing: 4) { links(spanish) }
@@ -136,11 +134,11 @@ struct ReleaseIdentityLegalLinks: View {
 
     @ViewBuilder private func links(_ spanish: Bool) -> some View {
         if let terms = legal.terms {
-            Link(spanish ? "Términos" : "Terms", destination: terms)
+            Link(CuadraoCopy.text("copy.releaseSocialSignInView.e6e8e0f79a", spanish: spanish), destination: terms)
                 .frame(minHeight: 44).accessibilityIdentifier("identity.legal.terms")
         }
         if let privacy = legal.privacy {
-            Link(spanish ? "Privacidad" : "Privacy", destination: privacy)
+            Link(CuadraoCopy.text("copy.connectedCuadraoProfile.a405422e66", spanish: spanish), destination: privacy)
                 .frame(minHeight: 44).accessibilityIdentifier("identity.legal.privacy")
         }
     }

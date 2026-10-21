@@ -16,8 +16,9 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
 
     test("the owner sees who has access, invites an email and cancels the invite", async ({ page }) => {
       await offline(page);
-      await page.goto("/dev/business-preview?view=access");
-      await expect(page.getByRole("heading", { name: "Acceso" }).first()).toBeVisible();
+      await page.goto("/dev/business-preview?view=business&tab=equipo");
+      await expect(page.getByRole("heading", { name: "Negocio", exact: true }).first()).toBeVisible();
+      await expect(page.getByTestId("business-settings-tabs").getByRole("radio", { name: viewport.width < 720 ? "Equipo" : "Equipo y accesos" })).toHaveAttribute("aria-checked", "true");
       const grants = page.getByTestId("business-access-grants");
       await expect(grants).toContainText("Dueño");
       await expect(grants).toContainText("Tu propio acceso no se puede quitar.");
@@ -35,7 +36,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(invites.getByRole("button", { name: "Reenviar", exact: true })).toBeEnabled();
       await invites.getByRole("button", { name: "Cancelar invitación" }).click();
       await expect(page.getByRole("alertdialog")).toContainText("nuevo@example.test");
-      await page.getByRole("button", { name: "Sí, quitar" }).click();
+      await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar invitación" }).click();
       await expect(invites).toHaveCount(0);
       await expect(page.getByText("—")).toHaveCount(0);
     });

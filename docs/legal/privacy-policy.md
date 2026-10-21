@@ -88,7 +88,7 @@ Cada negocio tiene una dirección de recepción propia. Los adjuntos se guardan 
 <a id="es-accountant-access"></a>
 ### 7. Contador y otras personas con acceso
 
-Solo el dueño da acceso. Un permiso indica qué puede hacer la persona (leer, preparar, aprobar) y puede vencer o revocarse. El contador ve los registros de ese negocio y nada más. Puedes exportar un paquete CSV y Excel con los originales. Una vez descargado, el archivo ya no depende de Cuadrao.
+Solo el dueño da acceso. Un permiso indica qué puede hacer la persona y puede vencer o revocarse. Hoy el contador puede ver y preparar; solo el dueño aprueba. Que otra persona apruebe está planeado, no disponible. El contador ve los registros de ese negocio y nada más. Puedes exportar un paquete CSV y Excel con los originales. Una vez descargado, el archivo ya no depende de Cuadrao.
 
 <a id="es-subprocessors"></a>
 ### 8. Subencargados
@@ -246,7 +246,7 @@ Each business has its own receiving address. Attachments are saved as documents.
 <a id="en-accountant-access"></a>
 ### 7. Accountant and other people with access
 
-Only the owner grants access. A grant says what the person can do (read, prepare, approve) and can expire or be revoked. The accountant sees that business's records and nothing else. You can export a CSV and Excel package with the originals. Once downloaded, the file no longer depends on Cuadrao.
+Only the owner grants access. A grant says what the person can do and can expire or be revoked. Today an accountant can view and prepare; only the owner approves. Approval by someone else is planned, not available. The accountant sees that business's records and nothing else. You can export a CSV and Excel package with the originals. Once downloaded, the file no longer depends on Cuadrao.
 
 <a id="en-subprocessors"></a>
 ### 8. Subprocessors

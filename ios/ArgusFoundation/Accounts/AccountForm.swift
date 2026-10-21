@@ -205,7 +205,7 @@ struct AccountForm: View {
         if draft.mode == .metadata && draft.base?.isOptionalAsset != true {
             DisclosureGroup("accounts.ownership") {
                 PercentField(title: NSLocalizedString("accounts.share", comment: ""), text: binding(\.share), bounds: .share,
-                             spanish: Locale.current.language.languageCode?.identifier == "es", identifier: "accounts.share")
+                             spanish: CuadraoCopy.isSpanish(), identifier: "accounts.share")
                 Text("accounts.share.help").font(ArgusStyle.body(12, relativeTo: .caption))
             }.disabled(locked)
         } else if draft.mode == .opening {

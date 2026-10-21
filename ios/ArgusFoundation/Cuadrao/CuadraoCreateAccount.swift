@@ -17,16 +17,15 @@ struct CuadraoCreateAccount: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     RegistrationHeading(
-                        title: signingIn ? (spanish ? "Qué bueno verte." : "Welcome back.")
-                            : (spanish ? "Crea tu cuenta." : "Create your account."),
-                        detail: signingIn ? (spanish ? "Entra a Cuadrao." : "Sign in to Cuadrao.")
-                            : (spanish ? "Tus cuentas y tus planes, en un solo lugar."
-                                : "Your accounts and plans, in one place."))
+                        title: signingIn ? (CuadraoCopy.text("copy.connectedCuadraoAuth.4e250a863e", spanish: spanish))
+                            : (CuadraoCopy.text("copy.connectedCuadraoAuth.b12eabc5ce", spanish: spanish)),
+                        detail: signingIn ? (CuadraoCopy.text("copy.connectedCuadraoAuth.adf63b5a8b", spanish: spanish))
+                            : (CuadraoCopy.text("copy.connectedCuadraoAuth.a20acd8081", spanish: spanish)))
                     Spacer(minLength: 64)
                     VStack(spacing: 14) {
                         if CuadraoFirstRelease.showsSocialSignIn {
                             PreviewAppleButton(dark: colorScheme == .dark) {
-                                previewAction = spanish ? "Continuar con Apple" : "Continue with Apple"
+                                previewAction = CuadraoCopy.text("copy.cuadraoCreateAccount.3748d5e95d", spanish: spanish)
                             }
                             .id(colorScheme)
                             .frame(height: 56)
@@ -39,7 +38,7 @@ struct CuadraoCreateAccount: View {
                                 CuadraoEmailRegistration(spanish: spanish)
                             }
                         } label: {
-                            Label(spanish ? "Continuar con correo" : "Continue with email", systemImage: "envelope")
+                            Label(CuadraoCopy.text("copy.connectedCuadraoAuth.77a84bd8c0", spanish: spanish), systemImage: "envelope")
                                 .font(.body.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 56)
                                 .overlay {
@@ -57,11 +56,11 @@ struct CuadraoCreateAccount: View {
                     Button {
                         signingIn.toggle()
                     } label: {
-                        (Text(signingIn ? (spanish ? "¿Primera vez aquí? " : "New here? ")
-                              : (spanish ? "¿Ya tienes cuenta? " : "Already have an account? "))
+                        (Text(signingIn ? (CuadraoCopy.text("copy.connectedCuadraoAuth.ee35d984be", spanish: spanish))
+                              : (CuadraoCopy.text("copy.connectedCuadraoAuth.d136a4f355", spanish: spanish)))
                             .foregroundColor(.secondary)
-                         + Text(signingIn ? (spanish ? "Crea una cuenta" : "Create an account")
-                               : (spanish ? "Inicia sesión" : "Sign in"))
+                         + Text(signingIn ? (CuadraoCopy.text("copy.connectedCuadraoAuth.27a253a4e0", spanish: spanish))
+                               : (CuadraoCopy.text("copy.connectedCuadraoAuth.d4c6a5c05c", spanish: spanish)))
                             .foregroundColor(WelcomePalette.pine).bold())
                             .font(.subheadline)
                             .frame(maxWidth: .infinity, minHeight: 48).contentShape(Rectangle())
@@ -84,10 +83,9 @@ struct CuadraoCreateAccount: View {
         .alert(previewAction ?? "", isPresented: Binding(
             get: { previewAction != nil }, set: { if !$0 { previewAction = nil } }
         )) {
-            Button(spanish ? "Entendido" : "Got it", role: .cancel) { previewAction = nil }
+            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) { previewAction = nil }
         } message: {
-            Text(spanish ? "Esta opción aún no está conectada en la vista previa. No se envía información."
-                 : "This option is not connected in the preview. No information is sent.")
+            Text(CuadraoCopy.text("copy.cuadraoCreateAccount.bba1cc8edf", spanish: spanish))
         }
     }
 

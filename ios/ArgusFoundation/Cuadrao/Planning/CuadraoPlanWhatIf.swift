@@ -21,18 +21,18 @@ struct CuadraoPlanWhatIf: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(scenario.kind == .budget ? (spanish ? "Dale aire a tu mes." : "Give your month some room.") : scenario.kind == .debt ? (spanish ? "Más cerca de soltarla." : "Closer to letting it go.") : (spanish ? "A tu ritmo, llegarías en" : "At your pace, you would arrive in"))
+                Text(scenario.kind == .budget ? (CuadraoCopy.text("copy.cuadraoPlanWhatIf.92ed11541e", spanish: spanish)) : scenario.kind == .debt ? (CuadraoCopy.text("copy.cuadraoPlanWhatIf.fbc1085402", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanWhatIf.ea444e4450", spanish: spanish)))
                     .font(CuadraoTypography.section)
                 if scenario.kind == .budget && scenario.recorded > 0 {
                     let estimate = scenario.projectedValue(at: scenario.budgetDays.total, monthly: amount)
-                    Text(spanish ? "A este ritmo: \(PlanFormat.amount(estimate, currency: scenario.currency)) al cierre. El margen no cambia el gasto previsto." : "At this pace: \(PlanFormat.amount(estimate, currency: scenario.currency)) at month end. The allowance doesn't change projected spending.")
+                    Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.e805e50e8c", spanish: spanish, String(describing: PlanFormat.amount(estimate, currency: scenario.currency))))
                         .font(.subheadline).foregroundStyle(.secondary)
                 } else if scenario.kind != .budget {
                     Text(scenario.months(at: amount).map { PlanFormat.month(after: $0, spanish: spanish, from: scenario.today) }
-                        ?? (spanish ? "Este aporte no alcanza para llegar." : "This amount won't get you there."))
+                        ?? (CuadraoCopy.text("copy.cuadraoPlanWhatIf.bf08094eee", spanish: spanish)))
                         .font(.system(.title, design: .rounded)).foregroundStyle(scenario.look.color).contentTransition(.numericText()).accessibilityIdentifier("plan-estimated-date")
                     if changed, let original = scenario.months(at: scenario.monthly), let proposed = scenario.months(at: amount), original != proposed {
-                        Text(spanish ? "\(abs(original - proposed)) meses \(proposed < original ? "antes" : "después")" : "\(abs(original - proposed)) months \(proposed < original ? "earlier" : "later")")
+                        Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.b20a7805a6", spanish: spanish, String(describing: abs(original - proposed)), String(describing: ((proposed < original ? CuadraoCopy.text("copy.cuadraoPlanWhatIf.a72a71b9cb", spanish: spanish) : CuadraoCopy.text("copy.cuadraoPlanWhatIf.497dfb6c3d", spanish: spanish))))))
                             .font(.subheadline.weight(.medium)).foregroundStyle(scenario.look.color)
                     }
                 }
@@ -42,7 +42,7 @@ struct CuadraoPlanWhatIf: View {
             }
             VStack(spacing: 6) {
                 HStack {
-                    Text(scenario.kind == .budget ? (spanish ? "Mi margen" : "My allowance") : (spanish ? "Cada mes" : "Each month")).font(.subheadline)
+                    Text(scenario.kind == .budget ? (CuadraoCopy.text("copy.cuadraoPlanWhatIf.8d5b7791b3", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanEditor.90ae4ff82c", spanish: spanish))).font(.subheadline)
                     Spacer()
                     Button { exact = true } label: {
                         HStack(spacing: 6) { Text(PlanFormat.amount(amount, currency: scenario.currency)).font(CuadraoTypography.rowAmount); Image(systemName: "pencil").font(.caption) }
@@ -51,7 +51,7 @@ struct CuadraoPlanWhatIf: View {
                 }
                 Slider(value: Binding(get: { amount }, set: { draftAmount = $0; saved = false; applying = false }),
                     in: 1...max(1000, baseline * 3, sliderCeiling), step: 1)
-                    .tint(scenario.look.color).accessibilityLabel(spanish ? "Probar otro monto" : "Try another amount")
+                    .tint(scenario.look.color).accessibilityLabel(CuadraoCopy.text("copy.cuadraoPlanWhatIf.154fa94cbb", spanish: spanish))
                     .accessibilityIdentifier("plan-detail-slider")
             }.padding(16).background(scenario.look.color.opacity(0.065), in: RoundedRectangle(cornerRadius: 24))
             if scenario.kind != .budget {
@@ -61,7 +61,7 @@ struct CuadraoPlanWhatIf: View {
                             Button {
                                 draftAmount = scenario.monthlyAmount(finishingIn: months); sliderCeiling = max(sliderCeiling, draftAmount ?? 0); saved = false; applying = false
                             } label: {
-                                Text(spanish ? "Llegar en \(months) meses" : "Get there in \(months) months")
+                                Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.2e5a9e4729", spanish: spanish, String(describing: months)))
                                     .font(.caption).padding(.horizontal, 14).frame(minHeight: 44)
                                     .background(WelcomePalette.surface, in: Capsule())
                             }.accessibilityIdentifier("plan-in-\(months)-months")
@@ -71,14 +71,14 @@ struct CuadraoPlanWhatIf: View {
             }
             if changed {
                 if let apply {
-                    PlanPrimaryButton(title: spanish ? "Aplicar a mi plan" : "Apply to my plan") {
+                    PlanPrimaryButton(title: CuadraoCopy.text("copy.cuadraoPlanWhatIf.a6debfe200", spanish: spanish)) {
                         applying = true; apply(amount)
                     }.accessibilityIdentifier("plan-detail-apply")
                 }
-                Button(spanish ? "Deshacer prueba" : "Reset experiment") { draftAmount = nil; applying = false }
+                Button(CuadraoCopy.text("copy.cuadraoPlanWhatIf.1acfa48fa0", spanish: spanish)) { draftAmount = nil; applying = false }
                     .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44).accessibilityIdentifier("plan-detail-reset")
             } else if saved {
-                Label(spanish ? "Tu plan, a tu ritmo." : "Your plan, your pace.", systemImage: "checkmark.circle")
+                Label(CuadraoCopy.text("copy.cuadraoPlanWhatIf.c924b7508b", spanish: spanish), systemImage: "checkmark.circle")
                     .font(.subheadline).foregroundStyle(WelcomePalette.pine)
             }
             if showsDisclosure {
@@ -87,7 +87,7 @@ struct CuadraoPlanWhatIf: View {
         }
         .sheet(isPresented: $exact) {
             PlanExactAmount(amount: Binding(get: { amount }, set: { draftAmount = $0; sliderCeiling = max(sliderCeiling, $0); saved = false; applying = false }), maximum: CanvasMoney.maximumValue, minimum: 1,
-                title: scenario.kind == .budget ? (spanish ? "Mi margen mensual" : "My monthly allowance") : (spanish ? "Cada mes" : "Each month"), currency: scenario.currency, spanish: spanish)
+                title: scenario.kind == .budget ? (CuadraoCopy.text("copy.cuadraoPlanWhatIf.adfe058ad4", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanEditor.90ae4ff82c", spanish: spanish)), currency: scenario.currency, spanish: spanish)
         }
         .onChange(of: scenario) { _, _ in reset() }
         .onChange(of: resetsOn) { _, _ in reset() }
@@ -117,25 +117,25 @@ private struct PlanDetailChart: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Chart {
-                RuleMark(y: .value("Target", scenario.kind == .budget ? amount : scenario.kind == .goal ? scenario.target : 0))
+                RuleMark(y: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.728a6d7a37", spanish: spanish), scenario.kind == .budget ? amount : scenario.kind == .goal ? scenario.target : 0))
                     .foregroundStyle(scenario.look.color.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
                 ForEach(0...horizon, id: \.self) { step in
-                    LineMark(x: .value("Month", step), y: .value("Value", value(step, monthly: scenario.monthly)), series: .value("Path", "saved"))
+                    LineMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.c0d1241cc1", spanish: spanish), step), y: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.18232145da", spanish: spanish), value(step, monthly: scenario.monthly)), series: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.ec94e4cbf1", spanish: spanish), "saved"))
                         .foregroundStyle(Color.secondary.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 2))
-                    LineMark(x: .value("Month", step), y: .value("Value", value(step, monthly: amount)), series: .value("Path", "preview"))
+                    LineMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.c0d1241cc1", spanish: spanish), step), y: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.18232145da", spanish: spanish), value(step, monthly: amount)), series: .value(CuadraoCopy.text("copy.cuadraoPlanWhatIf.ec94e4cbf1", spanish: spanish), "preview"))
                         .foregroundStyle(scenario.look.color).lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [5, 4]))
                 }
             }
             .chartYScale(domain: 0...upperBound)
             .chartYAxis(.hidden).chartXAxis(.hidden).frame(height: 110)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(spanish ? "Proyección ilustrativa del plan. Línea punteada: lo previsto, no progreso registrado." : "Illustrative plan projection. Dashed line: planned, not recorded progress.")
+            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoPlanWhatIf.79e152df0b", spanish: spanish))
             HStack {
-                Text(scenario.kind == .budget ? scenario.budgetEdges(spanish: spanish).first : (spanish ? "Hoy" : "Today"))
+                Text(scenario.kind == .budget ? scenario.budgetEdges(spanish: spanish).first : (CuadraoCopy.text("copy.cuadraoChatPreview.ebdcdc2bda", spanish: spanish)))
                 Spacer()
-                Text(scenario.kind == .budget ? scenario.budgetEdges(spanish: spanish).last : (spanish ? "\(horizon) meses" : "\(horizon) months"))
+                Text(scenario.kind == .budget ? scenario.budgetEdges(spanish: spanish).last : (CuadraoCopy.text("copy.cuadraoPlanWhatIf.d6e04e41b3", spanish: spanish, String(describing: horizon))))
             }.font(.caption2).foregroundStyle(.secondary)
-            Text(spanish ? "Punteado: estimado · gris: plan guardado" : "Dashed: estimate · gray: saved plan").font(.caption2).foregroundStyle(.secondary)
+            Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.a4bca8f6d8", spanish: spanish)).font(.caption2).foregroundStyle(.secondary)
         }
     }
 }

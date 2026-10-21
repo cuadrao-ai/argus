@@ -112,14 +112,14 @@ enum ReceiptError: Error {
     case incomplete, participants, unassigned, destination, source, confirmed, missing, currency
     func message(_ es: Bool) -> String {
         switch self {
-        case .currency: es ? "Elige la moneda del recibo antes de revisar los montos. Después quedará fija." : "Choose the receipt currency before reviewing amounts. It will stay fixed afterward."
-        case .incomplete: es ? "Revisa el comercio, los artículos y los montos. El total debe ser mayor que cero." : "Check the merchant, items and amounts. The total must be greater than zero."
-        case .participants: es ? "Elige al menos una persona del grupo." : "Choose at least one group member."
-        case .unassigned: es ? "Asigna todos los artículos a quienes los compartieron." : "Assign every item to the people who shared it."
-        case .destination: es ? "Elige una cuenta o grupo de la misma moneda y quién pagó." : "Choose an account or group in the same currency and who paid."
-        case .source: es ? "Usa hasta 10 páginas de imagen o PDF, con un máximo de 20 MB." : "Use up to 10 image or PDF pages, no more than 20 MB."
-        case .confirmed: es ? "Este recibo ya está confirmado." : "This receipt is already confirmed."
-        case .missing: es ? "No encontramos este recibo." : "This receipt could not be found."
+        case .currency: CuadraoCopy.text("copy.cuadraoReceipt.f415b69dcc", spanish: es)
+        case .incomplete: CuadraoCopy.text("copy.cuadraoReceipt.b3d298d7b3", spanish: es)
+        case .participants: CuadraoCopy.text("copy.cuadraoReceipt.9f36f3e95a", spanish: es)
+        case .unassigned: CuadraoCopy.text("copy.cuadraoReceipt.3e63f3a0bf", spanish: es)
+        case .destination: CuadraoCopy.text("copy.cuadraoReceipt.223df8fe4b", spanish: es)
+        case .source: CuadraoCopy.text("copy.cuadraoReceipt.9af3b14b7d", spanish: es)
+        case .confirmed: CuadraoCopy.text("copy.cuadraoReceipt.860cb27a47", spanish: es)
+        case .missing: CuadraoCopy.text("copy.cuadraoReceipt.d381517ce5", spanish: es)
         }
     }
 }
@@ -133,8 +133,8 @@ struct ReceiptSample {
     var subtotal: Int { lines.reduce(0) { $0 + $1.cents } }
     var total: Int { subtotal + taxCents + serviceCents }
     init(spanish: Bool) {
-        lines = [.init(name: spanish ? "Pasta de la casa" : "House pasta", quantity: 2, unitCents: 65000),
-                 .init(name: spanish ? "Ensalada para compartir" : "Shared salad", unitCents: 42000),
-                 .init(name: spanish ? "Limonada" : "Lemonade", quantity: 3, unitCents: 18000)]
+        lines = [.init(name: CuadraoCopy.text("copy.cuadraoReceipt.82da86a2d2", spanish: spanish), quantity: 2, unitCents: 65000),
+                 .init(name: CuadraoCopy.text("copy.cuadraoReceipt.0d55531462", spanish: spanish), unitCents: 42000),
+                 .init(name: CuadraoCopy.text("copy.cuadraoReceipt.7397a7cf3f", spanish: spanish), quantity: 3, unitCents: 18000)]
     }
 }

@@ -251,6 +251,7 @@ class Receipt:
             "read_pending": self.busy,
             "preparable": self.preparable,
             "enterable": self.enterable,
+            "document_type": self.draft.document_type or "recibo",
             "expense_id": self.review.expense_id,
             **review_fields(self.review),
         }
@@ -262,6 +263,7 @@ class Receipt:
             "draft_id": self.review.event_id,
             "evidence": None if self.entered_by_owner else evidence(self.review),
             "missing_fields": self.missing_fields,
+            "due_on": None,
         }
 
 

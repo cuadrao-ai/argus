@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from argus.domain.business.country import COUNTRIES, DEFAULT_COUNTRY
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.owner_scope import BusinessSpace
 
@@ -28,6 +29,9 @@ class BusinessScope:
     #: The grant the request runs under; None for the person's own space before binding.
     grant_id: str | None = None
     role: Role = "owner"
+    #: The Business's own country and currency, as its spaces row says.
+    country: str = DEFAULT_COUNTRY
+    currency: str = COUNTRIES[DEFAULT_COUNTRY].currency
 
     @property
     def acting_person_id(self) -> str:
@@ -49,5 +53,9 @@ def resolve_business_scope(spaces: SpaceStore, person_id: str) -> BusinessScope 
     if space is None:
         return None
     return BusinessScope(
-        person_id=space.custodian_id, owner=BusinessSpace(space.id), actor_id=person_id
+        person_id=space.custodian_id,
+        owner=BusinessSpace(space.id),
+        actor_id=person_id,
+        country=space.country,
+        currency=space.currency,
     )

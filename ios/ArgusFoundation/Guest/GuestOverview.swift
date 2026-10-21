@@ -61,17 +61,15 @@ struct GuestBalanceReading: View {
                 VStack(alignment: .leading, spacing: 12) {
                     CuadraoBalanceAmount(amount: amountText, currency: net.currency, currencies: currencies, spanish: spanish,
                         expanded: expanded, amountIdentifier: amountIdentifier, chooseCurrency: chooseCurrency, expand: expand)
-                    Text(net.isPartial ? (spanish ? "Balance parcial" : "Partial balance") : (spanish ? "Balance neto" : "Net balance"))
+                    Text(net.isPartial ? (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.bbfd3e0f4b", spanish: spanish)) : (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.a3299351f5", spanish: spanish)))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary)
-                    CuadraoChartState(title: spanish ? "Tu historial empieza hoy" : "Your history starts today",
-                        detail: spanish ? "Con otro día registrado, aquí verás la línea de tu balance."
-                            : "Once another day is recorded, your balance line appears here.")
+                    CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.ec3df4110c", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.32fe20d7d3", spanish: spanish))
                         .accessibilityElement(children: .contain).accessibilityIdentifier("guest.chart.starts")
                 }
             } else {
-                CuadraoChartState(title: spanish ? "Tu balance, a tu ritmo" : "Your balance, at your pace",
-                    detail: spanish ? "Los balances que registres darán forma a este espacio."
-                        : "Your recorded balances will give this space its shape.")
+                CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.0d3f251ca9", spanish: spanish),
+                    detail: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.efa154fffd", spanish: spanish))
                     .accessibilityElement(children: .contain).accessibilityIdentifier("guest.chart.empty")
             }
             if net.isPartial {
@@ -82,8 +80,7 @@ struct GuestBalanceReading: View {
     }
 
     private func unknown(_ count: Int) -> String {
-        if spanish { return count == 1 ? "1 cuenta sin balance conocido" : "\(count) cuentas sin balance conocido" }
-        return count == 1 ? "1 account with an unknown balance" : "\(count) accounts with an unknown balance"
+        return count == 1 ? CuadraoCopy.text("copy.guestOverview.7b5763e333", spanish: spanish) : CuadraoCopy.text("copy.guestOverview.e24bb788c0", spanish: spanish, String(describing: count))
     }
 }
 
@@ -121,14 +118,14 @@ struct GuestInsights: View {
                 VStack(alignment: .leading, spacing: 28) {
                     HStack {
                         Button { offset = max(oldest, offset - 1) } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
-                            .disabled(offset <= oldest).accessibilityLabel(spanish ? "Mes anterior" : "Previous month")
+                            .disabled(offset <= oldest).accessibilityLabel(CuadraoCopy.text("copy.guestOverview.3a75da6980", spanish: spanish))
                             .accessibilityIdentifier("guest.insights.previous")
                         Spacer()
                         Text(month.start.formatted(.dateTime.month(.wide).year().locale(locale))).font(CuadraoTypography.feature)
                             .accessibilityIdentifier("guest.insights.month")
                         Spacer()
                         Button { offset = min(0, offset + 1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
-                            .disabled(offset >= 0).accessibilityLabel(spanish ? "Mes siguiente" : "Next month")
+                            .disabled(offset >= 0).accessibilityLabel(CuadraoCopy.text("copy.guestOverview.4cc2c3734f", spanish: spanish))
                             .accessibilityIdentifier("guest.insights.next")
                     }
                     if let net = model.book.netBalance(currency: currency) {
@@ -141,8 +138,8 @@ struct GuestInsights: View {
             }
             .accessibilityIdentifier("guest.insights")
             .background(WelcomePalette.background)
-            .navigationTitle(spanish ? "Este iPhone" : "This iPhone").navigationBarTitleDisplayMode(.inline)
-            .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+            .navigationTitle(CuadraoCopy.text("copy.guestAccountSheet.736ea2040f", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+            .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }.tint(WelcomePalette.pine).foregroundStyle(WelcomePalette.ink)
     }
 }
@@ -163,14 +160,14 @@ struct GuestSpending: View {
             switch book.spending(currency: currency, in: interval) {
             case .recorded(let summary)?:
                 CuadraoSpendingReading(currency: currency, amount: text(summary.totalMinor, digits: summary.digits),
-                                       caption: spanish ? "Gastos registrados" : "Recorded spending")
+                                       caption: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.f5d8dd5e1a", spanish: spanish))
                 if let start = summary.coverageStart {
-                    Text((spanish ? "Contamos desde el " : "Counted since ") + start.formatted(.dateTime.day().month(.wide).locale(locale))
-                         + (spanish ? ". Antes de esa fecha no hay datos." : ". There is no data before that date."))
+                    Text((CuadraoCopy.text("copy.guestOverview.45cb671575", spanish: spanish)) + start.formatted(.dateTime.day().month(.wide).locale(locale))
+                         + (CuadraoCopy.text("copy.guestOverview.c4c4420fb3", spanish: spanish)))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary).accessibilityIdentifier("guest.spending.coverage")
                 }
                 if summary.byCategory.isEmpty {
-                    Text(spanish ? "Sin gastos en este mes." : "No spending this month.")
+                    Text(CuadraoCopy.text("copy.guestOverview.41e109f55e", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.spending.none")
                 }
                 VStack(spacing: 14) {
@@ -191,7 +188,7 @@ struct GuestSpending: View {
                 }
             case .noData?, nil:
                 CuadraoSpendingReading(currency: currency, amount: CuadraoMissingCoverage.amount(spanish),
-                                       caption: spanish ? "Gastos registrados" : "Recorded spending")
+                                       caption: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.f5d8dd5e1a", spanish: spanish))
                 CuadraoChartState(title: CuadraoMissingCoverage.title(spanish), detail: CuadraoMissingCoverage.detail(spanish))
                     .accessibilityElement(children: .contain).accessibilityIdentifier("guest.spending.noData")
             }
@@ -220,14 +217,13 @@ struct GuestTotals: View {
     var body: some View {
         if let totals = book.totals(currency: currency) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(spanish ? "Totales en \(currency)" : "Totals in \(currency)").font(CuadraoTypography.section)
+                Text(CuadraoCopy.text("copy.guestOverview.74597825aa", spanish: spanish, String(describing: currency))).font(CuadraoTypography.section)
                     .accessibilityAddTraits(.isHeader)
-                row(spanish ? "Lo que tienes" : "What you hold", text(totals.assetsMinor, totals.digits), "guest.totals.assets")
-                row(spanish ? "Lo que debes" : "What you owe", text(totals.owedMinor, totals.digits), "guest.totals.owed")
-                row(spanish ? "Balance neto" : "Net balance", text(totals.netMinor, totals.digits), "guest.totals.net", strong: true)
+                row(CuadraoCopy.text("copy.guestOverview.d203e8be71", spanish: spanish), text(totals.assetsMinor, totals.digits), "guest.totals.assets")
+                row(CuadraoCopy.text("copy.guestOverview.3d759411af", spanish: spanish), text(totals.owedMinor, totals.digits), "guest.totals.owed")
+                row(CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.a3299351f5", spanish: spanish), text(totals.netMinor, totals.digits), "guest.totals.net", strong: true)
                 if totals.unknownAccounts > 0 {
-                    Text(spanish ? "\(totals.unknownAccounts) sin balance conocido, fuera de estos totales."
-                         : "\(totals.unknownAccounts) with an unknown balance, left out of these totals.")
+                    Text(CuadraoCopy.text("copy.guestOverview.8c5a9c5058", spanish: spanish, String(describing: totals.unknownAccounts)))
                         .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("guest.totals.unknown")
                 }
             }.accessibilityElement(children: .contain).accessibilityIdentifier("guest.totals")

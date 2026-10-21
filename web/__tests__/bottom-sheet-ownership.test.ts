@@ -40,8 +40,6 @@ const DRAWER = "components/sidebar/SidebarDrawer.tsx";
  */
 const UNMANAGED_MODAL_DEBT = new Set([
   "components/chat/DiscoverySourcesPanel.tsx",
-  "components/guest/GuestConversionModal.tsx",
-  "components/guest/GuestNewConversationDialog.tsx",
   "components/sidebar/RecentsQuickPeek.tsx",
 ]);
 
@@ -184,7 +182,7 @@ describe("bottom sheet ownership", () => {
       (file) => file.path === "components/chat/ChatHeaderMenu.tsx",
     )!.source;
     expect(menu).toContain("<BottomSheet");
-    expect(menu).toContain('height="auto"');
+    expect(menu).toContain('snaps="fit"');
     // The panel line, shared with every other panel.
     expect(menu).toContain("isBelowDesktop");
     // Its own Escape and outside-tap handling must stand down where the sheet
@@ -194,9 +192,9 @@ describe("bottom sheet ownership", () => {
 
   test("a menu-shaped sheet hugs its content instead of taking a detent", () => {
     const primitive = FILES.find((file) => file.path === PRIMITIVE)!.source;
-    expect(primitive).toContain('auto: "max-h-[70dvh]"');
-    // A four-item menu at the short detent would leave a large dead gap.
-    expect(primitive).not.toContain('auto: "h-[40dvh]"');
+    expect(primitive).toContain("const FIT_MAX_SHARE = 0.7;");
+    // A four-item menu at a snap height would leave a large dead gap.
+    expect(primitive).toContain('snap === "fit" ? null');
   });
 });
 

@@ -2,57 +2,79 @@
 
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { ChevronLeft, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
-import BottomSheet from "@/components/ui/BottomSheet";
+import BottomSheet, { type SheetSnap } from "@/components/ui/BottomSheet";
+import { useSheetStack } from "@/components/ui/sheetStack";
 
 /**
- * One panel, two presentations, one rule about which.
- *
- * Below the desktop stop a panel is a bottom sheet. Above it, the centred
- * dialog it has always been. The rule lives here rather than in each surface,
- * because it was in each surface before: twelve dialogs drew the same centred
- * card at 390px as at 1440px, and the three that did adapt disagreed about the
- * width to adapt at.
+ * The one sheet: for anything done while the page stays in view (a form, a
+ * picker, a list, a record's details). Below the desktop stop it is a bottom
+ * sheet that rests at its snap points. From the desktop stop it is a side
+ * drawer on the right, between 320px and 40% of the screen, so the page stays
+ * readable beside it; a record beside its list is a wider, non-modal tray.
+ * A full stop (delete, close a month) is not a sheet: it is a ConfirmDialog.
  *
  * Owning the header matters as much as owning the shape. It is what lets a
  * child panel offer a back row instead of a close, so opening Appearance from
  * Preferences returns you to Preferences rather than dismissing everything.
- * It also means one backdrop and one close control exist in the codebase
- * rather than a dozen near-copies.
  */
 
-export type AdaptivePanelWidth = "sm" | "md" | "lg";
+export type AdaptivePanelWidth = "sm" | "md" | "lg" | "record";
 
-const DESKTOP_WIDTH: Record<AdaptivePanelWidth, string> = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-[600px]",
+type DrawerBounds = { preferred: number; min: number; maxVw: number };
+
+/**
+ * The drawer's preferred width and its bounds. A record holds its receipt
+ * image and its fields in one column beside a list that needs only its rows,
+ * so it may take half the screen; everything else stays under 40%.
+ */
+const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
+  sm: { preferred: 360, min: 320, maxVw: 40 },
+  md: { preferred: 420, min: 320, maxVw: 40 },
+  lg: { preferred: 560, min: 320, maxVw: 40 },
+  record: { preferred: 640, min: 420, maxVw: 50 },
 };
 
 export default function AdaptivePanel({
   title,
+  summary,
   onClose,
   onBack,
   backLabel,
   closeLabel,
+  dismissible = true,
+  modal = true,
   width = "sm",
-  desktopMaxHeight = "max-h-[85vh]",
+  snaps = ["half", "full"],
+  initialSnap,
   footer,
   returnFocusRef,
   initialFocusRef,
   children,
 }: {
   title: string;
+  /** One line under the title; on a phone it is what the peek snap shows. */
+  summary?: string;
   onClose: () => void;
   /** Present on a child panel; returns to the parent instead of dismissing. */
   onBack?: () => void;
   backLabel?: string;
   closeLabel: string;
+  dismissible?: boolean;
+  /**
+   * False for a record beside its list: no overlay, no focus trap, and the
+   * page stays usable. Escape inside it and its close control still close it.
+   * Only the side drawer has this mode; a bottom sheet is always modal.
+   */
+  modal?: boolean;
   width?: AdaptivePanelWidth;
-  desktopMaxHeight?: string;
+  /** The bottom sheet's snap points on a phone. */
+  snaps?: readonly SheetSnap[];
+  initialSnap?: SheetSnap;
   footer?: ReactNode;
   /** Where focus lands on close when the opener has gone with the parent. */
   returnFocusRef?: React.RefObject<HTMLElement | null>;
@@ -61,23 +83,23 @@ export default function AdaptivePanel({
    *
    * Both presentations otherwise start on the close control, so a panel that
    * marked a field `autoFocus` lost it: the attribute runs during commit and
-   * the surface's own focus effect moves focus afterwards. The visible cost was
-   * a search box that could not be typed into, where Enter closed the panel
-   * instead of searching.
+   * the surface's own focus effect moves focus afterwards.
    */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const { isBelowDesktop } = useResponsiveLayout();
   const overlayId = useId();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const stackBackLabel = t("common.back", "Back");
 
   const back = onBack ? (
     <button
       type="button"
       onClick={onBack}
-      className="flex min-h-11 w-full items-center gap-1.5 px-4 text-left text-[12px] text-black/45 transition-colors hover:text-black dark:text-white/45 dark:hover:text-white"
+      className="flex min-h-11 w-full items-center gap-1.5 px-4 text-left text-[13px] text-[#56635e] transition-colors hover:text-black dark:text-white/70 dark:hover:text-white"
     >
       <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
       {backLabel}
@@ -89,9 +111,13 @@ export default function AdaptivePanel({
       <BottomSheet
         isOpen
         onClose={onClose}
+        dismissible={dismissible}
         title={title}
+        description={summary}
         closeLabel={closeLabel}
-        height="auto"
+        backLabel={stackBackLabel}
+        snaps={snaps}
+        initialSnap={initialSnap}
         footer={footer}
         initialFocusRef={initialFocusRef}
       >
@@ -101,94 +127,187 @@ export default function AdaptivePanel({
     );
   }
 
-  return <DesktopDialog {...{ title, titleId, overlayId, panelRef, onClose, closeLabel, width, desktopMaxHeight, footer, returnFocusRef, initialFocusRef, back, children }} />;
+  return <SideDrawer {...{ title, summary, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, children }} />;
 }
 
-function DesktopDialogSurface({
-  title,
-  titleId,
-  overlayId,
-  panelRef,
-  onClose,
-  closeLabel,
-  width,
-  desktopMaxHeight,
-  footer,
-  returnFocusRef,
-  initialFocusRef,
-  back,
-  children,
-}: {
+/** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
+/**
+ * Every drawn drawer claims the room it needs; the page gives up the widest
+ * claim. A drawer stacked on another hands its claim over without the page
+ * snapping back between them.
+ */
+const drawerClaims = new Map<string, number>();
+function applyDrawerSpace() {
+  const root = document.documentElement;
+  if (drawerClaims.size) root.style.setProperty("--cuadrao-drawer-space", `${Math.max(...drawerClaims.values())}px`);
+  else root.style.removeProperty("--cuadrao-drawer-space");
+}
+
+function useDrawerSpace(id: string, { preferred, min, maxVw }: DrawerBounds, drawn: boolean) {
+  useEffect(() => {
+    if (!drawn) return undefined;
+    const claim = () => {
+      drawerClaims.set(id, Math.max(min, Math.min(preferred, (window.innerWidth * maxVw) / 100)));
+      applyDrawerSpace();
+    };
+    claim();
+    window.addEventListener("resize", claim);
+    return () => {
+      window.removeEventListener("resize", claim);
+      drawerClaims.delete(id);
+      applyDrawerSpace();
+    };
+  }, [id, preferred, min, maxVw, drawn]);
+}
+
+type DrawerProps = {
   title: string;
+  summary?: string;
   titleId: string;
   overlayId: string;
   panelRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
   closeLabel: string;
+  stackBackLabel: string;
+  dismissible: boolean;
+  modal: boolean;
   width: AdaptivePanelWidth;
-  desktopMaxHeight: string;
   footer?: ReactNode;
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   initialFocusRef?: React.RefObject<HTMLElement | null>;
   back: ReactNode;
   children: ReactNode;
-}) {
+};
+
+type StackPlace = { drawn: boolean; hasBelow: boolean };
+
+function SideDrawerSurface(props: DrawerProps) {
+  const place = useSheetStack(props.overlayId, true);
+  useDrawerSpace(props.overlayId, DRAWER_WIDTH[props.width], place.drawn);
+  return props.modal ? <ModalDrawer {...props} {...place} /> : <TrayDrawer {...props} {...place} />;
+}
+
+function ModalDrawer(props: DrawerProps & StackPlace) {
+  const { overlayId, panelRef, onClose, closeLabel, dismissible, returnFocusRef, initialFocusRef, drawn, hasBelow } = props;
   useModalSurface({
     isOpen: true,
     overlayId,
-    // The panel, not the wrapper: the wrapper's first focusable child is the
-    // backdrop, which is a pointer affordance and never a tab stop.
     containerRef: panelRef,
     onDismiss: onClose,
-    onEscape: onClose,
+    canDismiss: () => dismissible,
+    onEscape: dismissible ? onClose : () => {},
     returnFocusRef,
     initialFocusRef,
   });
-
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm dark:bg-black/60">
-      <button
-        type="button"
-        tabIndex={-1}
-        className="absolute inset-0"
-        onClick={onClose}
-        aria-label={closeLabel}
-      />
-      <div
-        ref={panelRef}
-        className={`relative flex w-full ${DESKTOP_WIDTH[width]} ${desktopMaxHeight} flex-col overflow-hidden rounded-[18px] border border-black/5 bg-white dark:border-white/10 dark:bg-[#1b1d20]`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-black/5 px-5 py-4 dark:border-white/5">
-          <h2
-            id={titleId}
-            className="text-[16px] font-medium text-black dark:text-white"
-          >
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={closeLabel}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-black/45 transition-colors hover:bg-black/5 hover:text-black dark:text-white/45 dark:hover:bg-white/10 dark:hover:text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {back}
-        <div className="argus-thin-scrollbar min-h-0 flex-1 overflow-y-auto">
-          {children}
-        </div>
-        {footer ? (
-          <div className="shrink-0 border-t border-black/5 px-5 py-3 dark:border-white/5">
-            {footer}
-          </div>
-        ) : null}
-      </div>
+    <div className="fixed inset-0 z-[70]" hidden={!drawn} data-sheet-stacked={hasBelow ? "true" : undefined}>
+      {/* The page stays in view: no dimming, no blur. A click beside the drawer closes it. */}
+      <button type="button" tabIndex={-1} className="absolute inset-0 cursor-default" onClick={dismissible ? onClose : undefined} aria-label={closeLabel} />
+      <DrawerPanel {...props} className="absolute inset-y-0 right-0" role="dialog" />
     </div>
   );
 }
 
-const DesktopDialog = withViewportPortal(DesktopDialogSurface);
+/** The page beside it keeps its clicks and its Tab order; the owner returns focus on close. */
+function TrayDrawer(props: DrawerProps & StackPlace) {
+  const { onClose, dismissible, initialFocusRef, drawn } = props;
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    (initialFocusRef?.current ?? titleRef.current)?.focus();
+  }, [initialFocusRef]);
+  return (
+    <DrawerPanel
+      {...props}
+      titleRef={titleRef}
+      hidden={!drawn}
+      className="fixed inset-y-0 right-0 z-[70]"
+      role="region"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || event.defaultPrevented || !dismissible) return;
+        event.preventDefault();
+        onClose();
+      }}
+    />
+  );
+}
+
+function DrawerPanel({
+  title,
+  summary,
+  titleId,
+  panelRef,
+  onClose,
+  closeLabel,
+  stackBackLabel,
+  dismissible,
+  width,
+  footer,
+  back,
+  children,
+  hasBelow,
+  className,
+  role,
+  hidden,
+  titleRef,
+  onKeyDown,
+}: DrawerProps & StackPlace & {
+  className: string;
+  role: "dialog" | "region";
+  hidden?: boolean;
+  titleRef?: React.RefObject<HTMLHeadingElement | null>;
+  onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
+}) {
+  const bounds = DRAWER_WIDTH[width];
+  return (
+    <div
+      ref={panelRef}
+      role={role}
+      aria-modal={role === "dialog" ? "true" : undefined}
+      aria-labelledby={titleId}
+      data-testid="side-drawer"
+      hidden={hidden}
+      onKeyDown={onKeyDown}
+      style={{ width: `min(${bounds.preferred}px, ${bounds.maxVw}vw)`, minWidth: `${bounds.min}px` }}
+      className={`${className} flex flex-col border-l border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1b1d20] ${hasBelow ? "" : "cuadrao-side-drawer-enter"}`}
+    >
+      <div className="flex shrink-0 items-start gap-2 border-b border-[#DCE0DA] px-5 py-4 dark:border-white/10">
+        {hasBelow && dismissible ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={stackBackLabel}
+            className="-ml-2 flex min-h-11 min-w-11 items-center justify-center rounded-full text-black/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+        ) : null}
+        <div className="min-w-0 flex-1 pt-2.5">
+          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="rounded-[8px] font-display text-[17px] font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
+          {summary ? <p className="mt-1 text-[13px] text-[#56635e] dark:text-white/70">{summary}</p> : null}
+        </div>
+        {dismissible && !hasBelow ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={closeLabel}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-black/60 transition-colors hover:bg-black/5 hover:text-black dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+      {back}
+      <div className="argus-thin-scrollbar min-h-0 flex-1 overflow-y-auto">
+        {children}
+      </div>
+      {footer ? (
+        // A footer slot another component portals into takes no room while it is empty.
+        <div className="shrink-0 border-t border-[#DCE0DA] px-5 py-3 has-[>[data-footer-slot]:empty]:hidden dark:border-white/10">
+          {footer}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const SideDrawer = withViewportPortal(SideDrawerSurface);

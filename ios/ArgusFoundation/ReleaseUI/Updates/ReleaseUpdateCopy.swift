@@ -4,17 +4,16 @@ extension ReleaseUpdateKind {
     func title(spanish es: Bool) -> String {
         switch self {
         case .bill(_, let reminder):
-            es ? (reminder == .dueToday ? "Vence hoy" : "Vence en 3 días")
-                : (reminder == .dueToday ? "Due today" : "Due in 3 days")
-        case .draftReady: es ? "Documento listo para revisar" : "Document ready to review"
-        case .invitationAccepted: es ? "Invitación aceptada" : "Invitation accepted"
-        case .householdAdminHandoff: es ? "Ahora administras el hogar" : "You now manage the household"
-        case .householdClosed: es ? "Hogar cerrado" : "Household closed"
-        case .movedAccountHistory: es ? "Historial de una cuenta movida" : "History of a moved account"
-        case .ownerHistoryRemoved: es ? "Historial retirado" : "History removed"
-        case .formerMember: es ? "Un miembro eliminó su cuenta" : "A member deleted their account"
-        case .reassignResponsibilities: es ? "Revisa las responsabilidades" : "Review responsibilities"
-        case .newPlanOwner: es ? "Ahora administras este plan" : "You now manage this plan"
+            (reminder == .dueToday ? CuadraoCopy.text("copy.releaseUpdateCopy.94166365d1", spanish: es) : CuadraoCopy.text("copy.releaseUpdateCopy.aefe9eba3e", spanish: es))
+        case .draftReady: CuadraoCopy.text("copy.releaseUpdateCopy.6e96f38496", spanish: es)
+        case .invitationAccepted: CuadraoCopy.text("copy.releaseUpdateCopy.0916da1575", spanish: es)
+        case .householdAdminHandoff: CuadraoCopy.text("copy.releaseUpdateCopy.bc91cb59ba", spanish: es)
+        case .householdClosed: CuadraoCopy.text("copy.releaseUpdateCopy.76fc389451", spanish: es)
+        case .movedAccountHistory: CuadraoCopy.text("copy.releaseUpdateCopy.1765826ace", spanish: es)
+        case .ownerHistoryRemoved: CuadraoCopy.text("copy.releaseUpdateCopy.26d27e2607", spanish: es)
+        case .formerMember: CuadraoCopy.text("copy.releaseUpdateCopy.179dc56123", spanish: es)
+        case .reassignResponsibilities: CuadraoCopy.text("copy.releaseUpdateCopy.817adee716", spanish: es)
+        case .newPlanOwner: CuadraoCopy.text("copy.releaseUpdateCopy.566f6ce34d", spanish: es)
         }
     }
 
@@ -22,34 +21,26 @@ extension ReleaseUpdateKind {
         switch self {
         case .bill(let name, _): return name
         case .draftReady:
-            return es ? "Revisa el documento antes de confirmar sus registros." : "Review the document before confirming its records."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.acc1ea1c32", spanish: es)
         case .invitationAccepted(let member):
-            return es ? "\(member) aceptó tu invitación. Las cuentas personales siguen siendo privadas hasta que su dueño las comparta."
-                : "\(member) accepted your invitation. Personal accounts stay private until their owner shares them."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.20aa0e4e4b", spanish: es, String(describing: member))
         case .householdAdminHandoff:
-            return es ? "La administración pasó a ti por ser la persona que lleva más tiempo en el hogar."
-                : "Administration passed to you as the longest-standing remaining household member."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.c3c8459810", spanish: es)
         case .householdClosed:
-            return es ? "El hogar se cerró porque no quedan miembros." : "The household closed because no members remain."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.85e04719dd", spanish: es)
         case .movedAccountHistory(let account):
-            return es ? "\(account) se movió fuera del hogar. Este historial se conserva solo para consulta y ya no recibe movimientos nuevos."
-                : "\(account) moved out of the household. This history is read-only and no longer receives new activity."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.3de773cc89", spanish: es, String(describing: account))
         case .ownerHistoryRemoved:
-            return es ? "El dueño eliminó su cuenta. Su historial de cuentas movidas ya no está disponible en el hogar."
-                : "The owner deleted their account. Their moved-account history is no longer available in the household."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.422340e7e8", spanish: es)
         case .formerMember(let plan, let balance):
-            let base = es ? "Un miembro eliminó su cuenta. Sus montos en «\(plan)» siguen como «Exmiembro», así que tus saldos no cambian."
-                : "A member deleted their account. Their amounts in \"\(plan)\" stay as \"Former member,\" so your balances don't change."
+            let base = CuadraoCopy.text("copy.releaseUpdateCopy.1a0d36e8f5", spanish: es, String(describing: plan))
             guard let balance else { return base }
             let amount = balance.currency + " " + CanvasMoney.format(balance.amount, currency: balance.currency)
-            return base + (es ? " El saldo pendiente con esa persona quedó cerrado (\(amount)). Si ya lo resolvieron fuera de la app, puedes marcarlo como saldado."
-                : " The open balance with them is closed (\(amount)). If you settled it outside the app, you can mark it as settled.")
+            return base + (CuadraoCopy.text("copy.releaseUpdateCopy.bc1309c763", spanish: es, String(describing: amount)))
         case .reassignResponsibilities(let plan):
-            return es ? "Las responsabilidades futuras de un exmiembro en «\(plan)» volvieron a ti. Revísalas para reasignarlas o repartirlas de nuevo."
-                : "A former member's future responsibilities in \"\(plan)\" returned to you. Review them to reassign or split them again."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.37c24a4c36", spanish: es, String(describing: plan))
         case .newPlanOwner(let plan):
-            return es ? "Ahora administras «\(plan)». Quien lo creó eliminó su cuenta."
-                : "You now manage \"\(plan).\" The person who created it deleted their account."
+            return CuadraoCopy.text("copy.releaseUpdateCopy.aef8ec8d49", spanish: es, String(describing: plan))
         }
     }
 

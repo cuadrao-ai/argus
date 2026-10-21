@@ -4,6 +4,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
+from argus.domain.business.document_type import DocumentType
 from argus.domain.household.planning_schemas import PlanRef
 from argus.domain.ingestion.contract import (
     AccountHint,
@@ -71,7 +72,9 @@ class ReceiptDetails(_Frozen):
     currency: str | None = Field(default=None, max_length=20)
     items: tuple[ReceiptItem, ...] = Field(default=(), max_length=300)
     subtotal: str | None = Field(default=None, max_length=80)
+    payment_status: Literal["paid", "pending", "unknown"] = "unknown"
     tax: str | None = Field(default=None, max_length=80)
+    estimated_tax: str | None = Field(default=None, max_length=80)
     service: str | None = Field(default=None, max_length=80)
     tip: str | None = Field(default=None, max_length=80)
     total: str | None = Field(default=None, max_length=80)
@@ -182,6 +185,10 @@ class DocumentDraft(_Frozen):
     # The sender's own words that arrived with the file (a WhatsApp caption),
     # kept verbatim as source text. Never an instruction.
     source_text: str | None = Field(default=None, max_length=1024)
+    # The type the person named at upload. None lets the read decide.
+    document_type: DocumentType | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class PreparationJob(_Frozen):

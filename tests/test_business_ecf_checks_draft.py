@@ -41,6 +41,7 @@ def _ecf_batch(draft: DocumentDraft, content: bytes):
                 )
             ],
             receipt=dict(
+                payment_status="paid",
                 total="33254.91",
                 currency="DOP",
                 rnc=RNC,

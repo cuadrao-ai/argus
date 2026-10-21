@@ -10,20 +10,20 @@ struct CuadraoGroupMemberReview: View {
         NavigationStack {
             if let group = store.group(groupID) {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text(spanish ? "¿Quitar a \(member.name)?" : "Remove \(member.name)?").font(CuadraoTypography.screen)
-                    Text(spanish ? "Los gastos y aportes anteriores permanecen en la historia del grupo." : "Past expenses and contributions remain in the group's history.")
+                    Text(CuadraoCopy.text("copy.cuadraoGroupMemberReview.d531cf1640", spanish: spanish, String(describing: member.name))).font(CuadraoTypography.screen)
+                    Text(CuadraoCopy.text("copy.cuadraoGroupMemberReview.b740e9c775", spanish: spanish))
                         .font(.body).foregroundStyle(.secondary)
                     if !group.canRemove(member.id) {
-                        Text(spanish ? "Primero hay que cuadrar su saldo pendiente de \(PlanFormat.amount(Double(abs(group.balance(member.id))) / 100, currency: group.currency))." : "First settle their outstanding balance of \(PlanFormat.amount(Double(abs(group.balance(member.id))) / 100, currency: group.currency)).")
+                        Text(CuadraoCopy.text("copy.cuadraoGroupMemberReview.f5f5bdaf51", spanish: spanish, String(describing: PlanFormat.amount(Double(abs(group.balance(member.id))) / 100, currency: group.currency))))
                             .font(.callout)
                     }
-                    Button(spanish ? "Quitar del grupo" : "Remove from group", role: .destructive) {
+                    Button(CuadraoCopy.text("copy.cuadraoGroupMemberReview.87b7d81989", spanish: spanish), role: .destructive) {
                         store.removeMember(member.id, from: groupID); dismiss()
                     }.buttonStyle(.borderedProminent).disabled(!store.canManage || !group.canRemove(member.id))
                         .accessibilityIdentifier("group-remove-confirm")
                     Spacer(minLength: 0)
                 }.padding(24).toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)) { dismiss() }
                 }
             }
         }.presentationDetents([.medium, .large])

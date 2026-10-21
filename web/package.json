@@ -15,10 +15,10 @@
     "test:e2e:breakpoints:update": "playwright test --config e2e/breakpoint-baselines.playwright.config.ts --update-snapshots"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.1",
     "i18next": "^26.0.8",
-    "i18next-browser-languagedetector": "^8.2.1",
     "i18next-http-backend": "^3.0.6",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.474.0",

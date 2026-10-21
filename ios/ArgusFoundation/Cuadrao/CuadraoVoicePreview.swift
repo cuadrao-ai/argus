@@ -17,7 +17,7 @@ import Observation
     func interrupt() { phase = .listening }
     var resting: Bool { muted && phase == .listening }
     func status(_ es: Bool) -> String {
-        if phase == .speaking { return es ? "Cuadrao está hablando" : "Cuadrao is speaking" }
-        return muted ? (es ? "Micrófono silenciado" : "Microphone muted") : (es ? "Te escucho" : "I'm listening")
+        if phase == .speaking { return CuadraoCopy.text("copy.cuadraoVoicePreview.00f18b637b", spanish: es) }
+        return muted ? (CuadraoCopy.text("copy.cuadraoVoicePreview.8a5e3ac697", spanish: es)) : (CuadraoCopy.text("copy.cuadraoVoicePreview.a4fcb403fc", spanish: es))
     }
 }

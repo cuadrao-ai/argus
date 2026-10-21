@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.marks import draft_marks
+from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
+from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.actions import APPROVAL_ACTION
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
@@ -63,18 +66,22 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         )
         if not isinstance(getattr(facts, name), Known)
     ]
-    if isinstance(facts.kind, Known) and facts.kind.value not in {"expense", "income"}:
+    if isinstance(facts.kind, Known) and facts.kind.value not in {
+        "expense",
+        "income",
+        "refund",
+    }:
         result.append(Blocker(code="activity_kind_unsupported", field="kind"))
     if (
         isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
+        and facts.kind.value in {"income", "refund"}
         and isinstance(facts.funding, Known)
         and not isinstance(facts.funding.value, BusinessAccountFunding)
     ):
         result.append(Blocker(code="business_funding_unsupported", field="funding"))
     if (
         isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
+        and facts.kind.value in {"income", "refund"}
         and isinstance(facts.funding, Known)
         and isinstance(facts.funding.value, BusinessAccountFunding)
     ):
@@ -88,7 +95,7 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
             isinstance(facts.currency, Known) and account.currency != facts.currency.value
         ):
             result.append(Blocker(code="import_currency_mismatch", field="funding"))
-        elif account.type not in ELIGIBILITY["income"]:
+        elif account.type not in ELIGIBILITY[facts.kind.value]:
             result.append(Blocker(code="account_ineligible", field="funding"))
     if (
         isinstance(facts.kind, Known)
@@ -109,6 +116,16 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
             Blocker(code="business_allocation_unsupported", field="business_share")
         )
     return result
+
+
+def _fiscal_records(tx: ActionTransaction, activities: list[dict[str, Any]]):  # noqa: ANN202
+    """The approved records as the 606 validation reads its originals."""
+
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+
+    with tx.connection.cursor(row_factory=dict_row) as cursor:
+        records, _rnc, _name = fiscal_snapshot(cursor, tx.context, activities)
+    return records
 
 
 def approval_of(
@@ -147,7 +164,15 @@ def approval_of(
     return None
 
 
-def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
+def dossier(
+    tx: ActionTransaction,
+    draft_id: UUID,
+    ledger: Callable[[], list[dict[str, Any]]] | None = None,
+) -> BusinessDossier:
+    """The draft as a person reviews it. ``ledger`` reads the Business's money
+    activities when the draft may refund a purchase; without it the dossier
+    names no refund candidates."""
+
     try:
         event = tx.imports.event(str(draft_id))
     except EventNotFound:
@@ -162,7 +187,8 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     questions = tuple(ReviewQuestion.model_validate(row) for row in question_rows)
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at from public.business_draft_revisions"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on"
+        " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
     )
@@ -206,7 +232,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     approvals = tx.rows(
         "select actor,command,outcome,created_at from public.business_action_receipts"
-        " where space_id=%s and command->>'action' in ('approve_expense','approve_income')"
+        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
         " and command->>'draft_id'=%s"
         + approval_filter
         + " order by created_at desc limit 1",
@@ -219,6 +245,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         revisions,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
+    approvable = not blocked and "approve" in tx.authorization.capabilities
     return BusinessDossier(
         **context.model_dump(),
         draft_id=draft_id,
@@ -229,12 +256,24 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        approval_available=not blocked and "approve" in tx.authorization.capabilities,
+        approval_available=approvable,
+        approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,
         approval_result=approval,
+        fiscal_inclusion_available=fiscal_inclusion_available(tx, facts, event.state),
+        refund_candidates=refund_candidates(
+            facts, lambda: _fiscal_records(tx, ledger() if ledger else [])
+        ),
         read_purchases=resolution.read_purchases,
         read_total=resolution.read_total,
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        bill_mark=resolution.bill_mark,
+        dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
+        document_type=resolution.document_type,
+        document_type_detected=resolution.document_type_detected,
+        document_type_editable=event.state == "open"
+        and "prepare" in tx.authorization.capabilities,
+        due_on=resolution.due_on,
         **draft_marks(tx, draft_id, facts),
     )

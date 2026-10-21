@@ -28,13 +28,13 @@ struct GuestWhatIf: View {
             if plan.kind == .goal { goalReading } else { budgetReading }
             VStack(spacing: 6) {
                 HStack {
-                    Text(plan.kind == .goal ? (spanish ? "Cada mes" : "Each month") : (spanish ? "Mi margen" : "My allowance")).font(.subheadline)
+                    Text(plan.kind == .goal ? (CuadraoCopy.text("copy.cuadraoPlanEditor.90ae4ff82c", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanWhatIf.8d5b7791b3", spanish: spanish))).font(.subheadline)
                     Spacer()
                     Text(money(chosenMinor)).font(CuadraoTypography.rowAmount).accessibilityIdentifier("guest.whatif.amount")
                 }
                 Slider(value: Binding(get: { chosenUnits }, set: { units = $0; status = nil }), in: 1...ceiling, step: 1)
                     .tint(GuestPlanPresentation.look(plan.look).color)
-                    .accessibilityLabel(spanish ? "Probar otro monto" : "Try another amount")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoPlanWhatIf.154fa94cbb", spanish: spanish))
                     .accessibilityIdentifier("guest.whatif.slider")
             }.padding(16).background(GuestPlanPresentation.look(plan.look).color.opacity(0.065), in: RoundedRectangle(cornerRadius: 24))
             if plan.kind == .goal, let remaining = model.book.goalProgress(plan.id)?.remainingMinor, remaining > 0 {
@@ -42,7 +42,7 @@ struct GuestWhatIf: View {
                     HStack(spacing: 8) {
                         ForEach([3, 6, 12], id: \.self) { months in
                             Button { choose(PlanCalculator.monthlyNeeded(remainingMinor: remaining, months: months)) } label: {
-                                Text(spanish ? "Llegar en \(months) meses" : "Get there in \(months) months")
+                                Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.2e5a9e4729", spanish: spanish, String(describing: months)))
                                     .font(.caption).padding(.horizontal, 14).frame(minHeight: 44)
                                     .background(WelcomePalette.surface, in: Capsule())
                             }.accessibilityIdentifier("guest.whatif.in\(months)")
@@ -51,9 +51,9 @@ struct GuestWhatIf: View {
                 }.scrollIndicators(.hidden)
             }
             if changed {
-                PlanPrimaryButton(title: spanish ? "Aplicar a mi plan" : "Apply to my plan", action: apply)
+                PlanPrimaryButton(title: CuadraoCopy.text("copy.cuadraoPlanWhatIf.a6debfe200", spanish: spanish), action: apply)
                     .accessibilityIdentifier("guest.whatif.apply")
-                Button(spanish ? "Deshacer prueba" : "Reset experiment") { units = nil; status = nil }
+                Button(CuadraoCopy.text("copy.cuadraoPlanWhatIf.1acfa48fa0", spanish: spanish)) { units = nil; status = nil }
                     .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44).accessibilityIdentifier("guest.whatif.reset")
             }
             if let status { Text(status).font(.subheadline).foregroundStyle(.red).accessibilityIdentifier("guest.whatif.error") }
@@ -67,15 +67,14 @@ struct GuestWhatIf: View {
         let remaining = model.book.goalProgress(plan.id)?.remainingMinor ?? plan.targetMinor
         let months = PlanCalculator.monthsToGoal(remainingMinor: remaining, monthlyMinor: chosenMinor)
         VStack(alignment: .leading, spacing: 6) {
-            Text(remaining == 0 ? (spanish ? "Ya llegaste." : "You're there.")
-                 : (spanish ? "A tu ritmo, llegarías en" : "At your pace, you would arrive in")).font(CuadraoTypography.section)
+            Text(remaining == 0 ? (CuadraoCopy.text("copy.cuadraoPlanEditor.3fd01b458f", spanish: spanish))
+                 : (CuadraoCopy.text("copy.cuadraoPlanWhatIf.ea444e4450", spanish: spanish))).font(CuadraoTypography.section)
             if remaining > 0 {
-                Text(months.flatMap { arrival($0) } ?? (spanish ? "Este aporte no alcanza para llegar." : "This amount won't get you there."))
+                Text(months.flatMap { arrival($0) } ?? (CuadraoCopy.text("copy.cuadraoPlanWhatIf.bf08094eee", spanish: spanish)))
                     .font(.system(.title, design: .rounded)).foregroundStyle(GuestPlanPresentation.look(plan.look).color)
                     .accessibilityIdentifier("guest.whatif.estimate")
                 if changed, let original = PlanCalculator.monthsToGoal(remainingMinor: remaining, monthlyMinor: baselineMinor), let proposed = months, original != proposed {
-                    Text(spanish ? "\(abs(original - proposed)) meses \(proposed < original ? "antes" : "después")"
-                         : "\(abs(original - proposed)) months \(proposed < original ? "earlier" : "later")")
+                    Text(CuadraoCopy.text("copy.guestWhatIf.b20a7805a6", spanish: spanish, String(describing: abs(original - proposed)), String(describing: ((proposed < original ? CuadraoCopy.text("copy.guestWhatIf.a72a71b9cb", spanish: spanish) : CuadraoCopy.text("copy.guestWhatIf.497dfb6c3d", spanish: spanish))))))
                         .font(.subheadline.weight(.medium)).foregroundStyle(GuestPlanPresentation.look(plan.look).color)
                         .accessibilityIdentifier("guest.whatif.difference")
                 }
@@ -86,13 +85,12 @@ struct GuestWhatIf: View {
     @ViewBuilder private var budgetReading: some View {
         let status = model.book.budgetStatus(plan.id, now: .now)
         VStack(alignment: .leading, spacing: 6) {
-            Text(spanish ? "Dale aire a tu mes." : "Give your month some room.").font(CuadraoTypography.section)
+            Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.92ed11541e", spanish: spanish)).font(CuadraoTypography.section)
             if let status, let pace = PlanCalculator.monthEndPace(spentMinor: status.spentMinor, elapsedDays: status.elapsedDays, totalDays: status.totalDays) {
-                Text(spanish ? "A este ritmo: \(money(pace)) al cierre. El margen no cambia el gasto previsto."
-                     : "At this pace: \(money(pace)) at month end. The allowance doesn't change projected spending.")
+                Text(CuadraoCopy.text("copy.cuadraoPlanWhatIf.e805e50e8c", spanish: spanish, String(describing: money(pace))))
                     .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.whatif.pace")
-                Text(pace <= chosenMinor ? (spanish ? "Con este margen, llegas." : "With this allowance, you'd make it.")
-                     : (spanish ? "Con este margen, te pasarías por \(money(pace - chosenMinor))." : "With this allowance, you'd go over by \(money(pace - chosenMinor))."))
+                Text(pace <= chosenMinor ? (CuadraoCopy.text("copy.guestWhatIf.5140c62b10", spanish: spanish))
+                     : (CuadraoCopy.text("copy.guestWhatIf.329c54a416", spanish: spanish, String(describing: money(pace - chosenMinor)))))
                     .font(.subheadline.weight(.medium)).foregroundStyle(pace <= chosenMinor ? GuestPlanPresentation.look(plan.look).color : WelcomePalette.owedNegative)
                     .accessibilityIdentifier("guest.whatif.verdict")
             }
@@ -102,13 +100,9 @@ struct GuestWhatIf: View {
     private var disclosure: String {
         if plan.kind == .budget, let status = model.book.budgetStatus(plan.id, now: .now) {
             let elapsed = status.elapsedDays, total = status.totalDays
-            return spanish
-                ? "Proyección simple con \(elapsed) \(elapsed == 1 ? "día registrado" : "días registrados") de un mes de \(total) días. No es un gasto confirmado."
-                : "Simple projection using \(elapsed) recorded \(elapsed == 1 ? "day" : "days") in a \(total)-day month. This is not confirmed spending."
+            return CuadraoCopy.text("copy.guestWhatIf.c0ab2032ba", spanish: spanish, String(describing: elapsed), String(describing: ((elapsed == 1 ? CuadraoCopy.text("copy.guestWhatIf.a965f93e10", spanish: spanish) : CuadraoCopy.text("copy.guestWhatIf.1cca1d7c78", spanish: spanish)))), String(describing: total))
         }
-        return spanish
-            ? "Supuestos: aportes mensuales constantes, sin rendimientos, compras nuevas ni comisiones. El plan no mueve dinero."
-            : "Assumptions: fixed monthly contributions, no returns, new purchases or fees. The plan doesn't move money."
+        return CuadraoCopy.text("copy.guestWhatIf.a8d1ccae94", spanish: spanish)
     }
 
     // MARK: Actions

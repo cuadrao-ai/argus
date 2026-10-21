@@ -12,7 +12,7 @@ struct CuadraoPlanHeader: View {
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                let title = Text(spanish ? "Lo que viene" : "What’s ahead").font(CuadraoTypography.screen)
+                let title = Text(CuadraoCopy.text("copy.cuadraoPlanDisplay.407f9183d7", spanish: spanish)).font(CuadraoTypography.screen)
                     .accessibilityIdentifier("plan-heading")
                 if let titleMenu { title.contextMenu { titleMenu() } } else { title }
             }
@@ -31,9 +31,9 @@ struct CuadraoPlanAudiencePicker: View {
     @Binding var together: Bool
 
     var body: some View {
-        Picker(spanish ? "Tus planes" : "Your plans", selection: $together) {
-            Text(spanish ? "Para ti" : "For you").tag(false)
-            Text(spanish ? "En grupo" : "Together").tag(true)
+        Picker(CuadraoCopy.text("copy.cuadraoDesignGallery.daeb973c09", spanish: spanish), selection: $together) {
+            Text(CuadraoCopy.text("copy.cuadraoPlanDisplay.21d78618d0", spanish: spanish)).tag(false)
+            Text(CuadraoCopy.text("copy.cuadraoPlanDisplay.f85130a375", spanish: spanish)).tag(true)
         }.pickerStyle(.segmented).accessibilityIdentifier("plan-audience")
     }
 }

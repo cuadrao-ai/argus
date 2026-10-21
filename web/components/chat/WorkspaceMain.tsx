@@ -15,6 +15,8 @@ type ShellBridgeInput = {
   conversationId: string | null;
   isBelowTablet: boolean;
   sidebarCollapsed: boolean;
+  greetingName: string | null;
+  openSearch?: () => void;
   resetToEmptyChatSurface: (conversationId?: string | null, view?: ChatShellView) => void;
   closeTransientSidebar: () => void;
 };
@@ -31,6 +33,8 @@ export function useChatShellBridge({
   conversationId,
   isBelowTablet,
   sidebarCollapsed,
+  greetingName,
+  openSearch,
   resetToEmptyChatSurface,
   closeTransientSidebar,
 }: ShellBridgeInput): ShellBridgeWithSlots {
@@ -42,6 +46,8 @@ export function useChatShellBridge({
       conversationId,
       isBelowTablet,
       sidebarCollapsed,
+      greetingName,
+      openSearch,
       showWorkspace: () => {
         resetToEmptyChatSurface(null, "workspace");
         closeTransientSidebar();
@@ -60,7 +66,9 @@ export function useChatShellBridge({
       closeTransientSidebar,
       conversationId,
       currentView,
+      greetingName,
       isBelowTablet,
+      openSearch,
       resetToEmptyChatSurface,
       sidebarCollapsed,
     ],
@@ -123,17 +131,17 @@ export function WorkspaceMain({
     return accepted;
   };
   return (
-    <div className="relative mx-auto flex h-[100dvh] w-full max-w-5xl flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
+    <div className="relative mx-auto flex h-[100dvh] w-full max-w-[var(--cuadrao-canvas-max,64rem)] flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
       <div
         data-testid="workspace-panel-region"
-        className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[86px] tablet:px-8"
+        className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[calc(6rem+var(--cuadrao-banner-space,0px))] tablet:px-8 tablet:pt-[calc(7rem+var(--cuadrao-banner-space,0px))]"
         style={{ paddingBottom: hasComposer ? 190 : 48 }}
       >
         {workspace.panel(bridge)}
       </div>
       {hasComposer ? (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-40 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] dark:bg-[#141517]/80" />
+          <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-40 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] dark:bg-[#141517]/80 ${workspace.id === "business" ? "bg-[var(--cuadrao-cream)]/80" : "bg-[#f9f9f9]/80"}`} />
           <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 px-4">
             <div className="pointer-events-auto mx-auto max-w-3xl">
               {composerNotice}

@@ -9,7 +9,7 @@ struct FinancialPlanCards: View {
     var bottomSpace: CGFloat = 90
     @State private var archiving: FinancialPlanCardItem?
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var items: [FinancialPlanCardItem] { FinancialPlanCardItem.items(in: projection).filter { !$0.archived } }
 
     var body: some View {
@@ -40,9 +40,9 @@ struct FinancialPlanCards: View {
         guard loop.pendingConfirmation == nil, !model.saving else { return [] }
         switch edge {
         case .leading:
-            return [.init(id: "plan.swipe.edit", title: spanish ? "Editar" : "Edit", symbol: "pencil", tint: .blue) { Task { await item.edit(in: loop) } }]
+            return [.init(id: "plan.swipe.edit", title: CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish), symbol: "pencil", tint: .blue) { Task { await item.edit(in: loop) } }]
         case .trailing:
-            return [.init(id: "plan.swipe.archive", title: spanish ? "Archivar" : "Archive", symbol: "archivebox", tint: .orange) { archiving = item }]
+            return [.init(id: "plan.swipe.archive", title: CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish), symbol: "archivebox", tint: .orange) { archiving = item }]
         }
     }
 }
@@ -52,7 +52,7 @@ private struct FinancialArchivedPlans: View {
     @ObservedObject var loop: FinancialLoopModel
     let bottomSpace: CGFloat
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var items: [FinancialPlanCardItem] {
         model.projection.map(FinancialPlanCardItem.items)?.filter(\.archived) ?? []
     }
@@ -60,8 +60,8 @@ private struct FinancialArchivedPlans: View {
     var body: some View {
         List {
             if items.isEmpty {
-                ContentUnavailableView(spanish ? "Nada archivado" : "Nothing archived", systemImage: "archivebox",
-                    description: Text(spanish ? "Tus planes pueden descansar aquí. Siempre podrás retomarlos." : "Plans can rest here. You can always pick them back up."))
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoGroupCollection.e07523e83a", spanish: spanish), systemImage: "archivebox",
+                    description: Text(CuadraoCopy.text("copy.cuadraoPlanCanvas.ebcdf81c28", spanish: spanish)))
                     .listRowSeparator(.hidden)
             }
             ForEach(items) { item in
@@ -76,7 +76,7 @@ private struct FinancialArchivedPlans: View {
                     }.frame(minHeight: 48).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("plan.archived." + item.id)
             }
-        }.navigationTitle(spanish ? "Archivados" : "Archived").navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar).safeAreaPadding(.bottom, bottomSpace)
     }
 }

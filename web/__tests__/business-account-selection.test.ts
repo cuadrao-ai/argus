@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { getChosenGrant, setChosenGrant, synchronizeBusinessAccount, chosenGrantHeader } from "@/lib/business-grant";
+import { getChosenGrant, setChosenGrant, synchronizeBusinessAccount, chosenGrantHeader, soleClientGrantId } from "@/lib/business-grant";
 import { readStored, writeStored } from "@/lib/browser-storage";
 beforeAll(() => GlobalRegistrator.register({ url: "http://localhost" }));
 afterAll(() => GlobalRegistrator.unregister());
@@ -26,6 +26,14 @@ test("same owner token refresh keeps their choice; logout removes it", () => {
   synchronizeBusinessAccount(null);
   expect(getChosenGrant()).toBeNull();
   expect(readStored("argus:business-grant:v1")).toBeNull();
+});
+test("a sole client grant is the Business to enter, and an owned Business is not", () => {
+  expect(soleClientGrantId([{ grant_id: grant, role: "accountant" }])).toBe(grant);
+  expect(soleClientGrantId([{ grant_id: grant, role: "owner" }])).toBeNull();
+  expect(soleClientGrantId([
+    { grant_id: grant, role: "owner" },
+    { grant_id: "00000000-0000-4000-8000-000000000002", role: "accountant" },
+  ])).toBeNull();
 });
 test("unowned legacy persisted choices cannot become another account's context", () => {
   synchronizeBusinessAccount(null);

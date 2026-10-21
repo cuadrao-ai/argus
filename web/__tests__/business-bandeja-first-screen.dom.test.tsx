@@ -38,6 +38,7 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}) {
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
@@ -51,9 +52,11 @@ async function mountInbox(overrides: Partial<BusinessDataSource> = {}) {
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as BusinessDataSource}>
-          <BusinessInboxPanel />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as BusinessDataSource}>
+            <BusinessInboxPanel />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -87,25 +90,16 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   } finally { await off.close(); }
 });
 
-test("Bandeja shows one subhead, the receipts before the forwarding card, and one green Subir recibo that opens the upload", async () => {
+test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its segments are Por revisar, Con problema and Todo", async () => {
   const page = await mountInbox();
   try {
-    await page.settle(() => page.host.querySelector('[data-testid="inbox-forwarding-card"]') !== null && page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
-    const subheads = [...page.host.querySelectorAll("p")].filter((node) => ownText(node).includes(PHRASE));
-    assert.equal(subheads.length, 1);
-    assert.equal(subheads[0]?.textContent, "Recibos que esperan tu revisión. Nada aquí es un gasto hasta que lo confirmes.");
-    const receipts = page.host.querySelector('[data-testid="business-inbox-receipts"]')!;
-    const card = page.host.querySelector('[data-testid="inbox-forwarding-card"]')!;
-    assert.equal((receipts.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, true);
-    assert.equal(card.textContent?.includes("Copiar dirección"), true);
-    assert.equal(card.textContent?.includes("Reenvía los recibos a esta dirección:"), true);
-    assert.equal(receipts.compareDocumentPosition(page.host.querySelector('[aria-label="Correos recibidos"]')!) & Node.DOCUMENT_POSITION_FOLLOWING, Node.DOCUMENT_POSITION_FOLLOWING);
-    const upload = page.host.querySelector('[data-testid="business-primary-upload"]') as HTMLButtonElement;
-    assert.equal(upload.textContent, "Subir recibo");
-    assert.equal([...page.host.querySelectorAll("button")].filter((button) => button.textContent?.trim() === "Subir recibo").length, 1);
-    await page.act(async () => { upload.click(); });
-    await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"));
-    assert.equal((document.body.textContent ?? "").includes("Elegir archivos"), true);
+    await page.settle(() => page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
+    assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the segments, not in a subhead");
+    const segments = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment]')];
+    assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all"]);
+    assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address lives in Negocio");
+    assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null, "Agregar lives in the top bar");
+    assert.equal(page.host.querySelector('[data-testid="add-menu-page"]'), null);
   } finally { await page.close(); }
 });
 

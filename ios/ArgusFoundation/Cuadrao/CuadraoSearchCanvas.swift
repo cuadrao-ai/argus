@@ -121,14 +121,14 @@ struct CuadraoSearchCanvas: View {
                         NavigationLink(value: Route.plan(plan.id)) {
                             CuadraoSearchResultRow(title: plan.name, detail: [plan.kind.title(spanish),
                                 PlanFormat.space(plan.spaceID, accounts: data, spanish: spanish),
-                                plan.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "), spanish: spanish, symbol: plan.look.symbol)
+                                plan.archived ? (CuadraoCopy.text("copy.cuadraoSearchCanvas.14cfd7be1d", spanish: spanish)) : nil].compactMap { $0 }.joined(separator: " · "), spanish: spanish, symbol: plan.look.symbol)
                         }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.plan.\(plan.id)")
                         Divider()
                     }
                     ForEach(matchingGroups) { group in
                         NavigationLink(value: Route.group(group.id)) {
                             CuadraoSearchResultRow(title: group.name, detail: [group.kind.title(spanish), group.currency,
-                                group.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "), spanish: spanish, symbol: group.look.symbol)
+                                group.archived ? (CuadraoCopy.text("copy.cuadraoSearchCanvas.14cfd7be1d", spanish: spanish)) : nil].compactMap { $0 }.joined(separator: " · "), spanish: spanish, symbol: group.look.symbol)
                         }.buttonStyle(.plain).accessibilityIdentifier("cuadrao.search.group.\(group.id)")
                         Divider()
                     }
@@ -164,14 +164,14 @@ struct CuadraoSearchCanvas: View {
                     if let plan = plans.plan(id), planIsAvailable(plan) {
                         CuadraoPlanDetail(store: plans, accounts: data, planID: id, spanish: spanish)
                     } else {
-                        ContentUnavailableView(spanish ? "Plan no disponible" : "Plan unavailable", systemImage: "calendar")
+                        ContentUnavailableView(CuadraoCopy.text("copy.cuadraoSearchCanvas.5d2c5c78ef", spanish: spanish), systemImage: "calendar")
                             .toolbar(.visible, for: .navigationBar)
                     }
                 case .group(let id):
                     if groups.group(id) != nil {
                         CuadraoGroupDetail(store: groups, groupID: id, spanish: spanish)
                     } else {
-                        ContentUnavailableView(spanish ? "Plan no disponible" : "Plan unavailable", systemImage: "person.2")
+                        ContentUnavailableView(CuadraoCopy.text("copy.cuadraoSearchCanvas.5d2c5c78ef", spanish: spanish), systemImage: "person.2")
                             .toolbar(.visible, for: .navigationBar)
                     }
                 case .reference(let id):
@@ -185,18 +185,17 @@ struct CuadraoSearchCanvas: View {
     }
 
     @ViewBuilder private var filterControls: some View {
-        Picker(spanish ? "Incluir" : "Include", selection: $scope) {
+        Picker(CuadraoCopy.text("copy.cuadraoSearchCanvas.8ec02a0b96", spanish: spanish), selection: $scope) {
             ForEach(Scope.allCases, id: \.self) { value in Text(scopeTitle(value)).tag(value) }
         }
-        Picker(spanish ? "Moneda" : "Currency", selection: $currency) {
-            Text(spanish ? "Todas" : "All").tag("")
+        Picker(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish), selection: $currency) {
+            Text(CuadraoCopy.text("copy.cuadraoSearchCanvas.22417a3c9d", spanish: spanish)).tag("")
             ForEach(availableCurrencies, id: \.self) { Text($0).tag($0) }
         }
         Section {
-            Button(spanish ? "Restablecer filtros" : "Reset filters") { scope = .all; currency = "" }
+            Button(CuadraoCopy.text("copy.cuadraoSearchCanvas.18b5a4bccd", spanish: spanish)) { scope = .all; currency = "" }
         } footer: {
-            Text(spanish ? "Solo yo incluye lo que no has compartido. Hogar incluye las cuentas compartidas y sus movimientos. Chats y archivos siguen siendo privados. Los planes en grupo aparecen en Todo. La moneda filtra cuentas, movimientos y planes."
-                 : "Only me includes what you haven't shared. Household includes shared accounts and their activity. Chats and files remain private. Group plans appear in All. Currency filters accounts, activity and plans.")
+            Text(CuadraoCopy.text("copy.cuadraoSearchCanvas.c6245dfdb4", spanish: spanish))
         }
     }
 
@@ -207,15 +206,15 @@ struct CuadraoSearchCanvas: View {
     private func subtitle(_ account: CanvasAccount) -> String {
         let space = data.spaces.first { $0.id == account.spaceID }
         return [account.kind.title(spanish), account.currency,
-                account.sharedWithHousehold ? (spanish ? "Hogar" : "Household") : space?.title(spanish),
-                account.archived ? (spanish ? "Archivada" : "Archived") : nil].compactMap { $0 }.joined(separator: " · ")
+                account.sharedWithHousehold ? (CuadraoCopy.text("copy.cuadraoHouseholdSheet.b845d91db6", spanish: spanish)) : space?.title(spanish),
+                account.archived ? (CuadraoCopy.text("copy.connectedAccountPresentation.7268bbe2c2", spanish: spanish)) : nil].compactMap { $0 }.joined(separator: " · ")
     }
     private func title(_ kind: Kind) -> String { kind.title(spanish) }
     private func scopeTitle(_ scope: Scope) -> String {
         switch scope {
-        case .all: spanish ? "Todo" : "All"
-        case .personal: spanish ? "Solo yo" : "Only me"
-        case .household: spanish ? "Hogar" : "Household"
+        case .all: CuadraoCopy.text("copy.cuadraoDistributionContent.64c04b1430", spanish: spanish)
+        case .personal: CuadraoCopy.text("copy.cuadraoSearchCanvas.4d4245b15c", spanish: spanish)
+        case .household: CuadraoCopy.text("copy.cuadraoHouseholdSheet.b845d91db6", spanish: spanish)
         }
     }
 }

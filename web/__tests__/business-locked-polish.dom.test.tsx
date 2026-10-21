@@ -53,6 +53,7 @@ async function mount(
   const i18next = (await import("i18next")).default;
   const { I18nextProvider } = await import("react-i18next");
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
@@ -70,9 +71,11 @@ async function mount(
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider>,
     );
   });
@@ -92,34 +95,49 @@ async function mount(
 }
 
 const overviewTitle = (page: Mounted) => page.host.querySelector("#business-overview-title")?.textContent ?? null;
+const markName = (page: Mounted) => page.host.querySelector('[data-testid="business-current-name"]')?.textContent ?? null;
 
 describe("§1.8 line 100: the Business is named by its name, and Argus is not named", () => {
   const ownSpace = (name: string): Partial<BusinessDataSource> => ({
     spaces: async () => [{ space_id: "own", name, grant_id: "own-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }],
   });
+  const mountMark = async (name: string) => {
+    const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
+    function Mark() {
+      const workspace = useChatWorkspace();
+      return <header>{workspace?.sidebarHeader?.(shell())}</header>;
+    }
+    const page = await mount(() => <Mark />, ownSpace(name));
+    await page.settle(() => markName(page) !== null);
+    return page;
+  };
 
-  test("the Resumen title is the owner's business name", async () => {
+  test("the sidebar Business mark is the owner's business name and the Inicio title greets instead", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
+    const mark = await mountMark("Colmado Lucía");
+    assert.equal(markName(mark), "Colmado Lucía");
+    await mark.close();
     const page = await mount(() => <BusinessOverviewPanel />, ownSpace("Colmado Lucía"));
-    await page.settle(() => overviewTitle(page) === "Colmado Lucía");
-    assert.equal(overviewTitle(page), "Colmado Lucía");
+    await page.settle(() => page.business().spaces !== null);
+    assert.equal(overviewTitle(page), "Hola");
+    const row = page.host.querySelector('[data-testid="inicio-greeting-row"]');
+    assert.match(row?.className ?? "", /flex-wrap/, "a phone wraps the month under the greeting");
+    assert.deepEqual([...(row?.children ?? [])].map((child) => child.id || child.getAttribute("data-testid")), ["business-overview-title", "month-close-switcher"], "the greeting on the left, the month on the right, one row");
     await page.close();
   });
 
   test("a Business without a name is called Mi negocio, never Tu negocio or My business", async () => {
-    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
-    const page = await mount(() => <BusinessOverviewPanel />, ownSpace(""));
-    await page.settle(() => page.business().spaces !== null);
-    assert.equal(overviewTitle(page), "Mi negocio");
+    const page = await mountMark("");
+    assert.equal(markName(page), "Mi negocio");
+    assert.equal(page.host.textContent?.includes("Tu negocio"), false);
+    assert.equal(page.host.textContent?.includes("My business"), false);
     await page.close();
   });
 
   test("a saved English default uses the Spanish fallback without changing a custom name", async () => {
-    const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     for (const [saved, displayed] of [["My business", "Mi negocio"], ["My business supplies", "My business supplies"]]) {
-      const page = await mount(() => <BusinessOverviewPanel />, ownSpace(saved));
-      await page.settle(() => page.business().spaces !== null);
-      assert.equal(overviewTitle(page), displayed);
+      const page = await mountMark(saved);
+      assert.equal(markName(page), displayed);
       assert.equal(page.business().chosen?.name, saved, "the saved name remains unchanged");
       await page.close();
     }
@@ -153,26 +171,21 @@ describe("§1.8 line 101: dates read 1 oct 2026 and the period label follows the
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const html = renderToStaticMarkup(
       <I18nextProvider i18n={i18n}>
-        <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} />
+        <AccessList access={{ grants: [{ id: "g", email: null, display_name: "Lucía", capabilities: ["read"], created_at: "2026-10-01T16:00:00Z", owner: true }], invites: [] }} busyId={null} onRemove={() => undefined} onResend={() => undefined} />
       </I18nextProvider>,
     );
     assert.ok(html.includes("Desde 1 oct 2026"));
   });
 
-  test("changing the period changes the Resumen card labels and the covered dates", async () => {
+  test("the Resumen leads with what to review, ahead of the month figures", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const page = await mount(() => <BusinessOverviewPanel />);
-    const label = () => page.host.querySelector('[data-testid="overview-real-expenses"] > span')?.textContent ?? null;
-    const coverage = () => [...page.host.querySelectorAll("p")].map((p) => p.textContent ?? "").find((text) => text.startsWith("Cubre del")) ?? null;
-    await page.settle(() => label() !== null);
-    assert.equal(label(), "Gastos reales · este mes");
-    await page.click(page.buttons("Mes pasado")[0]);
-    await page.settle(() => label() === "Gastos reales · mes pasado");
-    assert.equal(label(), "Gastos reales · mes pasado");
-    await page.act(async () => page.business().setPeriod({ key: "custom", from: "2026-09-01", to: "2026-09-30" }));
-    await page.settle(() => coverage()?.startsWith("Cubre del 1 sept 2026 al 30 sept 2026.") ?? false);
-    assert.equal(label(), "Gastos reales · personalizado");
-    assert.ok(coverage()?.startsWith("Cubre del 1 sept 2026 al 30 sept 2026."), coverage() ?? "no coverage line");
+    await page.settle(() => page.host.querySelector('[data-testid="month-close-cards"]') !== null && page.host.querySelector('[data-testid="month-close-task-review"]') !== null);
+    assert.equal(page.host.querySelector('[data-testid="overview-real-expenses"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old card is gone");
+    const action = page.host.querySelector('[data-testid="month-close-task-review"]');
+    const cards = page.host.querySelector('[data-testid="month-close-cards"]');
+    assert.ok(action && cards && (action.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
     await page.close();
   });
 });
@@ -184,15 +197,17 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const page = await mount(() => <BusinessAccessPanel />, { revokeAccessGrant: async (id: string) => { revoked.push(id); } });
     await page.settle(() => page.buttons("Quitar acceso").length === 1);
     const remove = page.buttons("Quitar acceso")[0];
-    assert.match(remove.className, /text-\[#a8434c\]/);
+    assert.match(remove.className, /text-\[#9e2f39\]/, "the destructive red DESIGN.md names");
     await page.click(remove);
-    const dialog = page.host.querySelector('[role="alertdialog"]');
-    assert.ok(dialog);
-    assert.equal(dialog.querySelector("p")?.textContent, "¿Quitar el acceso de contadora@example.test? Deja de ver y preparar al instante.");
-    const [confirm] = page.buttons("Sí, quitar");
-    const [cancel] = page.buttons("Cancelar");
-    assert.match(confirm.className, /bg-\[#a8434c\]/);
-    assert.doesNotMatch(cancel.className, /a8434c/);
+    const dialog = document.querySelector('[role="alertdialog"]');
+    assert.ok(dialog, "removing access is a full-stop alert");
+    assert.equal(dialog.querySelector("h2")?.textContent, "¿Quitar el acceso de contadora@example.test?");
+    assert.equal(dialog.querySelector("p")?.textContent, "Deja de ver y preparar tus registros al instante.");
+    const confirm = dialog.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!;
+    const cancel = [...dialog.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Mantener")!;
+    assert.equal(confirm.textContent?.trim(), "Quitar acceso");
+    assert.equal(confirm.style.backgroundColor !== "", true);
+    assert.ok(cancel, "Mantener keeps the access");
     assert.deepEqual(revoked, [], "nothing is removed before the confirmation");
     await page.click(confirm);
     assert.deepEqual(revoked, ["grant-contadora"]);
@@ -228,41 +243,73 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Resumen", "Bandeja", "Gastos", "Novedades"]);
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }
   });
 
-  test("Acceso keeps its Spanish name and icon in the footer and opens access in either sidebar layout", async () => {
+  test("the header mark opens Configurar negocio and the foot carries the Cuadrao mark and no row", async () => {
     const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
-    function Footer({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
+    let accountInHeader: boolean | undefined;
+    function Rail({ sidebarCollapsed }: { sidebarCollapsed: boolean }) {
       const workspace = useChatWorkspace();
-      return <footer>{workspace?.sidebarFooter(shell({ sidebarCollapsed }))}</footer>;
+      accountInHeader = workspace?.profileInHeader;
+      const bridge = shell({ sidebarCollapsed });
+      return <>
+        <header>{workspace?.sidebarHeader?.(bridge)}</header>
+        <aside data-testid="closed-rail-mark">{workspace?.sidebarMark?.(bridge)}</aside>
+        <footer>{workspace?.sidebarFooter(bridge)}</footer>
+      </>;
     }
     for (const sidebarCollapsed of [false, true]) {
-      const page = await mount(() => <Footer sidebarCollapsed={sidebarCollapsed} />);
+      const page = await mount(() => <Rail sidebarCollapsed={sidebarCollapsed} />);
       try {
-        const access = page.host.querySelector("footer button");
-        assert.ok(access, "Acceso is reachable in the footer");
-        assert.equal(access.textContent?.trim(), "Acceso");
-        assert.equal(access.getAttribute("aria-hidden"), null);
-        assert.ok(access.querySelector("svg"), "Acceso keeps its icon");
+        await page.settle(() => page.host.querySelector("header button") !== null);
+        const mark = page.host.querySelector("header button");
+        assert.ok(mark, "the business mark is in the header");
+        assert.equal(mark.getAttribute("aria-haspopup"), "menu");
+        assert.equal(page.host.textContent?.includes("Tu negocio"), false);
+        await page.settle(() => page.host.querySelector('[data-testid="closed-rail-mark"]')?.textContent === "M");
+        assert.equal(page.host.querySelector('[data-testid="closed-rail-mark"]')?.textContent, "M", "the closed rail's mark is the business's initial");
+        assert.equal(accountInHeader, true, "a desktop Business puts the account at the top right");
+        assert.deepEqual([...page.host.querySelectorAll("footer button")], [], "the foot has no row");
+        const brand = page.host.querySelector('footer [data-testid="sidebar-brand"]');
+        assert.ok(brand?.querySelector('img[src*="cuadrao-mark"]'), "the Cuadrao mark sits at the foot");
+        assert.equal(brand?.querySelector('span[aria-hidden="true"]') !== null, sidebarCollapsed, "the word fades out (and leaves the reading order) on a closed rail");
         assert.equal(page.business().panel.kind, "overview");
-        await page.click(access);
-        assert.equal(page.business().panel.kind, "access", "the footer action opens access");
+        await page.click(mark);
+        const items = [...document.querySelectorAll('[role="menuitem"]')];
+        assert.equal(items.some((item) => item.textContent?.includes("Equipo y accesos")), false);
+        const settings = items.find((item) => item.textContent?.includes("Configurar negocio"));
+        assert.ok(settings, "Configurar negocio is in the menu");
+        await page.click(settings);
+        assert.deepEqual(page.business().panel, { kind: "business" }, "the menu opens the Negocio page");
       } finally {
         await page.close();
       }
     }
   });
 
-  test("Correos recibidos says so when no email has arrived", async () => {
-    const BusinessEmailDeliveries = (await import("@/components/business-app/BusinessEmailDeliveries")).default;
-    const page = await mount(() => <BusinessEmailDeliveries />, { emailDeliveries: async () => [] });
+  test("phone tabs name Inicio, Bandeja and Gastos and do not include a menu button", async () => {
+    const BusinessBottomTabs = (await import("@/components/business-app/BusinessBottomTabs")).default;
+    const page = await mount(() => <BusinessBottomTabs shell={shell({ isBelowTablet: true })} />);
+    const tabs = page.host.querySelector('[data-testid="business-bottom-tabs"]');
+    assert.ok(tabs);
+    const names = [...tabs.querySelectorAll("button")].map((button) => button.textContent?.trim());
+    assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos"]);
+    assert.equal(page.host.querySelector('[data-testid="chat-shell-menu-trigger"]'), null);
+    await page.close();
+  });
+
+  test("the email Historial says so when no email has arrived", async () => {
+    const { EmailHistory } = await import("@/components/business-app/BusinessEmailDeliveries");
+    const page = await mount(() => <EmailHistory />, { emailDeliveries: async () => [] });
     await page.settle(() => (page.host.textContent ?? "").includes("Todavía no has recibido correos."));
-    assert.ok(page.host.querySelector('section[aria-label="Correos recibidos"]'));
-    assert.ok((page.host.textContent ?? "").includes("Todavía no has recibido correos."));
+    // The section is named by its visible heading, and the empty line sits inside it.
+    const section = [...page.host.querySelectorAll("section[aria-labelledby]")].find((item) => document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent === "Historial");
+    assert.ok(section, "a section named Historial");
+    assert.ok((section.textContent ?? "").includes("Todavía no has recibido correos."));
     await page.close();
   });
 
@@ -272,15 +319,15 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const page = await mount(() => {
       function Probe() {
         const { source } = useBusinessContext();
-        built = useBusinessSearch({ source, chatAvailable: true, accounts: [], openPanel: () => undefined, setPeriod: () => undefined });
+        built = useBusinessSearch({ source, accounts: [], openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, owner: true, scope: "own" });
         return null;
       }
       return <Probe />;
     });
     const search = built as WorkspaceSearch | null;
     assert.ok(search);
-    assert.equal(search.copy.noResultsHint, "Prueba con el nombre de un comercio o de un archivo.");
-    assert.equal(search.copy.placeholder, "Buscar gastos, recibos y chats");
+    assert.equal(search.copy.noResultsHint, "Busca por comercio, monto, categoría, cuenta o el texto de una nota.");
+    assert.equal(search.copy.placeholder, "Busca comercio, monto o nota");
     const groups = await search.find("zzqqxx");
     assert.deepEqual(groups.flatMap((group) => group.hits), []);
     await page.close();
@@ -290,7 +337,6 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
     const BusinessExpensesPanel = (await import("@/components/business-app/BusinessExpensesPanel")).default;
-    const BusinessUpdatesPanel = (await import("@/components/business-app/BusinessUpdatesPanel")).default;
     const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
     const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
     const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
@@ -302,11 +348,10 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         <BusinessOverviewPanel />
         <BusinessInboxPanel />
         <BusinessExpensesPanel />
-        <BusinessUpdatesPanel />
         <BusinessAccessPanel />
       </>
     ));
-    await page.settle(() => page.host.querySelectorAll('[data-testid="business-inbox-receipts"] > li').length > 0 && page.buttons("Quitar acceso").length > 0);
+    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-row"]').length > 0 && page.buttons("Quitar acceso").length > 0);
     const headings = [...page.host.querySelectorAll("h1,h2,h3,h4,h5,h6,[role=heading]")];
     assert.ok(headings.length >= 5);
     assert.deepEqual(headings.filter((heading) => !heading.textContent?.trim()).map((heading) => heading.outerHTML), []);

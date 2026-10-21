@@ -15,7 +15,8 @@ mock.module("next/navigation", () => ({
 }));
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  // Below the desktop stop a record is the whole page; record-tray.dom.test.tsx covers the desktop tray.
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 800, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
@@ -44,6 +45,7 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
@@ -82,6 +84,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
   const held = new Promise<void>((resolve) => { release = resolve; });
   const source = {
     ...fixture,
+    // No email waits in this Bandeja, so approving the last receipt empties it.
+    emailDeliveries: async () => [],
     receipts: async () => {
       bandejaReads += 1;
       if (hold === "bandeja") await held;
@@ -134,9 +138,11 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
   await act(async () => {
     root.render(
       <Boundary><I18nextProvider i18n={i18n}>
-        <BusinessWorkspaceProvider source={source as never}>
-          <Probe />
-        </BusinessWorkspaceProvider>
+        <BusinessConsentTestProvider accepted>
+          <BusinessWorkspaceProvider source={source as never}>
+            <Probe />
+          </BusinessWorkspaceProvider>
+        </BusinessConsentTestProvider>
       </I18nextProvider></Boundary>,
     );
   });
@@ -158,6 +164,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
     const target = button(name);
     assert.ok(target, `${name} is on the page`);
     await act(async () => target.click());
+    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === name);
+    if (confirmation) await act(async () => confirmation.click());
     await settle(done);
   };
   return {

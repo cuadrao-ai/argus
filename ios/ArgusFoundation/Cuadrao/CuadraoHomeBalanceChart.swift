@@ -108,9 +108,9 @@ private struct CuadraoHomeBalanceChartContent: View {
         let availableRanges = reading.availableRanges, effectiveRange = reading.effectiveRange
         VStack(alignment: .leading, spacing: 12) {
             amountRow(shown)
-            Text((expanded ? shown.map { (partial ? (spanish ? "Balance parcial · " : "Partial balance · ") : (spanish ? "Balance neto · " : "Net balance · ")) + dateLabel($0.date) } : selected.map { dateLabel($0.date) }) ?? (partial
-                ? (spanish ? "Balance parcial" : "Partial balance")
-                : (spanish ? "Balance neto" : "Net balance")))
+            Text((expanded ? shown.map { (partial ? (CuadraoCopy.text("copy.cuadraoHomeBalanceChart.56fbe2f22c", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoHomeBalanceChart.b19a96422a", spanish: spanish))) + dateLabel($0.date) } : selected.map { dateLabel($0.date) }) ?? (partial
+                ? (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.bbfd3e0f4b", spanish: spanish))
+                : (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.a3299351f5", spanish: spanish))))
                 .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("home-chart-date")
             if expanded, let point = shown {
@@ -124,15 +124,15 @@ private struct CuadraoHomeBalanceChartContent: View {
                     Text(dateLabel(expanded ? xDomain.lowerBound : points.first!.date))
                     Spacer()
                     if selectedDate != nil && !expanded {
-                        Button(spanish ? "Hoy" : "Today") { selectedDate = nil }
+                        Button(CuadraoCopy.text("copy.cuadraoChatPreview.ebdcdc2bda", spanish: spanish)) { selectedDate = nil }
                             .frame(minHeight: 44).accessibilityIdentifier("home-chart-today")
                     } else { Text(dateLabel(expanded ? xDomain.upperBound.addingTimeInterval(-1) : points.last!.date)) }
                 }.font(CuadraoTypography.caption).foregroundStyle(.secondary)
             } else {
-                CuadraoChartState(title: spanish ? "Tu balance, a tu ritmo" : "Your balance, at your pace",
+                CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.0d3f251ca9", spanish: spanish),
                     detail: shown == nil
-                        ? (spanish ? "Los balances que registres darán forma a este espacio." : "Your recorded balances will give this space its shape.")
-                        : (spanish ? "No hay nuevos balances registrados en este período." : "No new balances were recorded in this period."))
+                        ? (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.efa154fffd", spanish: spanish))
+                        : (CuadraoCopy.text("copy.cuadraoHomeBalanceChart.82a4465af1", spanish: spanish)))
                     .accessibilityIdentifier("home-chart-empty")
             }
             if expanded, let period = reading.period, period.closing != nil, !period.changes.isEmpty {
@@ -172,7 +172,7 @@ private struct CuadraoHomeBalanceChartContent: View {
     }
     private var periodTitle: String {
         let interval = range.interval(offset: periodOffset)
-        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: spanish ? "es_DO" : "en_US"))
+        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))
         switch range {
         case .month: return interval.start.formatted(format.month(.wide).year())
         case .year: return interval.start.formatted(format.year())
@@ -183,32 +183,32 @@ private struct CuadraoHomeBalanceChartContent: View {
     }
     private func takeaway(_ point: CanvasBalancePoint, period: CanvasBalancePeriod?) -> String {
         guard let baseline = period?.opening, baseline.date < point.date else {
-            return spanish ? "Tu último balance registrado, sin estimaciones." : "Your latest recorded balance, without estimates."
+            return CuadraoCopy.text("copy.cuadraoHomeBalanceChart.7e641861f4", spanish: spanish)
         }
         let change = point.balance - baseline.balance
-        if change == 0 { return spanish ? "Tu balance sigue igual desde el \(dateLabel(baseline.date))." : "Your balance is unchanged since \(dateLabel(baseline.date))." }
+        if change == 0 { return CuadraoCopy.text("copy.cuadraoHomeBalanceChart.ed7cd0a8e0", spanish: spanish, String(describing: dateLabel(baseline.date))) }
         let amount = currency + " " + rules.format(abs(change), currency)
-        if spanish { return "\(amount) \(change > 0 ? "más" : "menos") desde el \(dateLabel(baseline.date))." }
-        return "\(amount) \(change > 0 ? "more" : "less") since \(dateLabel(baseline.date))."
+        return change > 0 ? CuadraoCopy.text("copy.cuadraoHomeBalanceChart.f64698094d", spanish: spanish, String(describing: amount), String(describing: dateLabel(baseline.date)))
+            : CuadraoCopy.text("copy.cuadraoHomeBalanceChart.003109c873", spanish: spanish, String(describing: amount), String(describing: dateLabel(baseline.date)))
     }
     private func chartBase(_ reading: Reading) -> some View {
         let points = reading.points, bounds = reading.bounds, xDomain = reading.xDomain
         let selected = reading.selected, shown = reading.shown
         return Chart {
             ForEach(points) { point in
-                AreaMark(x: .value("Date", point.date), yStart: .value("Base", bounds.lowerBound), yEnd: .value("Balance", point.value))
+                AreaMark(x: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.9e3d3b41ed", spanish: spanish), point.date), yStart: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.e2fe2c786e", spanish: spanish), bounds.lowerBound), yEnd: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.02e2073456", spanish: spanish), point.value))
                     .foregroundStyle(LinearGradient(colors: [WelcomePalette.pine.opacity(0.16), WelcomePalette.pine.opacity(0)], startPoint: .top, endPoint: .bottom))
                     .accessibilityHidden(true)
-                LineMark(x: .value(spanish ? "Fecha" : "Date", point.date), y: .value(spanish ? "Balance" : "Balance", point.value))
+                LineMark(x: .value(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), point.date), y: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.02e2073456", spanish: spanish), point.value))
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)).foregroundStyle(WelcomePalette.pine)
                     .accessibilityLabel(dateLabel(point.date)).accessibilityValue(currency + " " + rules.format(point.balance, currency))
             }
             if let point = shown {
                 if selected != nil {
-                    RuleMark(x: .value("Date", point.date)).lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                    RuleMark(x: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.9e3d3b41ed", spanish: spanish), point.date)).lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
                         .foregroundStyle(WelcomePalette.ink.opacity(0.22)).accessibilityHidden(true)
                 }
-                PointMark(x: .value("Date", point.date), y: .value("Balance", point.value))
+                PointMark(x: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.9e3d3b41ed", spanish: spanish), point.date), y: .value(CuadraoCopy.text("copy.cuadraoHomeBalanceChart.02e2073456", spanish: spanish), point.value))
                     .symbolSize(selected == nil ? 32 : 65).foregroundStyle(WelcomePalette.pine).accessibilityHidden(true)
             }
         }.chartYScale(domain: bounds)
@@ -253,7 +253,7 @@ private struct CuadraoHomeBalanceChartContent: View {
     }
     private func dateLabel(_ date: Date) -> String {
         date.formatted(expanded
-            ? .dateTime.day().month(.abbreviated).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US"))
-            : .dateTime.day().month(.abbreviated).locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+            ? .dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))
+            : .dateTime.day().month(.abbreviated).locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
     }
 }

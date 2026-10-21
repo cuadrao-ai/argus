@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 test("production approve-next keeps the next receipt title focused", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -25,7 +25,8 @@ test("production approve-next keeps the next receipt title focused", async ({ pa
     else if (parts[0] === "drafts" && parts[2] === "dossier") json = await source.dossier(parts[1]);
     else if (parts[0] === "drafts" && parts[2] === "approve") json = await source.approveDraft(parts[1], body.version, "synthetic-key");
     else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
-    else if (["captures", "updates", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
+    else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
+    else if (parts[0] === "consent") return fulfillAcceptedBusinessConsent(route);
     else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
     return route.fulfill({ json });
     } catch (error) {
@@ -39,5 +40,5 @@ test("production approve-next keeps the next receipt title focused", async ({ pa
   await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
   await page.getByRole("button", { name: "Aprobar y siguiente", exact: true }).click();
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
-  await expect(page.getByRole("heading", { name: "Revisar recibo", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Papelería Central", level: 2 })).toBeFocused();
 });

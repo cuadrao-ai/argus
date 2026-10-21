@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Sequence
 from uuid import UUID
 
 from argus.domain.business.receipt_activity import (
-    ReceiptActivity,
     aggregate_activity,
+    bandeja,
     inbox_counts,
     project_activity,
 )
@@ -117,28 +118,50 @@ def _project(views, states, baseline, drafts=None):
             baseline=baseline,
             completed_at=completed,
         )
-        output.append({**view, "activity": activity.wire()})
+        row = {**view, "activity": activity.wire()}
+        output.append({**row, "bandeja": bandeja(row)})
     return output
 
 
-def inbox(context, views: list[dict]) -> dict[str, int]:  # noqa: ANN001
-    """The Bandeja's counts over these receipt views and the Business's saved
-    notes awaiting review; the in-memory app keeps no notes."""
+def inbox(
+    context,  # noqa: ANN001
+    views: list[dict],
+    emails: Sequence[str] | None = None,
+) -> dict[str, int]:
+    """The Bandeja's counts over these receipt views, the Business's saved
+    notes awaiting review (the in-memory app keeps no notes) and the emails
+    that are a row of their own; ``emails`` are their standings, read here
+    when not given."""
+
+    from argus.api.email_intake import email_standings
 
     store = context.service.imports.store
     notes = 0
+    por_igualar = None
     if isinstance(store, GrantImportStore):
         from argus.domain.business.actions.captures import awaiting_notes
 
         with transaction(store.authority, store.context) as tx:
             notes = awaiting_notes(tx)
-    return inbox_counts(views, notes)
+        from argus.domain.business.bank.service import bank_matching_on
+
+        if bank_matching_on():
+            from argus.domain.business.bank.movements_store import por_igualar_count
+
+            por_igualar = por_igualar_count(store.authority.pool, store.context)
+    if emails is None:
+        emails = email_standings(str(context.scope.owner.space_id))
+    return inbox_counts(views, notes, emails, por_igualar)
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
-    """One answer for the sidebar badge, the Bandeja and the Resumen."""
+    """One answer for the sidebar badge, the Bandeja and the Resumen, over
+    every receipt of the Business, whichever view the caller reads."""
 
+    from argus.api.email_intake import email_standings
+
+    emails = email_standings(str(context.scope.owner.space_id))
     return {
-        **aggregate_activity(ReceiptActivity(**view["activity"]) for view in views),
-        **inbox(context, views),
+        **aggregate_activity(views, reading_emails=emails.count("reading")),
+        **inbox(context, views, emails),
     }

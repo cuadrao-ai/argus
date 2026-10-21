@@ -11,6 +11,7 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import { periodRange } from "@/components/business-app/business-format";
 import { ReceiptRow, inboxCount } from "@/components/business-app/BusinessInboxPanel";
 import ReceiptReadingControl from "@/components/business-app/ReceiptReadingControl";
+import { BusinessConsentTestProvider } from "@/components/business-app/business-consent-context";
 import ReceiptDossierReview from "@/components/business-app/ReceiptDossierReview";
 import { dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
 import ReceiptSeenBoundary from "@/components/business-app/ReceiptSeenBoundary";
@@ -120,6 +121,18 @@ test("a receipt row has exactly one marker and the badge uses server count", asy
   assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }, { status: "queued", read_pending: true }] }), 1);
 });
 
+test("a row names its type, Sale or Purchase, and a problem row names none", async () => {
+  const detail = await receipt();
+  const type = (row: ReceiptDetail) => {
+    const box = document.createElement("div");
+    box.innerHTML = renderToStaticMarkup(<I18nextProvider i18n={i18n}><ul><ReceiptRow receipt={row} onOpen={() => {}} /></ul></I18nextProvider>);
+    return box.querySelector('[data-testid="bandeja-row-type"]')?.textContent;
+  };
+  assert.equal(type({ ...detail, document_type: "venta" }), "Sale");
+  assert.equal(type({ ...detail, document_type: "recibo" }), "Purchase");
+  assert.equal(type({ ...detail, document_type: "venta", status: "needs_attention", attention: "unreadable" }), "");
+});
+
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
   const detail = await receipt();
   let marked = 0;
@@ -144,6 +157,17 @@ test("opening or old hydration does not mark seen; focused visible hydrated cont
   await act(async () => page.root.unmount());
 });
 
+
+test("an unpaid NCF due notice shows Factura por pagar on the dossier", async () => {
+  const fixture = createFixtureBusinessDataSource();
+  const marked = { ...await fixture.dossier(dossierFixtureIds.ready), bill_mark: "Factura por pagar" as const };
+  const detail = { ...await receipt(), draft_id: marked.draft_id, version: marked.version };
+  const source: BusinessDataSource = { ...fixture, dossier: async () => marked };
+  const page = await host();
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={marked.draft_id} receipt={detail} /></BusinessContext.Provider></I18nextProvider>));
+  assert.equal(page.element.querySelector('[data-testid="bill-mark"]')?.textContent, "Factura por pagar");
+  await act(async () => page.root.unmount());
+});
 
 test("old dossier hydration cannot consume a newer receipt completion", async () => {
   hidden = false; focused = true;
@@ -182,7 +206,7 @@ test("a late reading-toggle response cannot replace another Business disclosure"
   const sourceA: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => reading, setReceiptReading: async (_reading, _enabled, _language, requestSignal) => { signal = requestSignal; return new Promise((done) => { resolve = done; }); } };
   const sourceB: BusinessDataSource = { ...createFixtureBusinessDataSource(), receiptReading: async () => ({ ...reading, disclosure: "Business B disclosure" }) };
   const page = await host();
-  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></I18nextProvider>;
+  const render = (source: BusinessDataSource) => <I18nextProvider i18n={i18n}><BusinessConsentTestProvider accepted><BusinessContext.Provider value={context(source, () => { reloads++; })}><ReceiptReadingControl /></BusinessContext.Provider></BusinessConsentTestProvider></I18nextProvider>;
   await act(async () => page.root.render(render(sourceA)));
   await act(async () => page.element.querySelector("button")?.click());
   await act(async () => page.root.render(render(sourceB)));

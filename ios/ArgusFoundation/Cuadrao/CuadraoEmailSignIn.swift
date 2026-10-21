@@ -36,30 +36,28 @@ struct CuadraoEmailSignIn: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
-                RegistrationHeading(title: spanish ? "Inicia sesión." : "Sign in.",
-                                    detail: spanish ? "Continúa donde te quedaste." : "Pick up where you left off.")
+                RegistrationHeading(title: CuadraoCopy.text("copy.connectedCuadraoAuth.535b037434", spanish: spanish),
+                                    detail: CuadraoCopy.text("copy.connectedCuadraoAuth.9ff95daec1", spanish: spanish))
                 VStack(alignment: .leading, spacing: 24) {
                     emailInput
                     passwordInput
                 }
                 if state == .rejected {
                     RegistrationNotice(symbol: "exclamationmark.circle",
-                        title: spanish ? "No pudimos iniciar sesión." : "We couldn’t sign you in.",
-                        detail: spanish ? "Revisa tu correo y contraseña, o recupera el acceso."
-                            : "Check your email and password, or recover access.")
+                        title: CuadraoCopy.text("copy.nativeProviderSignIn.7fe06b0d57", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoAuth.993baa086c", spanish: spanish))
                 } else if state == .offline {
-                    RegistrationNotice(title: spanish ? "No pudimos conectar." : "We couldn’t connect.",
-                        detail: spanish ? "Revisa tu conexión e inténtalo de nuevo. Tus datos siguen aquí."
-                            : "Check your connection and try again. Your details are still here.")
+                    RegistrationNotice(title: CuadraoCopy.text("copy.connectedCuadraoAuth.a97f4e5c01", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoAuth.fe4b7ee370", spanish: spanish))
                 }
             }
             .padding(.horizontal, 28).padding(.vertical, 24)
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            RegistrationButton(title: state == .loading ? (spanish ? "Entrando…" : "Signing in…")
-                               : state == .offline ? (spanish ? "Reintentar" : "Try again")
-                               : (spanish ? "Iniciar sesión" : "Sign in"), busy: state == .loading, enabled: ready) {
+            RegistrationButton(title: state == .loading ? (CuadraoCopy.text("copy.connectedCuadraoAuth.2117a94ad6", spanish: spanish))
+                               : state == .offline ? (CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: spanish))
+                               : (CuadraoCopy.text("copy.connectedCuadraoAuth.99024c1d78", spanish: spanish)), busy: state == .loading, enabled: ready) {
                 focus = nil
                 state = .loading
             }
@@ -85,28 +83,27 @@ struct CuadraoEmailSignIn: View {
             state = .idle
             previewComplete = true
         }
-        .alert(spanish ? "Vista previa" : "Design preview", isPresented: $previewComplete) {
-            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+        .alert(CuadraoCopy.text("copy.cuadraoEmailSignIn.b111e08d45", spanish: spanish), isPresented: $previewComplete) {
+            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) {}
         } message: {
-            Text(spanish ? "Aquí termina el diseño de acceso. No se envió información ni se inició una sesión."
-                 : "The sign-in design ends here. No information was sent and no session was started.")
+            Text(CuadraoCopy.text("copy.cuadraoEmailSignIn.a4b5b862c1", spanish: spanish))
         }
     }
 
     private var emailInput: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(spanish ? "Correo electrónico" : "Email address").font(.subheadline.weight(.medium))
-            TextField(spanish ? "nombre@ejemplo.com" : "name@example.com", text: $email)
+            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.4e184d5fb9", spanish: spanish)).font(.subheadline.weight(.medium))
+            TextField(CuadraoCopy.text("copy.connectedCuadraoAuth.f99371c667", spanish: spanish), text: $email)
                 .textContentType(.username).keyboardType(.emailAddress)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                 .focused($focus, equals: .email).submitLabel(.next)
                 .onSubmit { focus = visible ? .visiblePassword : .password }
                 .modifier(RegistrationField(focused: focus == .email, invalid: invalidEmail))
                 .disabled(state == .loading)
-                .accessibilityLabel(spanish ? "Correo electrónico" : "Email address")
+                .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoAuth.4e184d5fb9", spanish: spanish))
                 .accessibilityIdentifier("cuadrao.signin.email")
             if invalidEmail {
-                Label(spanish ? "Revisa el formato del correo." : "Check the email format.", systemImage: "exclamationmark.circle")
+                Label(CuadraoCopy.text("copy.connectedCuadraoAuth.f72b1dead3", spanish: spanish), systemImage: "exclamationmark.circle")
                     .font(.footnote).foregroundStyle(.red)
             }
         }
@@ -114,21 +111,21 @@ struct CuadraoEmailSignIn: View {
 
     private var passwordInput: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(spanish ? "Contraseña" : "Password").font(.subheadline.weight(.medium))
+            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.e355fe3205", spanish: spanish)).font(.subheadline.weight(.medium))
             HStack(spacing: 0) {
                 Group {
                     if visible {
-                        TextField(spanish ? "Tu contraseña" : "Your password", text: $password)
+                        TextField(CuadraoCopy.text("copy.connectedCuadraoAuth.9d9941b718", spanish: spanish), text: $password)
                             .focused($focus, equals: .visiblePassword)
                     } else {
-                        SecureField(spanish ? "Tu contraseña" : "Your password", text: $password)
+                        SecureField(CuadraoCopy.text("copy.connectedCuadraoAuth.9d9941b718", spanish: spanish), text: $password)
                             .focused($focus, equals: .password)
                     }
                 }
                 .textContentType(.password).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .submitLabel(.go)
                 .onSubmit { if ready { focus = nil; state = .loading } }
-                .accessibilityLabel(spanish ? "Contraseña" : "Password")
+                .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoAuth.e355fe3205", spanish: spanish))
                 .accessibilityIdentifier("cuadrao.signin.password")
                 Button {
                     let wasFocused = passwordFocused
@@ -139,11 +136,11 @@ struct CuadraoEmailSignIn: View {
                         .foregroundStyle(.secondary).frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(visible ? (spanish ? "Ocultar contraseña" : "Hide password")
-                                    : (spanish ? "Mostrar contraseña" : "Show password"))
+                .accessibilityLabel(visible ? (CuadraoCopy.text("copy.cuadraoEmailRegistration.7b5b088b70", spanish: spanish))
+                                    : (CuadraoCopy.text("copy.cuadraoEmailRegistration.45cf1d96bc", spanish: spanish)))
             }
             .modifier(RegistrationField(focused: passwordFocused)).disabled(state == .loading)
-            Button(spanish ? "¿Olvidaste tu contraseña?" : "Forgot password?") {
+            Button(CuadraoCopy.text("copy.connectedCuadraoAuth.ec29b296f1", spanish: spanish)) {
                 focus = nil
                 recovery = true
             }

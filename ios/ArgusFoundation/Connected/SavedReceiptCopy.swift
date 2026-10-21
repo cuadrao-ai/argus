@@ -5,56 +5,52 @@ import Foundation
 struct SavedReceiptCopy {
     let spanish: Bool
 
-    var title: String { spanish ? "Recibos guardados" : "Saved receipts" }
+    var title: String { CuadraoCopy.text("copy.savedReceiptCopy.d4f38a690a", spanish: spanish) }
     /// Pending approval: the approved empty text names a row, "Escanear o subir archivo", that the locked + menu
     /// no longer has (it now offers camera, photo and file rows).
     var empty: String {
-        spanish ? "Aún no has guardado recibos. Toca + y escanea o sube un recibo."
-                : "You have not saved any receipts yet. Tap + and scan or upload a receipt."
+        CuadraoCopy.text("copy.savedReceiptCopy.e630851585", spanish: spanish)
     }
-    var saving: String { spanish ? "Guardando recibo…" : "Saving receipt…" }
-    var savedTitle: String { spanish ? "Recibo guardado" : "Receipt saved" }
+    var saving: String { CuadraoCopy.text("copy.savedReceiptCopy.5a6b400da0", spanish: spanish) }
+    var savedTitle: String { CuadraoCopy.text("copy.savedReceiptCopy.6f29c5dd9e", spanish: spanish) }
     var savedDetail: String {
-        spanish ? "Está en tu cuenta. Puedes verlo o eliminarlo cuando quieras."
-                : "It is in your account. You can view or delete it any time."
+        CuadraoCopy.text("copy.savedReceiptCopy.bc4d23a249", spanish: spanish)
     }
-    var alreadySaved: String { spanish ? "Ya tenías este recibo guardado." : "You already had this receipt saved." }
+    var alreadySaved: String { CuadraoCopy.text("copy.savedReceiptCopy.1693909e16", spanish: spanish) }
     var tooLarge: String {
-        spanish ? "El archivo pesa más de 10 MB. Elige uno más pequeño." : "The file is larger than 10 MB. Choose a smaller one."
+        CuadraoCopy.text("copy.savedReceiptCopy.12b75b52bb", spanish: spanish)
     }
-    var wrongType: String { spanish ? "Solo se aceptan PDF, JPEG y PNG." : "Only PDF, JPEG and PNG files are accepted." }
+    var wrongType: String { CuadraoCopy.text("copy.savedReceiptCopy.e34d749120", spanish: spanish) }
     var limitReached: String {
-        spanish ? "Llegaste al límite de recibos por ahora. Inténtalo más tarde." : "You reached the receipt limit for now. Try again later."
+        CuadraoCopy.text("copy.savedReceiptCopy.d3c603bb44", spanish: spanish)
     }
     var offline: String {
-        spanish ? "Sin conexión. El recibo sigue en este iPhone; inténtalo cuando vuelva la conexión."
-                : "No connection. The receipt is still on this iPhone; try again when you are back online."
+        CuadraoCopy.text("copy.savedReceiptCopy.baec1c9f1c", spanish: spanish)
     }
-    var couldNotSave: String { spanish ? "No pudimos guardar el recibo." : "We could not save the receipt." }
-    var retry: String { spanish ? "Reintentar" : "Try again" }
-    var view: String { spanish ? "Ver" : "View" }
-    var delete: String { spanish ? "Eliminar" : "Delete" }
-    var cancel: String { spanish ? "Cancelar" : "Cancel" }
-    var done: String { spanish ? "Listo" : "Done" }
-    var deleteTitle: String { spanish ? "¿Eliminar este recibo?" : "Delete this receipt?" }
+    var couldNotSave: String { CuadraoCopy.text("copy.savedReceiptCopy.c1b38f8857", spanish: spanish) }
+    var retry: String { CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: spanish) }
+    var view: String { CuadraoCopy.text("copy.savedReceiptCopy.2b0aad47ef", spanish: spanish) }
+    var delete: String { CuadraoCopy.text("copy.savedReceiptCopy.534547cf82", spanish: spanish) }
+    var cancel: String { CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish) }
+    var done: String { CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish) }
+    var deleteTitle: String { CuadraoCopy.text("copy.savedReceiptCopy.4ca1494b4d", spanish: spanish) }
     var deleteMessage: String {
-        spanish ? "Se borra de tu cuenta y de nuestros servidores. Tus movimientos no cambian."
-                : "It is deleted from your account and our servers. Your activity does not change."
+        CuadraoCopy.text("copy.savedReceiptCopy.f0a7244e55", spanish: spanish)
     }
     /// Pending approval: not in the approved table.
-    var couldNotOpen: String { spanish ? "No pudimos abrir este recibo." : "We could not open this receipt." }
+    var couldNotOpen: String { CuadraoCopy.text("copy.savedReceiptCopy.b74a2f9cac", spanish: spanish) }
     /// Pending approval: not in the approved table.
-    var couldNotLoad: String { spanish ? "No pudimos cargar tus recibos." : "We could not load your receipts." }
+    var couldNotLoad: String { CuadraoCopy.text("copy.savedReceiptCopy.15140a35c0", spanish: spanish) }
 
     /// Founder-approved October 8.
-    var couldNotDelete: String { spanish ? "No pudimos eliminar el recibo." : "We could not delete the receipt." }
+    var couldNotDelete: String { CuadraoCopy.text("copy.savedReceiptCopy.f89ffead5a", spanish: spanish) }
     /// The approved receipt-source wording.
     var unusableFile: String {
-        spanish ? "Usa hasta 10 páginas de imagen o PDF, con un máximo de 20 MB." : "Use up to 10 image or PDF pages, no more than 20 MB."
+        CuadraoCopy.text("copy.savedReceiptCopy.9af3b14b7d", spanish: spanish)
     }
     /// The approved scanner wording.
     var scannerUnavailable: String {
-        spanish ? "El escáner no está disponible aquí. Puedes elegir una foto o un archivo." : "The scanner is unavailable here. Choose a photo or file."
+        CuadraoCopy.text("copy.savedReceiptCopy.c20136d6f3", spanish: spanish)
     }
 
     func failure(_ failure: SavedReceiptFailure) -> String {

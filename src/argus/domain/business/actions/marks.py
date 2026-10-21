@@ -1,5 +1,6 @@
 """The marks a record carries, read one way for every view: Personal, who
-marked it when that was not the owner, the fiscal number and the 606 answer.
+marked it when that was not the owner, the fiscal number, the 606 answer and
+sin comprobante.
 Receipt lists, expense lists and the record itself all take them from here."""
 
 from __future__ import annotations
@@ -9,8 +10,10 @@ from typing import Any
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     fiscal_inclusion,
+    fiscal_question_applies,
     fiscal_value,
     is_personal,
+    is_sin_comprobante,
 )
 
 # The people behind the latest revision that changed business_share (who
@@ -56,7 +59,24 @@ def record_marks(facts: BusinessFacts, row: dict[str, Any], owner_id: str) -> di
         "fiscal_value": fiscal_value(facts),
         "include_606": answer,
         "include_606_by": row.get("answer_name") if answer is not None else None,
+        "sin_comprobante": is_sin_comprobante(facts),
     }
+
+
+def fiscal_inclusion_available(tx, facts: BusinessFacts, state: str) -> bool:  # noqa: ANN001
+    """Whether the caller may answer the 606 question on this draft now: the
+    gate ``decide_606`` enforces, read without acting. A member holding
+    prepare who is not the owner, on an open or accepted draft, when the
+    question applies to its facts."""
+
+    actor = tx.context.actor
+    return (
+        "prepare" in tx.authorization.capabilities
+        and actor.actor_kind == "member"
+        and str(actor.actor_id) != str(tx.context.owner_id)
+        and state in ("open", "accepted")
+        and fiscal_question_applies(facts)
+    )
 
 
 def draft_marks(tx, draft_id: Any, facts: BusinessFacts) -> dict:  # noqa: ANN001

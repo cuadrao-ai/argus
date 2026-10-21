@@ -4,7 +4,8 @@ import { AlertCircle, CheckCircle2, CircleDashed, ExternalLink } from "lucide-re
 import { useTranslation } from "react-i18next";
 import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
-import { cardClass, secondaryButtonClass } from "./business-ui";
+import { secondaryButtonClass } from "./business-ui";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 /**
  * What the e-CF file proved by itself, as five rows: the signature, the totals,
@@ -152,9 +153,9 @@ export function ecfRows(verification: EcfVerification, t: T): EcfRow[] {
 }
 
 const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: string }> = {
-  verified: { Icon: CheckCircle2, className: "text-[var(--rui-color-teal)]" },
-  failed: { Icon: AlertCircle, className: "text-[var(--rui-color-danger)]" },
-  not_checked: { Icon: CircleDashed, className: "text-black/45 dark:text-white/45" },
+  verified: { Icon: CheckCircle2, className: "text-[#2f5a49] dark:text-[#8fcbb0]" },
+  failed: { Icon: AlertCircle, className: "text-[#9e2f39] dark:text-[#ec9aa0]" },
+  not_checked: { Icon: CircleDashed, className: "text-[#56635e] dark:text-white/70" },
 };
 
 export default function ReceiptEcfChecks({ verification, qr = null }: { verification: EcfVerification | null | undefined; qr?: DgiiQr | null }) {
@@ -171,7 +172,7 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
   const checkedAt = when ? t("business.dossier.ecf_checked_ago", "checked {{when}}", { when }) : "";
   const link = dgiiLink(qr?.url);
   return (
-    <section className={cardClass} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
+    <section className={SURFACE_CARD} aria-labelledby="receipt-ecf-checks-title" data-testid="receipt-ecf-checks">
       <h3 id="receipt-ecf-checks-title" className="text-[14px] font-medium text-black dark:text-white">{t("business.dossier.ecf_title", "Electronic invoice verification")}</h3>
       {document ? <p className="mt-1 text-[13px] text-black/60 dark:text-white/60">{document}</p> : null}
       <ul className="mt-4 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
@@ -184,7 +185,7 @@ export default function ReceiptEcfChecks({ verification, qr = null }: { verifica
                 <span className="block text-[14px] font-medium text-black dark:text-white">{row.title}</span>
                 <span className={`block text-[13px] ${className}`}>{row.caption}</span>
                 {row.notes?.length ? <span className="block text-[13px] text-black/55 dark:text-white/55">{row.notes.join(" ")}</span> : null}
-                {checkedAt ? <span className="block text-[12px] text-black/45 dark:text-white/45">{checkedAt}</span> : null}
+                {checkedAt ? <span className="block text-[12px] text-[#56635e] dark:text-white/70">{checkedAt}</span> : null}
               </span>
             </li>
           );

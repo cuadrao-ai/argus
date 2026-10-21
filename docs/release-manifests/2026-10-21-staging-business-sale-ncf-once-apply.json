@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-21-e",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "79ed3f456113f624fb15a33d66675f4a21086e55",
+  "versions_sha256": "7fe0ebdf3a6ad7ee4207ca0e38b01ef92ffb016884870118dfd6133bd7553a33",
+  "issued_at": "2026-10-21T10:45:00-05:00",
+  "expires_at": "2026-10-24T10:45:00-05:00",
+  "approved_by": "founder",
+  "approval_reference": "Lucas standing rule, 2026-10-21, staging only, verbatim: \"Yes, as a standing rule: any migration whose PR got Eval SHIP may be applied to staging skedzwocnmrhfigiwyzi only, with a committed approval record and a dry run first, before that PR merges. Never prod. Tell me after each one.\" #1352 Eval SHIP at 79ed3f456: https://github.com/lagarcess/argus/pull/1352#issuecomment-6313554583"
+}

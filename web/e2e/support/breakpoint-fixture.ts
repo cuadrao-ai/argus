@@ -42,6 +42,12 @@ const SPANISH_TITLES: Record<string, string> = {
     "Aportes mensuales al índice comparados con una suma única en una ventana de diez años",
 };
 
+/** The server's answer for a person who already accepted the Business consent screen. */
+export function fulfillAcceptedBusinessConsent(route: Route) {
+  const version = new URL(route.request().url()).searchParams.get("version") ?? "";
+  return route.fulfill({ json: { version, accepted_at: "2026-10-18T12:00:00.000Z" } });
+}
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
     status,
@@ -350,6 +356,9 @@ export async function installBreakpointFixture(
     theme?: Theme;
     usage?: UsageState;
     emptyChat?: boolean;
+    consent?: "accepted" | "required";
+    /** Whether the account ever saved its language. Default true; false leaves the row default. */
+    languageChosen?: boolean;
   } = {},
 ): Promise<void> {
   const account = options.account ?? "registered";
@@ -357,6 +366,8 @@ export async function installBreakpointFixture(
   const theme = options.theme ?? "dark";
   const usage = options.usage ?? "healthy";
   const emptyChat = options.emptyChat ?? false;
+  const consent = options.consent ?? "accepted";
+  const languageChosen = options.languageChosen ?? true;
   const isGuest = account === "guest";
   const isSpanish = language === "es-419";
 
@@ -369,10 +380,13 @@ export async function installBreakpointFixture(
     },
     [language, theme],
   );
-
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+
+    if (path.endsWith("/api/v1/business/consent") && consent === "accepted") {
+      return fulfillAcceptedBusinessConsent(route);
+    }
 
     if (path.endsWith("/api/v1/me/usage")) {
       if (usage === "error") {
@@ -401,7 +415,7 @@ export async function installBreakpointFixture(
           onboarding: {
             completed: true,
             stage: "completed",
-            language_confirmed: true,
+            language_confirmed: languageChosen,
             primary_goal: null,
           },
         },

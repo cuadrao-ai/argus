@@ -7,18 +7,21 @@ import type { BusinessExpense } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatDay, formatMoney } from "./business-format";
 import { expensePanel } from "./business-expense-target";
-import { cardClass, PanelHeading, secondaryButtonClass, useCategoryLabel, RecordMarks } from "./business-ui";
+import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
+import { cardClass, PanelHeading, useCategoryLabel, RecordMarks, recordFiscalMark } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import BusinessPeriodControl from "./BusinessPeriodControl";
 import OutsidePeriodNote from "./OutsidePeriodNote";
-import { ReceiptPeriodExport } from "./ReceiptDossierReview";
+import BusinessAddMenu from "./BusinessAddMenu";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { EmptyState } from "./foundation/EmptyState";
 
 export default function BusinessExpensesPanel() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
-  const { source, revision, period, setPeriod, records, panel, openPanel, actions, chosen } = useBusiness();
-  const exportEnd = period.to ?? (records.overview?.from === period.from ? records.overview.to : undefined);
+  const { isBelowTablet } = useResponsiveLayout();
+  const { source, revision, period, setPeriod, records, panel, openPanel, actions, reload } = useBusiness();
   const found = panel.kind === "expenses" ? panel.expenseId : undefined;
   const [items, setItems] = useState<BusinessExpense[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -29,6 +32,7 @@ export default function BusinessExpensesPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     source
       .expenses(period.from, period.to)
       .then((next) => !cancelled && setItems(next))
@@ -38,7 +42,7 @@ export default function BusinessExpensesPanel() {
     };
   }, [period.from, period.to, revision, source]);
 
-  const record = actions.create.find((action) => action.id === "record_expense");
+  const record = actions.create.find((action) => action.id === "upload_receipt");
   // Coming back from one expense's panel: focus its row once the list has
   // rendered, so keyboard focus returns where it left. A row outside the
   // period is not in the list; the panel itself takes focus then. Once per
@@ -58,40 +62,29 @@ export default function BusinessExpensesPanel() {
 
   return (
     <section ref={section} tabIndex={-1} className="outline-none">
+      {isBelowTablet ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
       <PanelHeading
         title={t("business.expenses.title", "Expenses")}
         subtitle={t("business.expenses.subtitle", "Saved expenses from {{from}} to {{to}}.", {
           from: formatDay(period.from, locale),
           to: formatDay(period.to ?? records.overview?.to ?? period.from, locale),
         })}
-        action={
-          record ? (
-            <button type="button" className={secondaryButtonClass} onClick={record.run}>
-              {record.label}
-            </button>
-          ) : null
-        }
       />
       <div className="mb-4">
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
         {records.overview ? <OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /> : null}
       </div>
-      {chosen && exportEnd ? <div className="mb-4"><ReceiptPeriodExport
-        key={`${chosen.grant_id}:${period.from}:${exportEnd}`}
-        scope={{ name: chosen.name, capabilities: chosen.capabilities, grantId: chosen.role === "owner" ? null : chosen.grant_id }}
-        start={period.from}
-        end={exportEnd}
-        available={source.mode === "live"}
-      /></div> : null}
       {failed ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
-          {t("business.expenses.error", "We couldn't load your expenses. Try again.")}
-        </p>
+        <EmptyState kind="error" testId="business-expenses-error" title={t("business.empty.expenses_error", "We couldn't load your expenses")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : items === null ? (
-        <Settle pending layout="rows" />
+        <Settle pending layout="expenses" />
       ) : items.length === 0 ? (
-        <div className={`${cardClass} text-center text-[14px] text-black/55 dark:text-white/55`}>
-          {t("business.expenses.empty", "No expenses saved in this period.")}
+        <div className={cardClass} data-testid="business-expenses-empty">
+          {period.key === "this_month" || period.key === "all" ? (
+            <EmptyState kind="first_run" mark="receipt" compact title={t("business.empty.expenses_title", "Your approved expenses show here")} body={t("business.empty.expenses_body", "Every receipt you approve in the Inbox becomes an expense for its month.")} action={record ? { label: record.label, run: record.run } : undefined} />
+          ) : (
+            <EmptyState kind="filtered" compact title={t("business.empty.expenses_filtered_title", "No expenses in this period")} body={t("business.empty.expenses_filtered_body", "There may be expenses in other months.")} action={{ label: t("business.empty.see_all_periods", "See all periods"), run: () => setPeriod("all") }} />
+          )}
         </div>
       ) : (
         <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`}>
@@ -107,24 +100,26 @@ export default function BusinessExpensesPanel() {
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <RecordMarks personal={expense.personal} fiscalValue={expense.fiscal_value} known={expense.fiscal_known === true} markedBy={expense.personal_marked_by} className="mt-1" />
+                  <RecordMarks personal={expense.personal} fiscal={recordFiscalMark(expense)} markedBy={expense.personal_marked_by} className="mt-1" />
                 </span>
-                <span className="text-right text-[15px] font-medium tabular-nums text-black dark:text-white">
+                <span className="cuadrao-amount text-right text-[15px] font-medium tabular-nums text-black dark:text-white">
                   {formatMoney(expense.amount, expense.currency, locale)}
                 </span>
               </>
             );
+            const target = expensePanel(expense);
+            const current = expense.id === found || isOpenRecord(panel, target);
             return (
               <li
                 key={expense.id}
                 data-expense-id={expense.id}
-                aria-current={expense.id === found ? "true" : undefined}
-                ref={expense.id === found ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
-                className="rounded-[14px] px-3 py-1 aria-[current=true]:bg-black/[0.04] dark:aria-[current=true]:bg-white/[0.06]"
+                aria-current={current ? "true" : undefined}
+                ref={current ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
+                className={`rounded-[14px] px-3 py-1 ${OPEN_ROW_CLASS}`}
               >
                 <button
                   type="button"
-                  onClick={() => openPanel(expensePanel(expense))}
+                  onClick={() => openPanel(target)}
                   className="flex min-h-11 w-full items-center gap-3 rounded-[12px] py-2 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
                 >
                   {facts}

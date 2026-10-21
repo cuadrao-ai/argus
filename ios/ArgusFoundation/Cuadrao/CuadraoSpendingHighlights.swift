@@ -21,10 +21,10 @@ struct CuadraoSpendingHighlights: View {
         if !insights.isEmpty || story.changedCategory != nil {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text(spanish ? "Lo que destaca" : "Highlights").font(CuadraoTypography.section)
+                    Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.2bffd6a112", spanish: spanish)).font(CuadraoTypography.section)
                     Spacer()
                     if hasMore(insights, featured: featured) {
-                        NavigationLink(spanish ? "Ver todos" : "See all") { allHighlights(insights) }
+                        NavigationLink(CuadraoCopy.text("copy.cuadraoSpendingHighlights.e37e717885", spanish: spanish)) { allHighlights(insights) }
                             .font(CuadraoTypography.supporting).frame(minHeight: 44)
                             .accessibilityIdentifier("home-highlights-all")
                     }
@@ -39,21 +39,21 @@ struct CuadraoSpendingHighlights: View {
     private func allHighlights(_ insights: [CanvasSpendingInsight]) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 20) {
-                Text(spanish ? "Promedios" : "Averages").font(CuadraoTypography.feature)
+                Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.e21847e80d", spanish: spanish)).font(CuadraoTypography.feature)
                 ForEach(insights.filter { $0.category == nil }) { insight in
                     CuadraoSpendingTrendCard(insight: insight, story: story, currency: currency, spanish: spanish)
                 }
-                Text(spanish ? "Categorías" : "Categories").font(CuadraoTypography.feature)
+                Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.c530befaf7", spanish: spanish)).font(CuadraoTypography.feature)
                 if let category = story.changedCategory { comparisonCard(category) }
                 ForEach(insights.filter { $0.category != nil }) { insight in
                     CuadraoSpendingTrendCard(insight: insight, story: story, currency: currency, spanish: spanish)
                 }
                 if let expense = story.largestExpense {
-                    Text(spanish ? "Movimientos destacados" : "Notable activity").font(CuadraoTypography.feature)
+                    Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.a16f5c284d", spanish: spanish)).font(CuadraoTypography.feature)
                     largestCard(expense)
                 }
             }.padding(24)
-        }.background(WelcomePalette.background).navigationTitle(spanish ? "Lo que destaca" : "Highlights")
+        }.background(WelcomePalette.background).navigationTitle(CuadraoCopy.text("copy.cuadraoSpendingHighlights.2bffd6a112", spanish: spanish))
             .navigationBarTitleDisplayMode(.inline).accessibilityIdentifier("home-all-highlights")
     }
     private func money(_ amount: Decimal) -> String { currency + " " + CanvasMoney.format(amount, currency: currency) }
@@ -70,16 +70,14 @@ struct CuadraoSpendingHighlights: View {
         let previous = story.total(for: category, previous: true)
         let difference = current - previous
         let reference = story.offset == 0
-            ? (spanish ? "al mismo punto del período anterior" : "at this point in the previous period")
-            : (spanish ? "en el período anterior" : "in the previous period")
+            ? (CuadraoCopy.text("copy.cuadraoSpendingChart.8aef524835", spanish: spanish))
+            : (CuadraoCopy.text("copy.cuadraoSpendingChart.75aecad63d", spanish: spanish))
         return NavigationLink {
             CuadraoSpendingEvidence(story: story, category: category, expenseID: nil, currency: currency, spanish: spanish)
         } label: {
             VStack(alignment: .leading, spacing: 16) {
                 header(category, title: category.title(spanish))
-                Text(spanish
-                    ? "\(money(abs(difference))) \(difference > 0 ? "más" : "menos") en \(category.title(true).lowercased()) que \(reference)."
-                    : "\(money(abs(difference))) \(difference > 0 ? "more" : "less") on \(category.title(false).lowercased()) than \(reference).")
+                Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.a53c8aaf01", spanish: spanish, String(describing: money(abs(difference))), String(describing: ((difference > 0 ? CuadraoCopy.text("copy.cuadraoSpendingHighlights.14178c1062", spanish: spanish) : CuadraoCopy.text("copy.cuadraoSpendingHighlights.d08611ffa1", spanish: spanish)))), String(describing: (spanish ? (category.title(true).lowercased()) : (category.title(false).lowercased()))), String(describing: reference)))
                     .font(CuadraoTypography.body).fixedSize(horizontal: false, vertical: true)
                 comparisonBar(current, ceiling: max(current, previous), title: story.periodText(story.observedInterval, spanish: spanish), color: category.color)
                 if let interval = story.comparison {
@@ -104,14 +102,12 @@ struct CuadraoSpendingHighlights: View {
             CuadraoSpendingEvidence(story: story, category: expense.category, expenseID: expense.id, currency: currency, spanish: spanish)
         } label: {
             VStack(alignment: .leading, spacing: 16) {
-                header(expense.category, title: spanish ? "Tu mayor gasto" : "Your largest expense")
+                header(expense.category, title: CuadraoCopy.text("copy.cuadraoSpendingHighlights.f373f4f30a", spanish: spanish))
                 VStack(alignment: .leading, spacing: 6) {
                     Text(expense.title).font(CuadraoTypography.body)
                     Text(money(expense.amount)).font(CuadraoTypography.secondaryAmount).fixedSize(horizontal: false, vertical: true)
                 }
-                Text(spanish
-                    ? "Representa el \(share(expense.amount)) de tus gastos registrados en este período."
-                    : "It accounts for \(share(expense.amount)) of your recorded spending this period.")
+                Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.1fcbbd1412", spanish: spanish, String(describing: share(expense.amount))))
                     .font(CuadraoTypography.supporting).fixedSize(horizontal: false, vertical: true)
                 GeometryReader { geometry in
                     Capsule().fill(WelcomePalette.ink.opacity(0.08))
@@ -126,7 +122,7 @@ struct CuadraoSpendingHighlights: View {
         total > 0 ? min(1, max(0, NSDecimalNumber(decimal: amount / total).doubleValue)) : 0
     }
     private func share(_ amount: Decimal) -> String {
-        fraction(amount, of: story.total).formatted(.percent.precision(.fractionLength(0)).locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+        fraction(amount, of: story.total).formatted(.percent.precision(.fractionLength(0)).locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
     }
 }
 
@@ -153,13 +149,13 @@ private struct CuadraoSpendingEvidence: View {
         return VStack(alignment: .leading, spacing: 16) {
             Text(story.periodText(interval, spanish: spanish)).font(CuadraoTypography.feature)
             if matching.isEmpty {
-                Text(spanish ? "Sin gastos registrados." : "No expenses recorded.").font(CuadraoTypography.supporting).foregroundStyle(.secondary)
+                Text(CuadraoCopy.text("copy.cuadraoSpendingHighlights.ae1f889e38", spanish: spanish)).font(CuadraoTypography.supporting).foregroundStyle(.secondary)
             }
             ForEach(matching) { entry in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(entry.title).font(CuadraoTypography.body)
                     Text(currency + " " + CanvasMoney.format(entry.amount, currency: currency)).font(CuadraoTypography.rowAmount)
-                    Text(entry.date, format: .dateTime.day().month(.abbreviated).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+                    Text(entry.date, format: .dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
             }

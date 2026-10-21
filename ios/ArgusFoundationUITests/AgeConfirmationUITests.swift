@@ -1,93 +1,70 @@
 import XCTest
 
 final class AgeConfirmationUITests: XCTestCase {
-    private var app: XCUIApplication!
-    private var suite: String!
+    override func setUp() { continueAfterFailure = false }
 
-    override func setUp() {
-        continueAfterFailure = false
-        app = XCUIApplication()
-        suite = "local.cuadrao.age-ui.\(UUID().uuidString)"
-    }
-
-    private func launch(_ response: String, reset: Bool = true) {
-        app.launchArguments = ["--age-confirmation-harness", "--age-response=\(response)",
-                               "-ageHarnessSuite", suite, "-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"]
-            + (reset ? ["--age-reset"] : [])
+    private func assertSignupAvailable(_ response: String) {
+        let app = XCUIApplication()
+        app.launchArguments = ["--age-confirmation-harness", "--age-legal-entry", "--age-response=\(response)",
+                               "--cuadrao-guest-reset", "-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO"]
         app.launch()
-    }
-
-    private func confirm() {
-        let checkbox = app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch
-        XCTAssertTrue(checkbox.waitForExistence(timeout: 8))
-        XCTAssertEqual(checkbox.label, "Confirmo que tengo 18 años o más.")
-        XCTAssertFalse(app.buttons["age.confirmation.continue"].isEnabled)
-        checkbox.tap()
-        app.buttons["age.confirmation.continue"].tap()
-    }
-
-    private func snapshot(_ name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-    }
-
-    func testOlderSystemRequiresCheckboxAndRetainsTimestampThroughConversionAndRelaunch() {
-        launch("older")
-        confirm()
-        XCTAssertTrue(app.staticTexts["age.harness.allowed"].waitForExistence(timeout: 5))
-        let timestamp = app.staticTexts["age.harness.timestamp"].label
-        XCTAssertNotEqual(timestamp, "missing")
-        app.buttons["age.harness.conversion"].tap()
-        XCTAssertTrue(app.staticTexts["age.harness.allowed"].waitForExistence(timeout: 5))
+        let signup = app.buttons["cuadrao.welcome.signup"]
+        XCTAssertTrue(signup.waitForExistence(timeout: 8))
+        signup.tap()
+        let emailChoice = app.buttons["cuadrao.signup.email"]
+        XCTAssertTrue(emailChoice.waitForExistence(timeout: 5))
+        emailChoice.tap()
+        let email = app.textFields["auth.email"]
+        XCTAssertTrue(email.waitForExistence(timeout: 5))
+        email.tap()
+        email.typeText("synthetic@example.test")
+        let password = app.secureTextFields["auth.password"]
+        password.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: 22, dy: 0)).tap()
+        let visiblePassword = app.textFields["auth.password"]
+        visiblePassword.tap()
+        visiblePassword.typeText("synthetic-password")
+        XCTAssertEqual(email.value as? String, "synthetic@example.test")
+        XCTAssertEqual(visiblePassword.value as? String, "synthetic-password")
+        visiblePassword.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: 22, dy: 0)).tap()
+        let submit = app.buttons["auth.submit"]
+        XCTAssertTrue(submit.isEnabled)
         XCTAssertFalse(app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch.exists)
-        XCTAssertEqual(app.staticTexts["age.harness.timestamp"].label, timestamp)
+        XCTAssertFalse(app.staticTexts["age.confirmation.refused"].exists)
+        submit.tap()
+        XCTAssertTrue(app.staticTexts["No pudimos conectar."].waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Signup available with \(response) age signal"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         app.terminate()
-        launch("older", reset: false)
-        XCTAssertTrue(app.staticTexts["age.harness.allowed"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch.exists)
-        XCTAssertEqual(app.staticTexts["age.harness.timestamp"].label, timestamp)
-        snapshot("Retained confirmation after relaunch")
     }
 
-    func testUnder18HasApprovedRefusalAndTermsWithoutRetry() {
-        launch("under18")
-        confirm()
-        XCTAssertTrue(app.staticTexts["age.confirmation.refused"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["age.confirmation.refused"].label,
-            "Cuadrao es para personas de 18 años o más, así que por ahora no puedes usar la app.")
-        XCTAssertFalse(app.buttons["age.confirmation.continue"].exists)
-        XCTAssertFalse(app.staticTexts["age.harness.allowed"].exists)
-        XCTAssertTrue(app.links["age.confirmation.terms"].exists || app.buttons["age.confirmation.terms"].exists)
-        snapshot("Under 18 refusal")
+    func testGuestUnder18EntryAndRelaunchDoNotNeedAnAttestation() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--age-confirmation-harness", "--age-legal-entry", "--age-response=under18",
+                               "--cuadrao-guest-book", "--cuadrao-guest-reset", "--cuadrao-guest-notices-seen"]
+        app.launch()
+        XCTAssertTrue(app.buttons["cuadrao.welcome.guest"].waitForExistence(timeout: 8))
+        app.buttons["cuadrao.welcome.guest"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.home.empty"].firstMatch.waitForExistence(timeout: 8))
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--cuadrao-guest-reset" }
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.home.empty"].firstMatch.waitForExistence(timeout: 8))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Guest entry after under18 signal and relaunch"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.terminate()
     }
 
-    func testRequiredSharingDeclineUsesApprovedRecovery() {
-        launch("declined")
-        confirm()
-        XCTAssertTrue(app.staticTexts["age.confirmation.error"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["age.confirmation.error"].label, "Para continuar, comparte tu rango de edad con Cuadrao.")
-        XCTAssertEqual(app.buttons["age.confirmation.continue"].label, "Compartir rango de edad")
-        XCTAssertFalse(app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch.exists)
-        XCTAssertFalse(app.staticTexts["age.harness.allowed"].exists)
-        snapshot("Required sharing declined")
-    }
-
-    func testRequiredSharingErrorUsesApprovedRetry() {
-        launch("required-error")
-        confirm()
-        XCTAssertTrue(app.staticTexts["age.confirmation.error"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["age.confirmation.error"].label, "No pudimos confirmar tu rango de edad. Inténtalo de nuevo.")
-        XCTAssertEqual(app.buttons["age.confirmation.continue"].label, "Intentar de nuevo")
-        XCTAssertFalse(app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch.exists)
-        XCTAssertFalse(app.staticTexts["age.harness.allowed"].exists)
-        snapshot("Required sharing failed")
-    }
-
-    func testOptionalSharingErrorAllowsExplicitAttestation() {
-        launch("optional-error")
-        confirm()
-        XCTAssertTrue(app.staticTexts["age.harness.allowed"].waitForExistence(timeout: 5))
-    }
+    func testAdultSignalAllowsSignup() { assertSignupAvailable("adult") }
+    func testUnder18SignalAllowsSignup() { assertSignupAvailable("under18") }
+    func testUnknownSignalAllowsSignup() { assertSignupAvailable("unknown") }
+    func testDeclinedSharingAllowsSignup() { assertSignupAvailable("declined") }
+    func testUnsupportedSystemAllowsSignup() { assertSignupAvailable("older") }
+    func testRequiredSharingFailureAllowsSignup() { assertSignupAvailable("required-error") }
+    func testOptionalSharingFailureAllowsSignup() { assertSignupAvailable("optional-error") }
+    func testCancelledRequestAllowsSignup() { assertSignupAvailable("cancelled") }
+    func testPendingRequestDoesNotHoldSignup() { assertSignupAvailable("pending") }
 }

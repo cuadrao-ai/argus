@@ -5,12 +5,11 @@ import SwiftUI
 struct GuestWelcomeAction: View {
     let spanish: Bool
     @Environment(\.cuadraoGuestWelcome) private var welcome
-    @State private var confirmingAge = false
 
     var body: some View {
         if let welcome, case .full(true) = welcome.shape {
-            Button { confirmingAge = true } label: {
-                Text(spanish ? "Probar sin cuenta" : "Try without an account")
+            Button { welcome.open() } label: {
+                Text(CuadraoCopy.text("copy.guestWelcomeAction.b5d1e831c5", spanish: spanish))
                     .font(.system(.body, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(WelcomePalette.pine)
@@ -19,11 +18,6 @@ struct GuestWelcomeAction: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("cuadrao.welcome.guest")
-            .sheet(isPresented: $confirmingAge) {
-                AgeConfirmationGate {
-                    Color.clear.onAppear { confirmingAge = false; welcome.open() }
-                }
-            }
         }
     }
 }
@@ -32,13 +26,12 @@ struct GuestWelcomeAction: View {
 struct GuestOpenLine: View {
     let spanish: Bool
     let open: () -> Void
-    @State private var confirmingAge = false
 
     var body: some View {
-        Button { confirmingAge = true } label: {
-            (Text(spanish ? "Tienes datos de invitado en este iPhone · " : "You have guest data on this iPhone · ")
+        Button(action: open) {
+            (Text(CuadraoCopy.text("copy.guestWelcomeAction.56622585c5", spanish: spanish))
                 .foregroundColor(.secondary)
-             + Text(spanish ? "Abrir" : "Open").foregroundColor(WelcomePalette.pine).bold())
+             + Text(CuadraoCopy.text("copy.guestWelcomeAction.fcb3911249", spanish: spanish)).foregroundColor(WelcomePalette.pine).bold())
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -47,10 +40,5 @@ struct GuestOpenLine: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 28).padding(.bottom, 8)
         .accessibilityIdentifier("cuadrao.login.guestLine")
-        .sheet(isPresented: $confirmingAge) {
-            AgeConfirmationGate {
-                Color.clear.onAppear { confirmingAge = false; open() }
-            }
-        }
     }
 }

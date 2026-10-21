@@ -48,7 +48,9 @@ def test_the_routes_are_absent_until_the_pilot_is_on(client: TestClient) -> None
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_import_confirm_and_sin_comprobante(bank_client: TestClient, identities) -> None:  # noqa: ANN001
+def test_import_offers_and_igualar_needs_the_durable_store(
+    bank_client: TestClient, identities
+) -> None:  # noqa: ANN001
     owner = started(Owner(bank_client, ALICE, identities[ALICE]["id"]))
     account_id = owner.account()
     service = bank_matching_service()
@@ -75,7 +77,10 @@ def test_import_confirm_and_sin_comprobante(bank_client: TestClient, identities)
     body = created.json()
     assert body["reader_id"] == "banco_popular"
     assert body["inserted_count"] == 2
-    assert {line["state"] for line in body["lines"]} == {"sin_comprobante"}
+    assert [line["state"] for line in body["lines"]] == [
+        "sugerencia",
+        "falta_comprobante",
+    ]
     suggestion = body["suggestions"][0]
     assert suggestion["status"] == "pending"
     assert suggestion["actionable"] is True
@@ -83,16 +88,20 @@ def test_import_confirm_and_sin_comprobante(bank_client: TestClient, identities)
         f"{BASE}/suggestions/{suggestion['id']}/confirm",
         headers={**owner.auth, "Idempotency-Key": "yes-1"},
     )
-    assert confirmed.status_code == 200, confirmed.text
-    assert confirmed.json()["status"] == "confirmed"
+    # Igualar writes the settlement, which only the durable store keeps.
+    assert confirmed.status_code == 404, confirmed.text
+    assert confirmed.json()["code"] == "business_unavailable"
     unmatched = owner.client.get(
         f"{BASE}/unmatched",
         params={"period_start": "2026-10-01", "period_end": "2026-10-17"},
         headers=owner.auth,
     )
     assert unmatched.status_code == 200, unmatched.text
-    assert unmatched.json()["count"] == 1
-    assert unmatched.json()["lines"][0]["amount"].startswith("-250")
+    assert unmatched.json()["count"] == 2
+    assert [line["state"] for line in unmatched.json()["lines"]] == [
+        "sugerencia",
+        "falta_comprobante",
+    ]
     replay = bank_client.post(
         f"{BASE}/imports",
         files={"statement": ("statement.csv", STATEMENT, "text/csv")},

@@ -2,22 +2,22 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "@/lib/brows
 import * as api from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "@/lib/business-email";
 import { getChosenGrant } from "@/lib/business-grant";
+import * as searchApi from "@/lib/business-search-api";
+import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import { getFiscalProfile, setFiscalProfile, type FiscalProfile, type FiscalProfileInput } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
   BusinessCapture,
   BusinessCaptureInput,
+  BusinessConsent,
   BusinessExpense,
   BusinessExpenseDetail,
   BusinessOverview,
-  BusinessSearchResult,
   BusinessSpace,
-  BusinessUpdate,
   BusinessWorkspaceInfo,
-  ExpenseInput,
-  NewBusinessAccount,
   ReceiptDetail,
   ReceiptReviewFields,
   ReceiptSummary,
@@ -31,6 +31,9 @@ import type {
 export type BusinessDataSource = Readonly<{
   mode: "live" | "fixture";
   ensureSpace: (language: ArgusLanguage) => Promise<BusinessSpace>;
+  /** The person's acceptance of one wording of the consent screen. */
+  consent: (version: string) => Promise<BusinessConsent>;
+  acceptConsent: (version: string) => Promise<BusinessConsent>;
   /** Every Business the person may enter through a live grant, their own first. */
   spaces: () => Promise<GrantedSpace[]>;
   /** The person dismissed the one-time access line for one of their grants. */
@@ -46,6 +49,7 @@ export type BusinessDataSource = Readonly<{
   receipt: (id: string, signal?: AbortSignal) => Promise<ReceiptDetail>;
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
+  setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
   approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner marks the receipt as personal or takes the mark back. */
@@ -53,13 +57,21 @@ export type BusinessDataSource = Readonly<{
   /** The accountant answers whether a personal receipt with a fiscal number goes into the 606. */
   decideFiscalInclusion: (id: string, version: number, include: boolean, key: string) => Promise<BusinessDossier>;
   receiptSource: (id: string) => Promise<Blob>;
-  updates: () => Promise<BusinessUpdate[]>;
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
   expense: (id: string) => Promise<BusinessExpenseDetail>;
   search: (query: string) => Promise<BusinessSearchResult>;
+  /** The next page of one list, by the cursor the last answer gave for it. */
+  searchMore?: (query: string, kind: BusinessSearchKind, cursor: string) => Promise<BusinessSearchResult>;
+  /** What this person searched lately; a backend without them answers 404 and the browser keeps its own. */
+  searchRecents?: () => Promise<BusinessSearchRecent[]>;
+  addSearchRecent?: (query: string) => Promise<void>;
+  removeSearchRecent?: (id: string) => Promise<void>;
+  clearSearchRecents?: () => Promise<void>;
+  /** A result was opened, so it ranks first next time. Best effort. */
+  recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
   captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapture[]>;
-  uploadReceipt: (file: File, consentToPrepare: boolean, key: string) => Promise<ReceiptSummary>;
+  uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;
   saveReview: (
@@ -68,9 +80,10 @@ export type BusinessDataSource = Readonly<{
     fields: Partial<ReceiptReviewFields>,
   ) => Promise<ReceiptDetail>;
   confirmReceipt: (id: string, version: number, key: string) => Promise<ReceiptDetail>;
-  recordExpense: (input: ExpenseInput, key: string) => Promise<BusinessExpense>;
-  createAccount: (input: NewBusinessAccount, key: string) => Promise<BusinessAccount>;
   emailIntake: () => Promise<BusinessEmailIntake>;
+  /** The business's name and tax id as the 606, 607 and exports print them. */
+  fiscalProfile: (draftId?: string) => Promise<FiscalProfile>;
+  saveFiscalProfile: (input: FiscalProfileInput, key: string) => Promise<FiscalProfile>;
   createEmailAddress: () => Promise<BusinessEmailIntake>;
   emailDeliveries: () => Promise<BusinessEmailDelivery[]>;
   emailDelivery: (id: string) => Promise<BusinessEmailDetail>;
@@ -85,6 +98,8 @@ export type BusinessDataSource = Readonly<{
 export const liveBusinessDataSource: BusinessDataSource = {
   mode: "live",
   ensureSpace: api.startBusinessSpace,
+  consent: api.getBusinessConsent,
+  acceptConsent: api.acceptBusinessConsent,
   workspace: api.getBusinessWorkspace,
   receiptActivity: api.getReceiptActivity,
   receiptPage: api.getBusinessReceiptPage,
@@ -96,15 +111,21 @@ export const liveBusinessDataSource: BusinessDataSource = {
   receipt: api.getBusinessReceipt,
   dossier: api.getBusinessDossier,
   reviewDraft: api.reviewBusinessDraft,
+  setDocumentType: api.setBusinessDraftDocumentType,
   approveDraft: api.approveBusinessDraft,
   settleRemainder: api.settleBusinessRemainder,
   markPersonal: api.markBusinessPersonal,
   decideFiscalInclusion: api.decideBusinessFiscalInclusion,
   receiptSource: api.fetchBusinessReceiptSource,
-  updates: api.listBusinessUpdates,
   expenses: api.listBusinessExpenses,
   expense: api.getBusinessExpense,
-  search: (query) => api.searchBusiness(query),
+  search: (query) => searchApi.searchBusiness(query),
+  searchMore: (query, kind, cursor) => searchApi.searchBusinessMore(query, kind, cursor),
+  searchRecents: searchApi.listBusinessSearchRecents,
+  addSearchRecent: searchApi.addBusinessSearchRecent,
+  removeSearchRecent: searchApi.removeBusinessSearchRecent,
+  clearSearchRecents: searchApi.clearBusinessSearchRecents,
+  recordSearchOpen: searchApi.recordBusinessSearchOpen,
   captureNote: api.captureBusinessNote,
   captures: api.listBusinessCaptures,
   uploadReceipt: api.uploadBusinessReceipt,
@@ -112,9 +133,9 @@ export const liveBusinessDataSource: BusinessDataSource = {
   rebindReceipt: api.rebindBusinessReceipt,
   saveReview: api.saveBusinessReceiptReview,
   confirmReceipt: api.confirmBusinessReceipt,
-  recordExpense: api.recordBusinessExpense,
-  createAccount: api.createBusinessAccount,
   emailIntake: api.getBusinessEmailIntake,
+  fiscalProfile: getFiscalProfile,
+  saveFiscalProfile: setFiscalProfile,
   createEmailAddress: api.createBusinessEmailAddress,
   emailDeliveries: api.listBusinessEmailDeliveries,
   emailDelivery: api.getBusinessEmailDelivery,
@@ -167,6 +188,8 @@ export function withBusinessSpace(
   return {
     mode: source.mode,
     ensureSpace: ready,
+    consent: source.consent,
+    acceptConsent: source.acceptConsent,
     workspace: after(source.workspace),
     receiptActivity: source.receiptActivity ? after(source.receiptActivity) : undefined,
     receiptPage: source.receiptPage ? after(source.receiptPage) : undefined,
@@ -179,14 +202,20 @@ export function withBusinessSpace(
     expense: source.expense,
     dossier: source.dossier,
     reviewDraft: source.reviewDraft,
+    setDocumentType: source.setDocumentType,
     approveDraft: source.approveDraft,
     settleRemainder: source.settleRemainder,
     markPersonal: source.markPersonal,
     decideFiscalInclusion: source.decideFiscalInclusion,
     receiptSource: source.receiptSource,
-    updates: after(source.updates),
     expenses: after(source.expenses),
     search: after(source.search),
+    searchMore: source.searchMore ? after(source.searchMore) : undefined,
+    searchRecents: source.searchRecents ? after(source.searchRecents) : undefined,
+    addSearchRecent: source.addSearchRecent ? after(source.addSearchRecent) : undefined,
+    removeSearchRecent: source.removeSearchRecent ? after(source.removeSearchRecent) : undefined,
+    clearSearchRecents: source.clearSearchRecents ? after(source.clearSearchRecents) : undefined,
+    recordSearchOpen: source.recordSearchOpen ? after(source.recordSearchOpen) : undefined,
     captureNote: source.captureNote,
     captures: source.captures,
     uploadReceipt: after(source.uploadReceipt),
@@ -194,9 +223,9 @@ export function withBusinessSpace(
     rebindReceipt: source.rebindReceipt,
     saveReview: source.saveReview,
     confirmReceipt: source.confirmReceipt,
-    recordExpense: after(source.recordExpense),
-    createAccount: after(source.createAccount),
     emailIntake: after(source.emailIntake),
+    fiscalProfile: after(source.fiscalProfile),
+    saveFiscalProfile: source.saveFiscalProfile,
     createEmailAddress: after(source.createEmailAddress),
     emailDeliveries: after(source.emailDeliveries),
     emailDelivery: source.emailDelivery,

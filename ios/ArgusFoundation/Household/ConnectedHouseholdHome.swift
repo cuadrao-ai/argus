@@ -19,7 +19,7 @@ struct ConnectedHouseholdHome: View {
         self.showUpdates = showUpdates; plan = model.plan
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var hasContent: Bool {
         model.snapshot?.accounts.isEmpty == false || !plan.plans.isEmpty
     }

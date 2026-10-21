@@ -26,43 +26,43 @@ struct CanvasAvatarCropSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    Text(spanish ? "Mueve y amplía la foto" : "Move and zoom your photo")
+                    Text(CuadraoCopy.text("copy.cuadraoAvatarCrop.401cd89c51", spanish: spanish))
                         .font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     CanvasAvatarCropViewport(source: source, crop: $crop)
                         .aspectRatio(1, contentMode: .fit).clipShape(Circle())
                         .overlay { Circle().stroke(.white.opacity(0.8), lineWidth: 2).allowsHitTesting(false) }
-                        .accessibilityLabel(spanish ? "Encuadre de la foto" : "Photo crop")
+                        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAvatarCrop.fcb2cc1ddb", spanish: spanish))
                         .accessibilityValue(String(format: "%.2fx, %.0f, %.0f", zoom, crop.midX, crop.midY))
                         .accessibilityIdentifier("cuadrao.profile.crop.viewport")
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(spanish ? "Ampliación" : "Zoom").font(.subheadline)
+                        Text(CuadraoCopy.text("copy.cuadraoAvatarCrop.42ea40d97b", spanish: spanish)).font(.subheadline)
                         Slider(value: Binding(get: { zoom }, set: { value in
                             let side = CGFloat(min(source.width, source.height)) / value
                             crop = source.geometry.clamped(CGRect(x: crop.midX - side / 2, y: crop.midY - side / 2, width: side, height: side))
                         }), in: 1...4)
-                        .accessibilityLabel(spanish ? "Ampliación" : "Zoom")
+                        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAvatarCrop.42ea40d97b", spanish: spanish))
                         .accessibilityValue(String(format: "%.1fx", zoom))
                         .accessibilityIdentifier("cuadrao.profile.crop.zoom")
                         HStack {
-                            move("left", symbol: "arrow.left", title: spanish ? "Mover a la izquierda" : "Move left", dx: -1, dy: 0)
-                            move("right", symbol: "arrow.right", title: spanish ? "Mover a la derecha" : "Move right", dx: 1, dy: 0)
-                            move("up", symbol: "arrow.up", title: spanish ? "Mover arriba" : "Move up", dx: 0, dy: -1)
-                            move("down", symbol: "arrow.down", title: spanish ? "Mover abajo" : "Move down", dx: 0, dy: 1)
+                            move("left", symbol: "arrow.left", title: CuadraoCopy.text("copy.cuadraoAvatarCrop.0d43330466", spanish: spanish), dx: -1, dy: 0)
+                            move("right", symbol: "arrow.right", title: CuadraoCopy.text("copy.cuadraoAvatarCrop.d7f64fac81", spanish: spanish), dx: 1, dy: 0)
+                            move("up", symbol: "arrow.up", title: CuadraoCopy.text("copy.cuadraoAvatarCrop.117365a0d7", spanish: spanish), dx: 0, dy: -1)
+                            move("down", symbol: "arrow.down", title: CuadraoCopy.text("copy.cuadraoAvatarCrop.e45af00213", spanish: spanish), dx: 0, dy: 1)
                         }.frame(maxWidth: .infinity)
-                        Button(spanish ? "Restablecer" : "Reset") { crop = source.geometry.centered }
+                        Button(CuadraoCopy.text("copy.cuadraoAvatarCrop.1d9b1a1b20", spanish: spanish)) { crop = source.geometry.centered }
                             .frame(maxWidth: .infinity, minHeight: 44).accessibilityIdentifier("cuadrao.profile.crop.reset")
                     }
                     if failed {
-                        Text(spanish ? "No pudimos preparar la foto. Inténtalo de nuevo." : "We couldn’t prepare the photo. Try again.")
+                        Text(CuadraoCopy.text("copy.cuadraoAvatarCrop.4243ed7ebc", spanish: spanish))
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity)
                     .disabled(rendering)
             }.background(Color(uiColor: .systemBackground))
-                .navigationTitle(spanish ? "Ajustar foto" : "Adjust photo").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(CuadraoCopy.text("copy.cuadraoAvatarCrop.374f4f20b7", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "cuadrao.profile.crop.cancel") { dismiss() }
-                    CuadraoConfirmToolbar(title: spanish ? "Usar foto" : "Use photo", disabled: rendering,
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), identifier: "cuadrao.profile.crop.cancel") { dismiss() }
+                    CuadraoConfirmToolbar(title: CuadraoCopy.text("copy.cuadraoAvatarCrop.bcc2f5036b", spanish: spanish), disabled: rendering,
                                           identifier: "cuadrao.profile.crop.use") { accept() }
                 }
         }.tint(WelcomePalette.pine)

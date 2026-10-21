@@ -11,9 +11,9 @@ struct CuadraoGroupCollection: View {
         VStack(alignment: .leading, spacing: 22) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(spanish ? "Los buenos planes se comparten." : "Good plans bring us together.")
+                    Text(CuadraoCopy.text("copy.cuadraoGroupCollection.3ab3b02437", spanish: spanish))
                         .font(CuadraoTypography.section)
-                    Text(spanish ? "Cada quien con su parte. Todos en el mismo plan." : "Your own share. One shared plan.")
+                    Text(CuadraoCopy.text("copy.cuadraoGroupCollection.b5cd9f7d82", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
             }
@@ -34,7 +34,7 @@ struct CuadraoGroupCollection: View {
                             }.font(.caption).foregroundStyle(group.look.color)
                             if group.kind == .saving {
                                 ProgressView(value: group.progress).tint(group.look.color)
-                                Text(spanish ? "\(Int(group.progress * 100))% reunido entre ustedes" : "\(Int(group.progress * 100))% saved together").font(.caption).foregroundStyle(.secondary)
+                                Text(CuadraoCopy.text("copy.cuadraoGroupCollection.56832f422b", spanish: spanish, String(describing: Int(group.progress * 100)))).font(.caption).foregroundStyle(.secondary)
                             } else {
                                 ViewThatFits(in: .horizontal) {
                                     HStack(spacing: 6) { shareLabel; shareAmount(group) }
@@ -45,18 +45,18 @@ struct CuadraoGroupCollection: View {
                     }.background(group.look.color.opacity(0.055), in: RoundedRectangle(cornerRadius: 28)).clipShape(RoundedRectangle(cornerRadius: 28))
             }
             if store.groups.allSatisfy(\.archived) {
-                PlanPrimaryButton(title: spanish ? "Armar un plan juntos" : "Make a plan together", symbol: "plus", action: create)
+                PlanPrimaryButton(title: CuadraoCopy.text("copy.cuadraoGroupCollection.f62cbfb5b0", spanish: spanish), symbol: "plus", action: create)
                     .accessibilityIdentifier("group-create")
             }
             NavigationLink {
                 CuadraoArchivedGroups(store: store, spanish: spanish)
             } label: {
-                Label(spanish ? "Archivados" : "Archived", systemImage: "archivebox")
+                Label(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish), systemImage: "archivebox")
                     .font(CuadraoTypography.supporting).foregroundStyle(.secondary).frame(minHeight: 44)
             }.accessibilityIdentifier("group-archives")
         }.sheet(item: $editing) { CuadraoGroupEditor(store: store, spanish: spanish, initial: $0) }
     }
-    private var shareLabel: some View { Text(spanish ? "Tu parte:" : "Your share:").font(CuadraoTypography.supporting) }
+    private var shareLabel: some View { Text(CuadraoCopy.text("copy.cuadraoGroupCollection.02522520f4", spanish: spanish)).font(CuadraoTypography.supporting) }
     private func shareAmount(_ group: PlanGroup) -> some View {
         Text(PlanFormat.amount(Double(group.share(group.me)) / 100, currency: group.currency)).font(CuadraoTypography.rowAmount)
     }
@@ -68,15 +68,15 @@ private struct CuadraoArchivedGroups: View {
     var body: some View {
         List {
             if store.groups.filter(\.archived).isEmpty {
-                ContentUnavailableView(spanish ? "Nada archivado" : "Nothing archived", systemImage: "archivebox")
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoGroupCollection.e07523e83a", spanish: spanish), systemImage: "archivebox")
             }
             ForEach(store.groups.filter(\.archived)) { group in
                 HStack {
                     Text(group.name); Spacer()
-                    Button(spanish ? "Retomar" : "Restore") { store.archive(group.id, false) }.buttonStyle(.bordered)
+                    Button(CuadraoCopy.text("copy.cuadraoGroupCollection.1ae3bf9797", spanish: spanish)) { store.archive(group.id, false) }.buttonStyle(.bordered)
                 }
             }
-        }.navigationTitle(spanish ? "Archivados" : "Archived").navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
     }
 }

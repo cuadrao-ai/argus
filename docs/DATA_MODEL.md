@@ -170,7 +170,19 @@ capture; a durable delivery queue; one row per attachment part.
 business_email_routes
 business_email_deliveries
 business_email_parts
+business_email_retired_aliases
+business_email_senders
+business_email_address_events
 ```
+
+A route may carry one current alias. Changing it appends the previous
+recipient to `business_email_retired_aliases` and leaves existing deliveries
+on the route id. Deleting the route keeps the live alias reserved.
+`business_email_senders` is one rule per Business, kind, and
+value. `business_email_address_events` appends one row when that address stops
+or changes, and when a sender is authorized, removed, or blocked. The row
+stores the actor, the time, the old address, and the new address. The daily
+allowance day is America/Santo_Domingo.
 
 Service-role only, part of the hosted Business beta (no flag):
 ```text
@@ -248,11 +260,23 @@ Represents the application-facing user profile. Supabase Auth owns identity and 
   `plum`, `teal`, `ember`, `gold`, `indigo`, or `slate`)
 - `country`: `text` (Nullable; an ISO 3166-1 alpha-2 code when present)
 - `currency_override`: `text` (Nullable; an ISO 4217 code when present)
+- `table_density`: `text` (Default: `'normal'`; one of `compacto`, `normal`, or
+  `amplio`; the row height for dense tables. Migration
+  `20261020220000_profile_table_density.sql`. Written only through `PATCH /me`;
+  no client column grant)
 - `is_admin`: `boolean` (Default: `false`)
 - `onboarding`: `jsonb` (legacy/inert; the applied migration defaults new rows
   to the historical shape below)
+- `age_confirmed_at`: nullable `timestamptz`, first explicit 18+ attestation instant; no backfill for existing profiles
 - `created_at`: `timestamptz`
 - `updated_at`: `timestamptz`
+
+The new age field stores one unverified attestation per profile. Signup metadata
+allows first-profile recovery, but never grants access or verifies age. The first
+stored value is immutable; only the backend may initialize it. Existing RLS and
+account-deletion retention apply, including cascade deletion of the profile.
+There is no birth date, raw age range, history table or extra index. Replayed
+initial writes preserve the first instant. Future and non-finite values fail.
 
 ### Legacy Onboarding Shape (inert compatibility state)
 
@@ -3412,6 +3436,17 @@ boundary proposal is approved.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### Business name prompt
+
+`spaces.business_name_prompt_seen_at` stores the first owner visit that claimed
+its optional naming prompt. Migration `20261016142927_business_name_prompt.sql`
+adds the nullable timestamp without changing existing names, grants or RLS.
+The conditional update requires the authenticated owner, the currently open
+Business, its expected ID, a default name and a null timestamp. Concurrent
+claims produce one winner. Renaming preserves the timestamp. Client roles have
+no direct write grant on this state. Required naming for owner invites and
+exports derives from the current name, independently of this timestamp.
+
 ### Business receipt reading consent and attention
 
 `20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
@@ -3480,21 +3515,44 @@ default value is unverified DOP currency. Fiscal facts are evidence, not model
 tax decisions. Income is a distinct draft kind; expense acceptance does not
 establish delivery of all seven Business journeys.
 
+The resolution's `document_type` (`recibo` or `venta`) is the draft's current
+document type, and `document_type_detected` is true while the read's choice
+stands. The upload's own choice lives on `financial_document_extractions.draft`
+as `document_type`, null when the upload named none. A person's change is a
+normal revision on an open draft; the type is not stored on the revision row,
+whose web source holds the request that named it. No migration.
+
+The resolution's `due_on` is the due date a person set in review: a date, or
+absent while it is unknown. No read, default or issue date fills it. A change
+is a normal revision on an open draft, and the draft locks it with the other
+facts once approved. Migration `20261020120000_business_due_on.sql` adds the
+nullable `business_draft_revisions.before_due_on` and `after_due_on` date
+columns, so each revision keeps the value before and after it. The table keeps
+row-level security with no client policy; anon and authenticated hold no
+privilege and only the service role reads and appends rows. Month close and
+open items read the date from the resolution, not from the revision.
+
 | Table | Durable owner and invariants |
 | --- | --- |
 | `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`. Keep 10 years. No delete API. |
 | `business_bank_imports` | One accepted statement upload. Unique `(space_id, imported_by, idempotency_key)`. `source_sha256` is the file bytes. Keep 10 years. No delete API. |
 | `business_bank_lines` | Immutable raw statement lines. Unique `(bank_account_id, occurred_on, amount, normalized_description, line_hash)`. `raw_line` is the source cells. Updates are refused. Re-import returns the existing row. Keep 10 years. No delete API. |
-| `business_bank_suggestions` | One suggestion per line and target. Status is `pending`, `confirmed`, or `declined`. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. At most one `confirmed` row per line. Keep 10 years. |
+| `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only, with select, insert and update and no delete or truncate (`20261021060000_business_bank_line_outcomes_no_delete.sql`, as the other bank tables). Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |
+| `business_bank_suggestions` | One offer per line and target. `target_id` is the recorded activity id of the receipt (expense) or venta (income). Status is `pending` or `declined`; a suggestion reads `confirmed` while its line holds a live match to its target. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. Import and the movements read store new pending offers. The movement state (`igualada`, `sugerencia`, `falta_comprobante`, `no_lleva_comprobante`) and the bank coverage date (the newest line date per account) are derived on read, not stored. Keep 10 years. |
 | `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only: migration `20261014110000_business_grant_approve_owner_only.sql` makes the database refuse `approve` on any grant whose grantee is not the space's `created_by`, on insert and on update, whoever writes the row. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
 | `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (7 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
+| `business_consent_acceptances` | One row per person (`user_id`) and wording (`copy_version`, 16 hex characters the web derives from the consent screen's words) with the Business they worked in (`space_id`) and the database's `accepted_at`. Never edited. Row security: a signed-in person reads only their own rows and inserts only their own row, naming a Business they hold a live grant on, without choosing the time; the API writes as the service role. Deleting the person or the space cascades the row. Migration `20261019050000_business_consent_acceptances.sql`. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
 | `business_draft_revisions` | Append-only `(draft_id, version)` before/after typed fact snapshots, actual actor and grant/issuer display provenance, source IDs, optional turn key and timestamp. Every source ID is checked and locked against the same client on insertion. They are readable history, never an alternative current draft. Updates and direct deletes fail; deletion of the owning candidate/space cascades. |
 | `business_questions` | Stable field question, recipient, channel, prompt, allowed answer states and answer-source reference. An owner-does-not-know answer requires its source and moves recipient to accountant. It does not trigger another owner question. Composite FKs scope draft and answer source. Deleting the owning source cascades the answered question instead of clearing its provenance. |
+| `business_search_recents` | A member's recent Business searches: `space_id`, `user_id` (the member, owner or grantee), the query as typed (1 to 512 characters), `query_key` (the query folded as search folds it) and `searched_at`. Unique `(space_id, user_id, query_key)`: searching again replaces the text and moves it to the top. The API keeps the 10 newest per member and Business. Row security on, no client grants; only the service-role API reads and writes, for the signed-in member in the Business their live grant names. Deleting the member or the space cascades the row. Migration `20261020200000_business_search_memory.sql`. |
+| `business_search_opens` | Records a member opened from a Business search result: `space_id`, `user_id`, `kind` (one of the search lists), `record_id`, `opened_count` and `last_opened_at`, primary key `(space_id, user_id, kind, record_id)`. `record_id` is not a foreign key: a record gone from search simply ranks nothing. Search ranks that member's opened records first. The API keeps the 200 most recently opened per member and Business. Row security on, no client grants; same owner, cascade and migration as `business_search_recents`. |
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
+| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. |
+| `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
 Migration `20261011070000_business_manual_capture_command.sql` extends only
 the action-receipt checks to admit human `capture_note` commands without a turn.
@@ -3511,6 +3569,50 @@ revision under a live prepare grant. A new candidate has unknown facts except
 unverified default DOP; an append preserves facts and open questions. Neither
 path writes money, manufactures a turn, grants consent or amends accepted records.
 Existing source lifecycle, receipt immutability and client privileges are unchanged.
+
+Migration `20261018220000_business_dgii_period_export.sql` adds only nullable
+columns to the existing owners. `spaces.business_rnc` holds the owner's explicit
+nine-digit RNC or eleven-digit cédula. Existing server-only RLS and client revocations
+also protect this column. Migration `20261019070000_business_fiscal_profile.sql`
+adds `spaces.business_tax_id_type` (`rnc` or `cedula`) on the same row. The pair
+constraint requires both null, or digits whose length matches the type and which
+are not all zero. A value already stored as 9 or 11 digits receives the matching
+type. The Business name remains `spaces.name`. Profile changes stay on the existing
+action receipt, which already records the actor and the time. No second name,
+tax-id, or history table is added. `business_draft_revisions.before_dgii` and `after_dgii`
+retain immutable typed declaration snapshots alongside the existing facts,
+actual actor, grant, source IDs and version. Current additional tax fields live
+only in `financial_import_events.resolution.business.dgii`; canonical fiscal
+identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+Migration `20261021020000_business_country.sql` adds `spaces.country` (`DO`,
+`US` or `CA`, default `DO`) and `spaces.currency` (ISO 4217, three upper-case
+letters, default `DOP`). The check constraints and the
+`business_country_immutable` trigger, which refuses an update that changes
+`country`, apply to `kind = 'business'` rows only, so a later Personal or
+Household space row carries no fiscal country. The server sets `currency` from the country when
+the space starts. Existing rows are `DO` and `DOP`. The registry
+`argus.domain.business.country` is the one owner of what each country implies,
+and a test keeps the `business_country_known` check equal to its codes. The
+person's profile `home_country` never decides a Business. See the
+[Business country plan](specs/business-country.md).
+
+The existing human `ReviewCommand` carries the tax input. It updates the current
+open resolution and appends one source-linked revision atomically. Every later
+revision preserves the declaration. Owner approval binds the reviewed revision.
+When the draft holds no declaration, an expense approval appends one revision at
+the next version, with a 606 declaration built from the reviewed facts; its
+expense type stays unknown and its payment form is known only from the Business
+account that paid. If the money write then fails, the reopened draft appends one
+revision that clears that declaration and leaves a person's saved one alone;
+if it cannot, the next approval rebuilds it. The export
+reads the reviewed revision's facts and the declaration from it or from that
+approval revision, then checks current money amount, date and currency. Accepted-record tax edits remain refused. No second
+tax ledger or fiscal approval bypass is added. New human-only action receipt
+types `approve_refund` and `set_business_rnc` retain the existing immutable actor,
+command hash and idempotency rules. The migration uses five-second lock and
+60-second statement timeouts. It creates no table, role, policy, client grant or
+environment setting.
 
 All new tables have RLS enabled and no client policies, with anon/authenticated
 grants revoked. Only the server projects authorized dossiers and original
@@ -3643,7 +3745,11 @@ repeat without another model request. The process background task is not the
 source of durability.
 
 Preparation status is `saved|queued|preparing|review_ready|needs_attention`.
-Approval state remains in reconciliation events. Valid observations can project
+Approval state remains in reconciliation events. The immutable batch retains receipt
+`payment_status` and separate final `tax` and `estimated_tax` values. Payment
+status is evidence only: an unpaid read still projects its purchase, and the
+Business draft keeps the amount unverified. Older saved batches keep their stored
+candidates and are not backfilled or automatically prepared again. Valid observations can project
 independently while incompatible observations stay on the draft with issues.
 Opening/running scopes and unknown scopes remain reviewable preparation evidence
 without being relabeled into the narrower canonical candidate scope enum. Receipt
@@ -3666,7 +3772,11 @@ None of these rows is a financial record or affects balances.
   anchor date, the accepting idempotency key and, once accepted, the recorded
   `activity_id`. A check ties `state='accepted'` to a non-null `activity_id`;
   a unique index allows one event per `(user_id, activity_id)`, so one purchase
-  cannot be recorded or linked twice.
+  cannot be recorded or linked twice. A partial unique index
+  (`financial_import_events_sale_ncf_idx`, migration
+  `20261021050000_business_sale_ncf_once.sql`) allows one accepting or accepted
+  sale (`facts.kind` income) per `owner_space_id` and normalized NCF or e-CF, so
+  two approvals of the same sale comprobante cannot both land.
 - `financial_import_account_links`: person-confirmed mapping from
   `(connection_id, account_key)` to an owned `financial_accounts` row
   (owner-qualified foreign key); deleted on disconnect.

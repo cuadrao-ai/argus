@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+import json
+import re
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,10 +10,12 @@ from argus.agent_runtime.business.context import AuthorizedBusinessContext
 from argus.agent_runtime.business.interpretation import (
     BusinessInterpretation,
     BusinessRecordIntent,
+    business_reply_prompt,
 )
 from argus.agent_runtime.business.runner import BusinessTurnRunner
 from argus.domain.business.authority import authorize
 from argus.domain.business.contracts.actions import (
+    ReviewDraft,
     TurnPlan,
 )
 from argus.domain.business.contracts.authority import TrustedActor
@@ -161,6 +165,8 @@ async def test_real_database_runner_persists_provenance_and_replays_one_draft(ac
     assert dossier["facts"]["occurred_on"]["state"] == "unknown"
     assert dossier["sources"][0]["text"] == message
     assert len(dossier["history"]) == 2
+    assert "due_on" not in dossier
+    assert all("after_due_on" not in row for row in dossier["history"])
     assert all(
         row["actor"]["actor_kind"] == "owner_via_agent" for row in dossier["history"]
     )
@@ -194,6 +200,89 @@ async def test_real_database_runner_persists_provenance_and_replays_one_draft(ac
             ).fetchone()[0]
             == 0
         )
+
+
+class CapturingInterpreter(InjectedInterpreter):
+    def __init__(self, build_interpretation):
+        super().__init__(build_interpretation)
+        self.reply_payloads = []
+
+    async def acompose_business(self, payload):
+        self.reply_payloads.append(payload)
+        return await super().acompose_business(payload)
+
+
+_IDS_AND_CLOCKS = re.compile(
+    r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    r"|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?"
+)
+
+
+def _without_ids_and_clocks(value) -> str:
+    seen: dict[str, str] = {}
+    return _IDS_AND_CLOCKS.sub(
+        lambda found: seen.setdefault(found.group(0), f"<{len(seen)}>"),
+        json.dumps(value, ensure_ascii=False),
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_due_date_never_reaches_the_reply_model_on_explain_status(actions):
+    service, member, _ = actions
+
+    async def explained_after_review(due_on: dict | None):
+        turn, context = claimed_context(service, member)
+        created = await BusinessTurnRunner(
+            interpreter=InjectedInterpreter(
+                lambda payload: BusinessInterpretation(
+                    records=(
+                        activity_proposal(payload)
+                        .records[0]
+                        .model_copy(update={"question": None}),
+                    )
+                )
+            )
+        ).run(
+            context=context, turn=turn, message="Pagué 850 por materiales con mi dinero."
+        )
+        draft_id = UUID(created.saved_state["dossiers"][0]["draft_id"])
+        review = {"version": 2, "document_type": "recibo"}
+        if due_on is not None:
+            review["due_on"] = due_on
+        service.review(member, draft_id, ReviewDraft.model_validate(review), str(uuid4()))
+        turn, context = claimed_context(service, member)
+        interpreter = CapturingInterpreter(
+            lambda payload: BusinessInterpretation(
+                records=(
+                    BusinessRecordIntent(target_draft_id=draft_id, explain_status=True),
+                )
+            )
+        )
+        await BusinessTurnRunner(interpreter=interpreter).run(
+            context=context, turn=turn, message="¿Cómo va ese registro?"
+        )
+        (payload,) = interpreter.reply_payloads
+        return service.dossier(member, draft_id), payload
+
+    undated, undated_input = await explained_after_review(None)
+    dated, dated_input = await explained_after_review(
+        {"state": "known", "value": "2026-11-30"}
+    )
+    assert (undated.due_on, dated.due_on) == (None, date(2026, 11, 30))
+    for payload in (undated_input, dated_input):
+        sent = json.dumps(business_reply_prompt(payload), ensure_ascii=False)
+        assert "due_on" not in sent
+        assert "2026-11-30" not in sent
+
+    def dossier_views(payload) -> str:
+        (explained,) = (
+            record["tool_outcome"]["result"]["data"]
+            for record in payload["tool_records"]
+            if record["tool_name"] == "business_explain_status"
+        )
+        return _without_ids_and_clocks([explained, payload["saved_state"]["dossiers"]])
+
+    assert dossier_views(dated_input) == dossier_views(undated_input)
 
 
 @pytest.mark.asyncio

@@ -184,7 +184,7 @@ def test_release_audit_rejects_missing_readout_model_configuration(
         tmp_path,
         expect_mode="real-workflow",
         api_env_json=json.dumps(api_rows),
-        web_env_json=_render_env_payload("argus-app"),
+        web_env_json=_render_env_payload("cuadrao-web"),
         workflow_env_json=_workflow_env_payload(
             omit={key} if service == "argus-backtests" else set()
         ),

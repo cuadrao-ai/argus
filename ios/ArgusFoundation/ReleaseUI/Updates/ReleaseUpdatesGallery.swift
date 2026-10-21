@@ -43,19 +43,19 @@ struct ReleaseUpdatesGallery: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Menu(spanish ? "Estado" : "State") {
+                Menu(CuadraoCopy.text("copy.releaseIdentityGallery.3f0dd2f033", spanish: spanish)) {
                     ForEach(["data", "empty", "loading", "error", "unavailable"], id: \.self) { value in
                         Button(stateLabel(value)) { selectedState = value }
                     }
                 }.accessibilityIdentifier("updates-gallery-state")
                 Spacer()
-                Menu(spanish ? "Permiso" : "Permission") {
+                Menu(CuadraoCopy.text("copy.releaseUpdatesGallery.55516bd01a", spanish: spanish)) {
                     ForEach(ReleasePushPermission.allCases, id: \.self) { value in
                         Button(permissionLabel(value)) { permission = value }
                     }
                 }.accessibilityIdentifier("updates-gallery-permission")
                 Spacer()
-                NavigationLink(spanish ? "Datos" : "Data") { truthSamples }
+                NavigationLink(CuadraoCopy.text("copy.releaseUpdatesGallery.e66a6214e0", spanish: spanish)) { truthSamples }
                     .accessibilityIdentifier("updates-gallery-truth")
             }.font(CuadraoTypography.supporting).padding(.horizontal, 24).frame(minHeight: 44)
             ReleaseUpdatesInbox(state: state, spanish: spanish, permission: permission,
@@ -63,52 +63,52 @@ struct ReleaseUpdatesGallery: View {
                 markRead: { readIDs.insert($0) }, openSource: { _ in openedSource = true },
                 requestPermission: { previewPermission = true }, openSettings: { openedSettings = true })
         }
-        .confirmationDialog(spanish ? "Permiso de muestra" : "Sample permission", isPresented: $previewPermission, titleVisibility: .visible) {
-            Button(spanish ? "Permitir" : "Allow") { permission = .authorized }
-            Button(spanish ? "No permitir" : "Don't allow") { permission = .denied }
+        .confirmationDialog(CuadraoCopy.text("copy.releaseUpdatesGallery.4c80b55600", spanish: spanish), isPresented: $previewPermission, titleVisibility: .visible) {
+            Button(CuadraoCopy.text("copy.releaseUpdatesGallery.d0caba307b", spanish: spanish)) { permission = .authorized }
+            Button(CuadraoCopy.text("copy.releaseUpdatesGallery.5f84e848cd", spanish: spanish)) { permission = .denied }
         }
-        .alert(spanish ? "Origen de muestra" : "Sample source", isPresented: $openedSource) {
-            Button(spanish ? "Cerrar" : "Close", role: .cancel) {}
-        } message: { Text(spanish ? "Esta vista previa no abre registros reales." : "This preview doesn't open real records.") }
-        .alert(spanish ? "Ajustes de muestra" : "Sample Settings", isPresented: $openedSettings) {
-            Button(spanish ? "Permitir" : "Allow") { permission = .authorized }
-            Button(spanish ? "Desactivar" : "Turn off") { permission = .denied }
-            Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
+        .alert(CuadraoCopy.text("copy.releaseUpdatesGallery.9aa76857c2", spanish: spanish), isPresented: $openedSource) {
+            Button(CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish), role: .cancel) {}
+        } message: { Text(CuadraoCopy.text("copy.releaseUpdatesGallery.b232733306", spanish: spanish)) }
+        .alert(CuadraoCopy.text("copy.releaseUpdatesGallery.19428a785f", spanish: spanish), isPresented: $openedSettings) {
+            Button(CuadraoCopy.text("copy.releaseUpdatesGallery.d0caba307b", spanish: spanish)) { permission = .authorized }
+            Button(CuadraoCopy.text("copy.releaseUpdatesGallery.66eac06e29", spanish: spanish)) { permission = .denied }
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), role: .cancel) {}
         }
     }
     private func stateLabel(_ value: String) -> String {
         switch value {
-        case "empty": spanish ? "Vacío" : "Empty"
-        case "loading": spanish ? "Cargando" : "Loading"
-        case "error": spanish ? "Error" : "Error"
-        case "unavailable": spanish ? "No disponible" : "Unavailable"
-        default: spanish ? "Con novedades" : "With updates"
+        case "empty": CuadraoCopy.text("copy.releaseUpdatesGallery.2ac18eba67", spanish: spanish)
+        case "loading": CuadraoCopy.text("copy.releaseUpdatesGallery.73aa47ea83", spanish: spanish)
+        case "error": CuadraoCopy.text("copy.releaseIdentityGallery.9160f189de", spanish: spanish)
+        case "unavailable": CuadraoCopy.text("copy.releaseInvitationsGallery.3350acd647", spanish: spanish)
+        default: CuadraoCopy.text("copy.releaseUpdatesGallery.bc2072fa4d", spanish: spanish)
         }
     }
     private func permissionLabel(_ value: ReleasePushPermission) -> String {
         switch value {
-        case .unavailable: spanish ? "No disponible" : "Unavailable"
-        case .notDetermined: spanish ? "Sin decidir" : "Not decided"
-        case .requesting: spanish ? "Esperando" : "Waiting"
-        case .authorized: spanish ? "Permitido" : "Allowed"
-        case .denied: spanish ? "Denegado" : "Denied"
+        case .unavailable: CuadraoCopy.text("copy.releaseInvitationsGallery.3350acd647", spanish: spanish)
+        case .notDetermined: CuadraoCopy.text("copy.releaseUpdatesGallery.5462b2e59a", spanish: spanish)
+        case .requesting: CuadraoCopy.text("copy.releaseUpdatesGallery.781395cda0", spanish: spanish)
+        case .authorized: CuadraoCopy.text("copy.releaseUpdatesGallery.3fc759a54d", spanish: spanish)
+        case .denied: CuadraoCopy.text("copy.releaseUpdatesGallery.be6e310e5a", spanish: spanish)
         }
     }
     private var truthSamples: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                Text(spanish ? "Historial incompleto" : "Incomplete history").font(CuadraoTypography.section)
+                Text(CuadraoCopy.text("copy.cuadraoDesignGallery.08c8c7d7cc", spanish: spanish)).font(CuadraoTypography.section)
                 ReleaseMonthComparison(current: .missingCoverage, previous: .recorded(100), currency: "DOP", spanish: spanish)
                 Divider()
-                Text(spanish ? "Comparación con cero registrado" : "Comparison with a recorded zero").font(CuadraoTypography.section)
+                Text(CuadraoCopy.text("copy.releaseUpdatesGallery.318d21b019", spanish: spanish)).font(CuadraoTypography.section)
                 ReleaseMonthComparison(current: .recorded(250), previous: .recorded(0), currency: "DOP", spanish: spanish)
                 ReleaseMonthComparison(current: .recorded(0), previous: .recorded(0), currency: "DOP", spanish: spanish)
                 Divider()
                 ReleaseHistoryAccessNote(access: .readOnly, spanish: spanish)
-                ReleaseHistoryRecordRow(title: spanish ? "Compra del hogar" : "Household purchase", amount: 400, currency: "DOP",
+                ReleaseHistoryRecordRow(title: CuadraoCopy.text("copy.releaseUpdatesGallery.5aa1f7c5f1", spanish: spanish), amount: 400, currency: "DOP",
                     date: Date(timeIntervalSince1970: 1_791_000_000), access: .movedOutOfHousehold, spanish: spanish)
             }.padding(24)
-        }.background(WelcomePalette.background).navigationTitle(spanish ? "Datos registrados" : "Recorded data")
+        }.background(WelcomePalette.background).navigationTitle(CuadraoCopy.text("copy.releaseUpdatesGallery.22d7bd46d5", spanish: spanish))
     }
 }
 #endif

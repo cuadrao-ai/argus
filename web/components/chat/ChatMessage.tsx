@@ -52,7 +52,6 @@ import {
 } from "@/lib/failure-treatment";
 import { GUEST_COMPUTE_CLAIM_RETRY_IN_KEY } from "@/lib/compute-claim-error";
 import { useRetryAfterCountdown } from "@/lib/use-retry-after-countdown";
-import GuestArtifactHint from "@/components/guest/GuestArtifactHint";
 import { isSettledStrategyResult } from "@/lib/chat-result-message";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { actionHasCardScopedOwnership } from "@/lib/chat-action-ownership";
@@ -364,7 +363,7 @@ export default function ChatMessage({
   return (
     <div className="flex w-full justify-start animate-in fade-in slide-in-from-bottom-2 duration-300 group relative">
       {shouldShowAssistantFooter && (
-        <Tooltip content={t('chat.copy_plaintext')} side="left" delay={150}>
+        <Tooltip content={t('chat.copy_plaintext')} side="left">
           <button
             onClick={() => {
               void handleCopy();
@@ -390,7 +389,6 @@ export default function ChatMessage({
                 resumeDecisionArtifactId={resumeDecisionArtifactId}
                 onDecisionResumeHandled={onDecisionResumeHandled}
               />
-              {isGuest ? <GuestArtifactHint kind="result" /> : null}
               {displayContent && (
                 <ResultReadout
                   content={displayContent}
@@ -442,7 +440,6 @@ export default function ChatMessage({
                     : undefined
                 }
               />
-              {isGuest ? <GuestArtifactHint kind="confirmation" /> : null}
             </div>
           ) : message.contentPresentation === "result_readout" ? (
             <ResultReadout content={displayContent} label={t("chat.result_readout.quick_take", "Quick take")} />
@@ -779,7 +776,7 @@ export default function ChatMessage({
                   }
                 }}
               >
-                <Tooltip content={t('chat.good_response')} side="top" delay={150}>
+                <Tooltip content={t('chat.good_response')} side="top">
                   <button
                     className={`p-1.5 rounded-full transition-all duration-200 group/thumb ${ rating === "positive" ? selectedFeedbackClass : idleFeedbackClass }`}
                     aria-label={t('chat.good_response')}
@@ -788,7 +785,7 @@ export default function ChatMessage({
                     <ThumbsUp className={`w-3.5 h-3.5 ${rating === "positive" ? selectedFeedbackIconClass : ""}`} />
                   </button>
                 </Tooltip>
-                <Tooltip content={t('chat.poor_response')} side="top" delay={150}>
+                <Tooltip content={t('chat.poor_response')} side="top">
                   <button
                     className={`p-1.5 rounded-full transition-all duration-200 group/thumb ${ rating === "negative" ? selectedFeedbackClass : idleFeedbackClass }`}
                     aria-label={t('chat.poor_response')}
@@ -802,7 +799,7 @@ export default function ChatMessage({
                 {retryAction &&
                   !message.assistantRecoveryCode &&
                   message.kind !== "backtest_job" && (
-                  <Tooltip content={actionLabel(retryAction)} side="top" delay={150}>
+                  <Tooltip content={actionLabel(retryAction)} side="top">
                     <button
                       type="button"
                       className={`${retryIconButtonClass} p-1.5`}
@@ -813,7 +810,7 @@ export default function ChatMessage({
                     </button>
                   </Tooltip>
                 )}
-                <Tooltip content={t('chat.more_actions')} side="top" delay={150}>
+                <Tooltip content={t('chat.more_actions')} side="top">
                   <button
                     onClick={toggleOptions}
                     className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white transition-colors"
@@ -883,7 +880,7 @@ function UserTurnRecovery({
         </p>
       ) : null}
       {retryAction ? (
-        <Tooltip content={retryLabel} side="top" delay={150}>
+        <Tooltip content={retryLabel} side="top">
           <button
             type="button"
             data-testid="user-turn-retry"

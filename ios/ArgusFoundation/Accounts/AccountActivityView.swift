@@ -12,7 +12,7 @@ struct AccountActivityView: View {
     @Environment(\.locale) private var locale
 
     private var page: FinancialLoopModel.AccountReadState { loop.read(account.id) }
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 16) {
@@ -21,7 +21,7 @@ struct AccountActivityView: View {
                     Button("debt.view") { Task { await loop.debts.open(progress.id, origin: debtOrigin) } }.frame(minHeight: 44).accessibilityIdentifier("accounts.debt")
                 } else { Button("debt.add") { loop.debts.create(account) }.frame(minHeight: 44).accessibilityIdentifier("accounts.debt") }
             }
-            Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
+            Text(CuadraoCopy.text("copy.accountActivityView.f7d6ac01ad", spanish: spanish)).font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
             if page.loading { ProgressView("accounts.loading").accessibilityIdentifier("accounts.activity.loading") }
             if let error = page.errorKey {
                 Text(LocalizedStringKey(error)).foregroundStyle(.secondary)
@@ -30,8 +30,8 @@ struct AccountActivityView: View {
                     .disabled(page.loading).accessibilityIdentifier("accounts.activity.retry")
             }
             if page.activity.isEmpty, loop.accountReads[account.id] != nil, !page.loading, page.errorKey == nil {
-                CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
-                                 detail: spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.",
+                CuadraoEmptyView(title: CuadraoCopy.text("copy.accountActivityView.8e6c47416d", spanish: spanish),
+                                 detail: CuadraoCopy.text("copy.accountActivityView.051603fc06", spanish: spanish),
                                  identifier: "accounts.activity.empty")
             }
             ForEach(page.activity, id: \.recordId) { activity in

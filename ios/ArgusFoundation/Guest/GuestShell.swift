@@ -11,7 +11,7 @@ struct GuestRoot: View {
     @State private var confirmingDelete = false
     @State private var deleteFailed = false
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         switch model.phase {
@@ -21,14 +21,12 @@ struct GuestRoot: View {
             GuestShell(model: model, appearance: $appearance, leave: leave, deleteData: deleteData)
                 .preferredColorScheme(appearance.colorScheme)
         case .newerVersion:
-            notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
-                   detail: spanish ? "Este libro se guardó con una versión más nueva de la app. No se cambió nada. Actualiza Cuadrao e inténtalo de nuevo."
-                       : "This book was saved by a newer version of the app. Nothing was changed. Update Cuadrao and try again.",
+            notice(title: CuadraoCopy.text("copy.guestShell.70ed3561de", spanish: spanish),
+                   detail: CuadraoCopy.text("copy.guestShell.a26e734ef5", spanish: spanish),
                    identifier: "guest.notice.newer", offersDelete: false)
         case .unreadable:
-            notice(title: spanish ? "No se pudo abrir tu libro." : "Your book could not be opened.",
-                   detail: spanish ? "El archivo de este iPhone no se pudo leer. Puedes eliminarlo y empezar de nuevo."
-                       : "The file on this iPhone could not be read. You can delete it and start again.",
+            notice(title: CuadraoCopy.text("copy.guestShell.89d8635996", spanish: spanish),
+                   detail: CuadraoCopy.text("copy.guestShell.170e78ec70", spanish: spanish),
                    identifier: "guest.notice.unreadable", offersDelete: true)
         }
     }
@@ -37,11 +35,11 @@ struct GuestRoot: View {
         VStack(alignment: .leading, spacing: 20) {
             Spacer(minLength: 0)
             RegistrationHeading(title: title, detail: detail)
-            RegistrationButton(title: spanish ? "Volver" : "Back", action: leave)
+            RegistrationButton(title: CuadraoCopy.text("copy.guestShell.7fe76b1e15", spanish: spanish), action: leave)
                 .accessibilityIdentifier("guest.notice.back")
             if offersDelete {
                 Button(role: .destructive) { confirmingDelete = true } label: {
-                    Text(spanish ? "Eliminar los datos de este iPhone" : "Delete this iPhone's data")
+                    Text(CuadraoCopy.text("copy.guestProfile.77303954dc", spanish: spanish))
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }.accessibilityIdentifier("guest.notice.delete")
             }
@@ -53,26 +51,25 @@ struct GuestRoot: View {
         .foregroundStyle(WelcomePalette.ink)
         .accessibilityIdentifier(identifier)
         .alert(GuestDeleteCopy.title(spanish), isPresented: $confirmingDelete) {
-            Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), role: .cancel) {}
             Button(GuestDeleteCopy.confirm(spanish), role: .destructive) {
                 Task { if await !deleteData() { deleteFailed = true } }
             }.accessibilityIdentifier("guest.delete.confirm")
         } message: { Text(GuestDeleteCopy.message(spanish)) }
         .alert(GuestDeleteCopy.failed(spanish), isPresented: $deleteFailed) {
-            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) {}
         }
     }
 }
 
 enum GuestDeleteCopy {
-    static func title(_ es: Bool) -> String { es ? "¿Eliminar los datos de este iPhone?" : "Delete this iPhone's data?" }
-    static func confirm(_ es: Bool) -> String { es ? "Eliminar" : "Delete" }
+    static func title(_ es: Bool) -> String { CuadraoCopy.text("copy.guestShell.9b45ca8390", spanish: es) }
+    static func confirm(_ es: Bool) -> String { CuadraoCopy.text("copy.guestShell.534547cf82", spanish: es) }
     /// Pending approval: receipts were added to the list when the book gained them.
     static func message(_ es: Bool) -> String {
-        es ? "Se borrarán tus cuentas, movimientos, presupuestos, metas y recibos de este iPhone. No se puede deshacer."
-            : "Your accounts, activity, budgets, goals and receipts on this iPhone will be removed. This can't be undone."
+        CuadraoCopy.text("copy.guestShell.4be0d475d3", spanish: es)
     }
-    static func failed(_ es: Bool) -> String { es ? "No se pudieron eliminar los datos. Inténtalo de nuevo." : "The data could not be deleted. Try again." }
+    static func failed(_ es: Bool) -> String { CuadraoCopy.text("copy.guestShell.5a1c3f7a35", spanish: es) }
 }
 
 /// The shared Cuadrao shell filled with the book: the same navigation bar, + tray, scroll folding and tabs,
@@ -101,9 +98,9 @@ struct GuestShell: View {
     @State private var firstSavePending = false
     @State private var showFirstSave = false
     @Environment(\.guestReceipts) private var receipts
-    @State private var chat = CuadraoChatPreview(spanish: Locale.current.language.languageCode?.identifier == "es", includeExamples: false)
+    @State private var chat = CuadraoChatPreview(spanish: CuadraoCopy.isSpanish(), includeExamples: false)
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         CuadraoAppShell(selection: $tab, chat: chat, spanish: spanish, showsNavigation: showsNavigation,
@@ -148,7 +145,7 @@ struct GuestShell: View {
             }.ignoresSafeArea()
         }
         .alert(GuestReceiptCopy(spanish: spanish).couldNotSave, isPresented: $receiptFailed) {
-            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) {}
         }
         .tint(WelcomePalette.pine)
         .foregroundStyle(WelcomePalette.ink)
@@ -166,7 +163,7 @@ struct GuestShell: View {
 
     /// The one Undo notice for a delete or archive, on the tab the person is on. A result opened from Search returns to Search first.
     private func offerUndo(_ offer: GuestUndoOffer) {
-        toast = CuadraoToastMessage(text: offer.text, actionTitle: spanish ? "Deshacer" : "Undo", actionIdentifier: offer.identifier,
+        toast = CuadraoToastMessage(text: offer.text, actionTitle: CuadraoCopy.text("copy.connectedCuadraoHome.3ec51337bc", spanish: spanish), actionIdentifier: offer.identifier,
                                     action: { offer.restore(); toast = nil })
     }
 

@@ -89,20 +89,20 @@ enum ConnectedPlanMissing: String, Equatable {
 
     func hint(spanish: Bool) -> String {
         switch self {
-        case .name: spanish ? "Falta el nombre del plan." : "Add a name for the plan."
-        case .nameTooLong: spanish ? "Usa un nombre de hasta 100 caracteres." : "Use a name of up to 100 characters."
-        case .amount: spanish ? "Falta el monto." : "Add the amount."
-        case .monthly: spanish ? "Falta el pago de cada mes." : "Add the monthly payment."
-        case .debtAccount: spanish ? "Elige la tarjeta o préstamo." : "Choose the card or loan."
-        case .accounts: spanish ? "Elige al menos una cuenta incluida." : "Choose at least one included account."
-        case .categories: spanish ? "Elige al menos una categoría." : "Choose at least one category."
-        case .destination: spanish ? "Con un aporte mensual, elige el destino de los ahorros." : "With a monthly amount, choose the savings destination."
-        case .source: spanish ? "Elige la cuenta de donde sale el dinero." : "Choose the account the money comes from."
-        case .sameAccount: spanish ? "El origen y el destino deben ser cuentas distintas." : "The source and destination must be different accounts."
-        case .rate: spanish ? "Falta el interés anual." : "Add the annual interest."
-        case .fees: spanish ? "Faltan las comisiones de cada mes." : "Add the monthly fees."
-        case .loading: spanish ? "Cargando tus cuentas…" : "Loading your accounts…"
-        case .planUnavailable: spanish ? "No pudimos cargar tu plan. Reintenta para crear uno." : "We couldn't load your plan. Retry to create one."
+        case .name: CuadraoCopy.text("copy.connectedPlanMapping.033bc41e55", spanish: spanish)
+        case .nameTooLong: CuadraoCopy.text("copy.connectedPlanMapping.a774c84053", spanish: spanish)
+        case .amount: CuadraoCopy.text("copy.connectedPlanMapping.ccc6c1cd1c", spanish: spanish)
+        case .monthly: CuadraoCopy.text("copy.connectedPlanMapping.89df02c9d4", spanish: spanish)
+        case .debtAccount: CuadraoCopy.text("copy.connectedPlanMapping.a041a2e97b", spanish: spanish)
+        case .accounts: CuadraoCopy.text("copy.connectedPlanMapping.3d09876227", spanish: spanish)
+        case .categories: CuadraoCopy.text("copy.connectedPlanMapping.1556f112c5", spanish: spanish)
+        case .destination: CuadraoCopy.text("copy.connectedPlanMapping.7534fa77de", spanish: spanish)
+        case .source: CuadraoCopy.text("copy.connectedPlanMapping.7d1f6018e2", spanish: spanish)
+        case .sameAccount: CuadraoCopy.text("copy.connectedPlanMapping.e99ac90dd4", spanish: spanish)
+        case .rate: CuadraoCopy.text("copy.connectedPlanMapping.cefebc9acf", spanish: spanish)
+        case .fees: CuadraoCopy.text("copy.connectedPlanMapping.b1c85a9067", spanish: spanish)
+        case .loading: CuadraoCopy.text("copy.connectedPlanMapping.722075f221", spanish: spanish)
+        case .planUnavailable: CuadraoCopy.text("copy.connectedPlanMapping.85dc68fb43", spanish: spanish)
         }
     }
 }

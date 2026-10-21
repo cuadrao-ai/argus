@@ -7,6 +7,7 @@ import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import ReceiptIntakeDialog from "@/components/business-app/ReceiptIntakeDialog";
+import PanelErrorBoundary from "@/components/business-app/PanelErrorBoundary";
 import { ReceiptUploadQueue } from "@/components/business-app/receipt-upload-queue";
 import type { ReceiptSummary } from "@/lib/business-api";
 import spanish from "@/public/locales/es-419/common.json";
@@ -87,7 +88,7 @@ function drop(files: File[]) {
   }
 }
 
-test("a file added by picker or drop while another uploads shows En cola and is kept across a rerender", async () => {
+test("a file added by picker or drop while another uploads starts at once, shows En espera, omits the wait warning, and stays across a rerender", async () => {
   let releaseA!: (receipt: ReceiptSummary) => void;
   const order: string[] = [];
   const queue = new ReceiptUploadQueue(async (candidate) => {
@@ -97,31 +98,117 @@ test("a file added by picker or drop while another uploads shows En cola and is 
   }, () => undefined);
   let page = await mount(queue);
   try {
-    assert.match(surface().textContent ?? "", /Suelta tus recibos aquí/);
+    assert.match(surface().textContent ?? "", /Arrastra tus recibos aquí/);
     await act(async () => { choose([file("a.txt")]); });
-    const save = [...surface().querySelectorAll("button")].find((button) => button.textContent === "Guardar los archivos pendientes");
-    assert.ok(save, "the owner can start the upload");
-    await act(async () => { save.click(); });
-    assert.equal(queue.snapshot()[0]?.status, "uploading");
+    assert.equal([...surface().querySelectorAll("button")].some((button) => /Guardar/.test(button.textContent ?? "")), false, "there is no save button to press");
+    assert.equal(queue.snapshot()[0]?.status, "uploading", "a chosen file starts uploading on its own");
     await act(async () => { choose([file("b.txt")]); });
     await act(async () => { drop([file("c.txt")]); });
     const shown = surface().textContent ?? "";
+    assert.equal(shown.includes("Espera a que termine la subida actual"), false);
     assert.match(shown, /b\.txt/);
     assert.match(shown, /c\.txt/);
-    assert.match(shown, /En cola/);
+    assert.match(shown, /En espera/);
+    assert.equal(shown.includes("En cola"), false);
     await page.unmount();
     const remounted = await mount(queue);
     page = remounted;
     const again = surface().textContent ?? "";
+    assert.equal(again.includes("Espera a que termine la subida actual"), false);
     assert.match(again, /b\.txt/);
     assert.match(again, /c\.txt/);
-    assert.match(again, /En cola/);
+    assert.match(again, /En espera/);
     releaseA(savedReceipt("a.txt"));
     for (let turn = 0; order.length < 3 && turn < 20; turn += 1) {
       await act(async () => { await Promise.resolve(); });
     }
     assert.deepEqual(order, ["a.txt", "b.txt", "c.txt"]);
     assert.deepEqual(queue.snapshot().map((item) => item.status), ["saved", "saved", "saved"]);
+  } finally {
+    await page.unmount();
+  }
+});
+
+test("a panel crash keeps the note and the upload that live above it", async () => {
+  const i18n = i18next.createInstance();
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
+  function Boom() {
+    throw new Error("framework render");
+  }
+  function Holder() {
+    return (
+      <div>
+        <input aria-label="note" defaultValue="factura 42" />
+        <p>recibo.png</p>
+        <PanelErrorBoundary><Boom /></PanelErrorBoundary>
+      </div>
+    );
+  }
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+  const errors: unknown[] = [];
+  const previous = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  try {
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <Holder />
+        </I18nextProvider>,
+      );
+    });
+    const shown = host.textContent ?? "";
+    assert.match(shown, /Algo salió mal de nuestro lado\./);
+    assert.match(shown, /recibo\.png/);
+    assert.equal((host.querySelector("input") as HTMLInputElement).value, "factura 42");
+    assert.equal(shown.includes("framework render"), false);
+  } finally {
+    console.error = previous;
+    await act(async () => { root.unmount(); });
+    host.remove();
+  }
+});
+
+test("an offline upload keeps the file and offers another try", async () => {
+  const keys: string[] = [];
+  const queue = new ReceiptUploadQueue(async (_candidate, _consent, key) => {
+    keys.push(key);
+    throw new TypeError("Failed to fetch");
+  }, () => undefined);
+  const page = await mount(queue);
+  try {
+    await act(async () => { choose([file("recibo.txt")]); });
+    const row = surface().querySelector('[data-testid="receipt-upload-row"]');
+    assert.equal(row?.getAttribute("data-status"), "failed");
+    const shown = surface().textContent ?? "";
+    assert.match(shown, /Se perdió la conexión\. Tu archivo sigue aquí\./);
+    assert.match(shown, /recibo\.txt/);
+    assert.equal(queue.snapshot()[0]?.status, "failed");
+    const retry = surface().querySelector<HTMLButtonElement>('button[aria-label="Reintentar recibo.txt"]');
+    assert.ok(retry, "the row offers another try");
+    assert.equal(queue.snapshot()[0]?.file.name, "recibo.txt");
+    await act(async () => { retry.click(); });
+    assert.equal(keys.length, 2, "the retry sends the file again");
+    assert.equal(keys[1], keys[0], "with the same upload key, so it is never saved twice");
+  } finally {
+    await page.unmount();
+  }
+});
+
+test("a 503 upload ends on the server screen and keeps the file", async () => {
+  const queue = new ReceiptUploadQueue(async () => {
+    throw Object.assign(new Error("unavailable"), { status: 503 });
+  }, () => undefined);
+  const page = await mount(queue);
+  try {
+    await act(async () => { choose([file("factura.txt")]); });
+    const shown = surface().textContent ?? "";
+    assert.match(shown, /Algo salió mal de nuestro lado\./);
+    assert.match(shown, /factura\.txt/);
+    assert.match(shown, /hola@cuadrao\.ai/);
+    assert.equal(shown.includes("unavailable"), false);
+    assert.equal(queue.snapshot()[0]?.file.name, "factura.txt");
   } finally {
     await page.unmount();
   }

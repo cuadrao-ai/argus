@@ -27,7 +27,7 @@ struct CuadraoAccountsCollection: View {
                 Section {
                     Button { selection = .archived } label: {
                         HStack {
-                            Label(spanish ? "Cuentas archivadas" : "Archived accounts", systemImage: "archivebox")
+                            Label(CuadraoCopy.text("copy.connectedCuadraoHome.4ab8767f26", spanish: spanish), systemImage: "archivebox")
                             Spacer()
                             Text(data.archived.count.formatted()).foregroundStyle(.secondary)
                             Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary)
@@ -36,11 +36,11 @@ struct CuadraoAccountsCollection: View {
                 }
             }.environment(\.editMode, $mode).scrollContentBackground(.hidden)
                 .background(WelcomePalette.background)
-                .navigationTitle(spanish ? "Cuentas" : "Accounts").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish)) { dismiss() }
                     ToolbarItem(placement: .primaryAction) {
-                        Button(mode.isEditing ? (spanish ? "Listo" : "Done") : (spanish ? "Ordenar" : "Reorder")) {
+                        Button(mode.isEditing ? (CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoAccountsCollection.66ffb6ead6", spanish: spanish))) {
                             withAnimation { mode = mode.isEditing ? .inactive : .active }
                         }.disabled(!mode.isEditing && data.active.count < 2)
                             .accessibilityIdentifier("accounts-order-toggle")

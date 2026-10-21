@@ -24,8 +24,7 @@ public struct ReleaseDeleteAccountView: View {
         _showingVerification = State(initialValue: state == .verificationRejected || state == .verificationResending)
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
-    private func text(_ es: String, _ en: String) -> String { spanish ? es : en }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     public var body: some View {
         List {
@@ -34,33 +33,30 @@ public struct ReleaseDeleteAccountView: View {
             case .submitting, .pending:
                 Section {
                     if state == .submitting {
-                        ProgressView(text("Eliminando tu cuenta…", "Deleting your account…"))
+                        ProgressView(CuadraoCopy.text("copy.releaseDeleteAccountView.2bdaef9df7", spanish: spanish))
                     } else {
-                        Label(text("Eliminación en curso", "Deletion in progress"), systemImage: "clock")
-                        Text(text("Estamos eliminando tu cuenta. Ya cerraste sesión y terminaremos de eliminarla en unos días. No tienes que hacer nada.",
-                                  "Your account is being deleted. You're signed out now, and we'll finish removing it within a few days. You don't need to do anything."))
+                        Label(CuadraoCopy.text("copy.releaseDeleteAccountView.a30ecb6ca3", spanish: spanish), systemImage: "clock")
+                        Text(CuadraoCopy.text("copy.releaseDeleteAccountView.3f8ab92e62", spanish: spanish))
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("identity.delete.inProgress")
-                        Button(text("Listo", "Done"), action: onComplete)
+                        Button(CuadraoCopy.text("copy.releaseDeleteAccountView.bd6b05a681", spanish: spanish), action: onComplete)
                             .accessibilityIdentifier("identity.delete.pendingDone")
                     }
                 }
             case .failed:
                 Section {
-                    Label(text("No se pudo eliminar", "Couldn't delete your account"), systemImage: "exclamationmark.circle")
-                    Text(text("No pudimos eliminar tu cuenta en este momento. Inténtalo de nuevo.",
-                              "We couldn't delete your account just now. Try again."))
+                    Label(CuadraoCopy.text("copy.releaseDeleteAccountView.7c121271cd", spanish: spanish), systemImage: "exclamationmark.circle")
+                    Text(CuadraoCopy.text("copy.releaseDeleteAccountView.23c67c0ebd", spanish: spanish))
                         .foregroundStyle(.secondary)
-                    Button(text("Volver a intentar", "Try again"), action: onRetry)
+                    Button(CuadraoCopy.text("copy.releaseDeleteAccountView.e4bd371375", spanish: spanish), action: onRetry)
                         .accessibilityIdentifier("identity.delete.retry")
                 }
             case .completed:
                 Section {
-                    Label(text("Cuenta eliminada", "Account deleted"), systemImage: "checkmark.circle")
-                    Text(text("Tu cuenta está eliminada. Ya cerraste sesión.",
-                              "Your account is deleted. You're signed out."))
+                    Label(CuadraoCopy.text("copy.releaseDeleteAccountView.4eb1b70a64", spanish: spanish), systemImage: "checkmark.circle")
+                    Text(CuadraoCopy.text("copy.releaseDeleteAccountView.70ec8fec0b", spanish: spanish))
                         .foregroundStyle(.secondary)
-                    Button(text("Listo", "Done"), action: onComplete)
+                    Button(CuadraoCopy.text("copy.releaseDeleteAccountView.bd6b05a681", spanish: spanish), action: onComplete)
                         .accessibilityIdentifier("identity.delete.complete")
                 }
             case .uncertain(let canRetry):
@@ -85,21 +81,21 @@ public struct ReleaseDeleteAccountView: View {
                 Section {
                     Label("auth.deletion.support.requested", systemImage: "envelope")
                         .accessibilityIdentifier("identity.delete.supportRequested")
-                    Button(text("Listo", "Done"), action: onComplete)
+                    Button(CuadraoCopy.text("copy.releaseDeleteAccountView.bd6b05a681", spanish: spanish), action: onComplete)
                         .accessibilityIdentifier("identity.delete.supportDone")
                 }
             case .supportUnavailable:
                 Section {
                     Label("auth.deletion.support.unavailable", systemImage: "exclamationmark.circle")
                         .accessibilityIdentifier("identity.delete.supportUnavailable")
-                    Button(text("Volver a intentar", "Try again"), action: onRetry)
+                    Button(CuadraoCopy.text("copy.releaseDeleteAccountView.e4bd371375", spanish: spanish), action: onRetry)
                         .accessibilityIdentifier("identity.delete.supportRetry")
                 }
             }
         }
         .font(CuadraoTypography.body)
         .tint(WelcomePalette.pine)
-        .navigationTitle(text("Eliminar cuenta", "Delete account"))
+        .navigationTitle(CuadraoCopy.text("copy.releaseDeleteAccountView.a094025062", spanish: spanish))
         .navigationBarTitleDisplayMode(.inline)
         .interactiveDismissDisabled(state == .submitting || state == .pending)
         .accessibilityIdentifier("identity.delete.screen")
@@ -112,78 +108,69 @@ public struct ReleaseDeleteAccountView: View {
     private var review: some View {
         Group {
             Section {
-                Text(text("Antes de irte", "Before you go"))
+                Text(CuadraoCopy.text("copy.releaseDeleteAccountView.8f6cdc6f2f", spanish: spanish))
                     .font(CuadraoTypography.feature).accessibilityAddTraits(.isHeader)
-                Text(text("Se eliminarán tu cuenta y tus datos personales, incluidos tus chats, documentos y planes privados. Tus conexiones se desconectarán. Esta acción no se puede deshacer.",
-                          "Your account and personal data, including chats, documents and private plans, will be deleted. Your sources will be disconnected. This cannot be undone."))
+                Text(CuadraoCopy.text("copy.releaseDeleteAccountView.ff723f2a17", spanish: spanish))
             }
             if !consequences.households.isEmpty || consequences.hasLockedHistory {
-                Section(text("Tu hogar", "Your household")) {
+                Section(CuadraoCopy.text("copy.releaseDeleteAccountView.55abd9bccb", spanish: spanish)) {
                     ForEach(Array(consequences.households.enumerated()), id: \.offset) { _, household in
                         Text(householdConsequence(household))
                     }
                     if consequences.hasLockedHistory {
-                        Text(text("El hogar dejará de conservar la copia bloqueada de tu historial.",
-                                  "The household will no longer retain the locked copy of your history."))
+                        Text(CuadraoCopy.text("copy.releaseDeleteAccountView.2d51901272", spanish: spanish))
                     }
                 }
             }
             if consequences.hasSharedPlans {
-                Section(text("Planes compartidos", "Shared plans")) {
-                    Text(text(
-                        "En los planes que compartes, tus montos se quedan para que las cuentas de los demás sigan cuadrando, pero sin tu nombre: aparecerás como «Exmiembro». Tus recibos y notas se borran. Lo que debes o te deben queda cerrado en la app, no marcado como pagado. Los planes que creaste pasan a la persona que lleva más tiempo en cada uno, salvo los planes de deuda compartidos, que se cierran y quedan solo para consulta.",
-                        "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only."))
+                Section(CuadraoCopy.text("copy.releaseDeleteAccountView.3f4adf217e", spanish: spanish)) {
+                    Text(CuadraoCopy.text("copy.releaseDeleteAccountView.8244b5e893", spanish: spanish))
                         .accessibilityIdentifier("identity.delete.sharedConsequences")
-                    Text(text("Si no queda nadie más en un plan que creaste, ese plan se elimina.",
-                              "If no one else is in a plan you created, that plan is deleted."))
+                    Text(CuadraoCopy.text("copy.releaseDeleteAccountView.55e2dfc0f4", spanish: spanish))
                 }
             }
-            Section(text("Qué se conserva", "What remains")) {
-                Text(text("El registro anónimo de las invitaciones y sus conteos se conservan, sin identificarte.",
-                          "Anonymous invitation records and counts remain, without identifying you."))
-                Text(text("Las copias de mensajes ya enviados por correo a soporte no se borran automáticamente.",
-                          "Copies of messages already emailed to support are not automatically erased."))
+            Section(CuadraoCopy.text("copy.releaseDeleteAccountView.2bd4cc492a", spanish: spanish)) {
+                Text(CuadraoCopy.text("copy.releaseDeleteAccountView.51ab27ebc9", spanish: spanish))
+                Text(CuadraoCopy.text("copy.releaseDeleteAccountView.53f1e453de", spanish: spanish))
             }
             if showingVerification {
                 Section {
                     if state == .verificationRejected {
                         Label(verification == .code
-                              ? text("El código no es válido o venció. Revisa tu código y vuelve a intentarlo.",
-                                     "The code is invalid or expired. Check your code and try again.")
-                              : text("No se pudo verificar la confirmación. Escribe DELETE y vuelve a intentarlo.",
-                                     "The confirmation could not be verified. Type DELETE and try again."),
+                              ? CuadraoCopy.text("copy.releaseDeleteAccountView.00ba086a48", spanish: spanish)
+                              : CuadraoCopy.text("copy.releaseDeleteAccountView.ca30fe6fc2", spanish: spanish),
                               systemImage: "exclamationmark.circle")
                             .accessibilityIdentifier("identity.delete.verificationRejected")
                     }
                     Text(verification == .typedDelete
-                         ? text("Escribe DELETE para confirmar.", "Type DELETE to confirm.")
-                         : text("Introduce tu código de verificación.", "Enter your verification code."))
-                    TextField(verification == .typedDelete ? "DELETE" : text("Código", "Code"), text: $confirmation)
+                         ? CuadraoCopy.text("copy.releaseDeleteAccountView.c991dbe1de", spanish: spanish)
+                         : CuadraoCopy.text("copy.releaseDeleteAccountView.215b4daf9a", spanish: spanish))
+                    TextField(verification == .typedDelete ? "DELETE" : CuadraoCopy.text("copy.releaseDeleteAccountView.afea7ee5bf", spanish: spanish), text: $confirmation)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .textContentType(verification == .code ? .oneTimeCode : nil)
                         .focused($focused)
                         .disabled(!state.allowsVerificationInput)
                         .accessibilityIdentifier("identity.delete.verification")
                     if state == .verificationResending {
-                        ProgressView(text("Enviando otro código…", "Sending another code…"))
+                        ProgressView(CuadraoCopy.text("copy.releaseDeleteAccountView.74218026cc", spanish: spanish))
                             .accessibilityIdentifier("identity.delete.resending")
                     } else {
                         Button(role: .destructive) {
                             focused = false
                             onSubmit(confirmation.trimmingCharacters(in: .whitespacesAndNewlines))
                         } label: {
-                            Text(text("Eliminar mi cuenta", "Delete my account"))
+                            Text(CuadraoCopy.text("copy.releaseDeleteAccountView.a28f5504bf", spanish: spanish))
                                 .font(CuadraoTypography.action).frame(minHeight: 44)
                         }
                         .disabled(!verification.accepts(confirmation))
                         .accessibilityIdentifier("identity.delete.submit")
                         if verification == .code, let onResendCode {
-                            Button(text("Enviar otro código", "Send another code")) {
+                            Button(CuadraoCopy.text("copy.releaseDeleteAccountView.12a8b81e3a", spanish: spanish)) {
                                 focused = false; confirmation = ""; onResendCode()
                             }
                                 .accessibilityIdentifier("identity.delete.resend")
                         }
-                        Button(text("Cancelar", "Cancel")) {
+                        Button(CuadraoCopy.text("copy.releaseDeleteAccountView.62a128b722", spanish: spanish)) {
                             focused = false
                             confirmation = ""
                             showingVerification = false
@@ -193,7 +180,7 @@ public struct ReleaseDeleteAccountView: View {
             } else {
                 Section {
                     Button(role: .destructive) { showingVerification = true } label: {
-                        Text(text("Continuar", "Continue")).font(CuadraoTypography.action).frame(minHeight: 44)
+                        Text(CuadraoCopy.text("copy.releaseDeleteAccountView.c27a4762b9", spanish: spanish)).font(CuadraoTypography.action).frame(minHeight: 44)
                     }.foregroundStyle(.red).accessibilityIdentifier("identity.delete.continue")
                 }
             }
@@ -207,14 +194,11 @@ public struct ReleaseDeleteAccountView: View {
     private func householdConsequence(_ household: ReleaseDeletionConsequences.Household) -> String {
         switch household {
         case .member(let name):
-            text("Saldrás de \(name). Los demás miembros verán una nota sin tu nombre.",
-                 "You will leave \(name). Other members will see a note without your name.")
+            CuadraoCopy.text("copy.releaseDeleteAccountView.2a88f8765a", spanish: spanish, String(describing: name))
         case .admin(let name, let successor):
-            text("\(successor) pasará a administrar \(name) por ser el miembro que lleva más tiempo.",
-                 "\(successor) will manage \(name) as its longest-standing remaining member.")
+            CuadraoCopy.text("copy.releaseDeleteAccountView.6911d28eea", spanish: spanish, String(describing: successor), String(describing: name))
         case .soleMember(let name):
-            text("\(name) se cerrará porque eres su único miembro.",
-                 "\(name) will close because you are its only member.")
+            CuadraoCopy.text("copy.releaseDeleteAccountView.260d816f2a", spanish: spanish, String(describing: name))
         }
     }
 }
