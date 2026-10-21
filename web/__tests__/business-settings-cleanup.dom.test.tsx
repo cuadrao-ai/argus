@@ -65,11 +65,11 @@ for (const business of [true, false]) {
     assert.ok(button("Seguridad"));
     await act(async () => button("Ayuda y legal")!.click());
     assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, business ? 0 : 4);
-    assert.equal(document.querySelector("[data-testid=help-legal-empty]") !== null, business);
+    assert.equal(document.querySelector("[data-testid=help-legal-empty]"), null);
   });
 }
 
-test("Ayuda y legal links the published terms and privacy URLs and stays empty without them", async () => {
+test("Ayuda y legal links the published Cuadrao pages, and a setting overrides them", async () => {
   const terms = process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL;
   const privacy = process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL;
   delete process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL;
@@ -82,23 +82,24 @@ test("Ayuda y legal links the published terms and privacy URLs and stays empty w
     await view.act(async () => button("Ayuda y legal")!.click());
     return view;
   };
+  const expectLinks = (termsHref: string, privacyHref: string) => {
+    const termsLink = document.querySelector(`a[href="${termsHref}"]`);
+    const privacyLink = document.querySelector(`a[href="${privacyHref}"]`);
+    assert.equal(termsLink?.textContent?.trim(), "Términos");
+    assert.equal(privacyLink?.textContent?.trim(), "Privacidad");
+    assert.equal(termsLink?.getAttribute("target"), "_blank");
+    assert.equal(privacyLink?.getAttribute("rel"), "noreferrer");
+    assert.equal(document.querySelector("[data-testid=help-legal-empty]"), null);
+    assert.equal(document.querySelector('a[href^="mailto:"]'), null);
+  };
   await open();
-  assert.equal(document.querySelectorAll("a").length, 0);
-  assert.ok(document.querySelector("[data-testid=help-legal-empty]"));
-  assert.equal(document.querySelector('a[href^="mailto:"]'), null);
+  expectLinks("https://cuadrao.ai/terminos", "https://cuadrao.ai/privacidad");
   for (const cleanup of cleanups.splice(0)) await cleanup();
   document.body.innerHTML = "";
   process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "https://cuadrao.example/terminos";
   process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = "https://cuadrao.example/privacidad";
   await open();
-  const termsLink = document.querySelector('a[href="https://cuadrao.example/terminos"]');
-  const privacyLink = document.querySelector('a[href="https://cuadrao.example/privacidad"]');
-  assert.equal(termsLink?.textContent?.trim(), "Términos");
-  assert.equal(privacyLink?.textContent?.trim(), "Privacidad");
-  assert.equal(termsLink?.getAttribute("target"), "_blank");
-  assert.equal(privacyLink?.getAttribute("rel"), "noreferrer");
-  assert.equal(document.querySelector("[data-testid=help-legal-empty]"), null);
-  assert.equal(document.querySelector('a[href^="mailto:"]'), null);
+  expectLinks("https://cuadrao.example/terminos", "https://cuadrao.example/privacidad");
   if (terms === undefined) delete process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL;
   else process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = terms;
   if (privacy === undefined) delete process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL;
