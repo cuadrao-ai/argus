@@ -57,7 +57,7 @@ for (const business of [true, false]) {
     const { act } = await mount(<ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: anchor }} />, business);
     const published = 'a[href="https://cuadrao.ai/terminos"],a[href="https://cuadrao.ai/privacidad"]';
     assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
-    assert.equal(document.querySelectorAll(published).length, business ? 0 : 2);
+    assert.equal(document.querySelectorAll(published).length, 2, "the footer links the published pages on both surfaces");
     await act(async () => button("Preferencias")!.click());
     assert.equal(Boolean(button("País y moneda")), !business);
     await act(async () => button("Controles de datos")!.click());
@@ -68,7 +68,7 @@ for (const business of [true, false]) {
     await act(async () => button("Ayuda y legal")!.click());
     assert.equal(document.querySelectorAll('a[href="/terms"],a[href="/privacy"]').length, 0);
     const links = [...document.querySelectorAll<HTMLAnchorElement>(published)];
-    assert.equal(links.length, business ? 2 : 4);
+    assert.equal(links.length, 4);
     for (const link of links) {
       assert.equal(link.getAttribute("target"), "_blank");
       assert.equal(link.getAttribute("rel"), "noreferrer");

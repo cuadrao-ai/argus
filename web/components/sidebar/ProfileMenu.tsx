@@ -42,6 +42,7 @@ import {
   MapPin,
   PanelLeft,
   Shield,
+  ToggleRight,
   Trash2,
   User,
   FileText,
@@ -83,6 +84,8 @@ import {
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
+import { setSwitchLabelsShown, useSwitchLabelsShown } from "@/lib/switch-labels";
+import { Switch } from "@/components/ui/Switch";
 import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
@@ -141,6 +144,7 @@ export default function ProfileMenu({
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
   const legalHref = cuadraoLegalLinks();
+  const switchLabelsShown = useSwitchLabelsShown();
   const { isBelowDesktop } = useResponsiveLayout();
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
@@ -1191,6 +1195,15 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("language")}</span>
             </button>
+            {isBusiness && (
+              <div className="flex min-h-[38px] w-full items-center gap-2.5 py-0.5 pl-3.5 pr-1.5 text-[13px] text-black dark:text-white">
+                <ToggleRight className="h-3.5 w-3.5 text-black/60 dark:text-white/60" aria-hidden="true" />
+                <span className="whitespace-nowrap">{t("settings.app.switch_labels", "Words on switches")}</span>
+                <span className="ml-auto flex shrink-0">
+                  <Switch testId="settings-switch-labels" label={t("settings.app.switch_labels", "Words on switches")} checked={switchLabelsShown} onChange={setSwitchLabelsShown} />
+                </span>
+              </div>
+            )}
             {homeCountryAvailable && (
               <button
                 onClick={() => openModal("country")}
@@ -1377,29 +1390,23 @@ export default function ProfileMenu({
         {t("settings.logout", "Log out")}
       </button>
 
-      {!isBusiness && <>
       {/* Footer links */}
       <div className={`my-1 border-t border-black/5 dark:border-white/5${rootRow}`} />
-      <div className={`flex items-center gap-1 px-3.5 py-1.5 text-[10px] text-black/25 dark:text-white/25${rootRow}`}>
-        <a
-          href={legalHref.terms}
-          target="_blank"
-          rel="noreferrer"
-          className="transition-colors hover:text-black dark:hover:text-white"
-        >
-          {t("settings.help.terms", "Terms")}
-        </a>
-        <span aria-hidden="true">·</span>
-        <a
-          href={legalHref.privacy}
-          target="_blank"
-          rel="noreferrer"
-          className="transition-colors hover:text-black dark:hover:text-white"
-        >
-          {t("settings.help.privacy", "Privacy")}
-        </a>
+      <div data-testid="settings-legal-footer" className={`flex items-center gap-0.5 px-2.5 text-[12px] text-black/55 dark:text-white/55${rootRow}`}>
+        {LEGAL_LINK_IDS.map((id, index) => (
+          <span key={id} className="flex items-center gap-0.5">
+            {index > 0 ? <span aria-hidden="true">·</span> : null}
+            <a
+              href={legalHref[id]}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center rounded-mark px-1 transition-colors hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:hover:text-white"
+            >
+              {t(id === "terms" ? "settings.help.terms" : "settings.help.privacy", id === "terms" ? "Terms" : "Privacy")}
+            </a>
+          </span>
+        ))}
       </div>
-      </>}
     </div>
   );
 

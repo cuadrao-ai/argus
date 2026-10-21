@@ -15,6 +15,7 @@ import { RangeCalendar } from "./foundation/RangeCalendar";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { showToast } from "./foundation/toasts";
 import { primaryButtonClass, quietButtonClass } from "./business-ui";
+import { resolveLanguage } from "@/lib/language-features";
 
 export function finishPeriodExportRequest(request: { current: AbortController | null }, controller: AbortController, setBusy: (busy: boolean) => void) {
   if (request.current !== controller) return;
@@ -117,7 +118,7 @@ function rangeEnds(range: Range, locale: string): { from: string; to: string } {
  */
 export default function ExportRecordsPanel({ month: startMonth, monthClose, onClose }: { month: string; monthClose: MonthCloseSource; onClose: () => void }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const { chosen, source } = useBusiness();
   const naming = useBusinessNaming();
   const [now] = useState(() => new Date());

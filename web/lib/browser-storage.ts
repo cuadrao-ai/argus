@@ -38,6 +38,8 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_sidebar_mode": "layout",
   // Whether money amounts show blurred, for sharing a screen or working in public.
   "cuadrao:hide_amounts": "layout",
+  // Whether every switch shows its Sí and No words, until the account keeps the choice.
+  "cuadrao:switch_labels": "appearance",
   "argus:command_palette_layout": "layout",
   "argus:guest-hint:confirmation:v1": "tips",
   "argus:guest-hint:result:v1": "tips",

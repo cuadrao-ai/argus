@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useSwitchLabelsShown } from "@/lib/switch-labels";
 import { createSpringDriver, LEAD, TRAIL } from "./spring";
 
 /** Knob diameter, the rail's padding, and how much a press widens the knob. */
@@ -25,7 +26,7 @@ export function Switch({ checked, onChange, label, stateLabels, disabled = false
   onChange: (next: boolean) => void | Promise<unknown>;
   /** The switch's name for assistive tech and, when shown, beside it. */
   label: string;
-  /** The words for each side, crossfaded inside the rail; every switch shows its state in words, "Sí" and "No" unless named here. */
+  /** The words for each side, crossfaded inside the rail: "Sí" and "No" unless named here, and none when the person turned switch words off. */
   stateLabels?: { on: string; off: string };
   disabled?: boolean;
   testId?: string;
@@ -34,7 +35,7 @@ export function Switch({ checked, onChange, label, stateLabels, disabled = false
   const [pending, setPending] = useState(false);
   const on = optimistic ?? checked;
   const { t } = useTranslation();
-  const words = stateLabels ?? { on: t("common.yes", "Yes"), off: t("common.no", "No") };
+  const words = useSwitchLabelsShown() ? stateLabels ?? { on: t("common.yes", "Yes"), off: t("common.no", "No") } : null;
   const knob = useRef<HTMLSpanElement>(null);
   const driver = useRef<ReturnType<typeof createSpringDriver<"l" | "r">> | null>(null);
   const placed = useRef(false);
@@ -114,8 +115,10 @@ export function Switch({ checked, onChange, label, stateLabels, disabled = false
         style={{ width: RAIL_W, height: RAIL_H, borderRadius: RAIL_H / 2 }}
         className={`relative block overflow-hidden transition-[background-color,box-shadow] duration-[250ms] ease-out group-focus-visible:shadow-[0_0_0_2px_#FFFEFA,0_0_0_4px_#2f5a49] motion-reduce:transition-none ${on ? "bg-[#2f5a49] dark:bg-[#8fcbb0]" : "bg-[#c9cec9] dark:bg-white/20"}`}
       >
-        <span className={`absolute inset-y-0 left-0 flex items-center pl-2 text-[11px] font-medium text-[#FFFEFA] transition-opacity duration-[250ms] ease-out dark:text-[#172b26] ${on ? "opacity-100" : "opacity-0"}`}>{words.on}</span>
-        <span className={`absolute inset-y-0 right-0 flex items-center pr-2 text-[11px] font-medium text-[#56635e] transition-opacity duration-[250ms] ease-out ${on ? "opacity-0" : "opacity-100"}`}>{words.off}</span>
+        {words ? <>
+          <span className={`absolute inset-y-0 left-0 flex items-center pl-2 text-[11px] font-medium text-[#FFFEFA] transition-opacity duration-[250ms] ease-out dark:text-[#172b26] ${on ? "opacity-100" : "opacity-0"}`}>{words.on}</span>
+          <span className={`absolute inset-y-0 right-0 flex items-center pr-2 text-[11px] font-medium text-[#56635e] transition-opacity duration-[250ms] ease-out ${on ? "opacity-0" : "opacity-100"}`}>{words.off}</span>
+        </> : null}
         <span
           ref={knob}
           data-switch-knob

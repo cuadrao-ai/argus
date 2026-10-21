@@ -25,6 +25,7 @@ import { captureOutcomeUnknown, validCaptureText } from "./ManualCaptureDialog";
 import { useForwardAddress } from "./useForwardAddress";
 import { useInputCapabilities } from "./useInputCapabilities";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type { IntakeTarget } from "./receipt-upload-queue";
 
@@ -81,7 +82,7 @@ function dragStateFor(event: DragEvent, limits: ReceiptLimits): DragState {
 
 function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & { limits: ReceiptLimits }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const capabilities = useInputCapabilities();
   const { isBelowTablet } = useResponsiveLayout();
   /** The photo row is for phones: a camera, file capture and a phone-sized screen. */

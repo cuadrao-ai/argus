@@ -10,6 +10,7 @@ import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisi
 import { useBankTransport, useIgualarEnabled } from "./transacciones-gate";
 import { createSampleBankServer } from "./transacciones-sample";
 import { inverse, magnitude, periodCount, suggestionRun, type Decision, type IgualarView, type Movement, type Segment, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
+import { resolveLanguage } from "@/lib/language-features";
 
 const OverrideContext = createContext<TransaccionesSource | null>(null);
 
@@ -70,7 +71,7 @@ const newKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? 
  */
 export function useTransacciones() {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const source = useTransaccionesSource();
   const { period, revision } = useBusiness();
   const [chosen, setChosen] = useState<Segment | null>(null);

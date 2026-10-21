@@ -3,11 +3,12 @@
 import { useTranslation } from "react-i18next";
 import { formatShortDay } from "../business-format";
 import { signOf, type MatchState, type Movement, type SuggestionReason } from "./transacciones-model";
+import { resolveLanguage } from "@/lib/language-features";
 
 /** The words Transacciones says about a row: its state, its Detalle line, and why a pair was offered. */
 export function useTransaccionesWords() {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const stateWord = (state: MatchState) => t(`business.transactions.states.${state}`);
 
   /** One plain sentence: why the row is in this state. */

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatDay, todayIso } from "../business-format";
 import { isoOf, monthOf, shiftDay, weeks } from "./DatePicker";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type DayRange = { from: string; to: string };
 type Phase = "start" | "end";
@@ -26,7 +27,7 @@ export function pickDay(range: DayRange, phase: Phase, day: string): { range: Da
  */
 export function RangeCalendar({ value, onChange, maxDays, label }: { value: DayRange; onChange: (range: DayRange) => void; maxDays: number; label: string }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [phase, setPhase] = useState<Phase>("start");
   // Opens on the range's last month, or on this month when the range runs into the future.
   const [active, setActive] = useState(() => (value.to > todayIso() && value.from <= todayIso() ? todayIso() : value.to));

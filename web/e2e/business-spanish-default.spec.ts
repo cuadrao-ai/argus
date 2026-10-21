@@ -23,21 +23,40 @@ async function installAccount(page: Page, language: Language, options: { languag
   });
 }
 
+type Painted = { langs: string[]; texts: string[] };
+
+/** Every lang the document took and every text node it ever held, from the first parsed byte, so a word replaced before the next frame still counts. */
+async function recordPaint(page: Page) {
+  await page.addInitScript(() => {
+    const painted: Painted = { langs: [], texts: [] };
+    const keep = (text: string | null | undefined) => { const trimmed = text?.trim(); if (trimmed) painted.texts.push(trimmed); };
+    const keepTree = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) return keep(node.nodeValue);
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) keep(walker.currentNode.nodeValue);
+    };
+    new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "attributes") painted.langs.push(document.documentElement.lang);
+        if (record.type === "characterData") { keep(record.oldValue); keep(record.target.nodeValue); }
+        record.addedNodes.forEach((node) => {
+          if (node === document.documentElement) painted.langs.push(document.documentElement.lang);
+          keepTree(node);
+        });
+      }
+    }).observe(document, { subtree: true, childList: true, characterData: true, characterDataOldValue: true, attributes: true, attributeFilter: ["lang"] });
+    Object.assign(window, { __painted: painted });
+  });
+}
+
+const paintedSoFar = (page: Page) => page.evaluate(() => (window as Window & { __painted?: Painted }).__painted ?? null);
+
 async function setup(page: Page, language: Language, options: { languageChosen?: boolean } = {}) {
   await installAccount(page, language, options);
-  await page.addInitScript(() => {
-    const seen: string[] = [];
-    const current = () => document.documentElement.lang;
-    seen.push(current());
-    new MutationObserver(() => seen.push(current())).observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["lang"],
-    });
-    Object.assign(window, { __businessLangs: seen });
-  });
+  await recordPaint(page);
   const source = createFixtureBusinessDataSource({ chatAvailable: false });
   const receipt = await source.receipt("rcpt-ferreteria");
-  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, needs_attention_count: 0 };
+  const activity = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 1, ready_to_review_count: 1, needs_attention_count: 0 };
   await page.route("**/api/v1/business/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.split("/business/")[1];
@@ -67,10 +86,15 @@ test("an en-US browser with nothing stored and a Spanish account opens Business 
   expect(html ?? "").toMatch(/<html[^>]*\slang="es"/);
   expect(html ?? "").not.toMatch(/<html[^>]*\slang="en"/);
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
-  const langs = await page.evaluate(() => (window as Window & { __businessLangs?: string[] }).__businessLangs ?? []);
-  expect(langs.every((lang) => lang === "es")).toBe(true);
   const overview = page.locator("#business-overview-title");
   await expect(overview).toHaveText("Hola");
+  const painted = await paintedSoFar(page);
+  expect(painted, "the paint recorder ran from the first byte").not.toBeNull();
+  expect(painted!.langs, "the document was seen with a lang").toContain("es");
+  expect(painted!.langs.filter((lang) => lang !== "es"), "the document never took another lang").toEqual([]);
+  for (const spanish of ["Hola", "Inicio", "Bandeja", "Agregar"]) expect(painted!.texts, `${spanish} painted`).toContain(spanish);
+  const firstScreenEnglish = ["business.overview.greeting_unnamed", "business.nav.overview", "business.nav.inbox", "business.nav.transactions", "business.actions.add", "business.month_close.action_review"].map((key) => en(key));
+  expect(painted!.texts.filter((text) => firstScreenEnglish.includes(text)), "no English word painted before Spanish").toEqual([]);
   await expect(page.getByTestId("month-close-task-review")).toContainText("Revisa 1 recibo en la Bandeja");
   await expect(page.getByTestId("month-close-task-review").getByRole("button", { name: "Revisar" })).toBeVisible();
   await expect(page.getByTestId("business-sidebar-nav")).toContainText("Inicio");
@@ -115,6 +139,7 @@ test("an English account opens Business in English", async ({ page }) => {
   await setup(page, "en");
   await page.goto("/biz");
   await expect(page.locator("#business-overview-title")).toHaveText(en("business.overview.greeting_unnamed"));
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
   const task = page.getByTestId("month-close-task-review");
   await expect(task).toContainText(en("business.month_close.checklist_review_one", 1));
   await expect(task.getByRole("button", { name: en("business.month_close.action_review") })).toBeVisible();
@@ -149,6 +174,17 @@ test("an English account opens Business in English", async ({ page }) => {
   await expect(review).toContainText(en("business.review.account"));
   await expect(review).not.toContainText("Comercio o persona");
   await expect(review).not.toContainText("Pagado desde");
+});
+
+test("an English account on a device that last showed English keeps the page in English", async ({ page }) => {
+  await setup(page, "en");
+  await page.addInitScript(() => window.localStorage.setItem("i18nextLng", "en"));
+  await page.goto("/biz");
+  await expect(page.locator("#business-overview-title")).toHaveText(en("business.overview.greeting_unnamed"));
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  const painted = await paintedSoFar(page);
+  const sinceEnglish = painted!.langs.slice(painted!.langs.indexOf("en"));
+  expect(sinceEnglish.filter((lang) => lang !== "en"), "once English shows, the document stays en").toEqual([]);
 });
 
 test("an en-US browser with nothing stored sees a Spanish sign-in and can choose English, which a reload keeps", async ({ page }) => {

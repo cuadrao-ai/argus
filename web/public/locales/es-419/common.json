@@ -983,6 +983,7 @@
       "language": "Idioma de la app",
       "close_language_modal": "Cerrar selector de idioma",
       "sidebar": "Barra lateral",
+      "switch_labels": "Interruptores con palabras",
       "security": "Seguridad",
       "appearance": "Apariencia",
       "appearance_options": {
@@ -2362,6 +2363,7 @@
       "for_owner": "Para el dueño",
       "before_approval": "Antes de aprobar",
       "approve": "Aprobar gasto",
+      "approve_action": "Aprobar",
       "approve_next": "Aprobar y siguiente",
       "approve_reason": {
         "date": "Agrega la fecha para aprobar"
@@ -2471,6 +2473,7 @@
         "missing": "Falta"
       },
       "confirm_value": "Confirmar",
+      "confirm_read": "Confirmar {{count}} datos leídos",
       "suggestions_pending_one": "{{count}} sugerencia por confirmar",
       "suggestions_pending_other": "{{count}} sugerencias por confirmar",
       "missing_pending_one": "Falta {{count}} dato",
@@ -3078,6 +3081,13 @@
       "correo_history": "Historial",
       "datos_title": "Nombre y RNC",
       "datos_body": "Salen en tu 606 y 607 y en lo que exportas."
+    },
+    "shortcuts": {
+      "edit_detail": "Editar dato",
+      "go_to": "Ir a {{section}}",
+      "next_receipt": "Recibo siguiente",
+      "previous_receipt": "Recibo anterior",
+      "sidebar": "Mostrar u ocultar barra lateral"
     },
     "switcher": {
       "change": "Cambiar de negocio",

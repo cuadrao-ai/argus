@@ -8,6 +8,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
 import { quietButtonClass } from "../business-ui";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type Month = { year: number; month: number };
 
@@ -65,7 +66,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
   disabled?: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const ownId = useId();
   const inputId = id ?? `${ownId}-input`;
   const headingId = `${ownId}-month`;
