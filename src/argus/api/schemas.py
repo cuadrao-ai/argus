@@ -109,11 +109,12 @@ CHAT_STREAM_MAX_ACTION_PAYLOAD_STRING_LENGTH = 4_096
 
 
 class OnboardingState(BaseModel):
-    """Legacy/inert compatibility state; no product behavior reads or writes it.
+    """Legacy compatibility state from the removed onboarding flow.
 
-    The explicit onboarding flow is removed. The field survives only because
-    old profile rows carry it and deployed clients may still read the `/me`
-    shape during a rollout.
+    `language_confirmed` is the one live field: `PATCH /me` sets it when a
+    language is saved, and the Business web shows an account language only once
+    it is set. The other fields survive because old profile rows carry them and
+    deployed clients may still read the `/me` shape.
     """
 
     completed: bool = False

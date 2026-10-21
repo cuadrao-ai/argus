@@ -393,6 +393,10 @@ def patch_me(
     updates = patch.model_dump(exclude_unset=True)
     updated_fields = sorted(updates)
     data.update(updates)
+    if "language" in updates:
+        # A saved language is a chosen one; the row keeps that fact beside it.
+        language_confirmed = {**data["onboarding"], "language_confirmed": True}
+        data["onboarding"] = updates["onboarding"] = language_confirmed
     data["updated_at"] = utcnow()
     try:
         updated = User.model_validate(data)

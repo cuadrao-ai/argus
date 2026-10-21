@@ -69,6 +69,6 @@ for (const scenario of ["new", "approved", "dismissed", "filtered", "unknown", "
 test("English keeps the existing empty copy", async ({ page }) => {
   await setup(page, "approved", "en");
   await page.goto("/biz?view=inbox");
-  await expect(page.getByTestId("business-inbox-empty")).toContainText("Your receipts land here");
+  await expect(page.getByTestId("business-inbox-empty")).toContainText("All approved. Squared away.");
   await expect(page.getByTestId("business-inbox-empty")).not.toContainText("Todo aprobado");
 });
