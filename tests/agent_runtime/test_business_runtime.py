@@ -69,7 +69,7 @@ class Actions:
         return plan
 
     def dossier(self, context, draft_id):
-        return SimpleNamespace(model_dump=lambda **kwargs: self.drafts[str(draft_id)])
+        return SimpleNamespace(model_facing=lambda: self.drafts[str(draft_id)])
 
     def execute(self, context, key, index, *, lease):
         assert self.plan is not None

@@ -222,12 +222,47 @@ def test_the_staging_consent_and_age_records_hold_inside_their_window(
         applier.parse_hosted_approval(text, sha, versions, (), expires)
 
 
+_STAGING_APPROVAL_G = (
+    "docs/release-manifests/2026-10-20-staging-business-fiscal-profile-apply.json"
+)
+_STAGING_APPROVAL_H = (
+    "docs/release-manifests/2026-10-20-staging-business-due-on-apply.json"
+)
+_STAGING_SHA_GH = "468de3986c4673ddda2bd94fc19746dff921f818"
+_STAGING_VERSIONS_G = ["20261019070000"]
+_STAGING_VERSIONS_H = ["20261020120000"]
+
+
+@pytest.mark.parametrize(
+    ("path", "versions", "record_id", "wrong"),
+    [
+        (_STAGING_APPROVAL_G, _STAGING_VERSIONS_G, "staging-apply-2026-10-20-a",
+         ["20261019070000", "20261020120000"]),
+        (_STAGING_APPROVAL_H, _STAGING_VERSIONS_H, "staging-apply-2026-10-20-b",
+         ["20261019070000", "20261020120000"]),
+    ],
+)  # fmt: skip
+def test_the_staging_fiscal_profile_and_due_on_records_hold_inside_their_window(
+    path: str, versions: list[str], record_id: str, wrong: list[str]
+) -> None:
+    text = (Path(__file__).resolve().parents[1] / path).read_text()
+    approval = _staging_approval(path, _STAGING_SHA_GH, versions)
+    expires = datetime.fromisoformat("2026-10-23T20:55:00-05:00")
+    assert (approval.id, approval.expires_at) == (record_id, expires)
+    with pytest.raises(applier.ApplyError, match="different list of versions"):
+        applier.parse_hosted_approval(text, _STAGING_SHA_GH, wrong, (), _STAGING_NOW)
+    with pytest.raises(applier.ApplyError, match="different candidate commit"):
+        applier.parse_hosted_approval(text, _STAGING_SHA_F, versions, (), _STAGING_NOW)
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(text, _STAGING_SHA_GH, versions, (), expires)
+
+
 _STAGING_REF = "skedzwocnmrhfigiwyzi"
 _STAGING_DIRECT = f"db.{_STAGING_REF}.supabase.co"
 _STAGING_POOLER = "aws-0-us-east-1.pooler.supabase.com"
 _STAGING_OTHER_POOLER = "aws-0-eu-west-1.pooler.supabase.com"
 _STAGING_PASSWORD = "fake-password-do-not-echo"
-_STAGING_NOW = datetime.fromisoformat("2026-10-19T17:00:00-05:00")
+_STAGING_NOW = datetime.fromisoformat("2026-10-20T21:00:00-05:00")
 _STAGING_RECORDS = (
     (_STAGING_APPROVAL, _STAGING_SHA, _STAGING_VERSIONS),
     (_STAGING_APPROVAL_B, _STAGING_SHA_B, _STAGING_VERSIONS_B),
@@ -235,6 +270,8 @@ _STAGING_RECORDS = (
     (_STAGING_APPROVAL_D, _STAGING_SHA_D, _STAGING_VERSIONS_D),
     (_STAGING_APPROVAL_E, _STAGING_SHA_E, _STAGING_VERSIONS_E),
     (_STAGING_APPROVAL_F, _STAGING_SHA_F, _STAGING_VERSIONS_F),
+    (_STAGING_APPROVAL_G, _STAGING_SHA_GH, _STAGING_VERSIONS_G),
+    (_STAGING_APPROVAL_H, _STAGING_SHA_GH, _STAGING_VERSIONS_H),
 )
 
 
