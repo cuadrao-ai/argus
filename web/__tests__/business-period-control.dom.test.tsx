@@ -72,10 +72,11 @@ test("Personalizado opens the range calendar in a popover under its segment; not
   } finally { await page.close(); }
 });
 
-test("Escape closes the popover and the bar keeps its period", async () => {
+test("the pill moves onto Personalizado while its calendar is open, and Escape slides it back to the period in use", async () => {
   const page = await mount(1280);
   try {
     await click(page.host.querySelector('[data-segment="custom"]'));
+    assert.equal(page.host.querySelector('[data-segment="custom"]')?.getAttribute("aria-checked"), "true", "the pill reaches Personalizado");
     await act(async () => { document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     assert.equal(page.host.querySelector('[data-testid="period-popover"]'), null);
     assert.deepEqual(page.picked, []);

@@ -95,7 +95,8 @@ export default function BusinessPeriodControl({ period, setPeriod }: { period: P
         <SegmentedControl
           label={t("business.period.label", "Period")}
           segments={keys.map((key) => ({ key, label: label(key) }))}
-          value={period.key}
+          // While its calendar is open the pill sits on Personalizado; closing without applying returns it to the period in use.
+          value={open ? "custom" : period.key}
           onChange={choose}
         />
       )}
