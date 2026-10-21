@@ -1,0 +1,7 @@
+{
+  "target_functions": 21,
+  "source_acl_signature_equal": true,
+  "unrelated_definers_equal": true,
+  "before_after_behavior": "PASS",
+  "staging_writes": 0
+}

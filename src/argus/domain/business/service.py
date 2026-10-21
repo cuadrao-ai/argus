@@ -16,10 +16,11 @@ from zoneinfo import ZoneInfo
 
 from argus.domain import financial_search
 from argus.domain.business import ledger
+from argus.domain.business import search as business_search
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_chat_enabled
+from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import (
-    AWAITING_REVIEW,
     CLOSED,
     Receipt,
     compose,
@@ -34,6 +35,7 @@ from argus.domain.ingestion.documents.service import (
     DocumentServiceError,
     DocumentsService,
 )
+from argus.domain.ingestion.documents.store import CaptureHook
 from argus.domain.ingestion.receipt_review import RECEIPT_EVENT_STATES, receipt_ids
 from argus.domain.ingestion.reconcile.model import ReconcileError, StaleEvent
 from argus.domain.ingestion.reconcile.recording import DEFAULT_ZONE
@@ -181,6 +183,8 @@ class BusinessService:
         filename: str,
         media_type: str,
         consent: bool,
+        on_capture: CaptureHook | None = None,
+        document_type: DocumentType | None = None,
     ) -> Receipt:
         outcome = await self.documents.upload(
             user_id=scope.person_id,
@@ -189,6 +193,8 @@ class BusinessService:
             media_type=media_type,
             consent=consent,
             scope=scope.owner,
+            on_capture=on_capture,
+            document_type=document_type,
         )
         # The same bytes saved before come back as that receipt, said so.
         return replace(
@@ -206,13 +212,36 @@ class BusinessService:
         )
 
     def source(self, scope: BusinessScope, receipt_id: str) -> tuple[str, bytes]:
-        draft = self.documents.get(
+        before = self.documents.get(
             user_id=scope.person_id, connection_id=receipt_id, scope=scope.owner
         )
-        content = self.documents.source_bytes(
+        from argus.domain.ingestion.documents.models import DocumentExtractionError
+        from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+        from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+
+        try:
+            ensure_rebuilt_image(
+                store=self.documents.store,
+                user_id=scope.person_id,
+                connection_id=receipt_id,
+            )
+            download = self.documents.store.download_source(
+                user_id=scope.person_id, connection_id=receipt_id
+            )
+        except SourceStorageUnavailable:
+            raise DocumentServiceError(
+                "document_storage_unavailable", retryable=True
+            ) from None
+        except DocumentExtractionError:
+            raise DocumentServiceError("document_source_unavailable") from None
+        after = self.documents.get(
             user_id=scope.person_id, connection_id=receipt_id, scope=scope.owner
         )
-        return draft.media_type, content
+        if (before.sha256, before.media_type) != (after.sha256, after.media_type):
+            raise DocumentServiceError("document_source_unavailable")
+        if download is None:
+            raise DocumentServiceError("document_source_unavailable")
+        return download
 
     async def start_entry(
         self,
@@ -347,6 +376,13 @@ class BusinessService:
         end = end if end is not None else ledger.today()
         return self._expenses(scope, self._activities(scope), start, end)
 
+    def expense_rows(
+        self, scope: BusinessScope, start: date, end: date
+    ) -> list[dict[str, Any]]:
+        """The period's saved expenses with their minor-unit amounts, for totals."""
+
+        return ledger.expenses(self._activities(scope), {}, start, end)
+
     def expense(self, scope: BusinessScope, expense_id: str) -> dict[str, Any]:
         """One saved expense of this Business, with when it was recorded and its
         revision; any other id, including another Business's, is not found."""
@@ -367,48 +403,71 @@ class BusinessService:
         activities: list[dict[str, Any]],
         start: date,
         end: date,
+        kind: str = "expense",
     ) -> list[dict[str, Any]]:
-        ids = [item["activity_id"] for item in ledger.expense_activities(activities)]
+        ids = [item["activity_id"] for item in ledger.kind_activities(activities, kind)]
         with self.imports.store.transaction(scope.person_id, scope=scope.owner) as tx:
             receipt_of = receipt_ids(tx, self.documents.store, scope.person_id, ids)
         return [
-            _wire(item) for item in ledger.expenses(activities, receipt_of, start, end)
+            _wire(item)
+            for item in ledger.expenses(activities, receipt_of, start, end, kind=kind)
         ]
 
     def search(
         self,
         scope: BusinessScope,
-        q: str,
-        limit: int,
+        query: business_search.SearchQuery,
         views: Mapping[str, dict[str, Any]] | None = None,
-    ) -> dict[str, Any]:
-        """Expenses and accounts through the canonical financial search, plus
-        receipts matched by the same rule on merchant, filename and amount.
+        numbers: Mapping[str, tuple[str, ...]] | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Every match, unpaged: expenses, ventas (saved income) and accounts
+        through the canonical financial search, an expense or a venta also by
+        its amount or a fiscal number, and receipts by the same rules on
+        merchant, filename and amount.
 
         ``views`` are the receipt summaries as the API shows them (a linked draft
         owns merchant, amount and expense), so the match sees what the person
-        sees. A receipt whose expense is already a hit is left out: the expense
-        opens it.
+        sees. ``numbers`` are the fiscal numbers each record's draft carries, by
+        activity or receipt id. A receipt whose record is already a hit is left
+        out: the record opens it.
         """
 
-        query = financial_search.query_text(q)
+        known = numbers or {}
         found = financial_search.hits(
-            self.accounts, scope.person_id, scope=scope.owner, query=query
+            self.accounts, scope.person_id, scope=scope.owner, query=query.text
         )
-        activities = [
-            hit.activity.model_dump()
+        worded = {
+            hit.activity.activity_id
             for hit in found
             if isinstance(hit, financial_search.ActivityHit)
+        }
+        activities = [
+            item
+            for item in self._activities(scope)
+            if item["activity_id"] in worded
+            or business_search.exact(
+                query,
+                amount=item["amount"],
+                currency=item["currency"],
+                numbers=known.get(item["activity_id"], ()),
+            )
         ]
-        expenses = self._expenses(scope, activities, date.min, date.max)[:limit]
-        listed = {expense["id"] for expense in expenses}
+        expenses = self._expenses(scope, activities, date.min, date.max)
+        ventas = self._expenses(scope, activities, date.min, date.max, kind="income")
+        listed = {item["id"] for item in [*expenses, *ventas]}
         shown = views or {}
         receipts = [
             summary
             for receipt in self.receipts(scope)
             for summary in [shown.get(receipt.id) or receipt.summary()]
             if summary["expense_id"] not in listed
-            and financial_search.matches(query, _summary_text(summary))
+            and business_search.matches(
+                query,
+                _summary_text(summary),
+                amount=summary["amount"],
+                currency=summary["currency"],
+                numbers=known.get(receipt.id, ()),
+            )
         ]
         accounts = [
             {
@@ -422,8 +481,9 @@ class BusinessService:
         ]
         return {
             "expenses": expenses,
-            "receipts": receipts[:limit],
-            "accounts": accounts[:limit],
+            "ventas": ventas,
+            "receipts": receipts,
+            "accounts": accounts,
         }
 
     def record_expense(
@@ -483,8 +543,6 @@ class BusinessService:
             "outside_period_latest_on": max(
                 (item["occurred_on"] for item in outside), default=None
             ),
-            "awaiting_review": sum(r.status in AWAITING_REVIEW for r in receipts),
-            "needs_attention": sum(r.status == "needs_attention" for r in receipts),
             "last_received_at": max((r.draft.created_at for r in receipts), default=None),
             "last_confirmed_at": max(recorded.values(), default=None),
         }

@@ -16,8 +16,9 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     for name in ("AccountsModel.swift", "FinancialLoopModel.swift", "FinancialObservationRead.swift", "FinancialActivityEditor.swift", "AccountEntry.swift"):
         shutil.copy(root / "ios/ArgusFoundation/Accounts" / name, source / name)
     asset = (root / "ios/ArgusFoundation/Accounts/FinancialAssetEditor.swift").read_text()
-    (source / "FinancialAssetEditor.swift").write_text(asset[:asset.index("struct AssetShareControl: View {")])
-    percent = asset[asset.index("    static func percent("):asset.index("    var body:", asset.index("struct AssetShareControl:"))]
+    (source / "FinancialAssetEditor.swift").write_text(asset)
+    form = (root / "ios/ArgusFoundation/Accounts/FinancialAssetForm.swift").read_text()
+    percent = form[form.index("    static func percent("):form.index("    var body:", form.index("struct AssetShareControl:"))]
     (source / "AssetShareControl.swift").write_text("import Foundation\nenum AssetShareControl {\n" + percent + "}\n")
     for name in ("FinancialPlanModel.swift", "FinancialBudgetModel.swift", "FinancialGoalModel.swift", "FinancialDebtModel.swift"):
         shutil.copy(root / "ios/ArgusFoundation/Plan" / name, source / name)
@@ -25,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
         shutil.copy(root / "ios/ArgusFoundation/Plan" / name, source / name)
     shutil.copy(root / "ios/ArgusFoundation/Plan/ConnectedPlanMapping.swift", source / "ConnectedPlanMapping.swift")
     plans = (root / "ios/ArgusFoundation/Cuadrao/Planning/CuadraoPlanPreview.swift").read_text()
-    (source / "CanvasPlan.swift").write_text("import Foundation\n" + plans[plans.index("enum CanvasPlanKind:"):plans.index("@Observable final class CuadraoPlanPreview {")])
+    (source / "CanvasPlan.swift").write_text("import Foundation\nimport CuadraoBook\n" + plans[plans.index("enum CanvasPlanKind:"):plans.index("@Observable final class CuadraoPlanPreview {")])
     shutil.copy(root / "ios/ArgusFoundation/Search/FinancialSearchModel.swift", source / "FinancialSearchModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/Auth/AccountDeletionModel.swift", source / "AccountDeletionModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/ReleaseUI/Identity/ReleaseIdentityModels.swift", source / "ReleaseIdentityModels.swift")
@@ -55,11 +56,21 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(root / "ios/ArgusFoundation/Connected/ConnectedAddMovement.swift", source / "ConnectedAddMovement.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/SavedReceiptsModel.swift", source / "SavedReceiptsModel.swift")
     shutil.copy(root / "ios/ArgusFoundation/Connected/SavedReceiptCopy.swift", source / "SavedReceiptCopy.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptJourneyModel.swift", source / "ReceiptJourneyModel.swift")
+    shutil.copy(Path(__file__).with_name("ScanTraceStub.swift"), source / "ScanTrace.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Connected/ReceiptSearch.swift", source / "ReceiptSearch.swift")
     shutil.copy(canvas / "CuadraoNavigationSlot.swift", source / "CuadraoNavigationSlot.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Guest/GuestAccessPolicy.swift", source / "GuestAccessPolicy.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Launch/LaunchGate.swift", source / "LaunchGate.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Guest/GuestReceiptStore.swift", source / "GuestReceiptStore.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Connected/GuestClaim/GuestClaimRunner.swift", source / "GuestClaimRunner.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Connected/GuestClaim/GuestClaimSample.swift", source / "GuestClaimSample.swift")
+    shutil.copy(root / "ios/ArgusFoundation/Auth/CaptchaFramePolicy.swift", source / "CaptchaFramePolicy.swift")
     shutil.copy(root / "ios/ArgusFoundation/Plan/ConnectedPlanScenario.swift", source / "ConnectedPlanScenario.swift")
     shutil.copy(root / "ios/Packages/ArgusSession/Tests/ArgusSessionTests/TestSupport.swift", tests / "TestSupport.swift")
     shutil.copy(Path(__file__).with_name("FinancialModelTests.swift"), tests / "FinancialModelTests.swift")
     shutil.copy(Path(__file__).with_name("FinancialScrollRestorationTests.swift"), tests / "FinancialScrollRestorationTests.swift")
+    shutil.copy(Path(__file__).with_name("EnteredDayCarryTests.swift"), tests / "EnteredDayCarryTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedDetailPresentationTests.swift"), tests / "ConnectedDetailPresentationTests.swift")
     shutil.copy(Path(__file__).with_name("FinancialObservationReadTests.swift"), tests / "FinancialObservationReadTests.swift")
     shutil.copy(Path(__file__).with_name("AccountDeletionModelTests.swift"), tests / "AccountDeletionModelTests.swift")
@@ -68,15 +79,27 @@ with tempfile.TemporaryDirectory(prefix="argus-financial-models-") as temporary:
     shutil.copy(Path(__file__).with_name("PlanScenarioTests.swift"), tests / "PlanScenarioTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedAccountOrderTests.swift"), tests / "ConnectedAccountOrderTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedReleaseSurfaceTests.swift"), tests / "ConnectedReleaseSurfaceTests.swift")
+    shutil.copy(Path(__file__).with_name("GuestAccessPolicyTests.swift"), tests / "GuestAccessPolicyTests.swift")
+    shutil.copy(Path(__file__).with_name("LaunchGateTests.swift"), tests / "LaunchGateTests.swift")
+    shutil.copy(Path(__file__).with_name("GuestReceiptStoreTests.swift"), tests / "GuestReceiptStoreTests.swift")
+    shutil.copy(Path(__file__).with_name("GuestClaimEngineTests.swift"), tests / "GuestClaimEngineTests.swift")
+    shutil.copy(Path(__file__).with_name("CaptchaFramePolicyTests.swift"), tests / "CaptchaFramePolicyTests.swift")
     shutil.copy(Path(__file__).with_name("SavedReceiptsModelTests.swift"), tests / "SavedReceiptsModelTests.swift")
+    shutil.copy(Path(__file__).with_name("ReceiptJourneyModelTests.swift"), tests / "ReceiptJourneyModelTests.swift")
+    shutil.copy(Path(__file__).with_name("ReceiptSearchTests.swift"), tests / "ReceiptSearchTests.swift")
     shutil.copy(Path(__file__).with_name("ConnectedPlanMappingTests.swift"), tests / "ConnectedPlanMappingTests.swift")
+    shutil.copy(Path(__file__).with_name("CurrencyChoiceTests.swift"), tests / "CurrencyChoiceTests.swift")
+    shutil.copy(Path(__file__).with_name("PlanReadinessTests.swift"), tests / "PlanReadinessTests.swift")
+    shutil.copy(Path(__file__).with_name("PercentInputTests.swift"), tests / "PercentInputTests.swift")
+    shutil.copy(Path(__file__).with_name("MovementAccountChoiceTests.swift"), tests / "MovementAccountChoiceTests.swift")
     (package / "Package.swift").write_text('''// swift-tools-version: 6.0
 import PackageDescription
 let package = Package(name: "FinancialModels", platforms: [.macOS(.v14)], dependencies: [
     .package(path: "''' + str(root / "ios/Packages/ArgusSession") + '''"),
+    .package(path: "''' + str(root / "ios/Packages/CuadraoBook") + '''"),
     .package(url: "https://github.com/supabase/supabase-swift.git", exact: "2.55.2")
 ], targets: [
-    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession")]),
+    .target(name: "FinancialModels", dependencies: [.product(name: "ArgusSession", package: "ArgusSession"), .product(name: "CuadraoBook", package: "CuadraoBook")]),
     .testTarget(name: "FinancialModelTests", dependencies: ["FinancialModels", .product(name: "ArgusSession", package: "ArgusSession"), .product(name: "Auth", package: "supabase-swift")])
 ])
 ''')

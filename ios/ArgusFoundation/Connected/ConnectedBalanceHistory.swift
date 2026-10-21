@@ -1,5 +1,6 @@
 import Foundation
 import ArgusSession
+import CuadraoBook
 
 /// Recorded positions of one currency, totalled the way the server hero totals them: every owner account,
 /// archived included, the owner-signed amount and the account's current ownership share rounded half to even.
@@ -35,17 +36,8 @@ enum ConnectedBalanceHistory {
         case recorded(points: [CanvasBalancePoint], unavailableAccounts: Int, accounts: [AccountSeries])
     }
 
-    /// Mirrors the server's `personal_share`: scale by basis points, round half to even, keep the sign.
-    static func personalShare(_ amount: Int64, bps: Int) -> Int64? {
-        guard bps >= 0 else { return nil }
-        let (scaled, overflow) = amount.magnitude.multipliedReportingOverflow(by: UInt64(bps))
-        guard !overflow else { return nil }
-        var quotient = scaled / 10000
-        let remainder = scaled % 10000
-        if remainder > 5000 || (remainder == 5000 && quotient % 2 == 1) { quotient += 1 }
-        guard quotient <= UInt64(Int64.max) else { return nil }
-        return amount >= 0 ? Int64(quotient) : -Int64(quotient)
-    }
+    /// The server's `personal_share`; the package owns the rounding so the device book and this agree by construction.
+    static func personalShare(_ amount: Int64, bps: Int) -> Int64? { Ownership.share(of: amount, bps: bps) }
 
     /// The hero recomputed from the listed accounts; nil when a share or the total overflows.
     static func derivedPosition(_ accounts: [FinancialAccount]) -> Int64? {

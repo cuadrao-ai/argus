@@ -87,18 +87,23 @@ def build_worker(
 def start_worker(app) -> None:
     from argus.api.whatsapp import whatsapp_runtime
 
-    existing = getattr(app.state, "business_whatsapp_worker", None)
-    if existing is not None and not existing.done():
-        return
     runtime = whatsapp_runtime()
-    if runtime is not None and runtime.worker is not None:
-        app.state.business_whatsapp_worker = asyncio.create_task(runtime.worker.run())
+    if runtime is None:
+        return
+    for name, worker in (
+        ("business_whatsapp_worker", runtime.worker),
+        ("whatsapp_failure_reply_worker", runtime.failure_replies),
+    ):
+        existing = getattr(app.state, name, None)
+        if worker is not None and (existing is None or existing.done()):
+            setattr(app.state, name, asyncio.create_task(worker.run()))
 
 
 async def stop_worker(app) -> None:
-    task = getattr(app.state, "business_whatsapp_worker", None)
-    if task is not None:
-        task.cancel()
-        with suppress(asyncio.CancelledError):
-            await task
-        app.state.business_whatsapp_worker = None
+    for name in ("business_whatsapp_worker", "whatsapp_failure_reply_worker"):
+        task = getattr(app.state, name, None)
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            setattr(app.state, name, None)

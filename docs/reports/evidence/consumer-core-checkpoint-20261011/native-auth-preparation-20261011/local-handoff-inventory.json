@@ -1,0 +1,148 @@
+{
+  "checked_at_utc": "2026-10-11T22:47:56.197980+00:00",
+  "purpose": "Read-only lane inventory for handoff; no branch or worktree mutation",
+  "source_head": "09a179f00b89968921d9a8f997eee53d19879f5a",
+  "worktrees": [
+    {
+      "worktree": "/Users/garces/.codex/worktrees/4a54/private-alpha-next",
+      "HEAD": "09a179f00b89968921d9a8f997eee53d19879f5a",
+      "branch": "refs/heads/codex/consumer-free-tier-completion",
+      "status": [
+        "?? docs/reports/2026-10-09-consumer-free-tier-finish-line.md",
+        "?? docs/reports/evidence/consumer-core-checkpoint-20261011/native-auth-preparation-20261011/"
+      ]
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-buffered-chat/private-alpha-next",
+      "HEAD": "255bba8b4e732c0e9ee4e4444a2159afef6c7d6a",
+      "branch": "refs/heads/codex/consumer-buffered-chat",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-core-native-repairs/private-alpha-next",
+      "HEAD": "07515c1e4dbc8457de1f496642f3955ceff178c2",
+      "branch": "refs/heads/codex/consumer-core-native-repairs",
+      "status": [
+        "?? ios/ArgusFoundationUITests/ConsumerEntryDiagnosticUITests.swift"
+      ]
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-goal-screen-experiment/private-alpha-next",
+      "HEAD": "b04646cee860039af34b6230859267f2246b44f7",
+      "branch": "refs/heads/codex/consumer-goal-screen-experiment",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-native-conversations/private-alpha-next",
+      "HEAD": "906b1612da25c0770410140e2535253300877a42",
+      "branch": "refs/heads/codex/consumer-native-conversations",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-native-launch/private-alpha-next",
+      "HEAD": "30b88159d4617663eb21a5d56e118c8ac01c35e8",
+      "branch": "refs/heads/codex/consumer-native-launch",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-native-stream/private-alpha-next",
+      "HEAD": "ac4fc9a44b19054dd0f21a953fb152615a3e402b",
+      "branch": "refs/heads/codex/consumer-native-stream",
+      "status": [
+        "?? ios/Packages/ArgusSession/Tests/ArgusSessionTests/ChatStreamTestSupport.swift",
+        "?? ios/Packages/ArgusSession/Tests/ArgusSessionTests/ChatStreamTests.swift"
+      ]
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-save-completion-test/private-alpha-next",
+      "HEAD": "1593f24e9fcfe3fc76fa57b2233b81ff7759542b",
+      "branch": "refs/heads/codex/consumer-save-completion-test",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/.codex/worktrees/consumer-toggle-motion/private-alpha-next",
+      "HEAD": "e8cfe6280b4d0919b986b67a741fe0e1adaddba9",
+      "branch": "refs/heads/codex/consumer-toggle-motion",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/Documents/projects/repos/argus/.claude/worktrees/agent-a3ea4bb6855947c8f",
+      "HEAD": "245703206fcc2a30ced427e1a468af5026ac37ab",
+      "branch": "refs/heads/codex/cuadrao-guest-book",
+      "status": [
+        "?? .venv",
+        "?? guest-mode-evidence/"
+      ]
+    },
+    {
+      "worktree": "/Users/garces/Documents/projects/repos/argus/.claude/worktrees/agent-accef4746fb45a304",
+      "HEAD": "3dfaa169123589a00cb34affd620824f1703a9c5",
+      "branch": "refs/heads/codex/cuadrao-transaction-sheet",
+      "status": [
+        "M  .agent/designs/cuadrao/DESIGN.md",
+        "M  ios/ArgusFoundation/Accounts/ConnectedTransactionSheet.swift",
+        "M  ios/ArgusFoundation/Cuadrao/CuadraoAccountCanvas.swift",
+        "D  ios/ArgusFoundation/Cuadrao/CuadraoAmountKeypad.swift",
+        "D  ios/ArgusFoundation/Cuadrao/CuadraoAmountKeypadView.swift",
+        "D  ios/ArgusFoundation/Cuadrao/CuadraoTransactionControls.swift",
+        "D  ios/ArgusFoundation/Cuadrao/CuadraoTransactionDay.swift",
+        "M  ios/ArgusFoundation/Cuadrao/CuadraoTransactionSheet.swift",
+        "M  ios/ArgusFoundationUITests/ConnectedBudgetUITests.swift",
+        "M  ios/ArgusFoundationUITests/ConnectedDebtUITests.swift",
+        "M  ios/ArgusFoundationUITests/ConnectedGoalUITests.swift",
+        "M  ios/ArgusFoundationUITests/ConnectedHomeGestureUITests.swift",
+        "M  ios/ArgusFoundationUITests/ConnectedPlanUITests.swift",
+        "M  ios/ArgusFoundationUITests/ConnectedRecurringUITests.swift",
+        "M  ios/ArgusFoundationUITests/CuadraoHomeChartUITests.swift",
+        "M  ios/ArgusFoundationUITests/FinancialLoopUITests.swift",
+        "M  ios/ArgusFoundationUITests/PersonalMoneyUITests.swift",
+        "D  ios/ArgusFoundationUITests/TransactionSheetUITests.swift",
+        "D  ios/FinancialModelTests/CuadraoAmountKeypadTests.swift",
+        "M  ios/FinancialModelTests/run.py",
+        "?? .venv",
+        "?? transaction-sheet-mock/"
+      ]
+    },
+    {
+      "worktree": "/Users/garces/Documents/projects/repos/argus/.claude/worktrees/cuadrao-applier",
+      "HEAD": "0a39c28b031f5ef414f367d7c59657d7cb46ba19",
+      "branch": "refs/heads/codex/cuadrao-compat-matrix",
+      "status": []
+    },
+    {
+      "worktree": "/Users/garces/Documents/projects/repos/argus/.claude/worktrees/cuadrao-release-surface",
+      "HEAD": "54d8bb7442877040822b26f80b802b93786c7b08",
+      "branch": "refs/heads/codex/cuadrao-consumer-handoff",
+      "status": []
+    }
+  ],
+  "active_consumer_test_sessions": [],
+  "owned_fixture": {
+    "session_id": 30222,
+    "stopped_at_utc": "2026-10-11T22:07:00Z",
+    "exit_code": 130,
+    "pid_recorded": false,
+    "port": 59485,
+    "final_listener_check": "none"
+  },
+  "root_services": {
+    "session_id": 90751,
+    "ports": [
+      56500,
+      56501,
+      56502
+    ],
+    "consumer_dependency": false,
+    "consumer_actions": "none",
+    "final_listener_check": "none"
+  },
+  "preserved": [
+    "All lane worktrees, branches, commits and local edits",
+    "Simulator data, retained synthetic financial records and private fixture login",
+    "Private configurations, build caches, candidate products and original test bundles",
+    "Shared XcodeBuildMCP processes and other lane services"
+  ],
+  "deletion_candidates": [],
+  "deletions_performed": [],
+  "cleanup_limit": "No disposable artifact was established in this bounded handoff. No disk inventory, duplicate snapshot, pruning or deletion occurred."
+}

@@ -1,0 +1,2 @@
+import { defineConfig } from "@playwright/test";
+export default defineConfig({ testDir: "../e2e", testMatch: ["keyboard-layers.spec.ts", "keyboard-passes.spec.ts"], outputDir: "../temp/navigation-argus-results", workers: 1, timeout: 30000, use: { baseURL: "http://localhost:3196" }, projects: [{ name: "chromium", use: { browserName: "chromium" } }], webServer: { command: "node node_modules/next/dist/bin/next start --port 3196", cwd: process.cwd(), port: 3196, timeout: 120000, env: { NEXT_DIST_DIR: ".next-navigation-argus" } } });

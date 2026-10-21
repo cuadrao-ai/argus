@@ -88,6 +88,7 @@
     "tests/test_allowance_accounting_postgres.py": 1135,
     "tests/test_alpha_api.py": 4335,
     "tests/test_alpha_api_supabase.py": 4489,
+    "tests/test_apply_approved_migrations.py": 977,
     "tests/test_backtest_jobs_async.py": 1316,
     "tests/test_chat_backtest_state_machine.py": 1868,
     "tests/test_chat_runtime_reload_guardrails.py": 6280,

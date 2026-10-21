@@ -12,8 +12,30 @@ from uuid import UUID
 import httpx
 
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+from argus.domain.ingestion.email_intake.alignment import bare_address
+from argus.domain.ingestion.email_intake.budget import FetchBudget
 
 RECEIVING_DEADLINE_SECONDS = 60
+_AUTH_KEYS = ("spf", "dkim", "dmarc")
+
+
+def _authentication(metadata: dict) -> dict | None:
+    """The server's authentication object, or none when the message predates it."""
+
+    raw = metadata.get("authentication", None)
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError
+    found = {}
+    for key in _AUTH_KEYS:
+        value = raw.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value or len(value) > 32:
+            raise ValueError
+        found[key] = value
+    return found
 
 
 class EmailProviderError(Exception):
@@ -27,6 +49,8 @@ class EmailProviderError(Exception):
 class ReceivedEmail:
     raw: bytes
     recipients: tuple[str, ...]
+    authentication: dict | None = None
+    provider_from: str | None = None
 
 
 class ResendReceivingClient:
@@ -40,23 +64,43 @@ class ResendReceivingClient:
         self._api_key = api_key
         self._hosts = frozenset(allowed_download_hosts)
 
-    async def raw_message(self, email_id: str) -> ReceivedEmail:
+    async def preview_from(self, email_id: str) -> str | None:
+        """Sender address from provider metadata. This read is not metered."""
+
+        try:
+            if str(UUID(email_id)) != email_id:
+                return None
+        except (ValueError, AttributeError):
+            return None
+        try:
+            payload = await self._get(self._metadata_url(email_id), authenticated=True)
+            sender = json.loads(payload).get("from")
+        except (EmailProviderError, ValueError, TypeError):
+            return None
+        if not isinstance(sender, str):
+            return None
+        return bare_address(sender)
+
+    async def raw_message(
+        self, email_id: str, *, budget: FetchBudget | None = None
+    ) -> ReceivedEmail:
         try:
             return await asyncio.wait_for(
-                self._raw_message(email_id), RECEIVING_DEADLINE_SECONDS
+                self._raw_message(email_id, budget), RECEIVING_DEADLINE_SECONDS
             )
         except asyncio.TimeoutError:
             raise EmailProviderError("provider_unavailable", retryable=True) from None
 
-    async def _raw_message(self, email_id: str) -> ReceivedEmail:
+    async def _raw_message(
+        self, email_id: str, budget: FetchBudget | None
+    ) -> ReceivedEmail:
         try:
             if str(UUID(email_id)) != email_id:
                 raise ValueError
         except (ValueError, AttributeError):
             raise EmailProviderError("invalid_email_id") from None
         metadata_bytes = await self._get(
-            f"https://api.resend.com/emails/receiving/{email_id}?html_format=cid",
-            authenticated=True,
+            self._metadata_url(email_id), authenticated=True, budget=budget
         )
         try:
             metadata = json.loads(metadata_bytes)
@@ -73,13 +117,24 @@ class ResendReceivingClient:
             url = metadata["raw"]["download_url"]
             if not isinstance(url, str):
                 raise ValueError
+            authentication = _authentication(metadata)
+            reported = metadata.get("from")
+            provider_from = bare_address(reported) if isinstance(reported, str) else None
         except (ValueError, KeyError, TypeError):
             raise EmailProviderError("invalid_provider_metadata") from None
         self._validate_download(url)
-        raw = await self._get(url, authenticated=False)
+        raw = await self._get(url, authenticated=False, budget=budget)
         if not raw:
             raise EmailProviderError("empty_email")
-        return ReceivedEmail(raw=raw, recipients=tuple(recipients))
+        return ReceivedEmail(
+            raw=raw,
+            recipients=tuple(recipients),
+            authentication=authentication,
+            provider_from=provider_from,
+        )
+
+    def _metadata_url(self, email_id: str) -> str:
+        return f"https://api.resend.com/emails/receiving/{email_id}?html_format=cid"
 
     def _validate_download(self, url: str) -> None:
         try:
@@ -106,7 +161,10 @@ class ResendReceivingClient:
         except ValueError:
             raise EmailProviderError("unsafe_download_url") from None
 
-    async def _get(self, url: str, *, authenticated: bool) -> bytes:
+    async def _get(
+        self, url: str, *, authenticated: bool, budget: FetchBudget | None = None
+    ) -> bytes:
+        reservation = await budget.reserve() if budget is not None else None
         # Build Request directly so client defaults cannot leak credentials to signed URLs.
         headers = {"Accept-Encoding": "identity"}
         if authenticated:
@@ -144,6 +202,8 @@ class ResendReceivingClient:
                     if len(chunks) + len(chunk) > SOURCE_MAX_BYTES:
                         raise EmailProviderError("provider_response_too_large")
                     chunks.extend(chunk)
+                if budget is not None:
+                    await budget.settle(reservation, len(chunks))
                 return bytes(chunks)
             finally:
                 await response.aclose()

@@ -1,6 +1,7 @@
 """Document preparation jobs on real Postgres: one current attempt, lease-fenced."""
 
 import asyncio
+import hashlib
 import threading
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ from argus.domain.owner_scope import PERSONAL
 from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
+from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_sources_support import source_objects, stored_paths
 
 users = shared.users
@@ -51,7 +53,7 @@ def draft(connection_id: str, now: datetime, **changes: Any) -> DocumentDraft:
         connection_id=connection_id,
         filename="receipt.pdf",
         media_type="application/pdf",
-        sha256="c" * 64,
+        sha256=hashlib.sha256(changes.pop("content", b"%PDF-x")).hexdigest(),
         size_bytes=12,
         consent=True,
         created_at=now,
@@ -518,17 +520,87 @@ def test_workflow_worker_prepares_the_dispatched_attempt(
             "from public.financial_document_extractions where connection_id=%s",
             (captured.connection_id,),
         ).fetchone()
-        prefix = f"{owner}/{captured.connection_id}/"
+        prefix = f"sealed/{owner}/"
         paths = stored_paths(connection, prefix)
     assert events == (1,)
     assert legacy[0] is True, "the worker read the source from Storage, not bytea"
     if not isinstance(objects, InMemorySourceObjects):
-        assert paths == [prefix + legacy[1]], "stored at {user}/{connection}/{sha256}"
+        assert paths == [prefix + legacy[1]], "stored at sealed/{user}/{sha256}"
     api.forget(
         api.hub.connections.get(
             user_id=owner, connection_id=captured.connection_id, scope=PERSONAL
         )
     )
+
+
+def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
+    pool: ConnectionPool, users: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from argus.domain.owner_scope import BusinessSpace
+
+    from workflows.document_job import (
+        postgres_documents_service,
+        run_document_preparation,
+    )
+
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+        lambda: ROUTE,
+    )
+
+    class Counted:
+        calls = 0
+
+        async def extract(self, **kwargs: Any) -> ExtractionBatch:
+            Counted.calls += 1
+            return ExtractionBatch()
+
+    owner = users["owner"]
+    scope = BusinessSpace(str(uuid4()))
+    with pool.connection() as connection:
+        connection.execute(
+            "insert into public.spaces(id,created_by,kind,name) "
+            "values(%s,%s,'business','Reading proof')",
+            (scope.space_id, owner),
+        )
+    setting = reading_setting(pool)
+    turn_reading(setting, scope.space_id, owner)
+    objects = source_objects()
+    api = postgres_documents_service(pool, objects, Counted())
+    api.business_receipt_consent = setting
+    dispatched: list[tuple[str, str]] = []
+    jobs = PreparationJobs(
+        api,
+        lambda connection_id, attempt_id: dispatched.append((connection_id, attempt_id)),
+    )
+    captured = asyncio.run(
+        api.upload(
+            user_id=owner,
+            content=b"%PDF-" + uuid4().bytes,
+            filename="receipt.pdf",
+            media_type="application/pdf",
+            scope=scope,
+        )
+    )
+    assert captured.status == "queued"
+    jobs.start(user_id=owner, connection_id=captured.connection_id)
+    [(connection_id, attempt_id)] = dispatched
+
+    turn_reading(setting, scope.space_id, owner, enabled=False)
+    outcome = asyncio.run(
+        run_document_preparation(
+            connection_id,
+            attempt_id,
+            env={"ARGUS_WORKFLOW_DATABASE_URL": shared.DSN},
+            objects=objects,
+            extractor=Counted(),
+        )
+    )
+
+    assert Counted.calls == 0
+    assert outcome["outcome"] == "document_reading_not_allowed"
+    draft = api.get(user_id=owner, connection_id=connection_id, scope=scope)
+    assert (draft.status, draft.consent) == ("saved", False)
 
 
 def test_redispatch_refuses_a_marker_or_a_finished_draft_that_landed_after_the_snapshot(
@@ -653,7 +725,9 @@ def test_only_the_named_attempt_claims_and_records_it(
         now=now,
         scope=PERSONAL,
     )
-    assert store.capture(user_id=owner, draft=draft(other.id, now), content=b"%PDF-y")
+    assert store.capture(
+        user_id=owner, draft=draft(other.id, now, content=b"%PDF-y"), content=b"%PDF-y"
+    )
     assert store.advance(
         user_id=owner,
         connection_id=other.id,
@@ -664,7 +738,7 @@ def test_only_the_named_attempt_claims_and_records_it(
     assert repo.lease(connection_id=other.id, holder="flag-off", now=now)
     assert store.update(
         user_id=owner,
-        draft=draft(other.id, now, version=2, status="preparing"),
+        draft=draft(other.id, now, content=b"%PDF-y", version=2, status="preparing"),
         expected_version=1,
         holder="flag-off",
     )

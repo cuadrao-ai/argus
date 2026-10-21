@@ -9,7 +9,8 @@ import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
-import { cardClass, LoadingRows, StatusPill, useCategoryLabel } from "./business-ui";
+import { cardClass, StatusPill, useCategoryLabel } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 export type BusinessSearchRecord =
   | { kind: "receipt"; receipt: ReceiptSummary }
@@ -57,7 +58,7 @@ function ReceiptPreview({ receiptId, source }: { receiptId: string; source: Busi
     return () => { active = false; };
   }, [receiptId, source]);
   if (failed) return <p role="alert" className="text-sm">{t("business.review.error", "This receipt isn't available. It may have been removed.")}</p>;
-  if (!detail) return <LoadingRows rows={3} />;
+  if (!detail) return <Settle pending layout="rows" rows={3} />;
   return <>
     <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? detail.media_type}</span></Field>
     {detail.evidence?.lines.length ? <div className={cardClass}><h3 className="mb-3 text-sm font-medium">{t("business.review.evidence", "What the receipt says")}</h3><ul className="space-y-2 text-sm">{detail.evidence.lines.map((line, index) => <li key={index} className="flex justify-between gap-3"><span>{line.description}</span><span>{formatMoney(line.amount, detail.evidence?.currency ?? null, i18n.resolvedLanguage ?? "en")}</span></li>)}</ul></div> : null}
@@ -84,8 +85,8 @@ function NotePreview({ note, source, accounts }: { note: BusinessCapture; source
     </div>
     <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.revision", "Revision {{version}}", { version: dossier ? factsRevision(dossier) : note.revision })} · {t(`business.dossier.state.${note.review_state}`, note.review_state)}</p>
     {failed ? <p role="alert" className="text-sm">{t("business.search.record_unavailable", "This record isn't available.")}</p> : dossier ? <>
-      <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} cards={false} />
       <ReceiptMessages sources={dossier.sources} />
-    </> : <LoadingRows rows={4} />}
+    </> : <Settle pending layout="rows" rows={4} />}
   </section>;
 }

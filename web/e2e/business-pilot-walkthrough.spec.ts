@@ -89,7 +89,7 @@ test.describe("Business pilot walkthrough", () => {
     await panel(page).getByRole("button", { name: /need your attention/ }).click();
     await expect(heading(page, "Inbox")).toBeVisible();
     await panel(page).getByRole("button", { name: /IMG_2209/ }).click();
-    await expect(panel(page)).toContainText("We couldn't read this receipt");
+    await expect(panel(page)).toContainText("We couldn't read this file");
   });
 
   test("5 record an expense by hand with a guarded amount", async ({ page }) => {
@@ -140,17 +140,18 @@ test.describe("Business pilot walkthrough on a phone", () => {
     await openPreview(page);
     await page.getByTestId("chat-shell-menu-trigger").click();
     const drawerNav = page.getByTestId("business-sidebar-nav");
-    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("6");
+    // Five receipts wait in the sample Bandeja; the email itself is not one of them.
+    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toHaveText("Inbox5");
     await page.keyboard.press("Escape");
     await page.getByTestId("business-create-compact").click();
-    await expect(page.getByRole("menuitem")).toHaveText(["Upload receipt", "Record expense"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["Upload receipt", "Record expense", "Save a note"]);
     await page.getByRole("menuitem", { name: "Upload receipt" }).click();
-    await expect(page.getByText("PDF, JPG or PNG, up to 10 MB")).toBeVisible();
+    await expect(page.getByText("PDF, JPG, PNG, up to 10 MB", { exact: false })).toBeVisible();
   });
 
   test("8 Spanish: navigation, overview and receipt review", async ({ page }) => {
     await openPreview(page, PREVIEW, "es-419");
-    await expect(heading(page, "Tu negocio")).toBeVisible();
+    await expect(heading(page, "Mi negocio")).toBeVisible();
     await page.getByTestId("chat-shell-menu-trigger").click();
     await expect(page.getByTestId("business-sidebar-nav")).toContainText("Bandeja");
     await page.getByTestId("business-sidebar-nav").getByRole("button", { name: /^Bandeja/ }).click();

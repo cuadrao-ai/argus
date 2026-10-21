@@ -12,14 +12,15 @@
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
-    <key>UILaunchScreen</key><dict/>
+    <key>UILaunchScreen</key><dict>
+        <key>UIColorName</key><string>BrandPaper</string>
+        <key>UIImageName</key><string>CuadraoLaunchLockup</string>
+    </dict>
     <key>UIApplicationSceneManifest</key><dict>
         <key>UIApplicationSupportsMultipleScenes</key><false/>
     </dict>
     <key>UISupportedInterfaceOrientations</key><array>
         <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UIAppFonts</key><array>
         <string>Inter-Regular.ttf</string>
@@ -27,6 +28,9 @@
         <string>SpaceGrotesk-Medium.ttf</string>
     </array>
     <key>ARGUS_AUTH_ENABLED</key><string>$(ARGUS_AUTH_ENABLED)</string>
+    <key>ARGUS_CUADRAO_LEGAL_LINKS_ENABLED</key><string>$(ARGUS_CUADRAO_LEGAL_LINKS_ENABLED)</string>
+    <key>ARGUS_CUADRAO_TERMS_URL</key><string>$(ARGUS_CUADRAO_TERMS_URL)</string>
+    <key>ARGUS_CUADRAO_PRIVACY_URL</key><string>$(ARGUS_CUADRAO_PRIVACY_URL)</string>
     <key>ARGUS_API_URL</key><string>$(ARGUS_API_URL)</string>
     <key>ARGUS_SUPABASE_URL</key><string>$(ARGUS_SUPABASE_URL)</string>
     <key>ARGUS_SUPABASE_ANON_KEY</key><string>$(ARGUS_SUPABASE_ANON_KEY)</string>

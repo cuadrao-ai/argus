@@ -1,0 +1,462 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`waitlist confirmation HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Confirma tu lugar en la lista de la app personal de Cuadrao</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Confirma tu lugar en la lista de la app personal de Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Recibimos tu solicitud para la lista de espera de la app personal de Cuadrao, para llevar tus gastos y los de tu hogar. Confirma tu correo para que te avisemos cuando esté lista para ti.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 20px">
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://cuadrao.example.test/confirm" style="height:48px;v-text-anchor:middle;width:496px" arcsize="16%" stroke="f" fillcolor="#172b26"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold">Confirmar mi correo</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a class="button" href="https://cuadrao.example.test/confirm" style="display:block;box-sizing:border-box;width:100%;min-height:48px;padding:12px 16px;border-radius:8px;background:#172b26;color:#ffffff;font-size:16px;line-height:24px;font-weight:700;text-decoration:none;text-align:center">Confirmar mi correo</a><!--<![endif]-->
+</td></tr></table><p class="fallback" style="margin:0 0 20px;padding:16px;background:#eef0ed;color:#172b26;border-radius:8px;font-size:14px;line-height:21px;overflow-wrap:anywhere;word-break:break-all"><a class="fallback" href="https://cuadrao.example.test/confirm" style="color:#172b26;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all">https://cuadrao.example.test/confirm</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Este enlace vence en 48 horas.</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Si no te anotaste, ignora este correo.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p><p class="muted" style="margin:12px 0 0;color:#56635e;font-size:14px;line-height:21px"><a href="https://cuadrao.example.test/leave" style="color:inherit;text-decoration:underline">Salir de la lista</a></p></td></tr></table></td></tr></table></body></html>"
+,
+  "text": 
+"Confirma tu lugar en la lista de la app personal de Cuadrao
+
+Recibimos tu solicitud para la lista de espera de la app personal de Cuadrao, para llevar tus gastos y los de tu hogar. Confirma tu correo para que te avisemos cuando esté lista para ti.
+
+Confirmar mi correo
+https://cuadrao.example.test/confirm
+
+Este enlace vence en 48 horas.
+
+Si no te anotaste, ignora este correo.
+
+Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.
+
+Salir de la lista
+https://cuadrao.example.test/leave"
+,
+}
+`;
+
+exports[`waitlist reminder HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title>¿Todavía quieres tu lugar en la app personal de Cuadrao?</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">¿Todavía quieres tu lugar en la app personal de Cuadrao?</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Recibimos tu solicitud para la lista de espera de la app personal de Cuadrao, para llevar tus gastos y los de tu hogar. Confirma tu correo para que te avisemos cuando esté lista para ti.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:4px 0 20px">
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="https://cuadrao.example.test/confirm" style="height:48px;v-text-anchor:middle;width:496px" arcsize="16%" stroke="f" fillcolor="#172b26"><w:anchorlock/><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold">Confirmar mi correo</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a class="button" href="https://cuadrao.example.test/confirm" style="display:block;box-sizing:border-box;width:100%;min-height:48px;padding:12px 16px;border-radius:8px;background:#172b26;color:#ffffff;font-size:16px;line-height:24px;font-weight:700;text-decoration:none;text-align:center">Confirmar mi correo</a><!--<![endif]-->
+</td></tr></table><p class="fallback" style="margin:0 0 20px;padding:16px;background:#eef0ed;color:#172b26;border-radius:8px;font-size:14px;line-height:21px;overflow-wrap:anywhere;word-break:break-all"><a class="fallback" href="https://cuadrao.example.test/confirm" style="color:#172b26;text-decoration:underline;overflow-wrap:anywhere;word-break:break-all">https://cuadrao.example.test/confirm</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Este enlace vence en 48 horas.</p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Si no te anotaste, ignora este correo.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p><p class="muted" style="margin:12px 0 0;color:#56635e;font-size:14px;line-height:21px"><a href="https://cuadrao.example.test/leave" style="color:inherit;text-decoration:underline">Salir de la lista</a></p></td></tr></table></td></tr></table></body></html>"
+,
+  "text": 
+"¿Todavía quieres tu lugar en la app personal de Cuadrao?
+
+Recibimos tu solicitud para la lista de espera de la app personal de Cuadrao, para llevar tus gastos y los de tu hogar. Confirma tu correo para que te avisemos cuando esté lista para ti.
+
+Confirmar mi correo
+https://cuadrao.example.test/confirm
+
+Este enlace vence en 48 horas.
+
+Si no te anotaste, ignora este correo.
+
+Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.
+
+Salir de la lista
+https://cuadrao.example.test/leave"
+,
+}
+`;
+
+exports[`waitlist welcome HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Ya estás en la lista de la app personal de Cuadrao</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Ya estás en la lista de la app personal de Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Gracias por anotarte. Estamos construyendo Cuadrao para ti y te escribiremos cuando esté listo. Si quieres contarnos qué esperas de la app, responde este correo. Leemos cada respuesta.</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p><p class="muted" style="margin:12px 0 0;color:#56635e;font-size:14px;line-height:21px"><a href="https://cuadrao.example.test/leave" style="color:inherit;text-decoration:underline">Salir de la lista</a></p></td></tr></table></td></tr></table></body></html>"
+,
+  "text": 
+"Ya estás en la lista de la app personal de Cuadrao
+
+Gracias por anotarte. Estamos construyendo Cuadrao para ti y te escribiremos cuando esté listo. Si quieres contarnos qué esperas de la app, responde este correo. Leemos cada respuesta.
+
+Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.
+
+Salir de la lista
+https://cuadrao.example.test/leave"
+,
+}
+`;
+
+exports[`waitlist launch HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title>La app personal de Cuadrao</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">La app personal de Cuadrao</h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.</p><p class="muted" style="margin:12px 0 0;color:#56635e;font-size:14px;line-height:21px"><a href="https://cuadrao.example.test/leave" style="color:inherit;text-decoration:underline">Salir de la lista</a></p></td></tr></table></td></tr></table></body></html>"
+,
+  "text": 
+"La app personal de Cuadrao
+
+Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC, 1209 Mountain Road Pl NE Ste N, Albuquerque NM 87110, EE. UU.
+
+Salir de la lista
+https://cuadrao.example.test/leave"
+,
+}
+`;
+
+exports[`disabled slot phone_changed_notification HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot identity_linked_notification HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot identity_unlinked_notification HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot mfa_factor_enrolled_notification HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot mfa_factor_unenrolled_notification HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot business_transfer_request_recipient HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot business_transfer_declined_owner HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot business_transfer_accepted_both HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`disabled slot business_transfer_withdrawn_recipient HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title></title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700"></h1></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "sendable": false,
+  "subject": "",
+  "text": 
+"Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;
+
+exports[`Business close HTML/plain snapshot and light/dark AA 1`] = `
+{
+  "html": 
+"<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Tienda se cerró en Cuadrao</title><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><style>@media(prefers-color-scheme:dark){
+    .page{background:#111c18!important}.card,.footer{background:#172b26!important}
+    .copy{color:#fafbf8!important}.title{color:#b6e87a!important}
+    .muted,.muted a{color:#cfdccf!important}.fallback{background:#293b33!important;color:#fafbf8!important}
+    .code{background:#304834!important;color:#fafbf8!important}
+    .button{background:#b6e87a!important;color:#172b26!important}
+    .logo-light{display:none!important}.logo-dark{display:block!important;max-height:none!important}
+  }[data-ogsc] .page{background:#111c18!important}[data-ogsc] .card,[data-ogsc] .footer{background:#172b26!important}[data-ogsc] .copy{color:#fafbf8!important}[data-ogsc] .title{color:#b6e87a!important}[data-ogsc] .muted,[data-ogsc] .muted a{color:#cfdccf!important}[data-ogsc] .fallback{background:#293b33!important;color:#fafbf8!important}[data-ogsc] .code{background:#304834!important;color:#fafbf8!important}[data-ogsc] .button{background:#b6e87a!important;color:#172b26!important}[data-ogsc] .logo-light{display:none!important}[data-ogsc] .logo-dark{display:block!important;max-height:none!important}
+  </style></head>
+<body class="page" style="margin:0;padding:32px 12px;background:#f7f5ee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table class="card" role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden"><tr><td style="padding:24px 32px;background:#172b26;border-radius:12px 12px 0 0">
+<img class="logo-light" src="https://cuadrao.ai/email/wordmark-light.png" alt="Cuadrao" width="168" height="36" style="display:block;border:0;color:#fafbf8;font-size:24px;font-weight:bold">
+<!--[if !mso]><!--><img class="logo-dark" src="https://cuadrao.ai/email/wordmark-dark.png" alt="Cuadrao" width="168" height="36" style="display:none;max-height:0;overflow:hidden;border:0;color:#fafbf8;font-size:24px;font-weight:bold"><!--<![endif]-->
+</td></tr><tr><td style="padding:28px 32px 8px"><h1 class="title" style="margin:0 0 24px;color:#172b26;font-size:24px;line-height:32px;font-weight:700">Tienda se cerró en Cuadrao</h1><p class="copy" style="margin:0 0 20px;color:#172b26;font-size:16px;line-height:24px">Hola, Ana cerró Tienda en Cuadrao el 17/10/2026, y ya no tienes acceso. Si necesitas copias de los comprobantes, pídeselas a Ana. Si el negocio no se reabre antes del 16/11/2026, sus datos se borrarán. Saludos, Cuadrao</p></td></tr><tr><td class="footer" style="padding:20px 32px 28px;background:#ffffff"><p class="copy" style="margin:0 0 12px;color:#172b26;font-size:16px;line-height:24px">Saludos,<br>Cuadrao</p><p class="muted" style="margin:0;color:#56635e;font-size:14px;line-height:21px">¿Necesitas ayuda? Escríbenos a <a href="mailto:hola@cuadrao.ai" style="color:inherit;text-decoration:underline">hola@cuadrao.ai</a></p><p class="muted" style="margin:16px 0;color:#56635e;font-size:14px;line-height:21px">Cuadrao LLC</p></td></tr></table></td></tr></table></body></html>"
+,
+  "subject": "Tienda se cerró en Cuadrao",
+  "text": 
+"Tienda se cerró en Cuadrao
+
+Hola, Ana cerró Tienda en Cuadrao el 17/10/2026, y ya no tienes acceso. Si necesitas copias de los comprobantes, pídeselas a Ana. Si el negocio no se reabre antes del 16/11/2026, sus datos se borrarán. Saludos, Cuadrao
+
+Saludos,
+Cuadrao
+
+¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai
+
+Cuadrao LLC"
+,
+}
+`;

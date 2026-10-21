@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import type { WorkspaceKeyboardShortcut } from "@/lib/keyboard-shortcuts";
 import type { LucideIcon } from "lucide-react";
 import type { ConversationSurface } from "@/lib/conversation-surface-api";
 import type { WorkspaceStarterEntry } from "./StarterActions";
@@ -20,6 +21,8 @@ export type ChatShellBridge = Readonly<{
   conversationId: string | null;
   isBelowTablet: boolean;
   sidebarCollapsed: boolean;
+  /** Opens the shared search. Absent when this shell has no search. */
+  openSearch?: () => void;
   /** Shows the workspace's main panel, leaving any open conversation. */
   showWorkspace: () => void;
   /** Opens an empty conversation, like New chat. */
@@ -87,10 +90,16 @@ export type ChatWorkspace = Readonly<{
   chatAvailable: boolean;
   initialView: ChatShellView;
   profileInHeader: boolean;
+  keyboardShortcuts?: readonly WorkspaceKeyboardShortcut[];
+  bottomNavigation?: (bridge: ChatShellBridge) => ReactNode;
   /** Whether the current panel keeps the composer at its bottom edge. */
   panelHasComposer: boolean;
   sidebarNav: (bridge: ChatShellBridge) => ReactNode;
+  /** What sits directly under the lockup, above every nav entry: a workspace's own identity control, if any. */
+  sidebarHeader?: (bridge: ChatShellBridge) => ReactNode;
   sidebarFooter: (bridge: ChatShellBridge) => ReactNode;
+  /** Phone leading control, in place of the menu button. */
+  headerLeading?: (bridge: ChatShellBridge) => ReactNode;
   headerActions: (bridge: ChatShellBridge) => ReactNode;
   panel: (bridge: ChatShellBridge) => ReactNode;
   starterEntries: (bridge: ChatShellBridge) => readonly WorkspaceStarterEntry[];

@@ -106,9 +106,13 @@ def test_declined_ai_receipt_is_entered_by_hand_and_saved_once(
             "account_id": account,
             "occurred_on": "2026-10-07",
             "receipt_id": receipt_id,
+            "fiscal_known": True,
         }
     ]
-    assert alice.get(f"/receipts/{receipt_id}/source").content == RECEIPT
+    source = alice.get(f"/receipts/{receipt_id}/source")
+    assert source.status_code == 200
+    assert source.headers["content-type"] == "image/jpeg"
+    assert source.content.startswith(b"\xff\xd8")
 
     prepare = alice.post(
         f"/receipts/{receipt_id}/prepare", **{"X-Extraction-Consent": "true"}

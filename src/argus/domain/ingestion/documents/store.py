@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import threading
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from argus.domain.ingestion.connections import (
     DEFAULT_LEASE,
@@ -20,18 +21,43 @@ from argus.domain.ingestion.documents.models import (
     PreparationJob,
 )
 from argus.domain.ingestion.documents.objects import (
+    IMAGE_MEDIA_TYPES,
     InMemorySourceObjects,
     SourceObjects,
+    SourceStorageUnavailable,
     connection_prefix,
     source_path,
+    verify_content,
 )
+
+# Runs inside the transaction that saves a captured document, with that
+# connection and the document id: a ledger row that must not outlive a failed
+# save, or be missing from a successful one, is written through it.
+CaptureHook = Callable[[Any, str], None]
 
 
 class DocumentStore(Protocol):
     def get(self, *, user_id: str, connection_id: str) -> ExtractionBatch | None: ...
     def draft(self, *, user_id: str, connection_id: str) -> DocumentDraft | None: ...
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None: ...
     def source(self, *, user_id: str, connection_id: str) -> bytes | None: ...
-    def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool: ...
+    def download_source(
+        self, *, user_id: str, connection_id: str
+    ) -> tuple[str, bytes] | None: ...
+    def rebuilt(
+        self, *, user_id: str, connection_id: str
+    ) -> tuple[str, bytes] | None: ...
+    def save_rebuilt(
+        self, *, user_id: str, connection_id: str, content: bytes, media_type: str
+    ) -> bool: ...
+    def capture(
+        self,
+        *,
+        user_id: str,
+        draft: DocumentDraft,
+        content: bytes,
+        on_capture: CaptureHook | None = None,
+    ) -> bool: ...
     def update(
         self,
         *,
@@ -93,6 +119,18 @@ class DocumentStore(Protocol):
         ...
 
 
+def download_source(
+    store: DocumentStore, *, user_id: str, connection_id: str
+) -> tuple[str, bytes] | None:
+    draft = store.draft(user_id=user_id, connection_id=connection_id)
+    if draft is None:
+        return None
+    if draft.media_type in IMAGE_MEDIA_TYPES:
+        return store.rebuilt(user_id=user_id, connection_id=connection_id)
+    content = store.source(user_id=user_id, connection_id=connection_id)
+    return (draft.media_type, content) if content is not None else None
+
+
 class InMemoryDocumentStore:
     def __init__(
         self,
@@ -104,6 +142,7 @@ class InMemoryDocumentStore:
         self._rows: dict[tuple[str, str], str] = {}
         self._drafts: dict[tuple[str, str], str] = {}
         self._sources: dict[tuple[str, str], str] = {}
+        self._rebuilt: dict[tuple[str, str], tuple[str, str, str]] = {}
         self._jobs: dict[tuple[str, str], str] = {}
         self._lock = threading.RLock()
 
@@ -152,6 +191,28 @@ class InMemoryDocumentStore:
             )
             return DocumentDraft.model_validate_json(raw) if raw is not None else None
 
+    def earliest_saved(self, *, space_id: str, sha256: str) -> datetime | None:
+        """When these bytes were first saved in this Business, by anyone, or
+        None: a Business keeps one receipt per person and file, so the same
+        file from two people is two documents that share this answer."""
+
+        from argus.domain.owner_scope import space_id as scope_space
+
+        with self.connections._lock, self._lock:
+            found: datetime | None = None
+            for (user_id, connection_id), raw in self._drafts.items():
+                if not self._live(user_id, connection_id):
+                    continue
+                row = self.connections.get_any_scope(
+                    user_id=user_id, connection_id=connection_id
+                )
+                if scope_space(row.scope) != space_id:
+                    continue
+                draft = DocumentDraft.model_validate_json(raw)
+                if draft.sha256 == sha256 and (found is None or draft.created_at < found):
+                    found = draft.created_at
+            return found
+
     def source(self, *, user_id: str, connection_id: str) -> bytes | None:
         with self.connections._lock, self._lock:
             path = (
@@ -161,7 +222,18 @@ class InMemoryDocumentStore:
             )
             return self.objects.get(path) if path is not None else None
 
-    def capture(self, *, user_id: str, draft: DocumentDraft, content: bytes) -> bool:
+    def capture(
+        self,
+        *,
+        user_id: str,
+        draft: DocumentDraft,
+        content: bytes,
+        on_capture: CaptureHook | None = None,
+    ) -> bool:
+        # The in-memory store keeps no transaction and no ledger: the hook is
+        # the Postgres store's.
+        del on_capture
+        verify_content(content, draft.sha256)
         with self.connections._lock, self._lock:
             if not self._live(user_id, draft.connection_id):
                 return False
@@ -171,12 +243,53 @@ class InMemoryDocumentStore:
                     draft = draft.model_copy(update={"status": "review_ready"})
                 path = source_path(
                     user_id=user_id,
-                    connection_id=draft.connection_id,
                     sha256=hashlib.sha256(content).hexdigest(),
                 )
                 self.objects.put(path, content, draft.media_type)
                 self._drafts[key] = draft.model_dump_json()
                 self._sources[key] = path
+            return True
+
+    def download_source(
+        self, *, user_id: str, connection_id: str
+    ) -> tuple[str, bytes] | None:
+        return download_source(self, user_id=user_id, connection_id=connection_id)
+
+    def rebuilt(self, *, user_id: str, connection_id: str) -> tuple[str, bytes] | None:
+        with self.connections._lock, self._lock:
+            saved = self._rebuilt.get((user_id, connection_id))
+            if not self._live(user_id, connection_id) or saved is None:
+                return None
+            path, media_type, digest = saved
+            content = verify_content(self.objects.get(path), digest)
+            return (media_type, content) if content is not None else None
+
+    def save_rebuilt(
+        self, *, user_id: str, connection_id: str, content: bytes, media_type: str
+    ) -> bool:
+        from argus.domain.ingestion.documents.config import (
+            SOURCE_MAX_BYTES,
+            SOURCE_MEDIA_TYPES,
+        )
+
+        with self.connections._lock, self._lock:
+            raw = self._drafts.get((user_id, connection_id))
+            if not self._live(user_id, connection_id) or raw is None:
+                return False
+            draft = DocumentDraft.model_validate_json(raw)
+            if (
+                not content
+                or len(content) > SOURCE_MAX_BYTES
+                or media_type not in SOURCE_MEDIA_TYPES
+            ):
+                raise ValueError("invalid rebuilt copy")
+            path = source_path(user_id=user_id, sha256=draft.sha256, kind="rebuilt")
+            digest = hashlib.sha256(content).hexdigest()
+            saved = self._rebuilt.get((user_id, connection_id))
+            if saved is not None and saved != (path, media_type, digest):
+                raise SourceStorageUnavailable("rebuilt_copy_conflict")
+            self.objects.put(path, content, media_type)
+            self._rebuilt[(user_id, connection_id)] = (path, media_type, digest)
             return True
 
     def update(
@@ -234,14 +347,22 @@ class InMemoryDocumentStore:
             return True
 
     def forget(self, *, user_id: str, connection_id: str) -> None:
-        self.objects.delete(
-            connection_prefix(user_id=user_id, connection_id=connection_id)
-        )
-        with self._lock:
+        with self.connections._lock, self._lock:
             key = (user_id, connection_id)
+            paths = {self._sources.get(key)}
+            if key in self._rebuilt:
+                paths.add(self._rebuilt[key][0])
+            remaining = {p for k, p in self._sources.items() if k != key}
+            remaining.update(p[0] for k, p in self._rebuilt.items() if k != key)
+            for path in paths - remaining - {None}:
+                self.objects.remove(path)
+            self.objects.delete(
+                connection_prefix(user_id=user_id, connection_id=connection_id)
+            )
             self._rows.pop(key, None)
             self._drafts.pop(key, None)
             self._sources.pop(key, None)
+            self._rebuilt.pop(key, None)
             self._jobs.pop(key, None)
 
     def owner(self, *, connection_id: str) -> str | None:

@@ -9,6 +9,10 @@ export type BusinessEmailPart = {
   state: "pending" | "captured" | "rejected";
   document_id: string | null;
   error_code: string | null;
+  /** The earlier delivery that brought the same file; this part added no receipt. */
+  repeat_of_delivery_id?: string | null;
+  /** The file was already saved another way (a web upload) before this email arrived. */
+  repeat_of_upload?: boolean;
 };
 
 export type BusinessEmailDelivery = {
@@ -18,6 +22,7 @@ export type BusinessEmailDelivery = {
   updated_at: string;
   original_document_id: string | null;
   retryable: boolean;
+  waiting?: { reason: "daily_budget"; retry_at: string } | null;
   subject: string | null;
   sender: string | null;
   sent_at: string | null;
@@ -33,5 +38,5 @@ export function businessReceivingAddress(intake: BusinessEmailIntake): string | 
 
 /** A delivery still moving on the server is worth a short poll. */
 export function emailDeliveriesNeedRefresh(items: readonly BusinessEmailDelivery[]): boolean {
-  return items.some((item) => item.state === "received" || item.state === "processing" || item.state === "partial");
+  return items.some((item) => !item.waiting && (item.state === "received" || item.state === "processing" || item.state === "partial"));
 }

@@ -1,0 +1,48 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/business-approve-next.dom.test.tsx:
+(pass) Aprobar y siguiente on the receipt review page > the owner sees green Aprobar as the primary action, with Aprobar y siguiente beside it [854.45ms]
+(pass) Aprobar y siguiente on the receipt review page > approving opens the next receipt in Bandeja order, skipping the email's own document, and the count comes from the server [1048.27ms]
+(pass) Aprobar y siguiente on the receipt review page > the approve request is the one Aprobar sends: same record, same version, one key [3786.93ms]
+(pass) Aprobar y siguiente on the receipt review page > the next receipt is the row after the approved one, not the top of the Bandeja [804.36ms]
+(pass) Aprobar y siguiente on the receipt review page > approving the last row returns to the Bandeja, which lists the rows skipped before it [2954.87ms]
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode false) [790.60ms]
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode true) [828.09ms]
+(pass) Aprobar y siguiente on the receipt review page > an unavailable next receipt never hands focus to a later receipt [850.85ms]
+(pass) Aprobar y siguiente on the receipt review page > an unavailable next dossier never hands focus to a later receipt [830.39ms]
+(pass) Aprobar y siguiente on the receipt review page > leaving the next receipt while it loads never hands focus to a later page [3006.31ms]
+(pass) Aprobar y siguiente on the receipt review page > approving the last receipt waiting returns to the Bandeja and its empty state [1140.11ms]
+(pass) Aprobar y siguiente on the receipt review page > a refused approval stays on the receipt with the existing error [2942.24ms]
+(pass) Aprobar y siguiente on the receipt review page > an approval whose outcome is unknown stays on the receipt [2943.77ms]
+(pass) Aprobar y siguiente on the receipt review page > a 200 whose approval failed stays on the receipt and reads nothing more [2943.95ms]
+(pass) Aprobar y siguiente on the receipt review page > a 200 whose outcome is unknown stays on the receipt and reads nothing more [2953.30ms]
+(pass) Aprobar y siguiente on the receipt review page > when the Bandeja cannot be read after a recorded approval, the Bandeja opens [802.80ms]
+(pass) Aprobar y siguiente on the receipt review page > opening Gastos while the approval is pending keeps Gastos open when it records [2949.67ms]
+(pass) Aprobar y siguiente on the receipt review page > switching Business while the approval is pending opens no receipt when it records [2937.91ms]
+(pass) Aprobar y siguiente on the receipt review page > switching Business while the Bandeja read is pending opens no receipt from the old Business [2937.56ms]
+(pass) Aprobar y siguiente on the receipt review page > a person without approval permission never sees Aprobar y siguiente [794.64ms]
+
+__tests__/business-upload-controls.dom.test.tsx:
+(pass) recovery labels follow a language change without losing the receipt or its actions [250.31ms]
+
+__tests__/business-inbox-notes.test.tsx:
+(pass) notes awaiting review in the Inbox > one row per open draft, newest first, with its latest note and the count of earlier ones [0.06ms]
+(pass) notes awaiting review in the Inbox > rows show the note text, revision and earlier count in Spanish, and open the draft [3.23ms]
+(pass) notes awaiting review in the Inbox > a full page says it shows the latest notes [0.55ms]
+(pass) notes awaiting review in the Inbox > a notes outage says so and renders no invented rows; no notes renders nothing [0.22ms]
+(pass) the inbox count on the Overview card and the sidebar badge > is the server's pending review count, never the unread count and never a client recount [0.02ms]
+(pass) the inbox count on the Overview card and the sidebar badge > is unknown, not zero, until the server answers
+
+__tests__/business-approved-revision.dom.test.tsx:
+(pass) a recorded receipt names the revision that was approved > approving revision 2 then marking it Personal keeps revisión 2 and the approval date [99.49ms]
+
+__tests__/business-money-readback.test.ts:
+(pass) Business saved amount readback > reads the decimal string back exactly in the currency's precision [0.25ms]
+(pass) Business saved amount readback > never rounds through a float [0.03ms]
+(pass) Business saved amount readback > uses the reader's separators [0.05ms]
+(pass) Business saved amount readback > text that is not a decimal amount is shown as given
+
+ 32 pass
+ 0 fail
+ 9 expect() calls
+Ran 32 tests across 5 files. [39.54s]

@@ -49,6 +49,7 @@ from argus.domain.ingestion.whatsapp.intake import (
 from argus.domain.ingestion.whatsapp.media import GraphMedia
 from argus.domain.ingestion.whatsapp.payload import TextMessage
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
+from argus.domain.ingestion.whatsapp.reply_worker import FailureReplyWorker
 from argus.domain.ingestion.whatsapp.store import (
     SENDER_LINK_REVOKED,
     InMemoryWhatsAppStore,
@@ -265,21 +266,6 @@ def _as_owner(documents: DocumentsService, owner_id: str, scope):  # noqa: ANN00
     return bind_to_grant(documents, documents.hub, actions, context, "prepare")[0]
 
 
-def _whatsapp_read_gate(store, reading):  # noqa: ANN001, ANN202
-    """A receipt that arrived by WhatsApp is read only while the owner's switch
-    is on at the moment of the read; other uploads carry their own consent."""
-
-    def allowed(user_id: str, connection_id: str) -> bool:
-        # The owner's switch decides, whoever asks for the read.
-        try:
-            owner = store.capture_owner(connection_id=connection_id)
-            return True if owner is None else reading(owner)
-        except Exception:
-            return False
-
-    return allowed
-
-
 class BackgroundWork:
     """Runs the work behind an acknowledged delivery and lets shutdown wait for it."""
 
@@ -305,6 +291,7 @@ class WhatsAppRuntime:
     consent: AIConsentStore | None = None
     work: BackgroundWork | None = None
     receipts: AIConsentStore | None = None
+    failure_replies: FailureReplyWorker | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -363,15 +350,40 @@ def build_whatsapp(
     keys = WhatsAppKeys(settings.sender_key.get_secret_value())
     reading = None
     receipts = None
+    failure_replies = None
+    reply_codec = None
+    if pool is not None and documents.hub.box is not None:
+        from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
+        from argus.domain.ingestion.whatsapp.reply_groups_postgres import (
+            PostgresReplyGroups,
+        )
+
+        reply_codec = ReplyGroupCodec(documents.hub.box, keys)
+        failure_replies = FailureReplyWorker(
+            store=PostgresReplyGroups(pool),
+            codec=reply_codec,
+            transport=transport,
+            clock=documents.hub.clock,
+            enabled=lambda: business_pilot_enabled()
+            and load_document_extraction_settings().enabled
+            and load_whatsapp_settings().intake_ready
+            and load_whatsapp_settings().outbound_enabled,
+            limit=settings.reply_daily_limit,
+        )
     if pool is not None:
         from argus.domain.ingestion.whatsapp.receipt_consent import (
             receipt_consent_store,
-            receipt_reading_enabled,
         )
 
         receipts = receipt_consent_store(pool)
-        reading = lambda owner: receipt_reading_enabled(receipts, owner)  # noqa: E731
-        documents.read_gate = _whatsapp_read_gate(store, reading)
+
+        def reading(owner):
+            scope = resolve_business_scope(spaces, owner)
+            permission = documents.business_receipt_consent
+            return bool(
+                scope and permission and permission.enabled(scope.owner.space_id, owner)
+            )
+
     if pool is not None and documents.hub.box is not None:
         from argus.api.whatsapp_worker import build_worker
         from argus.domain.business.actions import BusinessActions
@@ -420,8 +432,12 @@ def build_whatsapp(
         capture_text=_capture_when_enabled(worker) if worker is not None else None,
         background=work.start if work is not None else None,
         send_enabled=lambda: load_whatsapp_settings().outbound_enabled,
+        reply_codec=reply_codec,
+        reply_group_wait_seconds=settings.reply_group_wait_seconds,
     )
-    return WhatsAppRuntime(intake, settings, worker, consent, work, receipts)
+    return WhatsAppRuntime(
+        intake, settings, worker, consent, work, receipts, failure_replies
+    )
 
 
 def start_whatsapp(app: object) -> None:
@@ -529,8 +545,12 @@ def require_whatsapp_owner(
     runtime: WhatsAppRuntime = Depends(require_whatsapp_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> WhatsAppOwnerContext:
-    """Linking needs the person's Business space: captures land there."""
+    """Linking needs the person's Business space: captures land there.
+    WhatsApp is the owner's channel: a chosen client grant is refused."""
 
+    from argus.api.business import own_business_only
+
+    own_business_only(request, context.user_id)
     spaces = business_spaces()
     scope = resolve_business_scope(spaces, context.user_id) if spaces else None
     if scope is None:

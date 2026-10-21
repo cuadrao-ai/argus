@@ -221,8 +221,9 @@ async def test_intake_defers_durable_text_reply_to_worker():
     assert len(world.transport.sent) == before
 
 
+@pytest.mark.parametrize("kind", ["business", "failure"])
 @pytest.mark.asyncio
-async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypatch):
+async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypatch, kind):
     started, stopped = asyncio.Event(), asyncio.Event()
 
     class Worker:
@@ -234,17 +235,26 @@ async def test_worker_lifecycle_has_one_owned_task_and_awaits_shutdown(monkeypat
                 stopped.set()
 
     monkeypatch.setattr(
-        "argus.api.whatsapp.whatsapp_runtime", lambda: SimpleNamespace(worker=Worker())
+        "argus.api.whatsapp.whatsapp_runtime",
+        lambda: SimpleNamespace(
+            worker=Worker() if kind == "business" else None,
+            failure_replies=Worker() if kind == "failure" else None,
+        ),
     )
     app = SimpleNamespace(state=SimpleNamespace())
     start_worker(app)
-    original = app.state.business_whatsapp_worker
+    name = (
+        "business_whatsapp_worker"
+        if kind == "business"
+        else "whatsapp_failure_reply_worker"
+    )
+    original = getattr(app.state, name)
     start_worker(app)
-    assert app.state.business_whatsapp_worker is original
+    assert getattr(app.state, name) is original
     await asyncio.wait_for(started.wait(), timeout=1)
     await stop_worker(app)
     assert stopped.is_set() and original.done()
-    assert app.state.business_whatsapp_worker is None
+    assert getattr(app.state, name) is None
     await stop_worker(app)
 
 
@@ -263,6 +273,7 @@ async def test_with_the_agent_off_text_never_reaches_it_even_with_the_pilot_on(
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("ARGUS_WHATSAPP_AGENT_ENABLED", "false")
+    monkeypatch.setenv("ARGUS_WHATSAPP_OUTBOUND_ENABLED", "true")
     monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_BUSINESS_PILOT_ENABLED", "true")
     touched = []
@@ -292,6 +303,7 @@ async def test_with_the_agent_off_text_never_reaches_it_even_with_the_pilot_on(
     assert runtime.intake.capture_text(message) is False
     assert touched == []
     assert runtime.worker.enabled() is False
+    assert runtime.failure_replies.enabled() is True
     await client.aclose()
 
 

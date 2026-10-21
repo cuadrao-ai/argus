@@ -123,29 +123,37 @@ test("untyped files take their type from the extension only when the server acce
 
 test("an XML e-invoice is offered by the picker and typed from its extension when the server accepts XML", () => {
   const server = { max_bytes: 20, media_types: ["application/pdf", "text/xml", "application/xml"] };
-  expect(receiptFormatLabels(server)).toEqual(["PDF", "XML", "XML"]);
-  expect(receiptFileAccept(server)).toBe("application/pdf,.pdf,text/xml,.xml,application/xml,.xml");
+  expect(receiptFormatLabels(server)).toEqual(["PDF", "XML"]);
+  expect(receiptFileAccept(server)).toBe("application/pdf,.pdf,text/xml,.xml,application/xml");
   expect(receiptFileWithType(file("factura-E320000001234.xml", ""), server).type).toBe("text/xml");
   const withoutXml = { max_bytes: 20, media_types: ["application/pdf"] };
   expect(receiptFileWithType(file("factura.xml", ""), withoutXml).type).toBe("");
 });
 
-test("a file picked twice is listed once, and adding during a save is refused and reported", async () => {
-  let finish!: (receipt: ReceiptSummary) => void;
-  const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { finish = resolve; }), () => undefined);
+test("a file picked twice is listed once, and a file added during a save joins the tail", async () => {
+  const pending: Array<(receipt: ReceiptSummary) => void> = [];
+  const queue = new ReceiptUploadQueue(() => new Promise((resolve) => { pending.push(resolve); }), () => undefined);
   const twice = file("recibo.txt");
   expect(queue.add([twice, twice, file("otro.txt")], limits, "inbox")).toBe(true);
   expect(queue.add([new File(["receipt"], "recibo.txt", { type: "text/plain", lastModified: twice.lastModified })], limits, "inbox")).toBe(true);
   expect(queue.snapshot().map((item) => item.file.name)).toEqual(["recibo.txt", "otro.txt"]);
   const running = queue.save("inbox", false);
-  expect(queue.add([file("tarde.txt")], limits, "inbox")).toBe(false);
-  expect(queue.snapshot()).toHaveLength(2);
-  finish(savedReceipt("one"));
-  await Promise.resolve();
-  finish(savedReceipt("two"));
-  await running;
   expect(queue.add([file("tarde.txt")], limits, "inbox")).toBe(true);
-  expect(queue.snapshot()).toHaveLength(3);
+  expect(queue.snapshot().map((item) => [item.file.name, item.status])).toEqual([
+    ["recibo.txt", "uploading"],
+    ["otro.txt", "queued"],
+    ["tarde.txt", "queued"],
+  ]);
+  const release = async (index: number, id: string) => {
+    for (let turn = 0; pending.length <= index && turn < 20; turn += 1) await Promise.resolve();
+    pending[index](savedReceipt(id));
+    await Promise.resolve();
+  };
+  await release(0, "one");
+  await release(1, "two");
+  await release(2, "three");
+  await running;
+  expect(queue.snapshot().map((item) => item.status)).toEqual(["saved", "saved", "saved"]);
 });
 
 test("closing forgets saved and rejected rows and keeps unfinished ones", async () => {
@@ -163,4 +171,45 @@ test("closing forgets saved and rejected rows and keeps unfinished ones", async 
   fail = false;
   await queue.save("inbox", false);
   expect(queue.unfinished).toBe(false);
+});
+
+test("a venta upload tells the server the document type", async () => {
+  const seen: Array<"recibo" | "venta"> = [];
+  const queue = new ReceiptUploadQueue(async (_file, _consent, _key, documentType) => {
+    seen.push(documentType);
+    return savedReceipt("venta");
+  }, () => undefined);
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
+  await queue.save("inbox", false, undefined, "venta");
+  expect(seen).toEqual(["venta"]);
+});
+
+test("a failed venta is retried as a venta whatever type the retry names", async () => {
+  const seen: Array<"recibo" | "venta"> = [];
+  let fail = true;
+  const queue = new ReceiptUploadQueue(async (_file, _consent, _key, documentType) => {
+    seen.push(documentType);
+    if (fail) throw new Error("connection lost");
+    return savedReceipt("venta");
+  }, () => undefined);
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
+  await queue.save("inbox", false, undefined, "venta");
+  fail = false;
+  const [failed] = queue.snapshot();
+  await queue.save("inbox", false, failed.key, "recibo");
+  expect(seen).toEqual(["venta", "venta"]);
+  expect(queue.snapshot()[0].status).toBe("saved");
+});
+
+test("a server type rejection asks for another file rather than resending it", async () => {
+  let calls = 0;
+  const queue = new ReceiptUploadQueue(async () => {
+    calls++;
+    throw Object.assign(new Error("private detail must never render"), { status: 415 });
+  }, () => undefined);
+  queue.add([file("receipt.txt")], limits, "inbox");
+  await queue.save("inbox", true);
+  expect(queue.snapshot()[0]).toMatchObject({ status: "rejected", reason: "unsupported" });
+  await queue.save("inbox", true);
+  expect(calls).toBe(1);
 });

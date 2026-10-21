@@ -12,7 +12,10 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
+
+if TYPE_CHECKING:
+    from argus.domain.ingestion.whatsapp.reply_groups import PendingFailure
 
 ReplyLanguage = Literal["en", "es-419"]
 InboundStatus = Literal["received", "linked", "rejected", "captured", "failed"]
@@ -88,6 +91,7 @@ class WhatsAppStore(Protocol):
         claim_until: datetime | None,
         settlement: Settlement,
         now: datetime,
+        reply_failure: PendingFailure | None = None,
     ) -> Settlement | None:
         """Settle only while the caller's claim is the one held; None when it is not.
 
@@ -125,10 +129,6 @@ class WhatsAppStore(Protocol):
         """Documents this destination received through WhatsApp."""
         ...
 
-    def capture_owner(self, *, connection_id: str) -> str | None:
-        """The owner whose WhatsApp delivered this document, whoever asks."""
-        ...
-
 
 @dataclass
 class _Code:
@@ -154,6 +154,7 @@ class InMemoryWhatsAppStore:
         self._inbound: dict[bytes, InboundRecord] = {}
         self._codes: dict[bytes, _Code] = {}
         self._links: list[_Link] = []
+        self.reply_failures: list[PendingFailure] = []
 
     def claim(
         self,
@@ -194,6 +195,7 @@ class InMemoryWhatsAppStore:
         claim_until: datetime | None,
         settlement: Settlement,
         now: datetime,
+        reply_failure: PendingFailure | None = None,
     ) -> Settlement | None:
         with self._lock:
             current = self._inbound[provider_message_key]
@@ -213,17 +215,12 @@ class InMemoryWhatsAppStore:
                 claim_until=None,
                 updated_at=now,
             )
+            if reply_failure is not None:
+                self.reply_failures.append(reply_failure)
             return settlement
 
     def inbound(self, provider_message_key: bytes) -> InboundRecord | None:
         return self._inbound.get(provider_message_key)
-
-    def capture_owner(self, *, connection_id: str) -> str | None:
-        with self._lock:
-            for record in self._inbound.values():
-                if record.status == "captured" and record.connection_id == connection_id:
-                    return record.destination_owner_id
-        return None
 
     def captured_connections(self, *, destination_owner_id: str) -> frozenset[str]:
         with self._lock:

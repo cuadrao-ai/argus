@@ -17,6 +17,7 @@ from argus.domain.ingestion.documents.models import (
     ExtractionBatch,
     ExtractionResult,
 )
+from argus.domain.ingestion.documents.preparation import PreparedDocument
 
 PURCHASE: dict[str, Any] = {
     "page": 1,
@@ -31,6 +32,7 @@ PURCHASE: dict[str, Any] = {
     "merchant": "FERRETERIA LA ESQUINA SRL",
 }
 DETAILS: dict[str, Any] = {
+    "payment_status": "paid",
     "merchant": "FERRETERIA LA ESQUINA SRL",
     "occurred_on": "2026-10-06",
     "currency": "DOP",
@@ -67,6 +69,7 @@ class ReceiptStub:
         media_type: str,
         connection_id: str,
         observed_at: datetime,
+        prepared: PreparedDocument | None = None,
     ) -> ExtractionBatch:
         self.calls.append(connection_id)
         if self.failure is not None:
@@ -86,7 +89,8 @@ class ReceiptStub:
         # names for itself; the stub does the same so the guard is exercised.
         from argus.domain.ingestion.documents.preparation import prepare_document
 
-        prepared = prepare_document(content, media_type)
+        if prepared is None:
+            prepared = prepare_document(content, media_type)
         batch = batch_from_result(
             result,
             digest,

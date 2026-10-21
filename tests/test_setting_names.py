@@ -7,7 +7,11 @@ import base64
 import pytest
 from argus.api.financial_accounts import financial_accounts_enabled
 from argus.api.ingestion import ingestion_enabled
-from argus.domain.business.config import business_chat_enabled, business_pilot_enabled
+from argus.domain.business.config import (
+    business_bank_matching_enabled,
+    business_chat_enabled,
+    business_pilot_enabled,
+)
 from argus.domain.ingestion.documents.config import (
     load_document_extraction_settings,
     load_document_job_settings,
@@ -18,6 +22,7 @@ from argus.llm.openrouter_model_env import TIER_PRIMARY_ENV
 from argus.settings_names import setting_aliases, setting_names, setting_value
 
 NAMES = (
+    "BUSINESS_BANK_MATCHING_ENABLED",
     "BUSINESS_PILOT_ENABLED",
     "BUSINESS_CHAT_ENABLED",
     "INGESTION_ENABLED",
@@ -91,6 +96,15 @@ def test_each_flag_reads_both_names_and_the_cuadrao_name_wins(
     monkeypatch.setenv(f"CUADRAO_{name}", "true")
     monkeypatch.setenv(f"ARGUS_{name}", "false")
     assert read() is True
+
+
+def test_business_bank_matching_stays_inside_the_pilot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CUADRAO_BUSINESS_BANK_MATCHING_ENABLED", "true")
+    assert business_bank_matching_enabled() is False
+    monkeypatch.setenv("ARGUS_BUSINESS_PILOT_ENABLED", "true")
+    assert business_bank_matching_enabled() is True
 
 
 def test_business_chat_stays_inside_the_pilot(monkeypatch: pytest.MonkeyPatch) -> None:

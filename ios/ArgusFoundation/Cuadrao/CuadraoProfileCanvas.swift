@@ -84,10 +84,18 @@ enum CuadraoFirstRelease {
     static let unfinishedProfileRoutes: Set<CanvasProfileRoute> = [
         .personalization, .security, .shared, .removed, .memory, .usage, .advanced,
         // The free tier has no AI chats and no stored files yet, so these pages would only say "Nothing saved".
-        .files, .conversations
+        .files, .conversations,
+        // Notificaciones toggles request no permission and send nothing; Comentarios only keeps a draft on the iPhone.
+        .notifications, .feedback
     ]
+    #if CUADRAO_FOUNDER_PHONE
+    /// The founder's phone build: the release layout with receipts and the guest door on, without launch arguments.
+    static let founderPhone = true
+    #else
+    static let founderPhone = false
+    #endif
     #if DEBUG
-    static let hidesUnfinished = ProcessInfo.processInfo.arguments.contains("--cuadrao-release-gates")
+    static let hidesUnfinished = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-release-gates")
     #else
     static let hidesUnfinished = true
     #endif
@@ -104,7 +112,7 @@ enum CuadraoFirstRelease {
     static var showsReceiptCapture: Bool { !hidesUnfinished || CuadraoDesignPreview.isActive }
     /// Saved receipts are built and tested but stay off until receipt access is enabled (a separate founder approval).
     #if DEBUG
-    static let savedReceipts = ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts") || savedReceiptsSample
+    static let savedReceipts = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts") || savedReceiptsSample
     /// Sample data and no system pickers, so the screens can be driven without a server.
     static let savedReceiptsSample = ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts-sample")
     #else
@@ -313,7 +321,7 @@ struct CuadraoProfileEditor: View {
                     .textContentType(.nickname).disabled(saving)
             } footer: {
                 Text(spanish ? "Usaremos tu nombre preferido al conversar contigo."
-                     : "We’ll use your preferred name when we talk with you.")
+                     : "We'll use your preferred name when we talk with you.")
             }.listRowBackground(CanvasSettingsStyle.surface)
             if let emailAddress {
                 Section {
@@ -330,7 +338,7 @@ struct CuadraoProfileEditor: View {
             }
             if saveFailed {
                 Text(spanish ? "No pudimos guardar tu nombre. Inténtalo de nuevo."
-                     : "We couldn’t save your name. Try again.")
+                     : "We couldn't save your name. Try again.")
                     .font(.footnote).foregroundStyle(.secondary).listRowBackground(Color.clear)
                     .accessibilityIdentifier("cuadrao.profile.save.error")
             }

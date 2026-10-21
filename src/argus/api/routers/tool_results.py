@@ -10,7 +10,10 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError
 
 from argus.api.chat.tool_results import tool_cards_from_metadata
-from argus.api.conversation_surface import require_open_business_chat
+from argus.api.conversation_surface import (
+    refuse_business_under_grant,
+    require_open_business_chat,
+)
 from argus.api.dependencies import current_user, problem
 from argus.api.message_store import (
     latest_message,
@@ -66,6 +69,10 @@ async def recompute_tool_result(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ToolResultRecomputeResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=str(conversation_id)
+    )
     conversation = str(conversation_id)
     artifact = str(artifact_id)
     source = owned_conversation_message(

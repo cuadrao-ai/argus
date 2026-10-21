@@ -131,11 +131,28 @@ def _error_response(description: str) -> dict[str, Any]:
     }
 
 
+# Request documentation only; this body never reaches an interpretation model.
+_CREATE_ACCOUNT_AMOUNT = (
+    "Starting balance as typed, dot-decimal; a liability is the positive amount "
+    "owed. Omitted or blank on a Personal cash, checking, savings, investment, "
+    "credit card or other debt account records an opening of 0 at as_of. "
+    "Property, vehicle and other asset values, and Business accounts, stay "
+    "unknown when omitted. as_of defaults to now."
+)
+
+
 def customize_openapi_document(document: dict[str, Any]) -> dict[str, Any]:
     """Correct generated declarations to match real runtime behavior."""
 
     spec = copy.deepcopy(document)
     schemas = spec.setdefault("components", {}).setdefault("schemas", {})
+    amount = (
+        schemas.get("CreateFinancialAccountRequest", {})
+        .get("properties", {})
+        .get("amount")
+    )
+    if amount is not None:
+        amount["description"] = _CREATE_ACCOUNT_AMOUNT
     schemas["Error"] = copy.deepcopy(ERROR_COMPONENT)
     responses_components = spec["components"].setdefault("responses", {})
     responses_components["AuthSessionVerificationUnavailable"] = copy.deepcopy(

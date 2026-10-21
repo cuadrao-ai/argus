@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { useRouter } from "next/navigation";
 import AuthForm, {
@@ -8,25 +9,35 @@ import AuthForm, {
 } from "@/components/auth/AuthForm";
 import RequestAccess from "@/components/auth/RequestAccess";
 import { SettingsMenu } from "@/components/SettingsMenu";
-import GuestEntry from "@/components/guest/GuestEntry";
 import { useTranslation } from "react-i18next";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
 import {
   getMe,
   loginWithEmail,
+  logoutFromApi,
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
-import { guestAccessEnabled } from "@/lib/private-alpha-flags";
+import { resetLeavingSession } from "@/lib/logout-flow";
+import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { sessionEndedNotice } from "@/lib/failure-screen";
 import {
+  guestEntryAvailable,
   resolveLandingEntrySurface,
+  sessionAdmitted,
 } from "@/lib/landing-entry";
 import {
   captureLandingIntentFromLocation,
   postAuthPath,
+  signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
+import { landingLanguageChoices, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
+import { completeAuthVerification } from "@/lib/auth-verification";
+import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
 
 type AuthMode = "intro" | "request" | "signup" | "login";
 
@@ -56,6 +67,9 @@ export default function LandingPage() {
   const isMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const [authMode, setAuthMode] = useState<AuthMode>("intro");
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [verificationFailed, setVerificationFailed] = useState(false);
+  const [homeClosed, setHomeClosed] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
 
@@ -63,17 +77,41 @@ export default function LandingPage() {
     captureLandingIntentFromLocation();
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
-    if (skipAuthenticatedRedirect()) {
-      setIsCheckingSession(false);
-      return;
-    }
+    setSessionEnded(sessionEndedNotice(window.location.search));
+    const verification = completeAuthVerification();
     let cancelled = false;
     (async () => {
       try {
+        const verified = await verification;
+        if (cancelled) return;
+        if (verified === "failed") {
+          setVerificationFailed(true);
+          setAuthMode("login");
+          setIsCheckingSession(false);
+          return;
+        }
+        if (verified === "none" && skipAuthenticatedRedirect() && !signedInHomeClosed()) {
+          setIsCheckingSession(false);
+          return;
+        }
         const meResponse = await getMe();
         if (cancelled) return;
         if (meResponse === null) {
           setProfileProbeFailedClosed(true);
+          setIsCheckingSession(false);
+          return;
+        }
+        if (!sessionAdmitted(meResponse.account_kind, businessPilotEnabled)) {
+          // Business has no guest mode: the guest session is ended here so it
+          // cannot bounce between the front door and the Business shell.
+          await logoutFromApi().catch(() => undefined);
+          if (cancelled) return;
+          setIsCheckingSession(false);
+          return;
+        }
+        if (signedInHomeClosed()) {
+          setHomeClosed(true);
+          setAuthMode("login");
           setIsCheckingSession(false);
           return;
         }
@@ -106,15 +144,38 @@ export default function LandingPage() {
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(null, "", nextUrl);
   };
+  // A language chosen on this page before signing in. It is saved on the
+  // account after sign-in. A Business build keeps showing Spanish.
+  const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
+  const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const otherLanguages = landingLanguageChoices(businessPilotEnabled, shownLanguage);
+  const chooseLanguage = async (code: ArgusLanguage) => {
+    const shown = languageToShow(businessPilotEnabled, code);
+    if (shown) await i18n.changeLanguage(shown);
+    setChosenLanguage(code);
+  };
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
+  const leaveClosedHome = (href: string) => {
+    resetLeavingSession();
+    setHomeClosed(false);
+    if (href === "/" || href.startsWith("/?auth=login")) {
+      updateAuthMode("login");
+      return;
+    }
+    window.location.assign(href);
+  };
 
   const handleAuthSubmit = async (submission: AuthFormSubmission) => {
     const allowMockSignupNetwork =
       process.env.NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP === "true" &&
       submission.mode === "signup";
     if (isMockAuth && !allowMockSignupNetwork) {
+      if (signedInHomeClosed()) {
+        setHomeClosed(true);
+        return;
+      }
       router.replace(postAuthPath());
       router.refresh();
       return;
@@ -130,22 +191,50 @@ export default function LandingPage() {
       if (result.needsEmailConfirmation) {
         return { status: "email_confirmation_required" as const };
       }
-    } else {
-      await loginWithEmail({
-        email: submission.email,
-        password: submission.password,
-      });
+      if (signedInHomeClosed()) {
+        setHomeClosed(true);
+        return;
+      }
+      router.replace(postAuthPath());
+      router.refresh();
+      return;
     }
 
+    await loginWithEmail({
+      email: submission.email,
+      password: submission.password,
+    });
+    await continueWithChosenLanguage();
+    if (signedInHomeClosed()) return;
+    router.refresh();
+  };
+
+  async function continueWithChosenLanguage() {
+    // The choice made on this page outlives the sign-in: saved on the
+    // account now, so the workspace does not switch back to the account's
+    // earlier language. A failed save keeps the shown language for this visit.
+    if (chosenLanguage) {
+      await saveProfileLanguage(i18n, chosenLanguage, { onSaved: () => undefined }).catch(() => false);
+    }
+    if (signedInHomeClosed()) {
+      setHomeClosed(true);
+      return;
+    }
     router.replace(postAuthPath());
+  }
+
+  const finishConfirmedSignup = async () => {
+    await continueWithChosenLanguage();
+    if (signedInHomeClosed()) return;
     router.refresh();
   };
 
   const isSignup = authMode === "signup";
+  const acceptance = acceptanceLinks();
   const entrySurface = resolveLandingEntrySurface({
     authMode,
-    guestEntryAvailable:
-      !profileProbeFailedClosed && guestAccessEnabled && guestCaptchaConfigured,
+    // A Business build has no guest chat: a signed-out visitor sees login.
+    guestEntryAvailable: guestEntryAvailable({ businessBuild: businessPilotEnabled, probeFailedClosed: profileProbeFailedClosed, guestAccessEnabled, guestCaptchaConfigured }),
     isCheckingSession,
   });
 
@@ -153,15 +242,9 @@ export default function LandingPage() {
     return (
       <>
         <DevModeBadge />
-        <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
+        <FullscreenLoading />
       </>
     );
-  }
-
-  if (entrySurface === "guest") {
-    return <GuestEntry />;
   }
 
   return (
@@ -177,7 +260,9 @@ export default function LandingPage() {
         </div>
 
         <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
-          {authMode === "intro" ? (
+          {homeClosed ? (
+            <BusinessClosedNotice navigate={leaveClosedHome} />
+          ) : authMode === "intro" ? (
             <button
               type="button"
               onClick={showRequest}
@@ -188,6 +273,12 @@ export default function LandingPage() {
             </button>
           ) : (
             <div className="w-full max-w-sm">
+              {sessionEnded && authMode === "login" ? (
+                <p role="status" data-testid="session-ended" className="mb-4 text-center text-[16px] text-[#2f5a49]">
+                  {t("auth.screen.session_ended", "Your session ended. Sign in again.")}
+                </p>
+              ) : null}
+              {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
               {authMode === "request" ? (
                 <RequestAccess
                   onShowSignup={showSignup}
@@ -199,10 +290,27 @@ export default function LandingPage() {
                   brand="cuadrao"
                   onModeChange={(mode) => updateAuthMode(mode)}
                   onSubmit={handleAuthSubmit}
+                  onEmailConfirmed={finishConfirmedSignup}
                 />
               )}
             </div>
           )}
+
+          {!homeClosed && otherLanguages.length > 0 ? (
+            <p className="text-[13px] tracking-wide text-black/60 dark:text-white/60" data-testid="auth-language-switch">
+              {otherLanguages.map((language) => (
+                <button
+                  key={language.code}
+                  type="button"
+                  lang={language.code}
+                  className="min-h-11 rounded-full px-3 font-medium underline-offset-4 transition-opacity hover:opacity-80 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2f5a49]/40"
+                  onClick={() => void chooseLanguage(language.code)}
+                >
+                  {language.name}
+                </button>
+              ))}
+            </p>
+          ) : null}
 
           {authMode === "intro" && (
             <>
@@ -217,16 +325,18 @@ export default function LandingPage() {
                 </button>
               </p>
 
-              <p className="mt-4 w-full px-4 text-center text-[11px] md:text-[12px] tracking-tight">
-                {t('landing.legal_prefix', 'By joining, you agree to our')}{" "}
-                <a href="/terms" className="font-semibold transition-opacity hover:opacity-80">
-                  {t('landing.terms')}
-                </a>{" "}
-                {t('common.and', 'and')}{" "}
-                <a href="/privacy" className="font-semibold transition-opacity hover:opacity-80">
-                  {t('landing.privacy')}
-                </a>.
-              </p>
+              {acceptance ? (
+                <p className="mt-4 w-full px-4 text-center text-[11px] md:text-[12px] tracking-tight">
+                  {t('landing.legal_prefix', 'By joining, you agree to our')}{" "}
+                  <a href={acceptance.terms} className="font-semibold transition-opacity hover:opacity-80">
+                    {t('landing.terms')}
+                  </a>{" "}
+                  {t('common.and', 'and')}{" "}
+                  <a href={acceptance.privacy} className="font-semibold transition-opacity hover:opacity-80">
+                    {t('landing.privacy')}
+                  </a>.
+                </p>
+              ) : null}
             </>
           )}
         </div>

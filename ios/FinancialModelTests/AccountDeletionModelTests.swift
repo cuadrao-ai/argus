@@ -86,29 +86,76 @@ private struct DeletionModelFixture {
 
 @MainActor
 final class AccountDeletionModelTests: XCTestCase {
-    func testAcceptedDeletionIsPendingNotDeletedAndKeepsDraftsAcrossRelaunch() async throws {
+    func testAcceptedDeletionIsPendingRemovesThatAccountsDraftsAndRelaunchesSignedOut() async throws {
         let fixture = DeletionModelFixture(); let controller = try fixture.controller()
         _ = try await fixture.login(controller)
-        let alice = await fixture.alice; try fixture.folders.create(alice)
+        let alice = await fixture.alice; let bob = await fixture.bob
+        try fixture.folders.create(alice); try fixture.folders.create(bob)
         let model = fixture.model(controller)
         var published: [SessionSnapshot.Phase] = []
         model.sessionChanged = { published.append($0.phase) }
         await fixture.server.reply(202, ["status": "in_progress", "pending": ["apple"]])
         await model.submit()
-        XCTAssertEqual(model.state, .pending)
+        XCTAssertEqual(model.state, .pending, "202 is accepted work, never a claimed completion")
         XCTAssertEqual(published, [.accountDeletionPending], "the shell leaves the signed-in surface on acceptance")
-        XCTAssertTrue(fixture.folders.exists(alice), "202 is accepted work, not confirmed deletion")
+        XCTAssertEqual(fixture.folders.attempts, [alice])
+        XCTAssertFalse(fixture.folders.exists(alice), "the signed-out account's drafts leave the iPhone")
+        XCTAssertTrue(fixture.folders.exists(bob), "cleanup is keyed by the accepted owner only")
+        model.finish()
+        XCTAssertEqual(model.state, .ready, "Done leaves the signed-out destination without claiming completion")
 
         let relaunched = try fixture.controller()
         let restored = try await relaunched.restore()
-        XCTAssertEqual(restored.phase, .accountDeletionPending)
+        XCTAssertEqual(restored.phase, .signedOut)
         let reopened = fixture.model(relaunched)
         await reopened.load()
-        XCTAssertEqual(reopened.state, .pending)
-        XCTAssertEqual(fixture.folders.attempts, [])
+        XCTAssertEqual(reopened.state, .ready, "the next launch is the signed-out entry, never a claimed completion")
+        XCTAssertEqual(fixture.folders.attempts, [alice], "a finished cleanup never repeats")
+        XCTAssertTrue(fixture.folders.exists(bob))
+    }
+
+    func testAcceptedDeletionCleanupThatFailedFinishesOnTheNextLaunch() async throws {
+        let fixture = DeletionModelFixture(); let controller = try fixture.controller()
+        _ = try await fixture.login(controller)
+        let alice = await fixture.alice; let bob = await fixture.bob
+        try fixture.folders.create(alice); try fixture.folders.create(bob)
+        let model = fixture.model(controller)
+        fixture.folders.failNext()
+        await fixture.server.reply(202, ["status": "in_progress", "pending": []])
+        await model.submit()
+        XCTAssertEqual(model.state, .pending)
         XCTAssertTrue(fixture.folders.exists(alice))
-        reopened.finish()
-        XCTAssertEqual(reopened.state, .ready, "Done leaves the signed-out destination without claiming completion")
+
+        let relaunched = try fixture.controller()
+        let restored = try await relaunched.restore()
+        XCTAssertEqual(restored.phase, .signedOut)
+        let reopened = fixture.model(relaunched)
+        await reopened.load()
+        XCTAssertEqual(reopened.state, .ready)
+        XCTAssertEqual(fixture.folders.attempts, [alice, alice])
+        XCTAssertFalse(fixture.folders.exists(alice))
+        XCTAssertTrue(fixture.folders.exists(bob))
+        let again = fixture.model(try fixture.controller()); await again.load()
+        XCTAssertEqual(fixture.folders.attempts, [alice, alice], "nothing is owed after the cleanup finished")
+        let deletions = await fixture.server.deletions; XCTAssertEqual(deletions.count, 1)
+    }
+
+    func testAcceptedDeletionInterruptedBeforeItsCleanupFinishesOnTheNextLaunch() async throws {
+        let fixture = DeletionModelFixture(); let controller = try fixture.controller()
+        let identity = try await fixture.login(controller)
+        let alice = await fixture.alice; let bob = await fixture.bob
+        try fixture.folders.create(alice); try fixture.folders.create(bob)
+        await fixture.server.reply(202, ["status": "in_progress", "pending": []])
+        _ = try await controller.deleteAccount(expectedIdentity: identity)
+
+        let relaunched = try fixture.controller()
+        _ = try await relaunched.restore()
+        let reopened = fixture.model(relaunched)
+        await reopened.load()
+        XCTAssertEqual(reopened.state, .ready)
+        XCTAssertEqual(fixture.folders.attempts, [alice])
+        XCTAssertFalse(fixture.folders.exists(alice))
+        XCTAssertTrue(fixture.folders.exists(bob))
     }
 
     func testInterruptedResponseThenRetryCompletesAndCleansExactlyOnce() async throws {
@@ -150,10 +197,13 @@ final class AccountDeletionModelTests: XCTestCase {
         let model = fixture.model(relaunched)
         await model.load()
         XCTAssertEqual(model.state, .uncertain(canRetry: true))
+        XCTAssertEqual(fixture.folders.attempts, [], "an unanswered command never cleans")
+        XCTAssertTrue(fixture.folders.exists(alice))
         await fixture.server.reply(202, ["status": "in_progress", "pending": []])
         await model.retry()
         XCTAssertEqual(model.state, .pending)
-        XCTAssertTrue(fixture.folders.exists(alice))
+        XCTAssertEqual(fixture.folders.attempts, [alice])
+        XCTAssertFalse(fixture.folders.exists(alice), "the resumed command's acceptance cleans like the first")
         let deletions = await fixture.server.deletions; XCTAssertEqual(deletions.count, 2)
     }
 

@@ -22,10 +22,11 @@ export function BusinessHeader({
   const copy = businessContent[locale].navigation;
   const home = businessPath(locale);
   const personal = page === "personal";
-  const secondary = page === "contact" || page === "privacy";
+  const spanishOnly = page === "terms" || page === "deletion";
+  const secondary = page === "contact" || page === "privacy" || spanishOnly;
   const primaryHref = personal
     ? "#early-access"
-    : businessPath(locale, "contact");
+    : businessPath("es", "contact");
   const primaryLabel = personal
     ? locale === "es"
       ? "Acceso anticipado"
@@ -69,7 +70,7 @@ export function BusinessHeader({
     };
   }, []);
 
-  const languageLinks = (
+  const languageLinks = spanishOnly ? null : (
     <span className={styles.languages} role="group" aria-label={copy.language}>
       {(["es", "en"] as const).map((language) => (
         <a

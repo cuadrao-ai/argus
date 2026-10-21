@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
+import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
-import { businessPath } from "@/lib/site-routes";
-import type { BusinessLocale } from "./content";
+import { businessPath, type BusinessLocale } from "@/lib/site-routes";
 import { businessContactEmail } from "./site-copy";
 import styles from "./personal-early-access.module.css";
+import { containsSensitiveDigits, EXPENSE_METHODS, type ExpenseMethod } from "@/lib/forms/personal-waitlist-input";
+import { WaitlistCaptcha } from "./waitlist-captcha";
 import { SignupFlight, SignupPet, usePersonalSignupScene, WelcomePhone } from "./personal-signup-scene";
 
 type SignupState = { status: "idle" } | { status: "submitting" } | { status: "success" } | { status: "error"; message: string; rejected: boolean };
@@ -20,14 +22,19 @@ const copy = {
     title: "Tus finanzas, en orden.",
     benefit: "Tus cuentas y el próximo pago, a la vista.",
     body: "Déjanos tu correo y te avisaremos cuando puedas probar Cuadrao.",
-    label: "Correo electrónico",
+    label: "Correo",
     button: "Avísame cuando pueda probarla",
     saving: "Guardando tu registro…",
-    privacy: "Usaremos tu correo solo para avisarte sobre el acceso anticipado a Cuadrao. Para retirar tu registro, escríbenos a",
+    privacy: "Solo te escribiremos sobre la lista y el lanzamiento de la app.",
+    expenseLabel: "¿Cómo llevas hoy tus gastos?",
+    wishLabel: "¿Qué te gustaría que Cuadrao te resolviera?",
+    wishHint: "No incluyas datos de cuentas o tarjetas.",
+    sensitiveDigits: "Quita los números de cuenta o tarjeta para enviar.",
+    contact: "¿Es para tu negocio? Escríbenos",
     privacyLink: "Política de privacidad",
     rateLimited: "Hiciste varios intentos seguidos. Espera unos minutos e inténtalo de nuevo.",
-    success: "Ya estás en la lista.",
-    next: "Te avisaremos cuando haya una invitación para ti.",
+    success: "Revisa tu correo.",
+    next: (email: string) => `Te enviamos un enlace a ${email} para confirmar tu lugar en la lista de la app personal de Cuadrao. Vence en 48 horas.`,
     error: `No pudimos guardar tu correo. Inténtalo de nuevo o escríbenos a ${businessContactEmail}.`,
     invalid: "Revisa tu correo e inténtalo de nuevo.",
     noScript: "Activa JavaScript para usar este formulario.",
@@ -42,15 +49,20 @@ const copy = {
     title: "Your finances, in order.",
     benefit: "Your accounts and next payment, at a glance.",
     body: "Leave your email and we’ll let you know when you can try Cuadrao.",
-    label: "Email address",
+    label: "Email",
     button: "Let me know when I can try it",
     saving: "Saving your signup…",
-    privacy: "We'll use your email only to tell you about Cuadrao early access. To remove your signup, email",
+    privacy: "We'll only email you about the waitlist and the app launch.",
     privacyLink: "Privacy policy",
-    rateLimited: "You made several attempts in a row. Wait a few minutes and try again.",
-    success: "You're on the list.",
-    next: "We’ll email you when an invitation is available for you.",
-    error: `We couldn't save your email. Try again or write to ${businessContactEmail}.`,
+    expenseLabel: "How do you track your expenses today?",
+    wishLabel: "What would you like Cuadrao to help you with?",
+    wishHint: "Do not include account or card details.",
+    sensitiveDigits: "Remove account or card numbers before submitting.",
+    contact: "Is it for your business? Contact us",
+    rateLimited: "You've made several attempts in a row. Wait a few minutes and try again.",
+    success: "Check your email.",
+    next: (email: string) => `We sent a link to ${email} to confirm your place on the Cuadrao personal app waitlist. It expires in 48 hours. The email is in Spanish.`,
+    error: `We couldn't save your email. Try again or email us at ${businessContactEmail}.`,
     invalid: "Check your email address and try again.",
     noScript: "Enable JavaScript to use this form.",
     phone: {
@@ -61,10 +73,22 @@ const copy = {
   },
 } as const;
 
+const englishExpenseMethods: Record<ExpenseMethod, string> = {
+  "No los llevo": "I don't track them",
+  "En una libreta o notas": "In a notebook or notes",
+  "En Excel o Google Sheets": "In Excel or Google Sheets",
+  "En otra app": "In another app",
+  "Otra forma": "Another way",
+};
+
 export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
   const c = copy[locale];
   const hydrated = useSyncExternalStore(subscribeToHydration, clientSnapshot, serverSnapshot);
   const [email, setEmail] = useState("");
+  const [expenseMethod, setExpenseMethod] = useState("");
+  const [wish, setWish] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAttempt, setCaptchaAttempt] = useState(0);
   const [state, setState] = useState<SignupState>({ status: "idle" });
   const { rootRef, petRef, buttonRef, logoRef, flight, celebrate, finish } = usePersonalSignupScene();
   const confirmation = useRef<HTMLHeadingElement>(null);
@@ -83,10 +107,10 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch("/api/signups", {
+      const response = await fetch("/api/waitlist/signups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, locale, website }),
+        body: JSON.stringify({ email, website, expenseMethod, wish, captchaToken }),
         signal: controller.signal,
       });
       const result: unknown = await response.json();
@@ -105,6 +129,7 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
     } finally {
       clearTimeout(timeout);
       pending.current = false;
+      setCaptchaAttempt((attempt) => attempt + 1);
     }
   }
 
@@ -122,10 +147,10 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
             <div className={styles.confirmation}>
               <span className={styles.check}><Check size={24} aria-hidden="true" /></span>
               <h2 ref={confirmation} tabIndex={-1}>{c.success}</h2>
-              <p>{c.next}</p>
+              <p>{c.next(email.trim())}</p>
             </div>
           ) : (
-            <form method="post" action="/api/signups" onSubmit={submit} aria-busy={state.status === "submitting"}>
+            <form method="post" action="/api/waitlist/signups" onSubmit={submit} aria-busy={state.status === "submitting"}>
               <noscript><p className={styles.local}>{c.noScript}</p></noscript>
               <fieldset className={styles.formFields} disabled={!hydrated}>
                 <label htmlFor="personal-email">{c.label}</label>
@@ -140,20 +165,33 @@ export function PersonalEarlyAccess({ locale }: { locale: BusinessLocale }) {
                   event.currentTarget.focus();
                 }} autoComplete="email" inputMode="email" maxLength={254} required aria-describedby={state.status === "error" ? "signup-error signup-privacy" : "signup-privacy"} aria-invalid={(state.status === "error" && state.rejected) || undefined} readOnly={state.status === "submitting"} placeholder={locale === "es" ? "tu@correo.com" : "you@example.com"} />
                 </div>
+                <div className={styles.optionalFields}>
+                  <label htmlFor="personal-expenses">{c.expenseLabel}</label>
+                  <select id="personal-expenses" name="expenseMethod" value={expenseMethod} onChange={(event) => setExpenseMethod(event.target.value)} disabled={state.status === "submitting"}>
+                    <option value=""></option>
+                    {EXPENSE_METHODS.map((method) => <option key={method} value={method}>{locale === "en" ? englishExpenseMethods[method] : method}</option>)}
+                  </select>
+                  <label htmlFor="personal-wish">{c.wishLabel}</label>
+                  <textarea id="personal-wish" name="wish" maxLength={280} value={wish} onChange={(event) => setWish(event.target.value)} aria-describedby="personal-wish-hint personal-wish-digits" readOnly={state.status === "submitting"} />
+                  <p id="personal-wish-hint" className={styles.hint}>{c.wishHint}</p>
+                  <p id="personal-wish-digits" className={styles.error} role="status">{containsSensitiveDigits(wish) ? c.sensitiveDigits : ""}</p>
+                  <Link href={businessPath(locale, "contact")}>{c.contact}</Link>
+                  <WaitlistCaptcha locale={locale} onToken={setCaptchaToken} attempt={captchaAttempt} />
+                </div>
                 <div className={styles.trap} aria-hidden="true">
-                  <label htmlFor="personal-website">Website</label>
+                  <label htmlFor="personal-website">{locale === "es" ? "Sitio web" : "Website"}</label>
                   <input id="personal-website" name="website" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
                 </div>
-                <button ref={buttonRef} type="submit" disabled={!hydrated} aria-disabled={state.status === "submitting"}>
+                <button ref={buttonRef} type="submit" disabled={!hydrated || !captchaToken} aria-disabled={state.status === "submitting"}>
                   {state.status === "submitting" ? c.saving : c.button}
                   <ArrowRight size={19} aria-hidden="true" />
                 </button>
+                <p className={styles.privacy} id="signup-privacy">{c.privacy} <Link href={businessPath(locale, "privacy")}>{c.privacyLink}</Link>.</p>
                 {state.status === "error" && <p id="signup-error" className={styles.error} role="alert">{state.message}</p>}
               </fieldset>
             </form>
           )}
         </div>
-        <p className={styles.privacy} id="signup-privacy">{c.privacy} <a href={`mailto:${businessContactEmail}`}>{businessContactEmail}</a>. <a href={businessPath(locale, "privacy")}>{c.privacyLink}</a>.</p>
       </div>
       <figure className={styles.preview}>
         <WelcomePhone logoRef={logoRef} flying={Boolean(flight)} copy={c.phone} delivered={state.status === "success"} />

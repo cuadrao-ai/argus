@@ -12,8 +12,10 @@ struct CanvasDecimalInput: UIViewRepresentable {
     var title: String? = nil
     var size: CuadraoTypography.MoneySize = .prominent
     var alignment: NSTextAlignment = .right
+    var autofocus = false
     var onFocus: (Bool) -> Void = { _ in }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.cuadraoCurrencyRules) private var rules
 
     private var contentSizeCategory: UIContentSizeCategory {
         switch dynamicTypeSize {
@@ -44,6 +46,7 @@ struct CanvasDecimalInput: UIViewRepresentable {
         field.backgroundColor = .clear
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         context.coordinator.field = field
+        if autofocus { DispatchQueue.main.async { field.becomeFirstResponder() } }
         return field
     }
     func updateUIView(_ field: UITextField, context: Context) {
@@ -55,7 +58,7 @@ struct CanvasDecimalInput: UIViewRepresentable {
             context.coordinator.raw = raw
             if (field.text ?? "").replacingOccurrences(of: ",", with: "") != raw { field.text = Coordinator.group(raw) }
         }
-        field.placeholder = CanvasMoney.format(0, currency: currency)
+        field.placeholder = rules.format(0, currency)
         field.accessibilityLabel = title ?? (spanish ? "Monto" : "Amount")
         field.textColor = (Decimal(string: raw) ?? 0) > 0
             ? UIColor(WelcomePalette.moneyInput) : .secondaryLabel
@@ -90,11 +93,11 @@ struct CanvasDecimalInput: UIViewRepresentable {
             }
             if normalized.hasPrefix(".") { normalized = "0" + normalized; logical += 1 }
             let fraction = normalized.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
-            guard fraction <= CanvasMoney.digits(parent.currency) else {
+            guard fraction <= parent.rules.digits(parent.currency) else {
                 commit(error: parent.spanish ? "Revisa los decimales para \(parent.currency)." : "Check decimal places for \(parent.currency)."); return false
             }
-            guard abs(Decimal(string: normalized) ?? 0) <= CanvasMoney.maximum, normalized.count <= 24 else {
-                commit(error: parent.spanish ? "Máximo: 9,999,999.99" : "Maximum: 9,999,999.99"); return false
+            guard abs(Decimal(string: normalized) ?? 0) <= parent.rules.maximum(parent.currency), normalized.count <= 24 else {
+                commit(error: parent.rules.maximumMessage(parent.currency, parent.spanish)); return false
             }
             raw = normalized
             commit(raw: normalized, error: "")
@@ -119,8 +122,8 @@ struct CanvasDecimalInput: UIViewRepresentable {
             parent.onFocus(false)
             guard let value = Decimal(string: raw), !raw.isEmpty else { return }
             let fraction = raw.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
-            guard fraction <= CanvasMoney.digits(parent.currency) else { return }
-            let formatted = CanvasMoney.format(value, currency: parent.currency)
+            guard fraction <= parent.rules.digits(parent.currency) else { return }
+            let formatted = parent.rules.format(value, parent.currency)
             raw = formatted.replacingOccurrences(of: ",", with: "")
             commit(raw: raw)
             textField.text = formatted

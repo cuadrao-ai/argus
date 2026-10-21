@@ -8,8 +8,11 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { signedInHomePath } from "@/lib/landing-intent";
 import { useTranslation } from "react-i18next";
 
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { ServerErrorScreen } from "@/components/status/ServerErrorScreen";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   accountSecurityLoadFailureAction,
@@ -17,9 +20,10 @@ import {
   type SessionActionResult,
 } from "@/lib/auth-security";
 import { getMe } from "@/lib/argus-api";
+import { referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 
 type Confirmation = "others" | "all" | null;
-type AuthCheckState = "checking" | "ready" | "unavailable";
+type AuthCheckState = "checking" | "ready" | "unavailable" | "closed" | "server";
 
 export default function AccountSecurityPage() {
   const { t } = useTranslation();
@@ -35,14 +39,25 @@ export default function AccountSecurityPage() {
   const [warning, setWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [freshLogin, setFreshLogin] = useState(false);
+  const [reference, setReference] = useState("");
 
   const checkSession = useCallback(() => {
     setAuthCheckState("checking");
-    getMe()
+    runQuietRetries(() => getMe())
       .then(() => setAuthCheckState("ready"))
       .catch((loadError: unknown) => {
-        if (accountSecurityLoadFailureAction(loadError) === "redirect_to_login") {
-          window.location.replace("/?auth=login");
+        const action = accountSecurityLoadFailureAction(loadError);
+        if (action === "redirect_to_login") {
+          window.location.replace(sessionEndedLoginPath("/account/security", window.location.search));
+          return;
+        }
+        if (action === "closed") {
+          setAuthCheckState("closed");
+          return;
+        }
+        if (action === "server") {
+          setReference(referenceCode(loadError));
+          setAuthCheckState("server");
           return;
         }
         setAuthCheckState("unavailable");
@@ -160,6 +175,11 @@ export default function AccountSecurityPage() {
     }
   };
 
+  if (authCheckState === "closed") return <BusinessClosedNotice />;
+  if (authCheckState === "server") {
+    return <ServerErrorScreen reference={reference} onRetry={checkSession} />;
+  }
+
   if (authCheckState !== "ready") {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center px-6 text-sm text-black/55 dark:text-white/55">
@@ -189,7 +209,7 @@ export default function AccountSecurityPage() {
   return (
     <main className="min-h-[100dvh] px-6 py-10 md:px-12">
       <div className="mx-auto w-full max-w-2xl">
-        <Link href="/chat" className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white">
+        <Link href={signedInHomePath()} className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white">
           {t("account_security.back", "Back to Cuadrao")}
         </Link>
         <h1 className="mt-6 font-display text-4xl font-medium tracking-tight text-black dark:text-white">

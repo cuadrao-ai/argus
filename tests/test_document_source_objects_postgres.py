@@ -94,6 +94,9 @@ class CrashAfterPut:
     def delete(self, prefix: str) -> None:
         self._objects.delete(prefix)
 
+    def remove(self, path: str) -> None:
+        self._objects.remove(path)
+
 
 @pytest.fixture
 def rig() -> Iterator[dict]:
@@ -148,7 +151,14 @@ def _row(pool: ConnectionPool, connection_id: str) -> tuple | None:
 
 def _paths(pool: ConnectionPool, prefix: str) -> list[str]:
     with pool.connection() as connection:
-        return stored_paths(connection, prefix)
+        prefixes = (
+            (prefix, f"sealed/{prefix}", f"rebuilt/{prefix}")
+            if prefix.count("/") == 1
+            else (prefix,)
+        )
+        return sorted(
+            path for folder in prefixes for path in stored_paths(connection, folder)
+        )
 
 
 async def _upload(service: DocumentsService, user: str, *, consent: bool = False):
@@ -166,7 +176,7 @@ async def _upload(service: DocumentsService, user: str, *, consent: bool = False
 async def test_upload_stores_the_object_and_no_bytes(rig: dict) -> None:
     owner = rig["owner"]
     outcome = await _upload(rig["service"], owner)
-    path = f"{owner}/{outcome.connection_id}/{DIGEST}"
+    path = f"sealed/{owner}/{DIGEST}"
     assert _row(rig["pool"], outcome.connection_id) == (
         None,
         SOURCE_BUCKET,
@@ -191,9 +201,7 @@ async def test_duplicate_upload_makes_no_second_object(rig: dict) -> None:
     first = await _upload(rig["service"], owner)
     second = await _upload(rig["service"], owner)
     assert (second.connection_id, second.replayed) == (first.connection_id, True)
-    assert _paths(rig["pool"], owner_prefix(owner)) == [
-        f"{owner}/{first.connection_id}/{DIGEST}"
-    ]
+    assert _paths(rig["pool"], owner_prefix(owner)) == [f"sealed/{owner}/{DIGEST}"]
 
 
 @pytest.mark.asyncio
@@ -272,7 +280,9 @@ async def test_disconnect_during_preparation_leaves_no_object_and_no_row(
 
 
 @pytest.mark.asyncio
-async def test_a_crash_after_the_object_write_leaves_no_row(rig: dict) -> None:
+async def test_a_crash_after_the_object_write_leaves_a_retryable_reference(
+    rig: dict,
+) -> None:
     owner, pool = rig["owner"], rig["pool"]
     crashing = DocumentsService(
         rig["hub"],
@@ -282,11 +292,14 @@ async def test_a_crash_after_the_object_write_leaves_no_row(rig: dict) -> None:
     with pytest.raises(SystemExit):
         await _upload(crashing, owner)
     [connection] = rig["hub"].connections.list(user_id=owner, scope=PERSONAL)
-    orphan = f"{owner}/{connection.id}/{DIGEST}"
-    assert _row(pool, connection.id) is None
+    orphan = f"sealed/{owner}/{DIGEST}"
+    assert _row(pool, connection.id)[2] == orphan
     assert _paths(pool, owner_prefix(owner)) == [orphan]
-    with pytest.raises(DocumentServiceError, match="document_source_unavailable"):
-        rig["service"].get(user_id=owner, connection_id=connection.id, scope=PERSONAL)
+    assert (
+        not rig["service"]
+        .get(user_id=owner, connection_id=connection.id, scope=PERSONAL)
+        .source_available
+    )
 
     retried = await _upload(rig["service"], owner)
     assert (retried.connection_id, retried.replayed) == (connection.id, True)
@@ -317,6 +330,9 @@ class FailingDelete(CrashAfterPut):
         self._objects.put(path, content, media_type)
 
     def delete(self, prefix: str) -> None:
+        raise ConnectionError("storage unavailable")
+
+    def remove(self, path: str) -> None:
         raise ConnectionError("storage unavailable")
 
 
@@ -436,7 +452,7 @@ async def test_a_lost_object_is_reported_and_an_identical_upload_restores_it(
     owner, service = rig["owner"], rig["service"]
     outcome = await _upload(service, owner)
     connection_id = outcome.connection_id
-    rig["objects"].delete(f"{owner}/{connection_id}/")
+    rig["objects"].remove(f"sealed/{owner}/{DIGEST}")
     with pytest.raises(DocumentServiceError, match="document_source_unavailable"):
         service.source_bytes(user_id=owner, connection_id=connection_id, scope=PERSONAL)
     assert not service.get(
@@ -452,9 +468,7 @@ async def test_a_lost_object_is_reported_and_an_identical_upload_restores_it(
         service.source_bytes(user_id=owner, connection_id=connection_id, scope=PERSONAL)
         == PDF
     )
-    assert _paths(rig["pool"], owner_prefix(owner)) == [
-        f"{owner}/{connection_id}/{DIGEST}"
-    ]
+    assert _paths(rig["pool"], owner_prefix(owner)) == [f"sealed/{owner}/{DIGEST}"]
 
 
 class StorageDown(CrashAfterPut):

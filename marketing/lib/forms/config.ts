@@ -1,4 +1,4 @@
-import { parseMailbox } from "./validation";
+import { parseMailbox } from "./validation.ts";
 
 export type FormsConfig = {
   resendApiKey: string | null;

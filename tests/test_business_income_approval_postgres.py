@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
+import pytest
 from argus.domain.business.contracts.actions import (
     ApproveExpense,
     ApproveIncome,
@@ -62,6 +63,7 @@ def _account(service, context, account):
     return account_response(stored)
 
 
+@pytest.mark.owner_acts
 def test_member_approves_income_once_with_real_account_credit(actions):
     service, context, grant = actions
     draft, account, evidence = _income(service, context)
@@ -133,6 +135,7 @@ def test_member_approves_income_once_with_real_account_credit(actions):
         assert receipt[3:] == (None, None)
 
 
+@pytest.mark.owner_acts
 def test_income_requires_current_kind_and_complete_sourced_facts(actions):
     service, context, _ = actions
     request = ApproveIncome(version=1, action="record_income")
@@ -173,6 +176,7 @@ def test_income_requires_current_kind_and_complete_sourced_facts(actions):
     )
 
 
+@pytest.mark.owner_acts
 def test_income_dossier_blocks_nonliquid_business_account_without_money_write(actions):
     service, context, _ = actions
     for account_type in ("credit_card", "other_debt"):
@@ -219,6 +223,7 @@ def test_income_dossier_blocks_nonliquid_business_account_without_money_write(ac
             )
 
 
+@pytest.mark.owner_acts
 def test_income_stale_version_and_changed_command_never_post(actions):
     service, context, _ = actions
     draft, account, _ = _income(service, context)
@@ -263,6 +268,7 @@ def test_agent_cannot_approve_income_or_create_human_receipt(actions):
         )
 
 
+@pytest.mark.owner_acts
 def test_income_lost_acknowledgement_reuses_one_money_activity(actions, monkeypatch):
     service, context, _ = actions
     draft, account, _ = _income(service, context)
@@ -293,6 +299,7 @@ def test_income_lost_acknowledgement_reuses_one_money_activity(actions, monkeypa
         )
 
 
+@pytest.mark.owner_acts
 def test_concurrent_same_income_approval_records_one_activity(actions):
     service, context, _ = actions
     draft, account, _ = _income(service, context)

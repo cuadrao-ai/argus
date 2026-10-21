@@ -1,3 +1,10 @@
+"age.confirmation.checkbox" = "Confirmo que tengo 18 años o más.";
+"age.confirmation.retry" = "Intentar de nuevo";
+"age.confirmation.share" = "Compartir rango de edad";
+"age.confirmation.sharingRequired" = "Para continuar, comparte tu rango de edad con Cuadrao.";
+"age.confirmation.terms" = "Ver términos";
+"age.confirmation.unavailable" = "No pudimos confirmar tu rango de edad. Inténtalo de nuevo.";
+"age.confirmation.under18" = "Cuadrao es para personas de 18 años o más, así que por ahora no puedes usar la app.";
 "destination.home" = "Home";
 "destination.accounts" = "Accounts";
 "destination.argus" = "Argus";
@@ -127,6 +134,7 @@
 "accounts.signedBalance" = "Signed balance: a negative amount means money owed.";
 "accounts.scope" = "These are your recorded accounts. Activity, household sharing and totals are not available yet.";
 "accounts.retry" = "Try again";
+"skeleton.loading" = "Loading";
 "accounts.loading" = "Loading accounts";
 "accounts.saving" = "Saving";
 "accounts.save" = "Save";
@@ -359,6 +367,7 @@
 "plan.kind.bill" = "Bill";
 "plan.name" = "Name";
 "plan.account.unassigned" = "Choose later";
+"plan.account.required" = "Choose an account";
 "plan.account.hint" = "An account is needed before this affects the forecast or can be recorded.";
 "plan.date" = "Starts";
 "plan.repeat" = "Repeat";
@@ -848,3 +857,5 @@
 "auth.deletion.apple" = "To delete your account, confirm with Apple again.";
 "auth.deletion.support.requested" = "Request sent. Support will delete your account and follow up by email.";
 "auth.deletion.support.unavailable" = "Deleting in the app isn't available here yet. Support can delete your account for you.";
+"launch.unreachable" = "We couldn't open your account. Check your connection and try again.";
+"launch.retry" = "Try again";

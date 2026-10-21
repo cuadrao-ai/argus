@@ -97,6 +97,30 @@ final class SessionControllerTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(after, before)
     }
 
+    func testSignupWithoutAgeConfirmationDispatchesNormalRequest() async throws {
+        let fixture = try SessionFixture()
+        let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password",
+            captchaToken: "synthetic-captcha", language: "es-419")
+        XCTAssertEqual(result, .confirmationRequired)
+        let requests = await fixture.server.captured()
+        let request = try XCTUnwrap(requests.first)
+        XCTAssertEqual(request.url?.path, "/api/v1/auth/signup")
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(request.httpBody)) as? [String: String])
+        XCTAssertEqual(body, ["email": "new@example.test", "password": "synthetic-password",
+                              "captcha_token": "synthetic-captcha", "language": "es-419"])
+    }
+
+    func testSignupSendsTheProvidedAdultObservationTime() async throws {
+        let fixture = try SessionFixture()
+        let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password",
+            captchaToken: "synthetic-captcha", language: "es-419", ageConfirmedAt: Date(timeIntervalSince1970: 1767225600))
+        XCTAssertEqual(result, .confirmationRequired)
+        let requests = await fixture.server.captured()
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(requests.first?.httpBody)) as? [String: String])
+        XCTAssertEqual(body["age_confirmed_at"], "2026-01-01T00:00:00Z")
+        XCTAssertEqual(Set(body.keys), ["email", "password", "captcha_token", "language", "age_confirmed_at"])
+    }
+
     func testSignupWithoutSessionRequiresConfirmationWithoutAutomaticLogin() async throws {
         let fixture = try SessionFixture()
         let result = try await fixture.controller().signup(email: "new@example.test", password: "synthetic-password", captchaToken: "synthetic-captcha", language: "es-419")
@@ -121,6 +145,26 @@ final class SessionControllerTests: XCTestCase, @unchecked Sendable {
         catch { XCTAssertEqual(error as? SessionFailure, .rejected(status: 503, code: "unauthorized")) }
         let stillSignedIn = await client.snapshot()
         XCTAssertEqual(stillSignedIn.phase, .authenticated)
+    }
+
+    func testAStoredSessionTheServerCannotConfirmStaysStoredAndSignedOutDoesNot() async throws {
+        let fixture = try SessionFixture()
+        let fresh = try fixture.controller()
+        let noSession = await fresh.hasStoredSession()
+        XCTAssertFalse(noSession)
+        _ = try await fixture.login(fresh)
+        await fixture.server.configure(meStatuses: [503])
+        let relaunched = try fixture.controller()
+        do { _ = try await relaunched.restore(); XCTFail("Expected the unavailable server to fail the restore") }
+        catch {}
+        let phase = await relaunched.snapshot().phase
+        let stored = await relaunched.hasStoredSession()
+        XCTAssertNotEqual(phase, .authenticated)
+        XCTAssertTrue(stored, "the keychain still holds the session, so launch must not show sign-in")
+        let signedOut = try fixture.controller()
+        _ = try await signedOut.signOut()
+        let afterSignOut = await signedOut.hasStoredSession()
+        XCTAssertFalse(afterSignOut)
     }
 
     func testSecond401EndsUsableSession() async throws {

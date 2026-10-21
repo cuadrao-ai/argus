@@ -34,7 +34,7 @@ starlette = ">=0.48.0,<1.0.0"
 uvicorn = {version = "^0.32.0", extras = ["standard"]}
 python-multipart = "^0.0.20"
 # Decode bounded receipt photos and strip metadata before provider submission.
-pillow = "^12.2.0"
+pillow = "^12.3.0"
 # CommonMark link destinations in public receipt privacy checks.
 markdown-it-py = "4.0.0"
 # Supabase Auth
@@ -51,7 +51,7 @@ babel = "^2.17.0"
 mem0ai = "^2.0.17"
 number-parser = "0.3.2"
 xlsxwriter = ">=3.2.9,<4"
-lxml = "6.0.2"
+lxml = "6.1.3"
 zxing-cpp = "2.3.0"
 
 [build-system]
@@ -67,7 +67,7 @@ pytest-asyncio = "^1.4.0"
 httpx = "^0.28.1"
 faker = "^30.0.0"
 pre-commit = "<4.0"
-ruff = ">=0.4.0,<0.5.0"
+ruff = "0.4.10"
 icdiff = ">=2.0.7,<3.0.0"
 mypy = "^1.10.0"
 respx = "^0.23.1"
@@ -113,9 +113,11 @@ filterwarnings = [
 ]
 markers = [
     "slow: marks tests as slow (performance benchmarks requiring large datasets)",
+    "owner_acts: the shared Business actions fixture acts as the owner (approval is the owner's alone)",
 ]
 
 [tool.ruff]
+required-version = "0.4.10"
 line-length = 90
 target-version = "py310"
 

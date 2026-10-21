@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
+from datetime import datetime
 
 import httpx
 from loguru import logger
@@ -14,12 +15,17 @@ from argus.api.ingestion import ingestion_enabled
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
+from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
 from argus.domain.ingestion.email_intake.provider import ResendReceivingClient
 from argus.domain.ingestion.email_intake.service import (
     EmailCapture,
     grant_route_authority,
 )
-from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+from argus.domain.ingestion.email_intake.standing import (
+    EmailStanding,
+    email_standing,
+)
+from argus.domain.ingestion.email_intake.store import EmailRelation, PostgresEmailStore
 
 RESEND_DOWNLOAD_HOSTS = ("cdn.resend.app",)
 
@@ -94,6 +100,59 @@ _RUNTIME_CONDITIONS = (
 )
 
 
+def _queued_email_reader(route, connection_id: str):
+    from uuid import UUID
+
+    from argus.api.business_drafts import bind_to_grant
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.owner_scope import BusinessSpace
+
+    documents = documents_service()
+    scope = BusinessSpace(route.space_id)
+    current = documents.get(
+        user_id=route.principal_id, connection_id=connection_id, scope=scope
+    )
+    if current.status != "queued":
+        return None
+    actions = documents.business_actions
+    context = actions.resolve_actor(
+        TrustedActor(
+            actor_id=UUID(route.granted_by),
+            actor_kind="member",
+            space_id=UUID(route.space_id),
+        ),
+        grant_id=UUID(route.grant_id),
+    )
+    service, _ = bind_to_grant(documents, documents.hub, actions, context, "prepare")
+    return service, scope
+
+
+async def _read_receipt(route, connection_id: str) -> None:
+    from fastapi import BackgroundTasks
+
+    from argus.api.documents import dispatch_preparation
+
+    reader = await asyncio.to_thread(_queued_email_reader, route, connection_id)
+    if reader is None:
+        return
+    service, scope = reader
+    tasks = BackgroundTasks()
+    try:
+        await dispatch_preparation(
+            service, route.principal_id, connection_id, tasks, scope=scope
+        )
+    except Exception as error:
+        await asyncio.to_thread(
+            service.release_queued,
+            user_id=route.principal_id,
+            connection_id=connection_id,
+            scope=scope,
+            code=getattr(error, "code", "document_delivery_failed"),
+        )
+        raise
+    await tasks()
+
+
 def start_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
     conditions = intake_conditions(app)
@@ -133,6 +192,7 @@ def start_email_intake(app) -> None:  # noqa: ANN001
             provider,
             capture_enabled,
             webhook_enabled,
+            _read_receipt,
         )
     )
     app.state.email_intake_client = client
@@ -153,13 +213,80 @@ async def stop_email_intake(app) -> None:  # noqa: ANN001
     configure_email_intake(None)
 
 
-def email_receipt_flags(space_id: str) -> dict[str, tuple[tuple[str, ...], bool]]:
-    """Per document: the deliveries it arrived in, and whether it is a grouped
-    email original. Empty when email receiving is off."""
+def email_receipt_flags(
+    space_id: str,
+) -> dict[str, tuple[tuple[str, ...], bool, datetime | None]]:
+    """Per document: the deliveries it arrived in, earliest first; whether it is
+    a grouped email original; and when the earliest delivery arrived. Empty
+    when email receiving is off."""
 
     if _runtime is None:
         return {}
     return {
-        document: (tuple(sorted(relation["delivery_ids"])), relation["grouped"])
+        document: (
+            tuple(relation["delivery_ids"]),
+            relation["grouped"],
+            relation["first_received_at"],
+        )
         for document, relation in _runtime.store.membership(space_id).items()
     }
+
+
+def part_repeat(
+    runtime: EmailCapture,
+    delivery: EmailDelivery,
+    part: EmailDeliveryPart,
+    relations: dict[str, EmailRelation],
+) -> tuple[str | None, bool]:
+    """Whether a part's document was already saved: ``(repeat_of_delivery_id,
+    repeat_of_upload)``. An earlier delivery brought it, or it was saved another
+    way, a web upload, before this email arrived."""
+
+    earlier = relations.get(part.document_id or "", {}).get("delivery_ids") or []
+    first = earlier[0] if earlier else None
+    repeat_of_delivery = first if first and first != delivery.id else None
+    if not part.document_id or repeat_of_delivery is not None:
+        return repeat_of_delivery, False
+    # The Business, not the person, is the unit: a file anyone saved in this
+    # Business before the email came makes the email the repeat.
+    draft = runtime.documents.store.draft(
+        user_id=delivery.principal_id, connection_id=part.document_id
+    )
+    earliest = (
+        runtime.documents.store.earliest_saved(
+            space_id=delivery.space_id, sha256=draft.sha256
+        )
+        if draft is not None
+        else None
+    )
+    return None, earliest is not None and earliest < delivery.received_at
+
+
+def email_standings(space_id: str) -> list[EmailStanding]:
+    """The standing of every email in this Business that is a Bandeja row of its
+    own. Empty when email receiving is off."""
+
+    if _runtime is None:
+        return []
+    runtime = _runtime
+    relations = runtime.store.membership(space_id)
+    parts = runtime.store.parts_by_delivery(space_id)
+    standings = (
+        email_standing(
+            delivery,
+            parts.get(delivery.id, []),
+            lambda part, delivery=delivery: any(
+                part_repeat(runtime, delivery, part, relations)
+            ),
+        )
+        for delivery in runtime.store.list(space_id, limit=None)
+    )
+    return [standing for standing in standings if standing is not None]
+
+
+def arrived_by_email(saved_at: datetime, first_received_at: datetime | None) -> bool:
+    """A document whose earliest email arrived before it was saved was saved by
+    that email. One saved before any email came by another way (a web upload),
+    and the email that brought the same bytes later is a repeat of it."""
+
+    return first_received_at is not None and first_received_at <= saved_at

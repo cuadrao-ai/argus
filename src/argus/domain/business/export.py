@@ -5,15 +5,25 @@ import hashlib
 import io
 import json
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import xlsxwriter
 
+from argus.domain.business.contracts.dgii import PurchaseDeclaration, money_text
+from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.dgii_export import build_fiscal_packet
+from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
+from argus.domain.business.rnc_registry import (
+    RncRegistry,
+    postgres_rnc_fetch,
+    registry_from_config,
+)
 from argus.domain.store import utcnow
 
 MAX_ROWS = 1000
@@ -37,7 +47,29 @@ COLUMNS = (
     "category_id",
     "draft_ids",
     "source_ids",
+    # The owner's Personal mark, the fiscal number the draft carries (ncf, ecf)
+    # and the accountant's 606 answer (yes, no); empty when not applicable.
+    "personal",
+    "fiscal_value",
+    "include_606",
 )
+# The accountant's sheet, in this order. The internal columns go to a second
+# sheet without the note.
+SHEET_COLUMNS = (
+    "Fecha",
+    "Proveedor",
+    "RNC",
+    "NCF",
+    "Tipo de gasto",
+    "Forma de pago",
+    "Subtotal",
+    "ITBIS",
+    "Total",
+    "Moneda",
+    "Estado",
+)
+ID_COLUMNS = tuple(column for column in COLUMNS if column != "note")
+UNRESOLVED_COLUMNS = ("draft_id", "version", "review_state", "occurred_on", "reason")
 
 
 class ExportLimit(ValueError):
@@ -69,6 +101,7 @@ class ExportSource:
     text: str | None = None
     connection_id: UUID | None = None
     expected_sha256: str | None = None
+    original_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +111,9 @@ class ExportSnapshot:
     sources: tuple[ExportSource, ...]
     unresolved: tuple[Mapping[str, Any], ...]
     captured_at: datetime
+    fiscal_records: tuple[FiscalRecord, ...] = ()
+    business_rnc: str | None = None
+    business_name: str = ""
 
 
 def _text(value: Any) -> str:
@@ -95,6 +131,32 @@ def _cell(value: Any) -> str:
     ):
         return "'" + text
     return text
+
+
+def _marks(recording: list[dict]) -> dict[str, str]:
+    """The Personal mark, the fiscal number and the 606 answer of the draft that
+    recorded an activity, as the export's own words; a personal expense stays
+    in the export with its mark, never dropped."""
+
+    from argus.domain.business.contracts.facts import (
+        BusinessResolution,
+        fiscal_inclusion,
+        fiscal_value,
+        is_personal,
+    )
+
+    for draft in recording:
+        typed = (draft.get("resolution") or {}).get("business")
+        if not typed:
+            continue
+        facts = BusinessResolution.model_validate(typed).facts
+        answer = fiscal_inclusion(facts)
+        return {
+            "personal": "yes" if is_personal(facts) else "no",
+            "fiscal_value": fiscal_value(facts) or "",
+            "include_606": "" if answer is None else ("yes" if answer else "no"),
+        }
+    return {"personal": "no", "fiscal_value": "", "include_606": ""}
 
 
 def record_rows(snapshot: ExportSnapshot) -> list[dict[str, str]]:
@@ -141,6 +203,54 @@ def record_rows(snapshot: ExportSnapshot) -> list[dict[str, str]]:
     return sorted(rows, key=lambda row: (row["occurred_on"], row["activity_id"]))
 
 
+def _known(fact: Any) -> str:
+    return fact.value if isinstance(fact, Known) and fact.value else ""
+
+
+def sheet_rows(
+    rows: Sequence[Mapping[str, str]],
+    records: Sequence[FiscalRecord],
+    reconciliation: Sequence[Mapping[str, Any]],
+) -> list[dict[str, str]]:
+    """Each recorded row as the accountant reads it: supplier and fiscal facts
+    from the approved revision, the 606 answer from its declaration, and the
+    fiscal packet's disposition. Subtotal is the total less a known ITBIS."""
+
+    approved = {str(UUID(str(record.activity_id))): record for record in records}
+    status = {
+        str(UUID(str(item["activity_id"]))): item["disposition"]
+        for item in reconciliation
+    }
+    sheet = []
+    for row in rows:
+        record = approved.get(row["activity_id"])
+        facts = record.facts if record else BusinessFacts()
+        declaration = record.declaration if record else None
+        purchase = declaration if isinstance(declaration, PurchaseDeclaration) else None
+        itbis = _known(getattr(facts.fiscal, "itbis", None))
+        sheet.append(
+            {
+                "Fecha": row["occurred_on"],
+                "Proveedor": _known(facts.counterparty),
+                "RNC": _known(getattr(facts.fiscal, "rnc", None)),
+                "NCF": _known(getattr(facts.fiscal, "ecf", None))
+                or _known(getattr(facts.fiscal, "ncf", None)),
+                "Tipo de gasto": purchase.category or ""
+                if purchase and not purchase.category_suggested
+                else "",
+                "Forma de pago": purchase.payment_method or "" if purchase else "",
+                "Subtotal": money_text(Decimal(row["amount"]) - Decimal(itbis))
+                if itbis
+                else "",
+                "ITBIS": money_text(Decimal(itbis)) if itbis else "",
+                "Total": row["amount"],
+                "Moneda": row["currency"],
+                "Estado": status.get(row["activity_id"], ""),
+            }
+        )
+    return sheet
+
+
 def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
@@ -150,7 +260,9 @@ def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
 
 
 def _xlsx(
-    rows: Sequence[Mapping[str, Any]], unresolved: Sequence[Mapping[str, Any]]
+    sheet_values: Sequence[Mapping[str, Any]],
+    rows: Sequence[Mapping[str, Any]],
+    unresolved: Sequence[Mapping[str, Any]],
 ) -> bytes:
     output = io.BytesIO()
     with xlsxwriter.Workbook(
@@ -159,12 +271,9 @@ def _xlsx(
     ) as book:
         heading = book.add_format({"bold": True, "bg_color": "#E8F1ED"})
         for name, columns, values in (
-            ("Recorded money", COLUMNS, rows),
-            (
-                "Unresolved drafts",
-                ("draft_id", "version", "review_state", "occurred_on", "reason"),
-                unresolved,
-            ),
+            ("Recorded money", SHEET_COLUMNS, sheet_values),
+            ("Record ids", ID_COLUMNS, rows),
+            ("Unresolved drafts", UNRESOLVED_COLUMNS, unresolved),
         ):
             sheet = book.add_worksheet(name)
             for col, label in enumerate(columns):
@@ -184,6 +293,7 @@ def _xlsx(
 def build_archive(
     snapshot: ExportSnapshot,
     read_original: Callable[[ExportSource], bytes | None],
+    registry: RncRegistry | None = None,
 ) -> bytes:
     rows = record_rows(snapshot)
     included = {UUID(row["activity_id"]) for row in rows}
@@ -246,6 +356,8 @@ def build_archive(
                             "text/plain": "txt",
                             "text/csv": "csv",
                             "message/rfc822": "eml",
+                            "application/xml": "xml",
+                            "text/xml": "xml",
                             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
                         }.get(source.media_type, "bin")
                     )
@@ -259,17 +371,25 @@ def build_archive(
                         size_bytes=len(content),
                     )
             entries.append(entry)
-        csv_bytes = _csv(rows, COLUMNS)
-        xlsx_bytes = _xlsx(rows, snapshot.unresolved)
+        fiscal = build_fiscal_packet(
+            snapshot.fiscal_records,
+            rnc=snapshot.business_rnc,
+            business_name=snapshot.business_name,
+            start=snapshot.period.start,
+            end=snapshot.period.end,
+            captured_on=snapshot.captured_at.date(),
+            registry=registry,
+        )
+        sheet = sheet_rows(
+            rows, snapshot.fiscal_records, fiscal.manifest["reconciliation"]
+        )
+        csv_bytes = _csv(sheet, SHEET_COLUMNS)
+        xlsx_bytes = _xlsx(sheet, rows, snapshot.unresolved)
         archive.writestr("records.csv", csv_bytes)
         archive.writestr("records.xlsx", xlsx_bytes)
-        archive.writestr(
-            "unresolved.csv",
-            _csv(
-                snapshot.unresolved,
-                ("draft_id", "version", "review_state", "occurred_on", "reason"),
-            ),
-        )
+        for name, content in fiscal.files.items():
+            archive.writestr(name, content)
+        archive.writestr("unresolved.csv", _csv(snapshot.unresolved, UNRESOLVED_COLUMNS))
         manifest = {
             "schema_version": 1,
             "period": {
@@ -280,6 +400,7 @@ def build_archive(
             },
             "captured_at": snapshot.captured_at.isoformat(),
             "records": rows,
+            "dgii": fiscal.manifest,
             "unresolved_drafts": list(snapshot.unresolved),
             "unresolved_scope": "Open or accepting drafts dated in the period, plus all undated drafts; never included as recorded money.",
             "unresolved_in_money_totals": False,
@@ -294,6 +415,10 @@ def build_archive(
             "files": {
                 "records.csv": hashlib.sha256(csv_bytes).hexdigest(),
                 "records.xlsx": hashlib.sha256(xlsx_bytes).hexdigest(),
+                **{
+                    name: hashlib.sha256(content).hexdigest()
+                    for name, content in fiscal.files.items()
+                },
             },
         }
         archive.writestr(
@@ -306,11 +431,19 @@ def build_archive(
 
 
 def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
+    from loguru import logger
     from psycopg.rows import dict_row
 
     from argus.domain.business.authority import ActionError, authorize
     from argus.domain.business.contracts.facts import BusinessResolution, Known
-    from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+    from argus.domain.ingestion.documents.models import DocumentExtractionError
+    from argus.domain.ingestion.documents.objects import (
+        IMAGE_MEDIA_TYPES,
+        SourceStorageUnavailable,
+        verify_content,
+    )
+    from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+    from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
     from argus.domain.recording.canonical_groups import VisibleAccounts, load
     from argus.domain.recording.money_reads import current_activities
     from argus.domain.recording.postgres_repository import (
@@ -421,7 +554,10 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                     media_type=(row["draft"] or {}).get("media_type"),
                     text=row["text_content"],
                     connection_id=row["connection_id"],
-                    expected_sha256=row["source_sha256"],
+                    expected_sha256=row["source_sha256"]
+                    or (row["draft"] or {}).get("sha256"),
+                    original_sha256=row["source_sha256"]
+                    or (row["draft"] or {}).get("sha256"),
                 )
                 for row in cursor.fetchall()
             )
@@ -433,8 +569,16 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                         for d in drafts
                         if str(d["activity_id"]) == a["activity_id"]
                     ],
+                    **_marks(
+                        [d for d in drafts if str(d["activity_id"]) == a["activity_id"]]
+                    ),
                 )
                 for a in activities
+            )
+            from argus.domain.business.dgii_snapshot import fiscal_snapshot
+
+            fiscal_records, business_rnc, business_name = fiscal_snapshot(
+                cursor, context, activities
             )
             snapshot = ExportSnapshot(
                 period,
@@ -442,46 +586,131 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 sources,
                 tuple(unresolved),
                 utcnow(),
+                fiscal_records,
+                business_rnc,
+                business_name,
             )
+
+    store = PostgresDocumentStore(authority.pool, objects)
+    downloads = []
+    for source in snapshot.sources:
+        if source.text is None and source.media_type in IMAGE_MEDIA_TYPES:
+            # Rebuilding writes through another connection. Release snapshot
+            # locks before the capped producer; recheck access before and after.
+            with authority.pool.connection() as check, check.transaction():
+                authorize(check, context.actor, context.grant_id).require("read")
+                live = check.execute(
+                    "select 1 from public.business_sources s "
+                    "join public.financial_source_connections c on c.id=s.connection_id "
+                    "where s.id=%s and s.space_id=%s and c.id=%s and c.user_id=%s "
+                    "and c.owner_space_id=s.space_id and c.status <> 'disconnected'",
+                    (
+                        source.source_id,
+                        context.actor.space_id,
+                        source.connection_id,
+                        context.owner_id,
+                    ),
+                ).fetchone()
+            if live is not None:
+                try:
+                    ensure_rebuilt_image(
+                        store=store,
+                        user_id=context.owner_id,
+                        connection_id=str(source.connection_id),
+                    )
+                    rebuilt = store.rebuilt(
+                        user_id=context.owner_id, connection_id=str(source.connection_id)
+                    )
+                except (SourceStorageUnavailable, DocumentExtractionError):
+                    rebuilt = None
+                if rebuilt is not None:
+                    source = replace(
+                        source,
+                        media_type=rebuilt[0],
+                        expected_sha256=hashlib.sha256(rebuilt[1]).hexdigest(),
+                    )
+        downloads.append(source)
+    snapshot = replace(snapshot, sources=tuple(downloads))
+
+    with authority.pool.connection() as connection, connection.transaction():
+        connection.execute("set transaction isolation level repeatable read")
+        current = authorize(connection, context.actor, context.grant_id)
+        current.require("read")
+        if current.context.owner_id != context.owner_id:
+            raise ActionError("not_found", "business_record_not_found")
+        with connection.cursor(row_factory=dict_row) as cursor:
 
             def original(source: ExportSource) -> bytes | None:
                 authorize(connection, context.actor, context.grant_id).require("read")
                 cursor.execute(
-                    "select d.source_path,d.source_size_bytes,d.source_sha256,"
-                    " octet_length(d.source_bytes) as legacy_size,"
-                    " case when octet_length(d.source_bytes)<=%s then d.source_bytes end as content"
-                    " from public.financial_document_extractions d"
-                    " join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id"
-                    " join public.business_sources s on s.connection_id=c.id and s.space_id=c.owner_space_id"
-                    " where s.id=%s and s.space_id=%s and c.user_id=%s"
-                    " and c.status <> 'disconnected' and c.source='statement' for share of c",
+                    "select d.draft->>'sha256' as original_sha256, "
+                    "d.draft->>'media_type' as original_media_type, "
+                    "d.source_path,d.rebuilt_path,d.rebuilt_media_type,d.rebuilt_sha256, "
+                    "d.source_size_bytes, d.rebuilt_size_bytes, octet_length(d.source_bytes) as legacy_size, "
+                    "case when octet_length(d.source_bytes)<=%s then d.source_bytes end as legacy_bytes "
+                    "from public.financial_document_extractions d "
+                    "join public.financial_source_connections c on c.id=d.connection_id and c.user_id=d.user_id "
+                    "join public.business_sources s on s.connection_id=c.id and s.space_id=c.owner_space_id "
+                    "where s.id=%s and s.space_id=%s and c.id=%s and c.user_id=%s "
+                    "and c.status <> 'disconnected' and c.source='statement' for share of c,d",
                     (
                         MAX_SOURCE_BYTES,
                         source.source_id,
                         context.actor.space_id,
+                        source.connection_id,
                         context.owner_id,
                     ),
                 )
                 row = cursor.fetchone()
                 if row is None:
                     return None
-                if (
-                    max(row["source_size_bytes"] or 0, row["legacy_size"] or 0)
-                    > MAX_SOURCE_BYTES
-                ):
-                    raise OriginalUnavailable("size_limit")
-                if row["source_path"] is None:
-                    return bytes(row["content"]) if row["content"] is not None else None
-                expected_path = (
-                    f"{context.owner_id}/{source.connection_id}/{row['source_sha256']}"
+                if row["original_sha256"] != source.original_sha256:
+                    raise OriginalUnavailable("source_changed")
+                is_image = row["original_media_type"] in IMAGE_MEDIA_TYPES
+                size = (
+                    row["rebuilt_size_bytes"]
+                    if is_image
+                    else max(row["source_size_bytes"] or 0, row["legacy_size"] or 0)
                 )
-                if row["source_path"] != expected_path:
-                    raise OriginalUnavailable("path_mismatch")
+                if (size or 0) > MAX_SOURCE_BYTES:
+                    raise OriginalUnavailable("size_limit")
+                path = row["rebuilt_path"] if is_image else row["source_path"]
+                if is_image:
+                    if path is None:
+                        return None
+                    expected_paths = {
+                        f"rebuilt/{context.owner_id}/{source.original_sha256}"
+                    }
+                    digest = row["rebuilt_sha256"]
+                    if row["rebuilt_media_type"] != source.media_type:
+                        raise OriginalUnavailable("source_changed")
+                else:
+                    expected_paths = {
+                        f"sealed/{context.owner_id}/{source.original_sha256}",
+                        f"{context.owner_id}/{source.connection_id}/{source.original_sha256}",
+                    }
+                    digest = source.original_sha256
                 try:
-                    return objects.get(row["source_path"])
+                    if path is None:
+                        legacy = row["legacy_bytes"]
+                        logger.info("document_original_read caller=export_inline_reader")
+                        return verify_content(
+                            bytes(legacy) if legacy is not None else None, digest or ""
+                        )
+                    if path not in expected_paths:
+                        raise OriginalUnavailable("path_mismatch")
+                    return verify_content(objects.get(path), digest or "")
                 except SourceStorageUnavailable:
                     return None
 
-            result = build_archive(snapshot, original)
+            def lookup(sql, params):
+                cursor.execute(sql, params)
+                return cursor.fetchone()
+
+            result = build_archive(
+                snapshot,
+                original,
+                registry_from_config("dgii", postgres_rnc_fetch(lookup)),
+            )
             authorize(connection, context.actor, context.grant_id).require("read")
             return result

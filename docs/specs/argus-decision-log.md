@@ -38,6 +38,7 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-10 | Approve the Business agent direction. One agent in the existing runtime talks only to the owner in WhatsApp and completes each record through Business tools. The accountant works in the web view. Reuse the runtime and services; no second loop, extractor, ledger or vendor. Contract first, then parallel streams; the "Pagué 850" journey is the first proof; evals gate merges. Cuadrao branches from `codex/private-alpha-next`. Detailed record: [Business agent direction](#october-10-2026-business-agent-direction). | Lucas |
 | 2026-10-10 | Clarify the first Business outcome as a working hosted internet system and an invite-only web beta. Authorize the bounded build, clean integration merges and staging only. Preserve varied natural-language flows and the existing runtime. Detailed record: [Hosted Business beta and build grant](#october-10-2026-hosted-business-beta-and-build-grant). | Lucas, relayed by the root coordinator |
 | 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
+| 2026-10-18 | Lock Business income intake: a Venta arrives on the same channels as a Gasto and is classified by issuer RNC for the 607 or the 606; each item gets a WhatsApp reply with the month so far; José's first session is judged on two moments; and the build order follows Iris's briefs. A sale with no NCF counts in income, stays off the 607 and shows as its own **Ventas sin comprobante** totals line; Cuadrao issues no NCF or e-CF. Detailed record: [October 18 Business income](#october-18-2026-business-income-on-every-channel). | Lucas |
 
 
 ## October 12, 2026 Business invariant gate
@@ -593,7 +594,7 @@ The [native design guide](../../.agent/designs/cuadrao/DESIGN.md#account-and-mov
 owns the revised account gestures and movement shortcuts.
 
 Implement these behaviors from Cuadrao's own requirements, contracts and tests.
-Midday is a research reference, not a source-rewrite assignment; rewording copied
+Outside products are research references, not source-rewrite assignments; rewording copied
 code is not independent implementation. Any proposed source reuse requires its
 own license review. Existing #818/#822/#823/#824 track the work. Pattern
 suggestions follow usable recurring setup; forecasting-library selection needs
@@ -642,6 +643,71 @@ release 1 (#818 and #826), and the consent scope and versioning policy (#828).
 This entry does not authorize implementation, a model-instruction change, a paid
 provider run, hosted activation or deployment. The #826 contract still precedes
 #827.
+
+## October 9, 2026: iPhone on-device guest book ("Probar sin cuenta")
+
+The founder defined a free guest tier for the iPhone app in chat on October 9:
+an on-device book with manual accounts, movements, budgets, goals, basic search
+and calculations, and the iPhone keyboard's dictation. No login, no AI, no server
+jobs, no uploads and no shared access. It is an additional entry that does not
+replace or change the connected app. The build plan, recorded by the build lane
+(`codex/cuadrao-guest-book`), amends two earlier statements and nothing else:
+
+1. **September 28, 2026 guest lock.** "No durable guest financial records are
+   authorized" ([MVEE guest access](argus-minimum-viable-ecosystem-experience.md#guest-access-and-registration))
+   now reads as: no durable guest financial record on the *server*. The iPhone
+   may keep a book on the device itself. Server enforcement, the web and Android
+   guest boundary and the existing guest-chat limits are unchanged.
+2. **Welcome screen.** "One main brand composition and the two native actions;
+   nothing else" ([DESIGN welcome screen](../../.agent/designs/cuadrao/DESIGN.md#welcome-screen))
+   gains a third, quiet text action, `Probar sin cuenta` / `Try without an
+   account`, under Sign in. It is hidden unless the guest door is open.
+
+What the plan fixes, so a later slice does not reopen it:
+
+- The book is an app mode above authentication, not an auth state. It creates no
+  Supabase anonymous session, makes no network call and takes no invite code.
+  Server "guest" means an anonymous workspace; code and data call this the
+  `DeviceBook`, and only the interface says "Probar sin cuenta".
+- Signing up or signing in leaves the on-device book separate and untouched.
+  Claiming a book into an account is a separate default-off flag (`guestClaim`)
+  and is not built. The interface says "Tu libro de este iPhone sigue aquí; no
+  se subió." / "Your book on this iPhone is still here; it was not uploaded."
+- Version 1 covers accounts, same-currency movements (expense, income, transfer),
+  budgets and goals, search, plan what-ifs and per-currency totals. It has no
+  debts, recurring bills, forecast, balance checks, refunds, households, groups,
+  invitations, receipts, files, assistant, voice, updates bell or avatar photos.
+  Dictation is the system keyboard only.
+- Money is whole minor units with the currency's digits fixed per account when
+  it is created; parsing never rounds. The currency set, digits, share rounding
+  and category ids are the server's, checked by shared test vectors.
+- Device backup stays on; there is no app-level encryption and no Keychain item.
+
+The door is closed: `CuadraoFirstRelease.guestBook` is false in Release and a
+development build opens it with `--cuadrao-guest-book`. Opening it for users,
+the physical-device checks and a privacy answer review are separate founder
+approvals. This entry authorizes no hosted service, deployment or release.
+
+## October 11, 2026: guest receipts stay on the iPhone
+
+The founder decided, relayed by the coordinator on October 11, that guest and
+signed-in Free are one tier and that the receipt journey is the same for Free and
+Full. For the on-device book this amends the October 9 entry's "no receipts,
+files" only for receipts: a guest captures, saves and attaches a receipt by hand
+on the iPhone. Nothing about a guest goes to the server and no model reads a
+guest receipt. Book data, including receipts, still does not move into an account
+at sign-in. This authorizes no hosted service, deployment or release.
+
+## October 12, 2026: blank opening balance = recorded zero
+
+From the founder's phone walk: adding an account without typing 0 must not show
+"Balance unknown". The coordinator decided that a Personal money account (cash,
+checking, savings, investment, credit card, other debt) saved without an opening
+amount starts at a recorded 0.00. The server records the opening; the client sends
+nothing and never invents it. Home and Plan totals read that zero. This replaces
+the "blank balance is unknown" rule for those accounts. Unknown stays for accounts
+that genuinely have no recorded balance: accounts saved before this rule, a blank
+property, vehicle or other asset value, and Business accounts.
 
 ## October 10, 2026: Business agent direction
 
@@ -864,3 +930,50 @@ permissions are rechecked and duplicate effects remain idempotent. This is a
 bounded repair under current decisions, not a V2 platform, new provider/key,
 access expansion or deployment grant. Implementation and actual quality proof
 remain PENDING in the [existing manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026).
+
+
+## October 15, 2026: account-deletion analytics step without PostHog events
+
+Lucas approved decision 1B. In a deployment whose API server has no
+`POSTHOG_PROJECT_TOKEN`, the server sends no PostHog events, so no event exists
+under a deleted person's distinct ID. There, with no PostHog deletion adapter
+configured, the account-deletion analytics step records `not_applicable` with
+the reason `posthog_not_configured` and no longer holds the run. It is never
+recorded as deleted. Where the token is set, the step is unchanged: it stays
+pending until the deletion adapter completes it or an operator forces it.
+A configured deletion adapter runs whether or not the token is set.
+
+This narrows decision 16 of the
+[MVEE five-lane handoff](lanes/mvee-five-lane-handoff.md) only for deployments
+that send no PostHog events. On October 15, 2026, a read-only check found no
+`POSTHOG_PROJECT_TOKEN` on the staging API service, no PostHog setting on the
+staging web service, and no client PostHog setup in the web or iOS code. The
+[API contract](../API_CONTRACT.md#post-accountdelete) owns the step's behavior.
+This decision does not turn on account deletion or schedule the resume sweep.
+
+## October 18, 2026: Business income on every channel
+
+Lucas locked these points on October 18, 2026. Iris owns the product content.
+
+1. Income arrives on every channel. A Venta arrives the same ways a Gasto
+   does: WhatsApp, email and upload. Cuadrao classifies each item
+   automatically. If the issuer RNC is the business's own RNC, the item is a
+   sale for the 607. Otherwise it is an expense for the 606. In review,
+   **Es una venta** or a WhatsApp reply of *gasto* or *venta* flips the type.
+2. Each item sent in gets a WhatsApp reply. The reply confirms the type and
+   shows the month so far, with sales and expenses. The reply shows no ITBIS
+   until the month close computes it.
+3. José's first session is judged on two moments: the first receipt comes back
+   DGII-verified with only **Aprobar** left, and the WhatsApp reply above.
+4. The build order follows Iris's briefs, in this order:
+   - (a) Income.
+   - (b) Tags and business categories.
+   - (d) The supplier fast path, and no review step for DGII-confirmed
+     suppliers. The RNC lookup runs alongside (a).
+   - (c) The business profile, with RNC autofill and moderated pictures.
+5. A sale with no NCF counts in the period's income totals and stays off
+   the 607. It shows as its own totals line, **Ventas sin comprobante**. The flag
+   clears when the owner attaches the NCF receipt they issued themselves, or
+   when the contador resolves it, and the owner gets one reminder before the
+   15th. Cuadrao does not issue NCFs or e-CF. (Confirmed by DR counsel prep,
+   Oct 18 2026.)

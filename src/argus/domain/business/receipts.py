@@ -20,7 +20,8 @@ from argus.domain.ingestion.receipt_review import (
     receipt_review,
 )
 
-Channel = Literal["web", "whatsapp"]
+# ``email`` is set at the API boundary from the email queue, never stored on the draft.
+Channel = Literal["web", "whatsapp", "email"]
 REVIEW_FIELDS = (
     "merchant",
     "occurred_on",
@@ -28,9 +29,6 @@ REVIEW_FIELDS = (
     "currency",
     "category_id",
     "account_id",
-)
-AWAITING_REVIEW: frozenset[ReceiptStatus] = frozenset(
-    {"saved", "queued", "preparing", "review_ready"}
 )
 CLOSED: frozenset[ReceiptStatus] = frozenset({"confirmed", "dismissed"})
 # What a receipt nobody has read needs before the owner can save it by hand.
@@ -43,6 +41,7 @@ Attention = Literal[
     "interrupted",
     "outcome_unknown",
     "no_purchase_found",
+    "not_a_receipt",
     "several_purchases",
     "source_unavailable",
     "check_details",
@@ -145,6 +144,8 @@ class Receipt:
 
     @property
     def status(self) -> ReceiptStatus:
+        if self.review.status == "saved" and self.draft.error_code is not None:
+            return "needs_attention"
         # Prepared, yet with no single purchase to confirm: the owner must look.
         if self.review.status == "review_ready" and self.review.blocker is not None:
             return "needs_attention"
@@ -191,6 +192,7 @@ class Receipt:
             and self.review.blocker == "not_prepared"
             and self.draft.source_available
             and not self.busy
+            and self.review.terminal is None
             and _UNREAD_ATTENTION.get(self.draft.error_code or "") not in _NO_RETRY
         )
 
@@ -201,6 +203,8 @@ class Receipt:
 
         if self.status != "needs_attention":
             return None
+        if self.review.terminal is not None:
+            return self.review.terminal
         blocker = self.review.blocker
         if blocker is None:
             return "check_details"
@@ -247,6 +251,7 @@ class Receipt:
             "read_pending": self.busy,
             "preparable": self.preparable,
             "enterable": self.enterable,
+            "document_type": self.draft.document_type or "recibo",
             "expense_id": self.review.expense_id,
             **review_fields(self.review),
         }
@@ -258,6 +263,7 @@ class Receipt:
             "draft_id": self.review.event_id,
             "evidence": None if self.entered_by_owner else evidence(self.review),
             "missing_fields": self.missing_fields,
+            "due_on": None,
         }
 
 

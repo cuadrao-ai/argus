@@ -1,0 +1,10 @@
+Removed only reconciliation outputs web/.next and web/temp/item7-playwright.
+Logical bytes: 39415527
+Allocated bytes: 41291776
+Before:
+Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 780000000 163200000    83% 9006421 1633108600    1%   /System/Volumes/Data
+After:
+Filesystem   1024-blocks      Used Available Capacity iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 780000000 163200000    83% 9005673 1633514720    1%   /System/Volumes/Data
+Preserved worktree, dependencies, local configuration, environment files, and evidence.

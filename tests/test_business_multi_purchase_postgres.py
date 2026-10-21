@@ -81,7 +81,7 @@ def saved_two_purchases(actions):  # noqa: ANN001
                     )
                     for row, amount in ((1, "245.00"), (2, "95.00"))
                 ],
-                receipt=dict(total="340.00", currency="DOP"),
+                receipt=dict(payment_status="paid", total="340.00", currency="DOP"),
             )
         )
         batch = batch_from_result(result, digest, cid, now, 1)
@@ -143,6 +143,7 @@ def _account(service, context):  # noqa: ANN001
     ).stored.account.id
 
 
+@pytest.mark.owner_acts
 def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     two_purchases,
 ) -> None:  # noqa: ANN001
@@ -254,6 +255,7 @@ def test_two_purchases_record_one_expense_and_keep_asking_for_the_rest(
     assert twice.outcome == "invalid_input" and twice.code == "business_remainder_none"
 
 
+@pytest.mark.owner_acts
 def test_settle_remainder_refusals(two_purchases, users):  # noqa: ANN001
     service, context, _, _, _, _ = two_purchases
     bridge.bind(two_purchases)
@@ -288,11 +290,11 @@ def test_settle_remainder_refusals(two_purchases, users):  # noqa: ANN001
         db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
             " values (%s,%s,%s,ARRAY['read','prepare'])",
-            (context.actor.space_id, users["owner"], users["owner"]),
+            (context.actor.space_id, users["other"], users["owner"]),
         )
     reader = service.resolve_actor(
         TrustedActor(
-            actor_id=UUID(users["owner"]),
+            actor_id=UUID(users["other"]),
             actor_kind="member",
             space_id=context.actor.space_id,
         )

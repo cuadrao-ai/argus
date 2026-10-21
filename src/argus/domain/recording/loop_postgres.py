@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     )
 
 from dataclasses import replace
+from datetime import date
 
 from psycopg.types.json import Jsonb
 
@@ -77,6 +78,12 @@ def hydrate(connection: Connection, stored: StoredAccount) -> StoredAccount:
                     interest_minor=details.get("interest_minor"),
                     reversal_of_activity_id=details.get("reversal_of_activity_id"),
                     reversal_of_revision=details.get("reversal_of_revision"),
+                    entered_on=date.fromisoformat(details["entered_on"])
+                    if details.get("entered_on")
+                    else None,
+                    coverage_skips=tuple(
+                        (str(o), str(r)) for o, r in details.get("coverage_skips", ())
+                    ),
                 )
             )
         elif kind == "balance_check":

@@ -98,7 +98,15 @@ def test_reads_format_a_stored_currency_after_tender_retirement(
     )
 
 
-def test_known_zero_differs_from_unknown(alice: AccountsApi) -> None:
+def test_blank_opening_is_a_recorded_zero(alice: AccountsApi) -> None:
+    blank = _created(alice, {"type": "cash", "currency": "DOP"})
+    assert blank["balance"]["state"] == "known"
+    assert blank["balance"]["amount"] == "0.00"
+    assert blank["opening"]["amount_minor"] == 0
+
+
+@pytest.mark.usefixtures("legacy_blank_accounts")
+def test_known_zero_differs_from_legacy_unknown(alice: AccountsApi) -> None:
     zero = _created(alice, {"type": "cash", "currency": "DOP", "amount": "0"})
     unknown = _created(alice, {"type": "cash", "currency": "DOP"})
     assert zero["balance"]["state"] == "known"
@@ -325,6 +333,7 @@ def test_two_users_cannot_read_or_mutate_each_others_accounts(
     assert alice.get(owned["id"]).json() == owned
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_edits_follow_the_locks_and_expected_version(alice: AccountsApi) -> None:
     opened = _created(alice, {**CHECKING, "amount": "12500.00"})
     empty = _created(alice, {"type": "checking", "currency": "DOP"})
@@ -398,6 +407,7 @@ def test_archive_changes_no_balance_and_restore_returns_it(alice: AccountsApi) -
     assert restored["balance"] == created["balance"]
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_opening_write_binds_caller_visible_account_version(alice: AccountsApi) -> None:
     """Opening must refuse a stale client view of account metadata.
 
@@ -552,6 +562,7 @@ def test_corrections_keep_history_and_enforce_expected_revision(
     assert alice.get(account_id).json()["opening"]["revision"] == 3
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_an_unknown_balance_can_be_recorded_later_with_no_expected_revision(
     alice: AccountsApi,
 ) -> None:

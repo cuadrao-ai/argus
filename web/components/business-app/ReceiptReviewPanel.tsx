@@ -1,28 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { AlertCircle, CircleAlert, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ReceiptShortcutRegistration, receiptNavigationActions } from "./BusinessReviewShortcuts";
+import ReceiptSeenBoundary from "./ReceiptSeenBoundary";
+import ReceiptReadingControl from "./ReceiptReadingControl";
 import ReceiptDossierReview from "./ReceiptDossierReview";
 import ReceiptReadNotice from "./ReceiptReadNotice";
+import ReceiptReadingState, { ReadingSheen } from "./ReceiptReadingState";
 import { rebindAndPrepare } from "./receipt-rebind";
 import { useReceiptReadPoll } from "./receipt-read-poll";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
+import ReceiptReviewFrame from "./ReceiptReviewFrame";
+import { DatePicker } from "./foundation/DatePicker";
+import { PRIMARY_BUTTON, SECONDARY_BUTTON, SURFACE_CARD } from "./foundation/surfaces";
+import { handTitleFocus } from "./bandeja-order";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import {
-  cardClass,
-  LoadingRows,
-  primaryButtonClass,
-  secondaryButtonClass,
   StatusPill,
   useAttentionLabel,
   useCategoryLabel,
+  useTerminalRead,
 } from "./business-ui";
+import { ContentFade, Settle } from "./business-skeletons";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
 
@@ -40,29 +47,35 @@ function draftFrom(detail: ReceiptDetail): Draft {
 }
 
 const inputClass =
-  "mt-1.5 block min-h-11 w-full rounded-[12px] border border-black/10 bg-white px-3 text-[16px] text-black outline-none transition-colors focus-visible:border-black/30 focus-visible:ring-[0.125rem] focus-visible:ring-black/10 disabled:bg-black/[0.03] disabled:text-black/50 dark:border-white/10 dark:bg-[#141517] dark:text-white dark:disabled:bg-white/[0.03]";
+  "block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
-  const { source, reload, openPanel } = useBusiness();
+  const terminalRead = useTerminalRead();
+  const { source, reload, openPanel, revision, records, actions, chosen } = useBusiness();
+  const consent = useBusinessConsent();
   const [detail, setDetail] = useState<ReceiptDetail | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<"prepare" | "rebind" | "save" | "refresh" | null>(null);
   const [uncertainVersion, setUncertainVersion] = useState<number | null>(null);
   const inFlight = useRef(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [amountInvalid, setAmountInvalid] = useState(false);
+  const [dateInvalid, setDateInvalid] = useState(false);
+  const dateId = useId();
   const [amountError, setAmountError] = useState<string | null>(null);
   const [unprepared, setUnprepared] = useState(false);
   const retainReceipt = useCallback(() => setUnprepared(true), []);
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     source
-      .receipt(receiptId)
+      .receipt(receiptId, controller.signal)
       .then((next) => {
         if (cancelled) return;
         setDetail(next);
@@ -71,8 +84,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [receiptId, source]);
+  }, [receiptId, source, revision, attempt]);
 
   const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
   const currencies = [...new Set(accounts.map((account) => account.currency))];
@@ -100,6 +114,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           : fresh,
       );
       setAmountInvalid(false);
+      if (!draft || !before || draft.occurred_on === before.occurred_on) setDateInvalid(false);
       setUnprepared(false);
       setReadStalled(false);
       reload();
@@ -109,15 +124,37 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
 
   if (failed) {
     return (
-      <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">
-        {t("business.review.error", "This receipt isn't available. It may have been removed.")}
-      </p>
+      <section className={SURFACE_CARD} data-testid="receipt-load-error">
+        <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]">
+          <CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+          {t("business.review.error", "This receipt isn't available. It may have been removed.")}
+        </p>
+        <button type="button" className={`${SECONDARY_BUTTON} mt-4`} onClick={() => { setFailed(false); setAttempt((value) => value + 1); }}>
+          {t("common.retry", "Retry")}
+        </button>
+      </section>
     );
   }
-  if (!detail || !draft) return <LoadingRows rows={4} />;
-  if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} />;
+  if (!detail || !draft) return <Settle pending layout="detail" />;
+  const terminal = terminalRead(detail.attention, detail.error_code);
+  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
+  const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
+    <ContentFade><ReceiptReviewFrame
+      recordId={receiptId}
+      back={confirmed ? "expenses" : "inbox"}
+      title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
+      badge={<StatusPill status={detail.status} />}
+      amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
+      source={source}
+    >
+      {children}
+    </ReceiptReviewFrame></ContentFade>
+  );
+  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
+  const canEnter = detail.enterable && canPrepare && !locked;
 
   const changedFields = (): Partial<ReceiptReviewFields> =>
     Object.fromEntries(
@@ -128,6 +165,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     setDetail(next);
     setDraft(draftFrom(next));
     setAmountInvalid(false);
+    setDateInvalid(false);
   };
 
   const saveProblem = (code: string | undefined, current: Draft) => {
@@ -148,6 +186,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const prepare = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("prepare");
     setProblem(null);
     try {
@@ -167,6 +209,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   };
 
   const rebind = async () => {
+    if (!consent.accepted) {
+      consent.reopen();
+      return;
+    }
     setBusy("rebind");
     setProblem(null);
     try {
@@ -228,60 +274,98 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     }
   };
 
-  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode) => (
-    <label className="block">
-      <span className="flex items-center justify-between text-[13px] font-medium text-black/60 dark:text-white/60">
+  const field = (key: keyof ReceiptReviewFields, label: string, control: React.ReactNode, htmlFor?: string) => {
+    const heading = (
+      <span className="mb-2 flex items-center justify-between text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white">
         {label}
         {!confirmed && missing.includes(key) ? (
-          <span className="text-[12px] font-normal text-[#a8434c] dark:text-[#ec9aa0]">
+          <span className="font-normal text-[#9e2f39] dark:text-[#ec9aa0]">
             {t("business.review.needed", "Needed")}
           </span>
         ) : null}
       </span>
-      {control}
-    </label>
-  );
+    );
+    return htmlFor ? (
+      <div><label htmlFor={htmlFor} className="block">{heading}</label>{control}</div>
+    ) : (
+      <label className="block">{heading}{control}</label>
+    );
+  };
   const set = (key: keyof ReceiptReviewFields) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setDraft((current) => (current ? { ...current, [key]: event.target.value } : current));
 
+  // A read the backend says is running shows the reading state until it settles; the poll then swaps in the filled fields at once.
+  if (waitingForAi) {
+    return <>
+      <ReceiptShortcutRegistration actions={receiptNavigationActions(receiptId, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); })} />
+      {frame(
+        <ReceiptReadingState>
+          {readStalled ? (
+            <div role="status" data-testid="receipt-read-stalled" className="text-[15px] leading-[22px] text-[#56635e] dark:text-white/70">
+              <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
+              <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
+            </div>
+          ) : null}
+          {detail.activity?.state === "reading" ? <ReceiptReadingControl /> : null}
+        </ReceiptReadingState>,
+        <ReadingSheen><ReceiptSourcePreview detail={detail} /></ReadingSheen>,
+        true,
+      )}
+    </>;
+  }
   return (
-    <section aria-labelledby="receipt-review-title">
-      <button
-        type="button"
-        onClick={() => openPanel({ kind: confirmed ? "expenses" : "inbox" })}
-        className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] font-medium text-black/60 hover:text-black dark:text-white/60 dark:hover:text-white"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {confirmed ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}
-      </button>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <h2 id="receipt-review-title" className="font-display text-[24px] font-medium tracking-tight text-black dark:text-white">
-          {confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt")}
-        </h2>
-        <StatusPill status={detail.status} />
-      </div>
-
-      <div className="grid gap-4 desktop:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <ReceiptSourcePreview detail={detail} />
-
-        <div className="space-y-4">
-          {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
-          {incompleteBridge ? <div className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
+    <>
+      <ReceiptShortcutRegistration actions={{
+        ...(!busy && uncertainVersion === null && !Object.keys(changedFields()).length ? receiptNavigationActions(receiptId, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
+        ...(!locked && !busy ? { edit: () => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus() } : {}),
+      }} />
+      {frame(
+        <>
+          {detail.email_original ? <div role="note" data-testid="receipt-email-original" className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p>{t("business.review.email_original", "This is the email itself. Its attachment is the receipt to review.")}</p></div> : null}
+          {incompleteBridge ? <div className={`${SURFACE_CARD} text-[14px] text-black/70 dark:text-white/70`}><p role="alert">{t("business.dossier.missing_draft", "The prepared record isn't available yet. Check the current receipt before continuing.")}</p>{uncertainVersion === null ? <button type="button" disabled={busy !== null} className={`${SECONDARY_BUTTON} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}</div> : null}
           {detail.status === "needs_attention" ? (
-            <div role="alert" data-testid="receipt-attention" className={`${cardClass} text-[14px] text-black/75 dark:text-white/75`}>
-              <p className="flex gap-2.5">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
-                <span>{attentionLabel(detail.attention)}</span>
-              </p>
+            <div role="alert" data-testid="receipt-attention" className={`${SURFACE_CARD} text-[14px] text-black/75 dark:text-white/75`}>
+              {terminal ? (
+                <>
+                  <p className="flex gap-2.5">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                    <span>
+                      <span className="block font-medium">{terminal.title}</span>
+                      <span className="mt-1 block">{terminal.body}</span>
+                    </span>
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {terminal.upload && uploadAnother ? (
+                      <button type="button" className={PRIMARY_BUTTON} onClick={uploadAnother.run}>
+                        {terminal.uploadLabel}
+                      </button>
+                    ) : null}
+                    {canEnter ? (
+                      <button
+                        type="button"
+                        className={SECONDARY_BUTTON}
+                        onClick={() => document.querySelector<HTMLElement>('[data-testid="receipt-review-fields"] input:not(:disabled), [data-testid="receipt-review-fields"] select:not(:disabled)')?.focus()}
+                      >
+                        {terminal.enterLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <p className="flex gap-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#d66d75]" aria-hidden="true" />
+                  <span>{attentionLabel(detail.attention)}</span>
+                </p>
+              )}
               {detail.duplicate_of ? (
-                <button type="button" data-testid="receipt-duplicate-original" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
+                <button type="button" data-testid="receipt-duplicate-original" className={`${SECONDARY_BUTTON} mt-3`} onClick={() => openPanel({ kind: "receipt", receiptId: detail.duplicate_of as string })}>
                   {t("business.review.see_original", "See the receipt already saved")}
                 </button>
               ) : null}
               {detail.error_code === "business_record_not_found" && canApprove ? (
                 <>
                   <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">{t("business.review.rebind_note", "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.")}</p>
-                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${secondaryButtonClass} mt-3`}>
+                  <button type="button" data-testid="receipt-rebind" disabled={busy !== null} onClick={() => void rebind()} className={`${SECONDARY_BUTTON} mt-3`}>
                     {t("business.review.rebind", "Bind to my current access")}
                   </button>
                 </>
@@ -291,88 +375,81 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                   <p className="mt-3 text-[13px] text-black/55 dark:text-white/55">
                     {t("business.review.retry_consent", "Trying again sends this receipt to our AI provider.")}
                   </p>
-                  <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
+                  <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${SECONDARY_BUTTON} mt-3`}>
                     <RotateCcw className="h-4 w-4" aria-hidden="true" />
                     {t("business.review.retry", "Try again with AI")}
                   </button>
                 </>
               ) : null}
             </div>
-          ) : detail.preparable && canPrepare ? (
-            <div className={cardClass}>
-              <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.consent", "Cuadrao can read this receipt with AI and fill in the details for you to check. The receipt is sent to our AI provider only if you choose this. You can also fill in the details yourself.")}
-              </p>
-              <button type="button" disabled={busy !== null} onClick={() => void prepare()} className={`${secondaryButtonClass} mt-3`}>
-                {t("business.review.prepare", "Prepare with AI")}
-              </button>
-            </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={detail.enterable && canPrepare && !locked} preparable={detail.preparable && canPrepare} />
-          {waitingForAi && readStalled ? (
-            <div role="status" data-testid="receipt-read-stalled" className={`${cardClass} text-[14px] text-black/70 dark:text-white/70`}>
-              <p>{t("business.review.poll_stopped", "Still reading. Check the current record to see the latest state.")}</p>
-              <button type="button" disabled={busy !== null} className={`${secondaryButtonClass} mt-3`} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button>
-            </div>
-          ) : null}
+          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
 
-          <div className={`${cardClass} space-y-4`}>
+          <section data-testid="receipt-facts-activity" className={`${SURFACE_CARD} space-y-4`}>
+            {field(
+              "occurred_on",
+              t("business.dossier.field.occurred_on", "Activity date"),
+              <DatePicker
+                id={dateId}
+                label={t("business.dossier.field.occurred_on", "Activity date")}
+                value={draft.occurred_on}
+                disabled={locked}
+                onChange={(iso, invalid) => {
+                  setDraft((current) => (current ? { ...current, occurred_on: iso ?? "" } : current));
+                  setDateInvalid(invalid);
+                }}
+              />,
+              dateId,
+            )}
+            {field(
+              "amount",
+              t("business.dossier.field.amount", "Amount"),
+              <MoneyInput
+                label={t("business.dossier.field.amount", "Amount")}
+                currency={draft.currency}
+                value={draft.amount || null}
+                onValueChange={({ value, invalid }) => {
+                  setDraft((current) => (current ? { ...current, amount: value ?? "" } : current));
+                  setAmountInvalid(invalid);
+                  setAmountError(null);
+                }}
+                serverError={amountError}
+                description={!confirmed && missing.includes("amount") ? t("business.review.needed", "Needed") : null}
+                disabled={locked}
+                testId="receipt-review-amount"
+              />,
+            )}
+            {field(
+              "currency",
+              t("business.dossier.field.currency", "Currency"),
+              <select className={inputClass} value={draft.currency} onChange={set("currency")} disabled={locked}>
+                <option value="">{t("business.review.choose", "Choose")}</option>
+                {currencies.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>,
+            )}
+          </section>
+          <section data-testid="receipt-facts-more" className={`${SURFACE_CARD} space-y-4`}>
+            {field(
+              "category_id",
+              t("business.dossier.field.category_id", "Category"),
+              <select className={inputClass} value={draft.category_id} onChange={set("category_id")} disabled={locked}>
+                <option value="">{categoryLabel(null)}</option>
+                {RECEIPT_CATEGORY_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {categoryLabel(id)}
+                  </option>
+                ))}
+              </select>,
+            )}
             {field(
               "merchant",
-              t("business.review.merchant", "Merchant"),
+              t("business.dossier.field.counterparty", "Merchant or person"),
               <input className={inputClass} value={draft.merchant} onChange={set("merchant")} disabled={locked} autoComplete="off" />,
             )}
-            <div className="grid grid-cols-2 gap-3">
-              {field(
-                "occurred_on",
-                t("business.review.date", "Date"),
-                <input type="date" className={inputClass} value={draft.occurred_on} onChange={set("occurred_on")} disabled={locked} />,
-              )}
-              {field(
-                "category_id",
-                t("business.review.category", "Category"),
-                <select className={inputClass} value={draft.category_id} onChange={set("category_id")} disabled={locked}>
-                  <option value="">{categoryLabel(null)}</option>
-                  {RECEIPT_CATEGORY_IDS.map((id) => (
-                    <option key={id} value={id}>
-                      {categoryLabel(id)}
-                    </option>
-                  ))}
-                </select>,
-              )}
-            </div>
-            <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-start gap-3">
-              {field(
-                "amount",
-                t("business.review.amount", "Total"),
-                <MoneyInput
-                  label={t("business.review.amount", "Total")}
-                  currency={draft.currency}
-                  value={draft.amount || null}
-                  onValueChange={({ value, invalid }) => {
-                    setDraft((current) => (current ? { ...current, amount: value ?? "" } : current));
-                    setAmountInvalid(invalid);
-                    setAmountError(null);
-                  }}
-                  serverError={amountError}
-                  description={!confirmed && missing.includes("amount") ? t("business.review.needed", "Needed") : null}
-                  disabled={locked}
-                  testId="receipt-review-amount"
-                />,
-              )}
-              {field(
-                "currency",
-                t("business.review.currency", "Currency"),
-                <select className={inputClass} value={draft.currency} onChange={set("currency")} disabled={locked}>
-                  <option value="">{t("business.review.choose", "Choose")}</option>
-                  {currencies.map((code) => (
-                    <option key={code} value={code}>
-                      {code}
-                    </option>
-                  ))}
-                </select>,
-              )}
-            </div>
             {field(
               "account_id",
               t("business.review.account", "Paid from"),
@@ -385,10 +462,44 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 ))}
               </select>,
             )}
-          </div>
+          </section>
 
+          {problem ? (
+            <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p>
+          ) : null}
+
+          {confirmed ? (
+            <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
+              <p className="text-[14px] text-black/75 dark:text-white/75">
+                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: formatMoney(detail.amount, detail.currency, locale) })}
+              </p>
+              <button type="button" className={SECONDARY_BUTTON} onClick={() => openPanel({ kind: "expenses" })}>
+                {t("business.review.view_expenses", "View expenses")}
+              </button>
+            </div>
+          ) : canPrepare ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className={PRIMARY_BUTTON}
+                disabled={busy !== null || missing.length > 0 || amountInvalid || dateInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
+                onClick={() => void save()}
+              >
+                {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
+              </button>
+              {missing.length > 0 ? (
+                <span className="text-[13px] text-black/55 dark:text-white/55">
+                  {t("business.review.missing", "Fill in the details marked Needed to save this expense.")}
+                </span>
+              ) : null}
+              {uncertainVersion !== null ? <button type="button" className={SECONDARY_BUTTON} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
+            </div>
+          ) : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
+        </>,
+        <>
+          <ReceiptSourcePreview detail={detail} />
           {detail.evidence ? (
-            <details className={cardClass}>
+            <details className={SURFACE_CARD}>
               <summary className="cursor-pointer text-[14px] font-medium text-black/70 dark:text-white/70">
                 {t("business.review.evidence", "What the receipt says")}
               </summary>
@@ -406,41 +517,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               </p>
             </details>
           ) : null}
-
-          {problem ? (
-            <p role="alert" className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{problem}</p>
-          ) : null}
-
-          {confirmed ? (
-            <div className={`${cardClass} flex flex-wrap items-center justify-between gap-3`}>
-              <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: formatMoney(detail.amount, detail.currency, locale) })}
-              </p>
-              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "expenses" })}>
-                {t("business.review.view_expenses", "View expenses")}
-              </button>
-            </div>
-          ) : canPrepare ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className={primaryButtonClass}
-                disabled={busy !== null || missing.length > 0 || amountInvalid || waitingForAi || locked || !Object.keys(changedFields()).length}
-                onClick={() => void save()}
-              >
-                {busy === "save" ? t("business.review.confirming", "Saving…") : t("business.dossier.save", "Save review details")}
-              </button>
-              {missing.length > 0 ? (
-                <span className="text-[13px] text-black/55 dark:text-white/55">
-                  {t("business.review.missing", "Fill in the details marked Needed to save this expense.")}
-                </span>
-              ) : null}
-              {uncertainVersion !== null ? <button type="button" className={secondaryButtonClass} disabled={busy !== null} onClick={() => void refresh()}>{t("business.dossier.refresh", "Check current record")}</button> : null}
-            </div>
-          ) : <p className="text-[13px] text-black/65 dark:text-white/65">{t("business.dossier.read_only", "Your permission allows viewing this record.")}</p>}
-        </div>
-      </div>
-    </section>
+        </>,
+      )}
+      <ReceiptSeenBoundary receipt={detail} hydrated={detail.activity?.state === "ready" && !incompleteBridge} />
+    </>
   );
 }
 

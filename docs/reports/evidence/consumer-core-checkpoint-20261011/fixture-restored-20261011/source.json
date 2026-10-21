@@ -1,0 +1,17 @@
+{
+  "recorded_at_utc": "2026-10-11T21:16:49.608335+00:00",
+  "consumer_head": "fec08feba1ef98f3fa8330e70ec6f2f574f0120b",
+  "tested_native_source": "40ff4967040c854ca5dd0764115227544011a6e2",
+  "executable_sha256": "1bc275b457ae6cb4121052377824138c6076fd01c0a0b734e83d42b542f1eab2",
+  "app_version": "0.1.0",
+  "build": "1",
+  "bundle_id": "local.argus.consumer.staging",
+  "simulator_id": "C85CDCF9-E5DB-4A86-97FB-65C46B349B35",
+  "api": "https://cuadrao-api-staging.onrender.com",
+  "assigned_backend_pin": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "hosted_sha_readback": "not refreshed in this continuation",
+  "captcha_fixture": "existing bridge.py --accounts --port-base 59480 at127.0.0.1:59485; public Cloudflare test keys",
+  "test_identity": "existing synthetic signed-in Free account",
+  "provider_calls": 0,
+  "product_changes": false
+}

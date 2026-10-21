@@ -40,8 +40,6 @@ const DRAWER = "components/sidebar/SidebarDrawer.tsx";
  */
 const UNMANAGED_MODAL_DEBT = new Set([
   "components/chat/DiscoverySourcesPanel.tsx",
-  "components/guest/GuestConversionModal.tsx",
-  "components/guest/GuestNewConversationDialog.tsx",
   "components/sidebar/RecentsQuickPeek.tsx",
 ]);
 

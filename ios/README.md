@@ -18,9 +18,10 @@ integrations remain outside this client.
 
 1. Install Xcode with an iOS Simulator runtime through **Xcode > Settings >
    Components**. Select that Xcode in **Settings > Locations > Command Line Tools**.
-   This project requires Xcode 16 or newer (synchronized source groups) and targets
-   iOS 17 or newer. Acceptance used Xcode 27.0 / iOS 27.0; the deployment floor is
-   not a claim that every older runtime was tested.
+   This project targets iOS 17 or newer and requires an iOS 26.4 or newer build
+   SDK for the guarded Declared Age Range regulatory symbols. CI uses Xcode 26.6;
+   local age-gate acceptance uses Xcode 27.1 / iOS 27.0 Simulator. The deployment
+   floor is not a claim that every older runtime was tested.
 2. Open `ArgusFoundation.xcodeproj`, select the shared **ArgusFoundation** scheme,
    select an iPhone simulator and press Run. No account or development team needed.
 3. For command-line verification from repository root:
@@ -70,7 +71,7 @@ Financial rules and calculations remain backend responsibilities.
 
 ## Reference and shared owners
 
-The committed [lane spec](../docs/superpowers/specs/2026-09-28-ios-foundation.md)
+The committed [lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-28-ios-foundation.md)
 defines ownership and acceptance. The experience reference is
 [PR #727 at a1c294319a2c047623b9bbe5bedd36155d2e931d](https://github.com/lagarcess/argus/tree/a1c294319a2c047623b9bbe5bedd36155d2e931d/docs/reports/evidence/mobile-design-lock-2026-09-28),
 archive `mobile-2026-09-28`, SHA-256
@@ -85,7 +86,7 @@ behavior and explicitly labeled sample destinations within its assigned scope.
 The historical account-only continuation inspected the now-merged #727 at exact head
 `f0a64ffb9d70ce5b82491cf8e1803bb8a6ec7431`; the same locked archive remains
 the experience reference. Its recovered implementation is described by the
-[account client spec](../docs/superpowers/specs/2026-09-29-ios-financial-accounts.md).
+[account client spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-29-ios-financial-accounts.md).
 
 Shared semantic tokens and controls live in `ArgusFoundation/`. The shell owns
 destination selection; individual views own transient presentation state.
@@ -120,3 +121,20 @@ Connected financial acceptance is owned by the current
 [execution manifest](../docs/specs/argus-execution-board.md), linked to the MVEE.
 See [financial setup](ACCOUNTS_SETUP.md) for the repeatable simulator and model
 checks. A simulator pass does not satisfy physical-iPhone internet acceptance.
+
+## UI tests need the Cuadrao configuration
+
+UI tests run only against a build that sets `ARGUS_AUTH_ENABLED = true`. Without
+it the app builds as the legacy foundation preview, not Cuadrao. The ignored
+`Config/Local.xcconfig` sets it. `python3 ios/scripts/auth/local_stack.py seed`
+writes that file for the local stack (see [Local acceptance](AUTH_SETUP.md#local-acceptance)).
+
+The UI test bundle reads the same build setting. If the value is not `true`, every
+UI test fails before setUp and launches no app. Each failure names
+`ios/Config/Local.xcconfig` and the setup command. The check runs whatever starts
+the tests: Xcode, `xcodebuild`, `scripts/verify.sh` or `scripts/auth/run-ui.py`.
+A run that passes `ARGUS_AUTH_ENABLED=false` on the command line stops the same
+way. To fix a stopped run, create the file and run build-for-testing again.
+
+A deliberate offline run, such as the auth-disabled design pass, sets
+`TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true`. The default stays strict.

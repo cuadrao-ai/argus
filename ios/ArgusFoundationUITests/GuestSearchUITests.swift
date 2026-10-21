@@ -1,0 +1,420 @@
+import XCTest
+
+/// Search and calculations in the on-device book: a pure index over accounts, activity and plans, plan what-ifs from the
+/// package's Decimal calculator, and per-currency totals. No server is involved.
+extension FinancialLoopUITests {
+    private func addAccount(type: String, name: String, currency: String? = nil, amount: String? = nil) {
+        tapVisible(app.buttons["accounts.add"])
+        XCTAssertTrue(app.buttons["guest.account.type.\(type)"].waitForExistence(timeout: 10))
+        app.buttons["guest.account.type.\(type)"].tap()
+        let field = app.textFields["guest.account.name"]
+        field.tap()
+        field.typeText(name)
+        if let currency {
+            dismissGuestKeyboard()
+            app.buttons["guest.account.currency"].tap()
+            let search = app.searchFields.firstMatch
+            XCTAssertTrue(search.waitForExistence(timeout: 10))
+            search.tap()
+            search.typeText(currency)
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", currency)).firstMatch.tap()
+            XCTAssertTrue(app.buttons["guest.account.currency"].waitForExistence(timeout: 5))
+        }
+        if let amount {
+            dismissGuestKeyboard()
+            app.textFields["guest.account.amount"].tap()
+            app.textFields["guest.account.amount"].typeText(amount)
+        }
+        dismissGuestKeyboard()
+        app.buttons["guest.account.save"].tap()
+        XCTAssertTrue(app.buttons["guest.account.save"].waitForNonExistence(timeout: 10))
+    }
+
+    private func recordMovement(kind: String = "expense", amount: String, note: String, category: String? = nil) {
+        app.buttons["nav.add"].tap()
+        XCTAssertTrue(app.buttons["add.tray.transaction"].waitForExistence(timeout: 5))
+        app.buttons["add.tray.transaction"].tap()
+        XCTAssertTrue(app.buttons["guest.movement.save"].waitForExistence(timeout: 10))
+        app.buttons["guest.movement.kind." + kind].tap()
+        app.textFields["guest.movement.amount"].tap()
+        app.textFields["guest.movement.amount"].typeText(amount)
+        dismissGuestKeyboard()
+        if let category {
+            app.buttons["guest.movement.category"].tap()
+            app.buttons[category].tap()
+        }
+        app.textFields["guest.movement.note"].tap()
+        app.textFields["guest.movement.note"].typeText(note)
+        dismissGuestKeyboard()
+        app.buttons["guest.movement.save"].tap()
+        XCTAssertTrue(app.buttons["guest.movement.save"].waitForNonExistence(timeout: 10))
+    }
+
+    private func createPlan(kind: String, name: String, target: String, monthly: String? = nil) {
+        app.buttons["nav.add"].tap()
+        XCTAssertTrue(app.buttons["add.tray.plan"].waitForExistence(timeout: 5))
+        app.buttons["add.tray.plan"].tap()
+        XCTAssertTrue(app.buttons["guest.plan.kind." + kind].waitForExistence(timeout: 10))
+        app.buttons["guest.plan.kind." + kind].tap()
+        for (id, text) in [("guest.plan.name", name), ("guest.plan.target", target), ("guest.plan.monthly", monthly ?? "")] where !text.isEmpty {
+            let field = app.textFields[id]
+            XCTAssertTrue(field.waitForExistence(timeout: 10), id)
+            field.tap()
+            field.typeText(text)
+            dismissGuestKeyboard()
+        }
+        tapVisible(app.buttons["guest.plan.save"])
+        XCTAssertTrue(app.buttons["guest.plan.save"].waitForNonExistence(timeout: 10))
+    }
+
+    private func search(_ text: String) {
+        let field = app.textFields["search.query"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText(text)
+    }
+
+    private func results(_ prefix: String) -> XCUIElementQuery {
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix))
+    }
+
+    func testGuestSearchFindsAccountsActivityAndPlansWithoutCaseOrAccents() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"], language: "es-419")
+        enterGuestBook()
+        addAccount(type: "checking", name: "Ahorros del Año", currency: "USD", amount: "1000")
+        addAccount(type: "cash", name: "Efectivo", currency: "EUR", amount: "5000")
+        recordMovement(amount: "12.34", note: "Café con leche", category: "Comida fuera")
+        createPlan(kind: "goal", name: "Viaje a Japón", target: "1500", monthly: "250")
+        for _ in 0..<3 { app.swipeDown(velocity: .fast) }
+        app.buttons["tab.search"].tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["search.filter.chats"].exists)
+        XCTAssertFalse(app.buttons["search.filter.files"].exists)
+        XCTAssertFalse(app.buttons["search.filter.memory"].exists, "the book has no chats, files or memory")
+        for id in ["search.filter.all", "search.filter.account", "search.filter.activity", "search.filter.plans"] {
+            XCTAssertTrue(app.buttons[id].exists, id)
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["search.start"].waitForExistence(timeout: 5), "Search opens on its start, not on every record")
+        XCTAssertEqual(results("guest.search.").count, 0, "nothing is listed before a query")
+        let chips = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search.suggestion.'"))
+        XCTAssertTrue((1...4).contains(chips.count), "up to four suggestions from the person's own data")
+        capture("guest-search-start-es")
+        chips.firstMatch.tap()
+        XCTAssertFalse(app.textFields["search.query"].value as? String == "", "a suggestion fills the query")
+        XCTAssertGreaterThan(results("guest.search.").count, 0, "and shows its results")
+        app.buttons["search.clear"].tap()
+        XCTAssertTrue(app.buttons["search.recent.0"].waitForExistence(timeout: 5), "the search just left is the first recent")
+        app.buttons["search.filter.plans"].tap()
+        app.buttons["search.filter.all"].tap()
+        XCTAssertEqual(results("guest.search.").count, 0, "All with no query returns to the start")
+
+        search("ANO")
+        XCTAssertEqual(results("guest.search.account.").count, 1, "case and accents do not matter")
+        XCTAssertEqual(results("guest.search.movement.").count, 0)
+        app.buttons["search.clear"].tap()
+        search("cafe")
+        XCTAssertEqual(results("guest.search.movement.").count, 1, "Café is found by cafe")
+        app.buttons["search.clear"].tap()
+        search("japon")
+        XCTAssertEqual(results("guest.search.plan.").count, 1)
+        capture("guest-search-query-es")
+        app.buttons["search.clear"].tap()
+        search("12.34")
+        XCTAssertEqual(results("guest.search.movement.").count, 1, "an amount is searchable as it is written")
+        app.buttons["search.clear"].tap()
+
+        // Scopes and the currency filter narrow the list.
+        app.buttons["search.filter.activity"].tap()
+        XCTAssertEqual(results("guest.search.").count, 1)
+        app.buttons["search.filter.plans"].tap()
+        XCTAssertEqual(results("guest.search.plan.").count, 1)
+        app.buttons["search.filter.all"].tap()
+        app.buttons["search.filters"].tap()
+        XCTAssertTrue(app.buttons["Moneda"].waitForExistence(timeout: 5) || app.pickers.firstMatch.exists || app.staticTexts["Moneda"].exists)
+        capture("guest-search-filters-es")
+    }
+
+    func testGuestSearchOpensAResultInItsOwnTabAndFiltersByCurrency() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        addAccount(type: "checking", name: "Main", currency: "USD", amount: "1000")
+        addAccount(type: "cash", name: "Euro cash", currency: "EUR", amount: "5000")
+        recordMovement(amount: "20", note: "Taxi", category: "Transport")
+        createPlan(kind: "budget", name: "Food", target: "300")
+        for _ in 0..<3 { app.swipeDown(velocity: .fast) }
+        app.buttons["tab.search"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["search.start"].waitForExistence(timeout: 5))
+        app.buttons["search.filter.activity"].tap()
+        app.buttons["search.filter.account"].tap()
+        XCTAssertEqual(results("guest.search.").count, 2, "a kind filter still lists its records without a query")
+        app.buttons["search.filter.all"].tap()
+
+        app.buttons["search.filters"].tap()
+        let currency = app.buttons["search.currency"]
+        XCTAssertTrue(currency.waitForExistence(timeout: 5))
+        currency.tap()
+        app.buttons["EUR"].firstMatch.tap()
+        capture("guest-search-currency-filter")
+        app.buttons["search.filters.done"].tap()
+        XCTAssertEqual(results("guest.search.").count, 1, "only the euro account")
+        XCTAssertTrue(app.staticTexts["search.filter-summary"].exists)
+        app.buttons["Clear filters"].tap()
+        XCTAssertEqual(results("guest.search.").count, 0, "with no query and no filter Search returns to its start")
+
+        search("taxi")
+        results("guest.search.movement.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10), "a movement opens on Home")
+        XCTAssertEqual(app.staticTexts["guest.movement.title"].label, "Taxi")
+        app.accountBack.tap()
+        app.buttons["tab.search"].tap()
+        app.buttons["search.clear"].tap()
+        search("food")
+        results("guest.search.plan.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10), "a plan opens on Plan")
+        capture("guest-search-opened-plan")
+    }
+
+    private func openSearchWithTaxiAndFood() {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        addAccount(type: "checking", name: "Main", currency: "USD", amount: "1000")
+        recordMovement(amount: "20", note: "Taxi")
+        createPlan(kind: "budget", name: "Food", target: "300")
+        for _ in 0..<3 { app.swipeDown(velocity: .fast) }
+        app.buttons["tab.search"].tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10))
+    }
+
+    private func openTaxiFromSearch() {
+        app.buttons["search.filter.activity"].tap()
+        search("taxi")
+        results("guest.search.movement.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
+    }
+
+    func testGuestSearchBackFromAResultReturnsToSearchWithItsQueryAndResults() throws {
+        openSearchWithTaxiAndFood()
+        openTaxiFromSearch()
+        app.accountBack.tap()
+        let field = app.textFields["search.query"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "back from a result returns to Search, not to Home")
+        XCTAssertEqual(field.value as? String, "taxi")
+        XCTAssertTrue(app.buttons["search.filter.activity"].isSelected, "the scope is kept")
+        XCTAssertEqual(results("guest.search.movement.").count, 1, "the results are still there")
+        capture("guest-search-after-back")
+
+        app.buttons["search.filter.plans"].tap()
+        app.buttons["search.clear"].tap()
+        search("food")
+        results("guest.search.plan.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10), "a plan result also returns to Search")
+        XCTAssertEqual(app.textFields["search.query"].value as? String, "food")
+        XCTAssertEqual(results("guest.search.plan.").count, 1)
+    }
+
+    func testGuestBackFromAResultOpenedOnHomeOrPlanStaysOnThatTab() throws {
+        openSearchWithTaxiAndFood()
+        app.buttons["tab.home"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.' AND label CONTAINS 'Taxi'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10), "back from a movement opened on Home returns to Home")
+        XCTAssertFalse(app.textFields["search.query"].exists)
+
+        app.buttons["tab.plan"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.waitForExistence(timeout: 10),
+                      "back from a plan opened on Plan returns to the plan list")
+        XCTAssertFalse(app.textFields["search.query"].exists)
+    }
+
+    func testGuestBackAfterLeavingSearchByHandNeverJumpsBackToSearch() throws {
+        openSearchWithTaxiAndFood()
+        openTaxiFromSearch()
+        app.accountBack.tap()
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10))
+        app.buttons["tab.home"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.' AND label CONTAINS 'Taxi'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
+        app.accountBack.tap()
+        XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10), "back lands on the Home list")
+        XCTAssertFalse(app.textFields["search.query"].exists, "an earlier visit to Search does not pull a later back to Search")
+    }
+
+    private func openAccountFromSearch(_ name: String) {
+        app.buttons["search.filter.account"].tap()
+        search(name)
+        results("guest.search.account.").firstMatch.tap()
+        XCTAssertTrue(app.buttons["guest.account.archive"].waitForExistence(timeout: 10))
+    }
+
+    private func openFoodFromSearch() {
+        app.buttons["search.filter.plans"].tap()
+        search("food")
+        results("guest.search.plan.").firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10))
+    }
+
+    private func assertBackOnSearch(query: String, _ message: String) {
+        XCTAssertTrue(app.textFields["search.query"].waitForExistence(timeout: 10), message)
+        XCTAssertEqual(app.textFields["search.query"].value as? String, query)
+    }
+
+    /// The toast is closed by hand, so what follows can show a second one if the first was left behind on another tab.
+    private func closeUndoToast() {
+        XCTAssertTrue(app.buttons["guest.undo"].waitForExistence(timeout: 10))
+        app.buttons["toast.close"].tap()
+        XCTAssertTrue(app.buttons["guest.undo"].waitForNonExistence(timeout: 10))
+    }
+
+    func testGuestDeleteOfAMovementOpenedFromSearchShowsUndoOnSearch() throws {
+        openSearchWithTaxiAndFood()
+        openTaxiFromSearch()
+        app.buttons["guest.movement.delete"].tap()
+        assertBackOnSearch(query: "taxi", "deleting returns to Search")
+        XCTAssertTrue(app.buttons["guest.undo"].waitForExistence(timeout: 10), "the Undo toast is on Search, where the person is")
+        XCTAssertEqual(results("guest.search.movement.").count, 0, "a deleted movement leaves the results")
+        capture("guest-search-delete-undo")
+        app.buttons["guest.undo"].tap()
+        XCTAssertTrue(app.buttons["guest.undo"].waitForNonExistence(timeout: 10))
+        XCTAssertEqual(results("guest.search.movement.").count, 1, "Undo brings the movement back into the results")
+        XCTAssertTrue(app.textFields["search.query"].exists, "and the person stays on Search")
+    }
+
+    func testGuestArchiveOfAnAccountOpenedFromSearchShowsUndoOnSearch() throws {
+        openSearchWithTaxiAndFood()
+        openAccountFromSearch("main")
+        app.buttons["guest.account.archive"].tap()
+        app.buttons["accounts.archive.confirm"].tap()
+        assertBackOnSearch(query: "main", "archiving returns to Search")
+        XCTAssertTrue(app.buttons["accounts.archived.undo"].waitForExistence(timeout: 10), "the Undo toast is on Search")
+        capture("guest-search-account-archived-undo")
+        app.buttons["accounts.archived.undo"].tap()
+        XCTAssertTrue(app.buttons["accounts.archived.undo"].waitForNonExistence(timeout: 10))
+        XCTAssertEqual(results("guest.search.account.").count, 1, "Undo restores the account")
+        XCTAssertTrue(app.textFields["search.query"].exists)
+    }
+
+    func testGuestArchiveOfAPlanOpenedFromSearchShowsUndoOnSearch() throws {
+        openSearchWithTaxiAndFood()
+        openFoodFromSearch()
+        app.buttons["plan-detail-options"].tap()
+        app.buttons["guest.plan.archive"].tap()
+        assertBackOnSearch(query: "food", "archiving returns to Search")
+        XCTAssertTrue(app.buttons["guest.undo"].waitForExistence(timeout: 10), "the Undo toast is on Search")
+        capture("guest-search-plan-archived-undo")
+        app.buttons["guest.undo"].tap()
+        XCTAssertTrue(app.buttons["guest.undo"].waitForNonExistence(timeout: 10))
+        XCTAssertEqual(results("guest.search.plan.").count, 1, "Undo restores the plan")
+        XCTAssertTrue(app.textFields["search.query"].exists)
+    }
+
+    func testGuestUndoShownOnSearchDoesNotAppearAgainOnHomeOrPlan() throws {
+        openSearchWithTaxiAndFood()
+        openTaxiFromSearch()
+        app.buttons["guest.movement.delete"].tap()
+        assertBackOnSearch(query: "taxi", "deleting returns to Search")
+        closeUndoToast()
+        app.buttons["tab.home"].tap()
+        XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["guest.undo"].waitForExistence(timeout: 3), "the movement toast was already seen on Search")
+
+        app.buttons["tab.search"].tap()
+        app.buttons["search.clear"].tap()
+        openFoodFromSearch()
+        app.buttons["plan-detail-options"].tap()
+        app.buttons["guest.plan.archive"].tap()
+        assertBackOnSearch(query: "food", "archiving returns to Search")
+        closeUndoToast()
+        app.buttons["tab.plan"].tap()
+        XCTAssertTrue(app.buttons["plan-archives"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["guest.undo"].waitForExistence(timeout: 3), "the plan toast was already seen on Search")
+    }
+
+    func testGuestUndoForResultsOpenedOnHomeAndPlanStaysOnThatTab() throws {
+        openSearchWithTaxiAndFood()
+        app.buttons["tab.home"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.movement.row.' AND label CONTAINS 'Taxi'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.movement.detail"].waitForExistence(timeout: 10))
+        app.buttons["guest.movement.delete"].tap()
+        XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10), "deleting from Home returns to Home")
+        XCTAssertTrue(app.buttons["guest.undo"].waitForExistence(timeout: 10), "with its Undo")
+        XCTAssertFalse(app.textFields["search.query"].exists)
+        app.buttons["guest.undo"].tap()
+        XCTAssertTrue(app.buttons["guest.undo"].waitForNonExistence(timeout: 10))
+
+        app.buttons["tab.plan"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["guest.plan.detail"].waitForExistence(timeout: 10))
+        app.buttons["plan-detail-options"].tap()
+        app.buttons["guest.plan.archive"].tap()
+        XCTAssertTrue(app.buttons["plan-archives"].waitForExistence(timeout: 10), "archiving from Plan returns to Plan")
+        XCTAssertTrue(app.buttons["guest.undo"].waitForExistence(timeout: 10), "with its Undo")
+        XCTAssertFalse(app.textFields["search.query"].exists)
+    }
+
+    func testGuestGoalWhatIfStatesAssumptionsAndAppliesOnlyOnRequest() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        addAccount(type: "checking", name: "Main", currency: "USD", amount: "1000")
+        createPlan(kind: "goal", name: "Trip", target: "1200", monthly: "100")
+        app.buttons["tab.plan"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["guest.whatif.estimate"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["guest.whatif.disclosure"].label.hasPrefix("Assumptions"), app.staticTexts["guest.whatif.disclosure"].label)
+        XCTAssertFalse(app.buttons["guest.whatif.apply"].exists, "nothing to apply until an amount is tried")
+        let before = app.staticTexts["guest.whatif.estimate"].label
+        capture("guest-whatif-start")
+
+        app.buttons["guest.whatif.in6"].tap()
+        XCTAssertEqual(app.staticTexts["guest.whatif.amount"].label, "USD 200.00", "1200 over 6 months")
+        XCTAssertNotEqual(app.staticTexts["guest.whatif.estimate"].label, before)
+        XCTAssertTrue(app.staticTexts["guest.whatif.difference"].label.hasSuffix("earlier"), app.staticTexts["guest.whatif.difference"].label)
+        capture("guest-whatif-six-months")
+        app.buttons["guest.whatif.reset"].tap()
+        XCTAssertEqual(app.staticTexts["guest.whatif.estimate"].label, before, "Reset puts the experiment back")
+        app.buttons["guest.whatif.in12"].tap()
+        XCTAssertEqual(app.staticTexts["guest.whatif.amount"].label, "USD 100.00")
+        XCTAssertFalse(app.buttons["guest.whatif.apply"].exists, "twelve months is today's pace: nothing changes")
+        app.buttons["guest.whatif.in3"].tap()
+        XCTAssertEqual(app.staticTexts["guest.whatif.amount"].label, "USD 400.00")
+        app.buttons["guest.whatif.apply"].tap()
+        XCTAssertTrue(app.buttons["guest.whatif.apply"].waitForNonExistence(timeout: 5), "applied: the plan's monthly amount is 400 now")
+        app.buttons["plan-detail-options"].tap()
+        app.buttons["guest.plan.edit"].tap()
+        XCTAssertEqual(app.textFields["guest.plan.monthly"].value as? String, "400.00")
+    }
+
+    func testGuestBudgetPaceAndTotalsPerCurrency() throws {
+        launchSignedOut(arguments: ["--cuadrao-guest-book"])
+        enterGuestBook()
+        addAccount(type: "checking", name: "Main", currency: "USD", amount: "1000")
+        addAccount(type: "credit_card", name: "Card", currency: "USD", amount: "250.50")
+        addAccount(type: "cash", name: "Unknown", currency: "USD")
+        addAccount(type: "cash", name: "Euro cash", currency: "EUR", amount: "5000")
+        recordMovement(amount: "90", note: "Groceries run", category: "Groceries")
+        createPlan(kind: "budget", name: "Month", target: "1000")
+        app.buttons["tab.plan"].tap()
+        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'guest.plan.row.'")).firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["guest.whatif.pace"].waitForExistence(timeout: 10), "a budget reads its pace so far")
+        XCTAssertTrue(app.staticTexts["guest.whatif.disclosure"].label.hasPrefix("Simple projection"), app.staticTexts["guest.whatif.disclosure"].label)
+        XCTAssertTrue(app.staticTexts["guest.whatif.verdict"].exists)
+        capture("guest-whatif-budget")
+        app.accountBack.tap()
+
+        app.buttons["tab.home"].tap()
+        for _ in 0..<3 { app.swipeDown(velocity: .fast) }
+        app.buttons["home-history-expand"].tap()
+        XCTAssertTrue(app.staticTexts["guest.totals.net"].waitForExistence(timeout: 10) || app.descendants(matching: .any)["guest.totals"].waitForExistence(timeout: 10))
+        tapVisible(app.staticTexts["guest.totals.net"])
+        XCTAssertEqual(app.staticTexts["guest.totals.assets"].label, "910.00", "1000 less the 90 spent")
+        XCTAssertEqual(app.staticTexts["guest.totals.owed"].label, "250.50")
+        XCTAssertEqual(app.staticTexts["guest.totals.net"].label, "659.50")
+        XCTAssertTrue(app.staticTexts["guest.totals.unknown"].exists, "the unknown account is counted, not guessed")
+        capture("guest-totals-usd")
+    }
+}

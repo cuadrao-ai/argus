@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   LOCALES,
   PAGES,
+  pagesForLocale,
   SITE_ORIGIN,
   SITE_ROUTES,
   alternateLanguages,
@@ -22,10 +23,14 @@ describe("public URL map", () => {
       "/personal",
       "/contacto",
       "/privacidad",
+      "/terminos",
+      "/eliminar-datos",
       "/en",
       "/en/personal",
       "/en/contact",
       "/en/privacy",
+      "/en/terms",
+      "/en/delete-data",
     ]);
   });
 
@@ -36,7 +41,7 @@ describe("public URL map", () => {
   });
 
   test.each(LOCALES)("slugs resolve back to their page in %s", (locale) => {
-    for (const page of PAGES) {
+    for (const page of pagesForLocale(locale)) {
       expect(pageFromSlug(locale, slugSegments(locale, page))).toBe(page);
     }
   });

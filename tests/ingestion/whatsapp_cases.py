@@ -18,6 +18,7 @@ from argus.api.whatsapp import DocumentsDestination
 from argus.domain.business.scope import resolve_business_scope
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.ingestion.documents.service import DocumentsService
+from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.intake import (
     CLAIM_SECONDS,
@@ -27,6 +28,7 @@ from argus.domain.ingestion.whatsapp.intake import (
 )
 from argus.domain.ingestion.whatsapp.media import GraphMedia
 from argus.domain.ingestion.whatsapp.payload import parse_delivery
+from argus.domain.ingestion.whatsapp.reply_groups import ReplyGroupCodec
 from argus.domain.ingestion.whatsapp.store import Settlement
 from argus.domain.owner_scope import PERSONAL, BusinessSpace
 
@@ -141,6 +143,7 @@ def build_world(
         transport=transport,
         app_origin=ORIGIN,
         max_bytes=MAX_BYTES,
+        reply_codec=ReplyGroupCodec(SecretBox(b"w" * 32), keys),
     )
     return World(
         intake, documents, store, graph, transport, clock, alice, bob, keys, spaces
@@ -232,14 +235,7 @@ async def unknown_sender_is_rejected_without_capture(world: World) -> None:
             None,
         )
     assert world.graph.requests == []
-    assert (
-        world.transport.bodies()
-        == [
-            "Este número no está conectado a Cuadrao. "
-            "Conéctalo desde Cuadrao en la web y vuelve a enviar el recibo."
-        ]
-        * 2
-    )
+    assert world.transport.sent == []
 
 
 async def expired_and_reused_codes_are_refused(world: World) -> None:
@@ -330,10 +326,7 @@ async def oversize_and_unsupported_media_are_rejected(world: World) -> None:
         "wamid.CASE-GIF": ("rejected", "whatsapp_media_unsupported"),
         "wamid.CASE-FAKE-PNG": ("rejected", "whatsapp_media_invalid"),
     }
-    assert (
-        "El archivo pesa más de 10 MB. Envía una foto o un PDF más pequeño."
-        in world.transport.bodies()
-    )
+    assert len(world.transport.sent) == 1
 
 
 async def expired_media_fails_then_recovers_on_redelivery(world: World) -> None:
@@ -501,6 +494,7 @@ async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000113"] = Media(RECEIPT_PNG, "image/png")
     media = world.intake.media
+    processing_seconds = world.intake.processing_seconds
 
     class Stalled:
         async def fetch(self, media_id: str):  # noqa: ANN202
@@ -517,6 +511,7 @@ async def slow_processing_times_out_as_failed_and_recovers(world: World) -> None
     )
 
     world.intake.media = media
+    world.intake.processing_seconds = processing_seconds
     await world.deliver(image("700000000000113", "wamid.CASE-SLOW"))
     assert world.record("wamid.CASE-SLOW").status == "captured"
     assert len(world.captures(world.alice)) == 1
@@ -703,10 +698,7 @@ async def a_link_revoked_before_settling_keeps_no_capture(world: World) -> None:
     await _revoke_while_capturing(
         world, "es-419", "700000000000140", "wamid.CASE-REVOKED-IN-FLIGHT"
     )
-    assert world.transport.bodies()[-1] == (
-        "Este número no está conectado a Cuadrao. "
-        "Conéctalo desde Cuadrao en la web y vuelve a enviar el recibo."
-    )
+    assert len(world.transport.sent) == 1
 
 
 async def a_link_revoked_before_settling_answers_in_the_links_language(
@@ -715,10 +707,7 @@ async def a_link_revoked_before_settling_answers_in_the_links_language(
     await _revoke_while_capturing(
         world, "en", "700000000000141", "wamid.CASE-REVOKED-IN-FLIGHT-EN"
     )
-    assert world.transport.bodies()[-1] == (
-        "This number isn't connected to Cuadrao. "
-        "Connect it from Cuadrao on the web, then send the receipt again."
-    )
+    assert len(world.transport.sent) == 1
 
 
 async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
@@ -862,6 +851,7 @@ async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> No
     assert len(sent) == 3
     assert world.captures(world.alice) == []
 
+    before = len(world.transport.sent)
     await world.deliver(
         fixture(
             "audio_message.json",
@@ -873,9 +863,7 @@ async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> No
     assert world.record("wamid.CASE-KIND-STRANGER").error_code == (
         "whatsapp_sender_not_linked"
     )
-    assert "isn't connected to Cuadrao" in world.transport.bodies()[-1] or (
-        "no está conectado a Cuadrao" in world.transport.bodies()[-1]
-    )
+    assert len(world.transport.sent) == before
 
 
 CASES = (

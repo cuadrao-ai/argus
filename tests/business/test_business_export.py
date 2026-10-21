@@ -9,6 +9,8 @@ from zipfile import ZipFile
 
 import pytest
 from argus.domain.business import export
+from argus.domain.business.contracts.facts import BusinessFacts, Known
+from argus.domain.business.dgii_validation import FiscalRecord
 
 ACTIVITY = UUID(int=1)
 DRAFT = UUID(int=2)
@@ -111,13 +113,32 @@ def test_csv_xlsx_and_manifest_share_canonical_money():
     ],
 )
 def test_untrusted_cells_never_become_formulas_or_hyperlinks(note):
+    supplier = FiscalRecord(
+        activity_id=str(ACTIVITY),
+        activity_revision=1,
+        draft_id=str(DRAFT),
+        approved_revision=1,
+        occurred_on=date(2026, 10, 11),
+        amount="850.00",
+        currency="DOP",
+        kind="expense",
+        facts=BusinessFacts(
+            counterparty=Known(value=note, origin="extracted", source_ids=(SOURCE,))
+        ),
+        declaration=None,
+        source_ids=(),
+    )
     files = unpack(
-        export.build_archive(snapshot(activities=(activity(note=note),)), lambda _: None)
+        export.build_archive(
+            snapshot(activities=(activity(note=note),), fiscal_records=(supplier,)),
+            lambda _: None,
+        )
     )
     rows = list(csv.reader(io.StringIO(files["records.csv"].decode("utf-8-sig"))))
     assert rows == sheet_rows(files["records.xlsx"])
-    exported = rows[1][rows[0].index("note")]
+    exported = rows[1][rows[0].index("Proveedor")]
     assert exported == (note if note.startswith("https:") else "'" + note)
+    assert "note" not in sheet_rows(files["records.xlsx"], 2)[0]
     assert json.loads(files["manifest.json"])["records"][0]["note"] == note
 
 
@@ -164,7 +185,7 @@ def test_undated_drafts_are_separate_from_money():
     assert manifest["records"] == []
     assert manifest["unresolved_drafts"] == list(unresolved)
     assert manifest["unresolved_in_money_totals"] is False
-    assert len(sheet_rows(files["records.xlsx"], 2)) == 2
+    assert len(sheet_rows(files["records.xlsx"], 3)) == 2
     assert b"Original synthetic note" in files[f"originals/{SOURCE}.txt"]
 
 
@@ -223,7 +244,7 @@ def test_unknown_funding_stays_unknown_and_exact_large_amount_is_text():
         funding=None, amount_minor=9007199254740993, amount="90071992547409.93"
     )
     files = unpack(export.build_archive(snapshot(activities=(item,)), lambda _: None))
-    rows = sheet_rows(files["records.xlsx"])
+    rows = sheet_rows(files["records.xlsx"], 2)
     assert rows[1][rows[0].index("amount_minor")] == "9007199254740993"
     assert rows[1][rows[0].index("funding")] == "unknown"
 
@@ -299,21 +320,27 @@ def export_client(monkeypatch):
 
     calls = []
     actor_id, space_id = uuid4(), uuid4()
-    resolved = object()
+    resolved = SimpleNamespace(
+        actor=SimpleNamespace(actor_id=actor_id, space_id=space_id), owner_id=actor_id
+    )
 
     class Service:
         authority = object()
 
-        def resolve_actor(self, actor):
+        def resolve_actor(self, actor, **_pin):
             calls.append(("owner", actor))
             return resolved
 
-        def context_for_draft(self, actor, draft):
+        def context_for_draft(self, actor, draft, **_pin):
             calls.append(("draft", actor, draft))
+            resolved.owner_id = uuid4()
             return resolved
 
     class Spaces:
         value = Space(str(space_id), "Synthetic Business")
+
+        def get(self, space):
+            return self.value if self.value and self.value.id == space else None
 
         def open_space(self, person):
             calls.append(("space", person))
@@ -378,7 +405,7 @@ def test_export_api_foreign_anchor_never_falls_back(export_client):
 
     client, calls, service, _, _, _ = export_client
 
-    def refuse(*_):
+    def refuse(*_, **__):
         raise ActionError("not_found", "business_record_not_found")
 
     service.context_for_draft = refuse
@@ -444,7 +471,7 @@ def test_export_api_limit_failure_is_problem_not_partial_zip(
 
     client, _, _, _, _, _ = export_client
 
-    def refuse(*_):
+    def refuse(*_, **__):
         raise error
 
     monkeypatch.setattr(business_export, "export_package", refuse)
@@ -468,7 +495,7 @@ def test_export_api_final_authorization_or_database_failure_emits_no_archive(
         (OperationalError("synthetic DB loss"), 503),
     ]:
 
-        def refuse(*_, failure=error):
+        def refuse(*_, failure=error, **__):
             raise failure
 
         monkeypatch.setattr(business_export, "export_package", refuse)
@@ -522,7 +549,10 @@ def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, i
     )
     pool = MagicMock()
     cursor = pool.connection.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
-    cursor.fetchone.return_value = {"count": 0}
+    cursor.fetchone.side_effect = [
+        {"count": 0},
+        {"name": "PRÁCTICA", "business_rnc": None},
+    ]
     cursor.fetchall.side_effect = [
         [
             {
@@ -533,6 +563,7 @@ def test_package_capture_is_canonical_utc_instant_not_record_date(monkeypatch, i
                 "resolution": {},
             }
         ],
+        [],
         [],
     ]
     period = export.ExportPeriod(date(2025, 12, 1), date(2025, 12, 31))

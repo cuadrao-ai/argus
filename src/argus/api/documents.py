@@ -125,7 +125,7 @@ def _service_over(
         if pool is not None and isinstance(hub.sink, ReconciliationService)
         else None
     )
-    return DocumentsService(
+    service = DocumentsService(
         hub,
         store,
         extractor,
@@ -133,6 +133,10 @@ def _service_over(
         business_actions=actions,
         business_preparation_required=pool is not None,
     )
+    from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
+
+    service.business_receipt_consent = BusinessReceiptConsentStore(pool)
+    return service
 
 
 def require_saved_documents(request: Request) -> DocumentsService:
@@ -202,15 +206,29 @@ def require_connection_removal(
     return IngestionContext(hub=hub, user_id=accounts.user_id)
 
 
+def _minute_scope(path: str) -> str:
+    if path.endswith(("/prepare", "/resume", "/retry")):
+        return "prepare"
+    if path.endswith("/receipt-reading"):
+        return "reading"
+    return "upload"
+
+
 def require_document_context(
     request: Request,
     service: DocumentsService = Depends(require_document_surface),  # noqa: B008
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> DocumentContext:
-    limits = ((_minute, 5, 60), (_day, 30, 86400)) if request.method == "POST" else ()
-    for limiter, limit, seconds in limits:
+    if request.method == "POST":
+        checks = (
+            (_minute, (f"{context.user_id}:{_minute_scope(request.url.path)}",), 5, 60),
+            (_day, (context.user_id,), 30, 86400),
+        )
+    else:
+        checks = ()
+    for limiter, keys, limit, seconds in checks:
         retry = limiter.record_or_retry_after(
-            keys=(context.user_id,), limit=limit, window_seconds=seconds
+            keys=keys, limit=limit, window_seconds=seconds
         )
         if retry is not None:
             raise problem(
@@ -290,7 +308,8 @@ async def dispatch_preparation(
         imports = getattr(service.hub.sink, "store", None)
         if service.business_actions is None or not isinstance(imports, GrantImportStore):
             raise DocumentServiceError("business_preparation_unavailable")
-        service.business_actions.capture_attachment_preparation(
+        await asyncio.to_thread(
+            service.business_actions.capture_attachment_preparation,
             imports.context,
             UUID(connection_id),
             target=None,
@@ -318,17 +337,6 @@ def document_problem(request: Request, error: Exception) -> HTTPException:
             detail="No such document.",
             headers=NO_STORE,
         )
-    if isinstance(error, DocumentServiceError) and error.code == (
-        "whatsapp_receipt_reading_off"
-    ):
-        return problem(
-            request,
-            status_code=409,
-            code=error.code,
-            title="Permission needed",
-            detail="Turn on Read my receipts with AI in your WhatsApp settings.",
-            headers=NO_STORE,
-        )
     if isinstance(error, (DocumentServiceError, DocumentExtractionError)):
         unavailable = error.retryable or error.code in {
             "missing_vision_model",
@@ -341,6 +349,7 @@ def document_problem(request: Request, error: Exception) -> HTTPException:
             "document_version_conflict",
             "document_entered_by_owner",
             "document_already_prepared",
+            "document_type_conflict",
         }:
             status = 409
         if error.code == "document_disconnected":

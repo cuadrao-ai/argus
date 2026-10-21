@@ -25,7 +25,7 @@ def test_case_manifest_rejects_redistributed_missing_and_duplicate_steps() -> No
     acceptance._validate_case_manifest(cases)
     redistributed = deepcopy(cases)
     redistributed[1]["steps"].append(redistributed[0]["steps"].pop())
-    assert sum(len(case["steps"]) for case in redistributed) == 20
+    assert sum(len(case["steps"]) for case in redistributed) == 21
     with pytest.raises(ValueError, match="step manifest"):
         acceptance._validate_case_manifest(redistributed)
     omitted = deepcopy(cases)
@@ -45,13 +45,13 @@ def test_step_receipts_bind_to_fresh_turn_and_replay() -> None:
     )
     expected = [
         [_receipt("BusinessInterpretation", model), _receipt("BusinessReply", model)]
-        if step["actor"] == "owner_a" and not step.get("replay")
+        if "message" in step and not step.get("replay")
         else []
         for step in case["steps"]
     ]
     capture = SimpleNamespace(
         step_route_receipts=deepcopy(expected),
-        graph_run_ids=["run" for step in case["steps"] if step["actor"] == "owner_a"],
+        graph_run_ids=["run" for step in case["steps"] if "message" in step],
     )
     assert acceptance._step_receipt_failures(case, capture, model) == []
     replay = next(index for index, step in enumerate(case["steps"]) if step.get("replay"))

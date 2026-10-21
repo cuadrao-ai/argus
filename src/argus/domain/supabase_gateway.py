@@ -11,8 +11,10 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
+from loguru import logger
 from supabase_auth import SyncGoTrueClient
 
+from argus.api.age_confirmation import parse_age_confirmation
 from argus.api.schemas import (
     BacktestRun,
     Conversation,
@@ -38,6 +40,10 @@ from argus.domain.decision_attachment import (
     DECISION_STATE_METADATA_KEY,
 )
 from argus.domain.evidence import CapturedEvidence, attach_decision_to_result_card
+from argus.domain.login_browser_check import (
+    LOGIN_PROVIDER_TIMEOUT_SECONDS,
+    complete_password_login,
+)
 from argus.domain.owner_scope import OwnerScope, postgrest_scoped, scope_of, space_id
 from argus.domain.postgres_history_reader import (
     PostgresHistoryReader,
@@ -80,6 +86,7 @@ from argus.domain.supabase_message_reads import (
 )
 from argus.domain.supabase_public_excerpts import SupabasePublicExcerptMixin
 from argus.domain.supabase_query_helpers import fetch_all_rows as fetch_all_rows_batched
+from argus.domain.supabase_signup import SupabaseSignupMixin
 from argus.domain.usage_counter_reader import UsageCounterReader, align_usage_period
 from argus.domain.usage_limits import (
     USAGE_COUNTER_LOCK as _USAGE_COUNTER_LOCK,
@@ -172,6 +179,7 @@ def _auth_client_factory(url: str, key: str) -> AuthClientFactory:
 
 @dataclass
 class SupabaseGateway(
+    SupabaseSignupMixin,
     GuestAccountPersistenceMixin,
     ChatTurnLifecycleGatewayMixin,
     SupabaseConversationActivityMixin,
@@ -204,8 +212,12 @@ class SupabaseGateway(
                 "and DATABASE_URL."
             )
         auth_key = (
-            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON_PUBLIC_KEY") or key
+            os.getenv("SUPABASE_ANON_KEY", "").strip()
+            or os.getenv("SUPABASE_ANON_PUBLIC_KEY", "").strip()
         )
+        if not auth_key:
+            logger.error("startup_config_refused{reason=missing_SUPABASE_ANON_KEY}")
+            raise RuntimeError("Set SUPABASE_ANON_KEY or SUPABASE_ANON_PUBLIC_KEY.")
         history_reader = history_reader_for_database_url(database_url)
         return cls(
             client=create_client(url, key, options=_supabase_client_options()),
@@ -329,40 +341,6 @@ class SupabaseGateway(
         user = User.model_validate(_row_one(loaded))
         self._cached_mock_user = user
         return user
-
-    def signup(
-        self,
-        email: str,
-        password: str,
-        captcha_token: str,
-        display_name: str | None = None,
-        username: str | None = None,
-        language: Language = "en",
-        guest_signup_handoff: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
-        try:
-            metadata: dict[str, Any] = {
-                "display_name": display_name,
-                "username": username,
-                "language": language,
-            }
-            if guest_signup_handoff is not None:
-                metadata["argus_guest_signup"] = guest_signup_handoff
-            response = self._auth().sign_up(
-                {
-                    "email": email,
-                    "password": password,
-                    "options": {
-                        "data": metadata,
-                        "captcha_token": captcha_token,
-                    },
-                }
-            )
-            if not response.user:
-                raise RuntimeError("Signup failed: No user returned.")
-            return response.model_dump(mode="json")
-        except Exception as e:
-            raise RuntimeError(f"Signup failed: {e}") from e
 
     def get_auth_user_by_id(self, user_id: str) -> dict[str, Any]:
         response = self.client.auth.admin.get_user_by_id(user_id)
@@ -492,25 +470,17 @@ class SupabaseGateway(
         ).execute()
         return int(result.data or 0)
 
-    def login(
-        self,
-        email: str,
-        password: str,
-        captcha_token: str,
-    ) -> dict[str, Any]:
-        try:
-            response = self._auth().sign_in_with_password(
+    def login(self, email: str, password: str, captcha_token: str) -> dict[str, Any]:
+        return complete_password_login(
+            lambda: self._auth().sign_in_with_password(
                 {
                     "email": email,
                     "password": password,
                     "options": {"captcha_token": captcha_token},
                 }
-            )
-            if not response.session:
-                raise RuntimeError("Login failed: No session returned.")
-            return response.model_dump(mode="json")
-        except Exception as e:
-            raise RuntimeError(f"Login failed: {e}") from e
+            ),
+            LOGIN_PROVIDER_TIMEOUT_SECONDS,
+        )
 
     def update_user(self, user_id: str, updates: dict[str, Any]) -> User:
         payload = {key: value for key, value in updates.items() if key != "id"}
@@ -2068,6 +2038,12 @@ class SupabaseGateway(
             "created_at": now,
             "updated_at": now,
         }
+
+        if user_metadata.get("age_confirmed_at") is not None:
+            with suppress(ValueError):
+                payload["age_confirmed_at"] = parse_age_confirmation(
+                    user_metadata["age_confirmed_at"]
+                ).isoformat()
 
         created = (
             self.client.table("profiles")

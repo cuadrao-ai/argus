@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -21,11 +20,16 @@ from argus.domain.business.contracts.actions import (
     Applied,
     ApproveExpense,
     ApproveIncome,
+    ApproveRefund,
     AttachmentPreparationBinding,
     CaptureNote,
+    DecideFiscalInclusion,
+    DecideFiscalInclusionCommand,
     ExistingDraft,
     ExplainStatus,
     FindRelated,
+    MarkPersonal,
+    MarkPersonalCommand,
     PrepareAttachmentCommand,
     ReadContext,
     RebindAttachmentCommand,
@@ -42,6 +46,7 @@ from argus.domain.business.contracts.dossier import (
     RecordContext,
     SourceEvidence,
     WebActionSource,
+    web_action_text,
 )
 from argus.domain.business.contracts.recovery import SenderLease
 from argus.domain.business.duplicates import flag_receipt_duplicates
@@ -65,11 +70,29 @@ class BusinessActions:
     ) -> ActionContext:
         return self.authority.resolve_actor(actor, grant_id=grant_id)
 
-    def context_for_draft(self, actor_id: UUID, draft_id: UUID) -> ActionContext:
-        return self.authority.for_record(actor_id, draft_id, receipt=False)
+    def context_for_draft(
+        self,
+        actor_id: UUID,
+        draft_id: UUID,
+        *,
+        space_id: UUID | str | None = None,
+        grant_id: UUID | None = None,
+    ) -> ActionContext:
+        return self.authority.for_record(
+            actor_id, draft_id, receipt=False, space_id=space_id, grant_id=grant_id
+        )
 
-    def context_for_receipt(self, actor_id: UUID, connection_id: UUID) -> ActionContext:
-        return self.authority.for_record(actor_id, connection_id, receipt=True)
+    def context_for_receipt(
+        self,
+        actor_id: UUID,
+        connection_id: UUID,
+        *,
+        space_id: UUID | str | None = None,
+        grant_id: UUID | None = None,
+    ) -> ActionContext:
+        return self.authority.for_record(
+            actor_id, connection_id, receipt=True, space_id=space_id, grant_id=grant_id
+        )
 
     def record_source(
         self, context: ActionContext, source_key: str, evidence: SourceEvidence
@@ -83,9 +106,14 @@ class BusinessActions:
         return captures.capture(self, context, request, key)
 
     def captures(
-        self, context: ActionContext, *, query: str = "", limit: int = 20
+        self,
+        context: ActionContext,
+        *,
+        query: str = "",
+        limit: int = 20,
+        view: str = "all",
     ) -> list[dict]:
-        return captures.entries(self, context, query=query, limit=limit)
+        return captures.entries(self, context, query=query, limit=limit, view=view)
 
     def persist_plan(
         self,
@@ -267,11 +295,8 @@ class BusinessActions:
                         evidence = WebActionSource(
                             id=uuid4(),
                             received_at=datetime.now(timezone.utc),
-                            text=json.dumps(
-                                command.model_dump(mode="json", exclude_none=True),
-                                sort_keys=True,
-                                separators=(",", ":"),
-                                ensure_ascii=False,
+                            text=web_action_text(
+                                command.model_dump(mode="json", exclude_none=True)
                             ),
                         )
                         source_id = sources.record_source(
@@ -283,6 +308,9 @@ class BusinessActions:
                             request.facts,
                             (source_id,),
                             tx.authorization.provenance,
+                            fiscal_review=request.dgii,
+                            document_type=request.document_type,
+                            due_on=request.due_on,
                         )
                 except ActionError as error:
                     result = error.result
@@ -357,6 +385,171 @@ class BusinessActions:
         except ActionError as error:
             return error.result
 
+    def mark_personal(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: MarkPersonal,
+        key: str,
+    ) -> ActionOutcome:
+        """The owner or anyone holding prepare through a live grant marks a
+        receipt as personal (business_share none) or takes the mark back; on an
+        open or an approved draft, a new revision each way and one ledger row
+        naming the actor, the grant used and its issuer. The owner's mark is
+        owner_stated, anyone else's member_set, so the record says who."""
+
+        from argus.domain.business.contracts.facts import (
+            BusinessShare,
+            Known,
+            WholeBusinessShare,
+        )
+
+        command = MarkPersonalCommand(draft_id=draft_id, request=request)
+
+        def change(facts, source_id, acting_owner):  # noqa: ANN001, ANN202
+            return facts.model_copy(
+                update={
+                    "business_share": Known[BusinessShare](
+                        value=WholeBusinessShare(
+                            kind="none" if request.personal else "all"
+                        ),
+                        origin="owner_stated" if acting_owner else "member_set",
+                        verified=True,
+                        source_ids=(source_id,),
+                    )
+                }
+            )
+
+        return self._mark(
+            context, draft_id, request.version, key, command, change, owner=None
+        )
+
+    def decide_606(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: DecideFiscalInclusion,
+        key: str,
+    ) -> ActionOutcome:
+        """A prepare-holder other than the owner answers whether a personal
+        receipt that carries a fiscal number goes into the 606. The app never
+        decides; the owner reads the answer."""
+
+        from argus.domain.business.contracts.facts import (
+            FiscalFacts,
+            Known,
+            fiscal_value,
+            is_personal,
+        )
+
+        command = DecideFiscalInclusionCommand(draft_id=draft_id, request=request)
+
+        def change(facts, source_id, acting_owner):  # noqa: ANN001, ANN202
+            if not is_personal(facts) or fiscal_value(facts) is None:
+                raise ActionError("invalid_input", "business_606_not_applicable")
+            fiscal = facts.fiscal or FiscalFacts()
+            return facts.model_copy(
+                update={
+                    "fiscal": fiscal.model_copy(
+                        update={
+                            "include_606": Known[bool](
+                                value=request.include,
+                                origin="member_set",
+                                verified=True,
+                                source_ids=(source_id,),
+                            )
+                        }
+                    )
+                }
+            )
+
+        return self._mark(
+            context, draft_id, request.version, key, command, change, owner=False
+        )
+
+    def _mark(  # noqa: ANN202
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        version: int,
+        key: str,
+        command,  # noqa: ANN001
+        change,  # noqa: ANN001
+        *,
+        owner: bool | None,
+    ) -> ActionOutcome:
+        """One person's fact on a draft, open or approved: a revision row that
+        says who, through which grant, and a ledger row for the command.
+        ``owner`` True admits only the owner, False only someone else, None
+        anyone; every one of them needs prepare."""
+
+        from dataclasses import replace
+
+        from argus.domain.business.actions.mutations import facts_of, save_revision
+        from argus.domain.ingestion.reconcile.model import EventNotFound
+
+        try:
+            with transaction(self.authority, context) as tx:
+                saved = plans.receipt(tx, key, command)
+                if saved is not None:
+                    return plans.replay(saved)
+                plans.start_receipt(tx, key, command)
+                try:
+                    with tx.connection.transaction():
+                        tx.authorization.require("prepare")
+                        if context.actor.actor_kind != "member":
+                            raise ActionError(
+                                "permission_denied", "business_human_command_required"
+                            )
+                        acting_owner = str(context.actor.actor_id) == str(
+                            context.owner_id
+                        )
+                        if owner is not None and acting_owner != owner:
+                            raise ActionError(
+                                "permission_denied", "business_permission_denied"
+                            )
+                        try:
+                            event = tx.imports.event(str(draft_id))
+                        except EventNotFound:
+                            raise ActionError(
+                                "not_found", "business_record_not_found"
+                            ) from None
+                        if event.version != version:
+                            raise ActionError("stale_version", "stale_version")
+                        if event.state not in ("open", "accepted"):
+                            raise ActionError("invalid_input", "business_draft_not_open")
+                        evidence = WebActionSource(
+                            id=uuid4(),
+                            received_at=datetime.now(timezone.utc),
+                            text=web_action_text(
+                                command.model_dump(mode="json", exclude_none=True)
+                            ),
+                        )
+                        source_id = sources.record_source(
+                            tx, f"web:{context.actor.actor_id}:{key}", evidence
+                        )
+                        before = facts_of(event)
+                        after = change(before, source_id, acting_owner)
+                        event = replace(
+                            event,
+                            version=event.version + 1,
+                            updated_at=datetime.now(timezone.utc),
+                        )
+                        result = save_revision(
+                            tx,
+                            event,
+                            before,
+                            after,
+                            (source_id,),
+                            tx.authorization.provenance,
+                            None,
+                        )
+                except ActionError as error:
+                    result = error.result
+                return plans.finish_receipt(tx, key, result)
+        except ActionError as error:
+            return error.result
+
     def approve(
         self,
         context: ActionContext,
@@ -374,6 +567,13 @@ class BusinessActions:
         draft_id: UUID,
         request: ApproveIncome,
         key: str,
+    ) -> ActionOutcome:
+        from argus.domain.business.actions.approval import approve
+
+        return approve(self, context, draft_id, request, key)
+
+    def approve_refund(
+        self, context: ActionContext, draft_id: UUID, request: ApproveRefund, key: str
     ) -> ActionOutcome:
         from argus.domain.business.actions.approval import approve
 
@@ -534,6 +734,22 @@ class BusinessActions:
     ) -> tuple[dict, DocumentDraft]:
         row = self._attachment_row(tx, binding.connection_id)
         draft = DocumentDraft.model_validate(row["draft"])
+        if draft.business_reading_consent_id is not None:
+            permission = tx.rows(
+                "select id,route from public.business_receipt_reading_consents where id=%s"
+                " and space_id=%s and owner_id=%s and scope_version=1 and revoked_at is null for share",
+                (
+                    draft.business_reading_consent_id,
+                    tx.context.actor.space_id,
+                    tx.context.owner_id,
+                ),
+            )
+            from argus.domain.ingestion.whatsapp.receipt_consent import (
+                receipt_provider_route,
+            )
+
+            if not permission or permission[0]["route"] != receipt_provider_route():
+                raise ActionError("permission_denied", "document_reading_not_allowed")
         if row["preparation_binding"] != binding.model_dump(
             mode="json"
         ) or not plans.same_authority(tx, binding.actor):

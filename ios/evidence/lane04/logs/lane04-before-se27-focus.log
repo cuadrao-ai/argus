@@ -1,0 +1,7 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:253: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : XCTAssertGreaterThanOrEqual failed: ("18.0") is less than ("44.0")
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (63.617 seconds).
+	 Executed 1 test, with 1 failure (0 unexpected) in 63.617 (63.629) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 63.617 (63.630) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 63.617 (63.631) seconds
+** TEST FAILED **

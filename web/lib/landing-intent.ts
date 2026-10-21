@@ -1,4 +1,5 @@
 import { readReturnPath, returnPathFor } from "./auth-return-path";
+import { businessOnlyWebEnabled, businessPilotEnabled } from "./private-alpha-flags";
 import {
   readSessionStored,
   readStored,
@@ -401,10 +402,81 @@ export function currentChatPath(): string {
   );
 }
 
-/** Where to go after signing in: a listed return page, else chat. */
-export function postAuthPath(): string {
-  if (typeof window === "undefined") return currentChatPath();
-  return readReturnPath(window.location.search) ?? currentChatPath();
+/** The Business shell for an address that named chat: /biz with the conversation and message it carried, nothing else. */
+export function businessShellPath(search: URLSearchParams | SearchRecord | string): string {
+  const source = toSearchParams(search);
+  const kept = new URLSearchParams();
+  for (const key of ["conversation", "message"]) {
+    const value = source.get(key);
+    if (value && /^[A-Za-z0-9_-]{1,128}$/.test(value)) kept.set(key, value);
+  }
+  const query = kept.toString();
+  return query ? `/biz?${query}` : "/biz";
+}
+
+/** Where a public-receipt follow-up goes: on a consumer build it is saved and sent into chat; on a Business build nothing is saved or sent, the person lands on the Business inbox. */
+export function receiptFollowupTarget(businessBuild: boolean = businessPilotEnabled): { send: boolean; href: string } {
+  return businessBuild ? { send: false, href: "/biz?view=inbox" } : { send: true, href: currentChatPath() };
+}
+
+export type SignedInHome = { readonly href: string } | { readonly closed: true };
+
+/** Where a signed-in person can go. The pilot opens /biz. Business-only with the pilot off has no home. Otherwise chat, query included. */
+export function resolveSignedInHome(input: {
+  pilot: boolean;
+  businessOnly: boolean;
+  chatPath: string;
+}): SignedInHome {
+  if (input.pilot) return { href: "/biz" };
+  if (input.businessOnly) return { closed: true };
+  return { href: input.chatPath };
+}
+
+function homeFor(pilot: boolean, businessOnly: boolean): SignedInHome {
+  return resolveSignedInHome({
+    pilot,
+    businessOnly,
+    chatPath: currentChatPath(),
+  });
+}
+
+/** /biz follows the signed-in home. Closed means the sign-in screen. No pilot and no business-only means this route does not exist. */
+export function businessShellEntry(input: {
+  pilot: boolean;
+  businessOnly: boolean;
+}): { readonly href: "/biz" } | { readonly closed: true } | { readonly missing: true } {
+  const home = resolveSignedInHome({ ...input, chatPath: "/chat" });
+  if ("closed" in home) return { closed: true };
+  if (input.pilot) return { href: "/biz" };
+  return { missing: true };
+}
+
+/** The signed-in home. A closed home stays on the sign-in screen. */
+export function signedInHomePath(
+  pilot: boolean = businessPilotEnabled,
+  businessOnly: boolean = businessOnlyWebEnabled,
+): string {
+  const home = homeFor(pilot, businessOnly);
+  return "href" in home ? home.href : "/?auth=login";
+}
+
+/** True when business-only is on and the pilot is off, so sign-in must not leave the screen. */
+export function signedInHomeClosed(
+  pilot: boolean = businessPilotEnabled,
+  businessOnly: boolean = businessOnlyWebEnabled,
+): boolean {
+  return "closed" in homeFor(pilot, businessOnly);
+}
+
+/** Where to go after signing in: a listed return page, else the signed-in home. A closed home stays on sign-in. */
+export function postAuthPath(
+  pilot: boolean = businessPilotEnabled,
+  businessOnly: boolean = businessOnlyWebEnabled,
+): string {
+  const home = homeFor(pilot, businessOnly);
+  if ("closed" in home) return "/?auth=login";
+  if (typeof window === "undefined") return home.href;
+  return readReturnPath(window.location.search) ?? home.href;
 }
 
 export function currentAuthLoginPath(): string {

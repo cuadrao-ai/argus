@@ -1,0 +1,86 @@
+name: DGII RNC import
+
+"on":
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run
+        type: boolean
+        default: true
+  pull_request:
+    branches: ["codex/private-alpha-next"]
+    paths:
+      - .github/workflows/dgii-rnc-import.yml
+      - scripts/ops/dgii_rnc_import.py
+      - tests/test_dgii_rnc_import.py
+      - docs/runbooks/dgii-rnc-import.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dgii-rnc-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: DGII RNC import
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download the registry zip
+        run: |
+          set -euo pipefail
+          ua='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+          curl -sS -L --max-time 180 \
+            -A "$ua" \
+            -H 'Accept: */*' \
+            -H 'Accept-Language: es-DO' \
+            -H 'Referer: https://dgii.gov.do/herramientas/consultas/Paginas/RNC.aspx' \
+            -o rnc.zip \
+            -w 'http_code=%{http_code}\ncontent_type=%{content_type}\nsize_download=%{size_download}\ntime_total=%{time_total}\n' \
+            'https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip' | tee download.txt
+          code="$(sed -n 's/^http_code=//p' download.txt)"
+          if [ "$code" != "200" ]; then
+            echo "download failed"
+            head -c 400 rnc.zip || true
+            echo
+            exit 1
+          fi
+
+      - name: Parse the registry
+        run: python3 scripts/ops/dgii_rnc_import.py parse rnc.zip
+
+      - name: Decide whether to load
+        id: gate
+        env:
+          ENABLED: ${{ vars.DGII_RNC_LOAD_ENABLED }}
+          DRY_RUN: ${{ (github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.dry_run == true || inputs.dry_run == 'true'))) && 'true' || 'false' }}
+          SECRET_PRESENT: ${{ secrets.SUPABASE_STAGING_DB_URL != '' && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          decision="$(python3 scripts/ops/dgii_rnc_import.py gate)"
+          echo "$decision"
+          if [ "$decision" = "load" ]; then
+            echo "do_load=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "do_load=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Load the registry
+        if: steps.gate.outputs.do_load == 'true'
+        env:
+          SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+          DGII_RNC_STATEMENT_TIMEOUT: ${{ vars.DGII_RNC_STATEMENT_TIMEOUT }}
+          DGII_RNC_LOAD_HEADROOM_FLOOR: ${{ vars.DGII_RNC_LOAD_HEADROOM_FLOOR }}
+          DGII_RNC_SIZE_LIMIT: ${{ vars.DGII_RNC_SIZE_LIMIT }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python3 scripts/ops/dgii_rnc_import.py load rnc.zip

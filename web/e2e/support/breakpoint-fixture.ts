@@ -42,6 +42,12 @@ const SPANISH_TITLES: Record<string, string> = {
     "Aportes mensuales al índice comparados con una suma única en una ventana de diez años",
 };
 
+/** The server's answer for a person who already accepted the Business consent screen. */
+export function fulfillAcceptedBusinessConsent(route: Route) {
+  const version = new URL(route.request().url()).searchParams.get("version") ?? "";
+  return route.fulfill({ json: { version, accepted_at: "2026-10-18T12:00:00.000Z" } });
+}
+
 function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({
     status,
@@ -350,6 +356,7 @@ export async function installBreakpointFixture(
     theme?: Theme;
     usage?: UsageState;
     emptyChat?: boolean;
+    consent?: "accepted" | "required";
   } = {},
 ): Promise<void> {
   const account = options.account ?? "registered";
@@ -357,21 +364,26 @@ export async function installBreakpointFixture(
   const theme = options.theme ?? "dark";
   const usage = options.usage ?? "healthy";
   const emptyChat = options.emptyChat ?? false;
+  const consent = options.consent ?? "accepted";
   const isGuest = account === "guest";
   const isSpanish = language === "es-419";
 
   await page.addInitScript(
     ([lang, storedTheme]) => {
+      if (window.top !== window.self) return;
       window.localStorage.setItem("i18nextLng", lang);
       window.localStorage.setItem("argus:sidebar_mode", "expanded");
       window.localStorage.setItem("argus-theme", storedTheme);
     },
     [language, theme],
   );
-
   await page.route("**/api/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
+
+    if (path.endsWith("/api/v1/business/consent") && consent === "accepted") {
+      return fulfillAcceptedBusinessConsent(route);
+    }
 
     if (path.endsWith("/api/v1/me/usage")) {
       if (usage === "error") {

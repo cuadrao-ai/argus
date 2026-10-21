@@ -1,5 +1,5 @@
 """Business receipts on real PostgreSQL and local Supabase Storage: one confirm
-records one expense under concurrency, and the source comes back byte for byte.
+records one expense under concurrency, and image downloads retain their original.
 
 Set ``ARGUS_DISPOSABLE_DATABASE_URL`` plus ``ARGUS_LOCAL_SUPABASE_URL``,
 ``ARGUS_LOCAL_SUPABASE_ANON_KEY`` and ``ARGUS_LOCAL_SUPABASE_SERVICE_ROLE_KEY``
@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from argus.domain import financial_search
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.search import parse
 from argus.domain.business.service import BusinessService
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.connections import ConnectionNotFound
@@ -44,6 +45,7 @@ from psycopg_pool import ConnectionPool
 
 from tests import test_financial_accounts_postgres as shared
 from tests.business.receipt_stub import PURCHASE, ReceiptStub
+from tests.business_reading_support import reading_setting, turn_reading
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
 
 pytestmark = pytest.mark.skipif(
@@ -99,6 +101,7 @@ def _service(pool: ConnectionPool, objects: SourceObjects) -> BusinessService:
     )
     hub = IngestionHub(connections, box=None, sink=imports, clock=_now)
     documents = DocumentsService(hub, PostgresDocumentStore(pool, objects), ReceiptStub())
+    documents.business_receipt_consent = reading_setting(pool)
     return BusinessService(documents, imports, lambda _: frozenset())
 
 
@@ -111,6 +114,11 @@ def _started(spaces: PostgresSpaceStore, person: str) -> BusinessScope:
 
 def _prepared(rig: dict) -> str:
     service, scope = rig["service"], rig["owner"]
+    turn_reading(
+        service.documents.business_receipt_consent,
+        scope.owner.space_id,
+        scope.person_id,
+    )
     receipt = asyncio.run(
         service.upload(
             scope,
@@ -206,10 +214,16 @@ def test_source_is_the_stored_object_and_only_its_owner_reads_it(rig: dict) -> N
     service = rig["service"]
     receipt_id = _prepared(rig)
     media_type, content = service.source(rig["owner"], receipt_id)
-    assert (media_type, content) == ("image/png", RECEIPT)
+    assert media_type == "image/jpeg" and content.startswith(b"\xff\xd8")
+    assert content != RECEIPT
+    owner = rig["owner"].person_id
+    assert service.documents.store.source(user_id=owner, connection_id=receipt_id) == RECEIPT
     with rig["pool"].connection() as connection:
-        paths = stored_paths(connection, owner_prefix(rig["owner"].person_id))
-    assert [path.split("/")[1] for path in paths] == [receipt_id]
+        sealed = stored_paths(connection, f"sealed/{owner}/")
+        rebuilt = stored_paths(connection, f"rebuilt/{owner}/")
+    assert len(sealed) == len(rebuilt) == 1
+    assert sealed[0].rsplit("/", 1)[1] == rebuilt[0].rsplit("/", 1)[1]
+    assert service.source(rig["owner"], receipt_id) == (media_type, content)
     with pytest.raises(ConnectionNotFound):
         service.source(rig["other"], receipt_id)
     with pytest.raises(ConnectionNotFound):
@@ -264,7 +278,10 @@ def test_a_receipt_entered_by_hand_is_saved_once_and_linked(rig: dict) -> None:
             (scope.person_id,),
         ).fetchone()[0]
     assert (events, _written(rig)) == (1, 1)
-    assert service.source(scope, receipt.id) == ("image/png", RECEIPT)
+    media_type, content = service.source(scope, receipt.id)
+    assert media_type == "image/jpeg" and content.startswith(b"\xff\xd8")
+    assert content != RECEIPT
+    assert service.documents.store.source(user_id=scope.person_id, connection_id=receipt.id) == RECEIPT
 
 
 def test_entry_by_hand_after_a_read_records_one_expense_across_tabs_and_a_restart(
@@ -360,19 +377,23 @@ def test_search_finds_the_business_expense_and_its_source_never_personal(
     receipt_id, version = _reviewed(rig)
     expense_id = service.confirm(scope, receipt_id, version, "k").review.expense_id
 
-    found = service.search(scope, "ferreteria", 5)
+    found = service.search(scope, parse("ferreteria"))
 
     assert [(e["id"], e["receipt_id"]) for e in found["expenses"]] == [
         (expense_id, receipt_id)
     ]
     assert (found["receipts"], found["accounts"]) == ([], [])
-    assert service.source(scope, receipt_id) == ("image/png", RECEIPT)
-    assert [r["id"] for r in service.search(scope, "recibo", 5)["receipts"]] == [
+    media_type, content = service.source(scope, receipt_id)
+    assert media_type == "image/jpeg" and content.startswith(b"\xff\xd8")
+    assert content != RECEIPT
+    assert service.documents.store.source(user_id=scope.person_id, connection_id=receipt_id) == RECEIPT
+    assert [r["id"] for r in service.search(scope, parse("recibo"))["receipts"]] == [
         receipt_id
     ]
-    assert [a["nickname"] for a in service.search(scope, "ops", 5)["accounts"]] == ["Ops"]
-    assert service.search(rig["other"], "ferreteria", 5) == {
+    assert [a["nickname"] for a in service.search(scope, parse("ops"))["accounts"]] == ["Ops"]
+    assert service.search(rig["other"], parse("ferreteria")) == {
         "expenses": [],
+        "ventas": [],
         "receipts": [],
         "accounts": [],
     }

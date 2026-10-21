@@ -77,15 +77,15 @@
   display: inline-flex;
   align-items: center;
   gap: 15px;
-  background: #244a3e;
+  background: var(--cta-rest);
   color: white;
   border-radius: 30px;
   padding: 14px 23px;
   font-size: 14px;
   min-height: 48px;
 }
-.cta:hover {
-  background: #172b26;
+.site a.cta:hover {
+  background: var(--cta-deep);
 }
 .textLink {
   display: inline-flex;

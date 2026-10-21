@@ -167,3 +167,11 @@ def guest(client: TestClient) -> AccountsApi:
 @pytest.fixture
 def anonymous(client: TestClient) -> AccountsApi:
     return AccountsApi(client, None)
+
+
+@pytest.fixture
+def legacy_blank_accounts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Blank creates keep an unknown balance, like accounts saved before blank meant 0."""
+    from argus.domain.recording import service
+
+    monkeypatch.setattr(service, "blank_opening", lambda scope, account_type: None)

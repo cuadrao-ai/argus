@@ -2201,6 +2201,7 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "beta@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2250,6 +2251,7 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "existing@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2292,14 +2294,17 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
         duplicate_provider_response,
     ]
     profile_rows: set[str] = set()
-    mock_gateway.get_or_create_profile_for_auth_user.side_effect = (
-        lambda auth_user: profile_rows.add(str(auth_user["id"]))
-    )
+    def create_profile(auth_user):
+        profile_rows.add(str(auth_user["id"]))
+        return _mock_profile().model_copy(update={"id": str(auth_user["id"])})
+
+    mock_gateway.get_or_create_profile_for_auth_user.side_effect = create_profile
     headers = {"CF-Connecting-IP": "203.0.113.92"}
 
     fresh = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "fresh@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2309,6 +2314,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
     duplicate = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "existing@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2377,6 +2383,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
         first = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2387,6 +2394,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
         retry = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2423,6 +2431,7 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2451,6 +2460,7 @@ def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2460,6 +2470,7 @@ def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
 
     assert response.status_code == 200
     mock_gateway.signup.assert_called_once_with(
+        age_confirmed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         email="alpha@example.com",
         password="password123",
         display_name=None,
@@ -2479,6 +2490,7 @@ def test_signup_rejects_unsupported_language_before_provider_signup(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2549,6 +2561,7 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
     allowlist_denied = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2567,6 +2580,7 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
     provider_failed = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2610,6 +2624,7 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
     allowlist_denied = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2632,6 +2647,7 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
         username_taken = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "alpha@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2756,6 +2772,7 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "stranger@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2768,6 +2785,7 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
     blocked = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",

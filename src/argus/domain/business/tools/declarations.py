@@ -62,7 +62,7 @@ def _execute(arguments: Contract, context: Any) -> BusinessToolResult:
     elif isinstance(action, ExplainStatus):
         data = authorized.actions.dossier(
             authorized.authorization, action.draft_id
-        ).model_dump(mode="json")
+        ).model_facing()
     return BusinessToolResult(outcome=outcome.model_dump(mode="json"), data=data)
 
 

@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Inbox,
   MessageSquareText,
   PenLine,
   ReceiptText,
@@ -15,16 +14,17 @@ import {
   businessChatAvailable,
   type BusinessOverview,
   type BusinessWorkspaceInfo,
+  type ReceiptActivityCounts,
   type ReceiptSummary,
 } from "@/lib/business-api";
 import type { BusinessPanelState } from "./BusinessWorkspace";
+import { useBusinessConsent } from "./business-consent-context";
 import type { IntakeTarget } from "./ReceiptIntakeDialog";
 
 export type BusinessActionId =
   | "upload_receipt"
   | "record_expense"
   | "capture_note"
-  | "review_inbox"
   | "ask_spending";
 
 export type BusinessAction = Readonly<{
@@ -51,6 +51,7 @@ type ActionInput = {
     workspace: BusinessWorkspaceInfo | null;
     overview: BusinessOverview | null;
     inbox: ReceiptSummary[] | null;
+    receiptActivity?: ReceiptActivityCounts | null;
     error?: boolean;
   };
   bridge: ChatShellBridge | null;
@@ -70,11 +71,11 @@ export function useBusinessActions({
   openIntake,
   openRecordExpense,
   openCapture,
-  openPanel,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
-  const awaiting = records.inbox?.length ?? 0;
+  const consent = useBusinessConsent();
   const canAsk =
+    consent.accepted &&
     businessChatAvailable(records.workspace) &&
     Boolean(records.workspace?.assistant_available) &&
     (records.overview?.totals ?? []).some((total) => total.count > 0);
@@ -100,12 +101,6 @@ export function useBusinessActions({
       openRecordExpense,
     );
     const captureActions = records.workspace && !records.error && openCapture ? [action("capture_note", t("business.capture.write", "Save a note"), PenLine, openCapture)] : [];
-    const reviewInbox = action(
-      "review_inbox",
-      t("business.actions.review_inbox", "Review {{count}} receipts", { count: awaiting }),
-      Inbox,
-      () => openPanel({ kind: "inbox" }),
-    );
     const askSpending = action(
       "ask_spending",
       t("business.actions.ask_spending", "What did I spend this month?"),
@@ -122,11 +117,11 @@ export function useBusinessActions({
       () => openIntake("composer"),
     );
 
-    const chips = [uploadReceipt, ...(awaiting > 0 ? [reviewInbox] : []), ...(canAsk ? [askSpending] : [recordExpense])];
+    const chips = [uploadReceipt, ...(canAsk ? [askSpending] : [recordExpense])];
     return {
       create: [uploadReceipt, recordExpense, ...captureActions],
       composer: [attachReceipt, recordExpense],
       starterEntries: chips.map(({ id, icon, label, run }) => ({ key: id, icon, label, onSelect: run })),
     };
-  }, [awaiting, bridge, canAsk, openCapture, openIntake, openPanel, openRecordExpense, records.workspace, records.error, t]);
+  }, [bridge, canAsk, openCapture, openIntake, openRecordExpense, records.workspace, records.error, t]);
 }

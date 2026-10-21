@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import ReceiptFollowupBox from './ReceiptFollowupBox';
 import { createReceiptFollowup, saveReceiptFollowup } from '@/lib/receipt-followup';
 import { reportReceiptFunnelStage } from '@/lib/receipt-funnel';
-import { captureLandingIntentFromLocation, currentChatPath } from '@/lib/landing-intent';
+import { captureLandingIntentFromLocation, receiptFollowupTarget } from '@/lib/landing-intent';
 import type { ReceiptKind } from '@/lib/public-receipt-turns';
 import type { ReceiptCopy } from '@/lib/receipt-copy';
 
@@ -18,10 +18,13 @@ export default function ReceiptFollowup({ publicId, copy, language, kind }: { pu
   return <ReceiptFollowupBox copy={copy} value={value} onChange={setValue} disabled={false} busy={busy} onSubmit={event => {
     event.preventDefault();
     if (!value.trim() || busy) return;
+    const target = receiptFollowupTarget();
+    // A Business build never auto-sends a public-receipt follow-up into a Business conversation.
+    if (!target.send) { router.push(target.href); return; }
     captureLandingIntentFromLocation();
     if (!saveReceiptFollowup(createReceiptFollowup(publicId, value, language))) { setFailed(true); return; }
     setBusy(true);
     reportReceiptFunnelStage('try_argus', kind);
-    router.push(currentChatPath());
+    router.push(target.href);
   }}>{failed ? <p role="alert">{copy.followup.error}</p> : null}</ReceiptFollowupBox>;
 }

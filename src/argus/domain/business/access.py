@@ -28,7 +28,7 @@ from argus.domain.business.contracts.facts import Contract
 
 OWNER_CAPABILITIES = ("read", "prepare", "approve")
 MEMBER_CAPABILITIES = ("read", "prepare")
-INVITE_LIFETIME = timedelta(days=14)
+INVITE_LIFETIME = timedelta(days=7)
 MAX_EMAIL_LENGTH = 254
 
 AccessAction = Literal[
@@ -38,6 +38,7 @@ AccessAction = Literal[
     "accept_invite",
     "revoke_grant",
     "revoke_invite",
+    "access_seen",
 ]
 RevokeGrantResult = Literal["revoked", "own_grant", "missing"]
 
@@ -49,6 +50,34 @@ class AccessCommand(Contract):
     grant_id: UUID | None = None
     invite_id: UUID | None = None
     email: str | None = None
+    # An invite re-issued after expiry keeps its row and gets a new window: the
+    # window makes the re-issue its own ledger row.
+    expires_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class GrantedSpace:
+    """One Business a person may enter, through one live grant of theirs."""
+
+    space_id: str
+    name: str
+    grant_id: str
+    owner_id: str
+    capabilities: tuple[str, ...]
+
+    @property
+    def role(self) -> str:
+        return "owner" if self.owner_id == self.grantee_id else "accountant"
+
+    grantee_id: str = ""
+
+    def __post_init__(self) -> None:
+        # What the grant lets this person do: approve is the owner's alone,
+        # whatever a row says, so the listing never reports it for anyone else.
+        if self.role != "owner" and "approve" in self.capabilities:
+            object.__setattr__(
+                self, "capabilities", tuple(c for c in self.capabilities if c != "approve")
+            )
 
 
 @dataclass(frozen=True)
@@ -68,6 +97,7 @@ class AccessInvite:
     email: str
     created_at: datetime
     expires_at: datetime
+    state: Literal["pending", "expired"] = "pending"
 
 
 @dataclass(frozen=True)
@@ -106,6 +136,10 @@ class AccessStore(Protocol):
         """
         ...
 
+    def resend(self, space_id: str, owner_id: str, invite_id: str) -> AccessList | None:
+        """An explicit owner request gives one pending invite a fresh window."""
+        ...
+
     def revoke_grant(
         self, space_id: str, owner_id: str, grant_id: str
     ) -> RevokeGrantResult: ...
@@ -114,6 +148,24 @@ class AccessStore(Protocol):
 
     def accept_invites(self, user_id: str) -> int:
         """Turn the live invites for this person's confirmed email into grants."""
+        ...
+
+    def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
+        """Every open Business where this person holds a live read grant, their
+        own first; the name comes from the space, never from the client."""
+        ...
+
+    def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
+        """One live grant of this person, by id, or None: a grant that is not
+        theirs, revoked or expired answers the same None."""
+        ...
+
+    def seen_grants(self, person_id: str) -> frozenset[str]:
+        """Grants whose one-time "you now have access" line this person dismissed."""
+        ...
+
+    def mark_seen(self, person_id: str, grant_id: str) -> None:
+        """Record the dismissal once, as this person's own ledger row."""
         ...
 
 
@@ -159,6 +211,8 @@ def _record(
         issuer_display_name=labels[issuer_id],
     )
     subject = command.grant_id or command.invite_id
+    if command.expires_at is not None:
+        subject = f"{subject}:{command.expires_at.timestamp():.6f}"
     connection.execute(
         "insert into public.business_action_receipts"
         " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"
@@ -260,8 +314,10 @@ class PostgresAccessStore:
                 (space_id, owner_id),
             ).fetchall()
             invites = cursor.execute(
-                "select id::text, email, created_at, expires_at from public.business_access_invites"
-                " where space_id=%s and revoked_at is null and accepted_at is null and expires_at > now()"
+                "select id::text, email, created_at, expires_at,"
+                " case when expires_at > clock_timestamp() then 'pending' else 'expired' end as state"
+                " from public.business_access_invites"
+                " where space_id=%s and revoked_at is null and accepted_at is null"
                 " order by created_at, id",
                 (space_id,),
             ).fetchall()
@@ -280,7 +336,11 @@ class PostgresAccessStore:
             ),
             tuple(
                 AccessInvite(
-                    row["id"], row["email"], row["created_at"], row["expires_at"]
+                    row["id"],
+                    row["email"],
+                    row["created_at"],
+                    row["expires_at"],
+                    row["state"],
                 )
                 for row in invites
             ),
@@ -292,11 +352,99 @@ class PostgresAccessStore:
                 raise LookupError("business_space_missing")
             return self._list(connection, space_id, owner_id)
 
+    # Live means: not revoked or expired, the Business open, the person not
+    # anonymous, and the issuer still holding owner access: an issuer whose own
+    # owner grant was revoked, with no live one since, ends every grant they gave.
+    _GRANTED = (
+        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities"
+        " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
+        " join auth.users u on u.id=g.grantee_id"
+        " where g.grantee_id=%s and g.revoked_at is null"
+        " and (g.expires_at is null or g.expires_at > clock_timestamp())"
+        " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at is null"
+        " and coalesce(u.is_anonymous,false)=false"
+        " and not exists (select 1 from public.business_client_grants lost"
+        "   where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id"
+        "   and lost.issuer_id=lost.grantee_id"
+        "   and (lost.revoked_at is not null"
+        "     or (lost.expires_at is not null and lost.expires_at <= clock_timestamp()))"
+        "   and not exists (select 1 from public.business_client_grants own"
+        "     where own.space_id=lost.space_id and own.grantee_id=lost.grantee_id"
+        "     and own.issuer_id=own.grantee_id and own.revoked_at is null"
+        "     and (own.expires_at is null or own.expires_at > clock_timestamp())))"
+    )
+
+    def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
+        with self.pool.connection() as connection:
+            rows = connection.execute(
+                self._GRANTED
+                + " order by (s.created_by=%s::uuid) desc, s.name, g.created_at",
+                (person_id, person_id),
+            ).fetchall()
+        return tuple(
+            GrantedSpace(space, name, grant, owner, tuple(caps), person_id)
+            for grant, space, name, owner, caps in rows
+        )
+
+    def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                self._GRANTED + " and g.id=%s", (person_id, grant_id)
+            ).fetchone()
+        if row is None:
+            return None
+        grant, space, name, owner, caps = row
+        return GrantedSpace(space, name, grant, owner, tuple(caps), person_id)
+
+    def seen_grants(self, person_id: str) -> frozenset[str]:
+        with self.pool.connection() as connection:
+            rows = connection.execute(
+                "select command->>'grant_id' from public.business_action_receipts"
+                " where actor_id=%s and turn_key is null and command->>'action'='access_seen'",
+                (person_id,),
+            ).fetchall()
+        return frozenset(row[0] for row in rows if row[0])
+
+    def mark_seen(self, person_id: str, grant_id: str) -> None:
+        found = self.granted(person_id, grant_id)
+        if found is None or found.role == "owner":
+            # Not this person's live grant, or their own Business: nothing to dismiss.
+            return
+        from argus.domain.business.authority import authorize
+        from argus.domain.business.contracts.authority import TrustedActor
+
+        with self.pool.connection() as connection, connection.transaction():
+            auth = authorize(
+                connection,
+                TrustedActor(
+                    actor_id=UUID(person_id),
+                    actor_kind="member",
+                    space_id=UUID(found.space_id),
+                ),
+                UUID(grant_id),
+            )
+            command = AccessCommand(action="access_seen", grant_id=UUID(grant_id))
+            connection.execute(
+                "insert into public.business_action_receipts"
+                " (space_id, actor_id, actor, idempotency_key, input_hash, command, outcome)"
+                " values (%s, %s, %s, %s, %s, %s, %s) on conflict do nothing",
+                (
+                    found.space_id,
+                    person_id,
+                    Jsonb(auth.provenance.model_dump(mode="json")),
+                    f"access:seen:{grant_id}",
+                    canonical_input_hash(command),
+                    Jsonb(command.model_dump(mode="json", exclude_none=True)),
+                    Jsonb({"outcome": "applied"}),
+                ),
+            )
+
     def give(self, space_id: str, owner_id: str, email: str) -> tuple[bool, AccessList]:
         email = normalize_email(email)
         with self.pool.connection() as connection, connection.transaction():
             if not self._owned(connection, space_id, owner_id):
                 raise LookupError("business_space_missing")
+            _lock(connection, space_id)
             owner_grant = _owner_grant_id(connection, space_id, owner_id)
             # Only a confirmed, non-anonymous account matches; nothing about the
             # account reaches the owner beyond the row the list shows.
@@ -332,11 +480,18 @@ class PostgresAccessStore:
                     )
                     created = True
             else:
+                # One pending row per Business and email. A live one stays as it
+                # is; an expired one is re-issued in place with a fresh window
+                # and its own receipt; a revoked or accepted one no longer holds
+                # the slot, so a new row is born.
                 invite = connection.execute(
                     "insert into public.business_access_invites (space_id, issuer_id, email, expires_at)"
                     " values (%s, %s, %s, now() + %s)"
                     " on conflict (space_id, email) where revoked_at is null and accepted_at is null"
-                    " do nothing returning id::text",
+                    " do update set issuer_id=excluded.issuer_id, created_at=now(),"
+                    " expires_at=excluded.expires_at"
+                    " where public.business_access_invites.expires_at <= now()"
+                    " returning id::text, expires_at",
                     (space_id, owner_id, email, INVITE_LIFETIME),
                 ).fetchone()
                 if invite is not None:
@@ -347,11 +502,43 @@ class PostgresAccessStore:
                         grant_id=owner_grant,
                         issuer_id=owner_id,
                         command=AccessCommand(
-                            action="invite_access", invite_id=UUID(invite[0]), email=email
+                            action="invite_access",
+                            invite_id=UUID(invite[0]),
+                            email=email,
+                            expires_at=invite[1],
                         ),
                     )
                     created = True
             return created, self._list(connection, space_id, owner_id)
+
+    def resend(self, space_id: str, owner_id: str, invite_id: str) -> AccessList | None:
+        with self.pool.connection() as connection, connection.transaction():
+            _lock(connection, space_id)
+            if not self._owned(connection, space_id, owner_id):
+                return None
+            row = connection.execute(
+                "update public.business_access_invites set created_at=statement_timestamp(),"
+                " expires_at=statement_timestamp() + %s"
+                " where id=%s and space_id=%s and issuer_id=%s"
+                " and accepted_at is null and revoked_at is null returning email, expires_at",
+                (INVITE_LIFETIME, invite_id, space_id, owner_id),
+            ).fetchone()
+            if row is None:
+                return None
+            _record(
+                connection,
+                space_id=space_id,
+                actor_id=owner_id,
+                grant_id=_owner_grant_id(connection, space_id, owner_id),
+                issuer_id=owner_id,
+                command=AccessCommand(
+                    action="invite_access",
+                    invite_id=UUID(invite_id),
+                    email=row[0],
+                    expires_at=row[1],
+                ),
+            )
+            return self._list(connection, space_id, owner_id)
 
     def revoke_grant(
         self, space_id: str, owner_id: str, grant_id: str
@@ -420,14 +607,23 @@ class PostgresAccessStore:
                 invites = cursor.execute(
                     "select i.id::text, i.space_id::text, i.issuer_id::text, i.email"
                     " from public.business_access_invites i join public.spaces s on s.id=i.space_id"
-                    " where i.email=%s and i.revoked_at is null and i.accepted_at is null and i.expires_at > now()"
+                    " where i.email=%s and i.revoked_at is null and i.accepted_at is null and i.expires_at > clock_timestamp()"
                     " and s.created_by=i.issuer_id and s.kind='business' and s.closed_at is null"
-                    " order by i.created_at for update of i",
+                    " order by i.created_at",
                     (person[0],),
                 ).fetchall()
             accepted = 0
             for invite in invites:
                 _lock(connection, invite["space_id"])
+                live = connection.execute(
+                    "select 1 from public.business_access_invites i join public.spaces s on s.id=i.space_id"
+                    " where i.id=%s and i.revoked_at is null and i.accepted_at is null"
+                    " and i.expires_at > clock_timestamp() and s.created_by=i.issuer_id"
+                    " and s.kind='business' and s.closed_at is null for update of i",
+                    (invite["id"],),
+                ).fetchone()
+                if live is None:
+                    continue
                 grant = _live_grant(connection, invite["space_id"], user_id)
                 if grant is None:
                     grant = connection.execute(
@@ -528,6 +724,85 @@ class InMemoryAccessStore:
             grant = self._live(space_id, grantee_id)
             return grant["capabilities"] if grant else ()
 
+    def _granted(self, grant: dict) -> GrantedSpace:
+        # The in-memory rows know no names (the route asks the space store)
+        # and no owners: the owner issued the grant, or holds a self-issued one.
+        return GrantedSpace(
+            grant["space_id"],
+            "",
+            grant["id"],
+            grant["issuer_id"],
+            tuple(grant["capabilities"]),
+            grant["grantee_id"],
+        )
+
+    def _issuer_live(self, grant: dict) -> bool:
+        """The issuer still holds owner access: an issuer whose own owner grant
+        was revoked, with no live one since, has ended every grant they gave."""
+
+        own = [
+            g
+            for g in self._grants
+            if g["space_id"] == grant["space_id"]
+            and g["grantee_id"] == grant["issuer_id"]
+            and g["issuer_id"] == g["grantee_id"]
+        ]
+        return not own or any(g["revoked_at"] is None for g in own)
+
+    def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
+        with self._lock:
+            rows = [
+                g
+                for g in self._grants
+                if g["grantee_id"] == person_id
+                and g["revoked_at"] is None
+                and "read" in g["capabilities"]
+                and self._issuer_live(g)
+            ]
+        rows.sort(key=lambda g: (g["issuer_id"] != g["grantee_id"], g["created_at"]))
+        return tuple(self._granted(g) for g in rows)
+
+    def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
+        with self._lock:
+            grant = next(
+                (
+                    g
+                    for g in self._grants
+                    if g["id"] == grant_id
+                    and g["grantee_id"] == person_id
+                    and g["revoked_at"] is None
+                    and "read" in g["capabilities"]
+                    and self._issuer_live(g)
+                ),
+                None,
+            )
+        return self._granted(grant) if grant else None
+
+    def seen_grants(self, person_id: str) -> frozenset[str]:
+        with self._lock:
+            return frozenset(
+                str(c.grant_id)
+                for c in self.ledger
+                if c.action == "access_seen" and c.email == person_id
+            )
+
+    def mark_seen(self, person_id: str, grant_id: str) -> None:
+        found = self.granted(person_id, grant_id)
+        if found is None or found.role == "owner":
+            return
+        with self._lock:
+            if any(
+                c.action == "access_seen" and str(c.grant_id) == grant_id
+                for c in self.ledger
+            ):
+                return
+            # The in-memory ledger has no actor column: the person rides in ``email``.
+            self.ledger.append(
+                AccessCommand(
+                    action="access_seen", grant_id=UUID(grant_id), email=person_id
+                )
+            )
+
     def _list(self, space_id: str, owner_id: str) -> AccessList:
         now = self._now()
         emails = {user: email for email, user in self._accounts.items()}
@@ -545,7 +820,6 @@ class InMemoryAccessStore:
             if i["space_id"] == space_id
             and i["revoked_at"] is None
             and i["accepted_at"] is None
-            and i["expires_at"] > now
         ]
         return AccessList(
             tuple(
@@ -561,7 +835,13 @@ class InMemoryAccessStore:
                 for g in grants
             ),
             tuple(
-                AccessInvite(i["id"], i["email"], i["created_at"], i["expires_at"])
+                AccessInvite(
+                    i["id"],
+                    i["email"],
+                    i["created_at"],
+                    i["expires_at"],
+                    "pending" if i["expires_at"] > now else "expired",
+                )
                 for i in invites
             ),
         )
@@ -595,7 +875,10 @@ class InMemoryAccessStore:
                     )
                     created = True
             else:
-                live = next(
+                # The same rule as Postgres: one pending row per Business and
+                # email; live stays, expired is re-issued in place, revoked or
+                # accepted no longer holds the slot.
+                pending = next(
                     (
                         i
                         for i in self._invites
@@ -603,11 +886,17 @@ class InMemoryAccessStore:
                         and i["email"] == email
                         and i["revoked_at"] is None
                         and i["accepted_at"] is None
-                        and i["expires_at"] > self._now()
                     ),
                     None,
                 )
-                if live is None:
+                if pending is not None and pending["expires_at"] > self._now():
+                    invite = None
+                elif pending is not None:
+                    pending["issuer_id"] = owner_id
+                    pending["created_at"] = self._now()
+                    pending["expires_at"] = self._now() + INVITE_LIFETIME
+                    invite = pending
+                else:
                     invite = {
                         "id": str(uuid4()),
                         "space_id": space_id,
@@ -619,15 +908,45 @@ class InMemoryAccessStore:
                         "revoked_at": None,
                     }
                     self._invites.append(invite)
+                if invite is not None:
                     self.ledger.append(
                         AccessCommand(
                             action="invite_access",
                             invite_id=UUID(invite["id"]),
                             email=email,
+                            expires_at=invite["expires_at"],
                         )
                     )
                     created = True
             return created, self._list(space_id, owner_id)
+
+    def resend(self, space_id: str, owner_id: str, invite_id: str) -> AccessList | None:
+        with self._lock:
+            invite = next(
+                (
+                    i
+                    for i in self._invites
+                    if i["id"] == invite_id
+                    and i["space_id"] == space_id
+                    and i["issuer_id"] == owner_id
+                    and i["accepted_at"] is None
+                    and i["revoked_at"] is None
+                ),
+                None,
+            )
+            if invite is None:
+                return None
+            now = self._now()
+            invite["created_at"], invite["expires_at"] = now, now + INVITE_LIFETIME
+            self.ledger.append(
+                AccessCommand(
+                    action="invite_access",
+                    invite_id=UUID(invite_id),
+                    email=invite["email"],
+                    expires_at=invite["expires_at"],
+                )
+            )
+            return self._list(space_id, owner_id)
 
     def revoke_grant(
         self, space_id: str, owner_id: str, grant_id: str

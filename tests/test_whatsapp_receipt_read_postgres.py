@@ -1,15 +1,15 @@
 """On real Postgres, a receipt that arrived by WhatsApp is read through the
-owner's own Business grant, as the web upload does, and settles in review."""
+owner's own Business grant, as the web upload does, and settles in review,
+only while the owner's stored receipt-reading setting is on."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from argus.api.whatsapp import DocumentsDestination, _whatsapp_read_gate
+from argus.api.whatsapp import DocumentsDestination
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.scope import resolve_business_scope
@@ -24,6 +24,7 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.whatsapp.intake import CaptureFailed
 
 from tests import test_business_actions_postgres as shared
+from tests.business_reading_support import ROUTE, reading_setting, turn_reading
 from tests.document_sources_support import source_objects
 from tests.ingestion.whatsapp_support import RECEIPT_PNG
 
@@ -55,7 +56,7 @@ class Extractor:
                         merchant="Synthetic shop",
                     )
                 ],
-                receipt=dict(total="250.50", currency="DOP"),
+                receipt=dict(payment_status="paid", total="250.50", currency="DOP"),
             )
         )
         digest = sha256(kwargs["content"]).hexdigest()
@@ -80,8 +81,17 @@ class Extractor:
         )
 
 
-def _rig(actions, switch):  # noqa: ANN001, ANN202
-    """Real Postgres, Business actions wired, the owner's grant seeded."""
+@pytest.fixture(autouse=True)
+def _route(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "argus.domain.ingestion.whatsapp.receipt_consent.receipt_provider_route",
+        lambda: ROUTE,
+    )
+
+
+def _rig(actions):  # noqa: ANN001, ANN202
+    """Real Postgres, Business actions wired, the owner's grant seeded and the
+    owner's receipt reading on."""
 
     service, context, _ = actions
     pool = service.authority.pool
@@ -113,12 +123,14 @@ def _rig(actions, switch):  # noqa: ANN001, ANN202
         business_actions=BusinessActions(pool, hub.sink),
         business_preparation_required=True,
     )
-    reading = lambda _owner: switch["on"]  # noqa: E731
-    owner = str(context.owner_id)
-    documents.read_gate = _whatsapp_read_gate(
-        SimpleNamespace(capture_owner=lambda **_: owner), reading
+    documents.business_receipt_consent = reading_setting(pool)
+    owner, space = str(context.owner_id), str(context.actor.space_id)
+    turn_reading(documents.business_receipt_consent, space, owner)
+    destination = DocumentsDestination(
+        documents,
+        PostgresSpaceStore(pool),
+        lambda reader: documents.business_receipt_consent.enabled(space, reader),
     )
-    destination = DocumentsDestination(documents, PostgresSpaceStore(pool), reading)
     return destination, documents, extractor, owner
 
 
@@ -141,7 +153,7 @@ def _draft(destination, owner, connection_id):  # noqa: ANN001, ANN202
 
 @pytest.mark.asyncio
 async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # noqa: ANN001
-    destination, _, extractor, owner = _rig(actions, {"on": True})
+    destination, _, extractor, owner = _rig(actions)
     connection_id = await _capture(destination, owner)
     result = await destination.read(owner_id=owner, connection_id=connection_id)
     assert result is not None and result[0] == "review_ready"
@@ -150,10 +162,11 @@ async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions):  # 
 
 @pytest.mark.asyncio
 async def test_a_switch_turned_off_after_capture_stops_the_read(actions):  # noqa: ANN001
-    switch = {"on": True}
-    destination, _, extractor, owner = _rig(actions, switch)
+    destination, documents, extractor, owner = _rig(actions)
     connection_id = await _capture(destination, owner)
-    switch["on"] = False
+    turn_reading(
+        documents.business_receipt_consent, str(actions[1].actor.space_id), owner, False
+    )
     await destination.read(owner_id=owner, connection_id=connection_id)
     assert extractor.calls == 0
     assert _draft(destination, owner, connection_id).status == "saved"
@@ -161,7 +174,7 @@ async def test_a_switch_turned_off_after_capture_stops_the_read(actions):  # noq
 
 @pytest.mark.asyncio
 async def test_only_the_receiving_owner_can_be_the_actor(actions):  # noqa: ANN001
-    destination, _, extractor, owner = _rig(actions, {"on": True})
+    destination, _, extractor, owner = _rig(actions)
     connection_id = await _capture(destination, owner)
     accountant = str(actions[1].actor.actor_id)
     assert accountant != owner
@@ -176,7 +189,7 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
     actions,
     monkeypatch,  # noqa: ANN001
 ):
-    destination, documents, extractor, owner = _rig(actions, {"on": True})
+    destination, documents, extractor, owner = _rig(actions)
     connection_id = await _capture(destination, owner)
 
     def refused(*_: Any, **__: Any) -> None:

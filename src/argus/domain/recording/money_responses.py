@@ -51,6 +51,11 @@ class MoneyActivityResponse(BaseModel):
     legs: list[MoneyLegResponse]
 
 
+class SkippedObservation(BaseModel):
+    observation_id: str
+    reason: Literal["after_observation_day", "entered_after_observation", "blank_opening"]
+
+
 class MoneyAccountEffect(BaseModel):
     account_id: str
     currency: str
@@ -58,6 +63,7 @@ class MoneyAccountEffect(BaseModel):
     before: BalanceResponse
     after: BalanceResponse | None
     observations: list[ObservationQuestion]
+    skipped_observations: list[SkippedObservation] = []
     unexplained_before: dict[str, int | None]
     unexplained_after: dict[str, int | None] | None
 

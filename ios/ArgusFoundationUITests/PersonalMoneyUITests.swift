@@ -187,12 +187,12 @@ extension FinancialLoopUITests {
         let dollarsBefore = try homeRecordedSpending(currency: "USD")
         let dollarBalance = app.staticTexts["home.netWorth.USD"]
         let dollarBalanceBefore = dollarBalance.exists ? dollarBalance.label : nil
-        let unknown = createMoneyAccount("Unknown dollars " + stamp, type: "checking", currency: "USD")
-        assertText("Balance unknown")
+        let dollars = createMoneyAccount("Blank dollars " + stamp, type: "checking", currency: "USD")
+        assertText("USD 0.00")
         recordMoney(kind: "income", amount: "100", note: "Dollar income " + stamp)
-        assertText("Balance unknown")
+        assertText("USD 100.00")
         recordMoney(kind: "refund", amount: "25", note: "Foreign return " + stamp)
-        assertText("Balance unknown")
+        assertText("USD 125.00")
         inspectMoney("Foreign return " + stamp)
         assertText("Purchase not linked")
         closeMoneyDetail()
@@ -200,10 +200,11 @@ extension FinancialLoopUITests {
         let dollarsAfter = try homeRecordedSpending(currency: "USD")
         XCTAssertEqual(dollarsAfter, dollarsBefore == .currencyAbsent ? .noData : dollarsBefore)
         XCTAssertTrue(dollarBalance.waitForExistence(timeout: 10))
-        XCTAssertEqual(dollarBalance.label, dollarBalanceBefore ?? "—")
-        capture("separate-currency-unknown-balance")
+        XCTAssertNotEqual(dollarBalance.label, dollarBalanceBefore ?? "—",
+                          "A blank dollar account starts at a recorded 0.00, so its income counts in USD only")
+        capture("separate-currency-zero-start-balance")
         app.terminate(); app.launch()
-        openMoneyAccount(unknown); assertText("Balance unknown")
+        openMoneyAccount(dollars); assertText("USD 125.00")
         openMoneyAccount(bank); assertText("DOP 940.00")
         app.terminate()
         app.launchArguments = ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO", "-appearancePreference", "light"]

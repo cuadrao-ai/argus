@@ -10,6 +10,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
 from argus.api.business_drafts import (
     bridged,
     overview_with_drafts,
@@ -26,6 +27,7 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.scope import BusinessScope
+from argus.domain.business.search import parse
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
@@ -101,6 +103,7 @@ def _views(web, cid: str):  # noqa: ANN001
     return row, detail
 
 
+@pytest.mark.owner_acts
 def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  # noqa: ANN001
     saved = single._saved(actions, "expense")
     service, context, _, cid, _, _ = saved
@@ -134,7 +137,7 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
     counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
     assert (counts["awaiting_review"], counts["needs_attention"]) == (1, 0)
     assert [item["id"] for item in receipt_summaries(web, "inbox")] == [cid]
-    [hit] = search_with_drafts(web, "Brisa", 5)["receipts"]
+    [hit] = search_with_drafts(web, parse("Brisa"))["receipts"]
     assert (hit["id"], hit["status"], hit["merchant"]) == (
         cid,
         "review_ready",
@@ -190,7 +193,7 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
         str(approved.activity_id),
     )
     # The expense is the search hit now; the receipt is not listed twice.
-    found = search_with_drafts(web, "Brisa", 5)
+    found = search_with_drafts(web, parse("Brisa"))
     assert [e["id"] for e in found["expenses"]] == [str(approved.activity_id)]
     assert found["receipts"] == []
 
@@ -236,7 +239,9 @@ def test_the_overlay_leaves_a_receipt_without_a_draft_alone(actions):  # noqa: A
     service, context, _ = actions
     web = _web(service, context)
     summary = {"id": str(UUID(int=7)), "status": "saved", "attention": None}
-    assert bridged(web, [summary]) == [summary]
+    result = bridged(web, [summary])[0]
+    assert {key: result[key] for key in summary} == summary
+    assert result["activity"]["state"] == "saved_unread"
 
 
 def test_a_repeat_receipt_shows_as_a_duplicate_of_its_original_in_every_view(actions):  # noqa: ANN001
@@ -396,6 +401,7 @@ def test_a_receipt_linked_to_two_drafts_asks_a_person_to_check(actions):  # noqa
     assert result1.draft_id != result2.draft_id
 
 
+@pytest.mark.owner_acts
 def test_an_approved_draft_still_asking_for_purchases_says_so_in_every_view(actions):  # noqa: ANN001
     from tests.test_business_multi_purchase_postgres import _account, saved_two_purchases
 

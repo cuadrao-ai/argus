@@ -82,4 +82,24 @@ test.describe("A saved expense opens its record", () => {
     await expect(dossier(page)).toBeVisible();
     await expect(dossier(page)).toContainText("One expense was recorded after approval");
   });
+
+  test("a direct ?expense= link resolves the record the way the row does", async ({ page }) => {
+    await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
+    await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+    // An expense that names a receipt opens that receipt's record, never "Sin recibo adjunto".
+    await page.goto("/dev/business-preview?expense=exp-hosting");
+    await expect(page).toHaveURL(/[?&]receipt=rcpt-confirmed/);
+    const record = page.locator('[data-testid="business-record-review"], section[aria-labelledby="receipt-review-title"]').first();
+    await expect(record).toBeVisible();
+    await expect(page.getByTestId("business-expense-detail")).toHaveCount(0);
+    await expect(record).not.toContainText("Sin recibo adjunto");
+    // An expense entered by hand opens its own detail, labelled by its title, focused, and says no receipt is attached.
+    await page.goto("/dev/business-preview?expense=exp-gas");
+    const detail = page.getByTestId("business-expense-detail");
+    await expect(detail).toBeVisible();
+    await expect(detail.getByRole("heading", { name: "Estación Ruta 3" })).toHaveAttribute("id", "expense-detail-title");
+    await expect(detail).toHaveAttribute("aria-labelledby", "expense-detail-title");
+    await expect(detail).toContainText("Sin recibo adjunto");
+    await expect(page.getByTestId("business-expense-detail")).toBeFocused();
+  });
 });

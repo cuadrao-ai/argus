@@ -1,16 +1,19 @@
 "use client";
 
+import { useBusinessNaming } from "./BusinessNamingProvider";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { Mail, ShieldCheck, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { cardClass, LoadingRows, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, dangerButtonClass, dangerConfirmButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
 function formatDay(value: string, locale: string): string {
-  return new Date(value).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "America/Santo_Domingo" });
 }
 
 /**
@@ -22,10 +25,12 @@ export function AccessList({
   access,
   busyId,
   onRemove,
+  onResend,
 }: {
   access: BusinessAccess;
   busyId: string | null;
   onRemove: (target: Pending) => void;
+  onResend: (invite: BusinessAccessInvite) => void;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
@@ -41,13 +46,13 @@ export function AccessList({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name}{grant.email ? ` · ${grant.email}` : ""}</span>
               <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
-                {grant.owner ? t("business_access.owner", "Owner") : t("business_access.member", "Reads and prepares")} · {t("business_access.since", "Since {{date}}", { date: formatDay(grant.created_at, locale) })}
+                {grant.owner ? t("business_access.owner", "Owner") : t("business_access.member", "Member")} · {t("business_access.since", "Since {{date}}", { date: formatDay(grant.created_at, locale) })}
               </span>
             </span>
             {grant.owner ? (
               <span className="text-[12px] text-black/40 dark:text-white/40">{t("business_access.owner_locked", "Your own access cannot be removed.")}</span>
             ) : (
-              <button type="button" className={secondaryButtonClass} disabled={busyId === grant.id} onClick={() => onRemove({ kind: "grant", item: grant })}>
+              <button type="button" className={dangerButtonClass} disabled={busyId === grant.id} onClick={() => onRemove({ kind: "grant", item: grant })}>
                 {t("business_access.remove", "Remove access")}
               </button>
             )}
@@ -60,17 +65,24 @@ export function AccessList({
           <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business_access.pending_note", "Gets access the first time they sign in with this confirmed email.")}</p>
           <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-access-invites">
             {access.invites.map((invite) => (
-              <li key={invite.id} className={rowClass}>
+              <li key={invite.id} className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-3 px-3 py-3 sm:flex">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
                   <Mail className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-black dark:text-white">{invite.email}</span>
-                  <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">{t("business_access.pending_until", "Expires {{date}}", { date: formatDay(invite.expires_at, locale) })}</span>
+                  <span className="mt-0.5 block break-words text-[13px] text-black/50 dark:text-white/50">{invite.state === "expired"
+                    ? (t("business_access.invite_expired", "La invitación a {{email}} venció.", { email: invite.email }) || `La invitación a ${invite.email} venció.`)
+                    : t("business_access.pending_until", "Expires {{date}}", { date: formatDay(invite.expires_at, locale) })}</span>
                 </span>
-                <button type="button" className={secondaryButtonClass} disabled={busyId === invite.id} onClick={() => onRemove({ kind: "invite", item: invite })}>
-                  {t("business_access.remove_invite", "Cancel invite")}
-                </button>
+                <div className="col-start-2 flex flex-wrap gap-2">
+                  <button type="button" className={secondaryButtonClass} disabled={busyId === invite.id} onClick={() => onResend(invite)}>
+                    {t("business_access.resend", "Reenviar") || "Reenviar"}
+                  </button>
+                  <button type="button" className={dangerButtonClass} disabled={busyId === invite.id} onClick={() => onRemove({ kind: "invite", item: invite })}>
+                    {t("business_access.remove_invite", "Cancel invite")}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -83,6 +95,7 @@ export function AccessList({
 export default function BusinessAccessPanel() {
   const { t } = useTranslation();
   const { source, revision } = useBusiness();
+  const naming = useBusinessNaming();
   const [access, setAccess] = useState<BusinessAccess | null>(null);
   const [failed, setFailed] = useState(false);
   const [email, setEmail] = useState("");
@@ -113,13 +126,34 @@ export default function BusinessAccessPanel() {
     setGiving(true);
     setGiveError(null);
     try {
-      setAccess(await source.giveAccess(address));
+      if (naming && !await naming.requireName()) return;
+      const next = await source.giveAccess(address);
+      setAccess(next);
+      if (next.invite_delivery && next.invite_delivery !== "accepted") {
+        setGiveError(t("business_access.give_error", "We couldn't give access. Try again."));
+      }
       setEmail("");
     } catch (error) {
       const status = (error as { status?: number }).status;
       setGiveError(status === 422 ? t("business_access.invalid_email", "Enter an email address.") : t("business_access.give_error", "We couldn't give access. Try again."));
     } finally {
       setGiving(false);
+    }
+  };
+
+  const resend = async (invite: BusinessAccessInvite) => {
+    setBusyId(invite.id);
+    setGiveError(null);
+    try {
+      const next = await source.resendAccessInvite(invite.id);
+      setAccess(next);
+      if (next.invite_delivery && next.invite_delivery !== "accepted") {
+        setGiveError(t("business_access.give_error", "We couldn't give access. Try again."));
+      }
+    } catch {
+      setGiveError(t("business_access.give_error", "We couldn't give access. Try again."));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -151,10 +185,10 @@ export default function BusinessAccessPanel() {
       {failed ? (
         <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business_access.error", "We couldn't load access. Try again.")}</p>
       ) : access === null ? (
-        <LoadingRows />
+        <Settle pending layout="access" />
       ) : (
         <>
-          <AccessList access={access} busyId={busyId} onRemove={setPending} />
+          <AccessList access={access} busyId={busyId} onRemove={setPending} onResend={resend} />
           {removeError ? <p role="alert" className="mt-3 text-[14px] text-black/70 dark:text-white/70">{t("business_access.remove_error", "We couldn't remove access. Try again.")}</p> : null}
           {pending ? (
             <div role="alertdialog" aria-labelledby="business-access-confirm" className={`${cardClass} mt-4`}>
@@ -164,7 +198,7 @@ export default function BusinessAccessPanel() {
                   : t("business_access.remove_invite_confirm", "Cancel the invite for {{who}}?", { who })}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={primaryButtonClass} onClick={remove}>{t("business_access.confirm", "Yes, remove")}</button>
+                <button type="button" className={dangerConfirmButtonClass} onClick={remove}>{t("business_access.confirm", "Yes, remove")}</button>
                 <button type="button" className={secondaryButtonClass} onClick={() => setPending(null)}>{t("business_access.cancel", "Cancel")}</button>
               </div>
             </div>

@@ -107,10 +107,18 @@ import Foundation
         let remainingID = try remaining.capture(files: [(source, "remaining.pdf", true)], currency: nil,
             origin: origin, group: nil, example: false, spanish: false)
         let deletedSource = deleted.url(deleted.receipt(deletedID)!.source[0])
+        let guestBook = support.appendingPathComponent("CuadraoDeviceBook", isDirectory: true)
+        let guestReceipt = guestBook.appendingPathComponent("receipts", isDirectory: true).appendingPathComponent("receipts.json")
+        try FileManager.default.createDirectory(at: guestReceipt.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("synthetic guest book".utf8).write(to: guestBook.appendingPathComponent("book.json"))
+        try Data("[]".utf8).write(to: guestReceipt)
         try CuadraoReceiptStore.removeConnectedDrafts(userID: deletedOwner, applicationSupport: support)
         check(CuadraoReceiptStore.connectedDrafts(userID: deletedOwner, applicationSupport: support).receipts.isEmpty
               && !FileManager.default.fileExists(atPath: deletedSource.path),
-              "Confirmed-deletion cleanup removes that person's drafts and their sources")
+              "Account-deletion cleanup removes that person's drafts and their sources")
+        check((try? String(contentsOf: guestBook.appendingPathComponent("book.json"), encoding: .utf8)) == "synthetic guest book"
+              && (try? String(contentsOf: guestReceipt, encoding: .utf8)) == "[]",
+              "The guest book and its receipts survive an account's cleanup")
         let survivor = CuadraoReceiptStore.connectedDrafts(userID: remainingOwner, applicationSupport: support)
         check(survivor.receipt(remainingID)?.source.first?.name == "remaining.pdf"
               && (try? Data(contentsOf: survivor.url(survivor.receipt(remainingID)!.source[0]))) == source,

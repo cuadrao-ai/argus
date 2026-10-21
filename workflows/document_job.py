@@ -12,6 +12,8 @@ import os
 from collections.abc import Mapping
 from datetime import datetime, timezone
 
+from argus.domain.business.actions import BusinessActions
+from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.extractor import DocumentExtractor
 from argus.domain.ingestion.documents.jobs import run_attempt
@@ -59,7 +61,8 @@ def postgres_documents_service(
     objects: SourceObjects,
     extractor: Extractor | None = None,
 ) -> DocumentsService:
-    """The API's durable document graph: connections, sink and checkpoint."""
+    """The API's durable document graph: connections, sink, checkpoint, the
+    canonical Business bridge and the owner's stored reading setting."""
     connections = PostgresConnectionRepository(pool)
     sink = ReconciliationService(
         PostgresImportStore(pool),
@@ -68,12 +71,16 @@ def postgres_documents_service(
         connections=connections,
     )
     hub = IngestionHub(connections, box=None, sink=sink, clock=_clock)
-    return DocumentsService(
+    service = DocumentsService(
         hub,
         PostgresDocumentStore(pool, objects),
         extractor or DocumentExtractor(),
         jobs_recover_interruptions=True,
+        business_actions=BusinessActions(pool, sink),
+        business_preparation_required=True,
     )
+    service.business_receipt_consent = BusinessReceiptConsentStore(pool)
+    return service
 
 
 async def run_document_preparation(

@@ -33,6 +33,7 @@ def unpack(content):
         return {name: archive.read(name) for name in archive.namelist()}
 
 
+@pytest.mark.owner_acts
 def test_read_only_export_uses_canonical_owner_funds_and_exact_sources(actions):
     service, context, _ = actions
     draft, version = shared.create(service, context)
@@ -131,13 +132,20 @@ def test_live_read_grant_required_and_no_foreign_owner_substitution(actions, use
 
 
 @pytest.fixture
-def attachment(actions):
+def attachment(actions, request):
     import hashlib
 
     service, context, _ = actions
     with service.authority.pool.connection() as db:
         receipt = connection(db, context.owner_id, str(context.actor.space_id))
-    content = b"%PDF-1.7 synthetic original\x00\xff"
+    from pathlib import Path
+
+    media_type = getattr(request, "param", "application/pdf")
+    content = (
+        (Path(__file__).parent / "document_extraction_fixtures/receipt-dop.png").read_bytes()
+        if media_type == "image/png"
+        else b"synthetic original\x00\xff"
+    )
     objects = InMemorySourceObjects()
     store = PostgresDocumentStore(service.authority.pool, objects)
     now = datetime.now(timezone.utc)
@@ -146,7 +154,7 @@ def attachment(actions):
         draft=DocumentDraft(
             connection_id=receipt,
             filename="../original.pdf",
-            media_type="application/pdf",
+            media_type=media_type,
             sha256=hashlib.sha256(content).hexdigest(),
             size_bytes=len(content),
             created_at=now,
@@ -163,7 +171,7 @@ def attachment(actions):
             received_at=now,
             connection_id=UUID(receipt),
             filename="../original.pdf",
-            media_type="application/pdf",
+            media_type=media_type,
         ),
     )
     key, lease = shared.prepare(
@@ -214,14 +222,14 @@ def test_authorization_failure_aborts_instead_of_becoming_missing_evidence(
         nonlocal count
         count += 1
         assert grant_id == context.grant_id
-        if count == (2 if boundary == "source" else 3):
+        if count == (3 if boundary == "source" else 4):
             raise ActionError("not_found", "business_record_not_found")
         return original(db, actor, grant_id)
 
     monkeypatch.setattr(authority, "authorize", recheck)
     with pytest.raises(ActionError, match="business_record_not_found"):
         export_package(service.authority, context, PERIOD, objects)
-    assert count == (2 if boundary == "source" else 3)
+    assert count == (3 if boundary == "source" else 4)
 
 
 def test_real_clock_grant_expiry_before_release_refuses_package(
@@ -370,3 +378,125 @@ def test_revocation_waits_for_snapshot_grant_lock(actions, attachment, monkeypat
         )
     with pytest.raises(ActionError, match="business_record_not_found"):
         export_package(service.authority, context, PERIOD, objects)
+
+
+@pytest.mark.parametrize("attachment", ["image/png"], indirect=True)
+def test_export_rebuilds_only_images_and_reuses_the_copy(actions, attachment):
+    service, context, _ = actions
+    objects, source_id, original = attachment
+    before = dict(objects.objects)
+    assert len(before) == 1
+    files = unpack(export_package(service.authority, context, PERIOD, objects))
+    manifest = json.loads(files["manifest.json"])
+    source = manifest["sources"][0]
+    assert source["availability"] == "included"
+    assert source["file"] == f"originals/{source_id}.jpg"
+    assert files[source["file"]].startswith(b"\xff\xd8")
+    assert files[source["file"]] != original
+    assert all(objects.objects[path] == value for path, value in before.items())
+    assert len(objects.objects) == 2
+    after = dict(objects.objects)
+    repeated = unpack(export_package(service.authority, context, PERIOD, objects))
+    assert repeated[source["file"]] == files[source["file"]]
+    assert objects.objects == after
+
+
+@pytest.mark.parametrize("attachment", ["image/png"], indirect=True)
+def test_failed_image_rebuild_never_serves_original(actions, attachment, monkeypatch):
+    from argus.domain.ingestion.documents import rebuilt
+    from argus.domain.ingestion.documents.models import DocumentExtractionError
+
+    service, context, _ = actions
+    objects, _, _ = attachment
+    def failed(**_kwargs):
+        raise DocumentExtractionError("image_unreadable")
+    monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", failed)
+    files = unpack(export_package(service.authority, context, PERIOD, objects))
+    source = json.loads(files["manifest.json"])["sources"][0]
+    assert source["availability"] == "unavailable" and source["file"] is None
+    assert len(objects.objects) == 1
+
+
+@pytest.mark.parametrize("attachment", [
+    "application/pdf", "text/plain", "text/csv", "application/xml", "text/xml",
+    "message/rfc822", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+], indirect=True)
+def test_nonimage_exports_preserve_exact_original_without_producer(actions, attachment, monkeypatch):
+    from argus.domain.ingestion.documents import rebuilt
+
+    service, context, _ = actions
+    objects, _, content = attachment
+    def forbidden(**_kwargs):
+        pytest.fail("non-image export invoked image producer")
+    monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", forbidden)
+    before = dict(objects.objects)
+    files = unpack(export_package(service.authority, context, PERIOD, objects))
+    source = json.loads(files["manifest.json"])["sources"][0]
+    assert source["availability"] == "included"
+    assert files[source["file"]] == content
+    assert objects.objects == before
+
+
+@pytest.mark.parametrize("attachment", ["image/png"], indirect=True)
+@pytest.mark.parametrize("change", ["revocation", "disconnect", "identity"])
+def test_export_rechecks_access_after_image_build(actions, attachment, monkeypatch, change):
+    from argus.domain.ingestion.documents import rebuilt
+
+    service, context, grant = actions
+    objects, _, _ = attachment
+    original = rebuilt.ensure_rebuilt_image
+    def changed(**kwargs):
+        original(**kwargs)
+        if change == "identity":
+            import hashlib
+
+            store = kwargs["store"]
+            key = {name: kwargs[name] for name in ("user_id", "connection_id")}
+            draft = store.draft(**key)
+            content = store.source(**key) + b"changed source"
+            store.forget(**key)
+            store.capture(user_id=context.owner_id, draft=draft.model_copy(update={
+                "sha256": hashlib.sha256(content).hexdigest(), "size_bytes": len(content),
+            }), content=content)
+            return
+        with service.authority.pool.connection() as db:
+            db.execute("set local lock_timeout='1s'")
+            if change == "revocation":
+                db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (grant,))
+            else:
+                db.execute("update public.financial_source_connections set status='disconnected',disconnected_at=now() where id=%s", (kwargs["connection_id"],))
+    monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", changed)
+    if change == "revocation":
+        with pytest.raises(ActionError, match="business_record_not_found"):
+            export_package(service.authority, context, PERIOD, objects)
+    else:
+        files = unpack(export_package(service.authority, context, PERIOD, objects))
+        source = json.loads(files["manifest.json"])["sources"][0]
+        assert source["availability"] == ("source_changed" if change == "identity" else "unavailable")
+        assert source["file"] is None
+
+
+def test_legacy_inline_nonimage_export_keeps_verified_bytes(actions, attachment):
+    service, context, _ = actions
+    objects, source_id, content = attachment
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_document_extractions d set source_bytes=%s,"
+            "source_bucket=null,source_path=null,source_media_type=null,"
+            "source_size_bytes=null,source_sha256=null from public.business_sources s "
+            "where s.connection_id=d.connection_id and s.id=%s",
+            (content, source_id),
+        )
+    objects.objects.clear()
+    files = unpack(export_package(service.authority, context, PERIOD, objects))
+    source = json.loads(files["manifest.json"])["sources"][0]
+    assert files[source["file"]] == content
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "update public.financial_document_extractions d set source_bytes=%s "
+            "from public.business_sources s where s.connection_id=d.connection_id and s.id=%s",
+            (b"corrupted", source_id),
+        )
+    files = unpack(export_package(service.authority, context, PERIOD, objects))
+    source = json.loads(files["manifest.json"])["sources"][0]
+    assert source["availability"] == "unavailable" and source["file"] is None

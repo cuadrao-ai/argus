@@ -6,11 +6,11 @@ const PAGES = [
   { path: "/", lang: "es-DO", title: "Cada cuenta. En su sitio. | Cuadrao", canonical: "https://cuadrao.ai", alternate: "https://cuadrao.ai/en" },
   { path: "/personal", lang: "es-DO", title: "Tus finanzas, en orden. | Cuadrao Personal", canonical: "https://cuadrao.ai/personal", alternate: "https://cuadrao.ai/en/personal" },
   { path: "/contacto", lang: "es-DO", title: "Hablemos de tu negocio | Cuadrao", canonical: "https://cuadrao.ai/contacto", alternate: "https://cuadrao.ai/en/contact" },
-  { path: "/privacidad", lang: "es-DO", title: "Privacidad | Cuadrao", canonical: "https://cuadrao.ai/privacidad", alternate: "https://cuadrao.ai/en/privacy" },
+  { path: "/privacidad", lang: "es-DO", title: "Política de privacidad del sitio web de Cuadrao", canonical: "https://cuadrao.ai/privacidad", alternate: "https://cuadrao.ai/en/privacy" },
   { path: "/en", lang: "en", title: "Every record. In its place. | Cuadrao", canonical: "https://cuadrao.ai/en", alternate: "https://cuadrao.ai" },
   { path: "/en/personal", lang: "en", title: "Your finances, in order. | Cuadrao Personal", canonical: "https://cuadrao.ai/en/personal", alternate: "https://cuadrao.ai/personal" },
   { path: "/en/contact", lang: "en", title: "Let's talk about your business | Cuadrao", canonical: "https://cuadrao.ai/en/contact", alternate: "https://cuadrao.ai/contacto" },
-  { path: "/en/privacy", lang: "en", title: "Privacy | Cuadrao", canonical: "https://cuadrao.ai/en/privacy", alternate: "https://cuadrao.ai/privacidad" },
+  { path: "/en/privacy", lang: "en", title: "Privacy policy for the Cuadrao website", canonical: "https://cuadrao.ai/en/privacy", alternate: "https://cuadrao.ai/privacidad" },
 ];
 
 test.beforeEach(async ({ context }, info) => {
@@ -139,6 +139,13 @@ test.describe("indexing", () => {
     expect(await (await request.get("/sitemap.xml")).text()).not.toContain("<loc>");
   });
 
+  test("privacy and deletion pages omit the robots header and another page still sends it", async ({ request }) => {
+    for (const path of ["/privacidad", "/privacidad/", "/eliminar-datos", "/eliminar-datos/"]) {
+      expect((await request.get(path, { maxRedirects: 0 })).headers()["x-robots-tag"]).toBeUndefined();
+    }
+    expect((await request.get("/terminos", { maxRedirects: 0 })).headers()["x-robots-tag"]).toBe("noindex, nofollow");
+  });
+
   test("the public host is indexable and lists every page once, without private routes", async ({ request }) => {
     const robots = await (await request.get(`${PUBLIC_URL}/robots.txt`)).text();
     expect(robots).toContain("Allow: /");
@@ -147,7 +154,7 @@ test.describe("indexing", () => {
     expect((await request.get(`${PUBLIC_URL}/`)).headers()["x-robots-tag"]).toBeUndefined();
     const sitemap = await (await request.get(`${PUBLIC_URL}/sitemap.xml`)).text();
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-    expect(locations.sort()).toEqual(PAGES.map((entry) => entry.canonical).sort());
+    expect(locations.sort()).toEqual([...PAGES.map((entry) => entry.canonical), "https://cuadrao.ai/terminos", "https://cuadrao.ai/eliminar-datos", "https://cuadrao.ai/en/terms", "https://cuadrao.ai/en/delete-data"].sort());
     expect(sitemap).not.toContain("/api/");
     expect(sitemap).toContain('hreflang="en"');
   });

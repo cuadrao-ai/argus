@@ -7,7 +7,7 @@ import { I18nextProvider } from "react-i18next";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 import { inboxCount, NotesAwaitingReview, openNotesByDraft } from "../components/business-app/BusinessInboxPanel";
-import type { BusinessCapture, ReceiptSummary } from "../lib/business-api";
+import type { BusinessCapture } from "../lib/business-api";
 
 // The draft's version runs ahead of the note's revision (later actions bump it); rows show the revision.
 const note = (draft_id: string, revision: number, text: string, received_at: string, review_state: BusinessCapture["review_state"] = "open"): BusinessCapture =>
@@ -75,14 +75,10 @@ describe("notes awaiting review in the Inbox", () => {
 });
 
 describe("the inbox count on the Overview card and the sidebar badge", () => {
-  const receipt = (id: string, email_original = false) => ({ id, email_original } as unknown as ReceiptSummary);
-  test("counts what the Inbox list shows: receipts without the email itself, plus drafts with an open note", () => {
-    const inbox = [receipt("r1"), receipt("r2"), receipt("mail", true)];
-    // Three open drafts among CAPTURES (a, b, e); accepted and dismissed notes leave the Inbox.
-    assert.equal(inboxCount({ inbox, notes: CAPTURES }), 2 + 3);
-    assert.equal(inboxCount({ inbox: [], notes: CAPTURES }), 3);
-    assert.equal(inboxCount({ inbox, notes: [] }), 2);
-    assert.equal(inboxCount({ inbox, notes: null }), 2);
-    assert.equal(inboxCount({ inbox: null, notes: null }), 0);
+  test("is countPorRevisar of the receipt list, and unknown until that list arrives", () => {
+    assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }] }), 2);
+    assert.equal(inboxCount({ inbox: [] }), 0);
+    assert.equal(inboxCount({ inbox: null }), null);
+    assert.equal(inboxCount({}), null);
   });
 });

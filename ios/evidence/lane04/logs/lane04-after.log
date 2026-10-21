@@ -1,0 +1,14 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:234: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (53.471 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpHidesAcceptanceAndLinksWhenOnlyOneDocumentExists]' passed (23.099 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSignUpRemainsReachableAtLargeTextSizes]' passed (28.758 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' started.
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishGuestToastWrapsAtLargeTextSizes]' passed (26.511 seconds).
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testSpanishModeLineDoesNotReturnOnSecondLaunch]' started.
+Restarting after unexpected exit, crash, or test timeout; summary will include totals from previous launches.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+** TEST FAILED **

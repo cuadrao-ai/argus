@@ -6,13 +6,13 @@ import asyncio
 import hashlib
 import unicodedata
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
 
+from argus.domain.business.document_type import DocumentType
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -20,6 +20,7 @@ from argus.domain.ingestion.connections import (
     SourceConnection,
 )
 from argus.domain.ingestion.contract import ImportCandidate, SourceKind, SourceRef
+from argus.domain.ingestion.documents.dgii_qr import read_dgii_qr
 from argus.domain.ingestion.documents.models import (
     DocumentDraft,
     DraftProposal,
@@ -28,8 +29,13 @@ from argus.domain.ingestion.documents.models import (
     ReceiptDetails,
 )
 from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
-from argus.domain.ingestion.documents.preparation import validate_source
-from argus.domain.ingestion.documents.store import DocumentStore
+from argus.domain.ingestion.documents.preparation import PreparedDocument, validate_source
+from argus.domain.ingestion.documents.rebuilt import ensure_rebuilt_image
+from argus.domain.ingestion.documents.store import (
+    CaptureHook,
+    DocumentStore,
+    download_source,
+)
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.owner_scope import OwnerScope, space_id
 
@@ -52,6 +58,7 @@ def owner_entry_id(sha256: str) -> str:
 
 
 def owner_purchase(draft: DocumentDraft, now: datetime) -> ImportCandidate:
+    venta = draft.document_type == "venta"
     return ImportCandidate(
         source=SourceRef(
             source="statement",
@@ -60,8 +67,8 @@ def owner_purchase(draft: DocumentDraft, now: datetime) -> ImportCandidate:
             observed_at=now,
         ),
         evidence="transaction",
-        direction="outflow",
-        kind_hint="expense",
+        direction="inflow" if venta else "outflow",
+        kind_hint="income" if venta else "expense",
         uncertain=frozenset({"amount", "currency", "occurred_on"}),
     )
 
@@ -79,6 +86,7 @@ class Extractor(Protocol):
         media_type: str,
         connection_id: str,
         observed_at: datetime,
+        prepared: PreparedDocument | None = None,
     ) -> ExtractionBatch: ...
 
 
@@ -130,10 +138,12 @@ class DocumentsService:
         business_preparation_required: bool = False,
     ) -> None:
         self.hub, self.store, self.extractor = hub, store, extractor
+        # One bounded decode/capture at a time on this app-owned service.
+        self._capture_slot = asyncio.Semaphore(1)
         self.business_actions = business_actions
-        # Asked at the moment of a read, so a permission withdrawn after the
-        # draft was queued stops a read that has not started.
-        self.read_gate: Callable[[str, str], bool] | None = None
+        # The owner's stored receipt-reading setting: the only consent for a
+        # Business read, asked again at the moment of each read.
+        self.business_receipt_consent = None
         # An app with a Postgres pool never falls back to legacy Business
         # delivery; without a pool there is no canonical wiring to require.
         self.business_preparation_required = business_preparation_required
@@ -211,7 +221,21 @@ class DocumentsService:
 
         self._connection(user_id, connection_id, scope=scope)
         try:
-            return self._read_source(user_id, connection_id)
+            try:
+                ensure_rebuilt_image(
+                    store=self.store, user_id=user_id, connection_id=connection_id
+                )
+                self._connection(user_id, connection_id, scope=scope)
+                source = download_source(
+                    self.store, user_id=user_id, connection_id=connection_id
+                )
+            except SourceStorageUnavailable:
+                raise DocumentServiceError(
+                    "document_storage_unavailable", retryable=True
+                ) from None
+            if source is None:
+                raise DocumentServiceError("document_source_unavailable")
+            return source[1]
         except DocumentServiceError as error:
             if error.code == "document_source_unavailable":
                 draft = self.store.draft(user_id=user_id, connection_id=connection_id)
@@ -280,6 +304,73 @@ class DocumentsService:
         proposal: DraftProposal | None = None,
         source_text: str | None = None,
         scope: OwnerScope,
+        on_capture: CaptureHook | None = None,
+        context_only: bool = False,
+        document_type: DocumentType | None = None,
+    ) -> DocumentOutcome:
+        consent_id = None
+        if space_id(scope) is not None:
+            permission = await asyncio.to_thread(
+                self._business_permission, scope, user_id
+            )
+            consent = permission["enabled"] and not context_only
+            consent_id = permission["consent_id"] if consent else None
+
+        def capture() -> DocumentOutcome | BaseException:
+            try:
+                return self._upload(
+                    user_id=user_id,
+                    content=content,
+                    filename=filename,
+                    media_type=media_type,
+                    consent=consent,
+                    proposal=proposal,
+                    source_text=source_text,
+                    scope=scope,
+                    on_capture=on_capture,
+                    consent_id=consent_id,
+                    document_type=document_type,
+                )
+            except BaseException as error:
+                # SystemExit/KeyboardInterrupt must travel as data: raising
+                # either inside the worker Task stops the caller's event loop.
+                return error
+
+        async with self._capture_slot:
+            worker = asyncio.create_task(asyncio.to_thread(capture))
+            try:
+                result = await asyncio.shield(worker)
+            except asyncio.CancelledError:
+                # A thread cannot be cancelled. Keep its slot and caller alive
+                # until the write settles, even if cancellation repeats.
+                while not worker.done():
+                    try:
+                        await asyncio.shield(worker)
+                    except asyncio.CancelledError:
+                        continue
+                    except Exception:
+                        break
+                if not worker.cancelled():
+                    worker.exception()
+                raise
+            if isinstance(result, BaseException):
+                raise result
+            return result
+
+    def _upload(
+        self,
+        *,
+        user_id: str,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        consent: bool,
+        proposal: DraftProposal | None,
+        source_text: str | None,
+        scope: OwnerScope,
+        on_capture: CaptureHook | None,
+        consent_id: str | None = None,
+        document_type: DocumentType | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -299,6 +390,14 @@ class DocumentsService:
                 raise DocumentServiceError("document_unavailable") from None
             connection = self._connection(user_id, error.existing_id, scope=scope)
             replayed = True
+            stored = self.store.draft(user_id=user_id, connection_id=connection.id)
+            if (
+                document_type is not None
+                and stored is not None
+                and stored.document_type is not None
+                and stored.document_type != document_type
+            ):
+                raise DocumentServiceError("document_type_conflict") from None
         draft = DocumentDraft(
             connection_id=connection.id,
             filename=stored_filename(filename),
@@ -307,13 +406,17 @@ class DocumentsService:
             sha256=digest,
             size_bytes=len(content),
             consent=consent,
+            business_reading_consent_id=consent_id,
             source_text=source_text,
+            document_type=document_type,
             status="queued" if consent else "saved",
             created_at=self.hub.clock(),
             updated_at=self.hub.clock(),
         )
         try:
-            captured = self.store.capture(user_id=user_id, draft=draft, content=content)
+            captured = self.store.capture(
+                user_id=user_id, draft=draft, content=content, on_capture=on_capture
+            )
         except SourceStorageUnavailable:
             raise DocumentServiceError(
                 "document_storage_unavailable", retryable=True
@@ -342,8 +445,33 @@ class DocumentsService:
         if draft.status == "queued":
             self._update(user_id, draft, status="saved", consent=False, error_code=code)
 
+    def _business_permission(self, scope: OwnerScope, user_id: str) -> dict:
+        """The owner's setting for this Business; off when the service has none."""
+
+        if self.business_receipt_consent is None:
+            return {"enabled": False, "consent_id": None}
+        return self.business_receipt_consent.status(space_id(scope), user_id)
+
     def _reading_allowed(self, user_id: str, connection_id: str) -> bool:
-        return self.read_gate is None or self.read_gate(user_id, connection_id)
+        """A Personal upload carries its own consent. A Business receipt is read
+        only under the owner's current setting, the one it was queued under."""
+
+        row = self.hub.connections.get_any_scope(
+            user_id=user_id, connection_id=connection_id
+        )
+        business = space_id(row.scope)
+        if business is None:
+            return True
+        if self.business_receipt_consent is None:
+            return False
+        draft = self.store.draft(user_id=user_id, connection_id=connection_id)
+        return bool(
+            draft
+            and draft.business_reading_consent_id
+            and self.business_receipt_consent.enabled(
+                business, user_id, draft.business_reading_consent_id
+            )
+        )
 
     def read_pending(
         self, user_id: str, connection_id: str, draft: DocumentDraft
@@ -375,9 +503,14 @@ class DocumentsService:
                 raise DocumentServiceError("document_extraction_consent_required")
             if not draft.source_available:
                 raise DocumentServiceError("document_source_unavailable")
-            if not self._reading_allowed(user_id, connection_id):
-                # A click is a fresh action: it is told why nothing was queued.
-                raise DocumentServiceError("whatsapp_receipt_reading_off")
+            if space_id(scope) is not None:
+                permission = self._business_permission(scope, user_id)
+                if not permission["enabled"]:
+                    # A click is a fresh action: it is told why nothing was queued.
+                    raise DocumentServiceError("business_receipt_reading_off")
+                draft = self._update(
+                    user_id, draft, business_reading_consent_id=permission["consent_id"]
+                )
             self._update(user_id, draft, status="queued", consent=True, error_code=None)
         return self.outcome(
             user_id=user_id,
@@ -453,7 +586,12 @@ class DocumentsService:
                 queued_only=True,
                 scope=scope,
             )
-        except Exception:
+        except Exception as error:
+            logger.warning(
+                "document_prepare_failed failure_mode={} connection_id={}",
+                type(error).__name__,
+                connection_id,
+            )
             return
 
     async def resume(
@@ -495,6 +633,12 @@ class DocumentsService:
                 repo.release(connection_id=connection_id, holder=holder)
                 raise DocumentServiceError("document_attempt_superseded")
         replayed = batch is not None
+        from argus.domain.business.actions.mutations import _read_refusal
+
+        if batch is not None and _read_refusal(batch) == "receipt_requires_review":
+            # The same saved batch refuses again. Only a new read can finish it.
+            batch = None
+            replayed = False
         try:
             business = self._canonical_business(connection_id, scope)
             if business:
@@ -520,6 +664,31 @@ class DocumentsService:
                 )
                 if hashlib.sha256(content).hexdigest() != draft.sha256:
                     raise DocumentServiceError("document_source_changed")
+                prepared_args = {}
+                if draft.media_type in ("image/png", "image/jpeg"):
+                    try:
+                        await asyncio.to_thread(
+                            ensure_rebuilt_image,
+                            store=self.store,
+                            user_id=user_id,
+                            connection_id=connection_id,
+                        )
+                        image = await asyncio.to_thread(
+                            self.store.rebuilt,
+                            user_id=user_id,
+                            connection_id=connection_id,
+                        )
+                    except SourceStorageUnavailable:
+                        raise DocumentServiceError(
+                            "document_storage_unavailable", retryable=True
+                        ) from None
+                    if image is None:
+                        raise DocumentServiceError("document_source_unavailable")
+                    prepared_args["prepared"] = PreparedDocument(
+                        1,
+                        (image[1],),
+                        dgii_qr=await asyncio.to_thread(read_dgii_qr, (image[1],)),
+                    )
                 # Asked again just before the provider is reached, so a switch
                 # turned off while the source was read still stops this read. The
                 # only window left is the commit below and the request start.
@@ -549,6 +718,7 @@ class DocumentsService:
                     media_type=draft.media_type,
                     connection_id=connection_id,
                     observed_at=self.hub.clock(),
+                    **prepared_args,
                 )
                 self._validate(batch, connection_id)
                 if not self.store.save(
@@ -560,6 +730,10 @@ class DocumentsService:
                 ):
                     raise DocumentServiceError("document_lease_lost", retryable=True)
             self._validate(batch, connection_id)
+            if not entered_by_owner(batch) and not self._reading_allowed(
+                user_id, connection_id
+            ):
+                raise DocumentServiceError("document_reading_not_allowed")
             if not repo.renew(
                 connection_id=connection_id, holder=holder, now=self.hub.clock()
             ):
@@ -609,6 +783,16 @@ class DocumentsService:
                 )
                 else "document_extraction_failed"
             )
+            if code in {
+                "unreadable_document",
+                "not_a_receipt",
+                "receipt_requires_review",
+            }:
+                logger.warning(
+                    "document_preparation_refused connection_id={} code={}",
+                    connection_id,
+                    code,
+                )
             try:
                 withdrawn = code == "document_reading_not_allowed"
                 if draft.source_available:

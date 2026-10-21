@@ -10,9 +10,11 @@ from email import policy
 from email.errors import MultipartInvariantViolationDefect
 from email.parser import BytesHeaderParser, BytesParser
 
+from argus.domain.ingestion.documents import preparation
 from argus.domain.ingestion.documents.email_source import MAX_EMAIL_BYTES
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.service import stored_filename
+from argus.domain.ingestion.email_intake.alignment import from_address
 from argus.domain.ingestion.gmail.html_text import html_to_text
 
 MAX_BODY_BYTES = 64 * 1024
@@ -56,6 +58,7 @@ def parse_envelope(content: bytes) -> Envelope:
     message = BytesParser(policy=policy.default).parsebytes(content)
     parts, plain, html = [], [], []
     stack, count, body_size = [(message, "1", 0)], 0, 0
+    pixels = 0
     while stack:
         part, key, depth = stack.pop()
         count += 1
@@ -83,6 +86,13 @@ def parse_envelope(content: bytes) -> Envelope:
             or media not in ("text/plain", "text/html")
         )
         if attachment:
+            if not error and media in ("image/png", "image/jpeg"):
+                try:
+                    pixels += preparation.image_pixels(raw, media)
+                except DocumentExtractionError as failure:
+                    error = failure.code
+                if pixels > preparation.MAX_PIXELS:
+                    raise DocumentExtractionError("document_email_limit")
             parts.append(EnvelopePart(key, filename, media, raw, error))
             continue
         body_size += len(raw)
@@ -109,7 +119,7 @@ def parse_envelope(content: bytes) -> Envelope:
 
     return Envelope(
         header("subject"),
-        header("from"),
+        from_address(content),
         header("date"),
         "\n".join(plain or html)[:MAX_BODY_BYTES],
         tuple(parts),

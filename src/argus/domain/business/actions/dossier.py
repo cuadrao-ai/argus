@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
+from argus.domain.business.actions.marks import draft_marks
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
+    ApprovalResult,
     Blocker,
     BusinessDossier,
     DraftRevision,
@@ -59,18 +63,22 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         )
         if not isinstance(getattr(facts, name), Known)
     ]
-    if isinstance(facts.kind, Known) and facts.kind.value not in {"expense", "income"}:
+    if isinstance(facts.kind, Known) and facts.kind.value not in {
+        "expense",
+        "income",
+        "refund",
+    }:
         result.append(Blocker(code="activity_kind_unsupported", field="kind"))
     if (
         isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
+        and facts.kind.value in {"income", "refund"}
         and isinstance(facts.funding, Known)
         and not isinstance(facts.funding.value, BusinessAccountFunding)
     ):
         result.append(Blocker(code="business_funding_unsupported", field="funding"))
     if (
         isinstance(facts.kind, Known)
-        and facts.kind.value == "income"
+        and facts.kind.value in {"income", "refund"}
         and isinstance(facts.funding, Known)
         and isinstance(facts.funding.value, BusinessAccountFunding)
     ):
@@ -84,7 +92,7 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
             isinstance(facts.currency, Known) and account.currency != facts.currency.value
         ):
             result.append(Blocker(code="import_currency_mismatch", field="funding"))
-        elif account.type not in ELIGIBILITY["income"]:
+        elif account.type not in ELIGIBILITY[facts.kind.value]:
             result.append(Blocker(code="account_ineligible", field="funding"))
     if (
         isinstance(facts.kind, Known)
@@ -97,12 +105,50 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
         result.append(Blocker(code="amount_positive_required", field="amount"))
     if (
         isinstance(facts.business_share, Known)
-        and facts.business_share.value.kind != "all"
+        and facts.business_share.value.kind == "partial"
     ):
+        # A personal receipt (none) is approved and left out of the totals;
+        # a partial share has no recording rule yet.
         result.append(
             Blocker(code="business_allocation_unsupported", field="business_share")
         )
     return result
+
+
+def approval_of(
+    receipt: Mapping[str, Any] | None,
+    activity_id: UUID | None,
+    history: tuple[DraftRevision, ...],
+) -> ApprovalResult | None:
+    """What the latest approval receipt says: recorded once the draft holds its
+    activity, else the unsettled outcome it left, else nothing to show."""
+
+    if receipt is None:
+        return None
+    version = receipt["command"]["request"]["version"]
+    outcome = receipt["outcome"] or {}
+    if activity_id:
+        return RecordedApproval(
+            activity_id=activity_id,
+            reviewed_version=version,
+            approved_revision=max(
+                (item.version for item in history if item.version <= version),
+                default=version,
+            ),
+            approved_at=receipt["created_at"],
+            actor=receipt["actor"],
+        )
+    if outcome.get("outcome") == "outcome_unknown":
+        return UnsettledApproval(
+            status="outcome_unknown", reviewed_version=version, code=outcome["code"]
+        )
+    if outcome.get("outcome") not in {None, "applied", "replayed"}:
+        return UnsettledApproval(
+            status="failed",
+            reviewed_version=version,
+            code=outcome.get("code", "approval_failed"),
+        )
+    return None
 
 
 def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
@@ -120,7 +166,8 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     questions = tuple(ReviewQuestion.model_validate(row) for row in question_rows)
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at from public.business_draft_revisions"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on"
+        " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
     )
@@ -163,34 +210,19 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
     approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
     approvals = tx.rows(
-        "select actor,command,outcome from public.business_action_receipts"
-        " where space_id=%s and command->>'action' in ('approve_expense','approve_income')"
+        "select actor,command,outcome,created_at from public.business_action_receipts"
+        " where space_id=%s and command->>'action' in ('approve_expense','approve_income','approve_refund')"
         " and command->>'draft_id'=%s"
         + approval_filter
         + " order by created_at desc limit 1",
         (tx.context.actor.space_id, str(draft_id), *approval_params),
     )
-    approval = None
-    if approvals:
-        row = approvals[0]
-        version = row["command"]["request"]["version"]
-        outcome = row["outcome"] or {}
-        if event.activity_id and event.accept_key:
-            approval = RecordedApproval(
-                activity_id=event.activity_id,
-                reviewed_version=version,
-                actor=row["actor"],
-            )
-        elif outcome.get("outcome") == "outcome_unknown":
-            approval = UnsettledApproval(
-                status="outcome_unknown", reviewed_version=version, code=outcome["code"]
-            )
-        elif outcome.get("outcome") not in {None, "applied", "replayed"}:
-            approval = UnsettledApproval(
-                status="failed",
-                reviewed_version=version,
-                code=outcome.get("code", "approval_failed"),
-            )
+    revisions = tuple(DraftRevision.model_validate(row) for row in history)
+    approval = approval_of(
+        approvals[0] if approvals else None,
+        event.activity_id if event.accept_key else None,
+        revisions,
+    )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     return BusinessDossier(
         **context.model_dump(),
@@ -200,7 +232,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         facts=facts,
         sources=tuple(evidence),
         questions=questions,
-        history=tuple(DraftRevision.model_validate(row) for row in history),
+        history=revisions,
         blockers=tuple(blocked),
         approval_available=not blocked and "approve" in tx.authorization.capabilities,
         approval_result=approval,
@@ -209,4 +241,12 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         unrecorded_purchases=resolution.unrecorded_purchases(),
         ecf_checks=resolution.ecf_checks,
         dgii_qr=resolution.dgii_qr,
+        bill_mark=resolution.bill_mark,
+        dgii=resolution.dgii.model_dump(mode="json") if resolution.dgii else None,
+        document_type=resolution.document_type,
+        document_type_detected=resolution.document_type_detected,
+        document_type_editable=event.state == "open"
+        and "prepare" in tx.authorization.capabilities,
+        due_on=resolution.due_on,
+        **draft_marks(tx, draft_id, facts),
     )

@@ -1,5 +1,7 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
@@ -160,11 +162,11 @@ test("Spanish export control names the authorized client and allows read-only re
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const fixture = createDossierFixtures([{ id: "client-account", nickname: "Caja", type: "cash", currency: "DOP" }]);
   const record = await fixture.dossier(dossierFixtureIds.readOnly);
-  const render = (dossier: BusinessDossier, available = true, end = "2026-10-31") => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptPeriodExport, { dossier, start: "2026-10-01", end, available })));
+  const render = (dossier: BusinessDossier, available = true, end = "2026-10-31") => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptPeriodExport, { scope: { draftId: dossier.draft_id, name: dossier.space_name, capabilities: dossier.capabilities }, start: "2026-10-01", end, available })));
   const html = render(record);
   assert.ok(html.includes(record.space_name));
   assert.match(html, /Descargar CSV, Excel y originales/);
-  assert.match(html, /originales faltantes/);
+  assert.doesNotMatch(html, /type="date"/);
   assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/);
   assert.ok(!html.includes("Aprobar"));
   assert.equal(render({ ...record, capabilities: [] }), "");
@@ -294,11 +296,19 @@ test("the header revision is the latest facts revision the history lists, not th
 
 test("the line under approve never tells a person who can approve that someone else must", () => {
   // Owner (prepare + approve) on a note whose kind is still unknown: no permission line; the blockers card names the kind.
-  assert.equal(approvalLine(true, true, false), null);
-  assert.equal(approvalLine(true, true, true), "approval_effect");
-  assert.equal(approvalLine(true, false, true), "approval_effect");
-  // Prepare-only access reads the permission line; read-only access reads its own.
-  assert.equal(approvalLine(false, true, false), "prepare_only");
-  assert.equal(approvalLine(false, true, true), "prepare_only");
-  assert.equal(approvalLine(false, false, true), "read_only");
+  assert.equal(approvalLine(true, true), null);
+  assert.equal(approvalLine(true, true), null);
+  assert.equal(approvalLine(true, false), null);
+  // Only prepare-only access reads a permission line.
+  assert.equal(approvalLine(false, true), "prepare_only");
+  assert.equal(approvalLine(false, true), "prepare_only");
+  assert.equal(approvalLine(false, false), null);
+});
+
+test("the record page mounts no export panel: exports belong to a period surface", () => {
+  const source = readFileSync(join(import.meta.dir, "..", "components", "business-app", "ReceiptDossierReview.tsx"), "utf-8");
+  const start = source.indexOf("export default function ReceiptDossierReview");
+  assert.ok(start >= 0, "the page component is where the test looks for it");
+  const page = source.slice(start);
+  assert.ok(!page.includes("<ReceiptPeriodExport"));
 });

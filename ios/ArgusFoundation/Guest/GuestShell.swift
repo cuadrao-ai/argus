@@ -1,0 +1,313 @@
+import SwiftUI
+import CuadraoBook
+
+/// What the on-device book shows: the shell when the book can be used, or an honest notice when it cannot.
+struct GuestRoot: View {
+    @ObservedObject var model: GuestBookModel
+    @Binding var appearance: AppearancePreference
+    let leave: () -> Void
+    let deleteData: () async -> Bool
+    @Environment(\.locale) private var locale
+    @State private var confirmingDelete = false
+    @State private var deleteFailed = false
+
+    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+
+    var body: some View {
+        switch model.phase {
+        case .loading:
+            WelcomePalette.brandPaper.ignoresSafeArea()
+        case .ready:
+            GuestShell(model: model, appearance: $appearance, leave: leave, deleteData: deleteData)
+                .preferredColorScheme(appearance.colorScheme)
+        case .newerVersion:
+            notice(title: spanish ? "Actualiza Cuadrao para abrir este libro." : "Update Cuadrao to open this book.",
+                   detail: spanish ? "Este libro se guardó con una versión más nueva de la app. No se cambió nada. Actualiza Cuadrao e inténtalo de nuevo."
+                       : "This book was saved by a newer version of the app. Nothing was changed. Update Cuadrao and try again.",
+                   identifier: "guest.notice.newer", offersDelete: false)
+        case .unreadable:
+            notice(title: spanish ? "No se pudo abrir tu libro." : "Your book could not be opened.",
+                   detail: spanish ? "El archivo de este iPhone no se pudo leer. Puedes eliminarlo y empezar de nuevo."
+                       : "The file on this iPhone could not be read. You can delete it and start again.",
+                   identifier: "guest.notice.unreadable", offersDelete: true)
+        }
+    }
+
+    private func notice(title: String, detail: String, identifier: String, offersDelete: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Spacer(minLength: 0)
+            RegistrationHeading(title: title, detail: detail)
+            RegistrationButton(title: spanish ? "Volver" : "Back", action: leave)
+                .accessibilityIdentifier("guest.notice.back")
+            if offersDelete {
+                Button(role: .destructive) { confirmingDelete = true } label: {
+                    Text(spanish ? "Eliminar los datos de este iPhone" : "Delete this iPhone's data")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }.accessibilityIdentifier("guest.notice.delete")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(WelcomePalette.brandPaper.ignoresSafeArea())
+        .foregroundStyle(WelcomePalette.ink)
+        .accessibilityIdentifier(identifier)
+        .alert(GuestDeleteCopy.title(spanish), isPresented: $confirmingDelete) {
+            Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
+            Button(GuestDeleteCopy.confirm(spanish), role: .destructive) {
+                Task { if await !deleteData() { deleteFailed = true } }
+            }.accessibilityIdentifier("guest.delete.confirm")
+        } message: { Text(GuestDeleteCopy.message(spanish)) }
+        .alert(GuestDeleteCopy.failed(spanish), isPresented: $deleteFailed) {
+            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+        }
+    }
+}
+
+enum GuestDeleteCopy {
+    static func title(_ es: Bool) -> String { es ? "¿Eliminar los datos de este iPhone?" : "Delete this iPhone's data?" }
+    static func confirm(_ es: Bool) -> String { es ? "Eliminar" : "Delete" }
+    /// Pending approval: receipts were added to the list when the book gained them.
+    static func message(_ es: Bool) -> String {
+        es ? "Se borrarán tus cuentas, movimientos, presupuestos, metas y recibos de este iPhone. No se puede deshacer."
+            : "Your accounts, activity, budgets, goals and receipts on this iPhone will be removed. This can't be undone."
+    }
+    static func failed(_ es: Bool) -> String { es ? "No se pudieron eliminar los datos. Inténtalo de nuevo." : "The data could not be deleted. Try again." }
+}
+
+/// The shared Cuadrao shell filled with the book: the same navigation bar, + tray, scroll folding and tabs,
+/// with the assistant slot given to the add action because the book has no assistant.
+struct GuestShell: View {
+    @ObservedObject var model: GuestBookModel
+    @Binding var appearance: AppearancePreference
+    let leave: () -> Void
+    let deleteData: () async -> Bool
+    @Environment(\.locale) private var locale
+    @State private var tab: CuadraoTab = .home
+    @State private var navigationScroll = CuadraoNavigationScroll()
+    @State private var planScroll = CuadraoNavigationScroll()
+    @State private var searchScroll = CuadraoNavigationScroll()
+    @State private var profileScroll = CuadraoNavigationScroll()
+    @State private var profilePath: [GuestProfileRoute] = []
+    @State private var homePath: [GuestRoute] = []
+    @State private var planPath: [UUID] = []
+    /// The tab holding a result opened from Search. Closing that result returns to Search; changing tab by hand drops it.
+    @State private var searchResultTab: CuadraoTab?
+    @State private var sheet: GuestSheet?
+    @State private var capturing: ReceiptSourceChoice?
+    @State private var captured: [(data: Data, name: String, pdf: Bool)]?
+    @State private var receiptFailed = false
+    @State private var toast: CuadraoToastMessage?
+    @State private var firstSavePending = false
+    @State private var showFirstSave = false
+    @Environment(\.guestReceipts) private var receipts
+    @State private var chat = CuadraoChatPreview(spanish: Locale.current.language.languageCode?.identifier == "es", includeExamples: false)
+
+    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+
+    var body: some View {
+        CuadraoAppShell(selection: $tab, chat: chat, spanish: spanish, showsNavigation: showsNavigation,
+                        compact: scroll(for: tab)?.compact ?? false, avatar: .none, profileName: "",
+                        addItems: addItems, hasAssistant: GuestAccessPolicy.hasAssistant) { _ in
+            ForEach(CuadraoTab.allCases.filter { $0 != .assistant }) { item in
+                content(item)
+                    .toolbar(.hidden, for: .tabBar)
+                    .tag(item)
+            }
+        }
+        .environment(\.cuadraoCurrencyRules, GuestCurrencyRules.rules)
+        .environment(\.guestAddReceipt) { capture($0) }
+        .cuadraoToast($toast, spanish: spanish)
+        .onAppear { announceFirstOpen() }
+        .onChange(of: tab) { _, new in
+            if new != searchResultTab { searchResultTab = nil }
+        }
+        .onChange(of: searchResultIsOpen) { was, isOpen in
+            guard was, !isOpen, searchResultTab != nil else { return }
+            searchResultTab = nil
+            tab = .search
+        }
+        .onChange(of: expenseCount) { old, new in
+            guard old == 0, new >= 1, !GuestNotice.firstSave.seen else { return }
+            GuestNotice.firstSave.markSeen()
+            firstSavePending = true
+            presentFirstSaveWhenFree()
+        }
+        .onChange(of: sheet?.id) { _, id in if id == nil { presentFirstSaveWhenFree() } }
+        .sheet(item: $sheet) { sheetContent($0) }
+        .sheet(isPresented: $showFirstSave) {
+            GuestFirstSaveSheet(spanish: spanish, createAccount: { showFirstSave = false; leave() }, dismiss: { showFirstSave = false })
+                .preferredColorScheme(appearance.colorScheme)
+        }
+        .fullScreenCover(item: $capturing, onDismiss: {
+            if let files = captured { captured = nil; keep(files) }
+        }) { source in
+            ReceiptNativePicker(source: source, spanish: spanish) { result in
+                capturing = nil
+                if case .success(let files) = result { captured = SavedReceiptFiles.prepared(files, source: source, spanish: spanish) }
+            }.ignoresSafeArea()
+        }
+        .alert(GuestReceiptCopy(spanish: spanish).couldNotSave, isPresented: $receiptFailed) {
+            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+        }
+        .tint(WelcomePalette.pine)
+        .foregroundStyle(WelcomePalette.ink)
+        .background(WelcomePalette.background.ignoresSafeArea())
+    }
+
+    private var expenseCount: Int { model.book.liveMovements().filter { $0.kind == .expense }.count }
+
+    /// On the first open of the book only, one line at the bottom for five seconds.
+    private func announceFirstOpen() {
+        guard !GuestNotice.firstOpen.seen else { return }
+        GuestNotice.firstOpen.markSeen()
+        toast = CuadraoToastMessage(text: GuestNoticeCopy(spanish: spanish).firstOpenNote)
+    }
+
+    /// The one Undo notice for a delete or archive, on the tab the person is on. A result opened from Search returns to Search first.
+    private func offerUndo(_ offer: GuestUndoOffer) {
+        toast = CuadraoToastMessage(text: offer.text, actionTitle: spanish ? "Deshacer" : "Undo", actionIdentifier: offer.identifier,
+                                    action: { offer.restore(); toast = nil })
+    }
+
+    /// After the save's own sheet has closed, so the save is never covered or delayed.
+    private func presentFirstSaveWhenFree() {
+        guard firstSavePending, sheet == nil, capturing == nil else { return }
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard firstSavePending, sheet == nil, capturing == nil else { return }
+            firstSavePending = false
+            showFirstSave = true
+        }
+    }
+
+    private var showsNavigation: Bool {
+        switch tab {
+        case .home: homePath.isEmpty
+        case .profile: profilePath.isEmpty
+        case .plan: planPath.isEmpty
+        default: true
+        }
+    }
+
+    private var addItems: [CuadraoAddItem] {
+        GuestAccessPolicy.addActions(activeAccounts: model.book.activeAccounts.count).map { action in
+            CuadraoAddItem(action: action) {
+                switch action {
+                case .account: sheet = .account(.create)
+                case .transaction: sheet = .movement(.create(account: nil))
+                case .plan: sheet = .plan(.create)
+                case .scanCamera: capture(.scan)
+                case .choosePhoto: capture(.photos)
+                case .chooseFile: capture(.file)
+                default: break
+                }
+            }
+        }
+    }
+
+    private func capture(_ source: ReceiptSourceChoice) {
+        #if DEBUG
+        if CuadraoFirstRelease.savedReceiptsSample {
+            keep(SampleSavedReceiptsTransport.files(for: source))
+            return
+        }
+        #endif
+        capturing = source == .scan && !SavedReceiptFiles.scannerAvailable ? .photos : source
+    }
+
+    /// Keeps the files on this iPhone and offers the first to a movement.
+    private func keep(_ files: [(data: Data, name: String, pdf: Bool)]) {
+        guard let receipts, let saved = try? receipts.save(files), let first = saved.first else { receiptFailed = true; return }
+        sheet = .receiptSaved(first.id)
+    }
+
+    @ViewBuilder private func sheetContent(_ sheet: GuestSheet) -> some View {
+        switch sheet {
+        case .account(let mode):
+            GuestAccountSheet(model: model, mode: mode, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+        case .movement(let mode):
+            GuestMovementSheet(model: model, mode: mode, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+        case .archive(let id):
+            CuadraoArchiveAccountReview(spanish: spanish) { _ = try? model.apply { try $0.settingArchived(id, true) } }
+                .preferredColorScheme(appearance.colorScheme)
+        case .archived:
+            GuestArchivedAccounts(model: model, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+        case .plan(let mode):
+            GuestPlanSheet(model: model, mode: mode, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+        case .contribution(let id):
+            GuestContributionSheet(model: model, planID: id, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+        case .receiptSaved(let id):
+            if let receipts {
+                GuestReceiptSavedSheet(store: receipts, model: model, receiptID: id, spanish: spanish).preferredColorScheme(appearance.colorScheme)
+            }
+        case .attachReceipt(let movementID):
+            if let receipts {
+                GuestAttachReceiptSheet(store: receipts, model: model, movementID: movementID, spanish: spanish)
+                    .preferredColorScheme(appearance.colorScheme)
+            }
+        }
+    }
+
+    private var searchResultIsOpen: Bool {
+        switch searchResultTab {
+        case .home: !homePath.isEmpty
+        case .plan: !planPath.isEmpty
+        default: false
+        }
+    }
+
+    /// A search result opens in the tab that owns it, and closing it returns to Search.
+    private func open(_ target: GuestSearchTarget) {
+        switch target {
+        case .account(let id): searchResultTab = .home; tab = .home; homePath = [.account(id)]
+        case .movement(let id): searchResultTab = .home; tab = .home; homePath = [.movement(id)]
+        case .plan(let id): searchResultTab = .plan; tab = .plan; planPath = [id]
+        }
+    }
+
+    private func scroll(for item: CuadraoTab) -> CuadraoNavigationScroll? {
+        switch item {
+        case .home: navigationScroll
+        case .plan: planScroll
+        case .search: searchScroll
+        case .profile: profileScroll
+        case .assistant: nil
+        }
+    }
+
+    @ViewBuilder private func content(_ item: CuadraoTab) -> some View {
+        switch item {
+        case .home:
+            GuestHome(model: model, scroll: navigationScroll, active: tab == .home, path: $homePath, sheet: $sheet, offerUndo: offerUndo)
+        case .plan:
+            GuestPlanTab(model: model, scroll: planScroll, active: tab == .plan, path: $planPath, sheet: $sheet, offerUndo: offerUndo)
+        case .search:
+            GuestSearchTab(model: model, scroll: searchScroll, active: tab == .search, open: open)
+        case .profile:
+            GuestProfile(model: model, appearance: $appearance, path: $profilePath, leave: leave, deleteData: deleteData)
+                .modifier(CuadraoNavigationScrollObserver(scroll: profileScroll, enabled: tab == .profile && profilePath.isEmpty))
+        case .assistant:
+            EmptyView()
+        }
+    }
+}
+
+struct GuestPlaceholderTab: View {
+    let scroll: CuadraoNavigationScroll
+    let active: Bool
+    let title: String
+    let detail: String
+    let identifier: String
+
+    var body: some View {
+        ScrollView {
+            CuadraoChartState(title: title, detail: detail)
+                .padding(.horizontal, 24).padding(.top, 28).padding(.bottom, 32)
+        }
+        .safeAreaPadding(.bottom, 80)
+        .background(WelcomePalette.background)
+        .accessibilityIdentifier(identifier)
+        .modifier(CuadraoNavigationScrollObserver(scroll: scroll, enabled: active))
+    }
+}

@@ -1,0 +1,30 @@
+{
+  "base": "906b1612da25c0770410140e2535253300877a42",
+  "head": "cb61bebf0dc230216a75819cc0a681dd3f0632b9",
+  "branch": "codex/consumer-buffered-chat",
+  "trackedFiles": {
+    "ios/ArgusFoundation/Connected/ConnectedChatContent.swift": "3c3d7d8c33f090685cbcefa3460c9dede8548274f173aedad2426fff01c392b4",
+    "ios/ArgusFoundation/Connected/ConnectedChatModel.swift": "f1ea470ff7db64e61dd04bc6e5d7d257c56d12df912f23a2af026f800250927e",
+    "ios/ArgusFoundation/Connected/ConnectedConversationModel.swift": "c218086cd2122ad4a8b055b652146f38f8183542062d3a67581a99e45c983c67",
+    "ios/ArgusFoundation/Connected/ConnectedConversationTranscript.swift": "e87d710a4c0d1c8201fdb3faf2e8c79637c5e601068d0587b0d5517e78a0daae",
+    "ios/ArgusFoundation/Connected/ConnectedCuadraoShell.swift": "b9cde86879bfb53b3a6e08489b9319c77d66c085791a4311788c84ba12fa9031",
+    "ios/ArgusFoundation/Cuadrao/CuadraoChatCanvas.swift": "354fcb57a4440a04e24ffffddddf0445e877d1cef2a3e69174fce2e3c40305d8",
+    "ios/ArgusFoundation/Cuadrao/CuadraoChatContext.swift": "ac326deab347086f1bf798f680cf3cc503964c724ea2646d46d94b0533e72ef5",
+    "ios/ArgusFoundation/Cuadrao/CuadraoHomeCanvas.swift": "47fd354ab739a7bfbcef96cb5e78cc939d689d864cd0106b1f0026c44c78f03c",
+    "ios/FinancialModelTests/ConnectedChatModelTests.swift": "1dbc00936741b87ca0a6c826f588d86de657d5ad3363125cd2fa9d45dc25a9d3",
+    "ios/FinancialModelTests/run.py": "31e11ec396dc127af005e8afae638d8b8426e70203cdfd68f769ab0ac042e265",
+    "ios/Packages/ArgusSession/Sources/ArgusSession/BufferedChat.swift": "adc415e3d404c299318d3aa685f2d353d4bee4725d07db40bcbb2bd7d73dd273",
+    "ios/Packages/ArgusSession/Sources/ArgusSession/BufferedChatTransport.swift": "1736ec3be317eed49ef337e844fd22b6b2651e59a6ac2feea126e70e82045e5f",
+    "ios/Packages/ArgusSession/Sources/ArgusSession/NativeChatCapability.swift": "58d864bb4736be8921787cdb39371ed21eb10612d6e44ed06400c1779ca6c625",
+    "ios/Packages/ArgusSession/Tests/ArgusSessionTests/NativeChatTests.swift": "251bafa0b27333acb371620d07054b254ebbdf77e17e12b5b15af417a4a50095"
+  },
+  "evidence": {
+    "buffered-model-tests-final.log": "a0985c473214fd475c01e12f6545c0711ef0072b1d55ca877220b42c921ffcd4",
+    "buffered-native-build-final.log": "2a9d5e9b63f37e46464bfb0cff27fe51e3cd62ac40838f251c1c47389c70f16f",
+    "buffered-model-donor-baseline.log": "12d2bd1d50ac1a45821c6c01b092c73819e5e696ad47fc6aabed4c9021d49424",
+    "buffered-package-tests.log": "ae256832f15f58bb9b3817334adb326d72b36dad81eea3cf7a1037daadcd97bb",
+    "buffered-native-build.log": "9f60045cab13ce0febb2a0650e14706a21912633ac99e8c627c09254d42a4dfc",
+    "buffered-model-tests.log": "b2f930c4953cc01ad79b9316eb5fe82408f5433cf402c695fb5f1db96fd3b874",
+    "buffered-model-regression.log": "00f47ed864d0ae986c074d7669c96833aeb4dfb47162355e9c7066162d8e9120"
+  }
+}
