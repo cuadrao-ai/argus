@@ -229,7 +229,12 @@ def test_the_owner_and_the_accountant_read_the_same_items_and_nobody_else(
     # Bob in his own Business, and Carol in hers, see none of Alice's documents.
     for stranger in (web.bob.headers, web.carol.headers):
         theirs = _open(web, stranger)
-        assert theirs["cuentas_por_cobrar"] == {"count": 0, "totals": [], "items": []}
+        assert theirs["cuentas_por_cobrar"] == {
+            "count": 0,
+            "totals": [],
+            "overdue": {"count": 0, "totals": []},
+            "items": [],
+        }
     # Someone else's grant, and a revoked one, are refused before any read.
     borrowed = web.client.get(
         f"{API}/business/open-items", headers=_as(web.carol, web.grant_a)

@@ -16989,8 +16989,14 @@ components:
           type: integer
         cuentas_por_pagar:
           type: string
+        itbis_cobrado_minor:
+          type: integer
+        itbis_cobrado:
+          type: string
         by_status:
           $ref: '#/components/schemas/StatusTotals'
+        net_result_final:
+          type: boolean
       additionalProperties: false
       type: object
       required:
@@ -17011,7 +17017,10 @@ components:
       - cuentas_por_cobrar
       - cuentas_por_pagar_minor
       - cuentas_por_pagar
+      - itbis_cobrado_minor
+      - itbis_cobrado
       - by_status
+      - net_result_final
     CurrencySummaryResponse:
       properties:
         currency:
@@ -17777,6 +17786,29 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiForms:
+      properties:
+        '606':
+          type: string
+          enum:
+          - no_aplica
+          - needs_review
+          - summary_only
+          - no_operations
+          - prepared_candidate
+        '607':
+          type: string
+          enum:
+          - no_aplica
+          - needs_review
+          - summary_only
+          - no_operations
+          - prepared_candidate
+      additionalProperties: false
+      type: object
+      required:
+      - '606'
+      - '607'
     DgiiQr:
       properties:
         url:
@@ -22911,6 +22943,9 @@ components:
       properties:
         month:
           type: string
+        today:
+          type: string
+          format: date
         from:
           type: string
           format: date
@@ -22923,6 +22958,16 @@ components:
           items:
             $ref: '#/components/schemas/CloseReason'
           type: array
+        earliest_month:
+          anyOf:
+          - type: string
+          - type: 'null'
+        payment_methods:
+          items:
+            type: string
+          type: array
+        dgii_forms:
+          $ref: '#/components/schemas/DgiiForms'
         currencies:
           items:
             $ref: '#/components/schemas/CurrencyBlock'
@@ -22947,10 +22992,14 @@ components:
       type: object
       required:
       - month
+      - today
       - from
       - to
       - closed
       - reasons
+      - earliest_month
+      - payment_methods
+      - dgii_forms
       - currencies
       - missing_rnc
       - missing_ncf
@@ -23372,6 +23421,9 @@ components:
         shape during a rollout.'
     OpenItems:
       properties:
+        today:
+          type: string
+          format: date
         cuentas_por_cobrar:
           $ref: '#/components/schemas/OpenList'
         cuentas_por_pagar:
@@ -23379,6 +23431,7 @@ components:
       additionalProperties: false
       type: object
       required:
+      - today
       - cuentas_por_cobrar
       - cuentas_por_pagar
     OpenList:
@@ -23389,6 +23442,8 @@ components:
           items:
             $ref: '#/components/schemas/OpenTotal'
           type: array
+        overdue:
+          $ref: '#/components/schemas/OpenOverdue'
         items:
           items:
             $ref: '#/components/schemas/DocumentLine'
@@ -23398,7 +23453,21 @@ components:
       required:
       - count
       - totals
+      - overdue
       - items
+    OpenOverdue:
+      properties:
+        count:
+          type: integer
+        totals:
+          items:
+            $ref: '#/components/schemas/OpenTotal'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - count
+      - totals
     OpenSearchResult:
       properties:
         kind:

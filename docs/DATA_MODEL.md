@@ -3760,7 +3760,11 @@ None of these rows is a financial record or affects balances.
   anchor date, the accepting idempotency key and, once accepted, the recorded
   `activity_id`. A check ties `state='accepted'` to a non-null `activity_id`;
   a unique index allows one event per `(user_id, activity_id)`, so one purchase
-  cannot be recorded or linked twice.
+  cannot be recorded or linked twice. A partial unique index
+  (`financial_import_events_sale_ncf_idx`, migration
+  `20261021030000_business_sale_ncf_once.sql`) allows one accepting or accepted
+  sale (`facts.kind` income) per `owner_space_id` and normalized NCF or e-CF, so
+  two approvals of the same sale comprobante cannot both land.
 - `financial_import_account_links`: person-confirmed mapping from
   `(connection_id, account_key)` to an owned `financial_accounts` row
   (owner-qualified foreign key); deleted on disconnect.

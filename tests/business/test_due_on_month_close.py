@@ -30,7 +30,7 @@ def test_open_items_list_the_soonest_due_date_first_and_undated_ones_after_oldes
         pending("sale-undated", "invoice", date(2026, 8, 2)),
         pending("sale-due", "invoice", date(2026, 9, 2), due_on=date(2026, 12, 1)),
     ]
-    opened = open_items(documents)
+    opened = open_items(documents, DAY)
     pagar = opened["cuentas_por_pagar"]["items"]
     assert [(item["activity_id"], item["due_on"]) for item in pagar] == [
         ("due-soon-older", "2026-10-20"),
@@ -48,7 +48,7 @@ def test_the_cap_keeps_the_soonest_due_documents():
         pending("undated", "invoice", date(2026, 1, 1)),
         pending("due", "invoice", date(2026, 9, 1), due_on=date(2026, 10, 1)),
     ]
-    cobrar = open_items(documents, cap=1)["cuentas_por_cobrar"]
+    cobrar = open_items(documents, DAY, cap=1)["cuentas_por_cobrar"]
     assert [item["activity_id"] for item in cobrar["items"]] == ["due"]
     assert cobrar["count"] == 2
 
@@ -89,7 +89,7 @@ def test_the_due_date_comes_from_the_draft_and_an_unset_one_stays_null():
         "bill": date(2026, 11, 4),
         "undated": None,
     }
-    lines = open_items(documents)["cuentas_por_pagar"]["items"]
+    lines = open_items(documents, DAY)["cuentas_por_pagar"]["items"]
     assert [(item["activity_id"], item["due_on"]) for item in lines] == [
         ("bill", "2026-11-04"),
         ("undated", None),

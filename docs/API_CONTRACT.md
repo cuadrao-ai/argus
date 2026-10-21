@@ -9272,6 +9272,21 @@ month-close and open-items line carry the date as `YYYY-MM-DD`, or `null` while
 it is unknown. Open items list the soonest due date first (see the
 [month-close contract](contracts/business-month-close.md)).
 
+`GET /business/month-close` and `GET /business/open-items` both carry `today`,
+the server's day in the recording time zone, so no client reads its own clock
+for overdue or for a default `settled_on`. Month close adds `earliest_month`
+(`YYYY-MM` or `null`), `payment_methods` (the PATCH's accepted methods, in
+order) and `dgii_forms` (`{"606": status, "607": status}`, the export packet's
+own status words for that calendar month: `no_aplica`, `needs_review`,
+`summary_only`, `no_operations` or `prepared_candidate`; only the last means
+the ZIP carries the TXT). Each currency block adds `itbis_cobrado_minor` and
+`itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
+`net_result_final` (true while no document of that currency in the month is
+`pendiente`). Each open-items list adds `overdue: {count, totals}` over every
+pending document in it, not only the page: pending with `due_on` before
+`today`; no due date is never overdue. Only DOP documents are 606 or 607
+lines, in month close and in the export alike. All additive; nothing renamed.
+
 The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
 `ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
