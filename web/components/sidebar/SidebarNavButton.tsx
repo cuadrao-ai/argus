@@ -9,9 +9,14 @@ import type { ReactNode } from "react";
 
 const BUSINESS_ROW_HOVER = "hover:bg-[#e3ebe1]/50";
 
+/** Stands in when a row draws its icon with `glyph`. */
+const EmptyIcon = (() => null) as unknown as LucideIcon;
+
 type SidebarNavButtonProps = {
-  /** Lucide icon component */
-  icon: LucideIcon;
+  /** Lucide icon component; a Business row may draw its own with `glyph` instead. */
+  icon?: LucideIcon;
+  /** Business rows: the icon for each state, so it can go from outline to filled when active. */
+  glyph?: (active: boolean) => ReactNode;
   /** Button label (shown when expanded, used as tooltip when collapsed) */
   label: string;
   /** Whether this nav item is currently active */
@@ -45,7 +50,8 @@ type SidebarNavButtonProps = {
  * When expanded: shows icon + label, with optional trailing element.
  */
 export default function SidebarNavButton({
-  icon: Icon,
+  icon: Icon = EmptyIcon,
+  glyph,
   label,
   active = false,
   collapsed = false,
@@ -98,13 +104,14 @@ export default function SidebarNavButton({
           : `${BUSINESS_ROW_HOVER} font-normal text-[#172b26] dark:text-white/80 dark:hover:bg-white/5`
       } ${className}`}
     >
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-        <Icon
-          aria-hidden="true"
-          strokeWidth={2}
-          style={{ width: iconSize, height: iconSize }}
-          className={active ? "text-[#2f5a49] dark:text-white" : "text-[#56635e] dark:text-white/60"}
-        />
+      <span className={`relative flex h-5 w-5 shrink-0 items-center justify-center ${active ? "text-[#2f5a49] dark:text-white" : "text-[#56635e] dark:text-white/60"}`}>
+        {glyph ? glyph(active) : (
+          <Icon
+            aria-hidden="true"
+            strokeWidth={2}
+            style={{ width: iconSize, height: iconSize }}
+          />
+        )}
         {overlay}
       </span>
       {/* The label stays put and fades, so the row never changes shape while the rail moves; the rail's own width clips it. */}

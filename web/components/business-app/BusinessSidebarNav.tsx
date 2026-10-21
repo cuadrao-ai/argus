@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { House, Inbox, ReceiptText } from "lucide-react";
+import { NAV_GLYPHS, navGlyph } from "./nav-glyphs";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import { CuadraoMark } from "@/components/CuadraoMark";
@@ -34,7 +34,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
       className="flex flex-col"
     >
       <SidebarNavButton
-        icon={House}
+        glyph={navGlyph(NAV_GLYPHS.overview)}
         label={t("business.nav.overview", "Overview")}
         active={isActive("overview")}
         shortcutHint={quickJumpHintDisplay(1, command)}
@@ -45,7 +45,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         variant="business"
       />
       <SidebarNavButton
-        icon={Inbox}
+        glyph={navGlyph(NAV_GLYPHS.inbox)}
         label={t("business.nav.inbox", "Inbox")}
         active={isActive("inbox")}
         shortcutHint={quickJumpHintDisplay(2, command)}
@@ -58,7 +58,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         variant="business"
       />
       <SidebarNavButton
-        icon={ReceiptText}
+        glyph={navGlyph(NAV_GLYPHS.expenses)}
         label={t("business.nav.expenses", "Expenses")}
         active={isActive("expenses")}
         shortcutHint={quickJumpHintDisplay(3, command)}
