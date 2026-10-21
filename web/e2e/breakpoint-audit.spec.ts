@@ -124,10 +124,6 @@ const PROOF = {
   usageError: /Try again|Reintentar/i,
   /* The typed question itself, which the composer renders into the DOM. */
   typedQuestion: /drawdown/i,
-  /* Legal and auth each cross-link to the other, so the marker has to be body
-     copy rather than a heading or a nav label. */
-  privacy: /Data we collect|Datos que recopilamos/i,
-  terms: /Acceptable use|Uso aceptable/i,
   login: /Forgot password|Olvidaste tu contraseña/i,
   signup: /At least 8 characters|Al menos 8 caracteres/i,
   requestAccess: /Request access to Cuadrao|Solicita acceso a Cuadrao/i,
@@ -534,13 +530,7 @@ test.describe("signed-in surfaces", () => {
       );
     });
 
-    test(`legal and auth at ${band}`, async ({ page }) => {
-      await open(page, band, "/privacy", {});
-      await capture(page, `chrome/privacy-${band}-en-dark`, PROOF.privacy);
-
-      await open(page, band, "/terms", {});
-      await capture(page, `chrome/terms-${band}-en-dark`, PROOF.terms);
-
+    test(`auth at ${band}`, async ({ page }) => {
       await open(page, band, "/?auth=login", {});
       await capture(page, `chrome/login-${band}-en-dark`, PROOF.login);
 

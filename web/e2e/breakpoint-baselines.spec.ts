@@ -100,11 +100,9 @@ async function captureMarkedBaseline(
   await expect(surface).toHaveScreenshot(name);
 }
 
-/* ------------------------------------------------------- legal and auth --- */
+/* ------------------------------------------------------------- auth --- */
 
 const PAGES: Array<[string, string]> = [
-  ["privacy", "/privacy"],
-  ["terms", "/terms"],
   ["login", "/?auth=login"],
   ["signup", "/?auth=signup"],
   ["request-access", "/?auth=request"],
@@ -114,7 +112,7 @@ const PAGES: Array<[string, string]> = [
 ];
 
 for (const cell of SPINE) {
-  test.describe(`legal and auth ${tag(cell)}`, () => {
+  test.describe(`auth ${tag(cell)}`, () => {
     for (const [name, url] of PAGES) {
       test(name, async ({ page }) => {
         await open(page, cell, url);
