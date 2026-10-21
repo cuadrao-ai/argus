@@ -106,6 +106,9 @@ from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
 from argus.api.profile_images import picture_urls
 from argus.api.routers.business_bank import router as business_bank_router
+from argus.api.routers.business_bank_movements import (
+    router as business_bank_movements_router,
+)
 from argus.api.routers.business_logo import router as business_logo_router
 from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
@@ -151,6 +154,7 @@ router = APIRouter(
     },
 )
 router.include_router(business_bank_router)
+router.include_router(business_bank_movements_router)
 router.include_router(business_logo_router)
 router.include_router(business_search_router)
 _CONFLICTS = frozenset(

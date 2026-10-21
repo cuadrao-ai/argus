@@ -42,15 +42,6 @@ class StaticCatalog:
             and period_start <= target.occurred_on <= period_end
         )
 
-    def get(
-        self, space_id: UUID, *, kind: TargetKind, target_id: str
-    ) -> MatchTarget | None:
-        del space_id
-        for target in self.targets:
-            if target.kind == kind and target.id == target_id:
-                return target
-        return None
-
 
 def receipt_target_from_event(event) -> RecordedTarget | None:  # noqa: ANN001
     """An accepted expense with known amount, currency, and date."""
