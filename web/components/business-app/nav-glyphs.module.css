@@ -1,0 +1,55 @@
+/* Both weights sit stacked, so becoming the current screen is a crossfade, never a swap. */
+.icon {
+  display: grid;
+  place-items: center;
+  transition:
+    transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    translate 80ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.layer {
+  grid-area: 1 / 1;
+  transition: opacity 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The weight leaving waits for the arriving one, so the icon never dims midway. */
+.icon[data-active="true"] .outline,
+.icon[data-active="false"] .fill {
+  opacity: 0;
+  transition-delay: 60ms;
+}
+
+.icon[data-settle] {
+  animation: nav-icon-settle 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:global(button):active .icon[data-active] {
+  transform: scale(0.92);
+  transition-duration: 80ms;
+}
+
+/* Starts where the press left it, so a click lands without a second dip. */
+@keyframes nav-icon-settle {
+  from {
+    transform: scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon,
+  .layer,
+  .icon[data-settle],
+  .icon[data-active="true"] .outline,
+  .icon[data-active="false"] .fill {
+    transition: none;
+    animation: none;
+  }
+
+  .icon[data-active] {
+    translate: none;
+  }
+
+  :global(button):active .icon[data-active] {
+    transform: none;
+  }
+}

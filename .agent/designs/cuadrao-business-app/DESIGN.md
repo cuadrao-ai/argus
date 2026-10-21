@@ -230,6 +230,14 @@ top right is who you are.
 - **Opening and closing the rail** takes 200ms, ease out. Nothing inside
   changes shape: icons keep one position, labels fade, the business mark
   stays where it is, and the open header stays until the rail has closed.
+- **Screen icons** are Phosphor: outline when idle, filled on the screen you
+  are on. Becoming the current screen crossfades the two weights in 120ms (the
+  outline leaves 60ms later, so the icon never dims) and settles the icon from
+  92% to full size in 180ms, ease out, no overshoot. A pointer hover lifts an
+  idle icon 1px in 80ms; a press shrinks it to 92%. Nothing plays on first
+  paint or while the rail opens or closes. Reduced motion swaps the weight at
+  once and moves nothing. The rail and the phone tabs share one owner:
+  `components/business-app/nav-glyphs.tsx` and its stylesheet.
 - **Top bar:** spans the one canvas and never changes per screen. Search on the left, always
   visible (its placeholder says what it finds). On the right: **Agregar ▾**,
   the one global action, whose menu holds Exportar registros and Copiar
