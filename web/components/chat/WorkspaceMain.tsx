@@ -135,7 +135,7 @@ export function WorkspaceMain({
     <div className="relative flex h-[100dvh] w-full flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
       <div
         data-testid="workspace-panel-region"
-        className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[calc(6rem+var(--cuadrao-banner-space,0px))] tablet:px-8 tablet:pt-[calc(7rem+var(--cuadrao-banner-space,0px))]"
+        className="argus-scrollbar flex-1 overflow-y-auto overscroll-y-contain px-4 pt-[calc(6rem+var(--cuadrao-banner-space,0px))] tablet:px-8 tablet:pt-[calc(7rem+var(--cuadrao-banner-space,0px))]"
         style={{ paddingBottom: hasComposer ? 190 : 48 }}
       >
         <div data-testid="workspace-canvas" className={WORKSPACE_CANVAS_CLASS}>{workspace.panel(bridge)}</div>

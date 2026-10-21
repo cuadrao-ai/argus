@@ -26,7 +26,7 @@ type Loaded = { key: string | null; items: BusinessEmailDelivery[] | null; failu
  * rows, every count and the Negocio history read one list. While an email is
  * still moving it polls a few times, then waits for a refresh.
  */
-export function useEmailDeliveries({ source, enabled, revision, businessKey }: { source: BusinessDataSource; enabled: boolean; revision: number; businessKey: string | null }): EmailDeliveries {
+export function useEmailDeliveries({ source, enabled, revision, businessKey, onAnswered }: { source: BusinessDataSource; enabled: boolean; revision: number; businessKey: string | null; onAnswered?: (revision: number, ok: boolean) => void }): EmailDeliveries {
   const [loaded, setLoaded] = useState<Loaded>({ key: businessKey, items: null, failure: null });
   const [attempt, setAttempt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,18 +43,21 @@ export function useEmailDeliveries({ source, enabled, revision, businessKey }: {
         const items = await source.emailDeliveries();
         if (!current) return;
         setLoaded({ key: businessKey, items, failure: null });
+        onAnswered?.(revision, true);
         if (!emailDeliveriesNeedRefresh(items)) return;
         if (polls++ < POLLS) timer = setTimeout(() => void load(), POLL_MS);
         else setStalled(true);
       } catch (error) {
-        if (current) setLoaded((value) => ({ key: businessKey, items: value.key === businessKey ? value.items : null, failure: loadFailure(error) }));
+        if (!current) return;
+        setLoaded((value) => ({ key: businessKey, items: value.key === businessKey ? value.items : null, failure: loadFailure(error) }));
+        onAnswered?.(revision, false);
       } finally {
         if (current) setRefreshing(false);
       }
     };
     void load();
     return () => { current = false; clearTimeout(timer); };
-  }, [source, enabled, revision, businessKey, attempt]);
+  }, [source, enabled, revision, businessKey, attempt, onAnswered]);
   const refresh = useCallback(() => setAttempt((value) => value + 1), []);
   const mine = loaded.key === businessKey;
   return { items: mine ? loaded.items : null, failure: mine ? loaded.failure : null, refreshing, stalled, refresh };

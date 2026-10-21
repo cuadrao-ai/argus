@@ -58,6 +58,8 @@ import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
+import { createReloadWaits } from "./list-reload";
+import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
@@ -116,6 +118,8 @@ export type BusinessContextValue = Readonly<{
   clearLostAccess: () => void;
   revision: number;
   reload: () => void;
+  /** Reloads and settles once every list has answered, "failed" when any could not. */
+  refresh: () => Promise<RefreshOutcome>;
   period: Period;
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
@@ -330,6 +334,13 @@ function BusinessWorkspaceContent({
   const [draftRevision, setDraftRevision] = useState(0);
 
   const reload = useCallback(() => setRevision((value) => value + 1), []);
+  const [reloadWaits] = useState(createReloadWaits);
+  useEffect(() => reloadWaits.committed(revision), [reloadWaits, revision]);
+  const refresh = useCallback(() => {
+    reload();
+    return reloadWaits.next();
+  }, [reload, reloadWaits]);
+  const emailsAnswered = useCallback((at: number, ok: boolean) => reloadWaits.answered("emails", at, ok), [reloadWaits]);
 
   // A receipt saved from the composer belongs to the conversation it was added in.
   const conversationId = bridge?.conversationId ?? null;
@@ -372,7 +383,9 @@ function BusinessWorkspaceContent({
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
     ]))
       .then(([workspace, overview, page]) => {
-        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
+        if (cancelled) return;
+        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
+        reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -387,6 +400,7 @@ function BusinessWorkspaceContent({
           window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
           return;
         }
+        reloadWaits.answered("records", revision, false);
         if (kind === "closed") {
           setRecords((current) => ({ ...current, error: false, closed: true, serverReference: null }));
           return;
@@ -400,9 +414,9 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [onRecord, period.from, period.to, revision, source]);
+  }, [onRecord, period.from, period.to, revision, source, reloadWaits]);
 
-  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant });
+  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
   const workspaceRecords = useMemo<Records>(
     () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
     [records, emailDeliveries.items, emailDeliveries.failure],
@@ -433,16 +447,20 @@ function BusinessWorkspaceContent({
       return source.captures("", NOTES_PAGE, "inbox");
     }).then(
       (notes) => {
-        if (!cancelled) setRecords((current) => ({ ...current, notes, notesFailure: null, notesTruncated: notes.length >= NOTES_PAGE }));
+        if (cancelled) return;
+        setRecords((current) => ({ ...current, notes, notesFailure: null, notesTruncated: notes.length >= NOTES_PAGE }));
+        reloadWaits.answered("notes", revision, true);
       },
       (error: unknown) => {
-        if (!cancelled) setRecords((current) => ({ ...current, notes: null, notesFailure: loadFailure(error), notesTruncated: false }));
+        if (cancelled) return;
+        setRecords((current) => ({ ...current, notes: null, notesFailure: loadFailure(error), notesTruncated: false }));
+        reloadWaits.answered("notes", revision, false);
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [onRecord, revision, notesAttempt, source, i18n]);
+  }, [onRecord, revision, notesAttempt, source, i18n, reloadWaits]);
 
   const retryEmails = emailDeliveries.refresh;
   const retrySources = useCallback((sources: readonly BandejaSource[]) => {
@@ -488,6 +506,7 @@ function BusinessWorkspaceContent({
       clearLostAccess,
       revision,
       reload,
+      refresh,
       period,
       setPeriod,
       panel,
@@ -500,7 +519,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, retrySources, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;

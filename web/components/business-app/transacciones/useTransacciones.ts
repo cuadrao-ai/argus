@@ -11,6 +11,7 @@ import { useBankTransport, useIgualarEnabled } from "./transacciones-gate";
 import { createSampleBankServer } from "./transacciones-sample";
 import { inverse, magnitude, periodCount, suggestionRun, type Decision, type IgualarView, type Movement, type Segment, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
 import { resolveLanguage } from "@/lib/language-features";
+import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 
 const OverrideContext = createContext<TransaccionesSource | null>(null);
 
@@ -128,6 +129,15 @@ export function useTransacciones() {
     return view;
   }, [read]);
 
+  /** A fresh read of the list in place; a failure is the list's own error, with Reintentar. */
+  const refresh = useCallback((): Promise<RefreshOutcome> => reread().then(
+    () => "updated",
+    () => {
+      setList({ kind: "failed" });
+      return "failed";
+    },
+  ), [reread]);
+
   const retryLoad = useCallback(() => {
     setList({ kind: "loading" });
     setReloads((value) => value + 1);
@@ -227,8 +237,8 @@ export function useTransacciones() {
       return;
     }
     setFailure(null);
-    void reread().catch(() => setList({ kind: "failed" }));
-  }, [decide, failure, reread]);
+    void refresh();
+  }, [decide, failure, refresh]);
 
   const open = useCallback((movementId: string, mode: TrayState["mode"] = "record") => {
     setFailure((current) => (current && current.movement.id !== movementId ? null : current));
@@ -259,7 +269,7 @@ export function useTransacciones() {
     setFailure(null);
   }, []);
 
-  return { source, list, view, segment, choose, movements, byId, more, loadMore, tray, open, close, startRun, decide, busy, failure, recover, retryLoad };
+  return { source, list, view, segment, choose, movements, byId, more, loadMore, tray, open, close, startRun, decide, busy, failure, recover, retryLoad, refresh };
 }
 
 export type TransaccionesController = ReturnType<typeof useTransacciones>;

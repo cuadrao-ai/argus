@@ -39,6 +39,8 @@
     "pin": "Anclar",
     "recents": "Recientes",
     "reference": "Ref. {{reference}}",
+    "refresh_failed": "No pudimos actualizar.",
+    "refresh_updated": "Actualizado",
     "rename": "Renombrar",
     "restore": "Restaurar",
     "retry": "Reintentar",

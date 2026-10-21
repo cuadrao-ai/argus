@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
@@ -60,7 +61,7 @@ export default function TransaccionesPanel() {
   const when = monthly ? capitalize(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${period.from}T12:00:00`))) : periodLabel(period);
   const subtitle = [when, bank?.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(bank.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
   const porIgualar = bank ? periodCount(bank.totals, "porIgualar") : null;
-  const header = bank ? headerCurrency(movements) ?? bank.accountCurrency : null;
+  const header = bank ? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
@@ -84,67 +85,69 @@ export default function TransaccionesPanel() {
   ) : null;
 
   return (
-    <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
-      {phone ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>
-          <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p>
-        </div>
-        {phone ? null : run}
-      </div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {igualar ? (
-          <SegmentedControl
-            testId="transacciones-segments"
-            label={t("business.transactions.segments.label")}
-            fill={phone}
-            value={segment}
-            onChange={controller.choose}
-            segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
-          />
-        ) : null}
-        <BusinessPeriodControl period={period} setPeriod={setPeriod} />
-        {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
-      </div>
-      {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
-      {igualar
-        ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
-        : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
-      {list.kind === "failed" ? (
-        <div className={cardClass}>
-          <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
-        </div>
-      ) : list.kind === "loading" ? (
-        <LoadingRows density={phone ? "amplio" : density} />
-      ) : saved ? (
-        saved.length === 0 ? (
-          <div className={cardClass} data-testid="transacciones-records-empty">
-            {period.key === "this_month" || period.key === "all"
-              ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
-              : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
+    <PullToRefresh onRefresh={controller.refresh}>
+      <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
+        {phone ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>
+            <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p>
           </div>
-        ) : phone ? <RecordsList records={saved} rowRef={rowRef} /> : <RecordsTable records={saved} density={density} rowRef={rowRef} />
-      ) : !bank ? null : periodCount(bank.totals, "movimientos") + periodCount(bank.totals, "sinMovimiento") === 0 ? (
-        <div className={cardClass}>
-          <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
+          {phone ? null : run}
         </div>
-      ) : movements.length === 0 ? (
-        <div className={cardClass}>
-          {bank.segment === "por_igualar"
-            ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: periodCount(bank.totals, "movimientos") })} />
-            : <EmptyState kind="filtered" compact title={t("business.transactions.empty.segment")} />}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {igualar ? (
+            <SegmentedControl
+              testId="transacciones-segments"
+              label={t("business.transactions.segments.label")}
+              fill={phone}
+              value={segment}
+              onChange={controller.choose}
+              segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
+            />
+          ) : null}
+          <BusinessPeriodControl period={period} setPeriod={setPeriod} />
+          {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div>
-      ) : (
-        <>
-          {phone
-            ? <TransaccionesList controller={controller} view={bank} rowRef={rowRef} />
-            : <TransaccionesTable controller={controller} view={bank} density={density} onSegmentStep={stepSegment} onRunKey={controller.startRun} rowRef={rowRef} />}
-          <LoadMore controller={controller} view={bank} />
-        </>
-      )}
-      {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
-    </section>
+        {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
+        {igualar
+          ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
+          : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
+        {list.kind === "failed" ? (
+          <div className={cardClass}>
+            <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
+          </div>
+        ) : list.kind === "loading" ? (
+          <LoadingRows density={phone ? "amplio" : density} />
+        ) : saved ? (
+          saved.length === 0 ? (
+            <div className={cardClass} data-testid="transacciones-records-empty">
+              {period.key === "this_month" || period.key === "all"
+                ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
+                : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
+            </div>
+          ) : phone ? <RecordsList records={saved} rowRef={rowRef} /> : <RecordsTable records={saved} density={density} rowRef={rowRef} />
+        ) : !bank ? null : periodCount(bank.totals, "movimientos") + periodCount(bank.totals, "sinMovimiento") === 0 ? (
+          <div className={cardClass}>
+            <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
+          </div>
+        ) : movements.length === 0 ? (
+          <div className={cardClass}>
+            {bank.segment === "por_igualar"
+              ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: periodCount(bank.totals, "movimientos") })} />
+              : <EmptyState kind="filtered" compact title={t("business.transactions.empty.segment")} />}
+          </div>
+        ) : (
+          <>
+            {phone
+              ? <TransaccionesList controller={controller} view={bank} rowRef={rowRef} />
+              : <TransaccionesTable controller={controller} view={bank} density={density} onSegmentStep={stepSegment} onRunKey={controller.startRun} rowRef={rowRef} />}
+            <LoadMore controller={controller} view={bank} />
+          </>
+        )}
+        {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
+      </section>
+    </PullToRefresh>
   );
 }
 

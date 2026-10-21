@@ -39,6 +39,8 @@
     "pin": "Pin",
     "recents": "Recents",
     "reference": "Ref. {{reference}}",
+    "refresh_failed": "We couldn't update.",
+    "refresh_updated": "Updated",
     "rename": "Rename",
     "restore": "Restore",
     "retry": "Retry",

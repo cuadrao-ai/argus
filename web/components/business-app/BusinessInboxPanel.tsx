@@ -21,6 +21,7 @@ import { ListPager } from "./foundation/ListPager";
 import BusinessAddMenu from "./BusinessAddMenu";
 import { EmptyState } from "./foundation/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { Settle } from "./business-skeletons";
 import { showToast } from "./foundation/toasts";
 import { resolveLanguage } from "@/lib/language-features";
@@ -249,7 +250,7 @@ function SourcesFailed({ failed, retry }: { failed: readonly { source: BandejaSo
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, openPanel, actions, panel, chosen, revision, reload, retrySources } = useBusiness();
+  const { records, openPanel, actions, panel, chosen, revision, reload, refresh, retrySources } = useBusiness();
   const loads = { receipts: sourceLoad(records.inbox, null), notes: sourceLoad(records.notes, records.notesFailure), emails: sourceLoad(records.emails, records.emailsFailure) };
   const failed = (["notes", "emails"] as const).flatMap((source) => {
     const load = loads[source];
@@ -288,63 +289,65 @@ export default function BusinessInboxPanel() {
   ) : null;
 
   return (
-    <section className="@container">
-      {isBelowTablet && !empty ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
-      <PanelHeading
-        title={t("business.inbox.title", "Inbox")}
-        action={
-          chosen?.role === "accountant" ? (
-            <button type="button" data-testid="business-primary-review" onClick={openReview} className={primaryButtonClass}>
-              {t("business.inbox.review_receipts", "Revisar recibos")}
-            </button>
-          ) : null
-        }
-      />
-      <ReceiptReadingControl />
-      {records.error ? (
-        <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
-      ) : (
-        <>
-          <div className="mb-4">
-            {/* A phone fits all three only with their short names. */}
-            <SegmentedControl
-              testId="bandeja-segments"
-              label={t("business.inbox.segments", "Show")}
-              value={list}
-              onChange={setList}
-              fill={isBelowTablet}
-              segments={[
-                { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts.review },
-                { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts.problem },
-                { key: "all", label: t("business.inbox.segment_all", "All") },
-              ]}
-            />
-          </div>
-          <SourcesFailed failed={failed} retry={retryFailed} />
-          <Settle pending={rows === null} layout="inbox">
-            {rows === null ? null : empty ? (
-              <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
-            ) : (
-              <>
-                {rows.length ? (
-                  <div className={`${cardClass} p-2`} data-testid="business-inbox-receipts">
-                    {group(t("business.inbox.group_new", "New since your last visit"), fresh, "bandeja-new")}
-                    {group(t("business.inbox.group_earlier", "Earlier"), earlier, "bandeja-earlier")}
-                  </div>
-                ) : failed.length ? null : (
-                  <div className={cardClass} data-testid="bandeja-segment-empty">
-                    <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
-                      title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}
-                      body={t("business.inbox.see_all_body", "Every receipt you have is under All.")}
-                      action={{ label: t("business.inbox.see_all", "See all"), run: () => setList("all") }} />
-                  </div>
-                )}
-                {records.notesTruncated ? <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
-              </>
-            )}
-          </Settle>
-        </>
-      )}
-    </section>
+    <PullToRefresh onRefresh={refresh}>
+      <section className="@container">
+        {isBelowTablet && !empty ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
+        <PanelHeading
+          title={t("business.inbox.title", "Inbox")}
+          action={
+            chosen?.role === "accountant" ? (
+              <button type="button" data-testid="business-primary-review" onClick={openReview} className={primaryButtonClass}>
+                {t("business.inbox.review_receipts", "Revisar recibos")}
+              </button>
+            ) : null
+          }
+        />
+        <ReceiptReadingControl />
+        {records.error ? (
+          <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
+        ) : (
+          <>
+            <div className="mb-4">
+              {/* A phone fits all three only with their short names. */}
+              <SegmentedControl
+                testId="bandeja-segments"
+                label={t("business.inbox.segments", "Show")}
+                value={list}
+                onChange={setList}
+                fill={isBelowTablet}
+                segments={[
+                  { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts.review },
+                  { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts.problem },
+                  { key: "all", label: t("business.inbox.segment_all", "All") },
+                ]}
+              />
+            </div>
+            <SourcesFailed failed={failed} retry={retryFailed} />
+            <Settle pending={rows === null} layout="inbox">
+              {rows === null ? null : empty ? (
+                <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
+              ) : (
+                <>
+                  {rows.length ? (
+                    <div className={`${cardClass} p-2`} data-testid="business-inbox-receipts">
+                      {group(t("business.inbox.group_new", "New since your last visit"), fresh, "bandeja-new")}
+                      {group(t("business.inbox.group_earlier", "Earlier"), earlier, "bandeja-earlier")}
+                    </div>
+                  ) : failed.length ? null : (
+                    <div className={cardClass} data-testid="bandeja-segment-empty">
+                      <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
+                        title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}
+                        body={t("business.inbox.see_all_body", "Every receipt you have is under All.")}
+                        action={{ label: t("business.inbox.see_all", "See all"), run: () => setList("all") }} />
+                    </div>
+                  )}
+                  {records.notesTruncated ? <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
+                </>
+              )}
+            </Settle>
+          </>
+        )}
+      </section>
+    </PullToRefresh>
   );
 }
