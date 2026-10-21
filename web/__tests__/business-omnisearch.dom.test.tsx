@@ -83,8 +83,8 @@ test("on focus the search is not empty: it names what it reads and offers every 
   try {
     await view.openSearch();
     assert.equal(view.input().placeholder, "Busca comercio, monto o nota");
-    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "GastosPantalla", "NegocioPantalla", "Equipo y accesosPantalla"]);
-    assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Exportar registrosAcción", "Ver correosAcción", "Copiar dirección de reenvíoAcción"]);
+    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "GastosPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "Correo de recibosPantalla"]);
+    assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Exportar registrosAcción", "Copiar dirección de reenvíoAcción"]);
     assert.ok(!/Argus/.test(paletteText()), "no Argus words on a Business search");
   } finally { await view.unmount(); }
 });
@@ -110,8 +110,8 @@ test("screens and actions match the query without accents or case, and open wher
     assert.equal(view.opened.at(-1), "export", "Exportar opens the one export sheet over the current screen");
     await view.openSearch();
     await type(view.input(), "correos");
-    await act(async () => (group("Acciones")!.querySelector("button") as HTMLButtonElement).click());
-    assert.deepEqual(view.opened.at(-1), { kind: "inbox", segment: "emails" }, "Ver correos opens the Bandeja on Correos");
+    await act(async () => (group("Ir a")!.querySelector("button") as HTMLButtonElement).click());
+    assert.deepEqual(view.opened.at(-1), { kind: "business", tab: "correo" }, "the email history lives in Correo de recibos");
   } finally { await view.unmount(); }
 });
 
@@ -159,7 +159,7 @@ test("zero results say so, say what to search by, and still offer the screens an
     const empty = document.querySelector('[data-testid="workspace-search-no-match"]');
     assert.ok(empty?.textContent?.includes("No encontramos nada con «zzqx»."));
     assert.ok(empty?.textContent?.includes("Busca por comercio, monto, categoría, cuenta o el texto de una nota."));
-    assert.equal(rows("Ir a").length, 5);
+    assert.equal(rows("Ir a").length, 6);
     assert.ok(rows("Acciones").length >= 3);
     assert.ok(!/Argus|ticker/.test(paletteText()));
     await type(view.input(), "z");

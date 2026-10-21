@@ -36,6 +36,25 @@ export function businessReceivingAddress(intake: BusinessEmailIntake): string | 
   return intake.enabled ? intake.receiving_address : null;
 }
 
+/** Reading: still moving with nothing saved yet. No receipt: finished without saving a new file. */
+export type EmailStanding = "reading" | "no_receipt";
+
+const isRepeat = (part: BusinessEmailPart) => Boolean(part.repeat_of_delivery_id || part.repeat_of_upload);
+
+/**
+ * Where an email stands in the Bandeja. An email is only how a receipt
+ * arrived: once it saved a new file, that receipt is the row and the email is
+ * none (null). A repeat of a file already saved is not a problem either.
+ */
+export function emailStanding(delivery: BusinessEmailDelivery): EmailStanding | null {
+  const { parts, state } = delivery;
+  if (parts.some((part) => part.state === "captured" && part.document_id && !isRepeat(part))) return null;
+  if (state === "rejected") return "no_receipt";
+  if (delivery.waiting || state === "received" || state === "processing" || parts.some((part) => part.state === "pending")) return "reading";
+  if (!parts.length || parts.some((part) => part.state === "rejected")) return "no_receipt";
+  return null;
+}
+
 /** A delivery still moving on the server is worth a short poll. */
 export function emailDeliveriesNeedRefresh(items: readonly BusinessEmailDelivery[]): boolean {
   return items.some((item) => !item.waiting && (item.state === "received" || item.state === "processing" || item.state === "partial"));

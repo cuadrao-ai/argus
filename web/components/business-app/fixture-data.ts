@@ -162,6 +162,8 @@ function seedReceipts(): ReceiptDetail[] {
     receipt({
       id: "rcpt-ambiguous",
       status: "needs_attention",
+      channel: "email",
+      email_delivery_ids: ["email-colmado"],
       filename: "colmado-oct.jpg",
       received_at: daysAgo(3),
       error_code: "receipt_purchase_ambiguous",
@@ -693,7 +695,11 @@ export function createFixtureBusinessDataSource(
   };
 }
 
-/** One email whose attachment is the ferretería receipt, and one that could not be read. */
+/**
+ * The emails the sample received: the ferretería's and the colmado's each
+ * saved a receipt, the gas station's is still being read, the boletín's zip
+ * could not be saved, and the farmacia's hit an inactive address and can be retried.
+ */
 const SAMPLE_EMAILS = [
   {
     id: "email-ferreteria",
@@ -725,6 +731,54 @@ const SAMPLE_EMAILS = [
     text_body: null,
     parts: [
       { id: "1.2", filename: "boletin.zip", media_type: "application/zip", state: "rejected" as const, document_id: null, error_code: "unsupported_media_type" },
+    ],
+  },
+  {
+    id: "email-colmado",
+    state: "captured" as const,
+    received_at: daysAgo(3),
+    updated_at: daysAgo(3),
+    original_document_id: null,
+    retryable: false,
+    subject: "Factura del colmado",
+    sender: "ventas@colmadoelprimo.example",
+    sent_at: null,
+    error_code: null,
+    text_body: "Saludos, le enviamos la factura de la compra de esta semana.",
+    parts: [
+      { id: "1.2", filename: "colmado-oct.jpg", media_type: "image/jpeg", state: "captured" as const, document_id: "rcpt-ambiguous", error_code: null, repeat_of_delivery_id: null },
+    ],
+  },
+  {
+    id: "email-estacion",
+    state: "processing" as const,
+    received_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+    updated_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+    original_document_id: null,
+    retryable: false,
+    subject: "Recibo de combustible",
+    sender: "facturas@estacion.example",
+    sent_at: null,
+    error_code: null,
+    text_body: "Adjuntamos su recibo de combustible.",
+    parts: [
+      { id: "1.2", filename: "combustible.pdf", media_type: "application/pdf", state: "pending" as const, document_id: null, error_code: null },
+    ],
+  },
+  {
+    id: "email-farmacia",
+    state: "rejected" as const,
+    received_at: daysAgo(4),
+    updated_at: daysAgo(4),
+    original_document_id: null,
+    retryable: true,
+    subject: "Factura Farmacia Carol",
+    sender: "facturas@farmaciacarol.example",
+    sent_at: null,
+    error_code: "email_route_unavailable",
+    text_body: "Le remitimos la factura de su compra.",
+    parts: [
+      { id: "1.2", filename: "factura-farmacia.pdf", media_type: "application/pdf", state: "rejected" as const, document_id: null, error_code: null },
     ],
   },
 ];

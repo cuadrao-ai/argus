@@ -90,22 +90,16 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   } finally { await off.close(); }
 });
 
-test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its email waits behind the Correos segment", async () => {
+test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its segments are Por revisar, Con problema and Todo", async () => {
   const page = await mountInbox();
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
     assert.equal([...page.host.querySelectorAll("p")].some((node) => ownText(node).includes(PHRASE)), false, "the counts live on the segments, not in a subhead");
     const segments = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment]')];
-    assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all", "emails"]);
-    assert.equal(segments[3].textContent, "Correos");
-    assert.equal(page.host.querySelector('[data-testid="bandeja-emails-line"]'), null, "no Ver correos line under the receipts");
-    assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address waits behind Correos");
+    assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all"]);
+    assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address lives in Negocio");
     assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null, "Agregar lives in the top bar");
     assert.equal(page.host.querySelector('[data-testid="add-menu-page"]'), null);
-    await page.act(async () => { segments[3].click(); });
-    await page.settle(() => page.host.querySelector('[data-testid="email-address"]') !== null);
-    assert.ok(page.host.querySelector('[data-testid="email-address"]'), "Correos shows the receiving address");
-    assert.equal(page.host.querySelector('[data-testid="business-inbox-receipts"]'), null, "Correos replaces the receipt rows");
   } finally { await page.close(); }
 });
 

@@ -58,20 +58,23 @@ import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
+import { useEmailDeliveries } from "./useEmailDeliveries";
+import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 
 export type BusinessPanelState =
-  // `segment` opens the Bandeja on that list, as Ver correos asks. The address bar never carries it.
   | { kind: "overview" }
-  | { kind: "inbox"; emailId?: string; segment?: "emails" }
+  | { kind: "inbox" }
   | { kind: "expenses"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
   // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
   | { kind: "receipt"; receiptId: string; list?: RecordList }
-  | { kind: "draft"; draftId: string; list?: RecordList };
+  | { kind: "draft"; draftId: string; list?: RecordList }
+  // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
+  | { kind: "email"; emailId: string };
 
 export type RecordList = "inbox" | "expenses";
 export type BusinessTab = "datos" | "equipo" | "correo";
@@ -87,6 +90,9 @@ type Records = {
   notesError: boolean;
   /** The captures list stops at the server's page size; older open notes are found through search. */
   notesTruncated: boolean;
+  /** Received emails, newest first; null until loaded. An email outage never hides receipts. */
+  emails: BusinessEmailDelivery[] | null;
+  emailsError: boolean;
   error: boolean;
   closed?: boolean;
   serverReference?: string | null;
@@ -117,6 +123,8 @@ export type BusinessContextValue = Readonly<{
   clearAttachedReceipt: () => void;
   /** Opens Exportar registros over whatever screen is showing. */
   openExport: () => void;
+  /** Asks the server for the emails again; the Negocio history shows it working. */
+  emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
 }>;
 
 /** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
@@ -138,11 +146,15 @@ const PANEL_KINDS = new Set(["overview", "inbox", "expenses"]);
 function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   const draftId = params.get("draft");
   if (draftId) return { kind: "draft", draftId };
+  const emailId = params.get("email");
+  if (emailId) return { kind: "email", emailId };
   const receiptId = params.get("receipt");
   if (receiptId) return { kind: "receipt", receiptId };
   const expenseId = params.get("expense");
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
+  // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
+  if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
     return { kind: view as "overview" | "inbox" | "expenses" };
   }
@@ -164,6 +176,8 @@ const EMPTY_RECORDS: Records = {
   notes: null,
   notesError: false,
   notesTruncated: false,
+  emails: null,
+  emailsError: false,
   error: false,
   closed: false,
   serverReference: null,
@@ -180,12 +194,15 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("receipt");
     url.searchParams.delete("draft");
     url.searchParams.delete("expense");
+    url.searchParams.delete("email");
+    url.searchParams.delete("segment");
     url.searchParams.delete("tab");
     if (view === "workspace") {
       if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
       else if (panel.kind === "draft") url.searchParams.set("draft", panel.draftId);
       else if (panel.kind === "expense") url.searchParams.set("expense", panel.expenseId);
+      else if (panel.kind === "email") url.searchParams.set("email", panel.emailId);
       else if (panel.kind !== "overview") url.searchParams.set("view", panel.kind);
     } else if (view === "chat" && !url.searchParams.has("conversation")) {
       url.searchParams.set("view", "chat");
@@ -377,12 +394,27 @@ function BusinessWorkspaceContent({
     };
   }, [onRecord, period.from, period.to, revision, source]);
 
+  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant });
+  const workspaceRecords = useMemo<Records>(
+    () => ({ ...records, emails: emailDeliveries.items, emailsError: emailDeliveries.failed }),
+    [records, emailDeliveries.items, emailDeliveries.failed],
+  );
+  const emailRefresh = useMemo(
+    () => ({ refresh: emailDeliveries.refresh, refreshing: emailDeliveries.refreshing, stalled: emailDeliveries.stalled }),
+    [emailDeliveries.refresh, emailDeliveries.refreshing, emailDeliveries.stalled],
+  );
+
   useReceiptInboxRefresh({
     source,
     active: !onRecord && panel.kind === "inbox" && bridge?.currentView !== "chat",
     reading: !onRecord && (records.receiptActivity?.reading_count ?? 0) > 0,
     businessKey: chosenGrant,
-    onRefresh: (page) => { if (!onRecord) setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity })); },
+    onRefresh: (page) => {
+      if (onRecord) return;
+      setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity }));
+      // A long read outlasts the email poll; each receipt refresh asks again while an email is still moving.
+      if (emailDeliveries.items && !emailDeliveries.refreshing && emailDeliveriesNeedRefresh(emailDeliveries.items)) emailDeliveries.refresh();
+    },
   });
 
   useEffect(() => {
@@ -433,7 +465,7 @@ function BusinessWorkspaceContent({
   const value = useMemo<BusinessContextValue>(
     () => ({
       source,
-      records,
+      records: workspaceRecords,
       spaces,
       chosen,
       chooseBusiness,
@@ -451,8 +483,9 @@ function BusinessWorkspaceContent({
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
       openExport,
+      emailRefresh,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, lostAccess, markAccessSeen, openExport, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;

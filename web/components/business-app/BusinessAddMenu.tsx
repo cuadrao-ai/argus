@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Copy, Download, Mail, Plus } from "lucide-react";
+import { ChevronDown, Copy, Download, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "./ActionMenu";
 import { useBusiness } from "./BusinessWorkspace";
@@ -12,13 +12,13 @@ const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:o
 
 /**
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
- * registros, Copiar dirección de reenvío, Ver correos). It sits in the top bar
+ * registros, Copiar dirección de reenvío). It sits in the top bar
  * from the tablet stop up and at the top of each screen on a phone, where the
  * thumb reaches it. A contador, who adds nothing, gets the menu alone.
  */
 export default function BusinessAddMenu({ placement }: { placement: "header" | "page" }) {
   const { t } = useTranslation();
-  const { actions, chosen, openExport, openPanel } = useBusiness();
+  const { actions, chosen, openExport } = useBusiness();
   const forwardAddress = useForwardAddress();
   const owner = chosen?.role !== "accountant";
   const add = owner ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
@@ -31,7 +31,6 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
   const more = [
     ...(chosen?.capabilities.includes("read") ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: openExport }] : []),
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
-    { id: "emails", icon: Mail, label: t("business.inbox.see_emails", "See emails"), run: () => openPanel({ kind: "inbox", segment: "emails" }) },
   ];
   const page = placement === "page";
   const moreLabel = t("business.add_menu.more", "More actions");

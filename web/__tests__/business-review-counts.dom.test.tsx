@@ -6,9 +6,9 @@ import type { ReceiptActivityCounts } from "@/lib/business-api";
 // The real workspace provider over the sample source, with the Resumen, the
 // sidebar badge and the Bandeja side by side on the same saved state. The
 // sample lists five receipts (Ferretería La Esquina, Papelería Central,
-// IMG_2209, IMG_2215, colmado-oct) and one email that is context for its
-// attachment; three of the five need attention, and IMG_2209 is unreadable,
-// so four are to review.
+// IMG_2209, IMG_2215, colmado-oct) and five emails; three of the receipts
+// need attention and IMG_2209 is unreadable, so four are to review. Two emails
+// brought no receipt (problems) and one is still being read.
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
   useRouter: () => ({ push: () => undefined, replace: () => undefined }),
@@ -95,7 +95,6 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     const page = await mount();
     assert.equal(page.rows(), 4, "Por revisar lists the four receipts to review");
     assert.equal(page.reviewCount(), "4");
-    assert.match(page.reviewTask()?.textContent ?? "", /3 con problema/);
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
     assert.equal(page.segment("review")?.textContent, "Por revisar4");
     await page.choose("all");
@@ -136,13 +135,25 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.act(async () => page.root.unmount());
   });
 
+  test("the Con problema segment counts the receipts with a problem and the emails that brought none, and lists what it counts", async () => {
+    const page = await mount();
+    const { problemCount } = await import("@/components/business-app/inbox-count");
+    await page.settle(() => page.segment("problem")?.textContent === "Con problema5");
+    assert.equal(page.segment("problem")?.textContent, "Con problema5");
+    assert.equal(problemCount(page.api().records), 5, "the one owner gives the same number");
+    await page.choose("problem");
+    assert.equal(page.rows() + page.host.querySelectorAll('[data-testid="bandeja-email"]').length, 5, "the segment lists the five it counts");
+    await page.act(async () => page.root.unmount());
+  });
+
+  // Fails until Inicio reads problemCount and readingCount from inbox-count (BusinessOverviewPanel.tsx is held by another helper).
   test("the Resumen's con problema and the Con problema segment give one number", async () => {
     const page = await mount();
-    assert.match(page.reviewTask()?.textContent ?? "", /3 con problema/);
-    assert.equal(page.segment("problem")?.textContent, "Con problema3");
-    await page.choose("problem");
-    assert.equal(page.rows(), 3, "the segment lists the three it counts");
-    await page.act(async () => page.root.unmount());
+    await page.settle(() => page.segment("problem")?.textContent === "Con problema5");
+    try {
+      assert.match(page.reviewTask()?.textContent ?? "", /5 con problema/);
+      assert.match(page.reviewTask()?.textContent ?? "", /1 todavía leyendo/);
+    } finally { await page.act(async () => page.root.unmount()); }
   });
 
   test("an approval leaves the Bandeja and the Resumen together", async () => {

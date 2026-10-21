@@ -84,6 +84,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
   const held = new Promise<void>((resolve) => { release = resolve; });
   const source = {
     ...fixture,
+    // No email waits in this Bandeja, so approving the last receipt empties it.
+    emailDeliveries: async () => [],
     receipts: async () => {
       bandejaReads += 1;
       if (hold === "bandeja") await held;

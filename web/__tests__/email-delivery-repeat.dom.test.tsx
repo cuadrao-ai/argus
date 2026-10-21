@@ -17,7 +17,7 @@ const delivery = (id: string, repeat: string | null, upload = false): BusinessEm
   parts: [{ id: "1.2", filename: "recibo-prueba-ferreteria.pdf", media_type: "application/pdf", state: "captured", document_id: "rcpt-1", error_code: null, repeat_of_delivery_id: repeat, repeat_of_upload: upload }],
 });
 
-describe("a repeated email attachment in Correos recibidos", () => {
+describe("a repeated email attachment in the email Historial", () => {
   test("the second email says the file was already received and still opens the one receipt", async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
@@ -25,21 +25,22 @@ describe("a repeated email attachment in Correos recibidos", () => {
     const { I18nextProvider } = await import("react-i18next");
     const spanish = (await import("@/public/locales/es-419/common.json")).default;
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-    const { default: BusinessEmailDeliveries } = await import("@/components/business-app/BusinessEmailDeliveries");
+    const { EmailHistory } = await import("@/components/business-app/BusinessEmailDeliveries");
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const opened: unknown[] = [];
     const value = {
       // The email rows read the Inbox's receipts to say when a saved part is still unread.
-      records: { inbox: null, notes: null, notesError: false, notesTruncated: false, workspace: null, overview: null, error: false },
-      source: { emailIntake: async () => ({ enabled: true, receiving_address: "recibos-ab12@example.test" }), emailDeliveries: async () => [delivery("d2", "d1"), delivery("d1", null)], emailDelivery: async (id: string) => ({ ...delivery(id, null), text_body: "Adjunto" }) },
+      records: { inbox: null, notes: null, notesError: false, notesTruncated: false, emails: [delivery("d2", "d1"), delivery("d1", null)], emailsError: false, workspace: null, overview: null, error: false },
+      emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false },
+      source: { emailDelivery: async (id: string) => ({ ...delivery(id, null), text_body: "Adjunto" }) },
       openPanel: (panel: unknown) => opened.push(panel),
       revision: 0,
     } as unknown as BusinessContextValue;
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><BusinessEmailDeliveries /></BusinessContext.Provider></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><EmailHistory /></BusinessContext.Provider></I18nextProvider>); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     const rows = host.querySelectorAll<HTMLButtonElement>('[data-testid="email-delivery-row"]');
     assert.equal(rows.length, 2);
@@ -67,31 +68,32 @@ describe("a repeated email attachment in Correos recibidos", () => {
   });
 });
 
-describe("the inbox opened from a receipt's first email", () => {
-  test("the named email starts open, and a file first saved on the web reads as already saved", async () => {
+describe("an email opened as a record from a receipt's first email", () => {
+  test("the named email shows, and a file first saved on the web reads as already saved", async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
     const { I18nextProvider } = await import("react-i18next");
     const spanish = (await import("@/public/locales/es-419/common.json")).default;
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-    const { default: BusinessEmailDeliveries } = await import("@/components/business-app/BusinessEmailDeliveries");
+    const { EmailRecord } = await import("@/components/business-app/BusinessEmailDeliveries");
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
     const value = {
-      // The email rows read the Inbox's receipts to say when a saved part is still unread.
-      records: { inbox: null, notes: null, notesError: false, notesTruncated: false, workspace: null, overview: null, error: false },
-      source: { emailIntake: async () => ({ enabled: true, receiving_address: "recibos-ab12@example.test" }), emailDeliveries: async () => [delivery("d1", null, true)], emailDelivery: async (id: string) => ({ ...delivery(id, null, true), text_body: "Adjunto" }) },
+      records: { inbox: null, notes: null, notesError: false, notesTruncated: false, emails: [delivery("d1", null, true)], emailsError: false, workspace: null, overview: null, error: false },
+      emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false },
+      source: { emailDelivery: async (id: string) => ({ ...delivery(id, null, true), text_body: "Adjunto" }) },
       openPanel: () => undefined,
       revision: 0,
     } as unknown as BusinessContextValue;
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
-    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><BusinessEmailDeliveries openEmailId="d1" /></BusinessContext.Provider></I18nextProvider>); });
+    await act(async () => { root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={value}><EmailRecord emailId="d1" /></BusinessContext.Provider></I18nextProvider>); });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     const detail = document.body.querySelector('[data-testid="email-detail"]');
-    assert.ok(detail, "the named email opens on arrival");
+    assert.ok(detail, "the named email opens");
+    assert.equal(host.querySelector('[data-testid="email-record"] h2')?.textContent, "Correo de ventas@ferreteria.example");
     assert.ok(detail.textContent?.includes("Ya habías guardado este archivo"));
     await act(async () => root.unmount());
   });

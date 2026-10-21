@@ -1,5 +1,6 @@
 import type { BusinessCapture } from "@/lib/business-api";
-import { countPorRevisar, type ReviewCountItem } from "@/lib/business-review-count";
+import { emailStanding, type BusinessEmailDelivery, type EmailStanding } from "@/lib/business-email";
+import { countNeedsAttention, countPorRevisar, countStillReading, type ReviewCountItem } from "@/lib/business-review-count";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -24,12 +25,49 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
   return [...byDraft.values()].sort((a, b) => (a.receivedAt < b.receivedAt ? 1 : -1));
 }
 
+/** An email that is a Bandeja row of its own: one still being read, or one that brought no receipt. */
+export type BandejaEmail = { delivery: BusinessEmailDelivery; standing: EmailStanding };
+
+export function bandejaEmails(deliveries: readonly BusinessEmailDelivery[]): BandejaEmail[] {
+  return deliveries.flatMap((delivery) => {
+    const standing = emailStanding(delivery);
+    return standing ? [{ delivery, standing }] : [];
+  });
+}
+
+type CountRecords = {
+  inbox?: readonly ReviewCountItem[] | null;
+  notes?: readonly BusinessCapture[] | null;
+  emails?: readonly BusinessEmailDelivery[] | null;
+  emailsError?: boolean;
+};
+
+/** The emails as far as they are known: an outage counts as none, so it never hides the receipts' own count. */
+function knownEmails(records: CountRecords): BandejaEmail[] | null {
+  const emails = records.emails ?? (records.emailsError ? [] : null);
+  return emails ? bandejaEmails(emails) : null;
+}
+
 /**
  * The one "por revisar" number: receipts ready for review plus typed notes
  * awaiting it. Inicio, the sidebar badge, the phone tab and the Bandeja's
- * segment all show this count.
+ * segment all show this count. An email being read waits, like a receipt being read.
  */
-export function inboxCount(records: { inbox?: readonly ReviewCountItem[] | null; notes?: readonly BusinessCapture[] | null }): number | null {
+export function inboxCount(records: CountRecords): number | null {
   if (!records.inbox) return null;
   return countPorRevisar(records.inbox) + (records.notes ? openNotesByDraft(records.notes).length : 0);
+}
+
+/** The one "con problema" number: receipts that need a fix plus emails that brought no receipt. */
+export function problemCount(records: CountRecords): number | null {
+  const emails = knownEmails(records);
+  if (!records.inbox || !emails) return null;
+  return countNeedsAttention(records.inbox) + emails.filter((email) => email.standing === "no_receipt").length;
+}
+
+/** Receipts and emails still being read. */
+export function readingCount(records: CountRecords): number | null {
+  const emails = knownEmails(records);
+  if (!records.inbox || !emails) return null;
+  return countStillReading(records.inbox) + emails.filter((email) => email.standing === "reading").length;
 }

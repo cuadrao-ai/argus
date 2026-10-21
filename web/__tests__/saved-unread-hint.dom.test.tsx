@@ -36,9 +36,9 @@ async function mount(node: (React: typeof import("react")) => import("react").Re
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const value = {
     source: { emailIntake: async () => ({ enabled: true, receiving_address: "recibos-ab12@example.test" }), emailDeliveries: async () => [delivery], emailDelivery: async () => ({ ...delivery, text_body: "Adjunto" }) },
-    records: { inbox, notes: [], notesError: false, notesTruncated: false, workspace: null, overview: null, error: false },
+    records: { inbox, notes: [], notesError: false, notesTruncated: false, emails: [delivery], emailsError: false, workspace: null, overview: null, error: false },
+    emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false },
     openPanel: () => undefined,
-    // The Inbox reads which email to open on arrival; nothing here opens one.
     panel: { kind: "inbox" },
     revision: 0,
     actions: { create: [] },
@@ -71,9 +71,9 @@ describe("a receipt saved without a read never looks stuck", () => {
     await reading.act(async () => reading.root.unmount());
   });
 
-  test("the opened Correos recibidos email says the same under the captured attachment whose receipt is still unread", async () => {
-    const { default: BusinessEmailDeliveries } = await import("@/components/business-app/BusinessEmailDeliveries");
-    const page = await mount((React) => React.createElement(BusinessEmailDeliveries), [receipt({})]);
+  test("an email opened from the Historial says the same under the captured attachment whose receipt is still unread", async () => {
+    const { EmailHistory } = await import("@/components/business-app/BusinessEmailDeliveries");
+    const page = await mount((React) => React.createElement(EmailHistory), [receipt({})]);
     const row = page.host.querySelector('[data-testid="email-delivery-row"]') as HTMLButtonElement;
     await page.act(async () => { row.click(); });
     await page.act(async () => { await Promise.resolve(); await Promise.resolve(); });
@@ -82,7 +82,7 @@ describe("a receipt saved without a read never looks stuck", () => {
     assert.ok([...(detail?.querySelectorAll("button") ?? [])].some((b) => b.textContent === "Abrir recibo"));
     await page.act(async () => page.root.unmount());
     // Once the receipt was read, the line is gone.
-    const read = await mount((React) => React.createElement(BusinessEmailDeliveries), [receipt({ status: "review_ready" })]);
+    const read = await mount((React) => React.createElement(EmailHistory), [receipt({ status: "review_ready" })]);
     const row2 = read.host.querySelector('[data-testid="email-delivery-row"]') as HTMLButtonElement;
     await read.act(async () => { row2.click(); });
     await read.act(async () => { await Promise.resolve(); await Promise.resolve(); });

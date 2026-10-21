@@ -5,7 +5,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness, type BusinessTab } from "./BusinessWorkspace";
 import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
-import { BusinessEmailAddress } from "./BusinessEmailDeliveries";
+import { BusinessEmailAddress, EmailHistory } from "./BusinessEmailDeliveries";
 import { formatBusinessName } from "./business-format";
 import { PanelHeading } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
@@ -14,7 +14,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 /**
  * Negocio: everything about the business itself, apart from the person's own
  * account (which lives at the top right). One page, three tabs: its name and
- * RNC, who has access, and the address that receives its receipts by email.
+ * RNC, who has access, and the address that receives its receipts by email
+ * with the history of every email that arrived under it.
  */
 export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: BusinessTab }) {
   const { t } = useTranslation();
@@ -41,7 +42,12 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
         </div>
       ) : null}
       {shown === "equipo" ? <BusinessAccessPanel embedded /> : null}
-      {shown === "correo" ? <div className={SURFACE_CARD}><BusinessEmailAddress /></div> : null}
+      {shown === "correo" ? (
+        <div className="space-y-6">
+          <div className={SURFACE_CARD}><BusinessEmailAddress /></div>
+          <EmailHistory />
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -8,7 +8,7 @@ import type { BusinessPanelState } from "@/components/business-app/BusinessWorks
 // The real workspace and panel router over the sample source. The sample's
 // Bandeja holds Ferretería La Esquina and IMG_2209 as new since the last
 // visit, Papelería Central to review, and IMG_2209 (unreadable), IMG_2215
-// and colmado-oct with a problem.
+// and colmado-oct with a problem. colmado-oct arrived by email.
 let search = "";
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(search),
@@ -100,11 +100,11 @@ const inboxReady = (page: Awaited<ReturnType<typeof mount>>) =>
 
 describe("the Bandeja segments", () => {
   test("Por revisar, Con problema and Todo each list their receipts, newest first, and show their counts", async () => {
-    const page = await mount({ panel: { kind: "inbox" } });
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ emailDeliveries: async () => [] }) });
     await inboxReady(page);
     assert.equal(page.segment("review")?.getAttribute("aria-checked"), "true", "Por revisar is the first view");
     assert.equal(page.segment("review")?.textContent, "Por revisar4");
-    assert.equal(page.segment("problem")?.textContent, "Con problema3");
+    await page.settle(() => page.segment("problem")?.textContent === "Con problema3", "the problem count");
     assert.equal(page.segment("all")?.textContent, "Todo");
     assert.deepEqual(page.names(), ["Ferretería La Esquina", "Papelería Central", "IMG_2215.jpg", "colmado-oct.jpg"]);
     await page.choose("problem");
@@ -121,6 +121,7 @@ describe("the Bandeja segments", () => {
           const shown = await fixture.receiptPage!(view);
           return { ...shown, items: shown.items.filter((item) => item.status !== "needs_attention") };
         },
+        emailDeliveries: async () => [],
       }),
     });
     await inboxReady(page);
@@ -204,62 +205,147 @@ describe("typed notes in the list", () => {
   });
 });
 
-describe("email in the Correos segment", () => {
-  const correos = (page: { host: HTMLElement }) => page.host.querySelector<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment="emails"]');
+describe("emails in the Bandeja", () => {
+  // The sample's emails: the ferretería's and the colmado's each saved a receipt, the gas station's is still
+  // being read, the boletín's zip could not be saved, and the farmacia's hit an inactive address and can be retried.
+  const emailRows = (page: { host: HTMLElement }) => [...page.host.querySelectorAll<HTMLElement>('[data-testid="bandeja-email"]')];
+  const emailRow = (page: { host: HTMLElement }, sender: string) => emailRows(page).find((row) => row.textContent?.includes(sender));
   const emailDetail = () => document.querySelector('[data-testid="email-detail"]');
 
-  test("Correos is the fourth segment and shows the receiving address, then Correos recibidos with its refresh, then the email rows", async () => {
+  test("the segments are Por revisar, Con problema and Todo; nothing is called Correos", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
+    const segments = [...page.host.querySelectorAll<HTMLElement>('[data-testid="bandeja-segments"] [data-segment]')];
+    assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all"]);
     assert.equal(page.host.querySelector('[data-testid="bandeja-emails"]'), null);
-    assert.equal(page.host.querySelector('[data-testid="bandeja-open-emails"]'), null, "no Ver correos line");
-    assert.equal(correos(page)?.textContent, "Correos");
-    await page.act(async () => correos(page)!.click());
-    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
-    await page.settle(() => page.host.querySelector('[data-testid="business-email-deliveries"]') !== null && page.host.querySelector('[data-testid="email-copy-address"]') !== null, "the Correos view");
-    const view = page.host.querySelector('[data-testid="bandeja-emails"]')!;
-    assert.equal(view.querySelector('[data-testid="email-copy-address"]')?.textContent, "Copiar dirección");
-    const received = view.querySelector('section[aria-labelledby="email-received-title"]')!;
-    assert.equal(document.getElementById("email-received-title")?.textContent, "Correos recibidos");
-    assert.equal(received.querySelector('[data-testid="email-refresh"]')?.getAttribute("aria-label"), "Actualizar");
-    assert.ok(received.querySelectorAll('[data-testid="email-delivery-row"]').length > 0, "the email rows sit in their card");
-    assert.equal(page.host.querySelector('[data-testid="business-inbox-receipts"]'), null, "Correos replaces the receipt rows");
-    assert.equal(document.querySelector('[role="dialog"]'), null, "Correos is the main view, not a sheet");
   });
 
-  test("Ver correos switches to Correos, also with the Bandeja already showing", async () => {
+  test("an email that brought no receipt is a Con problema row with its sender, its subject in quotes and why, and Reintentar only when the server allows it", async () => {
     const page = await mount({ panel: { kind: "inbox" } });
     await inboxReady(page);
-    assert.equal(page.segment("review")?.getAttribute("aria-checked"), "true");
-    await page.open({ kind: "inbox", segment: "emails" });
-    await page.settle(() => page.host.querySelector('[data-testid="bandeja-emails"]') !== null, "the Correos view");
-    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
+    await page.settle(() => page.segment("problem")?.textContent === "Con problema5", "the problem count with the two emails");
+    await page.choose("problem");
+    assert.deepEqual(page.names(), ["IMG_2209.jpg", "IMG_2215.jpg", "colmado-oct.jpg"], "the receipt rows are unchanged");
+    assert.equal(emailRows(page).length, 2);
+    const boletin = emailRow(page, "noticias@proveedor.example")!;
+    assert.match(boletin.textContent ?? "", /Correo de noticias@proveedor\.example/);
+    assert.match(boletin.textContent ?? "", /“Boletín semanal” · Este tipo de archivo no se puede guardar como recibo · /);
+    assert.equal([...boletin.querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), false, "not retryable");
+    const farmacia = emailRow(page, "facturas@farmaciacarol.example")!;
+    assert.match(farmacia.textContent ?? "", /“Factura Farmacia Carol” · Esta dirección no está activa · /);
+    assert.ok([...farmacia.querySelectorAll("button")].some((button) => button.textContent === "Reintentar"), "a retryable email offers Reintentar on its row");
+  });
+
+  test("Todo lists every email that brought no receipt beside the receipts, and an email whose file became a receipt is no row of its own", async () => {
+    const page = await mount({ panel: { kind: "inbox" } });
+    await inboxReady(page);
     await page.choose("all");
-    assert.equal(page.host.querySelector('[data-testid="bandeja-emails"]'), null);
-    await page.open({ kind: "inbox", segment: "emails" });
-    await page.settle(() => correos(page)?.getAttribute("aria-checked") === "true", "Correos again");
+    await page.settle(() => emailRows(page).length === 3, "the three email rows");
+    assert.deepEqual(page.names().length, 5, "the five receipts stay");
+    assert.equal(emailRow(page, "ventas@ferreterialaesquina.example"), undefined, "the ferretería's email is its receipt");
+    assert.equal(emailRow(page, "ventas@colmadoelprimo.example"), undefined, "the colmado's email is its receipt");
+    assert.ok(emailRow(page, "facturas@estacion.example"), "the email still being read");
   });
 
-  test("a link to one email opens the Bandeja on Correos with that email open, and back returns to the list", async () => {
-    const page = await mount({ panel: { kind: "inbox", emailId: "email-ferreteria" } });
-    await page.settle(() => emailDetail() !== null, "the named email");
-    assert.equal(page.api().panel.kind, "inbox");
-    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
-    const back = emailDetail()!.closest('[role="dialog"]')?.querySelector<HTMLButtonElement>('button[aria-label="Volver"]');
-    assert.ok(back, "the email detail has a back arrow");
-    await page.act(async () => back.click());
-    await page.settle(() => emailDetail() === null, "the email to close");
-    assert.ok(page.host.querySelector('[data-testid="business-email-deliveries"]'), "back lands on the email rows");
+  test("an email still being read waits under Todo like a receipt being read, so Por revisar lists exactly what it counts", async () => {
+    const page = await mount({ panel: { kind: "inbox" } });
+    await inboxReady(page);
+    assert.equal(emailRows(page).length, 0, "Por revisar holds no reading email");
+    await page.choose("all");
+    await page.settle(() => emailRows(page).some((row) => row.dataset.standing === "reading"), "the reading email row");
+    const reading = emailRows(page).find((row) => row.dataset.standing === "reading")!;
+    assert.equal(reading.dataset.standing, "reading");
+    assert.match(reading.textContent ?? "", /Correo de facturas@estacion\.example/);
+    assert.match(reading.textContent ?? "", /“Recibo de combustible” · Leyendo…/);
+    assert.ok(reading.querySelector('[data-testid="receipt-reading-ring"]'), "it reads like a receipt still being read");
+    assert.equal(page.segment("review")?.textContent, "Por revisar4");
   });
 
-  test("on a desktop, the first email from a record in the tray lands on Correos with that email open", async () => {
+  test("a repeat of a file already saved is never a problem row", async () => {
+    const repeat = { id: "email-repeat", state: "captured" as const, received_at: "2026-10-13T17:14:00Z", updated_at: "2026-10-13T17:14:00Z", original_document_id: null, retryable: false, subject: "Factura otra vez", sender: "ventas@repetido.example", sent_at: null, error_code: null, parts: [{ id: "1.2", filename: "factura.pdf", media_type: "application/pdf", state: "captured" as const, document_id: "rcpt-papeleria", error_code: null, repeat_of_delivery_id: "email-ferreteria" }] };
+    const uploaded = { ...repeat, id: "email-uploaded", sender: "ventas@subido.example", parts: [{ ...repeat.parts[0], repeat_of_delivery_id: null, repeat_of_upload: true }] };
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ emailDeliveries: async () => [repeat, uploaded] }) });
+    await inboxReady(page);
+    await page.settle(() => page.segment("problem")?.textContent === "Con problema3", "the problem count without emails");
+    await page.choose("all");
+    assert.equal(emailRows(page).length, 0);
+  });
+
+  test("on a desktop an email row opens the email beside the list, and the tray closes back to it", async () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" } });
     await inboxReady(page);
-    await page.open({ kind: "receipt", receiptId: "rcpt-papeleria", list: "inbox" });
-    await page.settle(() => document.querySelector('[data-testid="side-drawer"]') !== null, "the record tray");
-    await page.open({ kind: "inbox", emailId: "email-ferreteria" });
-    await page.settle(() => emailDetail() !== null, "the named email");
-    assert.equal(correos(page)?.getAttribute("aria-checked"), "true");
+    await page.choose("problem");
+    await page.settle(() => emailRow(page, "noticias@proveedor.example") !== undefined, "the boletín row");
+    await page.act(async () => emailRow(page, "noticias@proveedor.example")!.querySelector("button")!.click());
+    assert.deepEqual(page.api().panel, { kind: "email", emailId: "email-boletin" });
+    await page.settle(() => emailDetail() !== null, "the email detail");
+    assert.ok(emailDetail()!.closest('[data-testid="side-drawer"]'), "the email sits in the record tray");
+    assert.ok(page.host.querySelector('[data-testid="bandeja-segments"]'), "the list stays beside it");
+    assert.equal(emailRow(page, "noticias@proveedor.example")?.getAttribute("aria-current"), "true");
+    assert.ok(emailDetail()!.textContent?.includes("boletin.zip"));
+  });
+
+  test("on a phone an email is the whole page with a way back to the Bandeja", async () => {
+    const page = await mount({ width: 390, panel: { kind: "email", emailId: "email-boletin" } });
+    await page.settle(() => emailDetail() !== null, "the email detail");
+    assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="email-record"] h2')?.textContent, "Correo de noticias@proveedor.example");
+    const back = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="email-record"] button')].find((button) => button.textContent === "Bandeja");
+    assert.ok(back, "a way back");
+    await page.act(async () => back.click());
+    assert.deepEqual(page.api().panel, { kind: "inbox" });
+  });
+
+  test("Reintentar on an email row asks the server again and says so", async () => {
+    const retried: string[] = [];
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ retryEmailDelivery: async (id: string) => { retried.push(id); return { id }; } }) });
+    await inboxReady(page);
+    await page.choose("problem");
+    await page.settle(() => emailRow(page, "facturas@farmaciacarol.example") !== undefined, "the farmacia row");
+    const retry = [...emailRow(page, "facturas@farmaciacarol.example")!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
+    await page.act(async () => retry.click());
+    await page.settle(() => retried.length === 1, "the retry request");
+    assert.deepEqual(retried, ["email-farmacia"]);
+    assert.equal(page.api().panel.kind, "inbox", "Reintentar does not open the email");
+  });
+
+  test("a receipt that arrived by email says Llegó por correo · Ver correo, and Ver correo opens that email beside the list", async () => {
+    const page = await mount({ width: 1280, panel: { kind: "inbox" } });
+    await inboxReady(page);
+    await page.open({ kind: "receipt", receiptId: "rcpt-ambiguous", list: "inbox" });
+    await page.settle(() => document.querySelector('[data-testid="receipt-source-channel"]') !== null, "the record's source");
+    const channel = document.querySelector('[data-testid="receipt-source-channel"]')!;
+    assert.equal(channel.textContent, "Llegó por correo · Ver correo");
+    await page.act(async () => channel.querySelector("button")!.click());
+    assert.deepEqual(page.api().panel, { kind: "email", emailId: "email-colmado" });
+    await page.settle(() => emailDetail() !== null, "the email detail");
+    assert.ok(emailDetail()!.closest('[data-testid="side-drawer"]'), "the same tray");
+    assert.ok(emailDetail()!.textContent?.includes("colmado-oct.jpg"));
+  });
+
+  test("an old link to one email opens that email, and an old Correos link lands on Correo de recibos with its history", async () => {
+    search = "email=email-boletin";
+    const linked = await mount({ width: 1280 });
+    assert.deepEqual(linked.api().panel, { kind: "email", emailId: "email-boletin" });
+    await linked.settle(() => emailDetail() !== null, "the linked email");
+    search = "view=inbox&segment=emails";
+    const old = await mount();
+    assert.deepEqual(old.api().panel, { kind: "business", tab: "correo" });
+    await old.settle(() => old.host.querySelector('[data-testid="email-history"] [data-testid="email-delivery-row"]') !== null, "the email history");
+  });
+});
+
+describe("the email history in Negocio", () => {
+  const emailDetail = () => document.querySelector('[data-testid="email-detail"]');
+  test("Correo de recibos keeps the receiving address on top, then a quiet Historial of every email with its refresh", async () => {
+    const page = await mount({ panel: { kind: "business", tab: "correo" } });
+    await page.settle(() => page.host.querySelectorAll('[data-testid="email-history"] [data-testid="email-delivery-row"]').length === 5 && page.host.querySelector('[data-testid="email-copy-address"]') !== null, "the address and the history");
+    const history = page.host.querySelector('[data-testid="email-history"]')!;
+    assert.equal(history.querySelector("h3")?.textContent, "Historial");
+    assert.equal(history.querySelector('[data-testid="email-refresh"]')?.getAttribute("aria-label"), "Actualizar");
+    assert.ok(page.host.querySelector('[data-testid="email-address"]')!.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING, "the address comes first");
+    await page.act(async () => history.querySelector<HTMLButtonElement>('[data-testid="email-delivery-row"]')!.click());
+    await page.settle(() => emailDetail() !== null, "the opened email");
   });
 });
 

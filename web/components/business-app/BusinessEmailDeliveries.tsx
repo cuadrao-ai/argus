@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronRight, FileText, Mail, RefreshCw } from "lucide-react";
+import { ArrowLeft, ChevronRight, FileText, Mail, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ReceiptSummary } from "@/lib/business-api";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake, BusinessEmailPart } from "@/lib/business-email";
-import { businessReceivingAddress, emailDeliveriesNeedRefresh } from "@/lib/business-email";
+import { businessReceivingAddress } from "@/lib/business-email";
 import { useBusiness } from "./BusinessWorkspace";
+import { useRecordTray } from "./record-tray";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
@@ -176,7 +177,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
         : null;
 
   return (
-    <div className="space-y-5 pb-6 pt-4 desktop:px-5" data-testid="email-detail">
+    <div className="space-y-5 pb-6 pt-4" data-testid="email-detail">
       <div className="space-y-1">
         <DeliveryState delivery={delivery} />
         {reason ? <p className="text-[14px] text-[#172b26] dark:text-white" data-testid="email-reason">{reason}</p> : null}
@@ -238,85 +239,99 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
   );
 }
 
-/**
- * The email sheet's content: the receiving address on top, then the emails
- * received, newest first. Opening one shows it over the list with a way back;
- * opening its receipt closes both. `openEmailId` opens one on arrival.
- */
-export default function BusinessEmailDeliveries({ openEmailId, onOpenReceipt }: { openEmailId?: string; onOpenReceipt?: (id: string) => void } = {}) {
+/** The words every email row and record share: who sent it, its subject, and why it brought no receipt. */
+export function useEmailWords() {
   const { t } = useTranslation();
-  const { source, openPanel, revision, records } = useBusiness();
-  const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
-  const [deliveries, setDeliveries] = useState<Load<BusinessEmailDelivery[]>>({ status: "loading" });
-  const [opened, setOpened] = useState<string | null>(openEmailId ?? null);
-  // A later arrival from another receipt names another email: it opens too.
-  useEffect(() => { if (openEmailId) setOpened(openEmailId); }, [openEmailId]);
-  const [attempt, setAttempt] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
-  const [stalled, setStalled] = useState(false);
-  useEffect(() => {
-    let current = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let polls = 0;
-    setStalled(false);
-    setRefreshing(true);
-    source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
-    const refresh = async () => {
-      try {
-        const items = await source.emailDeliveries();
-        if (!current) return;
-        setDeliveries({ status: "ready", data: items });
-        if (!emailDeliveriesNeedRefresh(items)) return;
-        if (polls++ < 6) timer = setTimeout(() => void refresh(), 5000);
-        else setStalled(true);
-      } catch { if (current) setDeliveries({ status: "error" }); }
-      finally { if (current) setRefreshing(false); }
-    };
-    void refresh();
-    return () => { current = false; clearTimeout(timer); };
-  }, [source, attempt, revision]);
-  const reload = () => setAttempt((value) => value + 1);
-  // Opening a receipt puts the email away first, so the receipt is the one thing open.
+  return {
+    title: (delivery: BusinessEmailDelivery) => delivery.sender ? t("business.inbox.email_row_title", { sender: delivery.sender, defaultValue: "Email from {{sender}}" }) : t("business.inbox.email_row_unknown", "Email with no sender"),
+    subject: (delivery: BusinessEmailDelivery) => delivery.subject ? t("business.inbox.email_subject", { subject: delivery.subject, defaultValue: "“{{subject}}”" }) : t("business.email.no_subject", "No subject"),
+    // The email's own failure when it says more than "some parts", then the first file's, then a missing file.
+    noReceipt: (delivery: BusinessEmailDelivery) => {
+      if (delivery.error_code && delivery.error_code !== "email_parts_rejected") return t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."));
+      const rejected = delivery.parts.find((part) => part.state === "rejected");
+      if (rejected) return t(`business.email.part_error.${rejected.error_code ?? "other"}`, t("business.email.part_error.other", "It isn't a file we can save as a receipt."));
+      if (!delivery.parts.length) return t("business.email.no_attachment", "It had no attachment");
+      return t("business.email.part_error.other", "It isn't a file we can save as a receipt.");
+    },
+  };
+}
+
+/**
+ * One email as a record: beside the Bandeja on a desktop, the whole page with
+ * a way back on a phone. It reads the workspace's emails, so it opens from a
+ * Bandeja row, a receipt's Ver correo and an old link alike.
+ */
+export function EmailRecord({ emailId }: { emailId: string }) {
+  const { t, i18n } = useTranslation();
+  const { records, source, openPanel, emailRefresh } = useBusiness();
+  const words = useEmailWords();
+  const tray = useRecordTray();
+  const delivery = records.emails?.find((item) => item.id === emailId) ?? null;
+  const known = records.emails !== null || records.emailsError;
+  return (
+    <section data-testid="email-record" aria-labelledby="email-record-title">
+      {tray ? null : (
+        <button type="button" onClick={() => openPanel({ kind: "inbox" })} className="mb-4 flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+          {t("business.nav.inbox", "Inbox")}
+        </button>
+      )}
+      {delivery ? (
+        <>
+          <header>
+            <h2 id="email-record-title" className="break-words font-display text-[22px] font-medium leading-7 text-[#172b26] dark:text-white"><WrappingAddress address={words.title(delivery)} /></h2>
+            <p className="mt-1 break-words text-[14px] text-[#56635e] dark:text-white/70">{[words.subject(delivery), formatRelativeTime(delivery.received_at, i18n.resolvedLanguage ?? "en")].join(" · ")}</p>
+          </header>
+          <EmailDeliveryDetail
+            delivery={delivery}
+            inbox={records.inbox}
+            loadDetail={source.emailDelivery}
+            retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); }}
+            openReceipt={(id) => openPanel({ kind: "receipt", receiptId: id, list: "inbox" })}
+          />
+        </>
+      ) : known ? (
+        <p role="alert" className="text-[14px] text-[#56635e] dark:text-white/70">{records.emailsError ? t("business.empty.email_error", "We couldn't load your emails") : t("business.email.not_found", "We couldn't find this email.")}</p>
+      ) : (
+        <Settle pending layout="rows" rows={3} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Every email received, newest first, under the receiving address in Negocio
+ * > Correo de recibos. Opening one shows it in a sheet with a way back;
+ * opening its receipt puts the email away first.
+ */
+export function EmailHistory() {
+  const { t } = useTranslation();
+  const { source, openPanel, records, emailRefresh } = useBusiness();
+  const [opened, setOpened] = useState<string | null>(null);
   const openReceipt = (id: string) => {
     setOpened(null);
-    if (onOpenReceipt) onOpenReceipt(id);
-    else openPanel({ kind: "receipt", receiptId: id });
+    openPanel({ kind: "receipt", receiptId: id });
   };
-  const forwardAddress = intake.status === "ready" ? businessReceivingAddress(intake.data) : null;
-  const copyLabels = useCopyLabels(forwardAddress ?? "");
-  const openDelivery = deliveries.status === "ready" ? deliveries.data.find((item) => item.id === opened) ?? null : null;
+  const openDelivery = records.emails?.find((item) => item.id === opened) ?? null;
 
   return (
-    <div className="space-y-6" data-testid="bandeja-emails">
-      <div className={`${cardClass} py-4`}>
-        <EmailAddressSection intake={intake} onRetry={reload} onActivated={(next) => setIntake({ status: "ready", data: next })} />
+    <section aria-labelledby="email-history-title" data-testid="email-history">
+      <div className="flex items-center justify-between gap-2">
+        <h3 id="email-history-title" className="text-[14px] font-medium text-[#56635e] dark:text-white/70">{t("business.settings.correo_history", "History")}</h3>
+        <button type="button" aria-label={t("business.email.reload", "Refresh")} data-testid="email-refresh" onClick={emailRefresh.refresh} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10">
+          <RefreshCw className={`h-4 w-4 ${emailRefresh.refreshing ? "motion-safe:animate-spin" : ""}`} aria-hidden="true" />
+        </button>
       </div>
-
-      <section aria-labelledby="email-received-title">
-        <div className="flex items-center justify-between gap-2">
-          <h3 id="email-received-title" className="font-display text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.email.title", "Received emails")}</h3>
-          <button type="button" aria-label={t("business.email.reload", "Refresh")} data-testid="email-refresh" onClick={reload} className="flex h-11 w-11 items-center justify-center rounded-full text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70 dark:hover:bg-white/10">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "motion-safe:animate-spin" : ""}`} aria-hidden="true" />
-          </button>
-        </div>
-        {stalled ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
-        {deliveries.status === "loading" ? <Settle pending layout="rows" rows={2} /> : null}
-        {deliveries.status === "error" ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} /> : null}
-        {deliveries.status === "ready" ? (deliveries.data.length ? (
-          <ul className={`${cardClass} divide-y divide-[#EEF0EC] p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
-            {deliveries.data.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}
-          </ul>
-        ) : (
-          <EmptyState kind="first_run" mark="mail" compact
-            title={t("business.email.empty", "No emails received yet.")}
-            body={t("business.empty.email_body", "Forward your receipts to your Cuadrao address and they show up here, ready for review.")} />
-        )) : null}
-        {deliveries.status === "ready" && !deliveries.data.length && forwardAddress ? (
-          <div className="flex justify-center">
-            <CopyButton value={forwardAddress} label={t("business.email.copy", "Copy address")} {...copyLabels} className={PRIMARY_BUTTON}>{t("business.email.copy", "Copy address")}</CopyButton>
-          </div>
-        ) : null}
-      </section>
+      {emailRefresh.stalled ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
+      {records.emails === null && !records.emailsError ? <Settle pending layout="rows" rows={2} /> : null}
+      {records.emails === null && records.emailsError ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: emailRefresh.refresh }} /> : null}
+      {records.emails ? (records.emails.length ? (
+        <ul className={`${cardClass} divide-y divide-[#EEF0EC] p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
+          {records.emails.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}
+        </ul>
+      ) : (
+        <p className="py-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.email.empty", "No emails received yet.")}</p>
+      )) : null}
 
       {openDelivery ? (
         <AdaptivePanel
@@ -326,9 +341,11 @@ export default function BusinessEmailDeliveries({ openEmailId, onOpenReceipt }: 
           onClose={() => setOpened(null)}
           width="md"
         >
-          <EmailDeliveryDetail delivery={openDelivery} inbox={records.inbox} loadDetail={source.emailDelivery} retryDelivery={source.retryEmailDelivery} openReceipt={openReceipt} />
+          <div className="desktop:px-5">
+            <EmailDeliveryDetail delivery={openDelivery} inbox={records.inbox} loadDetail={source.emailDelivery} retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); }} openReceipt={openReceipt} />
+          </div>
         </AdaptivePanel>
       ) : null}
-    </div>
+    </section>
   );
 }

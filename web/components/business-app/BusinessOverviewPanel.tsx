@@ -2,8 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import { countNeedsAttention, countStillReading } from "@/lib/business-review-count";
-import { inboxCount } from "./inbox-count";
+import { inboxCount, problemCount, readingCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
 import BusinessAddMenu from "./BusinessAddMenu";
 import { EmptyState } from "./foundation/EmptyState";
@@ -19,10 +18,9 @@ export default function BusinessOverviewPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
   const { records, openPanel, bridge, reload } = useBusiness();
-  const items = records.inbox;
   const porRevisar = inboxCount(records);
-  const reading = items ? countStillReading(items) : 0;
-  const problem = items ? countNeedsAttention(items) : 0;
+  const reading = readingCount(records) ?? 0;
+  const problem = problemCount(records) ?? 0;
   const name = bridge?.greetingName?.trim();
   const greeting = name ? t("business.overview.greeting", { name, defaultValue: "Welcome, {{name}}" }) : t("business.overview.greeting_unnamed", "Welcome");
   const monthClose = useMonthCloseSource();

@@ -28,11 +28,12 @@ async function render(detail: Parameters<typeof ReceiptSourcePreview>[0]["detail
 const base = { id: "rcpt-1", media_type: "application/pdf", filename: "recibo-prueba-ferreteria.pdf", received_at: "2026-10-13T17:14:00Z" };
 
 describe("where a receipt arrived from, on its own page", () => {
-  test("a receipt that arrived by email says Correo with a way to Correos recibidos, never Carga web", async () => {
+  test("a receipt that arrived by email says Llegó por correo · Ver correo, never Carga web", async () => {
     const html = await render({ ...base, channel: "email", email_delivery_ids: ["d1"] });
     assert.ok(html.includes('data-testid="receipt-source-channel"'));
-    assert.ok(html.includes("Correo"));
-    assert.ok(html.includes("Ver el primer correo"));
+    assert.ok(html.includes("Llegó por correo"));
+    assert.ok(html.includes('data-testid="receipt-see-email"') && html.includes(">Ver correo<"));
+    assert.ok(!html.includes("Ver el primer correo"));
     assert.ok(!html.includes("Carga web"));
     assert.ok(!html.includes('data-testid="receipt-email-times"'));
   });
@@ -41,7 +42,7 @@ describe("where a receipt arrived from, on its own page", () => {
     const html = await render({ ...base, channel: "email", email_delivery_ids: ["d1", "d2"] });
     assert.ok(html.includes("Este archivo llegó 2 veces por correo."));
     const webFirst = await render({ ...base, channel: "web", email_delivery_ids: ["d1"] });
-    assert.ok(webFirst.includes("Carga web") && !webFirst.includes("Correo ·"));
+    assert.ok(webFirst.includes("Carga web") && !webFirst.includes("Llegó por correo"));
     const webThenTwice = await render({ ...base, channel: "web", email_delivery_ids: ["d1", "d2"] });
     assert.ok(webThenTwice.includes("Carga web") && webThenTwice.includes("Este archivo llegó 2 veces por correo.") && webThenTwice.includes("Ver el primer correo"));
   });
@@ -61,6 +62,6 @@ describe("where a receipt arrived from, on its own page", () => {
     assert.ok((await render({ ...base, channel: "whatsapp" })).includes("WhatsApp"));
     assert.ok((await render({ ...base, channel: "web" })).includes("Carga web"));
     const en = await render({ ...base, channel: "email", email_delivery_ids: ["d1", "d2"] }, "en");
-    assert.ok(en.includes(">Email") && en.includes("See the first email") && en.includes("This file arrived 2 times by email."));
+    assert.ok(en.includes("Arrived by email") && en.includes("See email") && en.includes("This file arrived 2 times by email."));
   });
 });

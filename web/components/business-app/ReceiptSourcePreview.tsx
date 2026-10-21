@@ -66,10 +66,10 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
           {state.kind === "ready" ? <a href={state.url} download={detail.filename ?? "receipt"} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 font-medium hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:hover:bg-white/5 dark:focus-visible:ring-white/20"><Download className="h-4 w-4" aria-hidden="true" />{t("business.review.download", "Download")}</a> : null}
         </div>
         <p data-testid="receipt-source-channel">
-          {channelLabel(detail.channel)}
-          {detail.channel === "email" && firstEmail ? <>{" · "}<button type="button" className="font-medium underline underline-offset-4" onClick={() => openPanel({ kind: "inbox", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}
+          {detail.channel === "email" ? t("business.dossier.arrived_by_email", "Arrived by email") : channelLabel(detail.channel)}
+          {detail.channel === "email" && firstEmail ? <>{" · "}<button type="button" data-testid="receipt-see-email" className="font-medium underline underline-offset-4" onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_email", "See email")}</button></> : null}
         </p>
-        {deliveries > 1 ? <p className="mt-1" data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{firstEmail && detail.channel !== "email" ? <>{" "}<button type="button" className="font-medium underline underline-offset-4" onClick={() => openPanel({ kind: "inbox", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}</p> : null}
+        {deliveries > 1 ? <p className="mt-1" data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{firstEmail && detail.channel !== "email" ? <>{" "}<button type="button" className="font-medium underline underline-offset-4" onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}</p> : null}
         <p className="mt-1">{t("business.dossier.received", "Received {{time}}", { time: formatTimestamp(detail.received_at, i18n.resolvedLanguage ?? "en") })}</p>
       </figcaption>
     </figure>

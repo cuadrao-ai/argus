@@ -33,7 +33,7 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-  const source = { ...fixture, captures: async () => [], ...overrides };
+  const source = { ...fixture, captures: async () => [], emailDeliveries: async () => [], ...overrides };
   let panel = "";
   function Probe() {
     const business = useBusiness();

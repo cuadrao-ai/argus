@@ -15,6 +15,7 @@ import BusinessExpensesPanel from "./BusinessExpensesPanel";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
+import { EmailRecord } from "./BusinessEmailDeliveries";
 import PanelErrorBoundary from "./PanelErrorBoundary";
 import { formatBusinessName } from "./business-format";
 import { RecordTrayContext, recordList } from "./record-tray";
@@ -50,14 +51,20 @@ export function BusinessContextCue() {
   );
 }
 
-type RecordPanel = Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" }>;
+type RecordPanel = Extract<BusinessPanelState, { kind: "receipt" | "draft" | "expense" | "email" }>;
 
 function recordKey(panel: RecordPanel): string {
-  return panel.kind === "receipt" ? `receipt:${panel.receiptId}` : panel.kind === "draft" ? `draft:${panel.draftId}` : `expense:${panel.expenseId}`;
+  switch (panel.kind) {
+    case "receipt": return `receipt:${panel.receiptId}`;
+    case "draft": return `draft:${panel.draftId}`;
+    case "expense": return `expense:${panel.expenseId}`;
+    case "email": return `email:${panel.emailId}`;
+  }
 }
 
 function RecordContent({ panel }: { panel: RecordPanel }) {
   if (panel.kind === "expense") return <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} />;
+  if (panel.kind === "email") return <EmailRecord key={panel.emailId} emailId={panel.emailId} />;
   if (panel.kind === "receipt") return <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} />;
   return <ReceiptReviewPanel key={panel.draftId} target={{ kind: "draft", id: panel.draftId }} />;
 }
@@ -72,7 +79,7 @@ function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: Record
   const { openPanel } = useBusiness();
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
   const settleList = useCallback((next: RecordList) => {
-    if (panel.kind !== "expense" && panel.list === undefined && next !== list) openPanel({ ...panel, list: next });
+    if ((panel.kind === "receipt" || panel.kind === "draft") && panel.list === undefined && next !== list) openPanel({ ...panel, list: next });
   }, [list, openPanel, panel]);
   const tray = useMemo(() => ({ footer, settleList }), [footer, settleList]);
   const close = () => {
@@ -119,12 +126,12 @@ export default function BusinessPanel() {
       </div>
     );
   }
-  const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" ? panel : null;
+  const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email" ? panel : null;
   // On a desktop a record opens in a tray beside its list; below it the record is the whole page.
   const tray = record && !isBelowDesktop ? recordList(record) : null;
   const shown = tray ?? panel.kind;
   return (
-    <div ref={listRef} tabIndex={-1} className={`mx-auto w-full outline-none ${record && !tray && record.kind !== "expense" ? "" : "max-w-3xl pb-6"}`}>
+    <div ref={listRef} tabIndex={-1} className={`mx-auto w-full outline-none ${record && !tray && (record.kind === "receipt" || record.kind === "draft") ? "" : "max-w-3xl pb-6"}`}>
       <BusinessContextCue />
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>

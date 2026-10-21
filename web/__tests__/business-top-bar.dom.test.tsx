@@ -120,13 +120,13 @@ describe("the Business top bar on a desktop", () => {
     assert.deepEqual(order, ["header-search", "add-menu-header", "amounts-toggle"]);
   });
 
-  test("the owner's Agregar opens the upload, and its menu offers Exportar registros, Copiar dirección de reenvío and Ver correos", async () => {
+  test("the owner's Agregar opens the upload, and its menu offers Exportar registros and Copiar dirección de reenvío", async () => {
     const page = await mount();
     const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
     const add = menu.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!;
     assert.equal(add.textContent, "Agregar");
     await page.ready();
-    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Copiar dirección de reenvío", "Ver correos"]);
+    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Copiar dirección de reenvío"]);
     const copied: string[] = [];
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
     await page.act(async () => page.menuItems()[1].click());
@@ -139,7 +139,7 @@ describe("the Business top bar on a desktop", () => {
   test("an owner without a forwarding address gets no Copiar dirección", async () => {
     const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
     await page.ready();
-    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros", "Ver correos"]);
+    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros"]);
   });
 
   test("a contador gets the menu alone, with no Agregar and no copy of the owner's address", async () => {
@@ -150,7 +150,7 @@ describe("the Business top bar on a desktop", () => {
     const trigger = menu.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!;
     assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
     assert.ok(trigger.textContent?.trim(), "the lone trigger names itself");
-    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros", "Ver correos"]);
+    assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros"]);
   });
 
   for (const kind of ["overview", "inbox", "expenses"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
@@ -165,12 +165,10 @@ describe("the Business top bar on a desktop", () => {
     assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
   });
 
-  test("Ver correos from the menu opens the Bandeja on Correos", async () => {
+  test("the menu has no Ver correos: an email is how a receipt arrived, not a place", async () => {
     const page = await mount();
-    const emails = (await page.openMenu(page.bar())).find((item) => item.textContent === "Ver correos")!;
-    await page.act(async () => emails.click());
-    assert.deepEqual(page.api().panel, { kind: "inbox", segment: "emails" });
-    await page.settle(() => page.screen().querySelector('[data-testid="bandeja-emails"]') !== null, "the Correos view");
+    const items = (await page.openMenu(page.bar())).map((item) => item.textContent);
+    assert.equal(items.includes("Ver correos"), false);
   });
 });
 

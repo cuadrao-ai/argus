@@ -75,6 +75,7 @@ export function useBusinessSearch({
           go("expenses", ReceiptText, t("business.nav.expenses", "Expenses"), { kind: "expenses" }),
           go("business", Building2, t("business.nav.business", "Business"), { kind: "business" }, t("business.search.keywords_business", "settings details tax")),
           go("team", Users, t("business.search.go_team", "Team and access"), { kind: "business", tab: "equipo" }, t("business.search.keywords_team", "accountant people")),
+          go("correo", Mail, t("business.settings.tab_correo", "Receipt email"), { kind: "business", tab: "correo" }, t("business.search.keywords_correo", "emails history forwarding")),
         ],
       },
       {
@@ -83,7 +84,6 @@ export function useBusinessSearch({
         hits: [
           ...(add ? [{ id: "add", icon: Plus, title: add.label, detail: "", amount: null, badge: action, keywords: t("business.search.keywords_add", "upload receipt photo file note"), open: add.run }] : []),
           { id: "export", icon: Download, title: t("business.overview.export_records", "Export records"), detail: "", amount: null, badge: action, keywords: "606 607", open: openExport },
-          { id: "emails", icon: Mail, title: t("business.inbox.see_emails", "See emails"), detail: "", amount: null, badge: action, open: () => openPanel({ kind: "inbox", segment: "emails" }) },
           ...(copyAddress ? [{ id: "copy_forward", icon: Copy, title: t("business.overview.copy_forward", "Copy forwarding address"), detail: "", amount: null, badge: action, keywords: t("business.search.keywords_copy_forward", "email"), open: () => void copyAddress() }] : []),
         ],
       },

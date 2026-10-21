@@ -57,7 +57,7 @@ describe("received emails in the Inbox", () => {
     const source = createFixtureBusinessDataSource();
     assert.equal((await source.emailIntake()).enabled, true);
     const items = await source.emailDeliveries();
-    assert.equal(items.length, 2);
+    assert.equal(items.length, 5);
     assert.equal("text_body" in items[0], false);
     assert.equal((await source.emailDelivery("email-ferreteria")).text_body?.startsWith("Buenas tardes"), true);
     const inbox = await source.receipts("all");

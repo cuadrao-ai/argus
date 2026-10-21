@@ -8,6 +8,7 @@ import type { BusinessPanelState, RecordList } from "./BusinessWorkspace";
 export function recordList(panel: BusinessPanelState): RecordList | null {
   if (panel.kind === "expense") return "expenses";
   if (panel.kind === "receipt" || panel.kind === "draft") return panel.list ?? "inbox";
+  if (panel.kind === "email") return "inbox";
   return null;
 }
 
@@ -16,6 +17,7 @@ export function isOpenRecord(panel: BusinessPanelState, target: BusinessPanelSta
   if (panel.kind === "receipt") return target.kind === "receipt" && target.receiptId === panel.receiptId;
   if (panel.kind === "draft") return target.kind === "draft" && target.draftId === panel.draftId;
   if (panel.kind === "expense") return target.kind === "expense" && target.expenseId === panel.expenseId;
+  if (panel.kind === "email") return target.kind === "email" && target.emailId === panel.emailId;
   return false;
 }
 
