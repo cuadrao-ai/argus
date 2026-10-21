@@ -9477,12 +9477,16 @@ person starts their space, every route below except POST `/space` answers 404
 `business_space_missing`
 ([slice plan, PR #910](https://github.com/lagarcess/argus/pull/910)).
 
-- POST `/api/v1/business/space` takes `{name?, language?}` and answers 201
-  `{id, name}` with a new space, or 200 with the existing one unchanged.
+- POST `/api/v1/business/space` takes `{name?, language?, country?}` and
+  answers 201 `{id, name, country, currency}` with a new space, or 200 with the
+  existing one unchanged.
   Without `name` the space is named "Mi negocio", or "My business" when
   `language` is `en`. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
-- GET `/api/v1/business/space` returns `{id, name}`, or 404
+  `country` is `DO`, `US` or `CA`, default `DO`, else 422. It is set once: a
+  later call with another country returns the existing space unchanged. The
+  space's `currency` follows its country (`DOP`, `USD`, `CAD`).
+- GET `/api/v1/business/space` returns `{id, name, country, currency}`, or 404
   `business_space_missing` before the space is started. The web bootstrap reads
   this endpoint before creation. It sends POST only after that exact 404, and
   propagates other failures without creating a space. Existing concurrent-call
@@ -9490,8 +9494,8 @@ person starts their space, every route below except POST `/space` answers 404
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
 - Business naming is owner-only and uses the currently open Business.
-  GET `/api/v1/business/space/name` returns `{id, name, name_required,
-  name_prompt_seen}`. `name_required` means the persisted name is a default.
+  GET `/api/v1/business/space/name` returns `{id, name, country, currency,
+  name_required, name_prompt_seen}`. `name_required` means the persisted name is a default.
   POST `/api/v1/business/space/name-prompt` takes `{space_id}` and returns the
   same state plus `show_prompt`. Its atomic server claim allows one first-visit
   prompt per Business. A different or closed Business returns 404.
@@ -9689,9 +9693,10 @@ connection id). Its review is the import event its purchase created, composed
 by `receipt_review`. Its expense is the canonical activity that the import
 accept path recorded.
 
-- GET `/api/v1/business/workspace` returns `{accounts, currencies,
-  assistant_available: false, chat_available, receipt_limits: {max_bytes,
-  media_types}}`. `accounts` lists unarchived cash, checking, savings and credit
+- GET `/api/v1/business/workspace` returns `{country, currency, accounts,
+  currencies, assistant_available: false, chat_available, receipt_limits:
+  {max_bytes, media_types}}`. `country` and `currency` are the Business's own,
+  the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no
@@ -10081,7 +10086,9 @@ accept path recorded.
   body, or a key whose recorded activity is not an expense, is 409
   `idempotency_conflict`.
 - GET `/api/v1/business/overview?from&to` returns per-currency `totals`
-  `{currency, amount, count}`, with no conversion. It also returns
+  `{currency, amount, count}`, with no conversion. Beside the totals it returns
+  the Business `country` and `currency`; the Business currency does not filter
+  or convert the totals. It also returns
   `awaiting_review`, `needs_attention`, `ready_to_review_count`,
   `last_received_at` and `last_confirmed_at`. `awaiting_review` plus `needs_attention` equals the
   Bandeja's `pending_review_count` (see receipt activity): an email original is

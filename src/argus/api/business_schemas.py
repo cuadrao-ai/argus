@@ -16,6 +16,7 @@ from pydantic import (
 
 from argus.api.schemas import Language
 from argus.domain.business.contracts.dossier import RecordContext
+from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import Attention
 from argus.domain.business.search import SearchKind
@@ -39,6 +40,8 @@ SpaceName = Annotated[
 class BusinessSpaceInfo(_Wire):
     id: str
     name: str
+    country: str
+    currency: str
 
 
 class BusinessNamingState(BusinessSpaceInfo):
@@ -79,6 +82,7 @@ class StartBusinessSpace(_Wire):
 
     name: SpaceName | None = None
     language: Language | None = None
+    country: CountryCode | None = None
 
 
 class RenameBusinessSpace(_Wire):
@@ -113,6 +117,8 @@ class ReceiptLimits(_Wire):
 
 
 class BusinessWorkspace(_Wire):
+    country: str
+    currency: str
     accounts: list[BusinessAccount]
     currencies: list[str]
     assistant_available: bool
@@ -375,6 +381,8 @@ class BusinessOverview(_Wire):
     to: date
     # The server's day in the recording time zone: the one clock for "today".
     today: date
+    country: str
+    currency: str
     #: "Gastos reales": every approved expense of the period that is not personal.
     totals: list[CurrencyTotal]
     #: "Con valor fiscal": those that carry an NCF or an e-CF.

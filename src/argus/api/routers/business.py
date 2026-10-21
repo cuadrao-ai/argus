@@ -89,6 +89,7 @@ from argus.api.business_schemas import (
 from argus.api.business_spaces import (
     accept_business_invites,
     business_access,
+    business_identity,
     business_spaces,
     space_missing_problem,
 )
@@ -108,6 +109,7 @@ from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
@@ -239,7 +241,12 @@ def _problem(request: Request, error: Exception) -> HTTPException:
 
 
 def _space(space: Space) -> dict[str, Any]:
-    return {"id": space.id, "name": space.name}
+    return {
+        "id": space.id,
+        "name": space.name,
+        "country": space.country,
+        "currency": space.currency,
+    }
 
 
 @router.get("/space", response_model=BusinessSpaceInfo)
@@ -395,7 +402,9 @@ def start_space(
     it here, once."""
 
     space, created = person.spaces.create(
-        person.person_id, body.name or default_space_name(body.language)
+        person.person_id,
+        body.name or default_space_name(body.language),
+        body.country or DEFAULT_COUNTRY,
     )
     _access_store(request).ensure_owner_grant(space.id, person.person_id)
     response.status_code = 201 if created else 200
@@ -587,6 +596,7 @@ def rename_space(
 
 @router.get("/workspace", response_model=BusinessWorkspace)
 def get_workspace(
+    request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
     # An old own space without the owner's grant gets it here, once, with one
@@ -598,7 +608,8 @@ def get_workspace(
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
         workspace = {**workspace, "chat_available": False}
-    return workspace
+    identity = business_identity(request, context.scope.owner.space_id)
+    return {**workspace, **identity}
 
 
 @router.post("/accounts", response_model=BusinessAccount, status_code=201)
@@ -1081,8 +1092,9 @@ def get_overview(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     _period(request, start, end)
+    identity = business_identity(request, context.scope.owner.space_id)
     try:
-        return overview_with_drafts(context, start, end)
+        return {**overview_with_drafts(context, start, end), **identity}
     except Exception as error:
         raise _problem(request, error) from None
 

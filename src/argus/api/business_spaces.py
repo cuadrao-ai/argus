@@ -54,6 +54,15 @@ def configure_business_spaces(store: SpaceStore | None) -> None:
     _spaces = store
 
 
+def business_identity(request: Request, space_id: str) -> dict[str, str]:
+    """The Business's country and currency, read from the spaces store."""
+    spaces = business_spaces()
+    space = spaces.get(space_id) if spaces is not None else None
+    if space is None:
+        raise space_missing_problem(request)
+    return {"country": space.country, "currency": space.currency}
+
+
 def business_access() -> AccessStore | None:
     return _access
 
