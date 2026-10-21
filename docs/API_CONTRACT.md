@@ -2449,6 +2449,15 @@ Supabase Auth handles identity/session heavy lifting. Alpha should keep auth low
   method and path. It reports whether a supplied email would be denied by the
   private-alpha allowlist, without calling Supabase Auth signup. Missing or
   invalid ops authorization returns `404`.
+- `GET /internal/client-ip` is an ops-token-protected, non-product operation
+  left out of the generated OpenAPI document (`include_in_schema=False`), so it
+  needs no entry in the exclusion list above. It exists
+  for the forged-header check at the promotion that carries #674 (#694). It is
+  off unless `ARGUS_CLIENT_IP_ECHO_ENABLED` is true. It reads and changes
+  nothing. It returns the address `argus.api.client_ip.resolve_client_ip`
+  chose, the trusted header name, the socket peer, and the client IP headers
+  and `Host` the request carried. Missing or invalid ops authorization, or the
+  flag being off, returns `404`. Turn the flag off after the check.
 - The allowlist remains intentionally narrow: `email`, `role`, `language`,
   `disabled_at`, `created_at`, and `updated_at`. The approval notification does
   not pre-create an Auth user or create an invite/password-setup flow.

@@ -29,6 +29,7 @@ from argus.api.routers import (
     household_financial,
     household_planning,
     households,
+    internal_client_ip,
     market,
     ops,
     personalization_memory,
@@ -93,6 +94,7 @@ for api_router in (
     feedback.router,
     account.router,
     ops.router,
+    internal_client_ip.router,
     dev.router,
 ):
     app.include_router(api_router)
