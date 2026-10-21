@@ -5,7 +5,7 @@ import ArgusSession
 struct HouseholdInvitationProblemText: View {
     let problem: InvitationProblem
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         Label(message, systemImage: "info.circle")
@@ -27,27 +27,27 @@ struct HouseholdInvitationProblemText: View {
     private var message: String {
         switch problem {
         case .invalid:
-            spanish ? "No reconocemos ese enlace o código. Revísalo e intenta de nuevo." : "We don't recognize that link or code. Check it and try again."
+            CuadraoCopy.text("copy.householdInvitationOutcome.050053bb17", spanish: spanish)
         case .expired:
-            spanish ? "Esta invitación al Hogar venció. Pide una nueva a quien administra el Hogar." : "This Household invitation expired. Ask the Household admin for a new one."
+            CuadraoCopy.text("copy.householdInvitationOutcome.2e8d513eef", spanish: spanish)
         case .revoked:
-            spanish ? "Esta invitación al Hogar ya no está disponible. Pide una nueva." : "This Household invitation is no longer available. Ask for a new one."
+            CuadraoCopy.text("copy.householdInvitationOutcome.d40223198f", spanish: spanish)
         case .used:
-            spanish ? "Esta invitación al Hogar ya fue utilizada. Pide una nueva." : "This Household invitation has already been used. Ask for a new one."
+            CuadraoCopy.text("copy.householdInvitationOutcome.19dd735ae2", spanish: spanish)
         case .rateLimited:
-            spanish ? "Hiciste muchos intentos. Espera unos minutos y vuelve a intentarlo." : "You've made too many attempts. Wait a few minutes and try again."
+            CuadraoCopy.text("copy.householdInvitationOutcome.d25b70018b", spanish: spanish)
         default:
-            spanish ? "No pudimos revisar la invitación. Intenta de nuevo más tarde." : "We couldn't check the invitation. Try again later."
+            CuadraoCopy.text("copy.householdInvitationOutcome.8fcdc6be8d", spanish: spanish)
         }
     }
 }
 
 struct HouseholdInvitationEntryHint: View {
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
-        Text(spanish ? "Pega el enlace o escribe el código de la invitación." : "Paste the invitation link or type its code.")
+        Text(CuadraoCopy.text("copy.householdInvitationOutcome.f8c568eab8", spanish: spanish))
             .font(.caption).foregroundStyle(.secondary)
             .accessibilityIdentifier("household.invite.hint")
     }

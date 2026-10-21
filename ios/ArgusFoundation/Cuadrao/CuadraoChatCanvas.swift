@@ -77,27 +77,27 @@ struct CuadraoChatCanvas: View {
                             savedReceipts = false
                         },
                         open: { id in savedReceipts = false; pendingReceipt = .review(id) }), groupID: store.current.focus?.groupID, spanish: es)
-                    .toolbar { CuadraoDoneToolbar(title: es ? "Listo" : "Done") { savedReceipts = false } }
+                    .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.cuadraoChatCanvas.bd6b05a681", spanish: es)) { savedReceipts = false } }
                 }
             }
         }
-        .confirmationDialog(es ? "Guardar fuera del chat temporal" : "Save outside temporary chat", isPresented: $temporaryReceipt, titleVisibility: .visible) {
-            Button(es ? "Guardar recibo" : "Save receipt") { receiptWorkspace?.capture(ReceiptOrigin(groupID: nil, threadID: nil), .scan) }
-        } message: { Text(es ? "El recibo se guardará en este dispositivo aunque cierres este chat temporal." : "The receipt will stay on this device even after this temporary chat closes.") }
-        .confirmationDialog(es ? "¿Terminar el chat temporal?" : "End temporary chat?", isPresented: $ending, titleVisibility: .visible) {
-            Button(es ? "Terminar y crear chat" : "End and create chat", role: .destructive) { store.leaveTemporary(for: .newRegular) }
-            Button(es ? "Seguir aquí" : "Stay here", role: .cancel) {}
+        .confirmationDialog(CuadraoCopy.text("copy.cuadraoChatCanvas.54ef0f042b", spanish: es), isPresented: $temporaryReceipt, titleVisibility: .visible) {
+            Button(CuadraoCopy.text("copy.cuadraoChatCanvas.63c4385004", spanish: es)) { receiptWorkspace?.capture(ReceiptOrigin(groupID: nil, threadID: nil), .scan) }
+        } message: { Text(CuadraoCopy.text("copy.cuadraoChatCanvas.bc17ee3d75", spanish: es)) }
+        .confirmationDialog(CuadraoCopy.text("copy.cuadraoChatCanvas.b5ea512511", spanish: es), isPresented: $ending, titleVisibility: .visible) {
+            Button(CuadraoCopy.text("copy.cuadraoChatCanvas.b259e84c21", spanish: es), role: .destructive) { store.leaveTemporary(for: .newRegular) }
+            Button(CuadraoCopy.text("copy.cuadraoChatCanvas.32a630a211", spanish: es), role: .cancel) {}
         } message: {
-            Text(es ? "Se descartará esta conversación. Tu chat anterior quedará intacto." : "This conversation will be discarded. Your previous chat stays intact.")
+            Text(CuadraoCopy.text("copy.cuadraoChatCanvas.10504814c5", spanish: es))
         }
     }
 
     private var header: some View {
         HStack(spacing: 0) {
             if let close {
-                control("xmark", es ? "Cerrar Cuadrao" : "Close Cuadrao", id: "chat-context-close", action: close)
+                control("xmark", CuadraoCopy.text("copy.cuadraoChatCanvas.f72fb61754", spanish: es), id: "chat-context-close", action: close)
             }
-            control("clock.arrow.circlepath", es ? "Chats recientes" : "Recent chats", id: "chat-history") { sheet = .history }
+            control("clock.arrow.circlepath", CuadraoCopy.text("copy.cuadraoChatCanvas.3541995ad0", spanish: es), id: "chat-history") { sheet = .history }
             if active || store.temporary {
                 Button {
                     if store.hasTemporaryContent { ending = true }
@@ -106,11 +106,11 @@ struct CuadraoChatCanvas: View {
                     Image("CuadraoNewChat").resizable().scaledToFit().frame(width: 20, height: 20)
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                 }.buttonStyle(.plain)
-                    .accessibilityLabel(store.temporary ? (es ? "Nuevo chat normal" : "New regular chat") : (es ? "Nuevo chat" : "New chat"))
+                    .accessibilityLabel(store.temporary ? (CuadraoCopy.text("copy.cuadraoChatCanvas.bc000ebb7a", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatCanvas.284b0cf53b", spanish: es)))
                     .accessibilityIdentifier("chat-new")
             } else { Color.clear.frame(width: 44, height: 44) }
             if focused {
-                control("keyboard.chevron.compact.down", es ? "Ocultar teclado" : "Hide keyboard", id: "chat-dismiss-keyboard") {
+                control("keyboard.chevron.compact.down", CuadraoCopy.text("copy.cuadraoChatCanvas.9fa94c6056", spanish: es), id: "chat-dismiss-keyboard") {
                     focused = false
                     if store.voice.active && store.voice.presentation == .keyboard {
                         store.voice.presentation = .compact
@@ -123,18 +123,18 @@ struct CuadraoChatCanvas: View {
                     Image("CuadraoShare").resizable().scaledToFit().frame(width: 20, height: 20)
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                 }.buttonStyle(.plain)
-                    .accessibilityLabel(es ? "Compartir chat" : "Share chat")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatCanvas.ebf2baf694", spanish: es))
                     .accessibilityIdentifier("chat-share")
                 Menu {
-                    Button(es ? "Cambiar nombre" : "Rename", systemImage: "pencil") { sheet = .rename }
-                    Button(es ? (store.current.pinned ? "Desfijar" : "Fijar") : (store.current.pinned ? "Unpin" : "Pin"), systemImage: "pin") { store.current.pinned.toggle() }
-                    Button(es ? "Marcar como no leído" : "Mark unread", systemImage: "envelope.badge") { store.current.unread = true }
-                    Button(es ? "Archivar" : "Archive", systemImage: "archivebox") { store.archive(store.current) }
-                    Button(es ? "Eliminar" : "Delete", systemImage: "trash", role: .destructive) { store.delete(store.current) }
+                    Button(CuadraoCopy.text("copy.cuadraoChatCanvas.be04335b17", spanish: es), systemImage: "pencil") { sheet = .rename }
+                    Button((store.current.pinned ? CuadraoCopy.text("copy.cuadraoChatCanvas.beaa2b609a", spanish: es) : CuadraoCopy.text("copy.cuadraoChatCanvas.a470d7a873", spanish: es)), systemImage: "pin") { store.current.pinned.toggle() }
+                    Button(CuadraoCopy.text("copy.cuadraoChatCanvas.d11165f313", spanish: es), systemImage: "envelope.badge") { store.current.unread = true }
+                    Button(CuadraoCopy.text("copy.cuadraoChatCanvas.0960027352", spanish: es), systemImage: "archivebox") { store.archive(store.current) }
+                    Button(CuadraoCopy.text("copy.cuadraoChatCanvas.534547cf82", spanish: es), systemImage: "trash", role: .destructive) { store.delete(store.current) }
                     Divider()
-                    Button(es ? "Estados de vista previa" : "Preview states", systemImage: "slider.horizontal.3") { sheet = .states }
+                    Button(CuadraoCopy.text("copy.cuadraoChatCanvas.799fddcdd7", spanish: es), systemImage: "slider.horizontal.3") { sheet = .states }
                 } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                    .accessibilityLabel(es ? "Opciones del chat" : "Chat options")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatCanvas.52acedcbe7", spanish: es))
             } else {
                 Button {
                     if store.temporary { sheet = .temporary } else {
@@ -145,8 +145,8 @@ struct CuadraoChatCanvas: View {
                     Image("CuadraoTemporaryChat").resizable().scaledToFit().frame(width: 24, height: 24)
                         .frame(width: 44, height: 44)
                         .background(store.temporary ? WelcomePalette.surface : .clear, in: Circle())
-                }.accessibilityLabel(store.temporary ? (es ? "Opciones del chat temporal" : "Temporary chat settings") : (es ? "Iniciar chat temporal" : "Start temporary chat"))
-                    .accessibilityValue(store.temporary ? (es ? "Activo" : "Active") : "")
+                }.accessibilityLabel(store.temporary ? (CuadraoCopy.text("copy.cuadraoChatCanvas.329661bcf4", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatCanvas.d2370f5f03", spanish: es)))
+                    .accessibilityValue(store.temporary ? (CuadraoCopy.text("copy.cuadraoChatCanvas.dc337aae84", spanish: es)) : "")
                     .accessibilityIdentifier("chat-temporary")
             }
         }.foregroundStyle(WelcomePalette.ink).padding(.horizontal, 18).padding(.top, 6)
@@ -159,20 +159,20 @@ struct CuadraoChatCanvas: View {
                     Spacer(minLength: 24)
                     if store.temporary {
                         Image("CuadraoTemporaryChat").resizable().scaledToFit().frame(width: 36, height: 36).foregroundStyle(.secondary)
-                        Text(es ? "Chat temporal" : "Temporary chat").font(CuadraoTypography.feature)
+                        Text(CuadraoCopy.text("copy.cuadraoChatCanvas.9d6f2322f8", spanish: es)).font(CuadraoTypography.feature)
                         Text(CuadraoFirstRelease.shows(.memory)
-                            ? (es ? "Fuera de tu historial.\nSin nuevas memorias." : "Outside your history.\nNo new memories.")
-                            : (es ? "Fuera de tu historial." : "Outside your history."))
+                            ? (CuadraoCopy.text("copy.cuadraoChatCanvas.b134cd8062", spanish: es))
+                            : (CuadraoCopy.text("copy.cuadraoChatCanvas.9654f7c17c", spanish: es)))
                             .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         Button { sheet = .temporary } label: {
                             HStack(spacing: 6) {
-                                Text(store.useContext ? (es ? "Con mi contexto" : "Using my context") : (es ? "Sin mi contexto" : "Without my context"))
+                                Text(store.useContext ? (CuadraoCopy.text("copy.cuadraoChatCanvas.684e6bc34a", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatCanvas.c862a25b83", spanish: es)))
                                 Image(systemName: "chevron.down").font(.caption2)
                             }.font(.subheadline).frame(minHeight: 44)
                         }
                     } else {
-                        CuadraoBrand().scaleEffect(0.85).accessibilityLabel("Cuadrao")
-                        Text(store.current.focus?.groupID.flatMap { receiptWorkspace?.groups.group($0)?.name } ?? (es ? "¿Qué vemos hoy?" : "What shall we look at?"))
+                        CuadraoBrand().scaleEffect(0.85).accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatCanvas.d6c2cf736d", spanish: CuadraoCopy.isSpanish()))
+                        Text(store.current.focus?.groupID.flatMap { receiptWorkspace?.groups.group($0)?.name } ?? (CuadraoCopy.text("copy.cuadraoChatCanvas.e0a733e485", spanish: es)))
                             .font(CuadraoTypography.screen).multilineTextAlignment(.center)
                         if showsPreviewNotice { previewNotice }
                     }
@@ -189,7 +189,7 @@ struct CuadraoChatCanvas: View {
                     if showsPreviewNotice { previewNotice.frame(maxWidth: .infinity) }
                     if store.temporary {
                         Button { sheet = .temporary } label: {
-                            Label { Text((es ? "Temporal · " : "Temporary · ") + (store.useContext ? (es ? "Con mi contexto" : "Using my context") : (es ? "Sin mi contexto" : "Without my context"))) } icon: {
+                            Label { Text((CuadraoCopy.text("copy.cuadraoChatCanvas.385ef6d2aa", spanish: es)) + (store.useContext ? (CuadraoCopy.text("copy.cuadraoChatCanvas.684e6bc34a", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatCanvas.c862a25b83", spanish: es)))) } icon: {
                                 Image("CuadraoTemporaryChat").resizable().scaledToFit().frame(width: 16, height: 16)
                             }
                                 .font(.caption).foregroundStyle(.secondary)
@@ -233,7 +233,7 @@ struct CuadraoChatCanvas: View {
                 if store.current.turns.count > 1 {
                     Button { withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("chat-bottom", anchor: .bottom) } } label: {
                         Image(systemName: "arrow.down").frame(width: 44, height: 44).background(.regularMaterial, in: Circle())
-                    }.accessibilityLabel(es ? "Ir al último mensaje" : "Go to latest message").padding(.trailing, 24)
+                    }.accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatCanvas.9da0ce92b1", spanish: es)).padding(.trailing, 24)
                 }
             }
         }
@@ -242,19 +242,18 @@ struct CuadraoChatCanvas: View {
     private var responseState: some View {
         VStack(alignment: .leading, spacing: 12) {
             if store.responseState == .waiting {
-                HStack { ProgressView(); Text(es ? "Preparando respuesta…" : "Preparing a response…") }
+                HStack { ProgressView(); Text(CuadraoCopy.text("copy.cuadraoChatCanvas.5cacb9b5ac", spanish: es)) }
             } else {
-                Label(es ? "No se pudo cargar la respuesta" : "The response could not load", systemImage: "wifi.slash")
+                Label(CuadraoCopy.text("copy.cuadraoChatCanvas.3e35bd41d9", spanish: es), systemImage: "wifi.slash")
             }
-            Text(es ? "Estado de ejemplo. No hay una solicitud en curso." : "Example state. No request is running.")
+            Text(CuadraoCopy.text("copy.cuadraoChatCanvas.c8ad78ec7b", spanish: es))
                 .font(.caption).foregroundStyle(.secondary)
-            Button(es ? "Ver respuesta de ejemplo" : "Show example response") { store.responseState = .complete }
+            Button(CuadraoCopy.text("copy.cuadraoChatCanvas.afd08c6d07", spanish: es)) { store.responseState = .complete }
         }.font(.subheadline)
     }
 
     private var previewNotice: some View {
-        Text(es ? "Vista previa del chat. Puedes probar ejemplos; no se envían mensajes ni se cambian tus cuentas."
-             : "Chat preview. Try the examples; no messages are sent and your accounts stay unchanged.")
+        Text(CuadraoCopy.text("copy.cuadraoChatCanvas.85ea414e1f", spanish: es))
             .font(CuadraoTypography.caption).foregroundStyle(.secondary)
             .multilineTextAlignment(.center).accessibilityIdentifier("chat.preview.notice")
     }
@@ -293,7 +292,7 @@ struct CuadraoChatCanvas: View {
                         }
                     }
                 }
-                TextField(holdOnComposer ? "" : (es ? "Escribe un mensaje" : "Write a message"), text: thread, axis: .vertical)
+                TextField(holdOnComposer ? "" : (CuadraoCopy.text("copy.cuadraoChatCanvas.ea17dd71c5", spanish: es)), text: thread, axis: .vertical)
                     .font(.body).lineLimit(1...6).focused($focused)
                     .padding(.horizontal, 6).padding(.top, 4).frame(minHeight: 44)
                     .accessibilityIdentifier("chat-composer")
@@ -309,7 +308,7 @@ struct CuadraoChatCanvas: View {
                         }
                     }
                 HStack {
-                    control(tray ? "xmark" : "plus", tray ? (es ? "Cerrar adjuntos" : "Close attachments") : (es ? "Adjuntar" : "Attach"), id: "chat-attach") {
+                    control(tray ? "xmark" : "plus", tray ? (CuadraoCopy.text("copy.cuadraoChatCanvas.898ae61c3b", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatCanvas.cd9f7a1192", spanish: es)), id: "chat-attach") {
                         guard voiceMessage.state != .recording else { return }
                         focused = false
                         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { tray.toggle() }
@@ -320,7 +319,7 @@ struct CuadraoChatCanvas: View {
                             Image(systemName: "arrow.up").font(.system(size: 19, weight: .semibold))
                                 .foregroundStyle(WelcomePalette.onAccent).frame(width: 44, height: 44)
                                 .background(WelcomePalette.pine, in: Circle())
-                        }.accessibilityLabel(es ? "Enviar" : "Send").accessibilityIdentifier("chat-send")
+                        }.accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatCanvas.9318acd61f", spanish: es)).accessibilityIdentifier("chat-send")
                             .disabled(voiceMessage.state == .recording || voiceMessage.state == .review)
                     } else if !store.voice.active {
                         CuadraoVoiceEntry(spanish: es, cancelArmed: voiceMessage.cancelArmed, tap: {
@@ -337,13 +336,13 @@ struct CuadraoChatCanvas: View {
                     Divider()
                     if receiptWorkspace != nil, !store.temporary {
                         Button { tray = false; savedReceipts = true } label: {
-                            Label(es ? "Recibos guardados" : "Saved receipts", systemImage: "receipt").frame(minHeight: 44)
+                            Label(CuadraoCopy.text("copy.cuadraoChatCanvas.d4f38a690a", spanish: es), systemImage: "receipt").frame(minHeight: 44)
                         }.accessibilityIdentifier("chat-saved-receipts")
                     }
                     HStack(spacing: 8) {
-                        attachmentButton("doc.viewfinder", es ? "Escanear" : "Scan")
-                        attachmentButton("photo", es ? "Foto" : "Photo")
-                        attachmentButton("doc", es ? "Archivo" : "File")
+                        attachmentButton("doc.viewfinder", CuadraoCopy.text("copy.cuadraoChatCanvas.61350196c6", spanish: es))
+                        attachmentButton("photo", CuadraoCopy.text("copy.cuadraoChatCanvas.6ac14f4075", spanish: es))
+                        attachmentButton("doc", CuadraoCopy.text("copy.cuadraoChatCanvas.cc29162bd2", spanish: es))
                     }.padding(.bottom, 4)
                 }
             }.padding(12).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 26))
@@ -354,10 +353,10 @@ struct CuadraoChatCanvas: View {
                 }
                 .padding(.horizontal, 16)
             if voiceMessage.tooShort {
-                Text(es ? "Mantén un poco más para grabar." : "Hold a little longer to record.")
+                Text(CuadraoCopy.text("copy.cuadraoChatCanvas.4d7e9e8e2d", spanish: es))
                     .font(.caption).foregroundStyle(.secondary)
             } else if !voiceEntryLearned && !store.voice.active && !ready {
-                Text(es ? "Toca para conversar · Mantén para grabar" : "Tap to converse · Hold to record")
+                Text(CuadraoCopy.text("copy.cuadraoChatCanvas.915ed9f9c1", spanish: es))
                     .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20)
             }
         }.padding(.top, 8).padding(.bottom, 8)

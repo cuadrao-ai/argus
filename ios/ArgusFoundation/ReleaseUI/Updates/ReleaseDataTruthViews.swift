@@ -19,11 +19,11 @@ struct ReleaseMonthComparison: View {
             switch current.compared(to: previous) {
             case .unavailable: EmptyView()
             case .amount(let difference):
-                Text(spanish ? "Diferencia frente al mes anterior: \(signed(difference))." : "Difference from last month: \(signed(difference)).")
+                Text(CuadraoCopy.text("copy.releaseDataTruthViews.b62a1f9e35", spanish: spanish, String(describing: signed(difference))))
                     .font(CuadraoTypography.supporting)
             case .percentage(let percent):
                 Text((percent > 0 ? "+" : "") + percent.formatted(.number.precision(.fractionLength(1))
-                    .locale(Locale(identifier: spanish ? "es_DO" : "en_US"))) + "% " + (spanish ? "frente al mes anterior" : "from last month"))
+                    .locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))) + "% " + (CuadraoCopy.text("copy.releaseDataTruthViews.686f3b5cb3", spanish: spanish)))
                     .font(CuadraoTypography.supporting)
             }
         }.accessibilityElement(children: .combine).accessibilityIdentifier("release-month-comparison")
@@ -40,14 +40,13 @@ struct ReleaseHistoryAccessNote: View {
         switch access {
         case .editable: EmptyView()
         case .readOnly:
-            Label(spanish ? "Solo lectura" : "Read-only", systemImage: "lock")
+            Label(CuadraoCopy.text("copy.releaseDataTruthViews.cdb51370d8", spanish: spanish), systemImage: "lock")
                 .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
         case .movedOutOfHousehold:
             Label {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(spanish ? "Historial de solo lectura" : "Read-only history")
-                    Text(spanish ? "La cuenta se movió fuera del hogar. Aquí se conserva el historial anterior; no se añaden movimientos nuevos."
-                        : "The account moved out of the household. Earlier history stays here; new activity is not added.")
+                    Text(CuadraoCopy.text("copy.releaseDataTruthViews.0e65e8e0f7", spanish: spanish))
+                    Text(CuadraoCopy.text("copy.releaseDataTruthViews.4e7ac2c1c7", spanish: spanish))
                 }
             } icon: { Image(systemName: "clock.arrow.circlepath") }
                 .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
@@ -70,7 +69,7 @@ struct ReleaseHistoryRecordRow: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(title).font(CuadraoTypography.body)
                     Text(date.formatted(.dateTime.month(.abbreviated).day().year()
-                        .locale(Locale(identifier: spanish ? "es_DO" : "en_US"))))
+                        .locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)

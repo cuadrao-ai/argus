@@ -36,7 +36,7 @@ struct GuestClaimHarness: View {
         let script = SampleGuestClaimServer.Script(
             existingNames: ["Main", "Ahorros del año", "Efectivo"], failCreateAfter: value("--guest-claim-fail-after").flatMap(Int.init),
             refuseNotes: value("--guest-claim-refuse-note").map { [$0] } ?? [], delay: .milliseconds(350))
-        let spanish = Locale.current.language.languageCode?.identifier == "es"
+        let spanish = CuadraoCopy.isSpanish()
         _model = StateObject(wrappedValue: GuestClaimModel(
             directory: directory, server: SampleGuestClaimServer(script: script), spanish: spanish,
             discard: { (try? await BookStore(directory: directory).deleteEverything()) != nil }))

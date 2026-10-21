@@ -22,7 +22,7 @@ struct GuestSearchTab: View {
     @Environment(\.locale) private var locale
     @Environment(\.guestReceipts) private var receipts
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var receiptHits: [GuestReceipt] {
         guard let receipts, kind == .all else { return [] }
         return GuestReceiptSearchRows.hits(receipts, book: book, query: query, spanish: spanish, locale: locale)
@@ -51,7 +51,7 @@ struct GuestSearchTab: View {
             found.append(SearchEntry(id: account.id, section: .accounts,
                 text: [GuestAccountPresentation.title(account, spanish: spanish), GuestAccountPresentation.artwork(account.kind).title(spanish), account.currency]
                     + (balance.map { amountWords($0.minor, digits: $0.digits) } ?? [])
-                    + (account.archived ? [spanish ? "archivada" : "archived"] : []),
+                    + (account.archived ? [CuadraoCopy.text("copy.guestSearch.2d40384a7e", spanish: spanish)] : []),
                 currency: account.currency))
         }
         for movement in book.liveMovements() {
@@ -66,7 +66,7 @@ struct GuestSearchTab: View {
         for plan in book.plans {
             found.append(SearchEntry(id: plan.id, section: .plans,
                 text: [plan.name, GuestPlanPresentation.kindTitle(plan.kind, spanish: spanish), plan.currency]
-                    + amountWords(plan.targetMinor, digits: plan.digits) + (plan.archived ? [spanish ? "archivado" : "archived"] : []),
+                    + amountWords(plan.targetMinor, digits: plan.digits) + (plan.archived ? [CuadraoCopy.text("copy.guestSearch.e620893a44", spanish: spanish)] : []),
                 currency: plan.currency))
         }
         return found
@@ -97,14 +97,14 @@ struct GuestSearchTab: View {
                 planRows
                 if let receipts, kind == .all { GuestReceiptSearchRows(store: receipts, model: model, query: query, spanish: spanish, open: { focused = false; open($0) }) }
             } filters: {
-                Picker(spanish ? "Moneda" : "Currency", selection: $currency) {
-                    Text(spanish ? "Todas" : "All").tag("")
+                Picker(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish), selection: $currency) {
+                    Text(CuadraoCopy.text("copy.cuadraoSearchCanvas.22417a3c9d", spanish: spanish)).tag("")
                     ForEach(book.currencies, id: \.self) { Text($0).tag($0) }
                 }.accessibilityIdentifier("search.currency")
                 Section {
-                    Button(spanish ? "Restablecer filtros" : "Reset filters") { currency = "" }
+                    Button(CuadraoCopy.text("copy.cuadraoSearchCanvas.18b5a4bccd", spanish: spanish)) { currency = "" }
                 } footer: {
-                    Text(spanish ? "La moneda filtra cuentas, movimientos y planes." : "Currency filters accounts, activity and plans.")
+                    Text(CuadraoCopy.text("copy.guestSearch.aa9926cd49", spanish: spanish))
                 }
             }
         }
@@ -114,16 +114,16 @@ struct GuestSearchTab: View {
 
     private var emptyTitle: String? {
         guard query.isEmpty, filterCount == 0, book.accounts.isEmpty, book.plans.isEmpty else { return nil }
-        return spanish ? "Tu libro, aquí" : "Your book, here"
+        return CuadraoCopy.text("copy.guestSearch.e9d48a4a8b", spanish: spanish)
     }
 
     private var emptyDetail: String? {
         guard query.isEmpty, filterCount == 0 else { return nil }
         switch kind {
-        case .accounts: return spanish ? "Añade una cuenta con el botón + para encontrarla aquí." : "Add an account with the + button to find it here."
-        case .activity: return spanish ? "Los movimientos que registres aparecerán aquí." : "Activity you record will appear here."
-        case .plans: return spanish ? "Crea una meta o un presupuesto con el botón + para encontrarlo aquí." : "Create a goal or a budget with the + button to find it here."
-        default: return spanish ? "Busca cuentas, movimientos y planes de este iPhone." : "Search the accounts, activity and plans on this iPhone."
+        case .accounts: return CuadraoCopy.text("copy.cuadraoSearchPresentation.91789e4b19", spanish: spanish)
+        case .activity: return CuadraoCopy.text("copy.guestSearch.7cb3f3028b", spanish: spanish)
+        case .plans: return CuadraoCopy.text("copy.guestSearch.10ee3d11a4", spanish: spanish)
+        default: return CuadraoCopy.text("copy.guestSearch.50c07ca878", spanish: spanish)
         }
     }
 
@@ -136,7 +136,7 @@ struct GuestSearchTab: View {
                     Button { focused = false; open(.account(account.id)) } label: {
                         CuadraoSearchResultRow(title: GuestAccountPresentation.title(account, spanish: spanish),
                             detail: [GuestAccountPresentation.artwork(account.kind).title(spanish), account.currency,
-                                     account.archived ? (spanish ? "Archivada" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "),
+                                     account.archived ? (CuadraoCopy.text("copy.connectedAccountPresentation.7268bbe2c2", spanish: spanish)) : nil].compactMap { $0 }.joined(separator: " · "),
                             spanish: spanish, accountKind: GuestAccountPresentation.artwork(account.kind))
                     }.buttonStyle(.plain).accessibilityIdentifier("guest.search.account." + account.id.uuidString)
                     Divider().foregroundStyle(WelcomePalette.separator)
@@ -170,7 +170,7 @@ struct GuestSearchTab: View {
                     Button { focused = false; open(.plan(plan.id)) } label: {
                         CuadraoSearchResultRow(title: plan.name,
                             detail: [GuestPlanPresentation.kindTitle(plan.kind, spanish: spanish), plan.currency,
-                                     plan.archived ? (spanish ? "Archivado" : "Archived") : nil].compactMap { $0 }.joined(separator: " · "),
+                                     plan.archived ? (CuadraoCopy.text("copy.cuadraoSearchCanvas.14cfd7be1d", spanish: spanish)) : nil].compactMap { $0 }.joined(separator: " · "),
                             spanish: spanish, symbol: GuestPlanPresentation.look(plan.look).symbol)
                     }.buttonStyle(.plain).accessibilityIdentifier("guest.search.plan." + plan.id.uuidString)
                     Divider()
@@ -193,7 +193,7 @@ struct GuestReceiptSearchRows: View {
     var body: some View {
         let hits = Self.hits(store, book: model.book, query: query, spanish: spanish, locale: locale)
         if !hits.isEmpty {
-            CuadraoSearchHeading(title: spanish ? "Recibos" : "Receipts", count: hits.count)
+            CuadraoSearchHeading(title: CuadraoCopy.text("copy.guestSearch.d2b818b2f8", spanish: spanish), count: hits.count)
             ForEach(hits) { receipt in
                 Button { select(receipt) } label: {
                     CuadraoSearchResultRow(title: receipt.name, detail: detail(receipt), spanish: spanish, symbol: receipt.pdf ? "doc.text" : "photo")

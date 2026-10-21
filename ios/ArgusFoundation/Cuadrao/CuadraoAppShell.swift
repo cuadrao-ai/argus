@@ -58,17 +58,17 @@ struct CuadraoAppShell<Content: View>: View {
                     selection = .plan
                     chat.voice.presentation = .compact
                 } })
-            .confirmationDialog(spanish ? "¿Terminar el chat temporal?" : "End temporary chat?",
+            .confirmationDialog(CuadraoCopy.text("copy.cuadraoAppShell.b5ea512511", spanish: spanish),
                 isPresented: Binding(get: { pendingTab != nil }, set: { if !$0 { pendingTab = nil } }), titleVisibility: .visible) {
-                Button(spanish ? "Terminar y salir" : "End and leave", role: .destructive) {
+                Button(CuadraoCopy.text("copy.cuadraoAppShell.b5cfd3f985", spanish: spanish), role: .destructive) {
                     let destination = pendingTab
                     chat.leaveTemporary(for: .returnToRegular)
                     pendingTab = nil
                     if let destination { selection = destination }
                 }
-                Button(spanish ? "Seguir aquí" : "Stay here", role: .cancel) { pendingTab = nil }
+                Button(CuadraoCopy.text("copy.cuadraoAppShell.32a630a211", spanish: spanish), role: .cancel) { pendingTab = nil }
             } message: {
-                Text(spanish ? "Se descartará el contenido temporal. Tu chat anterior quedará intacto." : "Temporary content will be discarded. Your previous chat stays intact.")
+                Text(CuadraoCopy.text("copy.cuadraoAppShell.cdb88f4bb5", spanish: spanish))
             }
             .tint(WelcomePalette.pine)
             .foregroundStyle(WelcomePalette.ink)

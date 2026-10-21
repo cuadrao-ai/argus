@@ -50,7 +50,7 @@ struct GuestPlanSheet: View {
 
     private var host: CuadraoPlanEditorHost {
         var host = CuadraoPlanEditorHost(
-            spaces: [CuadraoPlanEditorSpace(id: CanvasSpace.personalID, title: spanish ? "Este iPhone" : "This iPhone")],
+            spaces: [CuadraoPlanEditorSpace(id: CanvasSpace.personalID, title: CuadraoCopy.text("copy.guestAccountSheet.736ea2040f", spanish: spanish))],
             editing: editedID != nil, save: { plan in save(plan) })
         host.allowedKinds = [.goal, .budget]
         host.showsRecorded = false
@@ -59,7 +59,7 @@ struct GuestPlanSheet: View {
         host.identifiers = CuadraoPlanEditorIdentifiers(name: "guest.plan.name", target: "guest.plan.target", monthly: "guest.plan.monthly",
             rate: "guest.plan.rate", currency: "guest.plan.currency", save: "guest.plan.save",
             kind: { "guest.plan.kind." + $0.rawValue })
-        host.monthlyTitle = spanish ? "Aporte mensual previsto" : "Planned monthly contribution"
+        host.monthlyTitle = CuadraoCopy.text("copy.guestPlanSheet.ba8a20d76b", spanish: spanish)
         return host
     }
 
@@ -116,7 +116,7 @@ private struct GuestPlanScope: View {
                         }
                     }.padding(.top, 8)
                 } label: {
-                    summary(spanish ? "Cuentas" : "Accounts", count: accounts.count, all: spanish ? "Todas en \(currency)" : "All in \(currency)")
+                    summary(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish), count: accounts.count, all: CuadraoCopy.text("copy.guestPlanSheet.5e336ce4f5", spanish: spanish, String(describing: currency)))
                         .accessibilityIdentifier("guest.plan.scope.accounts")
                 }
                 DisclosureGroup {
@@ -129,11 +129,10 @@ private struct GuestPlanScope: View {
                         }
                     }.padding(.top, 8)
                 } label: {
-                    summary(spanish ? "Categorías" : "Categories", count: categories.count, all: spanish ? "Todas" : "All")
+                    summary(CuadraoCopy.text("copy.cuadraoSpendingHighlights.c530befaf7", spanish: spanish), count: categories.count, all: CuadraoCopy.text("copy.cuadraoSearchCanvas.22417a3c9d", spanish: spanish))
                         .accessibilityIdentifier("guest.plan.scope.categories")
                 }
-                Text(spanish ? "Cuenta los gastos que registres en estas cuentas y categorías este mes. Sin elegir, cuenta todos."
-                     : "Counts the expenses you record in these accounts and categories this month. With none chosen, it counts all of them.")
+                Text(CuadraoCopy.text("copy.guestPlanSheet.5ba4a2eb96", spanish: spanish))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -143,7 +142,7 @@ private struct GuestPlanScope: View {
         HStack {
             Text(title).font(.subheadline.weight(.medium))
             Spacer()
-            Text(count == 0 ? all : (spanish ? "\(count) elegidas" : "\(count) chosen")).font(.subheadline).foregroundStyle(.secondary)
+            Text(count == 0 ? all : (CuadraoCopy.text("copy.guestPlanSheet.ad9be56aed", spanish: spanish, String(describing: count)))).font(.subheadline).foregroundStyle(.secondary)
         }.frame(minHeight: 44)
     }
 
@@ -181,15 +180,15 @@ struct GuestContributionSheet: View {
     var body: some View {
         CuadraoTransactionSheet(
             account: CuadraoTransactionAccount(title: plan?.name ?? "", artwork: nil, symbol: "flag"),
-            spanish: spanish, reviewing: false, title: spanish ? "Añadir aporte" : "Add contribution",
-            primaryTitle: spanish ? "Guardar" : "Save", primaryEnabled: valid, primaryIdentifier: "guest.contribution.save",
+            spanish: spanish, reviewing: false, title: CuadraoCopy.text("copy.guestPlanSheet.f243e37ce7", spanish: spanish),
+            primaryTitle: CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish), primaryEnabled: valid, primaryIdentifier: "guest.contribution.save",
             back: {}, primary: save) {
             CuadraoAmountField(raw: $amount, currency: .constant(plan?.currency ?? "DOP"), error: $amountError, spanish: spanish,
                                currencySelectable: false, identifier: "guest.contribution.amount")
-            DatePicker(spanish ? "Fecha" : "Date", selection: $date, in: ...Date(), displayedComponents: .date)
+            DatePicker(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), selection: $date, in: ...Date(), displayedComponents: .date)
                 .accessibilityIdentifier("guest.contribution.date")
             VStack(alignment: .leading, spacing: 8) {
-                TextField(spanish ? "Nota (opcional)" : "Note (optional)", text: $note, axis: .vertical)
+                TextField(CuadraoCopy.text("copy.guestPlanSheet.c8e8a0dc8d", spanish: spanish), text: $note, axis: .vertical)
                     .lineLimit(1...3).modifier(RegistrationField()).accessibilityIdentifier("guest.contribution.note")
             }
             if let status {

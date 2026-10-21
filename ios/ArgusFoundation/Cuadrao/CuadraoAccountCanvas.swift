@@ -19,16 +19,16 @@ struct CuadraoAccountCanvas: View {
                     value: CanvasAccountDetailValue(title: account.displayName(spanish), artwork: account.kind,
                         balanceLabel: account.balanceLabel(spanish), currency: account.currency,
                         amount: account.balance.map { CanvasMoney.format($0, currency: account.currency) } ?? "—",
-                        freshness: account.balance == nil ? (spanish ? "Sin balance registrado" : "No balance recorded")
-                            : (spanish ? "Actualizado hoy" : "Updated today")),
+                        freshness: account.balance == nil ? (CuadraoCopy.text("copy.connectedAccountPresentation.13cc4cd5c1", spanish: spanish))
+                            : (CuadraoCopy.text("copy.cuadraoAccountCanvas.cd64f83c7e", spanish: spanish))),
                     spanish: spanish, record: { record(accountID) }, check: { showingBalanceInfo = true }) {
                     LazyVStack(alignment: .leading, spacing: 16) {
-                        Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section)
+                        Text(CuadraoCopy.text("copy.accountActivityView.f7d6ac01ad", spanish: spanish)).font(CuadraoTypography.section)
                         let entries = data.activity.filter { $0.accountID == accountID }.sorted { $0.date > $1.date }
                         if entries.isEmpty {
-                            CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
-                                detail: spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.",
-                                actionTitle: spanish ? "Añadir movimiento" : "Add transaction", action: { record(accountID) },
+                            CuadraoEmptyView(title: CuadraoCopy.text("copy.accountActivityView.8e6c47416d", spanish: spanish),
+                                detail: CuadraoCopy.text("copy.accountActivityView.051603fc06", spanish: spanish),
+                                actionTitle: CuadraoCopy.text("copy.canvasAccountPresentation.ef0cf39904", spanish: spanish), action: { record(accountID) },
                                 identifier: "account-detail.empty", actionIdentifier: "account-detail.empty.record")
                         } else {
                             ForEach(entries) { entry in
@@ -60,28 +60,27 @@ struct CuadraoAccountCanvas: View {
                     }
                 }
                 .contextualCuadrao(focus: $chatFocus, spanish: spanish)
-                .alert(spanish ? "Comprobar balance" : "Check balance", isPresented: $showingBalanceInfo) {
-                    Button(spanish ? "Entendido" : "Got it", role: .cancel) { }
+                .alert(CuadraoCopy.text("copy.canvasAccountPresentation.96327e1801", spanish: spanish), isPresented: $showingBalanceInfo) {
+                    Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) { }
                 } message: {
-                    Text(spanish ? "La conciliación sigue en la app conectada. Esta vista permite revisar el diseño de la cuenta."
-                         : "Reconciliation remains in the connected app. This canvas previews the account design.")
+                    Text(CuadraoCopy.text("copy.cuadraoAccountCanvas.9d566dd31f", spanish: spanish))
                 }
         }
     }
     private var moreButton: some View {
         Menu {
             if let account = data.account(accountID) {
-                Button(spanish ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble") {
+                Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.b44a9adeb4", spanish: spanish), systemImage: "bubble") {
                     chatFocus = .account(id: accountID, title: account.displayName(spanish))
                 }.accessibilityIdentifier("account-detail-ask")
             }
-            Button(spanish ? "Cambiar nombre" : "Rename account", systemImage: "pencil") { actions(.rename(accountID)) }
-            Button(spanish ? "Añadir movimiento" : "Add transaction", systemImage: "plus") { record(accountID) }
-            Button(spanish ? "Archivar" : "Archive", systemImage: "archivebox") { actions(.archive(accountID)) }
+            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.e59e534133", spanish: spanish), systemImage: "pencil") { actions(.rename(accountID)) }
+            Button(CuadraoCopy.text("copy.canvasAccountPresentation.ef0cf39904", spanish: spanish), systemImage: "plus") { record(accountID) }
+            Button(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish), systemImage: "archivebox") { actions(.archive(accountID)) }
         } label: {
             Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle())
         }.buttonStyle(.plain)
-            .accessibilityLabel(spanish ? "Opciones de cuenta" : "Account actions")
+            .accessibilityLabel(CuadraoCopy.text("copy.accountDetailView.f3398370dd", spanish: spanish))
             .accessibilityIdentifier("account-detail-options")
     }
 
@@ -106,7 +105,7 @@ struct CuadraoTransactionCanvas: View {
             spanish: spanish, reviewing: reviewing, primaryEnabled: valid, back: { reviewing = false }, primary: {
                 if reviewing {
                     data.activity.insert(CanvasActivity(accountID: account.id,
-                        title: title.isEmpty ? (income ? (spanish ? "Ingreso" : "Income") : (spanish ? "Gasto" : "Expense")) : title,
+                        title: title.isEmpty ? (income ? (CuadraoCopy.text("copy.cuadraoAccountCanvas.68048ec6e6", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoAccountCanvas.705df72a66", spanish: spanish))) : title,
                         amount: Decimal(string: amount) ?? 0, date: date, income: income), at: 0)
                     dismiss()
                 } else {
@@ -117,19 +116,19 @@ struct CuadraoTransactionCanvas: View {
             if reviewing {
                 Text((income ? "+" : "−") + CanvasMoney.format(Decimal(string: amount) ?? 0, currency: account.currency))
                     .font(CuadraoTypography.amount).monospacedDigit()
-                LabeledContent(spanish ? "Moneda" : "Currency", value: account.currency)
-                LabeledContent(spanish ? "Tipo" : "Type", value: income ? (spanish ? "Ingreso" : "Income") : (spanish ? "Gasto" : "Expense"))
-                if !title.isEmpty { LabeledContent(spanish ? "Concepto" : "Description", value: title) }
-                LabeledContent(spanish ? "Fecha" : "Date") { Text(date, format: .dateTime.day().month().year()) }
+                LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish), value: account.currency)
+                LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.36a6ac68b2", spanish: spanish), value: income ? (CuadraoCopy.text("copy.cuadraoAccountCanvas.68048ec6e6", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoAccountCanvas.705df72a66", spanish: spanish)))
+                if !title.isEmpty { LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.387cf3bb68", spanish: spanish), value: title) }
+                LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish)) { Text(date, format: .dateTime.day().month().year()) }
             } else {
-                Picker(spanish ? "Tipo" : "Type", selection: $income) {
-                    Text(spanish ? "Gasto" : "Expense").tag(false)
-                    Text(spanish ? "Ingreso" : "Income").tag(true)
+                Picker(CuadraoCopy.text("copy.connectedTransactionSheet.36a6ac68b2", spanish: spanish), selection: $income) {
+                    Text(CuadraoCopy.text("copy.cuadraoAccountCanvas.705df72a66", spanish: spanish)).tag(false)
+                    Text(CuadraoCopy.text("copy.cuadraoAccountCanvas.68048ec6e6", spanish: spanish)).tag(true)
                 }.pickerStyle(.segmented)
                 CuadraoAmountField(raw: $amount, currency: $currency, error: $error, spanish: spanish, currencySelectable: false)
-                TextField(spanish ? "Concepto (opcional)" : "Description (optional)", text: $title)
+                TextField(CuadraoCopy.text("copy.connectedTransactionSheet.b6d70b2c10", spanish: spanish), text: $title)
                     .modifier(RegistrationField())
-                DatePicker(spanish ? "Fecha" : "Date", selection: $date, in: ...Date.now, displayedComponents: .date)
+                DatePicker(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), selection: $date, in: ...Date.now, displayedComponents: .date)
             }
         }.onAppear { currency = account.currency }
     }

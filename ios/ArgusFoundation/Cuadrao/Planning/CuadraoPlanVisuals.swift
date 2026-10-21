@@ -18,11 +18,11 @@ enum PlanFormat {
     }
     static func month(after count: Int, spanish: Bool, from start: Date = PlanScenario.previewToday) -> String {
         let date = Calendar.current.date(byAdding: .month, value: count, to: start) ?? start
-        let text = date.formatted(.dateTime.month(.wide).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+        let text = date.formatted(.dateTime.month(.wide).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
         return text.prefix(1).uppercased() + text.dropFirst()
     }
     static func space(_ id: String, accounts: CuadraoAccountsPreview, spanish: Bool) -> String {
-        accounts.spaces.first { $0.id == id }?.title(spanish) ?? (spanish ? "Espacio archivado" : "Archived space")
+        accounts.spaces.first { $0.id == id }?.title(spanish) ?? (CuadraoCopy.text("copy.cuadraoPlanEditor.577a4529ed", spanish: spanish))
     }
 }
 
@@ -87,11 +87,11 @@ struct PlanCard: View {
         CuadraoPlanCard(display: .init(
             name: plan.name, space: space, look: plan.look,
             amount: PlanFormat.amount(plan.kind == .debt ? plan.remaining : plan.recorded, currency: plan.currency),
-            annotation: plan.kind == .debt ? (spanish ? "por pagar" : "to go") : "\(Int(plan.recorded / max(plan.target, 1) * 100))%",
+            annotation: plan.kind == .debt ? (CuadraoCopy.text("copy.cuadraoPlanVisuals.9cf2abcade", spanish: spanish)) : "\(Int(plan.recorded / max(plan.target, 1) * 100))%",
             progress: plan.progress,
             detail: plan.kind == .budget
-                ? (spanish ? "de \(PlanFormat.amount(plan.target, currency: plan.currency)) este mes" : "of \(PlanFormat.amount(plan.target, currency: plan.currency)) this month")
-                : (spanish ? "\(plan.kind == .debt ? "Deuda inicial" : "Meta"): \(PlanFormat.amount(plan.target, currency: plan.currency))" : "\(plan.kind == .debt ? "Starting debt" : "Goal"): \(PlanFormat.amount(plan.target, currency: plan.currency))")))
+                ? (CuadraoCopy.text("copy.cuadraoPlanVisuals.d16b6c2fa4", spanish: spanish, String(describing: PlanFormat.amount(plan.target, currency: plan.currency))))
+                : (CuadraoCopy.text("copy.cuadraoPlanVisuals.dc74adf3f8", spanish: spanish, String(describing: ((plan.kind == .debt ? CuadraoCopy.text("copy.cuadraoPlanVisuals.f3f72bfd68", spanish: spanish) : CuadraoCopy.text("copy.cuadraoPlanVisuals.a666a311f9", spanish: spanish)))), String(describing: PlanFormat.amount(plan.target, currency: plan.currency))))))
     }
 }
 
@@ -109,14 +109,14 @@ struct PlanForecastChart: View {
     }
     var body: some View {
         CuadraoPlanForecastChart(
-            recorded: forecast.actual.map(point), projected: forecast.projection(daily: daily).map(point),
+            spanish: spanish,             recorded: forecast.actual.map(point), projected: forecast.projection(daily: daily).map(point),
             comparison: comparison.flatMap { $0 != daily ? forecast.projection(daily: $0).map(point) : nil } ?? [],
             xRange: 1...31, yRange: -30000...65000,
-            ticks: [1, 12, 31].map { .init(position: Double($0), title: $0 == 12 ? (spanish ? "Hoy, 12" : "Today, 12") : "\($0) oct.") },
+            ticks: [1, 12, 31].map { .init(position: Double($0), title: $0 == 12 ? (CuadraoCopy.text("copy.cuadraoPlanVisuals.2d2ab461e3", spanish: spanish)) : "\($0) oct.") },
             today: Double(CanvasForecast.today), selected: selected.map(point),
             selection: Binding(get: { selectedDay.map(Double.init) }, set: { selectedDay = $0.map { Int($0.rounded()) } }),
             detailed: detailed, compact: compact, identifier: "plan-forecast-chart",
-            accessibilityTitle: spanish ? "Balance de octubre. Línea continua: registrado. Línea punteada: estimación." : "October balance. Solid line: recorded. Dashed line: estimate.",
+            accessibilityTitle: CuadraoCopy.text("copy.cuadraoPlanVisuals.74c98abe9d", spanish: spanish),
             accessibilityAmount: PlanFormat.amount(forecast.ending(daily: daily)))
     }
     private func point(_ value: CanvasForecastPoint) -> CuadraoPlanChartPoint {
@@ -127,7 +127,7 @@ struct PlanForecastChart: View {
 struct PlanPreviewFootnote: View {
     let spanish: Bool
     var body: some View {
-        Text(spanish ? "Vista previa · datos de ejemplo" : "Preview · example data")
+        Text(CuadraoCopy.text("copy.cuadraoPlanVisuals.c512360fe4", spanish: spanish))
             .font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 12)
     }
 }

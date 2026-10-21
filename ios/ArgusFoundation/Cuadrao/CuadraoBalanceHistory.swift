@@ -137,9 +137,9 @@ enum CanvasHistoryRange: String, CaseIterable, Identifiable {
     }
     func title(_ es: Bool) -> String {
         switch self {
-        case .week: es ? "Semana" : "Week"
-        case .month: es ? "Mes" : "Month"
-        case .year: es ? "Año" : "Year"
+        case .week: CuadraoCopy.text("copy.cuadraoBalanceHistory.24d0da91ad", spanish: es)
+        case .month: CuadraoCopy.text("copy.cuadraoBalanceHistory.c0d1241cc1", spanish: es)
+        case .year: CuadraoCopy.text("copy.cuadraoBalanceHistory.7d3eb2c53b", spanish: es)
         }
     }
     func interval(now: Date = .now, offset: Int = 0) -> DateInterval {
@@ -149,7 +149,7 @@ enum CanvasHistoryRange: String, CaseIterable, Identifiable {
     }
     func periodLabel(spanish: Bool, now: Date = .now, offset: Int = 0) -> String {
         let period = interval(now: now, offset: offset)
-        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: spanish ? "es_DO" : "en_US"))
+        let format = Date.FormatStyle.dateTime.locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))
         if self == .year { return period.start.formatted(format.year()) }
         let end = period.end.addingTimeInterval(-1)
         return period.start.formatted(format.month(.abbreviated).day()) + " – " + end.formatted(format.month(.abbreviated).day())
@@ -180,9 +180,9 @@ enum CanvasHomeRange: String, CaseIterable, Identifiable {
         }
     }
     func title(_ es: Bool) -> String {
-        guard let months else { return es ? "Todo" : "All" }
-        if months == 12 { return es ? "1 año" : "1Y" }
-        return es ? "\(months) \(months == 1 ? "mes" : "meses")" : "\(months)M"
+        guard let months else { return CuadraoCopy.text("copy.cuadraoBalanceHistory.64c04b1430", spanish: es) }
+        if months == 12 { return CuadraoCopy.text("copy.cuadraoBalanceHistory.c822ff9a14", spanish: es) }
+        return months == 1 ? CuadraoCopy.text("copy.cuadraoBalanceHistory.86bf5f312f", spanish: es, String(describing: months)) : CuadraoCopy.text("copy.cuadraoBalanceHistory.3347ced10f", spanish: es, String(describing: months))
     }
     func start(now: Date) -> Date? {
         months.map { Calendar.current.date(byAdding: .month, value: -$0, to: Calendar.current.startOfDay(for: now))! }

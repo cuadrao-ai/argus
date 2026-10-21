@@ -86,7 +86,7 @@ struct HouseholdPlanDetailView: View {
     @State private var section = Section.overview
     @State private var confirmingArchive = false
     private enum Section: Hashable { case overview, contributions, people }
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -100,8 +100,8 @@ struct HouseholdPlanDetailView: View {
             }
             if let plan = model.detail {
                 hero(plan)
-                Picker(spanish ? "Ver" : "View", selection: $section) {
-                    Text(spanish ? "El plan" : "The plan").tag(Section.overview)
+                Picker(CuadraoCopy.text("copy.savedReceiptCopy.2b0aad47ef", spanish: spanish), selection: $section) {
+                    Text(CuadraoCopy.text("copy.cuadraoGroupDetail.b7b5977d12", spanish: spanish)).tag(Section.overview)
                     Text("sharedPlan.contributions").tag(Section.contributions)
                     Text("household.people").tag(Section.people)
                 }.pickerStyle(.segmented).accessibilityIdentifier("sharedPlan.sections")

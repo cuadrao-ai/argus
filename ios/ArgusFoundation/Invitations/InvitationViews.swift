@@ -2,7 +2,7 @@ import SwiftUI
 import ArgusSession
 
 private extension Locale {
-    var spanish: Bool { language.languageCode?.identifier == "es" }
+    var spanish: Bool { CuadraoCopy.isSpanish() }
 }
 
 /// Shows the beta gate only when the server says this person still needs an invitation.
@@ -37,11 +37,10 @@ struct InvitationGateHost<Content: View>: View {
 
     private var unanswered: some View {
         VStack(spacing: 16) {
-            Text(locale.spanish ? "No pudimos comprobar tu acceso a la beta. Revisa tu conexión e intenta de nuevo."
-                 : "We couldn't check your beta access. Check your connection and try again.")
+            Text(CuadraoCopy.text("copy.invitationViews.afc302d2ff", spanish: locale.spanish))
                 .font(CuadraoTypography.supporting).multilineTextAlignment(.center)
             Button { Task { await model.retryAccess() } } label: {
-                Text(locale.spanish ? "Reintentar" : "Try again").foregroundStyle(WelcomePalette.onAccent).frame(minHeight: 28)
+                Text(CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: locale.spanish)).foregroundStyle(WelcomePalette.onAccent).frame(minHeight: 28)
             }
             .buttonStyle(.borderedProminent).accessibilityIdentifier("invites.access.retry")
             signOutButton
@@ -54,7 +53,7 @@ struct InvitationGateHost<Content: View>: View {
 
     @ViewBuilder private var signOutButton: some View {
         if let signOut {
-            Button(locale.spanish ? "Cerrar sesión" : "Sign out", action: signOut)
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.a47c0e9665", spanish: locale.spanish), action: signOut)
                 .frame(minHeight: 44).accessibilityIdentifier("invites.gate.signOut")
         }
     }
@@ -94,11 +93,10 @@ struct InvitationPendingNotice: View {
         if model.pendingLink != nil {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: "envelope.open").accessibilityHidden(true)
-                Text(locale.spanish ? "Tienes una invitación guardada. Inicia sesión o crea una cuenta para continuar."
-                     : "Your invitation is saved. Sign in or create an account to continue.")
+                Text(CuadraoCopy.text("copy.invitationViews.833224248b", spanish: locale.spanish))
                     .font(CuadraoTypography.supporting).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                Button(locale.spanish ? "Descartar" : "Discard") { model.discardPendingLink() }
+                Button(CuadraoCopy.text("copy.guestClaimModel.adac3a9868", spanish: locale.spanish)) { model.discardPendingLink() }
                     .frame(minHeight: 44).accessibilityIdentifier("invites.pending.discard")
             }
             .padding(.horizontal, 20).padding(.vertical, 8)
@@ -120,7 +118,7 @@ struct InvitationsProfileRow: View {
             NavigationLink { InvitationsHub(model: model) } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "person.badge.plus").frame(width: 24)
-                    Text(locale.spanish ? "Invitaciones" : "Invitations").foregroundStyle(.primary)
+                    Text(CuadraoCopy.text("copy.invitationViews.4970c3efc4", spanish: locale.spanish)).foregroundStyle(.primary)
                     Spacer()
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                 }.frame(minHeight: 58).contentShape(Rectangle())
@@ -138,40 +136,38 @@ struct InvitationsHub: View {
         List {
             Section {
                 NavigationLink { PersonalInvitationsScreen(model: model) } label: {
-                    Label(spanish ? "Invitar a la beta" : "Invite to the beta", systemImage: "person.badge.plus")
+                    Label(CuadraoCopy.text("copy.invitationViews.6e55b9229e", spanish: spanish), systemImage: "person.badge.plus")
                 }.accessibilityIdentifier("invites.personal")
             } footer: {
-                Text(spanish ? "Las invitaciones al Hogar se envían desde tu Hogar. No usan estas invitaciones."
-                     : "Household invitations are sent from your Household. They don't use these invitations.")
+                Text(CuadraoCopy.text("copy.invitationViews.319b2d2fd2", spanish: spanish))
             }
-            Section(spanish ? "Enviadas" : "Sent") {
+            Section(CuadraoCopy.text("copy.invitationViews.27f96b1911", spanish: spanish)) {
                 switch model.personal {
                 case .loading:
                     ProgressView().accessibilityIdentifier("invites.sent.loading")
                 case .failed:
-                    Text(spanish ? "No pudimos cargar tus invitaciones. Desliza hacia abajo para intentar de nuevo."
-                         : "We couldn't load your invitations. Pull down to try again.")
+                    Text(CuadraoCopy.text("copy.invitationViews.d1056ac1bb", spanish: spanish))
                         .foregroundStyle(.secondary).accessibilityIdentifier("invites.sent.failed")
                 case .ready(let sent):
                     if sent.invitations.isEmpty {
-                        Text(spanish ? "Todavía no has enviado invitaciones." : "You haven't sent any invitations yet.")
+                        Text(CuadraoCopy.text("copy.invitationViews.3e71bd2c6a", spanish: spanish))
                             .foregroundStyle(.secondary).accessibilityIdentifier("invites.sent.empty")
                     }
                     ForEach(sent.invitations) { SentInvitationRow(invite: $0) }
                 }
             }
             if case .ready(.links(let links)) = model.groupLinks {
-                Section(spanish ? "Enlaces de grupo" : "Group links") {
+                Section(CuadraoCopy.text("copy.invitationViews.5885b421fe", spanish: spanish)) {
                     ForEach(links) { link in
                         GroupLinkRow(link: link) { Task { await model.revokeGroupLink(link.id) } }
                     }
                     NavigationLink { GroupLinkScreen(model: model) } label: {
-                        Label(spanish ? "Nuevo enlace de grupo" : "New group link", systemImage: "link.badge.plus")
+                        Label(CuadraoCopy.text("copy.invitationViews.3d96033517", spanish: spanish), systemImage: "link.badge.plus")
                     }.accessibilityIdentifier("invites.group.new")
                 }
             }
         }
-        .navigationTitle(spanish ? "Invitaciones" : "Invitations")
+        .navigationTitle(CuadraoCopy.text("copy.invitationViews.4970c3efc4", spanish: spanish))
         .navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
         .refreshable { await reload() }
         .task { await reload() }
@@ -190,7 +186,7 @@ private struct SentInvitationRow: View {
     var body: some View {
         let spanish = locale.spanish
         VStack(alignment: .leading, spacing: 4) {
-            Text(invite.kind == .household ? (spanish ? "Hogar" : "Household") : (spanish ? "Beta" : "Beta"))
+            Text(invite.kind == .household ? (CuadraoCopy.text("copy.cuadraoHouseholdSheet.b845d91db6", spanish: spanish)) : (CuadraoCopy.text("copy.invitationViews.fe268c6dcf", spanish: spanish)))
                 .font(CuadraoTypography.supporting)
             Text(state(spanish)).font(CuadraoTypography.caption).foregroundStyle(.secondary)
         }
@@ -202,12 +198,12 @@ private struct SentInvitationRow: View {
         switch invite.state {
         case .accepted:
             let day = invite.acceptedAt?.formatted(date: .abbreviated, time: .omitted) ?? ""
-            return spanish ? "Aceptada \(day)" : "Accepted \(day)"
+            return CuadraoCopy.text("copy.invitationViews.beb1fc5836", spanish: spanish, String(describing: day))
         case .pending:
             let day = invite.expiresAt?.formatted(date: .abbreviated, time: .omitted) ?? ""
-            return spanish ? "Sin aceptar · vence \(day)" : "Not accepted yet · expires \(day)"
-        case .expired: return spanish ? "Vencida sin aceptar" : "Expired without being accepted"
-        case .revoked: return spanish ? "Revocada" : "Revoked"
+            return CuadraoCopy.text("copy.invitationViews.0dd4dc5fea", spanish: spanish, String(describing: day))
+        case .expired: return CuadraoCopy.text("copy.invitationViews.b871a58957", spanish: spanish)
+        case .revoked: return CuadraoCopy.text("copy.invitationViews.a6a58738bc", spanish: spanish)
         }
     }
 }
@@ -221,7 +217,7 @@ private struct GroupLinkRow: View {
         let spanish = locale.spanish
         VStack(alignment: .leading, spacing: 4) {
             Text(link.sourceLabel).font(CuadraoTypography.supporting)
-            Text(spanish ? "\(link.redeemed) de \(link.cap) lugares usados" : "\(link.redeemed) of \(link.cap) places used")
+            Text(CuadraoCopy.text("copy.invitationViews.8a54c66d27", spanish: spanish, String(describing: link.redeemed), String(describing: link.cap)))
                 .font(CuadraoTypography.caption)
             Text(stateText(spanish)).font(CuadraoTypography.caption).foregroundStyle(.secondary)
         }
@@ -229,7 +225,7 @@ private struct GroupLinkRow: View {
         .accessibilityIdentifier("invites.group." + link.state.rawValue)
         .swipeActions {
             if link.state == .open {
-                Button(spanish ? "Revocar" : "Revoke", role: .destructive, action: revoke)
+                Button(CuadraoCopy.text("copy.invitationViews.21a7c4e053", spanish: spanish), role: .destructive, action: revoke)
             }
         }
     }
@@ -237,12 +233,11 @@ private struct GroupLinkRow: View {
     private func stateText(_ spanish: Bool) -> String {
         let day = link.expiresAt.formatted(date: .abbreviated, time: .shortened)
         switch link.state {
-        case .open: return spanish ? "Abierto · vence \(day)" : "Open · expires \(day)"
+        case .open: return CuadraoCopy.text("copy.invitationViews.c4b180bbee", spanish: spanish, String(describing: day))
         case .full:
-            return spanish ? "Lleno. Quien lo abra ahora va a la lista de espera (\(link.overflow) intentos)."
-                : "Full. Anyone who opens it now goes to the waitlist (\(link.overflow) attempts)."
-        case .expired: return spanish ? "Vencido. Ya no admite a nadie." : "Expired. It no longer admits anyone."
-        case .revoked: return spanish ? "Revocado" : "Revoked"
+            return CuadraoCopy.text("copy.invitationViews.84d38c546a", spanish: spanish, String(describing: link.overflow))
+        case .expired: return CuadraoCopy.text("copy.invitationViews.38a9285a2d", spanish: spanish)
+        case .revoked: return CuadraoCopy.text("copy.invitationViews.5fb7aa6ccc", spanish: spanish)
         }
     }
 }
@@ -338,16 +333,16 @@ private struct InvitationNoticeAlert: ViewModifier {
 
     func body(content: Content) -> some View {
         content.alert(title, isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
-            Button("OK") { model.notice = nil }.accessibilityIdentifier("invites.notice.ok")
+            Button(CuadraoCopy.text("copy.invitationViews.2b2821ec48", spanish: CuadraoCopy.isSpanish())) { model.notice = nil }.accessibilityIdentifier("invites.notice.ok")
         } message: { Text(message) }
     }
 
     private var title: String {
         let spanish = locale.spanish
         switch model.notice {
-        case .alreadyAdmitted: return spanish ? "Ya tienes acceso" : "You already have access"
-        case .secretsShownOnce: return spanish ? "Invitación creada" : "Invitation created"
-        default: return spanish ? "Invitación" : "Invitation"
+        case .alreadyAdmitted: return CuadraoCopy.text("copy.invitationViews.cdf789e134", spanish: spanish)
+        case .secretsShownOnce: return CuadraoCopy.text("copy.invitationViews.3b2351f33d", spanish: spanish)
+        default: return CuadraoCopy.text("copy.invitationViews.b484b400d2", spanish: spanish)
         }
     }
 
@@ -355,24 +350,23 @@ private struct InvitationNoticeAlert: ViewModifier {
         let spanish = locale.spanish
         switch model.notice {
         case .alreadyAdmitted:
-            return spanish ? "Tu cuenta ya está en la beta. Esta invitación no se usó." : "Your account is already in the beta. This invitation was not used."
+            return CuadraoCopy.text("copy.invitationViews.d9972d83e7", spanish: spanish)
         case .secretsShownOnce:
-            return spanish ? "El enlace y el código solo se muestran una vez. Crea otra invitación para compartirla."
-                : "The link and code are shown only once. Create another invitation to share it."
+            return CuadraoCopy.text("copy.invitationViews.5ae0c9d266", spanish: spanish)
         case .householdUnavailable:
-            return spanish ? "Las invitaciones al Hogar no están disponibles ahora." : "Household invitations aren't available right now."
+            return CuadraoCopy.text("copy.invitationViews.637ed524fb", spanish: spanish)
         case .groupLink(let invalid):
             switch invalid {
-            case .label: return spanish ? "El nombre del enlace debe tener entre 1 y 80 caracteres." : "The link name must be between 1 and 80 characters."
-            case .cap: return spanish ? "El límite debe estar entre 1 y 10,000 personas." : "The limit must be between 1 and 10,000 people."
-            case .expiry: return spanish ? "El enlace debe vencer en el futuro y dentro de un año." : "The link must expire in the future and within one year."
+            case .label: return CuadraoCopy.text("copy.invitationViews.01c90ceec0", spanish: spanish)
+            case .cap: return CuadraoCopy.text("copy.invitationViews.c1dad79c4e", spanish: spanish)
+            case .expiry: return CuadraoCopy.text("copy.invitationViews.bb29705401", spanish: spanish)
             }
         case .problem(let problem):
             switch problem {
-            case .refused: return spanish ? "No pudimos completar esa solicitud. Revisa los datos e intenta de nuevo." : "We couldn't complete that request. Check the details and try again."
-            case .quotaExhausted: return spanish ? "Ya usaste tus invitaciones disponibles." : "You've used your available invitations."
-            case .founderOnly: return spanish ? "Solo Lucas puede crear enlaces de grupo." : "Only Lucas can create group links."
-            case .invitationRequired: return spanish ? "Necesitas entrar a la beta antes de invitar a otras personas." : "You need beta access before you can invite others."
+            case .refused: return CuadraoCopy.text("copy.invitationViews.7f4a160e2d", spanish: spanish)
+            case .quotaExhausted: return CuadraoCopy.text("copy.invitationViews.1badc7ec88", spanish: spanish)
+            case .founderOnly: return CuadraoCopy.text("copy.invitationViews.cfc6ca56db", spanish: spanish)
+            case .invitationRequired: return CuadraoCopy.text("copy.invitationViews.e8cc9956c8", spanish: spanish)
             case .rateLimited: return ReleaseInviteGateState.rateLimited.message(spanish: spanish) ?? ""
             case .invalid, .expired, .revoked, .used, .full:
                 return InvitationCopy.gateState(problem).message(spanish: spanish) ?? ""

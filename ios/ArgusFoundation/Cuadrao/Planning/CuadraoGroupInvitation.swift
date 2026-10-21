@@ -21,9 +21,9 @@ struct CuadraoGroupInvitation: View {
                     VStack(spacing: 22) {
                         invitation(group)
                         if guest {
-                            Text(spanish ? "Verás las personas, los gastos y los aportes de este grupo. Aceptar no crea una deuda ni comparte tus cuentas." : "You'll see this group's people, expenses and contributions. Accepting doesn't create a debt or share your accounts.")
+                            Text(CuadraoCopy.text("copy.cuadraoGroupInvitation.d0fdbe557e", spanish: spanish))
                                 .font(.subheadline).foregroundStyle(.secondary)
-                            PlanPrimaryButton(title: joined ? (spanish ? "Ya estás en el plan" : "You're in") : (spanish ? "Probar aceptación" : "Preview joining"), symbol: joined ? "checkmark" : "person.badge.plus") {
+                            PlanPrimaryButton(title: joined ? (CuadraoCopy.text("copy.cuadraoGroupInvitation.0b4287b35f", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoGroupInvitation.fa4a2449bf", spanish: spanish)), symbol: joined ? "checkmark" : "person.badge.plus") {
                                 var updated = group
                                 if let existing = updated.members.first(where: { $0.name == "Mar" }) {
                                     updated.removedMemberIDs.removeAll { $0 == existing.id }
@@ -31,25 +31,25 @@ struct CuadraoGroupInvitation: View {
                                 store.save(updated)
                                 joined = true
                             }.disabled(joined).accessibilityIdentifier("group-invite-accept")
-                            Text(spanish ? "Mar es una persona ficticia de esta vista previa." : "Mar is a fictional person in this preview.").font(.caption).foregroundStyle(.secondary)
+                            Text(CuadraoCopy.text("copy.cuadraoGroupInvitation.eb8543b7f9", spanish: spanish)).font(.caption).foregroundStyle(.secondary)
                         } else {
                             PlanLookPicker(look: $look, spanish: spanish)
-                            PhotosPicker(selection: $photo, matching: .images) { Label(spanish ? "Usar una foto" : "Use a photo", systemImage: "photo").frame(minHeight: 44) }
-                            if cover != nil { Button(spanish ? "Volver a la ilustración" : "Use illustration") { cover = nil; photo = nil } }
-                            if photoError { Text(spanish ? "No pudimos abrir esa foto." : "Couldn't open that photo.").font(.caption).foregroundStyle(.red) }
-                            PlanPrimaryButton(title: spanish ? "Ver como invitado" : "Preview as a guest", symbol: "arrow.right") { guest = true }
+                            PhotosPicker(selection: $photo, matching: .images) { Label(CuadraoCopy.text("copy.cuadraoGroupInvitation.16a54b6b51", spanish: spanish), systemImage: "photo").frame(minHeight: 44) }
+                            if cover != nil { Button(CuadraoCopy.text("copy.cuadraoGroupInvitation.7fc87fa16f", spanish: spanish)) { cover = nil; photo = nil } }
+                            if photoError { Text(CuadraoCopy.text("copy.cuadraoGroupInvitation.e116044f04", spanish: spanish)).font(.caption).foregroundStyle(.red) }
+                            PlanPrimaryButton(title: CuadraoCopy.text("copy.cuadraoGroupInvitation.af2c931451", spanish: spanish), symbol: "arrow.right") { guest = true }
                                 .accessibilityIdentifier("group-invite-preview")
-                            Button { code = true } label: { Label(spanish ? "Ver tarjeta con código" : "View code card", systemImage: "qrcode").frame(minHeight: 44) }
+                            Button { code = true } label: { Label(CuadraoCopy.text("copy.cuadraoGroupInvitation.1a036f5a95", spanish: spanish), systemImage: "qrcode").frame(minHeight: 44) }
                                 .accessibilityIdentifier("group-invite-code")
                         }
-                        Text(spanish ? "Vista previa · la invitación no se envía" : "Preview · invitation is not sent").font(.caption2).foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoGroupInvitation.871fcac72c", spanish: spanish)).font(.caption2).foregroundStyle(.secondary)
                     }.padding(24)
                 }.background(WelcomePalette.background)
-                    .navigationTitle(guest ? (spanish ? "Te invitaron" : "You're invited") : (spanish ? "Así empieza el plan" : "It starts with an invitation"))
+                    .navigationTitle(guest ? (CuadraoCopy.text("copy.cuadraoGroupInvitation.1347a0f20e", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoGroupInvitation.b37dcc9870", spanish: spanish)))
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
-                        if guest { ToolbarItem(placement: .topBarTrailing) { Button(spanish ? "Editar" : "Edit") { guest = false } } }
+                        CuadraoCancelToolbar(title: CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish)) { dismiss() }
+                        if guest { ToolbarItem(placement: .topBarTrailing) { Button(CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish)) { guest = false } } }
                     }
                     .sheet(isPresented: $code) { CuadraoGroupCodeCard(group: group, look: look, cover: cover, spanish: spanish) }
                     .onAppear { look = group.look; cover = group.cover; joined = group.activeMembers.contains { $0.name == "Mar" } }
@@ -73,12 +73,12 @@ struct CuadraoGroupInvitation: View {
                 PlanAvatarStack(members: group.activeMembers).padding(20)
             }
             VStack(alignment: .leading, spacing: 14) {
-                Text(spanish ? "HAY UN PLAN CONTIGO" : "YOU'RE PART OF THE PLAN").font(.system(size: 10, weight: .semibold)).tracking(1.8).foregroundStyle(look.color)
+                Text(CuadraoCopy.text("copy.cuadraoGroupInvitation.9417346f11", spanish: spanish)).font(.system(size: 10, weight: .semibold)).tracking(1.8).foregroundStyle(look.color)
                 Text(group.name).font(.system(size: 32, weight: .regular, design: .serif))
-                Text(group.kind == .trip ? (spanish ? "Un buen rato. Las cuentas, claras." : "Good times. Clear shares.") : (spanish ? "Algo bonito que construir juntos." : "Something worth building together.")).font(.subheadline).foregroundStyle(.secondary)
+                Text(group.kind == .trip ? (CuadraoCopy.text("copy.cuadraoGroupInvitation.a2de5fc954", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoGroupInvitation.0c3d65b110", spanish: spanish))).font(.subheadline).foregroundStyle(.secondary)
                 Divider()
-                Label(spanish ? "\(group.activeMembers.count) personas en el plan" : "\(group.activeMembers.count) people in the plan", systemImage: "person.2").font(.subheadline)
-                Text(spanish ? "Los montos se revisan dentro del grupo." : "Review amounts inside the group.").font(.caption).foregroundStyle(.secondary)
+                Label(CuadraoCopy.text("copy.cuadraoGroupInvitation.bf8e91a9ed", spanish: spanish, String(describing: group.activeMembers.count)), systemImage: "person.2").font(.subheadline)
+                Text(CuadraoCopy.text("copy.cuadraoGroupInvitation.48e4871dfd", spanish: spanish)).font(.caption).foregroundStyle(.secondary)
             }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
         }.background(look.color.opacity(0.065), in: RoundedRectangle(cornerRadius: 30)).clipShape(RoundedRectangle(cornerRadius: 30))
     }

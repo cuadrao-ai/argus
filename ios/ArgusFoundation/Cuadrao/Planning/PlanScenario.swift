@@ -54,16 +54,12 @@ struct PlanScenario: Equatable {
     func disclosure(spanish: Bool) -> String {
         if kind == .budget {
             let elapsed = budgetDays.elapsed, total = budgetDays.total
-            return spanish
-                ? "Proyección simple con \(elapsed) \(elapsed == 1 ? "día registrado" : "días registrados") de un mes de \(total) días. No es un gasto confirmado."
-                : "Simple projection using \(elapsed) recorded \(elapsed == 1 ? "day" : "days") in a \(total)-day month. This is not confirmed spending."
+            return CuadraoCopy.text("copy.planScenario.c0ab2032ba", spanish: spanish, String(describing: elapsed), String(describing: ((elapsed == 1 ? CuadraoCopy.text("copy.planScenario.a965f93e10", spanish: spanish) : CuadraoCopy.text("copy.planScenario.1cca1d7c78", spanish: spanish)))), String(describing: total))
         }
         let formatter = DateFormatter()
         formatter.locale = Self.locale(spanish); formatter.timeZone = timeZone; formatter.dateStyle = .long
         let date = formatter.string(from: today)
-        return spanish
-            ? "Escenario al \(date). Aportes mensuales constantes. Sin rendimientos, compras nuevas ni comisiones. El plan no mueve dinero."
-            : "Scenario as of \(date). Fixed monthly contributions. No returns, new purchases, or fees. The plan doesn't move money."
+        return CuadraoCopy.text("copy.planScenario.29ba16aeba", spanish: spanish, String(describing: date))
     }
 
     func budgetEdges(spanish: Bool) -> (first: String, last: String) {
@@ -80,5 +76,5 @@ struct PlanScenario: Equatable {
         let month = formatter.string(from: date).trimmingCharacters(in: CharacterSet(charactersIn: "."))
         return "\(calendar.component(.day, from: date)) \(month)."
     }
-    private static func locale(_ spanish: Bool) -> Locale { Locale(identifier: spanish ? "es_DO" : "en_US") }
+    private static func locale(_ spanish: Bool) -> Locale { Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)) }
 }

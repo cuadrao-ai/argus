@@ -102,7 +102,7 @@ struct FinancialGoalDetail: View {
     @State private var archiving = false
     @State private var releasing: FinancialGoalContribution?
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     var body: some View {
         Group {
             if !nativeNavigation, let id = model.navigation?.activityID {

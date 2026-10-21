@@ -14,6 +14,7 @@ struct CuadraoPlanChartTick: Identifiable {
 }
 
 struct CuadraoPlanForecastChart: View {
+    let spanish: Bool
     let recorded: [CuadraoPlanChartPoint]
     let projected: [CuadraoPlanChartPoint]
     var comparison: [CuadraoPlanChartPoint] = []
@@ -34,35 +35,35 @@ struct CuadraoPlanForecastChart: View {
     var body: some View {
         Chart {
             ForEach(recorded) { point in
-                AreaMark(x: .value("Date", point.position), y: .value("Balance", point.balance))
+                AreaMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.9e3d3b41ed", spanish: spanish), point.position), y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.02e2073456", spanish: spanish), point.balance))
                     .foregroundStyle(LinearGradient(colors: [WelcomePalette.pine.opacity(0.13), .clear], startPoint: .top, endPoint: .bottom))
-                LineMark(x: .value("Date", point.position), y: .value("Balance", point.balance), series: .value("Path", "actual"))
+                LineMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.9e3d3b41ed", spanish: spanish), point.position), y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.02e2073456", spanish: spanish), point.balance), series: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.ec94e4cbf1", spanish: spanish), "actual"))
                     .foregroundStyle(WelcomePalette.pine).lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .interpolationMethod(.linear)
             }
             ForEach(comparison) { point in
-                LineMark(x: .value("Date", point.position), y: .value("Balance", point.balance), series: .value("Path", "baseline"))
+                LineMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.9e3d3b41ed", spanish: spanish), point.position), y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.02e2073456", spanish: spanish), point.balance), series: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.ec94e4cbf1", spanish: spanish), "baseline"))
                     .foregroundStyle(Color.secondary.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 5]))
             }
             ForEach(projected) { point in
-                LineMark(x: .value("Date", point.position), y: .value("Balance", point.balance), series: .value("Path", "forecast"))
+                LineMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.9e3d3b41ed", spanish: spanish), point.position), y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.02e2073456", spanish: spanish), point.balance), series: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.ec94e4cbf1", spanish: spanish), "forecast"))
                     .foregroundStyle(WelcomePalette.pine).lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, dash: [5, 5]))
                     .interpolationMethod(stepped ? .stepEnd : .linear)
                 if projected.count == 1 {
-                    PointMark(x: .value("Date", point.position), y: .value("Balance", point.balance))
+                    PointMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.9e3d3b41ed", spanish: spanish), point.position), y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.02e2073456", spanish: spanish), point.balance))
                         .foregroundStyle(WelcomePalette.pine).symbolSize(30)
                 }
             }
             if let today {
-                RuleMark(x: .value("Today", today))
+                RuleMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.ebdcdc2bda", spanish: spanish), today))
                     .foregroundStyle(Color.secondary.opacity(0.25)).lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 4]))
             }
             if detailed {
-                RuleMark(y: .value("Zero", 0)).foregroundStyle(Color.secondary.opacity(0.18))
+                RuleMark(y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.babd5a1631", spanish: spanish), 0)).foregroundStyle(Color.secondary.opacity(0.18))
             }
             if let point = selected {
-                RuleMark(x: .value("Selected", point.position)).foregroundStyle(WelcomePalette.pine.opacity(0.4))
-                PointMark(x: .value("Date", point.position), y: .value("Balance", point.balance))
+                RuleMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.0d86e026ac", spanish: spanish), point.position)).foregroundStyle(WelcomePalette.pine.opacity(0.4))
+                PointMark(x: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.9e3d3b41ed", spanish: spanish), point.position), y: .value(CuadraoCopy.text("copy.cuadraoPlanForecastChart.02e2073456", spanish: spanish), point.balance))
                     .foregroundStyle(WelcomePalette.pine).symbolSize(45)
             }
         }

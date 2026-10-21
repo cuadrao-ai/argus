@@ -21,13 +21,13 @@ struct CuadraoUpdatesLayout<Rows: View, Preferences: View>: View {
         List {
             if emptyState != .unavailable {
                 Section {
-                    Picker(spanish ? "Mostrar" : "Show", selection: $unreadOnly) {
-                        Text(spanish ? "Todas" : "All").tag(false)
-                        Text(spanish ? "Sin leer" : "Unread").tag(true)
+                    Picker(CuadraoCopy.text("copy.cuadraoUpdatesLayout.37ca23660d", spanish: spanish), selection: $unreadOnly) {
+                        Text(CuadraoCopy.text("copy.cuadraoSearchCanvas.22417a3c9d", spanish: spanish)).tag(false)
+                        Text(CuadraoCopy.text("copy.cuadraoUpdatesCanvas.d5af1fde0e", spanish: spanish)).tag(true)
                     }.pickerStyle(.segmented).accessibilityIdentifier("cuadrao.updates.filter")
                     CuadraoLastUpdated(date: refreshedAt, spanish: spanish)
                     if hasUnread {
-                        Button(spanish ? "Marcar todas como leídas" : "Mark all as read", action: markAllRead)
+                        Button(CuadraoCopy.text("copy.cuadraoUpdatesLayout.0b713d6ded", spanish: spanish), action: markAllRead)
                             .font(.subheadline).accessibilityIdentifier("cuadrao.updates.read-all")
                     }
                 }.listRowBackground(Color.clear).listRowSeparator(.hidden)
@@ -40,22 +40,22 @@ struct CuadraoUpdatesLayout<Rows: View, Preferences: View>: View {
         }
         .listStyle(.plain).scrollContentBackground(.hidden).background(WelcomePalette.background)
         .modifier(CuadraoOptionalRefresh(action: refresh))
-        .navigationTitle(spanish ? "Novedades" : "Updates").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(CuadraoCopy.text("copy.cuadraoHomePresentation.41483aed95", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) { preferences() }
-            CuadraoDoneToolbar(title: spanish ? "Listo" : "Done", identifier: "cuadrao.updates.done") { dismiss() }
+            CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish), identifier: "cuadrao.updates.done") { dismiss() }
         }
     }
 
     private func empty(_ state: CuadraoUpdatesEmptyState) -> some View {
         VStack(spacing: 16) {
             PlanLandscape(look: .bloom).frame(width: 130, height: 90).accessibilityHidden(true)
-            Text(state == .read ? (spanish ? "Estás al día" : "You're all caught up")
-                 : (spanish ? "Todo tranquilo por aquí" : "It's quiet here"))
+            Text(state == .read ? (CuadraoCopy.text("copy.cuadraoUpdatesLayout.6410f3340c", spanish: spanish))
+                 : (CuadraoCopy.text("copy.cuadraoUpdatesLayout.8ac94c797f", spanish: spanish)))
                 .font(CuadraoTypography.section)
             Text(detail(state)).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             if state == .read {
-                Button(spanish ? "Ver todas" : "View all") { unreadOnly = false }
+                Button(CuadraoCopy.text("copy.cuadraoUpdatesLayout.d46bea0977", spanish: spanish)) { unreadOnly = false }
                     .accessibilityIdentifier("cuadrao.updates.show-all")
             }
         }.frame(maxWidth: .infinity).padding(.vertical, 36).accessibilityIdentifier("cuadrao.updates.empty")
@@ -64,13 +64,11 @@ struct CuadraoUpdatesLayout<Rows: View, Preferences: View>: View {
     private func detail(_ state: CuadraoUpdatesEmptyState) -> String {
         switch state {
         case .empty:
-            spanish ? "Aquí podrás revisar tus cuentas y el progreso que registres en tus planes."
-                : "Review your accounts and recorded plan progress here."
+            CuadraoCopy.text("copy.cuadraoUpdatesLayout.f3c62228e8", spanish: spanish)
         case .read:
-            spanish ? "Puedes volver a ver tus novedades en Todas." : "You can revisit your updates in All."
+            CuadraoCopy.text("copy.cuadraoUpdatesLayout.ceb0e3c1ef", spanish: spanish)
         case .unavailable:
-            spanish ? "Las novedades aún no están conectadas en esta versión. Tus movimientos y planes siguen disponibles."
-                : "Updates aren't connected in this version yet. Your transactions and plans are still available."
+            CuadraoCopy.text("copy.cuadraoUpdatesLayout.89aa1d8592", spanish: spanish)
         }
     }
 }
@@ -93,7 +91,7 @@ struct ConnectedCuadraoUpdates: View {
                 EmptyView()
             } preferences: {
                 Button(action: preferences) { CuadraoUpdatesPreferencesLabel() }
-                    .accessibilityLabel(spanish ? "Preferencias de notificaciones" : "Notification preferences")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoUpdatesCanvas.b0db1198af", spanish: spanish))
                     .accessibilityIdentifier("cuadrao.updates.preferences")
             }
         }.tint(WelcomePalette.pine).foregroundStyle(WelcomePalette.ink)

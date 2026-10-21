@@ -36,23 +36,23 @@ enum CanvasProfileRoute: Hashable {
     case memory, files, conversations, shared, removed, voice, advanced, feedback, invitations
     func title(_ es: Bool) -> String {
         switch self {
-        case .personal: es ? "Mi perfil" : "My profile"
-        case .preferences: es ? "Preferencias" : "Preferences"
-        case .personalization: es ? "Personalización" : "Personalization"
-        case .notifications: es ? "Notificaciones" : "Notifications"
-        case .security: es ? "Seguridad" : "Security"
-        case .privacy: es ? "Datos y privacidad" : "Data and privacy"
-        case .usage: es ? "Uso" : "Usage"
-        case .help: es ? "Ayuda y comentarios" : "Help and feedback"
-        case .memory: es ? "Memoria" : "Memory"
-        case .files: CuadraoFirstRelease.savedReceipts ? SavedReceiptCopy(spanish: es).title : (es ? "Archivos" : "Files")
-        case .conversations: es ? "Conversaciones" : "Conversations"
-        case .shared: es ? "Conversaciones compartidas" : "Shared conversations"
-        case .removed: es ? "Movimientos eliminados" : "Removed activity"
-        case .voice: es ? "Voz" : "Voice"
-        case .advanced: es ? "Más opciones" : "More options"
-        case .feedback: es ? "Comentarios" : "Feedback"
-        case .invitations: es ? "Invitaciones" : "Invitations"
+        case .personal: CuadraoCopy.text("copy.cuadraoProfileCanvas.c8aa69bab4", spanish: es)
+        case .preferences: CuadraoCopy.text("copy.cuadraoProfileCanvas.7f8139b9a4", spanish: es)
+        case .personalization: CuadraoCopy.text("copy.cuadraoProfileCanvas.a375f1276e", spanish: es)
+        case .notifications: CuadraoCopy.text("copy.cuadraoProfileCanvas.e66eecd5cf", spanish: es)
+        case .security: CuadraoCopy.text("copy.cuadraoProfileCanvas.065299bb82", spanish: es)
+        case .privacy: CuadraoCopy.text("copy.cuadraoProfileCanvas.2c59cb5dad", spanish: es)
+        case .usage: CuadraoCopy.text("copy.cuadraoProfileCanvas.38d965c260", spanish: es)
+        case .help: CuadraoCopy.text("copy.cuadraoProfileCanvas.245c17ba74", spanish: es)
+        case .memory: CuadraoCopy.text("copy.cuadraoProfileCanvas.7fa6d06e03", spanish: es)
+        case .files: CuadraoFirstRelease.savedReceipts ? SavedReceiptCopy(spanish: es).title : (CuadraoCopy.text("copy.cuadraoProfileCanvas.2cec6f3871", spanish: es))
+        case .conversations: CuadraoCopy.text("copy.cuadraoProfileCanvas.d9659690c0", spanish: es)
+        case .shared: CuadraoCopy.text("copy.cuadraoProfileCanvas.722f6f27e2", spanish: es)
+        case .removed: CuadraoCopy.text("copy.cuadraoProfileCanvas.9e5f002093", spanish: es)
+        case .voice: CuadraoCopy.text("copy.cuadraoProfileCanvas.d0a8b9cb41", spanish: es)
+        case .advanced: CuadraoCopy.text("copy.cuadraoProfileCanvas.cc958ca371", spanish: es)
+        case .feedback: CuadraoCopy.text("copy.cuadraoProfileCanvas.1b153643ac", spanish: es)
+        case .invitations: CuadraoCopy.text("copy.cuadraoProfileCanvas.4970c3efc4", spanish: es)
         }
     }
     var symbol: String {
@@ -147,7 +147,7 @@ struct CuadraoProfileCanvas: View {
                 bottomSpace: bottomSpace, editProfile: { editor = .personal }) {
                 EmptyView()
             } accountActions: {
-                Button(spanish ? "Cerrar sesión" : "Sign out") { signOut = true }
+                Button(CuadraoCopy.text("copy.connectedCuadraoProfile.a47c0e9665", spanish: spanish)) { signOut = true }
                     .font(.subheadline).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .accessibilityIdentifier("cuadrao.profile.signout")
@@ -161,11 +161,10 @@ struct CuadraoProfileCanvas: View {
                         emailAddress: profile.emailAddress, avatar: $profile.avatar, spanish: spanish)
                 }.tint(WelcomePalette.pine)
             }
-            .alert(spanish ? "Cerrar sesión" : "Sign out", isPresented: $signOut) {
-                Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+            .alert(CuadraoCopy.text("copy.connectedCuadraoProfile.a47c0e9665", spanish: spanish), isPresented: $signOut) {
+                Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) {}
             } message: {
-                Text(spanish ? "Esta vista previa no tiene una sesión conectada. Tu sesión de Argus sigue abierta."
-                     : "This preview has no connected session. Your Argus session remains signed in.")
+                Text(CuadraoCopy.text("copy.cuadraoProfileCanvas.a33ac583d8", spanish: spanish))
             }
         }.toolbar(.hidden, for: .tabBar)
     }
@@ -184,9 +183,9 @@ struct CuadraoProfileBody<AccountRows: View, AccountActions: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 identityRow.padding(.bottom, 4)
-                group("App", routes: [.preferences, .personalization, .notifications])
-                group(spanish ? "Cuenta" : "Account", routes: [.security, .privacy, .usage], includesAccountRows: true)
-                group(spanish ? "Soporte" : "Support", routes: [.help])
+                group(CuadraoCopy.text("copy.cuadraoProfileCanvas.b67b6e77f6", spanish: CuadraoCopy.isSpanish()), routes: [.preferences, .personalization, .notifications])
+                group(CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish), routes: [.security, .privacy, .usage], includesAccountRows: true)
+                group(CuadraoCopy.text("copy.cuadraoProfileCanvas.4a0be06897", spanish: spanish), routes: [.help])
                 accountActions()
             }.padding(.horizontal, 24).padding(.top, 24).padding(.bottom, bottomSpace + 24)
         }
@@ -209,7 +208,7 @@ struct CuadraoProfileBody<AccountRows: View, AccountActions: View>: View {
                     Text(email).font(.subheadline).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(spanish ? "Editar perfil" : "Edit profile")
+                Text(CuadraoCopy.text("copy.cuadraoProfileCanvas.6f4cb9c965", spanish: spanish))
                     .font(.subheadline.weight(.medium)).foregroundStyle(WelcomePalette.pine)
                     .padding(.top, 4)
             }
@@ -314,31 +313,28 @@ struct CuadraoProfileEditor: View {
                 CuadraoProfileAvatarPicker(name: name, spanish: spanish, avatar: $avatar, loading: $photoLoading, cropRequest: $cropRequest)
             }
             Section {
-                field(spanish ? "Nombre" : "Name", text: $name, id: "cuadrao.profile.name")
+                field(CuadraoCopy.text("copy.cuadraoAccountManagement.9d191b79fb", spanish: spanish), text: $name, id: "cuadrao.profile.name")
                     .textContentType(.name).disabled(saving)
-                field(spanish ? "Cómo te llamamos" : "What we call you", text: $preferred,
+                field(CuadraoCopy.text("copy.cuadraoProfileCanvas.63d6906c02", spanish: spanish), text: $preferred,
                       id: "cuadrao.profile.preferred")
                     .textContentType(.nickname).disabled(saving)
             } footer: {
-                Text(spanish ? "Usaremos tu nombre preferido al conversar contigo."
-                     : "We'll use your preferred name when we talk with you.")
+                Text(CuadraoCopy.text("copy.cuadraoProfileCanvas.3992f504c2", spanish: spanish))
             }.listRowBackground(CanvasSettingsStyle.surface)
             if let emailAddress {
                 Section {
                     VStack(alignment: .leading, spacing: 7) {
-                        Text(spanish ? "Correo" : "Email").font(.subheadline).foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoProfileCanvas.c02619e107", spanish: spanish)).font(.subheadline).foregroundStyle(.secondary)
                         Text(emailAddress)
                     }.padding(.vertical, 6)
                 }.listRowBackground(CanvasSettingsStyle.surface)
             }
             if !valid {
-                Text(spanish ? "Escribe un nombre de hasta 60 caracteres y un nombre preferido de hasta 40."
-                     : "Enter a name up to 60 characters and a preferred name up to 40.")
+                Text(CuadraoCopy.text("copy.cuadraoProfileCanvas.3d6348b8db", spanish: spanish))
                     .font(.footnote).foregroundStyle(.secondary).listRowBackground(Color.clear)
             }
             if saveFailed {
-                Text(spanish ? "No pudimos guardar tu nombre. Inténtalo de nuevo."
-                     : "We couldn't save your name. Try again.")
+                Text(CuadraoCopy.text("copy.cuadraoProfileCanvas.53c6ddfb22", spanish: spanish))
                     .font(.footnote).foregroundStyle(.secondary).listRowBackground(Color.clear)
                     .accessibilityIdentifier("cuadrao.profile.save.error")
             }
@@ -346,10 +342,10 @@ struct CuadraoProfileEditor: View {
             .sheet(item: $cropRequest) { request in
                 CanvasAvatarCropSheet(request: request, spanish: spanish) { avatar = .photo($0) }
             }
-            .navigationTitle(spanish ? "Editar perfil" : "Edit profile").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(CuadraoCopy.text("copy.cuadraoProfileCanvas.6f4cb9c965", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "cuadrao.profile.cancel") { dismiss() }
-                CuadraoConfirmToolbar(title: spanish ? "Guardar" : "Save", disabled: !valid || !changed || photoLoading || saving,
+                CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), identifier: "cuadrao.profile.cancel") { dismiss() }
+                CuadraoConfirmToolbar(title: CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish), disabled: !valid || !changed || photoLoading || saving,
                                       identifier: "cuadrao.profile.save", action: save)
             }
     }

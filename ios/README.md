@@ -138,3 +138,21 @@ way. To fix a stopped run, create the file and run build-for-testing again.
 
 A deliberate offline run, such as the auth-disabled design pass, sets
 `TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true`. The default stays strict.
+
+## Localization checks
+
+`python3 ios/scripts/localization_guard.py` checks the Spanish-source string
+catalogs, English fallback, visible branding, permission copy and uncatalogued
+UI literals. The normal `ios/scripts/verify.sh` build/test preflight runs it too.
+Run `python3 -m unittest discover -s ios/scripts -p test_localization_guard.py`
+to exercise injected leaks. Run `python3 ios/LocalizationTests/run.py` for real
+compiled resource lookup, language fallback, interpolation and regional amount
+entry checks. The offline `LocalizationUITests` exercise native catalog labels
+and the shared navigation with English, Spanish and unsupported device languages.
+
+`Localizable.xcstrings` and `InfoPlist.xcstrings` own static copy. Their source
+language is `es-419`; `en` supplies English. Entries marked `TODO-COPY` retain
+English until approved Spanish is available. `localization_noncopy.json` records
+exact fixture, symbol, transport and diagnostic literals with their reasons.
+Each exception covers one literal in one file and its original code context.
+New copy needs a catalog entry.

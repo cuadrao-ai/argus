@@ -42,17 +42,17 @@ struct CuadraoUpdatesCanvas: View {
                 markAllRead: { readIDs.formUnion(visible) },
                 // Design preview only: nothing is loaded here, the stamp just shows the pattern. Never wire this to a connected path.
                 refresh: { try? await Task.sleep(for: .milliseconds(400)); refreshedAt = Date() }, refreshedAt: refreshedAt) {
-                updateSection(spanish ? "Por revisar" : "To review", entries: visible.filter {
+                updateSection(CuadraoCopy.text("copy.cuadraoUpdatesCanvas.f144c74388", spanish: spanish), entries: visible.filter {
                     if case .accountReview = $0 { return true }; return false
                 })
-                updateSection(spanish ? "Tus planes" : "Your plans", entries: visible.filter {
+                updateSection(CuadraoCopy.text("copy.cuadraoDesignGallery.daeb973c09", spanish: spanish), entries: visible.filter {
                     if case .planProgress = $0 { return true }; return false
                 })
             } preferences: {
                 NavigationLink {
                     CuadraoProfilePage(route: .notifications, profile: $profile, spanish: spanish, includeExamples: false)
                 } label: { CuadraoUpdatesPreferencesLabel() }
-                    .accessibilityLabel(spanish ? "Preferencias de notificaciones" : "Notification preferences")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoUpdatesCanvas.b0db1198af", spanish: spanish))
                     .accessibilityIdentifier("cuadrao.updates.preferences")
             }
             .navigationDestination(for: CanvasUpdate.self) { item in
@@ -85,7 +85,7 @@ struct CuadraoUpdatesCanvas: View {
                     } label: { row(item) }
                     .buttonStyle(.plain).listRowBackground(Color.clear)
                     .accessibilityIdentifier("cuadrao.updates.item.\(item.identifier)")
-                    .accessibilityValue(readIDs.contains(item) ? (spanish ? "Leída" : "Read") : (spanish ? "Sin leer" : "Unread"))
+                    .accessibilityValue(readIDs.contains(item) ? (CuadraoCopy.text("copy.cuadraoUpdatesCanvas.381ac9313c", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoUpdatesCanvas.d5af1fde0e", spanish: spanish)))
                     .swipeActions(edge: .trailing) { readAction(item) }
                     .contextMenu { readAction(item) }
                     .accessibilityAction(named: Text(readTitle(item))) { toggleRead(item) }
@@ -105,8 +105,8 @@ struct CuadraoUpdatesCanvas: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(account.displayName(spanish)).font(CuadraoTypography.action)
                         Text(account.balance == nil
-                             ? (spanish ? "Esta cuenta aún no tiene balance. Puedes revisarla." : "This account has no balance yet. You can review it.")
-                             : (spanish ? "Revisa el balance y los movimientos registrados." : "Review its recorded balance and activity."))
+                             ? (CuadraoCopy.text("copy.cuadraoUpdatesCanvas.edf23899c4", spanish: spanish))
+                             : (CuadraoCopy.text("copy.cuadraoUpdatesCanvas.92ece31e92", spanish: spanish)))
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
@@ -127,11 +127,11 @@ struct CuadraoUpdatesCanvas: View {
         }.fixedSize(horizontal: false, vertical: true).padding(.vertical, 10).contentShape(Rectangle())
     }
     private var unavailable: some View {
-        ContentUnavailableView(spanish ? "Ya no está disponible" : "No longer available", systemImage: "tray")
+        ContentUnavailableView(CuadraoCopy.text("copy.cuadraoUpdatesCanvas.765836d746", spanish: spanish), systemImage: "tray")
             .toolbar(.visible, for: .navigationBar)
     }
     private func readTitle(_ item: CanvasUpdate) -> String {
-        readIDs.contains(item) ? (spanish ? "Marcar como no leída" : "Mark unread") : (spanish ? "Marcar como leída" : "Mark read")
+        readIDs.contains(item) ? (CuadraoCopy.text("copy.cuadraoUpdatesCanvas.f33a388b25", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoUpdatesCanvas.2a0b44ba40", spanish: spanish))
     }
     private func readAction(_ item: CanvasUpdate) -> some View {
         Button(readTitle(item), systemImage: readIDs.contains(item) ? "envelope.badge" : "envelope.open") { toggleRead(item) }

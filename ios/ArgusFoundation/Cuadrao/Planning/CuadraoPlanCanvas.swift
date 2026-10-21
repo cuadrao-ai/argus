@@ -53,22 +53,22 @@ struct CuadraoPlanCanvas: View {
             .sheet(isPresented: $newGroup) {
                 CuadraoGroupEditor(store: groups, spanish: spanish, onSave: { path.append($0) })
             }
-            .confirmationDialog(spanish ? "¿Cambiar el escenario de vista previa?" : "Change preview scenario?", isPresented: $resetConfirmation, titleVisibility: .visible) {
-                Button(spanish ? "Cambiar escenario" : "Change scenario", role: .destructive) {
+            .confirmationDialog(CuadraoCopy.text("copy.cuadraoPlanCanvas.36f15a9240", spanish: spanish), isPresented: $resetConfirmation, titleVisibility: .visible) {
+                Button(CuadraoCopy.text("copy.cuadraoPlanCanvas.68284a152b", spanish: spanish), role: .destructive) {
                     store.resetExamples(spanish: spanish, empty: showEmpty); groups.resetExamples(spanish: spanish, empty: showEmpty)
                 }
             } message: {
-                Text(spanish ? "Se reemplazarán solo los planes de esta vista previa." : "Only this preview's plans will be replaced.")
+                Text(CuadraoCopy.text("copy.cuadraoPlanCanvas.8f62c0a225", spanish: spanish))
             }
         }.tint(WelcomePalette.pine)
     }
 
     private var header: some View {
         CuadraoPlanHeader(spanish: spanish,
-            createTitle: together ? (spanish ? "Crear grupo" : "Create group") : (spanish ? "Crear plan" : "Create plan"),
+            createTitle: together ? (CuadraoCopy.text("copy.cuadraoGroupEditor.a54bd5bc95", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanCanvas.2131013203", spanish: spanish)),
             titleMenu: { AnyView(Group {
-                Button(spanish ? "Ver primer uso" : "See first use") { showEmpty = true; resetConfirmation = true }
-                Button(spanish ? "Restablecer ejemplos" : "Reset examples") { showEmpty = false; resetConfirmation = true }
+                Button(CuadraoCopy.text("copy.cuadraoPlanCanvas.6e527eb751", spanish: spanish)) { showEmpty = true; resetConfirmation = true }
+                Button(CuadraoCopy.text("copy.cuadraoPlanCanvas.180afb9919", spanish: spanish)) { showEmpty = false; resetConfirmation = true }
             }) }) {
                 if together { newGroup = true } else { creation = PlanEditorRoute(plan: newPlan) }
             }
@@ -81,18 +81,18 @@ struct CuadraoPlanCanvas: View {
     }
 
     private var forecastOverview: some View {
-        CuadraoPlanForecastSection(period: spanish ? "Tu mes" : "Your month") {
+        CuadraoPlanForecastSection(period: CuadraoCopy.text("copy.cuadraoPlanCanvas.b011911464", spanish: spanish)) {
             if forecastSpaces.count > 1 {
-                CuadraoChoiceMenu(title: spanish ? "Espacio del pronóstico" : "Forecast space",
+                CuadraoChoiceMenu(title: CuadraoCopy.text("copy.cuadraoPlanCanvas.7431f80dd8", spanish: spanish),
                     selection: Binding(get: { scope }, set: { scope = $0; selectedDay = nil }),
                     values: forecastSpaces.map(\.id),
                     valueTitle: { PlanFormat.space($0, accounts: accounts, spanish: spanish) })
-                    .accessibilityLabel(spanish ? "Espacio del pronóstico, \(scopeName)" : "Forecast space, \(scopeName)")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoPlanCanvas.1a736a33ab", spanish: spanish, String(describing: scopeName)))
                     .accessibilityIdentifier("plan-forecast-scope")
             } else { CuadraoChoiceLabel(title: scopeName, selectable: false) }
         } content: {
             CuadraoPlanForecastValue(
-                title: selectedPoint.map { "\($0.day) oct. · \($0.day > CanvasForecast.today ? (spanish ? "estimado" : "estimated") : (spanish ? "registrado" : "recorded"))" } ?? (store.dailyAssumptions[scope] == nil ? (spanish ? "Balance estimado al cierre" : "Estimated closing balance") : (spanish ? "Con tu plan, cerrarías con" : "With your plan, you'd end with")),
+                title: selectedPoint.map { "\($0.day) oct. · \($0.day > CanvasForecast.today ? (CuadraoCopy.text("copy.cuadraoPlanCanvas.b05f3ed953", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoGroupDetail.a6323107e2", spanish: spanish)))" } ?? (store.dailyAssumptions[scope] == nil ? (CuadraoCopy.text("copy.cuadraoPlanCanvas.4531c8dc99", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanCanvas.33873ef21c", spanish: spanish))),
                 amount: PlanFormat.amount(selectedPoint?.balance ?? forecast.ending(daily: store.daily(for: scope))),
                 identifier: "plan-month-ending")
             PlanForecastChart(forecast: forecast, daily: store.daily(for: scope), spanish: spanish, selectedDay: $selectedDay, compact: true)
@@ -105,8 +105,8 @@ struct CuadraoPlanCanvas: View {
 
     private var forecastColdStart: some View {
         CuadraoPlanColdStart(spanish: spanish,
-            detail: spanish ? "Puedes hacer tu primer plan hoy. La proyección llegará cuando tengas movimientos e ingresos previstos." : "Make your first plan today. Your forecast will take shape with transactions and expected income.") {
-            Button(spanish ? "Explorar un mes de ejemplo" : "Explore an example month") {
+            detail: CuadraoCopy.text("copy.cuadraoPlanCanvas.fdfec8bc75", spanish: spanish)) {
+            Button(CuadraoCopy.text("copy.cuadraoPlanCanvas.3d0390b3b7", spanish: spanish)) {
                 store.enableForecastExample()
             }
         }
@@ -138,8 +138,8 @@ private struct CuadraoArchivedPlans: View {
     var body: some View {
         List {
             if store.plans.filter(\.archived).isEmpty {
-                ContentUnavailableView(spanish ? "Nada archivado" : "Nothing archived", systemImage: "archivebox",
-                    description: Text(spanish ? "Tus planes pueden descansar aquí. Siempre podrás retomarlos." : "Plans can rest here. You can always pick them back up."))
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoGroupCollection.e07523e83a", spanish: spanish), systemImage: "archivebox",
+                    description: Text(CuadraoCopy.text("copy.cuadraoPlanCanvas.ebcdf81c28", spanish: spanish)))
                     .listRowSeparator(.hidden)
             }
             ForEach(store.plans.filter(\.archived)) { plan in
@@ -149,10 +149,10 @@ private struct CuadraoArchivedPlans: View {
                         Text(PlanFormat.space(plan.spaceID, accounts: accounts, spanish: spanish)).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(spanish ? "Retomar" : "Restore") { store.archive(plan.id, false) }.buttonStyle(.bordered)
+                    Button(CuadraoCopy.text("copy.cuadraoGroupCollection.1ae3bf9797", spanish: spanish)) { store.archive(plan.id, false) }.buttonStyle(.bordered)
                 }
             }
-        }.navigationTitle(spanish ? "Archivados" : "Archived").navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar).safeAreaPadding(.bottom, bottomSpace)
     }
 }

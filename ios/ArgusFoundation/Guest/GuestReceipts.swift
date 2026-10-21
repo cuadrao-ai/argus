@@ -4,40 +4,38 @@ import CuadraoBook
 /// The on-device book's receipt words, Spanish first. All are pending the founder's approval.
 struct GuestReceiptCopy {
     let spanish: Bool
-    var savedTitle: String { spanish ? "Recibo guardado en este iPhone" : "Receipt saved on this iPhone" }
+    var savedTitle: String { CuadraoCopy.text("copy.guestReceipts.06c88d7345", spanish: spanish) }
     var savedDetail: String {
-        spanish ? "No se envió a ningún lado. Puedes adjuntarlo a un movimiento ahora o más tarde."
-                : "It was not sent anywhere. You can attach it to a movement now or later."
+        CuadraoCopy.text("copy.guestReceipts.96e136d15f", spanish: spanish)
     }
-    var attachTo: String { spanish ? "Adjuntar a un movimiento" : "Attach to a movement" }
-    var noMovements: String { spanish ? "Aún no tienes movimientos." : "You have no movements yet." }
-    var attachTitle: String { spanish ? "Adjuntar recibo" : "Attach receipt" }
+    var attachTo: String { CuadraoCopy.text("copy.guestReceipts.1a42559a88", spanish: spanish) }
+    var noMovements: String { CuadraoCopy.text("copy.guestReceipts.58ec8e6fdf", spanish: spanish) }
+    var attachTitle: String { CuadraoCopy.text("copy.guestReceipts.ee6b11210c", spanish: spanish) }
     var noReceipts: String {
-        spanish ? "No tienes recibos sin adjuntar. Toca + para guardar uno." : "You have no unattached receipts. Tap + to save one."
+        CuadraoCopy.text("copy.guestReceipts.e3b9850da9", spanish: spanish)
     }
-    var view: String { spanish ? "Ver recibo" : "View receipt" }
-    var remove: String { spanish ? "Quitar recibo" : "Remove receipt" }
-    var later: String { spanish ? "Después" : "Later" }
-    var cancel: String { spanish ? "Cancelar" : "Cancel" }
-    var delete: String { spanish ? "Eliminar" : "Delete" }
+    var view: String { CuadraoCopy.text("copy.receiptJourneyCopy.176bc5563c", spanish: spanish) }
+    var remove: String { CuadraoCopy.text("copy.guestReceipts.5b409df865", spanish: spanish) }
+    var later: String { CuadraoCopy.text("copy.receiptJourneyCopy.fb09b69c44", spanish: spanish) }
+    var cancel: String { CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish) }
+    var delete: String { CuadraoCopy.text("copy.savedReceiptCopy.534547cf82", spanish: spanish) }
     var listEmpty: String {
-        spanish ? "Aún no tienes recibos en este iPhone. Toca + para guardar uno." : "You have no receipts on this iPhone yet. Tap + to save one."
+        CuadraoCopy.text("copy.guestReceipts.12c4e254b5", spanish: spanish)
     }
-    var attachedTo: String { spanish ? "Adjunto a" : "Attached to" }
-    var deleteTitle: String { spanish ? "¿Eliminar este recibo?" : "Delete this receipt?" }
+    var attachedTo: String { CuadraoCopy.text("copy.guestReceipts.3345777fd4", spanish: spanish) }
+    var deleteTitle: String { CuadraoCopy.text("copy.savedReceiptCopy.4ca1494b4d", spanish: spanish) }
     var deleteMessage: String {
-        spanish ? "Se borra de este iPhone. Tus movimientos no cambian." : "It is deleted from this iPhone. Your activity does not change."
+        CuadraoCopy.text("copy.guestReceipts.db66631642", spanish: spanish)
     }
-    var emptyTitle: String { spanish ? "Aún no hay recibos." : "No receipts yet." }
+    var emptyTitle: String { CuadraoCopy.text("copy.guestReceipts.afcc90c7b0", spanish: spanish) }
     var emptyDetail: String {
-        spanish ? "Guarda la foto o el archivo de un recibo y únelo a un gasto. Se queda solo en este iPhone."
-                : "Save a receipt's photo or file and attach it to an expense. It stays only on this iPhone."
+        CuadraoCopy.text("copy.guestReceipts.b897319a4b", spanish: spanish)
     }
-    var add: String { spanish ? "Añadir un recibo" : "Add a receipt" }
-    var scan: String { spanish ? "Escanear con la cámara" : "Scan with the camera" }
-    var choosePhoto: String { spanish ? "Elegir una foto" : "Choose a photo" }
-    var chooseFile: String { spanish ? "Elegir un archivo" : "Choose a file" }
-    var couldNotSave: String { spanish ? "No pudimos guardar el recibo en este iPhone." : "We could not save the receipt on this iPhone." }
+    var add: String { CuadraoCopy.text("copy.guestReceipts.8cd37d53b1", spanish: spanish) }
+    var scan: String { CuadraoCopy.text("copy.guestReceipts.c9002dc430", spanish: spanish) }
+    var choosePhoto: String { CuadraoCopy.text("copy.cuadraoAddTray.1e4b004482", spanish: spanish) }
+    var chooseFile: String { CuadraoCopy.text("copy.cuadraoAddTray.9d649f3046", spanish: spanish) }
+    var couldNotSave: String { CuadraoCopy.text("copy.guestReceipts.f333141bff", spanish: spanish) }
 }
 
 private struct GuestReceiptsKey: EnvironmentKey {

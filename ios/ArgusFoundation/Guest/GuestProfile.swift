@@ -6,9 +6,9 @@ enum GuestProfileRoute: Hashable {
 
     func title(_ es: Bool) -> String {
         switch self {
-        case .preferences: es ? "Preferencias" : "Preferences"
-        case .privacy: es ? "Datos y privacidad" : "Data and privacy"
-        case .receipts: es ? "Recibos de este iPhone" : "Receipts on this iPhone"
+        case .preferences: CuadraoCopy.text("copy.guestProfile.7f8139b9a4", spanish: es)
+        case .privacy: CuadraoCopy.text("copy.guestProfile.2c59cb5dad", spanish: es)
+        case .receipts: CuadraoCopy.text("copy.guestProfile.44feb0dd16", spanish: es)
         }
     }
 
@@ -32,7 +32,7 @@ struct GuestProfile: View {
     @Environment(\.locale) private var locale
     @Environment(\.guestReceipts) private var receipts
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -40,13 +40,13 @@ struct GuestProfile: View {
                 VStack(alignment: .leading, spacing: 24) {
                     modeNotice
                     header
-                    group(spanish ? "Cuenta" : "Account") {
-                        action(symbol: "arrow.right.circle", title: spanish ? "Iniciar sesión" : "Sign in",
+                    group(CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish)) {
+                        action(symbol: "arrow.right.circle", title: CuadraoCopy.text("copy.connectedCuadraoAuth.99024c1d78", spanish: spanish),
                                identifier: "guest.profile.signin", perform: leave)
                     }
                     Text(GuestCopy.bookStays(spanish)).font(.footnote).foregroundStyle(.secondary)
                         .padding(.horizontal, 4).accessibilityIdentifier("guest.profile.notice")
-                    group("App") {
+                    group(CuadraoCopy.text("copy.guestProfile.b67b6e77f6", spanish: CuadraoCopy.isSpanish())) {
                         link(.preferences, identifier: "guest.profile.preferences")
                         separator
                         link(.privacy, identifier: "guest.profile.privacy")
@@ -86,9 +86,9 @@ struct GuestProfile: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(spanish ? "Tu libro en este iPhone" : "Your book on this iPhone")
+            Text(CuadraoCopy.text("copy.guestProfile.9d28a6edfd", spanish: spanish))
                 .font(.system(.title2, design: .default, weight: .semibold))
-            Text(spanish ? "Solo vive aquí. No se sube a ningún lado." : "It lives only here. It isn't uploaded anywhere.")
+            Text(CuadraoCopy.text("copy.guestProfile.3febded68a", spanish: spanish))
                 .font(.subheadline).foregroundStyle(.secondary)
         }.accessibilityElement(children: .combine).accessibilityIdentifier("guest.profile.header")
     }
@@ -132,16 +132,16 @@ struct GuestProfile: View {
     @ViewBuilder private var legal: some View {
         let legal = CuadraoLegalURLs.current
         if legal.hasPages {
-            group(spanish ? "Acerca de Cuadrao" : "About Cuadrao") {
+            group(CuadraoCopy.text("copy.cuadraoProfilePage.e9a2ff8d1a", spanish: spanish)) {
                 if let terms = legal.terms {
                     Link(destination: terms) {
-                        rowLabel(symbol: "doc.text", title: spanish ? "Términos de uso" : "Terms of use", chevron: false)
+                        rowLabel(symbol: "doc.text", title: CuadraoCopy.text("copy.connectedCuadraoProfile.2fe6836750", spanish: spanish), chevron: false)
                     }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.terms")
                 }
                 if legal.terms != nil, legal.privacy != nil { separator }
                 if let privacy = legal.privacy {
                     Link(destination: privacy) {
-                        rowLabel(symbol: "hand.raised", title: spanish ? "Política de privacidad" : "Privacy policy", chevron: false)
+                        rowLabel(symbol: "hand.raised", title: CuadraoCopy.text("copy.cuadraoProfilePage.3a2527a0ac", spanish: spanish), chevron: false)
                     }.buttonStyle(.plain).accessibilityIdentifier("guest.profile.legal")
                 }
             }
@@ -152,7 +152,7 @@ struct GuestProfile: View {
 /// The words the book uses for itself, Spanish first. One place, so the same sentence is never retyped.
 enum GuestCopy {
     static func bookStays(_ es: Bool) -> String {
-        es ? "Tu libro de este iPhone sigue aquí; no se subió." : "Your book on this iPhone is still here; it was not uploaded."
+        CuadraoCopy.text("copy.guestProfile.8bc6e5a42e", spanish: es)
     }
 }
 
@@ -168,27 +168,27 @@ private struct GuestPreferences: View {
         Form {
             Section {
                 CuadraoAppearanceChoices(spanish: spanish, selection: $appearance)
-            } header: { Text(spanish ? "Apariencia" : "Appearance") }
-              footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone's appearance.") }
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.6d3e76f91f", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.b894f61cc1", spanish: spanish)) }
                 .listRowBackground(CanvasSettingsStyle.surface)
             Section {
-                LabeledContent(spanish ? "Idioma" : "Language") { Text(spanish ? "Español" : "English").foregroundStyle(.secondary) }
+                LabeledContent(CuadraoCopy.text("copy.cuadraoProfilePage.98633ea3c0", spanish: spanish)) { Text(CuadraoCopy.text("copy.cuadraoProfilePage.244f0f8d3d", spanish: spanish)).foregroundStyle(.secondary) }
                     .accessibilityIdentifier("guest.profile.language")
             }
             .listRowBackground(CanvasSettingsStyle.surface)
             Section {
                 Button { choosingCurrency = true } label: {
                     HStack {
-                        Text(spanish ? "Moneda preferida" : "Preferred currency").foregroundStyle(.primary)
+                        Text(CuadraoCopy.text("copy.connectedProfileCurrencyRow.8ceb934024", spanish: spanish)).foregroundStyle(.primary)
                         Spacer()
-                        Text(currency ?? (spanish ? "Elegir" : "Choose")).foregroundStyle(.secondary)
+                        Text(currency ?? (CuadraoCopy.text("copy.connectedProfileCurrencyRow.8f6645049d", spanish: spanish))).foregroundStyle(.secondary)
                         Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary)
                     }.frame(minHeight: 44).contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("guest.profile.currency")
                 .accessibilityValue(currency ?? "")
-            } header: { Text(spanish ? "Moneda" : "Currency") }
-              footer: { Text(spanish ? "Elegir una moneda no convierte ni combina tus balances." : "Choosing a currency does not convert or combine your balances.") }
+            } header: { Text(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.854936f059", spanish: spanish)) }
                 .listRowBackground(CanvasSettingsStyle.surface)
         }
         .environment(\.defaultMinListRowHeight, 52)
@@ -212,16 +212,14 @@ private struct GuestPrivacy: View {
     var body: some View {
         Form {
             Section {
-                Text(spanish ? "Tus cuentas, movimientos, presupuestos y metas se guardan solo en este iPhone, sin cuenta ni conexión. Si borras la app, se borran con ella."
-                     : "Your accounts, activity, budgets and goals are kept only on this iPhone, with no account and no connection. If you delete the app, they go with it.")
+                Text(CuadraoCopy.text("copy.guestProfile.7593f664ee", spanish: spanish))
                     .font(.subheadline).foregroundStyle(.secondary)
             }.listRowBackground(Color.clear)
             Section {
-                Button(spanish ? "Eliminar los datos de este iPhone" : "Delete this iPhone's data", role: .destructive) { confirmingDelete = true }
+                Button(CuadraoCopy.text("copy.guestProfile.77303954dc", spanish: spanish), role: .destructive) { confirmingDelete = true }
                     .foregroundStyle(.red).frame(minHeight: 44).accessibilityIdentifier("guest.profile.delete")
             } footer: {
-                Text(spanish ? "Quita tu libro de este iPhone. Si luego creas una cuenta, esto no la toca."
-                     : "Removes your book from this iPhone. If you create an account later, this doesn't touch it.")
+                Text(CuadraoCopy.text("copy.guestProfile.845e26f349", spanish: spanish))
             }.listRowBackground(CanvasSettingsStyle.surface)
         }
         .environment(\.defaultMinListRowHeight, 52)
@@ -229,13 +227,13 @@ private struct GuestPrivacy: View {
         .navigationTitle(GuestProfileRoute.privacy.title(spanish)).navigationBarTitleDisplayMode(.large)
         .toolbar(.visible, for: .navigationBar)
         .alert(GuestDeleteCopy.title(spanish), isPresented: $confirmingDelete) {
-            Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), role: .cancel) {}
             Button(GuestDeleteCopy.confirm(spanish), role: .destructive) {
                 Task { if await !deleteData() { deleteFailed = true } }
             }.accessibilityIdentifier("guest.delete.confirm")
         } message: { Text(GuestDeleteCopy.message(spanish)) }
         .alert(GuestDeleteCopy.failed(spanish), isPresented: $deleteFailed) {
-            Button(spanish ? "Entendido" : "Got it", role: .cancel) {}
+            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) {}
         }
     }
 }

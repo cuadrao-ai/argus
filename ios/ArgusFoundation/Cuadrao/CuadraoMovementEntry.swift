@@ -3,10 +3,10 @@ import SwiftUI
 /// Words for the amount-first movement entry. Kept here until the approved strings land in the catalog.
 struct MovementEntryCopy {
     let spanish: Bool
-    var from: String { spanish ? "De" : "From" }
-    var to: String { spanish ? "A" : "To" }
-    var account: String { spanish ? "Cuenta" : "Account" }
-    var swap: String { spanish ? "Cambiar origen y destino" : "Swap from and to" }
+    var from: String { CuadraoCopy.text("copy.cuadraoMovementEntry.4f123571cf", spanish: spanish) }
+    var to: String { CuadraoCopy.text("copy.cuadraoMovementEntry.0dc538b57b", spanish: spanish) }
+    var account: String { CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish) }
+    var swap: String { CuadraoCopy.text("copy.cuadraoMovementEntry.0400cd7263", spanish: spanish) }
 }
 
 /// Wraps its children onto new lines, so chips stay above the keyboard at every text size.

@@ -12,6 +12,10 @@ import argparse
 import subprocess
 import tempfile
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "LocalizationTests"))
+from support import prepare
+
 root = Path(__file__).resolve().parents[2]
 canvas = root / "ios/ArgusFoundation/Cuadrao"
 here = Path(__file__).parent
@@ -43,7 +47,7 @@ def source(name: str) -> str:
 
 def run(swiftc: str, folder: Path, label: str, files: list) -> None:
     binary = folder / label
-    subprocess.run([swiftc, *map(str, files), "-o", str(binary)], check=True)
+    subprocess.run([swiftc, str(prepare(root, folder)), *map(str, files), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 

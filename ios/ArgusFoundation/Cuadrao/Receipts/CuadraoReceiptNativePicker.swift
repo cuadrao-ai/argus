@@ -63,7 +63,7 @@ struct ReceiptNativePicker: UIViewControllerRepresentable {
                 DispatchQueue.main.async {
                     if let error { self.finish(.failure(error)); return }
                     guard let data, data.count <= 20_000_000, UIImage(data: data) != nil else { self.finish(.failure(ReceiptError.source)); return }
-                    self.finish(.success([(data, self.spanish ? "Foto del recibo" : "Receipt photo", false)]))
+                    self.finish(.success([(data, CuadraoCopy.text("copy.cuadraoReceiptNativePicker.c727cb02a6", spanish: self.spanish), false)]))
                 }
             }
         }
@@ -85,7 +85,7 @@ struct ReceiptNativePicker: UIViewControllerRepresentable {
                 let pages = images.compactMap { $0.jpegData(compressionQuality: 0.8) }
                 let result: Result<ReceiptCapturedFiles, Error> =
                     pages.count == images.count && pages.reduce(0, { $0 + $1.count }) <= 20_000_000
-                    ? .success(pages.enumerated().map { ($0.element, "\(spanish ? "Página" : "Page") \($0.offset + 1)", false) })
+                    ? .success(pages.enumerated().map { ($0.element, "\(CuadraoCopy.text("copy.cuadraoReceiptNativePicker.93a84445f0", spanish: spanish)) \($0.offset + 1)", false) })
                     : .failure(ReceiptError.source)
                 ScanTrace.mark("encoded")
                 DispatchQueue.main.async { self.finish(result) }

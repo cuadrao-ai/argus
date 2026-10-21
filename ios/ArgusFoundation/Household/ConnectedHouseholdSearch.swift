@@ -6,7 +6,7 @@ struct ConnectedHouseholdSearch: View {
     @ObservedObject private var plan: HouseholdPlanModel
     @Environment(\.locale) private var locale
     @FocusState private var focused: Bool
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     init(model: HouseholdModel) { self.model = model; plan = model.plan }
 
@@ -59,7 +59,7 @@ struct ConnectedHouseholdSearch: View {
 
     private func title(_ item: HouseholdSearchHit) -> String {
         switch item.kind {
-        case .account: spanish ? "Cuenta compartida" : "Shared account"
+        case .account: CuadraoCopy.text("copy.connectedHouseholdSearch.f78ffef1d1", spanish: spanish)
         case .activity: NSLocalizedString("household.activity", comment: "")
         case .plan: NSLocalizedString("sharedPlan.title", comment: "")
         }

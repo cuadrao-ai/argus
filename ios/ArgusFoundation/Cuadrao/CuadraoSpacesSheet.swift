@@ -50,21 +50,21 @@ struct CuadraoSpacesSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 8) {
-                choiceRow(.household, subtitle: spanish ? "Lo que comparten en casa" : "What you share at home")
+                choiceRow(.household, subtitle: CuadraoCopy.text("copy.cuadraoSpacesSheet.7a4a474d52", spanish: spanish))
                 Divider()
                 if source.showsExtraSpaces {
                     ForEach([CanvasSpaceKind.business, .custom]) { kind in
                         choiceRow(kind, subtitle: kind == .business
-                            ? (spanish ? "Tus finanzas del negocio" : "Your business finances")
-                            : (spanish ? "Un espacio a tu manera" : "A space of your own"))
+                            ? (CuadraoCopy.text("copy.cuadraoSpacesSheet.a2f62cbd59", spanish: spanish))
+                            : (CuadraoCopy.text("copy.cuadraoSpacesSheet.071af815dc", spanish: spanish)))
                         Divider()
                     }
                 }
                 manageRow
                 Spacer(minLength: 0)
             }.padding(.horizontal, 24).padding(.top, 12)
-                .navigationTitle(spanish ? "Espacios" : "Spaces").navigationBarTitleDisplayMode(.inline)
-                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+                .navigationTitle(CuadraoCopy.text("copy.cuadraoSpacesSheet.d0f98ebfca", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+                .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }.tint(WelcomePalette.pine).presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
     }
 
@@ -85,7 +85,7 @@ struct CuadraoSpacesSheet: View {
     }
 
     @ViewBuilder private var manageRow: some View {
-        let label = Label(spanish ? "Gestionar espacios" : "Manage spaces", systemImage: "slider.horizontal.3")
+        let label = Label(CuadraoCopy.text("copy.cuadraoSpacesSheet.0742223e69", spanish: spanish), systemImage: "slider.horizontal.3")
             .font(.subheadline).foregroundStyle(.secondary).frame(maxWidth: .infinity, minHeight: 52, alignment: .leading).contentShape(Rectangle())
         switch source.manage(finish: { dismiss() }) {
         case .page(let destination):
@@ -98,7 +98,7 @@ struct CuadraoSpacesSheet: View {
     }
 
     private func caption(for choice: CuadraoSpaceChoice) -> String? {
-        if case .soon = choice { return spanish ? "Próximamente" : "Coming soon" }
+        if case .soon = choice { return CuadraoCopy.text("copy.cuadraoSpacesSheet.51cbb18414", spanish: spanish) }
         return nil
     }
 
@@ -130,26 +130,26 @@ struct CuadraoSpaceNameForm: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text(spanish ? "Nombre" : "Name").font(.subheadline)
-                TextField(kind == .business ? (spanish ? "Ej. Mi estudio" : "e.g. My studio")
-                          : (spanish ? "Ej. Mi proyecto" : "e.g. My project"), text: $name)
+                Text(CuadraoCopy.text("copy.cuadraoAccountManagement.9d191b79fb", spanish: spanish)).font(.subheadline)
+                TextField(kind == .business ? (CuadraoCopy.text("copy.cuadraoSpacesSheet.3b21106a12", spanish: spanish))
+                          : (CuadraoCopy.text("copy.cuadraoSpacesSheet.e7b976d60c", spanish: spanish)), text: $name)
                     .autocorrectionDisabled().focused($focused).submitLabel(.done)
                     .onSubmit { focused = false }.modifier(RegistrationField(focused: focused))
                     .onChange(of: name) { _, value in if value.count > 40 { name = String(value.prefix(40)) } }
                     .accessibilityIdentifier("space-name")
                 if !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !valid {
-                    Text(spanish ? "Ya existe un espacio con ese nombre." : "A space already uses that name.")
+                    Text(CuadraoCopy.text("copy.cuadraoSpacesSheet.1e8f28976f", spanish: spanish))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                Text(spanish ? "Solo tú tienes acceso a este espacio." : "Only you can access this space.")
+                Text(CuadraoCopy.text("copy.cuadraoSpacesSheet.2ff6620b59", spanish: spanish))
                     .font(.subheadline).foregroundStyle(.secondary)
-                RegistrationButton(title: existing == nil ? (spanish ? "Crear espacio" : "Create space")
-                    : (spanish ? "Guardar" : "Save"), enabled: valid) {
+                RegistrationButton(title: existing == nil ? (CuadraoCopy.text("copy.cuadraoSpacesSheet.42893ce89f", spanish: spanish))
+                    : (CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish)), enabled: valid) {
                     data.saveSpace(kind: kind, name: name, existing: existing); finished()
                 }
             }.padding(24)
         }.background(WelcomePalette.background)
-            .navigationTitle(existing == nil ? kind.title(spanish) : (spanish ? "Cambiar nombre" : "Rename"))
+            .navigationTitle(existing == nil ? kind.title(spanish) : (CuadraoCopy.text("copy.cuadraoSpacesSheet.be04335b17", spanish: spanish)))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { name = existing?.name ?? "" }
     }
@@ -168,31 +168,31 @@ struct CuadraoManageSpaces: View {
                 ForEach(data.visibleSpaces) { space in row(space) }
             }
             if data.spaces.contains(where: { $0.archived && !$0.deleted }) {
-                Section(spanish ? "Archivados" : "Archived") {
+                Section(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish)) {
                     ForEach(data.spaces.filter { $0.archived && !$0.deleted }) { space in row(space) }
                 }
             }
             if data.spaces.contains(where: \.deleted) {
-                Section(spanish ? "Eliminados recientemente" : "Recently deleted") {
+                Section(CuadraoCopy.text("copy.cuadraoProfilePage.430d2f5049", spanish: spanish)) {
                     ForEach(data.spaces.filter(\.deleted)) { space in row(space) }
                 }
             }
             if let deletedID {
-                Button(spanish ? "Deshacer eliminación" : "Undo deletion") {
+                Button(CuadraoCopy.text("copy.cuadraoSpacesSheet.b20652d49d", spanish: spanish)) {
                     data.restoreSpace(deletedID); self.deletedID = nil
                 }
             }
-        }.navigationTitle(spanish ? "Gestionar espacios" : "Manage spaces").navigationBarTitleDisplayMode(.inline)
-            .confirmationDialog(spanish ? "¿Eliminar este espacio vacío?" : "Delete this empty space?",
+        }.navigationTitle(CuadraoCopy.text("copy.cuadraoSpacesSheet.0742223e69", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(CuadraoCopy.text("copy.cuadraoSpacesSheet.a67f46be6f", spanish: spanish),
                 isPresented: Binding(get: { deletion != nil }, set: { if !$0 { deletion = nil } }), titleVisibility: .visible) {
                 if let deletion {
-                    Button(spanish ? "Eliminar espacio" : "Delete space", role: .destructive) {
+                    Button(CuadraoCopy.text("copy.cuadraoSpacesSheet.909fa4b9c2", spanish: spanish), role: .destructive) {
                         data.deleteSpace(deletion); deletedID = deletion.id; self.deletion = nil
                     }
                 }
-                Button(spanish ? "Cancelar" : "Cancel", role: .cancel) { deletion = nil }
+                Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), role: .cancel) { deletion = nil }
             } message: {
-                Text(spanish ? "Puedes restaurarlo desde Eliminados recientemente." : "You can restore it from Recently deleted.")
+                Text(CuadraoCopy.text("copy.cuadraoSpacesSheet.2da4bedefe", spanish: spanish))
             }
     }
     private func row(_ space: CanvasSpace) -> some View {
@@ -204,26 +204,26 @@ struct CuadraoManageSpaces: View {
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(space.title(spanish)).foregroundStyle(.primary)
-                    Text(space.deleted || space.archived ? (spanish ? "Restaurar y abrir" : "Restore and open")
+                    Text(space.deleted || space.archived ? (CuadraoCopy.text("copy.cuadraoSpacesSheet.f6831c7566", spanish: spanish))
                          : space.kind.title(spanish)).font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
             if space.isPrivate && !space.deleted {
                 Menu {
-                    NavigationLink(spanish ? "Cambiar nombre" : "Rename") {
+                    NavigationLink(CuadraoCopy.text("copy.cuadraoSpacesSheet.be04335b17", spanish: spanish)) {
                         CuadraoSpaceNameForm(data: data, kind: space.kind, spanish: spanish,
                             existing: space, finished: open)
                     }
-                    Button(space.archived ? (spanish ? "Restaurar" : "Restore") : (spanish ? "Archivar" : "Archive"),
+                    Button(space.archived ? (CuadraoCopy.text("copy.connectedCuadraoHome.e203d01b16", spanish: spanish)) : (CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish)),
                         systemImage: space.archived ? "arrow.uturn.backward" : "archivebox") {
                         data.archiveSpace(space.id, archived: !space.archived)
                     }
                     if data.canDeleteSpace(space) {
-                        Button(spanish ? "Eliminar espacio vacío" : "Delete empty space", systemImage: "trash", role: .destructive) { deletion = space }
+                        Button(CuadraoCopy.text("copy.cuadraoSpacesSheet.dd995d889a", spanish: spanish), systemImage: "trash", role: .destructive) { deletion = space }
                     }
                 } label: {
                     Image(systemName: "ellipsis").frame(width: 44, height: 44)
-                }.accessibilityLabel((spanish ? "Opciones de " : "Options for ") + space.title(spanish))
+                }.accessibilityLabel((CuadraoCopy.text("copy.cuadraoSpacesSheet.63e6903cf8", spanish: spanish)) + space.title(spanish))
             }
         }
     }

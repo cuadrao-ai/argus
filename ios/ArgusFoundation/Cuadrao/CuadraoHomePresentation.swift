@@ -17,7 +17,7 @@ struct CuadraoHomeLayout<Header: View, Notice: View, Section: View>: View {
                 ForEach(order, content: section)
                 if canCustomize {
                     Button(action: customize) {
-                        Label(spanish ? "Ordenar Inicio" : "Reorder Home", systemImage: "slider.horizontal.3")
+                        Label(CuadraoCopy.text("copy.cuadraoHomeLayout.01b6a79dd0", spanish: spanish), systemImage: "slider.horizontal.3")
                             .font(.subheadline).frame(maxWidth: .infinity, minHeight: 44)
                     }.foregroundStyle(.secondary).accessibilityIdentifier("customize-home")
                 }
@@ -35,7 +35,7 @@ struct CuadraoHomeGreeting: View {
     var body: some View {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         VStack(alignment: .leading, spacing: 5) {
-            Text((spanish ? "Hola" : "Hello") + (name.isEmpty ? "" : ", " + name))
+            Text((CuadraoCopy.text("copy.cuadraoHomePresentation.27c8a172af", spanish: spanish)) + (name.isEmpty ? "" : ", " + name))
                 .font(.title2.weight(.semibold)).accessibilityIdentifier("home-greeting")
         }
     }
@@ -56,8 +56,8 @@ struct CuadraoUpdatesButton: View {
                     }
                 }
         }
-        .accessibilityLabel(spanish ? "Novedades" : "Updates")
-        .accessibilityValue(unread.map { spanish ? "\($0) sin leer" : "\($0) unread" } ?? "")
+        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoHomePresentation.41483aed95", spanish: spanish))
+        .accessibilityValue(unread.map { CuadraoCopy.text("copy.cuadraoHomePresentation.7ff7c3349f", spanish: spanish, String(describing: $0)) } ?? "")
         .accessibilityIdentifier("cuadrao.updates.open")
     }
 }
@@ -89,11 +89,11 @@ struct CuadraoUpcomingSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Text(spanish ? "Próximamente" : "Coming up")
+                Text(CuadraoCopy.text("copy.cuadraoHomePresentation.101b77b57c", spanish: spanish))
                     .font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("home.comingUp")
                 Spacer()
-                Button(spanish ? "Ver plan" : "View plan", action: viewPlan)
+                Button(CuadraoCopy.text("copy.cuadraoHomePresentation.39d85c2109", spanish: spanish), action: viewPlan)
                     .font(.subheadline).frame(minHeight: 44).accessibilityIdentifier("home.viewPlan")
             }
             content()
@@ -136,7 +136,7 @@ struct CuadraoBalanceAmount: View {
 
     @ViewBuilder private var currencyLabel: some View {
         if currencies.count > 1 {
-            CuadraoChoiceMenu(title: spanish ? "Moneda" : "Currency",
+            CuadraoChoiceMenu(title: CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish),
                 selection: Binding(get: { currency }, set: chooseCurrency),
                 values: currencies, valueTitle: { $0 })
                 .accessibilityIdentifier("home-chart-currency")
@@ -153,7 +153,7 @@ struct CuadraoBalanceAmount: View {
             Button(action: expand) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right").font(.body)
                     .frame(width: 44, height: 44).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel(spanish ? "Explorar balance" : "Explore balance")
+            }.buttonStyle(.plain).accessibilityLabel(CuadraoCopy.text("copy.cuadraoHomePresentation.7194f05895", spanish: spanish))
                 .accessibilityIdentifier("home-history-expand")
         }
     }

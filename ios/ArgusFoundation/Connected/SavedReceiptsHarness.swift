@@ -19,7 +19,7 @@ struct SavedReceiptsHarness: View {
 
     var body: some View {
         NavigationStack {
-            SavedReceiptsScreen(model: model, spanish: locale.language.languageCode?.identifier == "es")
+            SavedReceiptsScreen(model: model, spanish: CuadraoCopy.isSpanish())
         }.tint(WelcomePalette.pine)
     }
 }

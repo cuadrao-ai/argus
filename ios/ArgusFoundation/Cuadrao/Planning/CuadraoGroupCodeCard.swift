@@ -11,7 +11,7 @@ struct CuadraoGroupCodeCard: View {
     @State private var exportFailed = false
 
     private var sampleMessage: String {
-        spanish ? "Código de muestra. No permite unirse a un grupo real." : "Sample code. It doesn't join a real group."
+        CuadraoCopy.text("copy.cuadraoGroupCodeCard.22e16e6a23", spanish: spanish)
     }
     private var qr: UIImage? { Self.qr("Cuadrao design preview | \(group.id.uuidString)") }
 
@@ -22,22 +22,22 @@ struct CuadraoGroupCodeCard: View {
                     if let qr {
                         artwork(qr)
                         Button { export(qr) } label: {
-                            Label(spanish ? "Compartir tarjeta de muestra" : "Share sample card", systemImage: "square.and.arrow.up")
+                            Label(CuadraoCopy.text("copy.cuadraoGroupCodeCard.6a8910c06c", spanish: spanish), systemImage: "square.and.arrow.up")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }.accessibilityIdentifier("group-code-share")
                     } else {
-                        ContentUnavailableView(spanish ? "Código no disponible" : "Code unavailable", systemImage: "qrcode",
-                                               description: Text(spanish ? "Cierra esta tarjeta e inténtalo de nuevo." : "Close this card and try again."))
+                        ContentUnavailableView(CuadraoCopy.text("copy.cuadraoGroupCodeCard.786de25c1c", spanish: spanish), systemImage: "qrcode",
+                                               description: Text(CuadraoCopy.text("copy.cuadraoGroupCodeCard.bc7f141c5a", spanish: spanish)))
                     }
                     if exportFailed {
-                        Text(spanish ? "No pudimos preparar la tarjeta. Inténtalo de nuevo." : "We couldn’t prepare the card. Try again.")
+                        Text(CuadraoCopy.text("copy.cuadraoGroupCodeCard.0b6dd44823", spanish: spanish))
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }.padding(24).frame(maxWidth: 440).frame(maxWidth: .infinity)
             }.background(WelcomePalette.background)
-                .navigationTitle(spanish ? "Código de muestra" : "Sample code").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(CuadraoCopy.text("copy.cuadraoGroupCodeCard.767883425d", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoDoneToolbar(title: spanish ? "Listo" : "Done", identifier: "group-code-done") { dismiss() }
+                    CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish), identifier: "group-code-done") { dismiss() }
                 }
                 .sheet(item: $share) { item in GroupCodeShareSheet(image: item.image, message: sampleMessage) }
         }.tint(WelcomePalette.pine).presentationDragIndicator(.visible)
@@ -53,9 +53,9 @@ struct CuadraoGroupCodeCard: View {
                 Text(group.name).font(CuadraoTypography.feature).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Image(uiImage: qr).interpolation(.none).resizable().scaledToFit().frame(maxWidth: 260)
-                    .background(.white).accessibilityLabel(spanish ? "Código QR de muestra" : "Sample QR code")
+                    .background(.white).accessibilityLabel(CuadraoCopy.text("copy.cuadraoGroupCodeCard.f4aa5531b5", spanish: spanish))
                     .accessibilityIdentifier("group-code-qr")
-                Text(spanish ? "Juntos, cuadra mejor." : "Better, together.").font(.system(.title3, design: .serif))
+                Text(CuadraoCopy.text("copy.cuadraoGroupCodeCard.feebe29c79", spanish: spanish)).font(.system(.title3, design: .serif))
                     .multilineTextAlignment(.center)
                 Text(sampleMessage).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("group-code-disclosure")

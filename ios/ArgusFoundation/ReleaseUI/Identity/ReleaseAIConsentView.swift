@@ -15,44 +15,41 @@ public struct ReleaseAIConsentView: View {
         self.onAllow = onAllow; self.onDecline = onDecline; self.onContinue = onContinue
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
-    private func text(_ es: String, _ en: String) -> String { spanish ? es : en }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     public var body: some View {
         List {
             Section {
-                Text(text("Antes de usar IA", "Before using AI"))
+                Text(CuadraoCopy.text("copy.releaseAIConsentView.e2fc23120b", spanish: spanish))
                     .font(CuadraoTypography.feature).accessibilityAddTraits(.isHeader)
                 Text(disclosure.purpose)
-                Text(text("Con tu permiso, enviaremos estos datos a \(disclosure.providerName):",
-                          "With your permission, we will send this data to \(disclosure.providerName):"))
+                Text(CuadraoCopy.text("copy.releaseAIConsentView.d942a110e5", spanish: spanish, String(describing: disclosure.providerName)))
                 ForEach(Array(disclosure.dataItems.enumerated()), id: \.offset) { _, item in
                     Label(item, systemImage: "doc.text").font(CuadraoTypography.supporting)
                 }
-                Link(text("Privacidad de \(disclosure.providerName)", "\(disclosure.providerName) privacy"),
+                Link(CuadraoCopy.text("copy.releaseAIConsentView.f0fa625f4e", spanish: spanish, String(describing: disclosure.providerName)),
                      destination: disclosure.privacyURL)
                     .frame(minHeight: 44).accessibilityIdentifier("identity.ai.privacy")
             }
             Section {
                 if state == .accepted {
-                    Label(text("Permiso guardado", "Permission saved"), systemImage: "checkmark.circle")
-                    Button(text("Continuar", "Continue"), action: onContinue)
+                    Label(CuadraoCopy.text("copy.releaseAIConsentView.212bfe3583", spanish: spanish), systemImage: "checkmark.circle")
+                    Button(CuadraoCopy.text("copy.releaseAIConsentView.c27a4762b9", spanish: spanish), action: onContinue)
                         .accessibilityIdentifier("identity.ai.continue")
                 } else {
                     if state == .failed {
-                        Label(text("No se pudo guardar tu permiso. Inténtalo otra vez.",
-                                   "Your permission couldn't be saved. Try again."), systemImage: "exclamationmark.circle")
+                        Label(CuadraoCopy.text("copy.releaseAIConsentView.03c75422ac", spanish: spanish), systemImage: "exclamationmark.circle")
                     }
-                    if state == .submitting { ProgressView(text("Guardando…", "Saving…")) }
-                    Button(text("Permitir y continuar", "Allow and continue"), action: onAllow)
+                    if state == .submitting { ProgressView(CuadraoCopy.text("copy.releaseAIConsentView.5f4c79aff9", spanish: spanish)) }
+                    Button(CuadraoCopy.text("copy.releaseAIConsentView.a46c35bca8", spanish: spanish), action: onAllow)
                         .disabled(state == .submitting).accessibilityIdentifier("identity.ai.allow")
-                    Button(text("Ahora no", "Not now"), action: onDecline)
+                    Button(CuadraoCopy.text("copy.releaseAIConsentView.12e8d67ee6", spanish: spanish), action: onDecline)
                         .disabled(state == .submitting).accessibilityIdentifier("identity.ai.decline")
                 }
             }
         }
         .font(CuadraoTypography.body).tint(WelcomePalette.pine)
-        .navigationTitle(text("Permiso para IA", "AI permission"))
+        .navigationTitle(CuadraoCopy.text("copy.releaseAIConsentView.fb62820a9a", spanish: spanish))
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier("identity.ai.screen")
     }

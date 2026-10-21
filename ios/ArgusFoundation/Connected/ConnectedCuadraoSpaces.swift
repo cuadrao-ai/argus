@@ -9,7 +9,7 @@ struct ConnectedCuadraoSpaces: View {
     /// A sheet opens another only after it has gone, so the host keeps the action until then.
     @State private var afterSpaces: (() -> Void)?
     private var policy: ConnectedSpacesPolicy { ConnectedSpacesPolicy(model: model) }
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if model.isAvailable {
