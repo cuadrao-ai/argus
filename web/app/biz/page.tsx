@@ -28,7 +28,7 @@ export default async function BusinessPage({
     }
   }
   return (
-    <main lang="es" className="min-h-[100dvh] bg-background text-foreground selection:bg-black/10 dark:selection:bg-white/20">
+    <main className="min-h-[100dvh] bg-background text-foreground selection:bg-black/10 dark:selection:bg-white/20">
       <DevModeBadge />
       <BusinessApp />
     </main>

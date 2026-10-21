@@ -20,6 +20,7 @@ import type {
   StrategyConfirmationPayload,
 } from "@/components/chat/types";
 import {
+  accountLanguage,
   normalizeEnabledLanguage,
   type ArgusLocale,
 } from "./language-features";
@@ -615,8 +616,13 @@ export type ProfilePatch = {
   currency_override?: string | null;
 };
 
+/** The one place an account enters the web: its language is the one that may decide here. */
+function readAccount(response: UserResponse): UserResponse {
+  return { ...response, user: { ...response.user, language: accountLanguage(response.user) } };
+}
+
 export async function getMe(expectedUserId?: string) {
-  return apiFetch<UserResponse>("/me", { expectedUserId });
+  return readAccount(await apiFetch<UserResponse>("/me", { expectedUserId }));
 }
 
 export async function getUsageAllowances() {
@@ -645,10 +651,12 @@ export async function getMarketSession(signal?: AbortSignal) {
 }
 
 export async function patchMe(patch: ProfilePatch) {
-  return apiFetch<UserResponse>("/me", {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
+  return readAccount(
+    await apiFetch<UserResponse>("/me", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  );
 }
 
 export async function getStarterPrompts() {

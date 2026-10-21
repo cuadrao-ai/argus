@@ -280,6 +280,28 @@ def test_patch_me_updates_language_preferences() -> None:
     user = response.json()["user"]
     assert user["language"] == "es-419"
     assert user["locale"] == "es-419"
+    assert user["onboarding"]["language_confirmed"] is True
+    assert (
+        client.get("/api/v1/me").json()["user"]["onboarding"]["language_confirmed"]
+        is True
+    )
+
+
+def test_patch_me_marks_language_chosen_only_when_language_is_saved() -> None:
+    client = _client()
+    assert (
+        client.get("/api/v1/me").json()["user"]["onboarding"]["language_confirmed"]
+        is False
+    )
+
+    renamed = client.patch("/api/v1/me", json={"display_name": "Alexandra"})
+    assert renamed.status_code == 200
+    assert renamed.json()["user"]["onboarding"]["language_confirmed"] is False
+
+    chosen = client.patch("/api/v1/me", json={"language": "en", "locale": "en-US"})
+    assert chosen.status_code == 200
+    assert chosen.json()["user"]["onboarding"]["language_confirmed"] is True
+    assert chosen.json()["user"]["language"] == "en"
 
 
 def test_conversation_messages_and_patch_follow_contract() -> None:

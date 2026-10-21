@@ -174,7 +174,8 @@ def _client() -> TestClient:
 def _set_legacy_onboarding_stage(client: TestClient, stage: str) -> str:
     """Seed the legacy persisted profile shape directly, as old rows have it.
 
-    There is deliberately no API that can write onboarding state anymore, so
+    No API takes onboarding state from a client. `PATCH /me` sets only
+    `language_confirmed`, when a language is saved, so
     the seed mutates the store the way a legacy database row would look.
     """
 
@@ -389,7 +390,8 @@ def test_legacy_marker_messages_stay_hidden_from_reads() -> None:
 
 
 def test_no_active_source_carries_onboarding_protocol() -> None:
-    """Marker literals and onboarding writes exist only in legacy read filters."""
+    """Marker literals exist only in legacy read filters, and the profile router
+    touches onboarding state only to record that a language was chosen."""
 
     allowed_backend = {
         REPO_ROOT / "src/argus/api/chat/legacy_onboarding_markers.py",
@@ -423,4 +425,10 @@ def test_no_active_source_carries_onboarding_protocol() -> None:
     profile_router = (REPO_ROOT / "src/argus/api/routers/profile.py").read_text(
         encoding="utf-8"
     )
-    assert "onboarding" not in profile_router.lower()
+    onboarding_lines = [
+        line for line in profile_router.splitlines() if "onboarding" in line.lower()
+    ]
+    assert onboarding_lines, "PATCH /me records the chosen language in onboarding"
+    assert all(
+        "language_confirmed" in line for line in onboarding_lines
+    ), onboarding_lines
