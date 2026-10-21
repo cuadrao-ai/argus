@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, test } from "bun:test";
-import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisionProblem, parseHistory, parseMovementItem, parseMovementsPage } from "@/components/business-app/transacciones/transacciones-adapter";
+import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisionProblem, parseHistory, parseMovementItem, parseMovementsPage, readVentas } from "@/components/business-app/transacciones/transacciones-adapter";
 import { createSampleBankServer } from "@/components/business-app/transacciones/transacciones-sample";
-import { headerCurrency, inverse, perCurrency, periodCount, segmentSections, suggestionRun, type Decision, type IgualarView } from "@/components/business-app/transacciones/transacciones-model";
+import { currencyChoices, headerCurrency, inverse, perCurrency, segmentSections, suggestionRun, tableCounts, type Decision, type IgualarView } from "@/components/business-app/transacciones/transacciones-model";
 import { DEFAULT_DENSITY, resetTableDensity, setTableDensity, type DensityProfile } from "@/components/business-app/transacciones/table-density";
 import { formatMoney } from "@/components/business-app/business-format";
 
@@ -55,7 +55,10 @@ const page = (overrides: Record<string, unknown> = {}) => ({
   segment: "por_igualar",
   sense: null,
   accounts: [{ account_id: "acc-1", name: "Cuenta Popular", type: "checking", bank_account_id: "bank-1", currency: "DOP", covered_through: "2026-10-20" }],
+  currency: "DOP",
   totals: [block()],
+  counts: counts({ movimientos: 5, sugerencias: 2, falta_comprobante: 2, sin_movimiento: 1, no_lleva_comprobante: 1, por_igualar: 5 }),
+  other_currencies: [{ currency: "USD", count: 1 }],
   items: [item()],
   next_cursor: null,
   ...overrides,
@@ -137,14 +140,43 @@ describe("bank adapter: the movements read", () => {
     assert.match(formatMoney("24.00", "USD", "es-419"), /^US\$ 24\.00$/);
   });
 
-  test("totals stay one per currency, never added; the period's counts add each currency's own rows", () => {
+  test("totals stay one per currency, never added", () => {
     const { view } = parseMovementsPage(page({
+      currency: null,
+      other_currencies: [],
       totals: [block(), block({ currency: "USD", entradas_minor: 0, entradas: "0.00", salidas_minor: 2400, salidas: "24.00", por_igualar_minor: 2400, por_igualar: "24.00", counts: counts({ movimientos: 1, sugerencias: 0, falta_comprobante: 1, sin_movimiento: 0, no_lleva_comprobante: 0, por_igualar: 1 }) })],
     }));
     assert.deepEqual(perCurrency(view.totals, "salidas"), [{ currency: "DOP", amount: "3600.00" }, { currency: "USD", amount: "24.00" }]);
     assert.deepEqual(perCurrency(view.totals, "porIgualar"), [{ currency: "DOP", amount: "9500.00" }, { currency: "USD", amount: "24.00" }]);
-    assert.equal(periodCount(view.totals, "porIgualar"), 5);
-    assert.equal(periodCount(view.totals, "movimientos"), 5);
+  });
+
+  test("counts are the server's, never added on the web: the chosen currency's block for its rows, the period's across currencies", () => {
+    const period = counts({ movimientos: 90, igualadas: 40, por_igualar: 33 });
+    const chosen = parseMovementsPage(page({ counts: period, totals: [block({ counts: counts({ movimientos: 7, por_igualar: 3 }) })] })).view;
+    assert.equal(chosen.currency, "DOP");
+    assert.equal(chosen.counts?.movimientos, 90, "the period's own count, not a sum of blocks");
+    assert.equal(chosen.counts?.igualadas, 40);
+    assert.equal(tableCounts(chosen)?.porIgualar, 3, "the table covers DOP, so its count is DOP's block");
+    assert.deepEqual(chosen.otherCurrencies, [{ currency: "USD", count: 1 }]);
+    const none = parseMovementsPage(page({ totals: [] })).view;
+    assert.equal(tableCounts(none)?.movimientos, 0, "a chosen currency with no row in the period is a known zero");
+    const every = parseMovementsPage(page({ currency: null, other_currencies: [], counts: period, totals: [block(), block({ currency: "USD" })] })).view;
+    assert.equal(tableCounts(every)?.movimientos, 90, "every currency listed: the period's counts");
+    const older: Record<string, unknown> = page();
+    for (const field of ["counts", "currency", "other_currencies"]) delete older[field];
+    const old = parseMovementsPage(older).view;
+    assert.equal(old.currency, null);
+    assert.equal(old.counts, null, "an older server's missing counts are unknown, never summed");
+    assert.equal(tableCounts(old), null);
+    assert.deepEqual(old.otherCurrencies, []);
+    assert.throws(() => parseMovementsPage(page({ other_currencies: [{ currency: "usd", count: 1 }] })));
+  });
+
+  test("the currency menu offers the Business currency first, the chosen one and each the server names; none while the server lists every currency", () => {
+    const chosen = parseMovementsPage(page({ currency: "USD", totals: [], other_currencies: [{ currency: "DOP", count: 4 }, { currency: "EUR", count: 1 }] })).view;
+    assert.deepEqual(currencyChoices(chosen, "DOP"), ["DOP", "USD", "EUR"]);
+    assert.deepEqual(currencyChoices(parseMovementsPage(page({ other_currencies: [] })).view, "DOP"), ["DOP"], "one currency, nothing to choose");
+    assert.deepEqual(currencyChoices(parseMovementsPage(page({ currency: null, other_currencies: [] })).view, "DOP"), []);
   });
 
   test("Por igualar comes in the server's order, grouped, each group named with the server's count", () => {
@@ -177,11 +209,19 @@ describe("bank adapter: requests", () => {
     return { calls, fetchJson };
   };
 
-  test("the read sends the period, the segment, the page size and the cursor", async () => {
+  test("the read sends the period, the segment, the currency, the page size and the cursor", async () => {
     const { calls, fetchJson } = recording();
     const source = createBankTransaccionesSource(fetchJson);
-    await source.load({ ...OCTOBER, segment: "igualadas", limit: 50, cursor: "abc" });
-    assert.equal(calls[0].path, "/business/bank/movements?period_start=2026-10-01&period_end=2026-10-31&segment=igualadas&limit=50&cursor=abc");
+    await source.load({ ...OCTOBER, segment: "igualadas", currency: "USD", limit: 50, cursor: "abc" });
+    await source.load({ ...OCTOBER, segment: "todas", currency: null });
+    assert.equal(calls[0].path, "/business/bank/movements?period_start=2026-10-01&period_end=2026-10-31&segment=igualadas&currency=USD&limit=50&cursor=abc");
+    assert.equal(calls[1].path, "/business/bank/movements?period_start=2026-10-01&period_end=2026-10-31&segment=todas", "an unknown currency reads every currency");
+  });
+
+  test("the period's ventas come from the expenses read with kind=income", async () => {
+    const { calls, fetchJson } = recording();
+    await readVentas(async <T,>(path: string, init?: RequestInit) => { await fetchJson(path, init); return { items: [] } as T; })("2026-10-01", "2026-10-31");
+    assert.equal(calls[0].path, "/business/expenses?from=2026-10-01&to=2026-10-31&kind=income");
   });
 
   test("every decision is one route with its Idempotency-Key, and Desigualar names which outcome it ends", async () => {
@@ -209,7 +249,7 @@ describe("bank adapter: requests", () => {
   });
 
   test("with the routes off, or before any statement, the saved records list; any other failure stays a failure", async () => {
-    const records = createRecordsTransaccionesSource({ expenses: async () => [], overview: async () => ({ from: "2026-10-01", to: "2026-10-31", today: "2026-10-21", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }), workspace: async () => ({ accounts: [] }), ownerFunds: "Dinero del dueño" });
+    const records = createRecordsTransaccionesSource({ expenses: async () => [], ventas: async () => [], overview: async () => ({ from: "2026-10-01", to: "2026-10-31", today: "2026-10-21", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }), workspace: async () => ({ accounts: [] }), ownerFunds: "Dinero del dueño" });
     const off = createBankTransaccionesSource(async () => { throw refusal(404, "business_unavailable"); }, records);
     assert.equal((await off.load({ ...OCTOBER, segment: "por_igualar" })).mode, "records");
     const noStatement = createBankTransaccionesSource(async <T,>() => page({ accounts: [{ account_id: "a", name: null, type: "checking", bank_account_id: "b", currency: "DOP", covered_through: null }], items: [], totals: [] }) as T, records);
@@ -252,12 +292,12 @@ describe("sample bank server", () => {
     const bank = createSampleBankServer();
     const before = await read(bank, "por_igualar");
     assert.deepEqual(before.totals.map((block) => block.currency), ["DOP", "USD"]);
-    assert.equal(periodCount(before.totals, "sugerencias"), 3);
+    assert.equal(before.counts?.sugerencias, 3);
     assert.equal(perCurrency(before.totals, "salidas").find((money) => money.currency === "USD")?.amount, "24.00");
     await post(bank, "/business/bank/suggestions/sg-ferreteria/confirm", "k1");
     const after = await read(bank, "por_igualar");
-    assert.equal(periodCount(after.totals, "sugerencias"), 2);
-    assert.equal(periodCount(after.totals, "porIgualar"), periodCount(before.totals, "porIgualar") - 1);
+    assert.equal(after.counts?.sugerencias, 2);
+    assert.equal(after.counts?.porIgualar, before.counts!.porIgualar - 1);
     assert.equal((await read(bank, "igualadas")).movements.find((row) => row.id === "mv-ferreteria")?.match.state, "igualada");
   });
 
@@ -271,6 +311,27 @@ describe("sample bank server", () => {
     await post(bank, "/business/bank/movements/mv-ferreteria/unmatch", "u1");
     assert.equal((await read(bank, "por_igualar")).movements.find((row) => row.id === "mv-ferreteria")?.match.state, "sugerencia");
     await assert.rejects(post(bank, "/business/bank/movements/mv-ferreteria/unmatch", "u2"), /line_not_matched/);
+  });
+
+  test("with a currency it lists and totals only that currency, names what it leaves out, and keeps the period's counts", async () => {
+    const bank = createSampleBankServer();
+    const all = await read(bank, "todas");
+    const dollars = await read(bank, "todas", "&currency=USD");
+    assert.equal(dollars.currency, "USD");
+    assert.deepEqual(dollars.movements.map((row) => row.money.currency), ["USD"]);
+    assert.deepEqual(dollars.totals.map((block) => block.currency), ["USD"]);
+    assert.deepEqual(dollars.otherCurrencies, [{ currency: "DOP", count: all.movements.length - 1 }]);
+    assert.deepEqual(dollars.counts, all.counts, "the period's counts ignore the currency");
+    assert.deepEqual((await read(bank, "por_igualar", "&currency=USD")).otherCurrencies.map((other) => other.currency), ["DOP"]);
+    assert.deepEqual(all.otherCurrencies, [], "nothing is left out while no currency is chosen");
+    await assert.rejects(read(bank, "todas", "&currency=usd"), /validation_error/);
+  });
+
+  test("a cursor is only a position: a DOP cursor sent with currency=USD returns no rows", async () => {
+    const bank = createSampleBankServer();
+    const pesos = await read(bank, "todas", "&currency=DOP&limit=5");
+    assert.ok(pesos.nextCursor);
+    assert.equal((await read(bank, "todas", `&currency=USD&limit=5&cursor=${pesos.nextCursor}`)).movements.length, 0);
   });
 
   test("it pages with a cursor, and refuses one it did not hand out", async () => {

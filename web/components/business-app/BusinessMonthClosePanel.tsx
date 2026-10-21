@@ -8,7 +8,6 @@ import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
-  calendarDay,
   canCloseMonth,
   canStepMonth,
   createMockMonthCloseClient,
@@ -20,15 +19,17 @@ import {
   fiscalNumberPresent,
   formatMonthLabel,
   itbisBalanceDisplay,
+  loadCurrentMonth,
   monthCloseBlockers,
   monthCloseClient,
   MonthCloseError,
   monthCloseNetDisplay,
   monthPickerMonths,
+  oneTapPaymentMethod,
   openItemsHeaderCurrency,
   openItemsInDueOrder,
-  openItemsOverdue,
   openItemsTotalsInOrder,
+  overdueTotalsInOrder,
   paperNcf,
   rncPresent,
   shiftMonthKey,
@@ -41,7 +42,7 @@ import {
   type OpenItems,
   type OpenItemsList,
 } from "@/lib/business-month-close";
-import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, UNKNOWN_VALUE, type Lateness } from "./business-format";
+import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, formatShortDay, UNKNOWN_VALUE, type Lateness } from "./business-format";
 import { canAddRecords, cardClass, primaryButtonClass, quietButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
@@ -337,7 +338,7 @@ export function BusinessMonthCloseView({
   scopeKey?: string | null;
   /** Close and settlement marks follow the grant's approve capability. */
   canMutate?: boolean;
-  /** Clock for the current month. Tests pin it; Inicio uses today. */
+  /** Only picks the first month asked for; the server's `today` decides the current month. Tests pin it. */
   now?: Date;
   /** Told each time the owner moves to another month. */
   onMonthChange?: (month: string) => void;
@@ -354,11 +355,12 @@ export function BusinessMonthCloseView({
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
-  const [clock] = useState(() => now ?? new Date());
-  const currentMonth = currentMonthKey(clock);
-  const today = calendarDay(clock);
+  const [seed] = useState(() => currentMonthKey(now ?? new Date()));
   const preview = previewHold();
-  const [month, setMonth] = useState(currentMonth);
+  // Null follows the server's current month; a month the person chose stays chosen.
+  const [month, setMonth] = useState<string | null>(null);
+  // The server's current month, known once the first month arrives.
+  const [currentMonth, setCurrentMonth] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
@@ -401,8 +403,8 @@ export function BusinessMonthCloseView({
   useEffect(() => {
     if (preview === "loading" || preview === "error") return;
     if (preview === "empty") {
-      const none: OpenItemsList = { count: 0, totals: [], items: [] };
-      setOpenItems({ cuentas_por_cobrar: none, cuentas_por_pagar: none });
+      const none: OpenItemsList = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] };
+      setOpenItems({ today: null, cuentas_por_cobrar: none, cuentas_por_pagar: none });
       setOpenPhase("ready");
       return;
     }
@@ -422,9 +424,10 @@ export function BusinessMonthCloseView({
       return;
     }
     if (scopeKey === null) return;
-    client.load(month, scopeKey).then(
+    (month === null ? loadCurrentMonth(client, scopeKey, seed) : client.load(month, scopeKey)).then(
       (next) => {
         if (generation.current !== request) return;
+        setCurrentMonth(next.today?.slice(0, 7) ?? seed);
         setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [] } : next);
         setPhase("ready");
       },
@@ -433,7 +436,7 @@ export function BusinessMonthCloseView({
         setPhase("error");
       },
     );
-  }, [attempt, client, month, preview, scopeKey]);
+  }, [attempt, client, month, preview, scopeKey, seed]);
 
   const listedBlockers = snapshot ? snapshot.blockers ?? monthCloseBlockers(snapshot.documents) : [];
   const blockers = listedBlockers.filter((blocker) => blocker.kind === "missing_rnc" || blocker.kind === "missing_ncf");
@@ -444,7 +447,12 @@ export function BusinessMonthCloseView({
   const shownCurrency = currencyShown(currencies, businessCurrency, chosenCurrency);
   const shown = blocks.find((block) => block.currency === shownCurrency) ?? null;
   const itbis = itbisCard(shown?.itbis_owed);
-  const net = shown ? monthCloseNetDisplay(snapshot?.documents ?? [], listedBlockers, shown.net_before_itbis, shown.currency) : { state: "pending" as const, pending_count: 0, reason: "unknown" as const };
+  const net = shown ? monthCloseNetDisplay(shown) : { state: "pending" as const, pending_count: 0, reason: "unknown" as const };
+  // Each list is judged by the day its own response carries. An older server sends none: lateness is unknown and no mark can say when it settled.
+  const monthToday = snapshot?.today ?? null;
+  const openToday = openItems?.today ?? null;
+  const markMethod = oneTapPaymentMethod(snapshot?.payment_methods ?? null);
+  const canMark = canMutate && markMethod !== null && openToday !== null;
   const gate = snapshot ? canCloseMonth(snapshot) : { ok: false as const, reason: "not_calendar_month" as const };
   const locked = Boolean(snapshot?.closed_at);
   // A closed month locks its own documents; Pendiente hoy still marks what other months left open.
@@ -456,7 +464,8 @@ export function BusinessMonthCloseView({
       pagado: t("business.month_close.status_pagado", "Paid"),
     })[status];
   async function mark(document: MonthCloseDocument) {
-    if (!canMutate || !snapshot || lockedHere(document) || phase === "loading" || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
+    if (!canMark || !markMethod || !openToday || !snapshot || lockedHere(document) || phase === "loading" || document.status !== "pendiente" || inFlight.current.has(document.id)) return;
+    const settlement = { settled_on: openToday, payment_method: markMethod };
     const documentId = document.id;
     inFlight.current.add(documentId);
     setWorkProblem(null);
@@ -470,7 +479,7 @@ export function BusinessMonthCloseView({
     );
     let saved: MonthCloseDocument;
     try {
-      saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey ?? undefined, today) : await client.markPagado(documentId, scopeKey ?? undefined, today);
+      saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey ?? undefined, settlement) : await client.markPagado(documentId, scopeKey ?? undefined, settlement);
     } catch (error) {
       if (settledByBank(error)) {
         setWorkProblem({ text: bankMatchedText(document.kind) });
@@ -537,9 +546,9 @@ export function BusinessMonthCloseView({
 
   /** Read the month and the open items again, quietly, so every row shows the settlement the server holds. */
   async function rereadSettlements() {
-    if (scopeKey === null) return;
+    if (scopeKey === null || !snapshot?.month) return;
     const request = ++generation.current;
-    const [next] = await Promise.all([client.load(month, scopeKey).catch(() => null), readOpenItems()]);
+    const [next] = await Promise.all([client.load(snapshot.month, scopeKey).catch(() => null), readOpenItems()]);
     if (next && generation.current === request) setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [] } : next);
   }
 
@@ -579,15 +588,18 @@ export function BusinessMonthCloseView({
         : "";
 
   const documents = snapshot?.documents ?? [];
-  const overdueNow = (document: MonthCloseDocument) => documentOverdue(document, today);
+  const overdueOn = (document: MonthCloseDocument, today: string | null) => today !== null && documentOverdue(document, today);
+  /** A day against the server's day, or the plain date when the server sent none. */
+  const dayText = (day: string, today: string | null) => (today === null ? formatShortDay(day, locale) : formatRelativeDay(day, today, locale));
   const unsettled = documents.filter((document) => document.status === "pendiente");
-  const overdueCount = unsettled.filter(overdueNow).length;
+  const overdueCount = unsettled.filter((document) => overdueOn(document, monthToday)).length;
   const fiscalDocuments = [...new Set(blockers.map((blocker) => blocker.documentId))].flatMap((id) => documents.filter((document) => document.id === id));
   const lockedRows = locked ? sortDocuments(documents, "newest") : [];
   // The server sends a block for each currency that has a document, so no block and no line is an empty month.
   const noDocuments = blocks.length === 0 && documents.length === 0;
   const rowGrid = "tablet:grid tablet:grid-cols-[7.5rem_minmax(0,1.4fr)_6.5rem_7rem_auto] tablet:items-center tablet:gap-3";
-  const monthName = new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1)));
+  const shownMonth = month ?? currentMonth;
+  const monthName = snapshot?.month ? new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(Number(snapshot.month.slice(0, 4)), Number(snapshot.month.slice(5, 7)) - 1, 1))) : "";
   const tasks: { id: string; icon: typeof Inbox; text: string; detail?: string | null; action?: { label: string; run: () => void } }[] = [
     ...(review && review.count > 0 ? [{ id: "review", icon: Inbox, text: t("business.month_close.checklist_review", { count: review.count, defaultValue: "Review {{count}} receipts" }), detail: review.detail, action: { label: t("business.month_close.action_review", "Review"), run: review.open } }] : []),
     ...(fiscalDocuments.length > 0 ? [{ id: "fiscal", icon: FileWarning, text: t("business.month_close.checklist_fiscal", { count: fiscalDocuments.length, defaultValue: "Add the RNC or NCF to {{count}} documents" }), detail: gate.ok ? null : t("business.month_close.checklist_required", "Needed to close the month") }] : []),
@@ -601,8 +613,8 @@ export function BusinessMonthCloseView({
   ];
 
   function renderRow(document: MonthCloseDocument, layout: "pending" | "overdue" | "closed" = "pending") {
-    const overdue = overdueNow(document);
-    const pending = canMutate && document.status === "pendiente" && !locked;
+    const overdue = overdueOn(document, monthToday);
+    const pending = canMark && document.status === "pendiente" && !locked;
     return (
       <li
         key={document.id}
@@ -627,7 +639,7 @@ export function BusinessMonthCloseView({
         </div>
         <div>
           <time dateTime={document.due_on ?? document.occurred_on} className="block text-[14px] tabular-nums text-black/80 dark:text-white/80">
-            {formatRelativeDay(document.due_on ?? document.occurred_on, today, locale)}
+            {dayText(document.due_on ?? document.occurred_on, monthToday)}
           </time>
         </div>
         <span className="cuadrao-amount text-right text-[15px] font-medium tabular-nums text-black dark:text-white">{formatMoney(document.amount, document.currency, locale) || UNKNOWN_VALUE}</span>
@@ -677,7 +689,6 @@ export function BusinessMonthCloseView({
     const rows = openItemsInDueOrder(list.items.filter((document) => !pendingIds.has(document.id)));
     const shown = open ? rows : rows.slice(0, MONEY_ROWS);
     const header = openItemsHeaderCurrency(list, businessCurrency);
-    const overdue = openItemsOverdue({ ...list, items: rows }, today, businessCurrency);
     const beyond = list.count - list.items.length;
     // The total names the currency; a row in it is the number alone, any other keeps its own symbol, and one with no currency is unknown.
     const amount = (value: string | null, currency: string | null) => (value === null || currency === null ? UNKNOWN_VALUE : currency === header ? formatAmount(value, currency, locale) : formatMoney(value, currency, locale));
@@ -698,17 +709,17 @@ export function BusinessMonthCloseView({
                 </span>
               ))}
             </div>
-            {overdue.count > 0 ? (
+            {list.overdue && list.overdue.count > 0 ? (
               <p data-testid={`${testId}-overdue`} className="mt-1 text-[13px] font-medium tabular-nums text-[#9e2f39] dark:text-[#ec9aa0]">
-                {t("business.month_close.overdue_count", { count: overdue.count, defaultValue: "{{count}} overdue" })}
-                {overdue.totals.map((total) => (
+                {t("business.month_close.overdue_count", { count: list.overdue.count, defaultValue: "{{count}} overdue" })}
+                {overdueTotalsInOrder(list, businessCurrency).map((total) => (
                   <span key={total.currency}>{" · "}<span className="cuadrao-amount" data-currency={total.currency}>{formatMoney(total.total, total.currency, locale)}</span></span>
                 ))}
               </p>
             ) : null}
             <ul className="mt-3 divide-y divide-black/[0.06] dark:divide-white/[0.06]">
               {shown.map((document) => {
-                const late = document.due_on ? formatLateness(document.due_on, today, t) : null;
+                const late = document.due_on && openToday ? formatLateness(document.due_on, openToday, t) : null;
                 const opens = openDocument?.(document) ?? null;
                 const body = (
                   <>
@@ -719,7 +730,7 @@ export function BusinessMonthCloseView({
                         <span data-testid="month-close-lateness" data-tone={late.tone} className={`inline-flex shrink-0 items-center rounded-mark px-2 py-0.5 text-[12px] font-medium tabular-nums ${LATENESS_TONE[late.tone]}`}>{late.text}</span>
                       ) : (
                         // No due day: the day it was issued, so the row still says how old it is.
-                        <time data-testid="month-close-issued" dateTime={document.occurred_on} className="shrink-0 text-[13px] tabular-nums text-[#56635e] dark:text-white/70">{formatRelativeDay(document.occurred_on, today, locale)}</time>
+                        <time data-testid="month-close-issued" dateTime={document.occurred_on} className="shrink-0 text-[13px] tabular-nums text-[#56635e] dark:text-white/70">{dayText(document.occurred_on, openToday)}</time>
                       )}
                     </span>
                     <span className="cuadrao-amount shrink-0 text-right text-[15px] font-medium tabular-nums text-black dark:text-white">{amount(document.amount, document.currency)}</span>
@@ -736,10 +747,10 @@ export function BusinessMonthCloseView({
                     data-document-id={document.id}
                     data-kind={document.kind}
                     data-status={document.status}
-                    data-overdue={overdueNow(document) ? "true" : "false"}
+                    data-overdue={overdueOn(document, openToday) ? "true" : "false"}
                     className="flex items-center rounded-item py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
                   >
-                    {canMutate && !lockedHere(document) ? markButton(document) : null}
+                    {canMark && !lockedHere(document) ? markButton(document) : null}
                     {opens ? (
                       <button type="button" data-testid="month-close-row-open" onClick={opens} className={`${bodyClass} transition-colors hover:bg-black/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--cuadrao-green)]/50 dark:hover:bg-white/[0.05]`}>
                         {body}
@@ -852,7 +863,7 @@ export function BusinessMonthCloseView({
     );
   }
 
-  function figure(testId: string, label: string, state: "pending" | "final" | undefined, value: string, why?: string) {
+  function figure(testId: string, label: string, state: "pending" | "final" | undefined, value: string, why?: ReactNode) {
     const known = state !== "pending" && shownCurrency !== null;
     return (
       <div data-testid={testId} data-layout="summary" data-state={state} data-amount={known ? value : undefined} className="min-w-0">
@@ -881,13 +892,15 @@ export function BusinessMonthCloseView({
     <div aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={locked ? "true" : "false"} data-layout="two-columns" className={`mb-8 space-y-4 tablet:space-y-6 ${WIDE.grid}`}>
       <div data-testid="month-close-head" className={`min-w-0 ${WIDE.head}`}>
         {header(
-          <MonthSwitcher
-            month={month}
-            current={currentMonth}
-            earliest={snapshot?.earliest_month ?? null}
-            onMonth={(next) => { setMonth(next); setExpanded(new Set()); setFiscalOpen(false); onMonthChange?.(next); }}
-            openRequest={pickerRequest}
-          />,
+          shownMonth && currentMonth ? (
+            <MonthSwitcher
+              month={shownMonth}
+              current={currentMonth}
+              earliest={snapshot?.earliest_month ?? null}
+              onMonth={(next) => { setMonth(next); setExpanded(new Set()); setFiscalOpen(false); onMonthChange?.(next); }}
+              openRequest={pickerRequest}
+            />
+          ) : null,
         )}
       </div>
 
@@ -1049,7 +1062,9 @@ export function BusinessMonthCloseView({
               itbis.credit ? t("business.month_close.itbis_credit_label", "ITBIS balance in your favor") : t("business.month_close.itbis_label", "ITBIS to pay"),
               itbis.state,
               itbis.value,
-              itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined,
+              itbis.state === "pending"
+                ? t("business.month_close.figure_unknown", "Can't be calculated yet.")
+                : <>{t("business.month_close.itbis_cobrado", "ITBIS collected")} <span data-testid="month-close-itbis-cobrado" className="cuadrao-amount tabular-nums">{shown?.itbis_cobrado && shownCurrency ? formatMoney(shown.itbis_cobrado, shownCurrency, locale) : UNKNOWN_VALUE}</span></>,
             )}
             </div>
           </section>
@@ -1101,7 +1116,6 @@ export function useMonthCloseSource(): MonthCloseSource {
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null; header?: (switcher: ReactNode) => ReactNode }) {
   const { chosen, actions, openPanel, records } = useBusiness();
-  // `currency` arrives with the Business's country; an older payload leaves the figures on the first currency the server sends.
   const add = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   // An open item carries only its activity id. A receipt's is its saved expense's id; an invoice has no record screen yet.
   const openDocument = (document: MonthCloseDocument) => (document.kind === "receipt" ? () => openPanel({ kind: "expense", expenseId: document.id }) : null);

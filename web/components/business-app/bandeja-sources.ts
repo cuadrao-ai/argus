@@ -1,4 +1,6 @@
 import { classifyFailure, referenceCode } from "@/lib/failure-screen";
+import { UNKNOWN_VALUE } from "./business-format";
+import { inboxCount, problemCount, type CountRecords } from "./inbox-count";
 
 /**
  * Why a list did not load. Offline is the connection banner's to say, so the
@@ -23,3 +25,16 @@ export function sourceLoad(items: readonly unknown[] | null | undefined, failure
 
 /** The Bandeja's lists besides its receipts: a receipts failure is the whole screen's, these are one line. */
 export type BandejaSource = "notes" | "emails";
+
+export type BandejaLoads = Readonly<{ receipts: SourceLoad; notes: SourceLoad; emails: SourceLoad }>;
+
+/**
+ * The numbers the Bandeja's segments show. None while the receipts load; "-"
+ * while any list is down, since a server number beside a list that failed
+ * contradicts it; otherwise the server's number, or "-" when it sent none.
+ */
+export function bandejaCounts(loads: BandejaLoads, records: CountRecords): { review: number | string | undefined; problem: number | string | undefined } {
+  if (loads.receipts.state !== "ready") return { review: undefined, problem: undefined };
+  if (Object.values(loads).some((load) => load.state === "failed")) return { review: UNKNOWN_VALUE, problem: UNKNOWN_VALUE };
+  return { review: inboxCount(records) ?? UNKNOWN_VALUE, problem: problemCount(records) ?? UNKNOWN_VALUE };
+}

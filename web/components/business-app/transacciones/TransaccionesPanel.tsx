@@ -3,17 +3,19 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { currencySymbol } from "@/lib/money-entry";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
+import { MonthCurrencyMenu } from "../MonthCurrencyMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
 import OutsidePeriodNote from "../OutsidePeriodNote";
 import { formatShortDay } from "../business-format";
-import { cardClass, primaryButtonClass, secondaryButtonClass } from "../business-ui";
+import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
 import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density, type DensityState } from "./table-density";
-import { headerCurrency, inHeaderOrder, perCurrency, periodCount, SEGMENTS, type CurrencyTotals, type IgualarView, type Money, type RecordsTotals } from "./transacciones-model";
+import { headerCurrency, inHeaderOrder, perCurrency, SEGMENTS, suggestionRun, tableCounts, type CurrencyTotals, type IgualarView, type Money, type OtherCurrency, type RecordsTotals } from "./transacciones-model";
 import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { RecordsList, RecordsTable } from "./TransaccionesRecords";
@@ -43,8 +45,10 @@ export default function TransaccionesPanel() {
   const view = list.kind === "ready" ? list.view : null;
   // Until the first read lands, the gate says which screen is coming.
   const igualar = view ? view.mode === "igualar" : igualarOn;
-  const runCount = bank ? periodCount(bank.totals, "sugerencias") : null;
-  const showRun = igualar && (list.kind === "loading" || (runCount ?? 0) > 0);
+  // Counts name the rows the table covers; the period's own counts, across currencies, name the period.
+  const counts = bank ? tableCounts(bank) : null;
+  const runCount = counts?.sugerencias ?? null;
+  const showRun = igualar && (list.kind === "loading" || (runCount ?? (bank ? suggestionRun(bank).length : 0)) > 0);
 
   const rowNodes = useRef(new Map<string, HTMLElement>());
   const trayId = tray?.movementId ?? null;
@@ -60,8 +64,8 @@ export default function TransaccionesPanel() {
   const monthly = period.key === "this_month" || period.key === "last_month";
   const when = monthly ? capitalize(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${period.from}T12:00:00`))) : periodLabel(period);
   const subtitle = [when, bank?.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(bank.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
-  const porIgualar = bank ? periodCount(bank.totals, "porIgualar") : null;
-  const header = bank ? headerCurrency(movements, bank.accountCurrency) : null;
+  const porIgualar = counts?.porIgualar ?? null;
+  const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
@@ -110,6 +114,11 @@ export default function TransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div>
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
+        {igualar && controller.currencyMenu ? (
+          <div data-testid="transacciones-currency" className="mb-3">
+            <MonthCurrencyMenu currencies={controller.currencyMenu.choices} value={controller.currencyMenu.value} businessCurrency={controller.businessCurrency} onChoose={controller.chooseCurrency} note={<OtherCurrencies others={bank?.otherCurrencies ?? []} onChoose={controller.chooseCurrency} />} />
+          </div>
+        ) : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
           : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
@@ -127,14 +136,14 @@ export default function TransaccionesPanel() {
                 : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
             </div>
           ) : phone ? <RecordsList records={saved} rowRef={rowRef} /> : <RecordsTable records={saved} density={density} rowRef={rowRef} />
-        ) : !bank ? null : periodCount(bank.totals, "movimientos") + periodCount(bank.totals, "sinMovimiento") === 0 ? (
+        ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (
           <div className={cardClass}>
             <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
           </div>
         ) : movements.length === 0 ? (
           <div className={cardClass}>
             {bank.segment === "por_igualar"
-              ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: periodCount(bank.totals, "movimientos") })} />
+              ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={counts ? t("business.transactions.empty.done_body", { count: counts.movimientos }) : undefined} />
               : <EmptyState kind="filtered" compact title={t("business.transactions.empty.segment")} />}
           </div>
         ) : (
@@ -155,26 +164,31 @@ function capitalize(text: string): string {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }
 
-/** The server's totals: exact, one per currency, the header's first. The counts are the server's, for the whole period. */
+/**
+ * The server's totals: exact, one per currency, the header's first. Por
+ * igualar counts the rows the table covers; Igualadas counts the whole period,
+ * every currency, as the server sends it.
+ */
 function Summary({ view, header, locale, loading }: { view: IgualarView | null; header: string | null; locale: string; loading: boolean }) {
   const { t } = useTransaccionesWords();
   const totals: readonly CurrencyTotals[] = view?.totals ?? [];
   const money = (key: "entradas" | "salidas" | "porIgualar"): Money[] | null => (view ? inHeaderOrder(perCurrency(totals, key), header) : null);
-  const zeroIn = view?.accountCurrency ?? null;
-  const settled = periodCount(totals, "igualadas") + periodCount(totals, "noLleva");
+  const zeroIn = view ? view.currency ?? view.accountCurrency : null;
+  const covered = view ? tableCounts(view) : null;
+  const period = view?.counts ?? null;
   const cells: { key: string; value: React.ReactNode }[] = [
     { key: "entradas", value: <MoneyList totals={money("entradas")} header={header} locale={locale} zeroIn={zeroIn} /> },
     { key: "salidas", value: <MoneyList totals={money("salidas")} header={header} locale={locale} zeroIn={zeroIn} /> },
     {
       key: "por_igualar",
       value: view ? (
-        <span className="flex flex-wrap items-baseline gap-x-2"><span className="tabular-nums">{periodCount(totals, "porIgualar")}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65"><MoneyList totals={money("porIgualar")} header={header} locale={locale} zeroIn={zeroIn} /></span></span>
+        <span className="flex flex-wrap items-baseline gap-x-2"><span className="tabular-nums">{covered ? covered.porIgualar : <Unknown />}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65"><MoneyList totals={money("porIgualar")} header={header} locale={locale} zeroIn={zeroIn} /></span></span>
       ) : <Unknown />,
     },
     {
       key: "igualadas",
-      value: view ? (
-        <span className="flex items-baseline gap-x-2"><span className="tabular-nums">{settled}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65">{t("business.transactions.totals.of", { count: periodCount(totals, "movimientos") })}</span></span>
+      value: period ? (
+        <span className="flex items-baseline gap-x-2"><span className="tabular-nums">{period.igualadas + period.noLleva}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65">{t("business.transactions.totals.of", { count: period.movimientos })}</span></span>
       ) : <Unknown />,
     },
   ];
@@ -192,7 +206,7 @@ function Summary({ view, header, locale, loading }: { view: IgualarView | null; 
   );
 }
 
-/** The saved records' totals: Salidas exact, one per currency. No read serves the period's ventas, so Entradas is unknown. */
+/** The saved records' totals: Salidas exact, one per currency. No read serves a total of the period's ventas, so Entradas is unknown. */
 function RecordsSummary({ totals, header, locale, loading }: { totals: RecordsTotals | null; header: string | null; locale: string; loading: boolean }) {
   const { t } = useTransaccionesWords();
   const cells = { entradas: <Unknown />, salidas: <MoneyList totals={totals ? inHeaderOrder(totals.salidas, header) : null} header={header} locale={locale} /> };
@@ -207,6 +221,22 @@ function RecordsSummary({ totals, header, locale, loading }: { totals: RecordsTo
         </div>
       ))}
     </dl>
+  );
+}
+
+/** What the chosen currency leaves out of the segment, one line per other currency with a way to switch. Nothing when nothing is left out. */
+function OtherCurrencies({ others, onChoose }: { others: readonly OtherCurrency[]; onChoose: (currency: string) => void }) {
+  const { t } = useTransaccionesWords();
+  if (others.length === 0) return null;
+  return (
+    <span data-testid="transacciones-other-currencies" className="flex flex-wrap items-center gap-x-4">
+      {others.map((other) => (
+        <span key={other.currency} data-currency={other.currency} className="inline-flex flex-wrap items-center gap-x-2 text-[13px] text-[#56635e] dark:text-white/70">
+          {t("business.transactions.other_currencies", { count: other.count, currency: currencySymbol(other.currency) })}
+          <button type="button" onClick={() => onChoose(other.currency)} className={quietButtonClass}>{t("business.transactions.other_currencies_show", { currency: currencySymbol(other.currency) })}</button>
+        </span>
+      ))}
+    </span>
   );
 }
 

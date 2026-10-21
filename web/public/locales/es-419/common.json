@@ -39,6 +39,9 @@
     "pin": "Anclar",
     "recents": "Recientes",
     "reference": "Ref. {{reference}}",
+    "reference_copied": "Referencia copiada.",
+    "reference_copy": "Copiar la referencia {{reference}}",
+    "reference_copy_failed": "No pudimos copiarla. Tu referencia es {{reference}}",
     "refresh_failed": "No pudimos actualizar.",
     "refresh_updated": "Actualizado",
     "rename": "Renombrar",
@@ -2235,11 +2238,13 @@
       "fiscal": "606 y 607",
       "fiscal_detail": "Para la DGII",
       "included": "Incluido",
-      "fiscal_open": "Falta cerrar {{month}}",
       "fiscal_month_only": "Solo por mes completo",
-      "fiscal_unknown": "Se incluye con el mes cerrado",
       "fiscal_checking": "Revisando…",
-      "fiscal_profile": "Nombre y RNC del 606"
+      "fiscal_profile": "Nombre y RNC del 606",
+      "form_needs_review": "Por revisar",
+      "form_no_aplica": "No aplica",
+      "form_no_operations": "Sin operaciones",
+      "form_summary_only": "Solo resumen"
     },
     "transactions": {
       "title": "Transacciones",
@@ -2268,7 +2273,7 @@
         "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "monto_cero": "Monto cero, no lleva comprobante", "personal": "Personal, no lleva comprobante" }
       },
       "reasons": { "title": "¿Por qué no lleva comprobante?", "cargo_banco": "Cargo del banco", "entre_cuentas": "Entre mis cuentas", "compra_informal": "Compra informal", "personal": "Personal" },
-      "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos", "empty_body": "Cada recibo que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos" },
+      "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos y ventas", "empty_body": "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
       "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
       "tray": { "title": "Movimiento", "step": "Sugerencia {{index}} de {{count}}", "movement": "Movimiento del banco", "suggested": "Comprobante que sugerimos", "matched": "Comprobante", "date": "Fecha", "account": "Cuenta", "bank_text": "Dice el banco", "recibo": "Compra", "venta": "Venta", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "moverte", "close": "cerrar", "back": "Volver" },
@@ -2294,6 +2299,9 @@
       },
       "history": { "title": "Historial", "match_recibo": "Igualada con un recibo", "match_venta": "Igualada con una venta", "no_receipt": "Sin comprobante: {{reason}}", "between": "del {{from}} al {{until}}", "since": "desde el {{from}}" },
       "more": "Cargar más",
+      "other_currencies_one": "También hay {{count}} movimiento en {{currency}}.",
+      "other_currencies_other": "También hay {{count}} movimientos en {{currency}}.",
+      "other_currencies_show": "Ver en {{currency}}",
       "empty": { "first_run_title": "Importa tu estado de cuenta", "first_run_body": "Importa tu estado de cuenta para igualar cada movimiento con su comprobante.", "done_title": "Todo igualado", "done_body": "{{count}} movimientos, cada uno con su comprobante.", "segment": "No hay movimientos en esta vista." },
       "density": { "options": "Opciones de vista", "label": "Altura de las filas", "compacto": "Compacto", "normal": "Normal", "amplio": "Amplio", "note": "Se guarda para ti en cada equipo donde entres.", "failed": "No pudimos guardar la altura. Sigue la que tenías." }
     },
@@ -2882,6 +2890,7 @@
       "net_label": "Resultado neto",
       "next_month": "Mes siguiente",
       "previous_month": "Mes anterior",
+      "itbis_cobrado": "ITBIS cobrado",
       "itbis_credit_label": "Saldo a favor de ITBIS",
       "itbis_label": "ITBIS a pagar",
       "receivable_title": "Por cobrar",

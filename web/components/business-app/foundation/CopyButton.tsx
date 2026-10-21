@@ -44,8 +44,9 @@ export async function copyText(value: string): Promise<boolean> {
  * holds it for two seconds and fades back, so every copy gives a signal. A
  * live region says it out loud; a failure is said too, never silent.
  */
-export function CopyButton({ value, label, copiedLabel, failedLabel, onFailed, className, testId, children }: {
+export function CopyButton({ value, label, copiedLabel, failedLabel, onFailed, className, testId, title, children }: {
   value: string;
+  title?: string;
   /** The button's name, also its aria-label when it shows only the icon. */
   label: string;
   copiedLabel: string;
@@ -79,7 +80,7 @@ export function CopyButton({ value, label, copiedLabel, failedLabel, onFailed, c
   const done = state === "copied";
   return (
     <>
-      <button type="button" aria-label={children ? undefined : label} data-testid={testId} data-copy-state={state} className={className} onClick={() => void copy()}>
+      <button type="button" aria-label={children ? undefined : label} data-testid={testId} title={title} data-copy-state={state} className={className} onClick={() => void copy()}>
         <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
           <Copy className={`absolute h-4 w-4 transition-opacity duration-200 motion-reduce:transition-none ${done ? "opacity-0" : "opacity-100"}`} />
           <Check className={`absolute h-4 w-4 transition-opacity duration-200 motion-reduce:transition-none ${done ? "opacity-100" : "opacity-0"}`} strokeWidth={2.5} />

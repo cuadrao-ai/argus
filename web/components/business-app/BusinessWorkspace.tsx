@@ -55,7 +55,6 @@ import BusinessAddMenu from "./BusinessAddMenu";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import { HeaderSearch } from "./foundation/HeaderSearch";
 import { useMonthCloseSource } from "./BusinessMonthClosePanel";
-import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
@@ -618,5 +617,5 @@ export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; c
 /** The one Exportar registros, opened from the top bar's menu or from search over any screen. */
 function WorkspaceExport({ onClose }: { onClose: () => void }) {
   const monthClose = useMonthCloseSource();
-  return <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={onClose} />;
+  return <ExportRecordsPanel monthClose={monthClose} onClose={onClose} />;
 }

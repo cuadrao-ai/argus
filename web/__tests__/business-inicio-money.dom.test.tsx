@@ -224,6 +224,7 @@ describe("Inicio export records panel", () => {
         missing_ncf: [],
         cuentas_por_cobrar: [],
         cuentas_por_pagar: [],
+        dgii_forms: { "606": "needs_review", "607": "no_operations" },
       });
     };
     const value = {
@@ -302,12 +303,12 @@ describe("Inicio export records panel", () => {
     }
   });
 
-  test("the 606 and 607 line follows the month close and asks for a whole month", async () => {
+  test("the 606 and 607 line shows each form's word from the packet and asks for a whole month", async () => {
     const view = await renderExport(own);
     try {
       await view.settle();
-      const month = new Intl.DateTimeFormat("es-419", { month: "long" }).format(new Date());
-      assert.match(view.fiscal(), new RegExp(`Falta cerrar ${month}`));
+      assert.match(view.fiscal(), /606\s*Por revisar/);
+      assert.match(view.fiscal(), /607\s*Sin operaciones/);
       await view.act(async () => { view.segment("year")!.click(); });
       assert.match(view.fiscal(), /Solo por mes completo/);
       await view.act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="export-other-dates"]')!.click(); });
@@ -403,7 +404,7 @@ describe("Pendiente hoy cards", () => {
   test("overdue rows lead oldest first, then the nearest due, and a card shows four before Ver las N", async () => {
     const invoice = (id: string, due_on: string | null): MonthCloseDocument => ({ id, kind: "invoice", currency: "DOP", counterparty: `Cliente ${id}`, occurred_on: "2026-09-01", due_on, amount: "100.00", itbis: null, rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "pendiente" });
     const documents = [invoice("soon", "2026-10-26"), invoice("none", null), invoice("late-1", "2026-10-17"), invoice("today", "2026-10-18"), invoice("late-30", "2026-09-18"), invoice("far", "2026-11-30")];
-    const client: MonthCloseClient = { ...createMockMonthCloseClient({ now }), async openItems() { return openItemsFrom(documents); } };
+    const client: MonthCloseClient = { ...createMockMonthCloseClient({ now }), async openItems() { return openItemsFrom(documents, "2026-10-18"); } };
     const view = await renderCards(client);
     assert.deepEqual(view.rowIds("month-close-receivable"), ["late-30", "late-1", "today", "soon"]);
     const chip = (id: string) => view.host.querySelector(`[data-document-id="${id}"] [data-testid="month-close-lateness"]`)?.textContent;
@@ -503,8 +504,8 @@ describe("Inicio in two columns", () => {
   const document_ = (over: Partial<MonthCloseDocument>): MonthCloseDocument => ({ id: "inv-1", kind: "invoice", currency: "DOP", counterparty: "Colmado Don Luis", occurred_on: "2026-10-04", due_on: null, amount: "1180.00", itbis: "180.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado", ...over });
   const clientOf = (documents: MonthCloseDocument[]): MonthCloseClient => ({
     mode: "mock",
-    async load() { return { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed_at: null, earliest_month: null, documents, figures: monthCloseFiguresFrom(documents) }; },
-    async openItems() { return openItemsFrom(documents); },
+    async load() { return { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed_at: null, earliest_month: null, payment_methods: ["otro"], dgii_forms: null, documents, figures: monthCloseFiguresFrom(documents) }; },
+    async openItems() { return openItemsFrom(documents, "2026-10-18"); },
     async markCobrado() { throw new Error("no mark"); },
     async markPagado() { throw new Error("no mark"); },
     async markPendiente() { throw new Error("no undo"); },

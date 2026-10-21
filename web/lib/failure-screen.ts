@@ -56,6 +56,13 @@ export function referenceCode(error: unknown): string {
   return `c${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** How many characters of a reference a person reads; the full id stays for copy and support. */
+export const SHORT_REFERENCE_LENGTH = 8;
+
+export function shortReference(reference: string): string {
+  return reference.slice(0, SHORT_REFERENCE_LENGTH);
+}
+
 export function emailRetrySeconds(header: string | null, nowMs = Date.now()): number {
   const parsed = parseRetryAfterDelaySeconds(header, nowMs);
   if (parsed === null || parsed < 1) return EMAIL_RETRY_FALLBACK_SECONDS;

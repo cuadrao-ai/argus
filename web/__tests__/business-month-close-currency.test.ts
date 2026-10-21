@@ -4,10 +4,8 @@ import {
   currenciesInOrder,
   currencyShown,
   monthCloseNetDisplay,
-  openItemsOverdue,
   readMonthCloseWire,
   readOpenItemsWire,
-  type MonthCloseDocument,
 } from "../lib/business-month-close";
 
 const now = new Date(2026, 9, 18);
@@ -41,15 +39,11 @@ function wire(currencies: unknown[], lists: Record<string, unknown[]> = {}) {
   return { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], currencies, missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: [], cuentas_por_pagar: [], ...lists };
 }
 
-function document(partial: Partial<MonthCloseDocument> & Pick<MonthCloseDocument, "id" | "currency" | "status">): MonthCloseDocument {
-  return { kind: "invoice", counterparty: partial.id, occurred_on: "2026-10-02", due_on: null, amount: "1.00", itbis: null, rnc: "131-99988-8", ncf: "B0100000001", ecf: null, ...partial };
-}
-
 describe("month close keeps every currency the server sends", () => {
   test("a USD-only month keeps its own figures, not unknown", () => {
     const snapshot = readMonthCloseWire(wire([block("USD", { income: 120000, expense: 2400, itbisOwed: 21600 })]));
     expect(snapshot.figures).toEqual([
-      { currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_owed: "216.00" },
+      { currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_owed: "216.00", itbis_cobrado: null, net_result_final: null, pending_count: null },
     ]);
   });
 
@@ -60,7 +54,7 @@ describe("month close keeps every currency the server sends", () => {
 
   test("a figure the block does not send is unknown, never zero", () => {
     const snapshot = readMonthCloseWire(wire([{ currency: "DOP", income_before_itbis_minor: 1000 }]));
-    expect(snapshot.figures).toEqual([{ currency: "DOP", income_before_itbis: "10.00", expense_before_itbis: null, net_before_itbis: null, itbis_owed: null }]);
+    expect(snapshot.figures).toEqual([{ currency: "DOP", income_before_itbis: "10.00", expense_before_itbis: null, net_before_itbis: null, itbis_owed: null, itbis_cobrado: null, net_result_final: null, pending_count: null }]);
   });
 
   test("zero and three decimal currencies read exactly from minor units", () => {
@@ -69,7 +63,7 @@ describe("month close keeps every currency the server sends", () => {
       { cuentas_por_cobrar: [line("yen", "invoice", "JPY", 1500, null)], cuentas_por_pagar: [line("dinar", "receipt", "BHD", 1050, 50)] },
     ));
     const [bhd, jpy] = snapshot.figures;
-    expect(bhd).toEqual({ currency: "BHD", income_before_itbis: "1234.567", expense_before_itbis: "1234.572", net_before_itbis: "-0.005", itbis_owed: "0.050" });
+    expect(bhd).toEqual({ currency: "BHD", income_before_itbis: "1234.567", expense_before_itbis: "1234.572", net_before_itbis: "-0.005", itbis_owed: "0.050", itbis_cobrado: null, net_result_final: null, pending_count: null });
     expect(jpy.income_before_itbis).toBe("1500");
     expect(snapshot.documents.map((item) => [item.id, item.amount, item.itbis])).toEqual([["yen", "1500", null], ["dinar", "1.050", "0.050"]]);
     const open = readOpenItemsWire({
@@ -97,16 +91,14 @@ describe("month close keeps every currency the server sends", () => {
 });
 
 describe("the net waits only on its own currency", () => {
-  test("a pending USD document does not hold back the DOP net", () => {
-    const documents = [document({ id: "dop", currency: "DOP", status: "cobrado" }), document({ id: "usd", currency: "USD", status: "pendiente" })];
-    expect(monthCloseNetDisplay(documents, [], "100.00", "DOP")).toEqual({ state: "final", net_before_itbis: "100.00" });
-    expect(monthCloseNetDisplay(documents, [], "50.00", "USD")).toEqual({ state: "pending", pending_count: 1, reason: "documents" });
-  });
-
-  test("a pending document with no currency could be any currency, so it holds back each net", () => {
-    const documents = [document({ id: "bare", currency: null, status: "pendiente" })];
-    expect(monthCloseNetDisplay(documents, [], "100.00", "DOP").state).toBe("pending");
-    expect(monthCloseNetDisplay(documents, [], "50.00", "USD").state).toBe("pending");
+  test("a pending USD document does not hold back the DOP net: each block says whether its own net is final", () => {
+    const byStatus = (pending: number) => ({ invoices: { pendiente: { count: pending, before_itbis_minor: 0 }, cobrado: { count: 0, before_itbis_minor: 0 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } });
+    const [dop, usd] = readMonthCloseWire(wire([
+      { ...block("DOP", { income: 10000, expense: 0, itbisOwed: 0 }), by_status: byStatus(0), net_result_final: true },
+      { ...block("USD", { income: 5000, expense: 0, itbisOwed: 0 }), by_status: byStatus(1), net_result_final: false },
+    ])).figures;
+    expect(monthCloseNetDisplay(dop)).toEqual({ state: "final", net_before_itbis: "100.00" });
+    expect(monthCloseNetDisplay(usd)).toEqual({ state: "pending", pending_count: 1, reason: "documents" });
   });
 });
 
@@ -127,10 +119,13 @@ describe("which currency the figures show", () => {
 });
 
 describe("overdue keeps each currency's own digits", () => {
-  test("yen and dinars add up exactly and apart", () => {
-    const overdue = (id: string, currency: string, amount: string) => document({ id, currency, amount, status: "pendiente", due_on: "2026-10-01" });
-    const list = { count: 3, totals: [], items: [overdue("a", "JPY", "1500"), overdue("b", "JPY", "25"), overdue("c", "BHD", "1.005")] };
-    expect(openItemsOverdue(list, "2026-10-18").totals).toEqual([{ currency: "JPY", total: "1525" }, { currency: "BHD", total: "1.005" }]);
+  test("the server's yen and dinar totals read exactly and apart", () => {
+    const open = readOpenItemsWire({
+      today: "2026-10-18",
+      cuentas_por_cobrar: { count: 3, totals: [], overdue: { count: 3, totals: [{ currency: "JPY", total_minor: 1525 }, { currency: "BHD", total_minor: 1005 }] }, items: [] },
+      cuentas_por_pagar: { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] },
+    });
+    expect(open.cuentas_por_cobrar.overdue?.totals).toEqual([{ currency: "JPY", total: "1525" }, { currency: "BHD", total: "1.005" }]);
   });
 });
 
@@ -145,7 +140,7 @@ describe("the sample month holds a second currency", () => {
     const current = await client.load("2026-10");
     expect(current.figures.map((figures) => figures.currency)).toEqual(["DOP", "USD"]);
     expect(current.figures[0]).toMatchObject({ income_before_itbis: "58400.00", expense_before_itbis: "9600.00" });
-    expect(current.figures[1]).toEqual({ currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_owed: "216.00" });
+    expect(current.figures[1]).toEqual({ currency: "USD", income_before_itbis: "1200.00", expense_before_itbis: "24.00", net_before_itbis: "1176.00", itbis_owed: "216.00", itbis_cobrado: "216.00", net_result_final: true, pending_count: 0 });
     const previous = await client.load("2026-09");
     expect(previous.figures.map((figures) => figures.currency)).toEqual(["DOP"]);
   });

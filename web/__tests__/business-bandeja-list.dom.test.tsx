@@ -174,6 +174,33 @@ describe("a list that did not load", () => {
     assert.equal(page.segment("problem")?.textContent, "Con problema-");
   });
 
+  test("the server's counts read - while a list is down, and come back once every list loaded", async () => {
+    const { overrides, recover } = failing();
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ ...overrides(), receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, ready_to_review_count: 3, needs_attention_count: 2 } }) }) });
+    await page.settle(() => failure(page) !== null && page.segment("review")?.textContent !== "Por revisar", "the failure and the settled count");
+    assert.equal(page.segment("review")?.textContent, "Por revisar-", "a 3 beside a list that failed would contradict it");
+    assert.equal(page.segment("problem")?.textContent, "Con problema-");
+    recover();
+    await page.act(async () => [...failure(page)!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!.click());
+    await page.settle(() => failure(page) === null, "the recovery");
+    assert.equal(page.segment("review")?.textContent, "Por revisar3");
+    assert.equal(page.segment("problem")?.textContent, "Con problema2");
+  });
+
+  test("a server reference reads short, keeps the full id in its title and copies the full id", async () => {
+    const requestId = "4ea79978-ce17-4853-b232-b2a72f4c9ce7";
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => { throw Object.assign(new Error("API error 500"), { status: 500, requestId }); } }) });
+    await page.settle(() => failure(page)?.querySelector('[data-testid="error-reference"]') != null, "the reference");
+    const reference = failure(page)!.querySelector<HTMLButtonElement>('[data-testid="error-reference"]')!;
+    assert.equal(reference.querySelector("[data-reference-short]")?.textContent, "Ref. 4ea79978");
+    assert.equal(reference.title, requestId);
+    assert.ok(reference.textContent?.includes(requestId), "the accessible name carries the full id");
+    await page.act(async () => reference.click());
+    assert.deepEqual(copied, [requestId]);
+  });
+
   test("Reintentar asks again only for the lists that failed, and their recovery shows the true empty state", async () => {
     const { calls, overrides, recover } = failing();
     const page = await mount({ panel: { kind: "inbox" }, overrides });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -35,12 +35,15 @@ export function MonthCurrencyMenu({
   value,
   businessCurrency,
   onChoose,
+  note,
 }: {
   /** The month's currencies, the Business currency first. */
   currencies: readonly string[];
   value: string;
   businessCurrency: string | null;
   onChoose: (currency: string) => void;
+  /** Replaces the line that names the other currencies, for a screen that says more about them. */
+  note?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -128,7 +131,7 @@ export function MonthCurrencyMenu({
         {value}
         <ChevronDown className="h-4 w-4 text-black/60 dark:text-white/60" aria-hidden="true" />
       </button>
-      {others.length > 0 ? (
+      {note !== undefined ? note : others.length > 0 ? (
         <p data-testid="month-close-currency-others" className="text-[13px] text-[#56635e] dark:text-white/70">
           {t("business.month_close.currency_others", { currencies: listOf(others, locale) })}
         </p>
