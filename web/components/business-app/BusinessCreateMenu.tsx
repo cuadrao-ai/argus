@@ -80,7 +80,7 @@ export default function BusinessCreateMenu({
         return collapsed ? (
           // The tooltip attaches its own ref to its child, so the button keeps
           // the menu's ref inside a wrapper.
-          <Tooltip content={label} side="right" delay={150}>
+          <Tooltip content={label} side="right">
             <span className="inline-flex">{button}</span>
           </Tooltip>
         ) : (

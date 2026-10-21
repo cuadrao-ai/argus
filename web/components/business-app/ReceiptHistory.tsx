@@ -6,7 +6,7 @@ import type { BusinessAccount } from "@/lib/business-api";
 import { BUSINESS_FISCAL_FIELDS, type BusinessDossier, type BusinessDraftRevision, type BusinessFactField, type BusinessFact, type BusinessFiscalField } from "@/lib/business-dossier";
 import { BUSINESS_STATUS, MUTED_TEXT } from "./foundation/presentation";
 import { SURFACE_CARD } from "./foundation/surfaces";
-import { useCategoryLabel } from "./business-ui";
+import { quietButtonClass, useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import FiscalRevision from "./FiscalRevision";
 
@@ -147,7 +147,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
         ))}
       </ol>
       {!open && newestFirst.length > COLLAPSED ? (
-        <button type="button" onClick={() => setOpen(true)} className="mt-2 inline-flex min-h-11 items-center rounded-full px-0 text-[15px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
+        <button type="button" onClick={() => setOpen(true)} className={`${quietButtonClass} mt-2`}>
           {t("business.history.see_all", "See all")}
         </button>
       ) : null}

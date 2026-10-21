@@ -9,9 +9,14 @@ import type { ReactNode } from "react";
 
 const BUSINESS_ROW_HOVER = "hover:bg-[#e3ebe1]/50";
 
+/** Stands in when a row draws its icon with `glyph`. */
+const EmptyIcon = (() => null) as unknown as LucideIcon;
+
 type SidebarNavButtonProps = {
-  /** Lucide icon component */
-  icon: LucideIcon;
+  /** Lucide icon component; a Business row may draw its own with `glyph` instead. */
+  icon?: LucideIcon;
+  /** Business rows: the icon for each state, so it can go from outline to filled when active. */
+  glyph?: (active: boolean) => ReactNode;
   /** Button label (shown when expanded, used as tooltip when collapsed) */
   label: string;
   /** Whether this nav item is currently active */
@@ -45,7 +50,8 @@ type SidebarNavButtonProps = {
  * When expanded: shows icon + label, with optional trailing element.
  */
 export default function SidebarNavButton({
-  icon: Icon,
+  icon: Icon = EmptyIcon,
+  glyph,
   label,
   active = false,
   collapsed = false,
@@ -92,22 +98,24 @@ export default function SidebarNavButton({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       data-sidebar-row="business"
-      className={`group flex h-11 shrink-0 items-center gap-3 rounded-[12px] px-3 ${collapsed ? "w-11" : "w-full"} text-left font-sans text-[14px] leading-5 transition-colors duration-200 ${
+      className={`group flex h-11 w-full shrink-0 items-center gap-3 overflow-hidden rounded-[12px] px-3 text-left font-sans text-[14px] leading-5 transition-colors duration-200 ${
         active
           ? "bg-[#e3ebe1] font-medium text-[#2f5a49] dark:bg-white/10 dark:text-white"
           : `${BUSINESS_ROW_HOVER} font-normal text-[#172b26] dark:text-white/80 dark:hover:bg-white/5`
       } ${className}`}
     >
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-        <Icon
-          aria-hidden="true"
-          strokeWidth={2}
-          style={{ width: iconSize, height: iconSize }}
-          className={active ? "text-[#2f5a49] dark:text-white" : "text-[#56635e] dark:text-white/60"}
-        />
+      <span className={`relative flex h-5 w-5 shrink-0 items-center justify-center ${active ? "text-[#2f5a49] dark:text-white" : "text-[#56635e] dark:text-white/60"}`}>
+        {glyph ? glyph(active) : (
+          <Icon
+            aria-hidden="true"
+            strokeWidth={2}
+            style={{ width: iconSize, height: iconSize }}
+          />
+        )}
         {overlay}
       </span>
-      <span className={collapsed ? "sr-only" : "min-w-0 truncate"}>{label}</span>
+      {/* The label stays put and fades, so the row never changes shape while the rail moves; the rail's own width clips it. */}
+      <span className={`min-w-0 truncate whitespace-nowrap transition-opacity duration-150 ease-out motion-reduce:transition-none ${collapsed ? "opacity-0" : "opacity-100"}`}>{label}</span>
       {trailingSlot}
     </button>
   ) : (
@@ -145,7 +153,7 @@ export default function SidebarNavButton({
 
   if (collapsed) {
     return (
-      <Tooltip content={shortcutOnInteraction && shortcutHint ? `${label} · ${shortcutHint}` : label} side="right" delay={150}>
+      <Tooltip content={shortcutOnInteraction && shortcutHint ? `${label} · ${shortcutHint}` : label} side="right">
         {button}
       </Tooltip>
     );

@@ -58,18 +58,18 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center px-6 py-12">
-      <section className="w-full max-w-md rounded-[20px] border border-black/10 bg-white p-7 dark:border-white/10 dark:bg-[#151719]">
+    <main data-auth-brand="cuadrao" className="flex min-h-[100dvh] items-center justify-center bg-[var(--auth-paper)] px-6 py-12">
+      <section className="w-full max-w-md rounded-[20px] border border-[var(--auth-line)] bg-[var(--auth-paper)] p-7">
         <Link
           href="/?auth=login"
-          className="text-sm font-medium text-black/55 hover:text-black dark:text-white/55 dark:hover:text-white"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--auth-muted)] hover:text-[var(--auth-pine)]"
         >
           {t("auth.recovery.back_to_sign_in", "Back to sign in")}
         </Link>
-        <h1 className="mt-6 font-display text-3xl font-medium tracking-tight text-black dark:text-white">
+        <h1 className="mt-6 font-display text-3xl font-medium tracking-tight text-[var(--auth-ink)]">
           {t("auth.recovery.title", "Recover your account")}
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-black/55 dark:text-white/55">
+        <p className="mt-2 text-sm leading-relaxed text-[var(--auth-muted)]">
           {t(
             "auth.recovery.description",
             "Enter your email and we’ll send recovery instructions if the account is eligible.",
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
         {status === "sent" ? (
           <div
             role="status"
-            className="mt-6 rounded-[18px] border border-emerald-500/20 bg-emerald-500/[0.06] p-4 text-sm leading-relaxed text-emerald-800 dark:text-emerald-200"
+            className="mt-6 rounded-[18px] border border-[var(--auth-line)] bg-[var(--auth-sage)] p-4 text-sm leading-relaxed text-[var(--auth-ink)]"
           >
             {t(
               "auth.recovery.generic_sent",
@@ -88,7 +88,7 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <form onSubmit={submit} className="mt-6 space-y-3">
-            <label className="block text-sm font-medium text-black dark:text-white">
+            <label className="block text-sm font-medium text-[var(--auth-ink)]">
               {t("auth.recovery.email_label", "Email address")}
               <input
                 type="email"
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 w-full rounded-[18px] border border-black/15 bg-transparent px-4 py-3 text-base text-black outline-none focus-visible:ring-2 focus-visible:ring-black dark:border-white/20 dark:text-white dark:focus-visible:ring-white"
+                className="mt-2 w-full rounded-[20px] border bg-transparent px-5 py-[14px] text-[16px] text-[var(--auth-ink)] outline-none"
               />
             </label>
             {status === "limited" && waitUntil ? <RecoveryEmailWait availableAtMs={waitUntil} /> : null}
@@ -111,7 +111,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={status === "submitting" || remaining > 0}
-              className="w-full rounded-full bg-black px-5 py-3 font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+              className="w-full rounded-full auth-primary bg-[var(--auth-pine)] text-[var(--auth-on-pine)] hover:bg-[var(--auth-pine-hover)] min-h-11 px-5 py-3 font-display font-medium disabled:opacity-50"
             >
               {status === "submitting"
                 ? t("auth.recovery.sending", "Sending...")

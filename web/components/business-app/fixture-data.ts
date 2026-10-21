@@ -1,15 +1,16 @@
 import type {
   BusinessAccount,
   BusinessExpense,
-  BusinessUpdate,
   ReceiptDetail,
   ReceiptReviewFields,
   BusinessAccessGrant,
   BusinessAccessInvite,
 } from "@/lib/business-api";
 import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
+import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
 import type { BusinessDataSource } from "./business-data";
+import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
 
 /**
  * Synthetic records for the local design preview only. Every merchant and
@@ -71,6 +72,10 @@ function seedReceipts(): ReceiptDetail[] {
   return [
     receipt({
       id: "rcpt-ferreteria",
+      // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
+      sin_comprobante: true,
+      // New since the last visit until it is opened, as the server marks it.
+      activity: { state: "ready", unread: true, completion_cursor: "sample-ferreteria" },
       fiscal_known: true,
       status: "review_ready",
       channel: "whatsapp",
@@ -99,6 +104,8 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-papeleria",
+      // The owner said there is no comprobante: it counts, and stays out of the 606 and 607.
+      sin_comprobante: true,
       fiscal_known: true,
       status: "review_ready",
       draft_id: dossierFixtureIds.unprepared,
@@ -129,6 +136,8 @@ function seedReceipts(): ReceiptDetail[] {
     }),
     receipt({
       id: "rcpt-blurry",
+      // New since the last visit until it is opened, as the server marks it.
+      activity: { state: "ready", unread: true, completion_cursor: "sample-blurry" },
       status: "needs_attention",
       channel: "whatsapp",
       filename: "IMG_2209.jpg",
@@ -154,6 +163,8 @@ function seedReceipts(): ReceiptDetail[] {
     receipt({
       id: "rcpt-ambiguous",
       status: "needs_attention",
+      channel: "email",
+      email_delivery_ids: ["email-colmado"],
       filename: "colmado-oct.jpg",
       received_at: daysAgo(3),
       error_code: "receipt_purchase_ambiguous",
@@ -320,10 +331,11 @@ export function createFixtureBusinessDataSource(
   { chatAvailable, accounts: start }: FixtureOptions = { chatAvailable: true },
 ): BusinessDataSource {
   const accounts: BusinessAccount[] = start === "none" ? [] : [...ACCOUNTS];
-  const createdAccounts = new Map<string, BusinessAccount>();
   let receipts = seedReceipts();
   let expenses = seedExpenses();
   let counter = 0;
+  // A synthetic name and RNC for the sample; the RNC is a made-up number.
+  let fiscalProfile: FiscalProfile = { name: "Mi negocio", tax_id: { type: "rnc", value: "131245678" }, can_edit: true };
   const uploads = new Map<string, ReceiptDetail>();
 
   const find = (id: string) => {
@@ -338,6 +350,17 @@ export function createFixtureBusinessDataSource(
   const required: (keyof ReceiptReviewFields)[] = ["merchant", "occurred_on", "amount", "currency", "account_id"];
   const missing = (fields: ReceiptReviewFields) => required.filter((key) => !fields[key]);
   const { createReceiptDraft, ...dossierSource } = createDossierFixtures(ACCOUNTS);
+  /** A sample file named with "falla" loses its connection once at 90%, so the retry can be seen. */
+  const failedOnce = new Set<string>();
+  const search = createFixtureSearch({
+    expenses: () => expenses,
+    receipts: () => receipts,
+    accounts: () => accounts,
+    emails: () => SAMPLE_EMAILS.map(({ id, sender, subject, received_at, state }) => ({ id, sender, subject, received_at, state, inbox_group: "bandeja" as const })),
+    matches,
+    delay,
+    injected: injectedWriteError,
+  });
 
   return {
     mode: "fixture",
@@ -453,6 +476,13 @@ export function createFixtureBusinessDataSource(
       await delay();
       return find(id);
     },
+    markReceiptRead: async (id, cursor) => {
+      await delay(120);
+      const item = find(id);
+      const activity = { state: item.activity?.state ?? "ready", unread: false, completion_cursor: cursor } as const;
+      replace({ ...item, activity });
+      return activity;
+    },
     markPersonal: async (id, version, personal) => {
       await delay();
       // The preview acts as the owner: the owner's own mark names nobody else.
@@ -474,30 +504,9 @@ export function createFixtureBusinessDataSource(
       await delay(120);
       return sampleReceiptImage(find(id));
     },
-    updates: async () => {
-      await delay();
-      const items: BusinessUpdate[] = receipts
-        .filter((item) => ["review_ready", "needs_attention", "confirmed"].includes(item.status))
-        .map((item) => ({
-          id: `upd-${item.id}`,
-          kind:
-            item.status === "confirmed"
-              ? "expense_confirmed"
-              : item.status === "needs_attention"
-                ? "receipt_needs_attention"
-                : "receipt_ready",
-          occurred_at: item.received_at,
-          receipt_id: item.id,
-          expense_id: item.expense_id,
-          error_code: item.error_code,
-          attention: item.attention,
-          label: item.merchant ?? item.filename,
-        }));
-      return items;
-    },
     expense: async (id) => {
       await delay();
-      const found = expenses.find((item) => item.id === id);
+      const found = expenses.find((item) => item.id === id) ?? SAMPLE_VENTAS.find((item) => item.id === id);
       if (!found) throw Object.assign(new Error("expense_not_found"), { status: 404, code: "expense_not_found" });
       return { ...found, recorded_at: `${found.occurred_on}T15:00:00Z`, revision: 1 };
     },
@@ -508,8 +517,17 @@ export function createFixtureBusinessDataSource(
         .filter((item) => item.occurred_on >= from && item.occurred_on <= to)
         .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
     },
-    uploadReceipt: async (file, consentToPrepare, key) => {
-      await delay(500);
+    uploadReceipt: async (file, consentToPrepare, key, documentType, onProgress) => {
+      const failOnce = /falla/i.test(file.name) && !failedOnce.has(key);
+      const steps = 12;
+      for (let step = 1; step <= steps; step += 1) {
+        await delay(Math.min(400, 120 + file.size / 40_000));
+        onProgress?.(Math.round((file.size * step) / steps), file.size);
+        if (failOnce && step >= Math.round(steps * 0.9)) {
+          failedOnce.add(key);
+          throw new TypeError("Sample connection lost at 90%");
+        }
+      }
       const earlier = uploads.get(key);
       if (earlier) return earlier;
       counter += 1;
@@ -524,6 +542,10 @@ export function createFixtureBusinessDataSource(
         enterable: !consentToPrepare,
         version: 0,
         missing_fields: UNREAD,
+        // The sample reads a sale from a file named "venta"; a picked type always wins.
+        document_type: documentType ?? (/venta/i.test(file.name) ? "venta" : "recibo"),
+        ...(documentType ? {} : { document_type_detected: true }),
+        document_type_editable: true,
       });
       receipts = [created, ...receipts];
       uploads.set(key, created);
@@ -591,59 +613,19 @@ export function createFixtureBusinessDataSource(
       ];
       return replace({ ...current, status: "confirmed", expense_id: expenseId });
     },
-    search: async (query) => {
-      await delay();
-      const injected = injectedWriteError();
-      if (injected) throw injected;
-      const found = expenses
-        .filter((item) => matches(query, [item.merchant, item.category_id].join(" ")))
-        .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
-      const listed = new Set(found.map((item) => item.id));
-      return {
-        expenses: found.slice(0, 5),
-        receipts: receipts
-          .filter((item) => !listed.has(item.expense_id ?? ""))
-          .filter((item) => matches(query, [item.merchant, item.filename, item.amount].join(" ")))
-          .slice(0, 5),
-        accounts: accounts.filter((item) =>
-          matches(query, [item.nickname, item.type, item.currency].join(" ")),
-        ).slice(0, 5),
-      };
-    },
-    recordExpense: async (input) => {
-      await delay();
-      const account = accounts.find((item) => item.id === input.account_id) ?? accounts[0];
-      const injected = injectedWriteError();
-      if (injected) throw injected;
-      counter += 1;
-      const created: BusinessExpense = {
-        id: `exp-manual-${counter}`,
-        merchant: input.merchant,
-        amount: input.amount,
-        currency: account.currency,
-        category_id: input.category_id,
-        account_id: account.id,
-        occurred_on: input.occurred_on,
-        receipt_id: null,
-        draft_id: null,
-      };
-      expenses = [created, ...expenses];
-      return created;
-    },
-    createAccount: async (input, key) => {
-      await delay();
-      const replayed = createdAccounts.get(key);
-      if (replayed) return replayed;
-      const injected = injectedWriteError();
-      if (injected) throw injected;
-      const created = { id: `acct-${createdAccounts.size + 1}-${key.slice(0, 8)}`, ...input };
-      createdAccounts.set(key, created);
-      accounts.push(created);
-      return created;
-    },
+    ...search,
     emailIntake: async () => {
       await delay();
       return { enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" };
+    },
+    fiscalProfile: async () => {
+      await delay();
+      return structuredClone(fiscalProfile);
+    },
+    saveFiscalProfile: async (input) => {
+      await delay();
+      fiscalProfile = { ...fiscalProfile, name: input.name || fiscalProfile.name, tax_id: input.tax_id };
+      return structuredClone(fiscalProfile);
     },
     createEmailAddress: async () => {
       await delay();
@@ -705,7 +687,11 @@ export function createFixtureBusinessDataSource(
   };
 }
 
-/** One email whose attachment is the ferretería receipt, and one that could not be read. */
+/**
+ * The emails the sample received: the ferretería's and the colmado's each
+ * saved a receipt, the gas station's is still being read, the boletín's zip
+ * could not be saved, and the farmacia's hit an inactive address and can be retried.
+ */
 const SAMPLE_EMAILS = [
   {
     id: "email-ferreteria",
@@ -737,6 +723,54 @@ const SAMPLE_EMAILS = [
     text_body: null,
     parts: [
       { id: "1.2", filename: "boletin.zip", media_type: "application/zip", state: "rejected" as const, document_id: null, error_code: "unsupported_media_type" },
+    ],
+  },
+  {
+    id: "email-colmado",
+    state: "captured" as const,
+    received_at: daysAgo(3),
+    updated_at: daysAgo(3),
+    original_document_id: null,
+    retryable: false,
+    subject: "Factura del colmado",
+    sender: "ventas@colmadoelprimo.example",
+    sent_at: null,
+    error_code: null,
+    text_body: "Saludos, le enviamos la factura de la compra de esta semana.",
+    parts: [
+      { id: "1.2", filename: "colmado-oct.jpg", media_type: "image/jpeg", state: "captured" as const, document_id: "rcpt-ambiguous", error_code: null, repeat_of_delivery_id: null },
+    ],
+  },
+  {
+    id: "email-estacion",
+    state: "processing" as const,
+    received_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+    updated_at: new Date(Date.now() - 4 * 60_000).toISOString(),
+    original_document_id: null,
+    retryable: false,
+    subject: "Recibo de combustible",
+    sender: "facturas@estacion.example",
+    sent_at: null,
+    error_code: null,
+    text_body: "Adjuntamos su recibo de combustible.",
+    parts: [
+      { id: "1.2", filename: "combustible.pdf", media_type: "application/pdf", state: "pending" as const, document_id: null, error_code: null },
+    ],
+  },
+  {
+    id: "email-farmacia",
+    state: "rejected" as const,
+    received_at: daysAgo(4),
+    updated_at: daysAgo(4),
+    original_document_id: null,
+    retryable: true,
+    subject: "Factura Farmacia Carol",
+    sender: "facturas@farmaciacarol.example",
+    sent_at: null,
+    error_code: "email_route_unavailable",
+    text_body: "Le remitimos la factura de su compra.",
+    parts: [
+      { id: "1.2", filename: "factura-farmacia.pdf", media_type: "application/pdf", state: "rejected" as const, document_id: null, error_code: null },
     ],
   },
 ];

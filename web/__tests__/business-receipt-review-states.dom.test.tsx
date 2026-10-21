@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
-import type { BusinessAccount, GrantedSpace, ReceiptSummary } from "@/lib/business-api";
+import type { BusinessAccount, GrantedSpace, ReceiptDetail, ReceiptSummary } from "@/lib/business-api";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import type { BusinessContextValue, BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import { createDossierFixtures, dossierFixtureIds } from "@/components/business-app/dossier-fixtures";
@@ -150,36 +150,23 @@ function notReceipt(): ReceiptSummary {
   };
 }
 
-test("in a client's Bandeja a file that is not a receipt says so and offers upload first, then typing it in", async () => {
-  globalThis.fetch = async () => Response.json({ code: "not_found" }, { status: 404 });
-  const { ReceiptRow } = await import("@/components/business-app/BusinessInboxPanel");
-  const page = await render(() => <ul><ReceiptRow receipt={notReceipt()} onOpen={() => undefined} onUpload={() => undefined} /></ul>);
-  try {
-    const text = page.host.textContent ?? "";
-    assert.match(text, /Esto no parece un recibo\./);
-    assert.equal(text.includes("borroso"), false);
-    const upload = page.button("Subir otro archivo");
-    const enter = page.button("Escribir datos");
-    assert.ok(upload && enter, "both ways forward are offered");
-    assert.ok(upload.compareDocumentPosition(enter) & Node.DOCUMENT_POSITION_FOLLOWING, "upload comes first");
-    assert.match(upload.className, /bg-black/, "upload is the primary action");
-    assert.match(upload.className, /min-h-11/);
-  } finally {
-    await page.close();
-  }
-});
-
-test("the Bandeja of a client the person can prepare for offers Subir otro archivo", async () => {
+test("a client's record for a file that is not a receipt says so and offers Subir otro archivo first, then Escribir datos", async () => {
+  const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { default: ReceiptReviewPanel } = await import("@/components/business-app/ReceiptReviewPanel");
+  const base = await createFixtureBusinessDataSource().receipt("rcpt-blurry");
+  assert.ok(base.record_context);
+  const detail = { ...base, ...notReceipt(), draft_id: null, activity: null, record_context: { ...base.record_context, capabilities: ["read", "prepare"] } } as ReceiptDetail;
   const receipt = notReceipt();
-  globalThis.fetch = async () => Response.json({ code: "not_found" }, { status: 404 });
-  const { default: Inbox } = await import("@/components/business-app/BusinessInboxPanel");
-  const page = await render(() => <Inbox />, { records: { inbox: [receipt], notes: [], notesError: false, notesTruncated: false, error: false, workspace: null, receiptActivity: null } } as unknown as Partial<BusinessContextValue>);
+  const page = await render(() => <ReceiptReviewPanel target={{ kind: "receipt", id: receipt.id }} />, { source: { ...liveBusinessDataSource, receipt: async () => detail } } as Partial<BusinessContextValue>);
   try {
-    const upload = page.button("Subir otro archivo");
-    assert.ok(upload, "a prepare grant can upload another file");
-    await page.act(async () => upload.click());
+    const notice = page.host.querySelector('[data-testid="receipt-attention"]');
+    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
+    assert.equal(notice?.textContent?.includes("borroso"), false);
+    const labels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
+    assert.deepEqual(labels, ["Subir otro archivo", "Escribir datos"], "a prepare grant can upload another file, and upload comes first");
+    await page.act(async () => page.button("Subir otro archivo")!.click());
     assert.deepEqual(page.uploads, ["upload"]);
-    assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null, "the owner's heading button stays the owner's");
   } finally {
     await page.close();
   }

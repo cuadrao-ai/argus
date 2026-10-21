@@ -12,7 +12,8 @@ mock.module("next/navigation", () => ({
 }));
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  // Below the desktop stop a record is the whole page; record-tray.dom.test.tsx covers the desktop tray.
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 800, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
@@ -94,7 +95,8 @@ describe("a recorded receipt names the revision that was approved", () => {
     await page.wait(() => page.recorded() !== null);
     assert.equal(page.recorded(), "Se registró un gasto tras aprobar la revisión 2.Registrado el 10 oct 2026");
 
-    await page.click('[data-testid="receipt-mark-personal"]', () => page.host.querySelector('[data-testid="receipt-mark-personal"]')?.getAttribute("aria-pressed") === "true");
+    const personal = () => page.host.querySelector('[data-testid="receipt-mark-personal"]');
+    await page.click('[data-testid="receipt-mark-personal"]', () => personal()?.getAttribute("aria-checked") === "true" && !personal()?.hasAttribute("aria-busy"));
     assert.equal(page.revision(), null, "the top block names no revision");
     assert.equal(page.recorded(), "Se registró un gasto tras aprobar la revisión 2.Registrado el 10 oct 2026");
     await page.act(async () => page.root.unmount());

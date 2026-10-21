@@ -33,6 +33,8 @@ export function useInputCapabilities(): InputCapabilities {
     const clipboardRead =
       typeof navigator.clipboard?.read === "function" && typeof ClipboardItem !== "undefined";
     const supportsCaptureAttribute = "capture" in document.createElement("input");
+    // Drag and paste are known now; only the camera waits for the device list.
+    setCapabilities({ cameraCapture: false, dragAndDrop, clipboardRead });
     const settle = (hasCamera: boolean) => {
       if (cancelled) return;
       setCapabilities({

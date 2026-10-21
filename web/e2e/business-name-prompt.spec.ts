@@ -32,11 +32,15 @@ for (const width of [1280, 390]) {
         if (path === "spaces") return route.fulfill({ json: { spaces: [{ space_id: "fixture-space", name: state.name, grant_id: "owner-grant", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }] } });
         if (path === "workspace") return route.fulfill({ json: await source.workspace() });
         if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
+        if (path === "fiscal-profile") {
+          if (request.method() === "PATCH") state.name = request.postDataJSON().name;
+          return route.fulfill({ json: { name: state.name, tax_id: null, can_edit: true } });
+        }
         if (path === "access") {
           if (request.method() === "POST") state.invites++;
           return route.fulfill({ json: { grants: [], invites: [] } });
         }
-        if (["receipts", "captures", "updates"].includes(path)) return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
+        if (["receipts", "captures"].includes(path)) return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" } } });
         return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       });
       await page.goto("/biz");
@@ -68,7 +72,7 @@ for (const width of [1280, 390]) {
       await expect(consent).toHaveCount(0);
       await expect(dialog).toHaveCount(0);
       expect(state.seen).toBe(true);
-      await page.goto("/biz?view=access");
+      await page.goto("/biz?view=business&tab=equipo");
       await page.getByRole("textbox", { name: /correo/i }).fill("accountant@example.test");
       await page.getByRole("button", { name: /Dar acceso/i }).click();
       await expect(dialog).toBeVisible();
@@ -84,15 +88,16 @@ for (const width of [1280, 390]) {
       expect(state.name).toBe("Colmado La Esquina");
       await expect(page.getByRole("button", { name: "Colmado La Esquina", exact: true })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`business-name-saved-${width}.png`) });
-      await page.getByRole("button", { name: /^(ajustes|configuración)$/i }).first().click();
-      await page.getByRole("button", { name: "Preferencias", exact: true }).click();
-      await page.getByRole("button", { name: "¿Cómo se llama tu negocio?", exact: true }).click();
-      await expect(dialog.getByRole("textbox")).toHaveValue("Colmado La Esquina");
+      // The name lives in Negocio > Datos, reached from the business card.
+      await page.getByTestId("business-switcher").getByRole("button", { name: "Colmado La Esquina", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Configurar negocio" }).click();
+      await expect(page.getByTestId("business-settings-tabs").getByRole("radio", { name: "Datos", exact: true })).toHaveAttribute("aria-checked", "true");
+      const businessName = page.getByTestId("business-fiscal-profile").getByRole("textbox", { name: "Nombre del negocio", exact: true });
+      await expect(businessName).toHaveValue("Colmado La Esquina");
       await page.screenshot({ path: testInfo.outputPath(`business-name-settings-${width}.png`) });
-      await dialog.getByRole("textbox").fill("Colmado La Esquina Norte");
-      await dialog.getByRole("button", { name: "Guardar", exact: true }).click();
-      await expect(dialog).toHaveCount(0);
-      expect(state.name).toBe("Colmado La Esquina Norte");
+      await businessName.fill("Colmado La Esquina Norte");
+      await page.getByTestId("business-fiscal-profile").getByRole("button", { name: "Guardar", exact: true }).click();
+      await expect.poll(() => state.name).toBe("Colmado La Esquina Norte");
     });
   });
 }

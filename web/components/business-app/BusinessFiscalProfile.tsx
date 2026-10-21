@@ -10,7 +10,8 @@ import {
 } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
 import { BusinessContext } from "./BusinessWorkspace";
-import { secondaryButtonClass } from "./business-ui";
+import { quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 const LENGTH = { rnc: 9, cedula: 11 } as const;
 
@@ -39,9 +40,15 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  // The workspace's source owns the read, so the sample business answers with its own name and RNC.
+  const read = workspace?.source.fiscalProfile ?? getFiscalProfile;
+  const write = workspace?.source.saveFiscalProfile ?? setFiscalProfile;
   useEffect(() => {
     let live = true;
-    void getFiscalProfile(draftId)
+    setLoadFailed(false);
+    void read(draftId)
       .then((next) => {
         if (!live) return;
         setProfile(next);
@@ -50,18 +57,18 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
         setValue(next.tax_id?.value ?? "");
       })
       .catch(() => {
-        if (live) setProblem(t("business.dgii.profile_failed"));
+        if (live) setLoadFailed(true);
       });
     return () => {
       live = false;
     };
-  }, [draftId, t]);
+  }, [draftId, read, attempt]);
   const save = async () => {
     if (!profile || busy || !acceptable(kind, value)) return;
     setBusy(true);
     setProblem(null);
     try {
-      const next = await setFiscalProfile(
+      const next = await write(
         {
           name: name.trim(),
           previous_name: profile.name,
@@ -93,7 +100,9 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
   return (
     <div className="mt-3 space-y-2" data-testid="business-fiscal-profile">
-      {profile ? (
+      {profile === null && !loadFailed ? <Settle pending layout="form" /> : null}
+      {/* The editable fields already show the name and number; the summary line is for those who can only read. */}
+      {profile && !profile.can_edit ? (
         <p className="text-[13px] text-black/65 dark:text-white/65">
           {profile.name} · {labelFor(profile)}
         </p>
@@ -149,8 +158,16 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
           </button>
         </div>
       ) : null}
+      {loadFailed ? (
+        <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
+          {t("business.dgii.profile_load_failed", "We couldn't load the name and RNC.")}
+          <button type="button" onClick={() => setAttempt((value) => value + 1)} className={quietButtonClass}>
+            {t("common.retry", "Retry")}
+          </button>
+        </p>
+      ) : null}
       {problem ? (
-        <p role="alert" className="text-[13px] text-[#a8434c]">
+        <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
           {problem}
         </p>
       ) : null}

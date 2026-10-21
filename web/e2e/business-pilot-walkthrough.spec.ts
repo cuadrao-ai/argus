@@ -151,7 +151,7 @@ test.describe("Business pilot walkthrough on a phone", () => {
 
   test("8 Spanish: navigation, overview and receipt review", async ({ page }) => {
     await openPreview(page, PREVIEW, "es-419");
-    await expect(heading(page, "Mi negocio")).toBeVisible();
+    await expect(page.locator("#business-overview-title")).toHaveText(/^Hola/);
     await page.getByTestId("chat-shell-menu-trigger").click();
     await expect(page.getByTestId("business-sidebar-nav")).toContainText("Bandeja");
     await page.getByTestId("business-sidebar-nav").getByRole("button", { name: /^Bandeja/ }).click();

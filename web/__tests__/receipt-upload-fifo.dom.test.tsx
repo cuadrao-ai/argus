@@ -88,7 +88,7 @@ function drop(files: File[]) {
   }
 }
 
-test("a file added by picker or drop while another uploads shows En cola, omits the wait warning, and stays across a rerender", async () => {
+test("a file added by picker or drop while another uploads starts at once, shows En espera, omits the wait warning, and stays across a rerender", async () => {
   let releaseA!: (receipt: ReceiptSummary) => void;
   const order: string[] = [];
   const queue = new ReceiptUploadQueue(async (candidate) => {
@@ -98,19 +98,18 @@ test("a file added by picker or drop while another uploads shows En cola, omits 
   }, () => undefined);
   let page = await mount(queue);
   try {
-    assert.match(surface().textContent ?? "", /Suelta tus recibos aquí/);
+    assert.match(surface().textContent ?? "", /Arrastra tus recibos aquí/);
     await act(async () => { choose([file("a.txt")]); });
-    const save = [...surface().querySelectorAll("button")].find((button) => button.textContent === "Guardar los archivos pendientes");
-    assert.ok(save, "the owner can start the upload");
-    await act(async () => { save.click(); });
-    assert.equal(queue.snapshot()[0]?.status, "uploading");
+    assert.equal([...surface().querySelectorAll("button")].some((button) => /Guardar/.test(button.textContent ?? "")), false, "there is no save button to press");
+    assert.equal(queue.snapshot()[0]?.status, "uploading", "a chosen file starts uploading on its own");
     await act(async () => { choose([file("b.txt")]); });
     await act(async () => { drop([file("c.txt")]); });
     const shown = surface().textContent ?? "";
     assert.equal(shown.includes("Espera a que termine la subida actual"), false);
     assert.match(shown, /b\.txt/);
     assert.match(shown, /c\.txt/);
-    assert.match(shown, /En cola/);
+    assert.match(shown, /En espera/);
+    assert.equal(shown.includes("En cola"), false);
     await page.unmount();
     const remounted = await mount(queue);
     page = remounted;
@@ -118,7 +117,7 @@ test("a file added by picker or drop while another uploads shows En cola, omits 
     assert.equal(again.includes("Espera a que termine la subida actual"), false);
     assert.match(again, /b\.txt/);
     assert.match(again, /c\.txt/);
-    assert.match(again, /En cola/);
+    assert.match(again, /En espera/);
     releaseA(savedReceipt("a.txt"));
     for (let turn = 0; order.length < 3 && turn < 20; turn += 1) {
       await act(async () => { await Promise.resolve(); });
@@ -172,20 +171,26 @@ test("a panel crash keeps the note and the upload that live above it", async () 
 });
 
 test("an offline upload keeps the file and offers another try", async () => {
-  const queue = new ReceiptUploadQueue(async () => {
+  const keys: string[] = [];
+  const queue = new ReceiptUploadQueue(async (_candidate, _consent, key) => {
+    keys.push(key);
     throw new TypeError("Failed to fetch");
   }, () => undefined);
   const page = await mount(queue);
   try {
     await act(async () => { choose([file("recibo.txt")]); });
-    await act(async () => { await queue.save("inbox", false); });
+    const row = surface().querySelector('[data-testid="receipt-upload-row"]');
+    assert.equal(row?.getAttribute("data-status"), "failed");
     const shown = surface().textContent ?? "";
-    assert.match(shown, /Sin conexión\. Revisa tu internet\./);
+    assert.match(shown, /Se perdió la conexión\. Tu archivo sigue aquí\./);
     assert.match(shown, /recibo\.txt/);
     assert.equal(queue.snapshot()[0]?.status, "failed");
-    const retry = [...surface().querySelectorAll("button")].find((button) => button.textContent === "Reintentar");
-    assert.ok(retry, "the banner offers another try");
+    const retry = surface().querySelector<HTMLButtonElement>('button[aria-label="Reintentar recibo.txt"]');
+    assert.ok(retry, "the row offers another try");
     assert.equal(queue.snapshot()[0]?.file.name, "recibo.txt");
+    await act(async () => { retry.click(); });
+    assert.equal(keys.length, 2, "the retry sends the file again");
+    assert.equal(keys[1], keys[0], "with the same upload key, so it is never saved twice");
   } finally {
     await page.unmount();
   }
@@ -198,7 +203,6 @@ test("a 503 upload ends on the server screen and keeps the file", async () => {
   const page = await mount(queue);
   try {
     await act(async () => { choose([file("factura.txt")]); });
-    await act(async () => { await queue.save("inbox", false); });
     const shown = surface().textContent ?? "";
     assert.match(shown, /Algo salió mal de nuestro lado\./);
     assert.match(shown, /factura\.txt/);

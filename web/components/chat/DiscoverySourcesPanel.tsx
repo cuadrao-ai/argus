@@ -110,7 +110,7 @@ export function DiscoverySourcesPanelSurface({
     return (
       <BottomSheet
         isOpen
-        height="tall"
+        snaps={["half", "full"]}
         title={title}
         description={note}
         closeLabel={closeLabel}

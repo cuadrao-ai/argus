@@ -75,8 +75,8 @@ const dossierCopy = {
     es419: "Volver a probar con datos actuales",
   },
   "command_palette.retest_tooltip": {
-    en: "Reuse this setup with the latest available data. You’ll review it before it runs.",
-    es419: "Reutiliza esta configuración con los datos más recientes disponibles. Podrás revisarla antes de ejecutarla.",
+    en: "Reuse this setup with the latest data.",
+    es419: "Reutiliza esta configuración con los datos más recientes.",
   },
   "command_palette.show_full_note": {
     en: "Show full note",

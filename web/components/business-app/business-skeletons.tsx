@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { cardClass, lockedCardClass } from "./business-ui";
+import { cardClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import styles from "./business-skeletons.module.css";
 
@@ -10,7 +10,7 @@ export const CONTENT_FADE_MS = 150;
 /** The screen-reader label is this word, and it is never visible. */
 export const SCREEN_READER_LOADING_LABEL = "Cargando";
 
-export type SkeletonLayout = "overview" | "inbox" | "updates" | "expenses" | "access" | "detail" | "rows";
+export type SkeletonLayout = "overview" | "inbox" | "expenses" | "access" | "detail" | "rows" | "form";
 
 export function placeholderPhase(elapsedMs: number, delayMs = SKELETON_DELAY_MS): "blank" | "skeleton" {
   return elapsedMs < delayMs ? "blank" : "skeleton";
@@ -56,20 +56,6 @@ function InboxRow() {
   );
 }
 
-function UpdateRow() {
-  return (
-    <div className="flex min-h-16 items-start gap-3 px-3 py-3">
-      <Bar className="h-6 w-32 shrink-0 rounded-full" />
-      <span className="min-w-0 flex-1">
-        <span className="flex h-6 items-center"><Bar className="h-[15px] w-2/5" /></span>
-        <span className="mt-1 flex h-[18px] items-center"><Bar className="h-[13px] w-3/5" /></span>
-        <span className="mt-1 flex h-[18px] items-center tablet:hidden"><Bar className="h-[13px] w-14" /></span>
-      </span>
-      <span className="hidden h-[18px] shrink-0 items-center tablet:flex"><Bar className="h-[13px] w-14" /></span>
-    </div>
-  );
-}
-
 function ExpenseRow() {
   return (
     <div className="px-3 py-1">
@@ -98,12 +84,11 @@ function AccessRow() {
   );
 }
 
-type ListLayout = Exclude<SkeletonLayout, "overview" | "detail">;
+type ListLayout = Exclude<SkeletonLayout, "overview" | "detail" | "form">;
 
 const LIST_ROWS: Record<ListLayout, () => ReactNode> = {
   inbox: InboxRow,
   rows: InboxRow,
-  updates: UpdateRow,
   expenses: ExpenseRow,
   access: AccessRow,
 };
@@ -163,10 +148,23 @@ function DetailSkeleton() {
   );
 }
 
+/** Labelled fields, drawn inside the card that holds the real form. */
+function FormSkeleton() {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      {["w-56", "w-24", "w-40"].map((width) => (
+        <span key={width} className="space-y-1.5">
+          <Bar className="h-[13px] w-16" />
+          <Bar className={`h-11 rounded-lg ${width}`} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Rows({ count, layout }: { count: number; layout: ListLayout }) {
   const Row = LIST_ROWS[layout];
   const rows = Array.from({ length: count }, (_, index) => <Row key={index} />);
-  if (layout === "updates") return <div className={`${lockedCardClass} divide-y divide-[#DCE0DA] p-2 dark:divide-white/[0.06]`}>{rows}</div>;
   return <ListShell>{rows}</ListShell>;
 }
 
@@ -176,7 +174,7 @@ export function BusinessSkeleton({ layout, rows = 3 }: { layout: SkeletonLayout;
     <div role="status" aria-live="polite" data-testid="business-loading" data-layout={layout}>
       <span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span>
       <div aria-hidden="true">
-        {layout === "overview" ? <OverviewSkeleton /> : layout === "detail" ? <DetailSkeleton /> : <Rows count={count} layout={layout} />}
+        {layout === "overview" ? <OverviewSkeleton /> : layout === "detail" ? <DetailSkeleton /> : layout === "form" ? <FormSkeleton /> : <Rows count={count} layout={layout} />}
       </div>
     </div>
   );

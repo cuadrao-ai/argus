@@ -4,6 +4,7 @@ import { HandCoins, Store, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { businessBankMatchingEnabled } from "@/lib/private-alpha-flags";
+import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
 /** Tailwind `h-11` is 44px. The inline size is what the tap-target test reads. */
 const TAP_TARGET_PX = 44;
@@ -64,7 +65,7 @@ export function BankMatchSuggestionCard({
         <button
           type="button"
           data-testid="bank-match-confirm"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-black px-4 text-[15px] font-medium text-white dark:bg-white dark:text-black"
+          className={`${primaryButtonClass} min-w-11`}
           style={tap}
           disabled={disabled}
           onClick={onConfirm}
@@ -74,7 +75,7 @@ export function BankMatchSuggestionCard({
         <button
           type="button"
           data-testid="bank-match-decline"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-black/10 bg-white px-4 text-[15px] font-medium text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white"
+          className={`${secondaryButtonClass} min-w-11`}
           style={tap}
           disabled={disabled}
           onClick={onDecline}

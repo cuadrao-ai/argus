@@ -1,23 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import BottomSheet, { type BottomSheetHeight } from "@/components/ui/BottomSheet";
+import BottomSheet, { type SheetSnaps } from "@/components/ui/BottomSheet";
 
 // Neutral names on purpose. Naming these after product surfaces read as a list
 // of shipped features and caused real confusion; the playground demonstrates
 // the primitive, not a roadmap.
 const detents: Array<{
-  height: BottomSheetHeight;
+  id: string;
+  snaps: SheetSnaps;
   label: string;
   name: string;
 }> = [
-  { height: "full", label: "About 96 percent", name: "Full" },
-  { height: "tall", label: "About 70 percent", name: "Medium" },
-  { height: "short", label: "About 40 percent", name: "Compact" },
+  { id: "all", snaps: ["peek", "half", "full"], label: "Peek, half and full", name: "Three snaps" },
+  { id: "form", snaps: ["half", "full"], label: "Half and full", name: "Form" },
+  { id: "full", snaps: ["full"], label: "Full only", name: "Long content" },
+  { id: "fit", snaps: "fit", label: "Hugs its content", name: "Menu" },
 ];
 
 export default function BottomSheetPlaygroundClient() {
-  const [openHeight, setOpenHeight] = useState<BottomSheetHeight | null>(null);
+  const [openHeight, setOpenHeight] = useState<string | null>(null);
+  const [nested, setNested] = useState(false);
   const [isDark, setIsDark] = useState(true);
 
   const toggleTheme = () => {
@@ -27,7 +30,7 @@ export default function BottomSheetPlaygroundClient() {
     setIsDark(nextIsDark);
   };
 
-  const openDetent = detents.find((detent) => detent.height === openHeight);
+  const openDetent = detents.find((detent) => detent.id === openHeight);
 
   return (
     <main className="min-h-[100dvh] bg-[#eef0ed] px-4 py-6 text-black dark:bg-[#101113] dark:text-white">
@@ -40,9 +43,9 @@ export default function BottomSheetPlaygroundClient() {
             Bottom sheet playground
           </h1>
           <p className="max-w-[52ch] text-[14px] leading-relaxed text-black/60 dark:text-white/60">
-            One primitive at its three heights. Dismiss by the close control,
-            by tapping the scrim, by dragging the grip down, or with system
-            back. Heights are named, not tied to any product surface.
+            One primitive and its snap sets. Let go between two snaps and it
+            springs to the nearest; a quick flick down closes it from any
+            height; a slow drag closes it only below half of the lowest snap.
           </p>
         </header>
 
@@ -57,10 +60,10 @@ export default function BottomSheetPlaygroundClient() {
         <div className="grid gap-3">
           {detents.map((detent) => (
             <button
-              key={detent.height}
+              key={detent.id}
               type="button"
-              data-testid={`open-${detent.height}`}
-              onClick={() => setOpenHeight(detent.height)}
+              data-testid={`open-${detent.id}`}
+              onClick={() => setOpenHeight(detent.id)}
               className="flex min-h-11 items-center justify-between gap-4 rounded-[16px] border border-black/10 bg-white px-5 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06] dark:focus-visible:ring-white/30"
             >
               <span className="text-[15px] font-medium">{detent.name}</span>
@@ -75,9 +78,9 @@ export default function BottomSheetPlaygroundClient() {
       {openDetent && (
         <BottomSheet
           isOpen
-          height={openDetent.height}
+          snaps={openDetent.snaps}
           title={openDetent.name}
-          description={`Height: ${openDetent.label.toLowerCase()}.`}
+          description={`Snaps: ${openDetent.label.toLowerCase()}.`}
           closeLabel="Close sheet"
           onClose={() => setOpenHeight(null)}
           footer={
@@ -92,6 +95,9 @@ export default function BottomSheetPlaygroundClient() {
           }
         >
           <div className="flex flex-col gap-4 pt-2">
+            <button type="button" data-testid="open-nested" onClick={() => setNested(true)} className="min-h-11 w-fit rounded-full border border-black/15 px-5 text-[14px] font-medium dark:border-white/20">
+              Open a second sheet
+            </button>
             <label className="flex flex-col gap-2">
               <span className="text-[13px] font-medium text-black/55 dark:text-white/55">
                 Sample input
@@ -115,6 +121,11 @@ export default function BottomSheetPlaygroundClient() {
           </div>
         </BottomSheet>
       )}
+      {openDetent && nested ? (
+        <BottomSheet isOpen snaps={["half"]} title="Second sheet" closeLabel="Close sheet" backLabel="Back" onClose={() => setNested(false)}>
+          <p className="pt-2 text-[14px] text-black/70 dark:text-white/70">This replaced the first sheet. The back arrow returns to it.</p>
+        </BottomSheet>
+      ) : null}
     </main>
   );
 }

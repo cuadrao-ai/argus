@@ -41,3 +41,12 @@ export function countStillReading(items: readonly ReviewCountItem[]): number {
 export function countUnreadable(items: readonly ReviewCountItem[]): number {
   return items.filter(isUnreadable).length;
 }
+
+/** A receipt that needs the owner to fix something before it can be reviewed. Inicio and the Bandeja share it. */
+export function needsAttention(item: ReviewCountItem): boolean {
+  return !closed(item) && item.status === "needs_attention";
+}
+
+export function countNeedsAttention(items: readonly ReviewCountItem[]): number {
+  return items.filter(needsAttention).length;
+}
