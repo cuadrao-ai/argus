@@ -33,7 +33,7 @@ import {
   signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
-import { landingLanguageChoices, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { landingLanguageChoices, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
@@ -144,14 +144,12 @@ export default function LandingPage() {
     const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     window.history.replaceState(null, "", nextUrl);
   };
-  // A language chosen on this page before signing in. It is saved on the
-  // account after sign-in. A Business build keeps showing Spanish.
+  // A language chosen on this page before signing in is saved on the account after sign-in.
   const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
   const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const otherLanguages = landingLanguageChoices(businessPilotEnabled, shownLanguage);
+  const otherLanguages = landingLanguageChoices(shownLanguage);
   const chooseLanguage = async (code: ArgusLanguage) => {
-    const shown = languageToShow(businessPilotEnabled, code);
-    if (shown) await i18n.changeLanguage(shown);
+    await i18n.changeLanguage(code);
     setChosenLanguage(code);
   };
   const showRequest = () => updateAuthMode("request");
