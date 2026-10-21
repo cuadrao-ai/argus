@@ -299,9 +299,9 @@ def test_capture_api_owner_scope_and_accountant_append(actions, users):
     app = FastAPI()
     app.include_router(router)
     spaces = PostgresSpaceStore(service.authority.pool)
-    context = DraftContext(service, actor)
-    app.dependency_overrides[require_drafts] = lambda: context
-    app.dependency_overrides[stored_drafts] = lambda: context
+    # Read ``actor`` at call time: the test rebinds it to the accountant below.
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(service, actor)
+    app.dependency_overrides[stored_drafts] = lambda: DraftContext(service, actor)
     app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
         str(actor), spaces
     )
