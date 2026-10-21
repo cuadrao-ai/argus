@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-20-c",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "b50f01f3271384e213d206add1c0ada63e746907",
+  "versions_sha256": "e51ae33ee69c30ccd7f33186c74e489d492ff86db0ec74c998ed9289798b53fe",
+  "issued_at": "2026-10-20T22:15:00-05:00",
+  "expires_at": "2026-10-23T22:15:00-05:00",
+  "approved_by": "founder",
+  "approval_reference": "Lucas yes, 2026-10-20, staging only, verbatim: \"Yes. When #1339 passes Eval, apply 20261020200000 to staging skedzwocnmrhfigiwyzi only, with a committed approval record and a dry run first, before #1339 lands. Never prod.\" #1339 Eval SHIP at b50f01f3: https://github.com/lagarcess/argus/pull/1339#issuecomment-6307137871"
+}
