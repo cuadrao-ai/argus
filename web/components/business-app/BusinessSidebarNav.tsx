@@ -10,7 +10,6 @@ import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { inboxCount as countInbox } from "./inbox-count";
 import { recordList } from "./record-tray";
-import { useTransaccionesEnabled } from "./transacciones/transacciones-gate";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
@@ -18,7 +17,6 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
   const { panel, openPanel, records } = useBusiness();
   const inboxCount = countInbox(records);
-  const third = useTransaccionesEnabled() ? "transactions" : "expenses";
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
     (panel.kind === kind || recordList(panel) === kind);
@@ -60,13 +58,13 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         variant="business"
       />
       <SidebarNavButton
-        glyph={navGlyph(NAV_GLYPHS[third])}
-        label={t(`business.nav.${third}`)}
-        active={isActive(third)}
+        glyph={navGlyph(NAV_GLYPHS.transactions)}
+        label={t("business.nav.transactions", "Transactions")}
+        active={isActive("transactions")}
         shortcutHint={quickJumpHintDisplay(3, command)}
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
-        onClick={() => openPanel({ kind: third })}
+        onClick={() => openPanel({ kind: "transactions" })}
         iconSize={20}
         variant="business"
       />

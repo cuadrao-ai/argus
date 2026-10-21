@@ -41,7 +41,7 @@ import {
   type OpenItemsList,
 } from "@/lib/business-month-close";
 import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, type Lateness } from "./business-format";
-import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, primaryButtonClass, quietButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
@@ -51,6 +51,26 @@ const monthArrowClass =
 
 /** Rows each money card shows before "Ver las N". */
 const MONEY_ROWS = 4;
+
+/**
+ * Inicio in two columns once its canvas is wide enough (56rem, about a
+ * 1024px screen with the rail closed): 38fr for the month, 62fr for what is
+ * pending, 24px apart. Row 1 holds the greeting and the Pendiente hoy heading
+ * at one height; row 2 the checklist beside Por cobrar and Por pagar; row 3
+ * the month's figures as two cards on the same columns. Cards in a row end
+ * together. Narrower, it is one column in reading order.
+ */
+const WIDE = {
+  grid: "@min-[56rem]:grid @min-[56rem]:grid-cols-[38fr_62fr] @min-[56rem]:gap-6 @min-[56rem]:space-y-0",
+  head: "@min-[56rem]:col-start-1 @min-[56rem]:row-start-1 @min-[56rem]:self-center",
+  left: "@min-[56rem]:col-start-1 @min-[56rem]:row-start-2",
+  full: "@min-[56rem]:col-span-2",
+  money: "@min-[56rem]:col-start-2 @min-[56rem]:row-span-2 @min-[56rem]:row-start-1 @min-[56rem]:grid @min-[56rem]:grid-rows-subgrid @min-[56rem]:pt-0",
+  moneyTitle: "@min-[56rem]:flex @min-[56rem]:min-h-11 @min-[56rem]:items-center @min-[56rem]:text-[26px] @min-[56rem]:tracking-tight",
+  moneyBody: "@min-[56rem]:mt-0 @min-[56rem]:flex @min-[56rem]:flex-col",
+  cards: "@min-[56rem]:col-span-2 @min-[56rem]:grid-cols-subgrid",
+  resultGap: "@min-[56rem]:gap-x-16",
+} as const;
 
 const LATENESS_TONE: Record<Lateness["tone"], string> = {
   overdue: "bg-[#d66d75]/15 text-[#9e2f39] dark:text-[#ec9aa0]",
@@ -509,6 +529,7 @@ export function BusinessMonthCloseView({
     }
   }
 
+  const canClose = canMutate && gate.ok && !locked;
   const reason = !canMutate
     ? t("business.month_close.reason_permission", "Marking collection, marking payment, and closing the month requires approval permission.")
     : !snapshot || gate.ok
@@ -722,17 +743,19 @@ export function BusinessMonthCloseView({
   /** Pendiente hoy: what every month left open, so it sits apart from the month above it. */
   function moneySection() {
     return (
-      <section id="month-close-money" aria-labelledby="month-close-money-title" data-testid="month-close-money" className="scroll-mt-6 pt-4 tablet:pt-6">
-        <h3 id="month-close-money-title" className="font-display text-[18px] font-medium text-black dark:text-white">
+      <section id="month-close-money" aria-labelledby="month-close-money-title" data-testid="month-close-money" className={`scroll-mt-6 pt-4 tablet:pt-6 ${WIDE.money}`}>
+        <h3 id="month-close-money-title" className={`font-display text-[18px] font-medium text-black dark:text-white ${WIDE.moneyTitle}`}>
           {t("business.month_close.pending_today", "Pending today")}
         </h3>
-        {workProblem ? (
-          <p role="alert" data-testid="month-close-work-problem" className="mt-2 flex flex-wrap items-center gap-x-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-            {workProblem.text}
-            <button type="button" onClick={() => { const again = workProblem.retry; setWorkProblem(null); again(); }} className={quietButtonClass}>{t("common.retry", "Retry")}</button>
-          </p>
-        ) : null}
-        <div className="mt-3">{moneyBody()}</div>
+        <div className={`mt-3 ${WIDE.moneyBody}`}>
+          {workProblem ? (
+            <p role="alert" data-testid="month-close-work-problem" className="mb-3 flex flex-wrap items-center gap-x-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
+              {workProblem.text}
+              <button type="button" onClick={() => { const again = workProblem.retry; setWorkProblem(null); again(); }} className={quietButtonClass}>{t("common.retry", "Retry")}</button>
+            </p>
+          ) : null}
+          {moneyBody()}
+        </div>
       </section>
     );
   }
@@ -740,7 +763,7 @@ export function BusinessMonthCloseView({
   function moneyBody() {
     if (!openItems) {
       return openPhase === "error" ? moneyError() : (
-        <div role="status" aria-busy="true" data-testid="month-close-money-loading" className="grid grid-cols-1 gap-4 tablet:grid-cols-2 tablet:gap-6">
+        <div role="status" aria-busy="true" data-testid="month-close-money-loading" className="grid flex-1 grid-cols-1 gap-4 tablet:grid-cols-2 tablet:gap-6">
           <span className="sr-only">{t("business.month_close.loading", "Loading the month")}</span>
           {[t("business.month_close.receivable_title", "To collect"), t("business.month_close.payable_title", "To pay")].map((title) => (
             <div key={title} aria-hidden="true" className={cardClass}>
@@ -756,13 +779,13 @@ export function BusinessMonthCloseView({
     const { cuentas_por_cobrar: receivable, cuentas_por_pagar: payable } = openItems;
     if (receivable.count === 0 && payable.count === 0) {
       return (
-        <div data-testid="month-close-nothing-open" className={cardClass}>
+        <div data-testid="month-close-nothing-open" className={`${cardClass} flex-1`}>
           <EmptyState kind="done" compact title={t("business.month_close.nothing_open", "All settled")} body={t("business.month_close.nothing_open_body", "No one owes you and you owe no one.")} action={onAdd ? { label: t("business.actions.add", "Add"), run: onAdd } : undefined} />
         </div>
       );
     }
     return (
-      <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2 tablet:gap-6">
+      <div className="grid flex-1 grid-cols-1 gap-4 tablet:grid-cols-2 tablet:gap-6">
         {moneyColumn("month-close-receivable", t("business.month_close.receivable_title", "To collect"), receivable, { title: t("business.month_close.receivable_empty", "All collected"), body: t("business.month_close.receivable_empty_body", "No one owes you right now.") })}
         {moneyColumn("month-close-payable", t("business.month_close.payable_title", "To pay"), payable, { title: t("business.month_close.payable_empty", "All paid"), body: t("business.month_close.payable_empty_body", "You have no bills waiting.") })}
       </div>
@@ -771,7 +794,7 @@ export function BusinessMonthCloseView({
 
   function moneyError() {
     return (
-      <div data-testid="month-close-money-error" className={cardClass}>
+      <div data-testid="month-close-money-error" className={`${cardClass} flex-1`}>
         <EmptyState kind="error" compact title={t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setOpenAttempt((value) => value + 1) }} />
       </div>
     );
@@ -818,23 +841,26 @@ export function BusinessMonthCloseView({
   ].filter((value): value is string => Boolean(value)) : [];
 
   return (
-    <div aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={locked ? "true" : "false"} className="mb-8 space-y-4 tablet:space-y-6">
-      {header(
-        <MonthSwitcher
-          month={month}
-          current={currentMonth}
-          earliest={snapshot?.earliest_month ?? null}
-          onMonth={(next) => { setMonth(next); setExpanded(new Set()); setFiscalOpen(false); onMonthChange?.(next); }}
-          openRequest={pickerRequest}
-        />,
-      )}
+    <div className="@container">
+    <div aria-busy={phase === "loading" ? true : undefined} data-testid="month-close" data-closed={locked ? "true" : "false"} data-layout="two-columns" className={`mb-8 space-y-4 tablet:space-y-6 ${WIDE.grid}`}>
+      <div data-testid="month-close-head" className={`min-w-0 ${WIDE.head}`}>
+        {header(
+          <MonthSwitcher
+            month={month}
+            current={currentMonth}
+            earliest={snapshot?.earliest_month ?? null}
+            onMonth={(next) => { setMonth(next); setExpanded(new Set()); setFiscalOpen(false); onMonthChange?.(next); }}
+            openRequest={pickerRequest}
+          />,
+        )}
+      </div>
 
       {phase === "error" ? (
-        <div data-testid="month-close-error" data-layout="error" className={cardClass}>
+        <div data-testid="month-close-error" data-layout="error" className={`${cardClass} ${WIDE.full}`}>
           <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setAttempt((value) => value + 1) }} />
         </div>
       ) : !snapshot || !summary || !net || !figures ? (
-        <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true">
+        <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true" className={WIDE.full}>
           <span className="sr-only">{t("business.month_close.loading", "Loading the month")}</span>
           <div aria-hidden="true" className="space-y-4 animate-pulse motion-reduce:animate-none">
             <div className={cardClass}>
@@ -853,7 +879,7 @@ export function BusinessMonthCloseView({
         </div>
       ) : noDocuments ? (
         <>
-        <div data-testid="month-close-empty" data-layout="empty" className={cardClass}>
+        <div data-testid="month-close-empty" data-layout="empty" className={`${cardClass} ${WIDE.left}`}>
           <EmptyState
             kind="first_run"
             mark="calendar"
@@ -872,7 +898,7 @@ export function BusinessMonthCloseView({
           {phase === "loading" ? <p role="status" data-testid="month-close-refreshing" className="sr-only">{t("business.month_close.loading", "Loading the month")}</p> : null}
 
           {locked && snapshot.closed_at ? (
-            <p role="status" data-testid="month-close-closed" className={`${cardClass} flex items-center gap-3 text-[15px] font-medium text-[var(--cuadrao-green)]`}>
+            <p role="status" data-testid="month-close-closed" className={`${cardClass} flex items-center gap-3 text-[15px] font-medium text-[var(--cuadrao-green)] ${WIDE.left}`}>
               <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
               <span>
                 {t("business.month_close.closed", "Month closed")}
@@ -882,7 +908,7 @@ export function BusinessMonthCloseView({
               </span>
             </p>
           ) : (
-            <section aria-labelledby="month-close-checklist-title" data-testid="month-close-checklist" className={cardClass}>
+            <section aria-labelledby="month-close-checklist-title" data-testid="month-close-checklist" className={`${cardClass} flex flex-col ${WIDE.left}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 id="month-close-checklist-title" className="font-display text-[18px] font-medium text-black dark:text-white">
                   {t("business.month_close.checklist_title", { month: monthName, defaultValue: "To close {{month}}" })}
@@ -940,31 +966,30 @@ export function BusinessMonthCloseView({
                   ))}
                 </ul>
               )}
-              <div className="mt-3 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
+              <div className="mt-auto flex min-h-11 flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
                 {reason ? (
                   <p id="month-close-reason" data-testid="month-close-reason" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{reason}</p>
                 ) : !gate.ok && gate.reason === "closed" && !locked ? (
                   <p data-testid="month-close-filing" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.filing_ready", "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.")}</p>
-                ) : gate.ok && tasks.length > 0 ? (
-                  <p data-testid="month-close-close-note" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.close_with_open_tasks", "You can close now; whatever is left stays as it is.")}</p>
+                ) : tasks.length > 0 ? (
+                  <p data-testid="month-close-steps-note" className="min-w-0 flex-1 text-right text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.close_after_steps", { count: tasks.length, month: monthName, defaultValue: "When you finish the {{count}} steps, you can close {{month}}." })}</p>
                 ) : null}
-                <button
-                  type="button"
-                  data-testid="month-close-close"
-                  className={gate.ok && canMutate ? primaryButtonClass : `${secondaryButtonClass} min-w-11`}
-                  disabled={!canMutate || !gate.ok}
-                  aria-describedby={reason ? "month-close-reason" : !gate.ok && fiscalDocuments.length > 0 ? "month-close-fiscal-required" : undefined}
-                  onClick={() => setConfirming(true)}
-                >
-                  {t("business.month_close.close_named", { month: monthName, defaultValue: "Close {{month}}" })}
-                </button>
+                {canClose && tasks.length === 0 ? (
+                  <button type="button" data-testid="month-close-close" className={primaryButtonClass} onClick={() => setConfirming(true)}>
+                    {t("business.month_close.close_named", { month: monthName, defaultValue: "Close {{month}}" })}
+                  </button>
+                ) : null}
               </div>
             </section>
           )}
 
-          <section aria-label={t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")} data-testid="month-close-cards" data-loading={phase === "loading" ? "true" : undefined} className={`${cardClass} grid grid-cols-2 gap-x-4 gap-y-5 desktop:grid-cols-4`}>
+          <section aria-label={t("business.month_close.subtitle", "Income, expenses, and ITBIS for the month.")} data-testid="month-close-cards" data-loading={phase === "loading" ? "true" : undefined} className={`grid gap-4 tablet:gap-6 ${WIDE.cards}`}>
+            <div data-testid="month-close-cards-month" className={`${cardClass} grid grid-cols-2 gap-x-4 gap-y-5`}>
             {figure("month-close-income", t("business.month_close.income_label", "Income"), figures.income.state, figures.income.value, figures.income.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
             {figure("month-close-expenses", t("business.month_close.expense_label", "Expenses"), figures.expenses.state, figures.expenses.value, figures.expenses.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined)}
+            </div>
+            {/* The gap is twice the card's padding plus the 24px between Por cobrar and Por pagar, so these two figures sit on those cards' columns. */}
+            <div data-testid="month-close-cards-result" className={`${cardClass} grid grid-cols-2 gap-x-4 gap-y-5 ${WIDE.resultGap}`}>
             {figure(
               "month-close-net",
               t("business.month_close.net_label", "Net result"),
@@ -983,11 +1008,12 @@ export function BusinessMonthCloseView({
               itbis.value,
               itbis.state === "pending" ? t("business.month_close.figure_unknown", "Can't be calculated yet.") : undefined,
             ) : null}
+            </div>
           </section>
 
           {moneySection()}
 
-          {locked ? renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed") : null}
+          {locked ? <div className={WIDE.full}>{renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed")}</div> : null}
         </>
       )}
 
@@ -1003,6 +1029,7 @@ export function BusinessMonthCloseView({
         onCancel={() => { if (!busyClose) { setConfirming(false); setCloseProblem(null); } }}
         onConfirm={() => void confirmClose()}
       />
+    </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import type { BusinessDataSource } from "@/components/business-app/business-data
 import type { TransaccionesSource } from "@/components/business-app/transacciones/transacciones-model";
 
 // The real workspace over the sample source: the rail, the top bar and the
-// panel router, with Transacciones behind its gate and its own sample source.
+// panel router, with Transacciones' igualar parts behind their gate.
 let search = "";
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(search),
@@ -45,7 +45,7 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
-  const { TransaccionesGate } = await import("@/components/business-app/transacciones/transacciones-gate");
+  const { IgualarGate } = await import("@/components/business-app/transacciones/transacciones-gate");
   const { TransaccionesSourceOverride } = await import("@/components/business-app/transacciones/useTransacciones");
   const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
   const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
@@ -85,9 +85,9 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   await act(async () => root.render(
     <I18nextProvider i18n={i18n}>
       <BusinessConsentTestProvider accepted>
-        <TransaccionesGate enabled={enabled}>
+        <IgualarGate enabled={enabled}>
           {transacciones ? <TransaccionesSourceOverride source={transacciones}>{panel}</TransaccionesSourceOverride> : panel}
-        </TransaccionesGate>
+        </IgualarGate>
       </BusinessConsentTestProvider>
     </I18nextProvider>,
   ));
@@ -104,22 +104,93 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   const screen = () => host.querySelector<HTMLElement>('[data-testid="transacciones"]');
   const grid = () => document.querySelector<HTMLElement>('[data-testid="transacciones-grid"]');
   const row = (id: string) => document.querySelector<HTMLElement>(`[data-movement-id="${id}"]`);
+  const records = () => [...document.querySelectorAll<HTMLElement>("[data-record-id]")];
   const rows = () => [...document.querySelectorAll<HTMLElement>("[data-movement-id]")];
   const segment = (key: string) => document.querySelector<HTMLButtonElement>(`[data-testid="transacciones-segments"] [data-segment="${key}"]`);
   const ready = () => settle(() => rows().length > 0, "the movements");
   const click = (node: Element | null) => act(async () => { (node as HTMLElement).click(); });
   const key = (target: Element, value: string) => act(async () => { target.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true })); });
   const body = () => document.body.textContent ?? "";
-  return { act, host, screen, grid, row, rows, segment, ready, settle, click, key, body, unmount, api: () => api! };
+  return { act, host, screen, grid, row, rows, records, segment, ready, settle, click, key, body, unmount, api: () => api! };
 }
 
 describe("the gate", () => {
-  test("with the flag off, the third screen is Gastos, as today, even from a Transacciones link", async () => {
+  test("with igualar off, the third screen is still Transacciones: the period's saved gastos and ventas, no igualar parts", async () => {
     const page = await mount({ enabled: false });
     const rail = page.host.querySelector('[data-testid="business-sidebar-nav"]')!;
-    assert.deepEqual([...rail.querySelectorAll("button")].map((button) => button.textContent?.replace(/⌘.*|Ctrl.*/, "").trim()).filter(Boolean).slice(0, 3).map((label) => label!.replace(/\d+$/, "")), ["Inicio", "Bandeja", "Gastos"]);
-    await page.settle(() => page.body().includes("Gastos guardados"), "the Gastos list");
-    assert.equal(page.screen(), null);
+    assert.ok([...rail.querySelectorAll("button")].some((button) => button.textContent?.includes("Transacciones")), "the rail names Transacciones");
+    assert.ok(!rail.textContent?.includes("Gastos"));
+    await page.settle(() => page.records().length > 0, "the saved records");
+    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Transacciones");
+    const kinds = new Set(page.records().map((node) => node.dataset.kind));
+    assert.deepEqual([...kinds].sort(), ["gasto", "venta"]);
+    for (const absent of ["transacciones-segments", "transacciones-run", "transacciones-grid"]) assert.equal(document.querySelector(`[data-testid="${absent}"]`), null, `${absent} stays behind the flag`);
+    assert.doesNotMatch(page.body(), /Banco al día|Por igualar|Igualadas|¿Este\?|Igualar sugerencias/);
+    const summary = document.querySelector<HTMLElement>('[data-testid="transacciones-summary"]')!;
+    assert.deepEqual([...summary.querySelectorAll("[data-total]")].map((cell) => cell.getAttribute("data-total")), ["entradas", "salidas"]);
+    assert.match(summary.querySelector('[data-total="entradas"]')?.textContent ?? "", /RD\$\s?\d/);
+    assert.match(summary.querySelector('[data-total="salidas"]')?.textContent ?? "", /RD\$\s?\d/);
+  });
+
+  test("a saved record with a receipt shows the receipt icon and opens in the record tray beside the list", async () => {
+    const page = await mount({ enabled: false });
+    await page.settle(() => page.records().length > 0, "the saved records");
+    const withReceipt = page.records().find((node) => node.querySelector('[data-testid="record-proof"]'));
+    assert.ok(withReceipt, "a gasto with its receipt shows the icon");
+    assert.equal(withReceipt!.dataset.kind, "gasto");
+    await page.click(withReceipt!);
+    const opened = page.api().panel;
+    assert.ok(opened.kind === "receipt" || opened.kind === "draft", `opened ${opened.kind}`);
+    assert.equal((opened as { list?: string }).list, "transactions");
+    await page.settle(() => document.querySelector('[data-testid="transacciones-records"]') !== null && document.querySelector('[data-testid="business-record-review"]') !== null, "the record beside the list");
+    const venta = page.records().find((node) => node.dataset.kind === "venta")!;
+    assert.match(venta.textContent ?? "", /Venta/);
+    assert.match(venta.querySelector('[data-col="monto"]')?.textContent ?? "", /\+/);
+  });
+
+  test("an old Gastos link lands on Transacciones", async () => {
+    const page = await mount({ enabled: false, view: "expenses" });
+    assert.equal(page.api().panel.kind, "transactions");
+    await page.settle(() => page.records().length > 0, "the saved records");
+  });
+
+  test("an empty period offers a real next step, never a zero list", async () => {
+    const { createRecordsTransaccionesSource } = await import("@/components/business-app/transacciones/transacciones-adapter");
+    const none = createRecordsTransaccionesSource({ expenses: async () => [], overview: async () => ({ from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }), workspace: async () => ({ accounts: [] }), month: async (month) => ({ month, from: `${month}-01`, to: `${month}-28`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] }), ownerFunds: "Dinero del dueño" });
+    const page = await mount({ enabled: false, transacciones: none });
+    await page.settle(() => document.querySelector('[data-testid="transacciones-records-empty"]') !== null, "the empty state");
+    assert.match(page.body(), /Aquí verás tus gastos y ventas/);
+    assert.ok(document.querySelector('[data-testid="transacciones-records-empty"] button'), "one action to add");
+  });
+
+  test("Salidas is the server's own total; a personal gasto stays listed, marked Personal, and out of it", async () => {
+    const { createRecordsTransaccionesSource } = await import("@/components/business-app/transacciones/transacciones-adapter");
+    const saved = createRecordsTransaccionesSource({
+      expenses: async () => [
+        { id: "exp-1", merchant: "Colmado Don Pepe", amount: "860.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null },
+        { id: "exp-2", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: "dining", account_id: null, occurred_on: "2026-10-05", receipt_id: null, personal: true },
+      ],
+      overview: async () => ({ from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [{ currency: "DOP", amount: "860.00", count: 1 }], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }),
+      workspace: async () => ({ accounts: [] }),
+      month: async (month) => ({ month, from: `${month}-01`, to: `${month}-28`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] }),
+      ownerFunds: "Dinero del dueño",
+    });
+    const page = await mount({ enabled: false, transacciones: saved });
+    await page.settle(() => page.records().length === 2, "the saved records");
+    assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"]')?.textContent ?? "", /RD\$\s?860\.00/);
+    assert.ok(document.querySelector('[data-record-id="exp-2"] [data-mark="personal"]'), "the personal gasto says so");
+    assert.equal(document.querySelector('[data-record-id="exp-1"] [data-mark="personal"]'), null);
+  });
+
+  test("while the server has the bank routes off, the records list instead of an error", async () => {
+    const { createBankTransaccionesSource, createRecordsTransaccionesSource } = await import("@/components/business-app/transacciones/transacciones-adapter");
+    const saved = createRecordsTransaccionesSource({ expenses: async () => [{ id: "exp-1", merchant: "Colmado Don Pepe", amount: "860.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null }], overview: async () => ({ from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [{ currency: "DOP", amount: "860.00", count: 1 }], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }), workspace: async () => ({ accounts: [] }), month: async (month) => ({ month, from: `${month}-01`, to: `${month}-28`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] }), ownerFunds: "Dinero del dueño" });
+    const off = createBankTransaccionesSource(async () => { throw Object.assign(new Error("off"), { status: 404, code: "financial_connections_unavailable" }); }, saved);
+    const view = await off.load({ from: "2026-10-01", to: null });
+    assert.equal(view.mode, "records");
+    assert.equal(view.mode === "records" ? view.records[0].counterparty : null, "Colmado Don Pepe");
+    const failing = createBankTransaccionesSource(async () => { throw Object.assign(new Error("down"), { status: 503 }); }, saved);
+    await assert.rejects(failing.load({ from: "2026-10-01", to: null }), "any other failure stays a failure");
   });
 
   test("with the flag on, the rail reads Transacciones and opens the new screen", async () => {
@@ -371,14 +442,15 @@ describe("Transacciones keyboard and buttons", () => {
     assert.equal(page.row("mv-ferreteria")!.querySelector('[data-row-action="rechazar"] kbd')?.textContent, "N");
   });
 
-  test("one primary on the screen: Igualar sugerencias, and the top bar's Agregar steps down while it shows", async () => {
+  test("one primary in the page, Igualar sugerencias; the top bar's Agregar stays primary, as on every screen", async () => {
     const page = await mount();
     await page.ready();
-    const primaries = [...document.querySelectorAll('[data-primary="true"]')];
+    const primaries = [...page.screen()!.querySelectorAll('[data-primary="true"]')];
     assert.equal(primaries.length, 1);
     assert.equal(primaries[0].getAttribute("data-testid"), "transacciones-run");
     const add = document.querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
     assert.ok(add, "Agregar stays in the top bar");
-    assert.doesNotMatch(add.className, /bg-\[var\(--cuadrao-green\)\]/);
+    assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/);
+    assert.equal(add.getAttribute("data-primary"), "true");
   });
 });

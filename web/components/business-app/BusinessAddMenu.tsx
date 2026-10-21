@@ -8,14 +8,13 @@ import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { useForwardAddress } from "./useForwardAddress";
 import { copyText } from "./foundation/CopyButton";
 import { showToast } from "./foundation/toasts";
-import { useScreenPrimaryClaimed } from "./screen-primary";
 
 /**
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
  * registros, Copiar dirección de reenvío). It sits in the top bar
  * from the tablet stop up and at the top of each screen on a phone, where the
  * thumb reaches it. A contador, who adds nothing, gets the menu alone.
- * While a screen holds its own primary, Agregar steps down to secondary.
+ * The top bar never changes per screen: Agregar is primary everywhere.
  */
 export default function BusinessAddMenu({ placement }: { placement: "header" | "page" }) {
   const { t } = useTranslation();
@@ -33,7 +32,6 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
   const page = placement === "page";
-  const level = useScreenPrimaryClaimed() ? secondaryButtonClass : primaryButtonClass;
   const moreLabel = t("business.add_menu.more", "More actions");
   return (
     <div data-testid={`add-menu-${placement}`} className={`flex items-stretch ${page ? "w-full" : ""}`}>
@@ -41,9 +39,9 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
         <button
           type="button"
           data-testid="business-primary-upload"
-          data-primary={level === primaryButtonClass ? "true" : undefined}
+          data-primary="true"
           onClick={add.run}
-          className={`${level} rounded-r-none pl-4 pr-3 ${page ? "flex-1" : ""}`}
+          className={`${primaryButtonClass} rounded-r-none pl-4 pr-3 ${page ? "flex-1" : ""}`}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           {add.label}
@@ -65,7 +63,7 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
             aria-controls={open ? menuId : undefined}
             onClick={toggle}
             className={add
-              ? `${level} min-w-11 rounded-l-none border-l ${level === primaryButtonClass ? "border-[var(--cuadrao-cream)]/25" : "-ml-px"} px-3`
+              ? `${primaryButtonClass} min-w-11 rounded-l-none border-l border-[var(--cuadrao-cream)]/25 px-3`
               : `${secondaryButtonClass} ${page ? "w-full" : ""}`}
           >
             {add ? null : moreLabel}

@@ -298,7 +298,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     {captureRecovery}
     <ReceiptReviewFrame
       recordId={receipt?.id ?? draftId}
-      back={recorded ? "expenses" : "inbox"}
+      back={recorded ? "transactions" : "inbox"}
       title={title}
       history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       badge={pillStatus ? <StatusPill status={pillStatus} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}

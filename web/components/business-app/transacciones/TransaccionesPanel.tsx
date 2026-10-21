@@ -7,14 +7,15 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
+import OutsidePeriodNote from "../OutsidePeriodNote";
 import { formatShortDay } from "../business-format";
 import { cardClass, primaryButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
-import { useClaimScreenPrimary } from "../screen-primary";
-import { useWideCanvas } from "../wide-canvas";
 import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density } from "./table-density";
-import { defaultSegment, headerCurrency, inHeaderOrder, SEGMENTS, segmentCount, suggestionRun, type Segment, type Totals } from "./transacciones-model";
+import { defaultSegment, headerCurrency, inHeaderOrder, SEGMENTS, segmentCount, suggestionRun, type RecordsTotals, type Segment, type Totals } from "./transacciones-model";
+import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
+import { RecordsList, RecordsTable } from "./TransaccionesRecords";
 import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
@@ -22,13 +23,16 @@ import { useTransaccionesWords } from "./transacciones-words";
 import { useTransacciones } from "./useTransacciones";
 
 /**
- * Transacciones: does every peso that moved have its proof? One ledger of
- * movements with a proof slot, a suggestion run in the tray, and the
- * server's totals above. Behind `businessBankMatchingEnabled`.
+ * Transacciones: does every peso that moved have its proof? With igualar on
+ * (`businessBankMatchingEnabled`), one ledger of movements with a proof slot,
+ * a suggestion run in the tray, and the server's totals above. With it off,
+ * or while the server has the bank routes off, the period's saved gastos and
+ * ventas in the same columns, each opening its record.
  */
 export default function TransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod } = useBusiness();
+  const { period, setPeriod, panel, records, actions } = useBusiness();
+  const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
   const density = useTableDensity();
@@ -36,10 +40,11 @@ export default function TransaccionesPanel() {
   const { list, movements, tray } = controller;
   const [chosen, setChosen] = useState<Segment | null>(null);
   const segment = chosen ?? (list.kind === "ready" ? defaultSegment(movements) : "por_igualar");
+  const view = list.kind === "ready" ? list.view : null;
+  // Until the first read lands, the gate says which screen is coming.
+  const igualar = view ? view.mode === "igualar" : igualarOn;
   const runCount = suggestionRun(movements).length;
-  const showRun = list.kind === "loading" || runCount > 0;
-  useClaimScreenPrimary(showRun);
-  useWideCanvas();
+  const showRun = igualar && (list.kind === "loading" || runCount > 0);
 
   const rowNodes = useRef(new Map<string, HTMLElement>());
   const trayId = tray?.movementId ?? null;
@@ -52,11 +57,23 @@ export default function TransaccionesPanel() {
   const trayMovement = tray ? controller.byId.get(tray.movementId) : undefined;
   const stepSegment = (step: 1 | -1) => setChosen(SEGMENTS[(SEGMENTS.indexOf(segment) + step + SEGMENTS.length) % SEGMENTS.length]);
 
-  const view = list.kind === "ready" ? list.view : null;
   const monthly = period.key === "this_month" || period.key === "last_month";
-  const when = monthly ? capitalize(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${period.from}T12:00:00`))) : periodLabel(period.key);
-  const subtitle = [when, view?.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(view.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
-  const porIgualar = view?.totals.porIgualar?.count ?? null;
+  const when = monthly ? capitalize(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${period.from}T12:00:00`))) : periodLabel(period);
+  const subtitle = [when, view?.mode === "igualar" && view.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(view.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
+  const porIgualar = view?.mode === "igualar" ? view.totals.porIgualar?.count ?? null : null;
+  const saved = view?.mode === "records" ? view.records : null;
+  // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
+  // Once per arrival: a background reload never takes focus back from wherever the person moved it.
+  const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
+  const screen = useRef<HTMLElement>(null);
+  const focusedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!cameFrom) focusedFor.current = null;
+    if (!cameFrom || !saved || focusedFor.current === cameFrom) return;
+    focusedFor.current = cameFrom;
+    (rowNodes.current.get(cameFrom) ?? screen.current)?.focus();
+  }, [cameFrom, saved]);
+  const add = actions.create.find((action) => action.id === "upload_receipt");
 
   const run = showRun ? (
     <button type="button" data-testid="transacciones-run" data-primary="true" disabled={list.kind !== "ready"} onClick={controller.startRun} className={`${primaryButtonClass} ${phone ? "shrink-0" : ""}`}>
@@ -67,7 +84,7 @@ export default function TransaccionesPanel() {
   ) : null;
 
   return (
-    <section data-testid="transacciones" className="pb-6">
+    <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
       {phone ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
@@ -77,24 +94,37 @@ export default function TransaccionesPanel() {
         {phone ? null : run}
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <SegmentedControl
-          testId="transacciones-segments"
-          label={t("business.transactions.segments.label")}
-          fill={phone}
-          value={segment}
-          onChange={setChosen}
-          segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
-        />
+        {igualar ? (
+          <SegmentedControl
+            testId="transacciones-segments"
+            label={t("business.transactions.segments.label")}
+            fill={phone}
+            value={segment}
+            onChange={setChosen}
+            segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
+          />
+        ) : null}
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
         {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu density={density} /></div>}
       </div>
-      <Summary totals={view?.totals ?? null} header={headerCurrency(movements)} locale={locale} loading={list.kind === "loading"} />
+      {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
+      {igualar
+        ? <Summary totals={view?.mode === "igualar" ? view.totals : null} header={headerCurrency(movements)} locale={locale} loading={list.kind === "loading"} />
+        : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
       {list.kind === "failed" ? (
         <div className={cardClass}>
-          <EmptyState kind="error" compact testId="transacciones-error" title={t("business.transactions.error.load_title")} body={t("business.transactions.error.load_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
+          <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
         </div>
       ) : list.kind === "loading" ? (
         <LoadingRows density={phone ? "amplio" : density} />
+      ) : saved ? (
+        saved.length === 0 ? (
+          <div className={cardClass} data-testid="transacciones-records-empty">
+            {period.key === "this_month" || period.key === "all"
+              ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
+              : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
+          </div>
+        ) : phone ? <RecordsList records={saved} rowRef={rowRef} /> : <RecordsTable records={saved} density={density} rowRef={rowRef} />
       ) : movements.length === 0 ? (
         <div className={cardClass}>
           <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
@@ -102,7 +132,7 @@ export default function TransaccionesPanel() {
       ) : segmentCount(movements, segment) === 0 ? (
         <div className={cardClass}>
           {segment === "por_igualar"
-            ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: view?.totals.igualadas?.of ?? movements.length })} />
+            ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: (view?.mode === "igualar" ? view.totals.igualadas?.of : null) ?? movements.length })} />
             : <EmptyState kind="filtered" compact title={t("business.transactions.empty.segment")} />}
         </div>
       ) : phone ? (
@@ -146,6 +176,24 @@ function Summary({ totals, header, locale, loading }: { totals: Totals | null; h
           <dt className="text-[13px] text-[#56635e] dark:text-white/65">{t(`business.transactions.totals.${cell.key}`)}</dt>
           <dd className="mt-1 text-[17px] font-medium text-[#172b26] dark:text-white">
             {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-mark bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : cell.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The saved records' totals: Entradas and Salidas, exact, one per currency; unknown when no read gives them exactly. */
+function RecordsSummary({ totals, header, locale, loading }: { totals: RecordsTotals | null; header: string | null; locale: string; loading: boolean }) {
+  const { t } = useTransaccionesWords();
+  const order = (money: RecordsTotals["entradas"]) => (money ? inHeaderOrder(money, header) : null);
+  return (
+    <dl data-testid="transacciones-summary" data-mode="records" className="mb-4 grid grid-cols-2 overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+      {(["entradas", "salidas"] as const).map((key, index) => (
+        <div key={key} data-total={key} className={`min-w-0 border-[#DCE0DA] px-4 py-3 dark:border-white/10 ${index ? "border-l" : ""}`}>
+          <dt className="text-[13px] text-[#56635e] dark:text-white/65">{t(`business.transactions.totals.${key}`)}</dt>
+          <dd className="mt-1 text-[17px] font-medium text-[#172b26] dark:text-white">
+            {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-mark bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : <MoneyList totals={order(totals?.[key] ?? null)} header={header} locale={locale} />}
           </dd>
         </div>
       ))}

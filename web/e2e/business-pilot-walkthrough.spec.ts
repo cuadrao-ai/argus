@@ -61,14 +61,14 @@ test.describe("Business pilot walkthrough", () => {
   test("2 legacy review stays bounded and receipt entry requires separate human approval", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?view=inbox`);
     await panel(page).getByRole("button", { name: /Papelería Central/ }).click();
-    await page.getByLabel(/Paid from/).selectOption({ label: "Business card · USD" });
+    await page.getByLabel(/Paid from/).selectOption({ label: "Tarjeta del negocio · USD" });
     await page.getByRole("button", { name: "Save review details" }).click();
     await expect(panel(page).getByRole("alert")).toBeVisible();
     await expect(page.getByRole("button", { name: "Approve expense", exact: true })).toHaveCount(0);
 
     await nav(page).getByRole("button", { name: /^Inbox/ }).click();
     await panel(page).getByRole("button", { name: /Ferretería La Esquina/ }).click();
-    await page.getByLabel(/Paid from/).selectOption({ label: "Operating account · DOP" });
+    await page.getByLabel(/Paid from/).selectOption({ label: "Cuenta corriente · DOP" });
     await page.getByRole("button", { name: "Save review details" }).click();
     await page.getByRole("button", { name: "Approve expense", exact: true }).click();
     await expect(panel(page)).toContainText("One expense was recorded after approval");

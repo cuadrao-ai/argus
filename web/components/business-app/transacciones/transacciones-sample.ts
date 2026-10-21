@@ -1,5 +1,5 @@
 import type { Decision, DecisionKind, DocumentSummary, Match, Money, Movement, MovementAccount, TransaccionesSource, TransaccionesView } from "./transacciones-model";
-import { MATCH_STATES, signOf } from "./transacciones-model";
+import { MATCH_STATES, signOf, sumByCurrency as sums } from "./transacciones-model";
 
 /**
  * Sample data for the local design preview, standing in for the movements
@@ -59,17 +59,6 @@ function shift(day: string, daysAgo: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Exact sums in minor units, one per currency, in the order each currency first appears. */
-function sums(items: readonly Money[]): Money[] {
-  const totals = new Map<string, bigint>();
-  for (const item of items) {
-    const [whole, fraction = ""] = item.amount.replace(/^[-+]/, "").split(".");
-    const cents = BigInt(whole) * BigInt(100) + BigInt((fraction + "00").slice(0, 2));
-    totals.set(item.currency, (totals.get(item.currency) ?? BigInt(0)) + cents);
-  }
-  return [...totals].map(([currency, cents]) => ({ currency, amount: `${cents / BigInt(100)}.${(cents % BigInt(100)).toString().padStart(2, "0")}` }));
-}
-
 export type SampleOptions = Readonly<{ empty?: boolean; failLoad?: boolean; failDecide?: boolean; supports?: readonly DecisionKind[] }>;
 
 /**
@@ -99,6 +88,7 @@ export function createSampleTransaccionesSource(options: SampleOptions = {}): Tr
       const lines = movements.filter((movement) => movement.match.state !== "sin_movimiento");
       const pending = movements.filter((movement) => MATCH_STATES[movement.match.state].segment === "por_igualar");
       const view: TransaccionesView = {
+        mode: "igualar",
         movements,
         totals: {
           entradas: sums(lines.filter((movement) => signOf(movement.money) === "in").map((movement) => movement.money)),

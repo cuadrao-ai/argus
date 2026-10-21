@@ -18,7 +18,7 @@ async function approveFromInbox(page: Page) {
   await nav.getByRole("button", { name: /^Bandeja/ }).click();
   // The receipt row, not the received-email group that names the same merchant.
   await panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ }).click();
-  await page.getByLabel(/Pagado desde/).selectOption({ label: "Operating account · DOP" });
+  await page.getByLabel(/Pagado desde/).selectOption({ label: "Cuenta corriente · DOP" });
   await page.getByRole("button", { name: "Guardar detalles de revisión" }).click();
   await page.getByRole("button", { name: "Aprobar", exact: true }).click();
   await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");

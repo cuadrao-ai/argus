@@ -20,7 +20,7 @@ import { TrayFooter, useRecordTray } from "./record-tray";
  */
 export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, source, children, history, footer }: {
   recordId: string;
-  back: "inbox" | "expenses";
+  back: "inbox" | "transactions";
   title: ReactNode;
   badge?: ReactNode;
   /** The formatted total; absent while it is unknown, never a zero. */
@@ -71,7 +71,7 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
     <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="page">
       <button type="button" onClick={() => openPanel({ kind: back })} className="mb-4 flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-        {back === "expenses" ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}
+        {back === "transactions" ? t("business.nav.transactions", "Transactions") : t("business.nav.inbox", "Inbox")}
       </button>
       {top}
       <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:grid-rows-[auto_1fr] desktop:gap-6">

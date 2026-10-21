@@ -4,9 +4,11 @@ import { createContext, createElement, useCallback, useContext, useEffect, useMe
 import { useTranslation } from "react-i18next";
 import { referenceCode } from "@/lib/failure-screen";
 import { useBusiness } from "../BusinessWorkspace";
+import { useMonthCloseSource } from "../BusinessMonthClosePanel";
 import { formatMoney } from "../business-format";
 import { showToast } from "../foundation/toasts";
-import { createBankTransaccionesSource } from "./transacciones-adapter";
+import { createBankTransaccionesSource, createRecordsTransaccionesSource } from "./transacciones-adapter";
+import { useIgualarEnabled } from "./transacciones-gate";
 import { createSampleTransaccionesSource } from "./transacciones-sample";
 import { magnitude, suggestionRun, UNKNOWN, type Decision, type Movement, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
 
@@ -17,17 +19,33 @@ export function TransaccionesSourceOverride({ source, children }: { source: Tran
   return createElement(OverrideContext.Provider, { value: source }, children);
 }
 
-/** The screen's source: an override, the sample beside the sample workspace, or today's bank routes. */
+/**
+ * The screen's source: an override; with igualar off, the period's saved
+ * records; with it on, the sample beside the sample workspace or today's
+ * bank routes, which fall back to the records while the server has them off.
+ */
 function useTransaccionesSource(): TransaccionesSource {
   const override = useContext(OverrideContext);
+  const igualar = useIgualarEnabled();
+  const { t } = useTranslation();
   const { source, chosen } = useBusiness();
+  const monthClose = useMonthCloseSource();
+  const ownerFunds = t("business.dossier.owner_funds", "Owner's money");
   const scope = chosen?.space_id ?? "own";
-  return useMemo(
-    () => override ?? (source.mode === "fixture" ? createSampleTransaccionesSource() : createBankTransaccionesSource()),
+  return useMemo(() => {
+    if (override) return override;
+    const saved = createRecordsTransaccionesSource({
+      expenses: source.expenses,
+      overview: source.overview,
+      workspace: source.workspace,
+      month: (month) => monthClose.client.load(month, monthClose.scopeKey ?? undefined),
+      ownerFunds,
+    });
+    if (!igualar) return saved;
+    return source.mode === "fixture" ? createSampleTransaccionesSource() : createBankTransaccionesSource(undefined, saved);
     // A new Business starts a new source, so nothing decided in one shows in another.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [override, source.mode, scope],
-  );
+  }, [override, igualar, source, monthClose.client, monthClose.scopeKey, ownerFunds, scope]);
 }
 
 export type ListState = { kind: "loading" } | { kind: "failed" } | { kind: "ready"; view: TransaccionesView };
@@ -81,7 +99,7 @@ export function useTransacciones() {
     setReloads((value) => value + 1);
   }, []);
 
-  const movements = useMemo(() => (list.kind === "ready" ? list.view.movements : []), [list]);
+  const movements = useMemo(() => (list.kind === "ready" && list.view.mode === "igualar" ? list.view.movements : []), [list]);
   const byId = useMemo(() => new Map(movements.map((movement) => [movement.id, movement])), [movements]);
 
   const undoAll = useCallback(async (decisions: readonly Decision[]) => {
@@ -131,7 +149,7 @@ export function useTransacciones() {
     if (!view) return;
     // The run moves on to the next suggestion still pending; the last one closes the tray.
     if (run) {
-      const pending = new Set(suggestionRun(view.movements).map((row) => row.id));
+      const pending = new Set(suggestionRun(view.mode === "igualar" ? view.movements : []).map((row) => row.id));
       const next = run.slice(run.indexOf(decision.movementId) + 1).find((id) => pending.has(id));
       setTray(next ? { movementId: next, mode: "record", run } : null);
     } else if (tray?.movementId === decision.movementId) {

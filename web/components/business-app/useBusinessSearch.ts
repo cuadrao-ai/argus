@@ -77,7 +77,7 @@ export function useBusinessSearch({
         hits: [
           go("overview", House, t("business.nav.overview", "Home"), { kind: "overview" }),
           go("inbox", Inbox, t("business.nav.inbox", "Inbox"), { kind: "inbox" }),
-          go("expenses", ReceiptText, t("business.nav.expenses", "Expenses"), { kind: "expenses" }),
+          go("transactions", ReceiptText, t("business.nav.transactions", "Transactions"), { kind: "transactions" }),
           go("business", Building2, t("business.nav.business", "Business"), { kind: "business" }, t("business.search.keywords_business", "settings details tax")),
           go("team", Users, t("business.search.go_team", "Team and access"), { kind: "business", tab: "equipo" }, t("business.search.keywords_team", "accountant people")),
           go("correo", Mail, t("business.settings.tab_correo", "Receipt email"), { kind: "business", tab: "correo" }, t("business.search.keywords_correo", "emails history forwarding")),

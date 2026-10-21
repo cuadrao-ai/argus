@@ -53,7 +53,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(fact(page, "funding")).toHaveAttribute("data-standing", "empty");
       await expect(fact(page, "funding")).toContainText("Necesita una decisión antes de aprobar");
       await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
-      await expect(page.getByTestId("receipt-review-questions")).toContainText("How was this paid?");
+      await expect(page.getByTestId("receipt-review-questions")).toContainText("¿Cómo se pagó?");
       await capture(page, `unknown-funding-${viewport.width}`);
       const approve = approveButton(page);
       await expect(approve).toBeDisabled();
@@ -261,9 +261,9 @@ test.describe("Server authority and uncertain outcomes", () => {
       await expect(saveButton(page)).toBeDisabled();
       await expect(approveButton(page)).toBeDisabled();
       await expect(recordArea(page).getByRole("alert")).toContainText("Tus cambios se conservan");
-      await expect(page.getByTestId("receipt-current-facts").last()).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Other human correction");
+      await expect(page.getByTestId("receipt-current-facts").last()).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Corrección de otra persona");
       const history = await openHistory(page);
-      await expect(history).toContainText(`Comercio o persona cambiado de Ferretería La Esquina a ${scenario === "saveUnknown" ? "My retained correction" : "Other human correction"}`);
+      await expect(history).toContainText(`Comercio o persona cambiado de Ferretería La Esquina a ${scenario === "saveUnknown" ? "My retained correction" : "Corrección de otra persona"}`);
       if (scenario === "saveConcurrent") await expect(history).toContainText("Elena Reyes");
       await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
       await expect(merchant).toHaveValue("My retained correction");
@@ -374,7 +374,7 @@ test("after approving from the inbox, the home checklist and the inbox count cha
   expect(badge).toBeGreaterThan(0);
   await inbox.click();
   await panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ }).first().click();
-  await page.getByLabel(/Pagado desde/).selectOption({ label: "Operating account · DOP" });
+  await page.getByLabel(/Pagado desde/).selectOption({ label: "Cuenta corriente · DOP" });
   await saveButton(page).click();
   await approveButton(page).click();
   await confirmRncWarning(page);

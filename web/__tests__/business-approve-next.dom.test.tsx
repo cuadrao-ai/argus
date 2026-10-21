@@ -276,7 +276,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
     assert.equal(page.heading(), null, "the intended receipt is still loading");
-    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.act(async () => page.workspace().openPanel({ kind: "transactions" }));
     await page.release();
     await page.open("rcpt-tres");
     assert.equal(page.heading(), "Tres");
@@ -350,13 +350,13 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("opening Gastos while the approval is pending keeps Gastos open when it records", async () => {
+  test("opening Transacciones while the approval is pending keeps it open when it records", async () => {
     const page = await mount({ hold: "approval" });
     await page.open("rcpt-uno");
     await page.click("Aprobar y siguiente", () => page.approvals.length === 1);
-    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.act(async () => page.workspace().openPanel({ kind: "transactions" }));
     await page.release();
-    assert.deepEqual(page.panel(), { kind: "expenses" });
+    assert.deepEqual(page.panel(), { kind: "transactions" });
     assert.equal(page.bandejaReads(), 0, "nothing reads the Bandeja for a page the owner left");
     await page.act(async () => page.root.unmount());
   });

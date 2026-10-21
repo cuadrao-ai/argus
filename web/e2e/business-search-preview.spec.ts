@@ -98,7 +98,7 @@ test.describe("Business search in the omnisearch", () => {
     await expect(hit).toContainText("Dinero del dueño");
     await expect(hit).toContainText("Comidas");
     const detail = await hit.innerText();
-    await expect(hit).not.toContainText("Operating account");
+    await expect(hit).not.toContainText("Cuenta corriente");
     if (process.env.CUADRAO_RECORD_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_RECORD_EVIDENCE_DIR}/owner-funded-search-spanish.png`, fullPage: true });
     await hit.click();
     await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
@@ -109,7 +109,7 @@ test.describe("Business search in the omnisearch", () => {
     const date = detail.match(/\d{1,2} [a-z]+ \d{4}/)?.[0];
     expect(date).toBeTruthy();
     await expect(row).toContainText(date!);
-    await expect(row).not.toContainText("Operating account");
+    await expect(row).not.toContainText("Cuenta corriente");
     if (process.env.CUADRAO_RECORD_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_RECORD_EVIDENCE_DIR}/owner-funded-expenses-spanish.png`, fullPage: true });
   });
 

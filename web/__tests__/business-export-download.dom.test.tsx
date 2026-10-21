@@ -57,7 +57,7 @@ async function mount(chosen = own) {
     source, chosen, revision: 0,
     period: { key: "custom", from: "2026-10-01", to: "2026-10-17" },
     records: { workspace: null, overview: { from: "2026-10-01", to: "2026-10-17" }, error: false },
-    panel: { kind: "expenses" }, actions: { create: [] }, spaces: [chosen],
+    panel: { kind: "transactions" }, actions: { create: [] }, spaces: [chosen],
     setPeriod: () => undefined,
   } as unknown as BusinessContextValue;
   // The sheet as the workspace opens it from Agregar or search: this month, over any screen.

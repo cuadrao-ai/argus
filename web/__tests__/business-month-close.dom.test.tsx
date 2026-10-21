@@ -92,7 +92,7 @@ describe("month close optimistic marks", () => {
     assert.equal(problem?.getAttribute("role"), "alert", "a failed mark says so beside the work, not in a toast");
     assert.match(problem?.textContent ?? "", /volvió al anterior/);
     assert.ok([...(problem?.querySelectorAll("button") ?? [])].some((button) => button.textContent === "Reintentar"));
-    assert.equal(host.querySelector('[data-testid="month-close-close"]')?.hasAttribute("disabled"), true);
+    assert.equal(host.querySelector('[data-testid="month-close-close"]'), null, "Cerrar stays hidden while steps remain");
     await act(async () => root.unmount());
     host.remove();
   });
@@ -119,7 +119,7 @@ describe("month close optimistic marks", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    assert.equal(host.querySelector('[data-testid="month-close-close"]')?.hasAttribute("disabled"), true);
+    assert.equal(host.querySelector('[data-testid="month-close-close"]'), null);
     assert.match(host.querySelector('[data-testid="month-close-reason"]')?.textContent ?? "", /permiso de aprobación/);
     assert.equal(host.querySelector('[data-testid="month-close-mark-cobrado"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-mark-pagado"]'), null);
@@ -300,9 +300,7 @@ describe("month close layouts", () => {
     const receivable = host.querySelector('[data-testid="month-close-receivable"]');
     const payable = host.querySelector('[data-testid="month-close-payable"]');
     const mark = host.querySelector('[data-testid="month-close-mark-cobrado"]');
-    const close = host.querySelector('[data-testid="month-close-close"]');
     assert.match(mark?.className ?? "", /h-11 w-11/);
-    assert.match(close?.className ?? "", /min-h-11/);
     assert.equal(host.querySelector('[data-testid="month-close-state-overdue"]'), null);
     assert.equal(host.querySelector('[data-testid="month-close-state-matched"]'), null);
 
@@ -1448,5 +1446,88 @@ describe("Pendiente hoy cards", () => {
     assert.deepEqual(opened, ["rcpt-edenorte"]);
     assert.equal(view.toasts.current.length, 0, "opening a row never marks it");
     await view.cleanup();
+  });
+});
+
+describe("Inicio in two columns", () => {
+  const document_ = (over: Partial<MonthCloseDocument>): MonthCloseDocument => ({ id: "inv-1", kind: "invoice", currency: "DOP", counterparty: "Colmado Don Luis", occurred_on: "2026-10-04", due_on: null, amount: "1180.00", itbis: "180.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado", ...over });
+  const clientOf = (documents: MonthCloseDocument[]): MonthCloseClient => ({
+    mode: "mock",
+    async load() { return { month: "2026-10", from: "2026-10-01", to: "2026-10-31", currency: "DOP", closed_at: null, earliest_month: null, documents }; },
+    async openItems() { return openItemsFrom(documents); },
+    async markCobrado() { throw new Error("no mark"); },
+    async markPagado() { throw new Error("no mark"); },
+    async markPendiente() { throw new Error("no undo"); },
+    async closeMonth() { throw new Error("no close"); },
+  });
+  async function renderView(client: MonthCloseClient) {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
+    });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    return { act, host, close: async () => { await act(async () => root.unmount()); host.remove(); } };
+  }
+
+  test("38fr and 62fr, 24px apart: greeting beside Pendiente hoy, the checklist beside Por cobrar and Por pagar, then the month's figures as two cards on the same columns", async () => {
+    const view = await renderView(createMockMonthCloseClient({ now }));
+    try {
+      const grid = view.host.querySelector<HTMLElement>('[data-testid="month-close"]')!;
+      const classes = (selector: string) => view.host.querySelector<HTMLElement>(selector)!.className;
+      assert.ok(grid.parentElement!.classList.contains("@container"), "the columns follow the canvas, not the window");
+      assert.match(grid.className, /@min-\[56rem\]:grid-cols-\[38fr_62fr\]/);
+      assert.match(grid.className, /@min-\[56rem\]:gap-6(\s|$)/);
+      assert.match(classes('[data-testid="month-close-head"]'), /@min-\[56rem\]:col-start-1 @min-\[56rem\]:row-start-1/);
+      assert.ok(view.host.querySelector('[data-testid="month-close-head"] [data-testid="inicio-greeting-row"]'), "the greeting row heads the left column");
+      const money = classes('[data-testid="month-close-money"]');
+      assert.match(money, /@min-\[56rem\]:col-start-2/);
+      assert.match(money, /@min-\[56rem\]:row-span-2 @min-\[56rem\]:row-start-1 @min-\[56rem\]:grid @min-\[56rem\]:grid-rows-subgrid/, "its heading shares row 1, its cards row 2");
+      assert.match(classes("#month-close-money-title"), /@min-\[56rem\]:text-\[26px\]/, "Pendiente hoy at the greeting's size");
+      assert.match(classes('[data-testid="month-close-checklist"]'), /@min-\[56rem\]:col-start-1 @min-\[56rem\]:row-start-2/);
+      const cards = view.host.querySelector<HTMLElement>('[data-testid="month-close-cards"]')!;
+      assert.match(cards.className, /@min-\[56rem\]:col-span-2 @min-\[56rem\]:grid-cols-subgrid/);
+      const month = cards.querySelector('[data-testid="month-close-cards-month"]')!;
+      const result = cards.querySelector<HTMLElement>('[data-testid="month-close-cards-result"]')!;
+      assert.deepEqual([...month.children].map((node) => node.getAttribute("data-testid")), ["month-close-income", "month-close-expenses"]);
+      assert.deepEqual([...result.children].map((node) => node.getAttribute("data-testid")), ["month-close-net", "month-close-itbis"]);
+      // Twice the card's 20px padding plus the 24px between Por cobrar and Por pagar puts Neto and ITBIS on their columns.
+      assert.match(result.className, /p-5/);
+      assert.match(result.className, /@min-\[56rem\]:gap-x-16/);
+      const order = [...view.host.querySelectorAll('[data-testid="month-close-head"], [data-testid="month-close-checklist"], [data-testid="month-close-cards"], [data-testid="month-close-money"]')].map((node) => node.getAttribute("data-testid"));
+      assert.deepEqual(order, ["month-close-head", "month-close-checklist", "month-close-cards", "month-close-money"], "one column keeps today's order");
+    } finally { await view.close(); }
+  });
+
+  test("while steps remain, Cerrar hides and one quiet line says how many and which month", async () => {
+    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null })]));
+    try {
+      assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
+      assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines los 2 pasos, podrás cerrar octubre.");
+    } finally { await view.close(); }
+    const one = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" })]));
+    try {
+      assert.equal(one.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines el paso que falta, podrás cerrar octubre.");
+    } finally { await one.close(); }
+  });
+
+  test("when the month can close, the green Cerrar appears in the line's place", async () => {
+    const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]));
+    try {
+      assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]'), null);
+      const close = view.host.querySelector<HTMLButtonElement>('[data-testid="month-close-close"]')!;
+      assert.equal(close.textContent, "Cerrar octubre");
+      assert.equal(close.disabled, false);
+      assert.match(close.className, /bg-\[var\(--cuadrao-green\)\]/);
+    } finally { await view.close(); }
   });
 });

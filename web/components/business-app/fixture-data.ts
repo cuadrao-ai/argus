@@ -18,8 +18,8 @@ import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
  */
 
 const ACCOUNTS: BusinessAccount[] = [
-  { id: "acct-ops", nickname: "Operating account", type: "checking", currency: "DOP" },
-  { id: "acct-card", nickname: "Business card", type: "credit_card", currency: "USD" },
+  { id: "acct-ops", nickname: "Cuenta corriente", type: "checking", currency: "DOP" },
+  { id: "acct-card", nickname: "Tarjeta del negocio", type: "credit_card", currency: "USD" },
 ];
 
 function daysAgo(days: number): string {
@@ -266,13 +266,13 @@ function seedExpenses(): BusinessExpense[] {
 
 function sampleReceiptImage(detail: ReceiptDetail): Blob {
   const lines = [
-    detail.evidence?.merchant ?? detail.merchant ?? "RECEIPT",
+    detail.evidence?.merchant ?? detail.merchant ?? "RECIBO",
     detail.occurred_on ?? "",
     ...(detail.evidence?.lines ?? []).map(
       (line) => `${line.description}  ${line.amount ?? ""}`,
     ),
     detail.amount ? `TOTAL ${detail.currency ?? ""} ${detail.amount}` : "",
-    "SAMPLE DATA",
+    "DATOS DE MUESTRA",
   ].filter(Boolean);
   const text = lines
     .map(

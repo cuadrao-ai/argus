@@ -167,7 +167,7 @@ describe("the Business top bar on a desktop", () => {
     assert.deepEqual((await page.openMenu(menu)).map((item) => item.textContent), ["Exportar registros"]);
   });
 
-  for (const kind of ["overview", "inbox", "expenses"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
+  for (const kind of ["overview", "inbox", "transactions"] as const) test(`Exportar registros from the menu opens the one export sheet over ${kind}`, async () => {
     const page = await mount();
     await page.ready();
     await page.open({ kind });
@@ -177,6 +177,18 @@ describe("the Business top bar on a desktop", () => {
     await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
     assert.equal(page.api().panel.kind, kind, "the screen underneath stays");
     assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
+  });
+
+  test("the top bar never changes per screen: Agregar is the green primary on Inicio, the Bandeja, Transacciones and Negocio", async () => {
+    const page = await mount();
+    for (const kind of ["overview", "inbox", "transactions", "business"] as const) {
+      await page.open({ kind });
+      await page.settle(() => page.api().panel.kind === kind, kind);
+      const add = page.bar().querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
+      assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
+      assert.equal(add.getAttribute("data-primary"), "true", kind);
+      assert.match(page.bar().querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
+    }
   });
 
   test("the menu has no Ver correos: an email is how a receipt arrived, not a place", async () => {
@@ -207,14 +219,14 @@ describe("Ocultar montos", () => {
     assert.equal(localStorage.getItem(HIDE_KEY), "false");
   });
 
-  test("amounts on Inicio, the Bandeja, Gastos and a record's total carry the mark the eye blurs", async () => {
+  test("amounts on Inicio, the Bandeja, Transacciones and a record's total carry the mark the eye blurs", async () => {
     const page = await mount();
     const marked = () => page.screen().querySelectorAll(".cuadrao-amount").length;
     await page.settle(() => marked() > 0, "Inicio's amounts");
     await page.open({ kind: "inbox" });
     await page.settle(() => page.screen().querySelector('[data-testid="business-inbox-receipts"] .cuadrao-amount') !== null, "the Bandeja's amounts");
-    await page.open({ kind: "expenses" });
-    await page.settle(() => page.screen().querySelector("section .cuadrao-amount") !== null && page.api().panel.kind === "expenses", "Gastos' amounts");
+    await page.open({ kind: "transactions" });
+    await page.settle(() => page.screen().querySelector('[data-testid="transacciones-records"] .cuadrao-amount') !== null, "Transacciones' amounts");
     await page.open({ kind: "receipt", receiptId: "rcpt-ferreteria" });
     await page.settle(() => document.querySelector('[data-testid="receipt-total"]') !== null, "the record total");
     assert.ok(document.querySelector('[data-testid="receipt-total"]')!.classList.contains("cuadrao-amount"));
@@ -222,7 +234,7 @@ describe("Ocultar montos", () => {
 });
 
 describe("the Business top bar on a phone", () => {
-  test("the top bar has no Agregar; Inicio, the Bandeja and Gastos each start with their own", async () => {
+  test("the top bar has no Agregar; Inicio, the Bandeja and Transacciones each start with their own", async () => {
     const page = await mount({ width: 390 });
     assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
     assert.ok(page.bar().querySelector('[data-testid="amounts-toggle"]'), "the eye stays");
@@ -230,7 +242,7 @@ describe("the Business top bar on a phone", () => {
     assert.equal(search.getAttribute("aria-label"), "Buscar", "a phone keeps its search icon");
     await page.act(async () => search.click());
     assert.deepEqual(page.searches, ["open"]);
-    for (const kind of ["overview", "inbox", "expenses"] as const) {
+    for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
       await page.settle(() => page.screen().querySelector('[data-testid="add-menu-page"]') !== null, `${kind}'s Agregar`);
       const menu = page.screen().querySelector('[data-testid="add-menu-page"]')!;

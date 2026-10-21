@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import ChatInput from "./ChatInput";
+import { WORKSPACE_CANVAS_CLASS } from "./workspace-canvas";
 import type {
   ChatShellBridge,
   ChatShellView,
@@ -131,19 +132,20 @@ export function WorkspaceMain({
     return accepted;
   };
   return (
-    <div className="relative mx-auto flex h-[100dvh] w-full max-w-[var(--cuadrao-canvas-max,64rem)] flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
+    <div className="relative flex h-[100dvh] w-full flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
       <div
         data-testid="workspace-panel-region"
         className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[calc(6rem+var(--cuadrao-banner-space,0px))] tablet:px-8 tablet:pt-[calc(7rem+var(--cuadrao-banner-space,0px))]"
         style={{ paddingBottom: hasComposer ? 190 : 48 }}
       >
-        {workspace.panel(bridge)}
+        <div data-testid="workspace-canvas" className={WORKSPACE_CANVAS_CLASS}>{workspace.panel(bridge)}</div>
       </div>
       {hasComposer ? (
         <>
           <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-10 h-40 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] dark:bg-[#141517]/80 ${workspace.id === "business" ? "bg-[var(--cuadrao-cream)]/80" : "bg-[#f9f9f9]/80"}`} />
-          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 px-4">
-            <div className="pointer-events-auto mx-auto max-w-3xl">
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 px-4 tablet:px-8">
+            {/* Centred in the canvas, not in the main area. */}
+            <div className={WORKSPACE_CANVAS_CLASS}><div className="pointer-events-auto mx-auto max-w-3xl">
               {composerNotice}
               <ChatInput
                 key={composer.draftKey}
@@ -156,7 +158,7 @@ export function WorkspaceMain({
                 onDraftChange={composer.onDraftChange}
                 onSent={composer.onSent}
               />
-            </div>
+            </div></div>
           </div>
         </>
       ) : null}

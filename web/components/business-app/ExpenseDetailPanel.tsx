@@ -60,9 +60,9 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const title = state.status === "ready" ? (state.expense.merchant ?? t("business.expenses.no_merchant", "Expense")) : t("business.expenses.detail_title", "Saved expense");
   return (
     <section ref={panel} tabIndex={-1} aria-labelledby="expense-detail-title" data-testid="business-expense-detail" className="outline-none">
-      {inTray ? null : <button type="button" onClick={() => openPanel({ kind: "expenses", expenseId })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
+      {inTray ? null : <button type="button" onClick={() => openPanel({ kind: "transactions", expenseId })} className="mb-4 flex min-h-11 items-center gap-1.5 rounded-full pr-3 text-[14px] text-black/65 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:text-white/65">
         <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        {t("business.nav.expenses", "Expenses")}
+        {t("business.nav.transactions", "Transactions")}
       </button>}
       {state.status !== "ready" ? <h2 id="expense-detail-title" className="sr-only">{title}</h2> : null}
       {state.status === "loading" ? <Settle pending layout="rows" /> : null}

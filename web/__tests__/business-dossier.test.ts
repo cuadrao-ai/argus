@@ -77,7 +77,7 @@ test("grant-scoped receipt and draft calls never create the current person's Bus
   assert.ok(reviewed.draft_id);
   await source.dossier(reviewed.draft_id);
   assert.equal(starts, 0);
-  assert.equal(record.space_name, "Taller Lucía · sample business");
+  assert.equal(record.space_name, "Taller Lucía · negocio de muestra");
 });
 
 test("unknown and owner-does-not-know funding preserve their distinct display states", async () => {

@@ -110,6 +110,15 @@ the code, named after it, and every screen uses that owner.
 Design and check each screen at the five widths of the Argus guide. Nothing
 scrolls sideways at any width.
 
+One canvas holds every Business screen (Lucas, October 21, 2026): at most
+75rem (1200px) wide, left-aligned at the main area's 32px gutter from the
+tablet stop up. The top bar spans the same box, so the search starts at the
+canvas's left edge and the actions end at its right edge on every screen.
+Inside it, Inicio and Transacciones fill the canvas, the Bandeja keeps its
+48rem list beside the record tray, and Negocio and other forms keep a 40rem
+column at its left. No screen widens or moves the canvas. Owner:
+`web/components/chat/workspace-canvas.ts`. Phones keep their 16px gutters.
+
 | Name | Width |
 | --- | --- |
 | Mobile small | under 400px |
@@ -195,13 +204,14 @@ Sheet rules:
 
 Which container, screen by screen (Lucas, October 20, 2026):
 
-- **Pages:** Inicio, Bandeja, Gastos, Novedades, Acceso.
+- **Pages:** Inicio, Bandeja, Transacciones, Novedades, Acceso.
 - **Record tray:** a receipt, draft, email or expense opens beside its list on
   desktop, without a scrim, so another row can be opened straight away. On a
   phone it is a full page with a way back. It is the one sheet that is not
   modal.
 - **Sheets:** Agregar, Exportar registros, settings, forms and lists.
-- **Popovers:** pickers (a date, a month, a menu).
+- **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
+  range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
 
 ### Sidebar and account
@@ -212,13 +222,13 @@ top right is who you are.
 - **Top left:** the business you are working in (its initial, name and your
   role), the one name that reads first. Its menu switches business and opens
   **Configurar negocio**. The open and close toggle sits beside it.
-- **Then:** the screens: Inicio, Bandeja, Gastos. Negocio is reached from the
+- **Then:** the screens: Inicio, Bandeja, Transacciones. Negocio is reached from the
   business menu (Configurar negocio), the one door.
 - **Foot of the rail:** the Cuadrao mark, small and quiet.
 - **Opening and closing the rail** takes 200ms, ease out. Nothing inside
   changes shape: icons keep one position, labels fade, the business mark
   stays where it is, and the open header stays until the rail has closed.
-- **Top bar:** lined up with the content column. Search on the left, always
+- **Top bar:** spans the one canvas and never changes per screen. Search on the left, always
   visible (its placeholder says what it finds). On the right: **Agregar ▾**,
   the one global action, whose menu holds Exportar registros and Copiar
   dirección de reenvío; the **Ocultar montos** eye, which
@@ -250,10 +260,10 @@ a 44px target.
   the nearest of the four.
 - A sheet's X is its only way to leave. Do not add Listo or Hecho to a sheet
   just to close it. A footer button names the next step (Guardar, Aprobar).
-- The top bar's Agregar is the primary of every screen with no main action of
-  its own. A screen whose main action is its own (Transacciones: Igualar
-  sugerencias) claims the primary while that action shows, and Agregar steps
-  down to secondary until it ends. Owner: `screen-primary.ts`.
+- The top bar's Agregar is the green primary on every screen (Lucas, October
+  21, 2026). "One per screen" counts the page's content only, never the top
+  bar: Igualar sugerencias is Transacciones' one primary in the page while
+  Agregar stays green above it.
 - `components/business-app/business-ui.tsx` owns the classes
   (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
   `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
@@ -455,6 +465,10 @@ The month is a 16px control at the right of the greeting row, not a second title
 
 Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
 
+Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the greeting row on the left, "Pendiente hoy" on the right at the greeting's 26px, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together. Narrower, one column in the order above.
+
+"Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
+
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
 - Overdue rows come first, oldest first, then the nearest due. Four rows show, then "Ver las N".
@@ -512,7 +526,7 @@ A month without receipts shows as empty, never as a closed month at RD$0.00.
 This guide sets the screen's presentation only, not the file formats. The
 screen shows amounts in RD$ and never converts currency.
 
-Exportar registros is one sheet, from Inicio and from Gastos. The period is a
+Exportar registros is one sheet, from the Agregar menu on every screen. The period is a
 segmented control with this month, last month and this year by name, and
 "Otras fechas" for a typed range of up to 366 days. Under it, one line gives
 the exact dates. "Incluye" lists what the ZIP holds: records (Excel and CSV),
@@ -525,9 +539,16 @@ says so in a toast.
 
 ### Transacciones
 
-Transacciones answers "does every peso that moved have its proof?" It takes
-Gastos's place and shortcut behind `businessBankMatchingEnabled` (default off;
-with it off, Gastos stays as it is). Lucas decided these on October 21, 2026:
+Transacciones answers "does every peso that moved have its proof?" It replaced
+Gastos for everyone on October 21, 2026: its name, place and shortcut, and old
+Gastos links. Only the igualar parts (movements, suggestions, the run,
+Desigualar, sin comprobante, the segments and their counts, "Banco al día
+hasta") wait behind `businessBankMatchingEnabled`, default off. With it off,
+or while the server has the bank routes off, the screen lists the period's
+saved gastos and ventas in the same columns with no Por igualar flags:
+Entradas and Salidas exact per currency, the receipt icon in Comprobante when
+a file backs the record, each row opening its record in the record tray.
+Lucas decided these on October 21, 2026:
 
 - The screen is **Transacciones**, the verb **Igualar**, the segments **Por
   igualar**, **Igualadas** and **Todas**. Por igualar groups Sugerencias,
@@ -549,7 +570,7 @@ with it off, Gastos stays as it is). Lucas decided these on October 21, 2026:
   decision says so in the tray with Reintentar and its reference.
 - The totals (Entradas, Salidas, Por igualar, Igualadas) are the server's,
   exact, one per currency. A total the server does not serve reads "—".
-- The ledger uses the wide canvas, and the top bar lines up with it.
+- The ledger fills the one canvas, as in [Widths](#widths).
 
 ## 7. Voice
 

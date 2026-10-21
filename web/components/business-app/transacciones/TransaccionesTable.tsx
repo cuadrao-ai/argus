@@ -13,10 +13,10 @@ import { commandForKey, useRowCommands, type Command } from "./transacciones-com
 import { useTransaccionesWords } from "./transacciones-words";
 import { movementName, type TransaccionesController } from "./useTransacciones";
 
-type ColumnKey = "contraparte" | "fecha" | "monto" | "detalle" | "categoria" | "cuenta" | "comprobante";
+export type ColumnKey = "contraparte" | "fecha" | "monto" | "detalle" | "categoria" | "cuenta" | "comprobante";
 
 /** The columns, left to right: text left, numbers right; Contraparte pins left and Comprobante right. */
-const COLUMNS: readonly { key: ColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" }[] = [
+export const COLUMNS: readonly { key: ColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" }[] = [
   { key: "contraparte", width: 260, align: "left", pin: "left" },
   { key: "fecha", width: 84, align: "left" },
   { key: "monto", width: 136, align: "right" },
@@ -26,9 +26,9 @@ const COLUMNS: readonly { key: ColumnKey; width: number | null; align: "left" | 
   { key: "comprobante", width: 112, align: "right", pin: "right" },
 ];
 
-const PIN_CLASS = { left: "sticky left-0 z-10 shadow-[inset_-1px_0_0_#DCE0DA] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.1)]", right: "sticky right-0 z-10 shadow-[inset_1px_0_0_#DCE0DA] dark:shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]" } as const;
+export const PIN_CLASS = { left: "sticky left-0 z-10 shadow-[inset_-1px_0_0_#DCE0DA] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.1)]", right: "sticky right-0 z-10 shadow-[inset_1px_0_0_#DCE0DA] dark:shadow-[inset_1px_0_0_rgba(255,255,255,0.1)]" } as const;
 /** Opaque cells, so a pinned column covers what scrolls under it. Hover lights the row in 80ms; the open row is green-tinted. */
-const CELL = "border-b border-[#DCE0DA] bg-white px-3 transition-colors duration-[80ms] ease-out group-hover:bg-[#F7F5EE] group-aria-selected:bg-[#eef3ec] motion-reduce:transition-none dark:border-white/10 dark:bg-[#1f2225] dark:group-hover:bg-[#25292c] dark:group-aria-selected:bg-[#24302b]";
+export const CELL = "border-b border-[#DCE0DA] bg-white px-3 transition-colors duration-[80ms] ease-out group-hover:bg-[#F7F5EE] group-aria-selected:bg-[#eef3ec] motion-reduce:transition-none dark:border-white/10 dark:bg-[#1f2225] dark:group-hover:bg-[#25292c] dark:group-aria-selected:bg-[#24302b]";
 const ACTION = "inline-flex h-7 items-center whitespace-nowrap rounded-full border border-[#7d8a84]/50 bg-white px-2.5 text-[13px] font-medium text-[#172b26] transition-colors duration-100 hover:bg-[#F7F5EE] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]";
 
 const isField = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));

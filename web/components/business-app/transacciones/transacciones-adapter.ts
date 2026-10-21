@@ -1,6 +1,10 @@
 import { apiFetch } from "@/lib/argus-api-transport";
+import type { BusinessAccount, BusinessExpense, BusinessOverview, BusinessWorkspaceInfo } from "@/lib/business-api";
+import type { MonthCloseDocument, MonthCloseSnapshot } from "@/lib/business-month-close";
 import { todayIso } from "../business-format";
-import type { Decision, DecisionKind, Match, Movement, Suggestion, SuggestionReason, TransaccionesSource, TransaccionesView } from "./transacciones-model";
+import { expensePanel } from "../business-expense-target";
+import { recordFiscalMark } from "../business-ui";
+import { sumByCurrency, type AccountKind, type Decision, type DecisionKind, type IgualarView, type Match, type Movement, type MovementAccount, type RecordRow, type RecordsView, type Suggestion, type SuggestionReason, type TransaccionesSource } from "./transacciones-model";
 
 /**
  * The one place the bank routes meet the screen. Today the server serves the
@@ -116,7 +120,7 @@ function matchOf(line: WireLine, offered: readonly WireSuggestion[]): Match {
 }
 
 /** Today's bank answers as the view model. Unknown facts stay unknown: no account, category, totals or coverage is invented. */
-export function mapBankWire(wire: BankWire): TransaccionesView {
+export function mapBankWire(wire: BankWire): IgualarView {
   const offered = new Map<string, WireSuggestion[]>();
   for (const suggestion of wire.suggestions) {
     if (suggestion.status !== "pending" || !suggestion.actionable) continue;
@@ -133,6 +137,7 @@ export function mapBankWire(wire: BankWire): TransaccionesView {
     match: matchOf(line, offered.get(line.id) ?? []),
   }));
   return {
+    mode: "igualar",
     movements,
     totals: { entradas: null, salidas: null, porIgualar: { count: wire.unmatched.count, amounts: null }, igualadas: null },
     coverageThrough: null,
@@ -143,16 +148,28 @@ type Fetch = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 const SERVED: ReadonlySet<DecisionKind> = new Set(["igualar", "rechazar"]);
 
-/** The live source over today's bank routes. `fetchJson` is the API transport; tests hand in their own. */
-export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch): TransaccionesSource {
+/** The bank routes answer 404 while bank matching is off on the server. */
+const bankRoutesOff = (error: unknown) => (error as { status?: unknown } | null)?.status === 404;
+
+/**
+ * The live source over today's bank routes. `fetchJson` is the API
+ * transport; tests hand in their own. While the server has the routes off,
+ * the screen lists the saved records from `records` instead.
+ */
+export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch, records?: TransaccionesSource): TransaccionesSource {
   return {
     async load(period) {
       const query = new URLSearchParams({ period_start: period.from, period_end: period.to ?? todayIso() });
-      const [unmatched, suggestions] = await Promise.all([
-        fetchJson<unknown>(`/business/bank/unmatched?${query}`),
-        fetchJson<unknown>("/business/bank/suggestions?status=pending"),
-      ]);
-      return mapBankWire(parseBankWire(unmatched, suggestions));
+      try {
+        const [unmatched, suggestions] = await Promise.all([
+          fetchJson<unknown>(`/business/bank/unmatched?${query}`),
+          fetchJson<unknown>("/business/bank/suggestions?status=pending"),
+        ]);
+        return mapBankWire(parseBankWire(unmatched, suggestions));
+      } catch (error) {
+        if (records && bankRoutesOff(error)) return records.load(period);
+        throw error;
+      }
     },
     async decide(decision: Decision, idempotencyKey: string) {
       if (decision.kind !== "igualar" && decision.kind !== "rechazar") throw new Error(`bank: ${decision.kind} is not served yet`);
@@ -160,5 +177,98 @@ export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch): Tran
       await fetchJson(`/business/bank/suggestions/${encodeURIComponent(decision.suggestionId)}/${verb}`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey } });
     },
     supports: (kind) => SERVED.has(kind),
+  };
+}
+
+/** The reads the saved records come from: the same expenses read Gastos used, the server's period totals, the accounts, and the month a venta lives in. */
+export type RecordReads = Readonly<{
+  expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
+  overview: (from: string, to: string | null) => Promise<BusinessOverview>;
+  workspace: () => Promise<Pick<BusinessWorkspaceInfo, "accounts">>;
+  /** One calendar month of documents, `YYYY-MM`: the one read that serves ventas today. */
+  month: (month: string) => Promise<MonthCloseSnapshot>;
+  /** The account words for an expense paid from the owner's own money. */
+  ownerFunds: string;
+}>;
+
+/** Ventas come a month at a time; a longer period would read past what is worth a page load, so its Entradas reads as unknown. */
+const VENTAS_MONTHS = 13;
+
+/** Every `YYYY-MM` from `from`'s month through `to`'s, oldest first. */
+function monthsBetween(from: string, to: string): string[] {
+  const months: string[] = [];
+  let year = Number(from.slice(0, 4));
+  let month = Number(from.slice(5, 7));
+  const last = to.slice(0, 7);
+  for (let key = from.slice(0, 7); key <= last; key = `${year}-${String(month).padStart(2, "0")}`) {
+    months.push(key);
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return months;
+}
+
+const ACCOUNT_KINDS: Record<string, AccountKind> = { checking: "bank", savings: "bank", credit_card: "card", cash: "cash" };
+
+function accountOf(expense: BusinessExpense, accounts: readonly BusinessAccount[], ownerFunds: string): MovementAccount | null {
+  if (expense.funding === "owner_funds") return { kind: "cash", name: ownerFunds, last4: null };
+  const account = accounts.find((item) => item.id === expense.account_id);
+  return account?.nickname ? { kind: ACCOUNT_KINDS[account.type] ?? "bank", name: account.nickname, last4: null } : null;
+}
+
+function gastoRow(expense: BusinessExpense, accounts: readonly BusinessAccount[], ownerFunds: string): RecordRow {
+  return {
+    id: expense.id,
+    kind: "gasto",
+    occurredOn: expense.occurred_on,
+    counterparty: expense.merchant,
+    money: { amount: `-${expense.amount.replace(/^[-+]/, "")}`, currency: expense.currency },
+    categoryId: expense.category_id,
+    account: accountOf(expense, accounts, ownerFunds),
+    hasProof: Boolean(expense.receipt_id),
+    marks: { personal: Boolean(expense.personal), markedBy: expense.personal_marked_by ?? null, fiscal: recordFiscalMark(expense) },
+    opens: expensePanel(expense),
+  };
+}
+
+function ventaRow(document: MonthCloseDocument): RecordRow {
+  // The month read does not say whether a file backs the venta, and an invoice has no record screen yet.
+  return { id: document.id, kind: "venta", occurredOn: document.occurred_on, counterparty: document.counterparty, money: { amount: document.amount, currency: document.currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null };
+}
+
+const newestFirst = (left: RecordRow, right: RecordRow) => right.occurredOn.localeCompare(left.occurredOn) || left.id.localeCompare(right.id);
+
+/**
+ * The saved gastos and ventas of a period, with no statement to igualar
+ * against. Salidas is the server's own "Gastos reales" for the period, so a
+ * personal gasto stays listed, marked, and out of it. Entradas is the exact
+ * sum of the ventas listed, unknown when the period is too long to read.
+ */
+export function createRecordsTransaccionesSource(reads: RecordReads): TransaccionesSource {
+  return {
+    async load(period): Promise<RecordsView> {
+      const to = period.to ?? todayIso();
+      const months = monthsBetween(period.from, to);
+      const [expenses, overview, workspace, snapshots] = await Promise.all([
+        reads.expenses(period.from, period.to),
+        reads.overview(period.from, period.to),
+        reads.workspace(),
+        months.length <= VENTAS_MONTHS ? Promise.all(months.map((month) => reads.month(month))) : Promise.resolve(null),
+      ]);
+      const last = period.to ?? overview.today;
+      const ventas = snapshots === null ? null : snapshots.flatMap((snapshot) => snapshot.documents).filter((document) => document.kind === "invoice" && document.occurred_on >= period.from && document.occurred_on <= last).map(ventaRow);
+      return {
+        mode: "records",
+        records: [...expenses.map((expense) => gastoRow(expense, workspace.accounts, reads.ownerFunds)), ...(ventas ?? [])].sort(newestFirst),
+        totals: {
+          entradas: ventas === null ? null : sumByCurrency(ventas.map((row) => row.money)),
+          salidas: overview.totals.map((total) => ({ amount: total.amount, currency: total.currency })),
+        },
+      };
+    },
+    async decide() {
+      throw new Error("records: nothing to igualar");
+    },
+    supports: () => false,
   };
 }

@@ -137,7 +137,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
-      back={confirmed ? "expenses" : "inbox"}
+      back={confirmed ? "transactions" : "inbox"}
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
       badge={<StatusPill status={detail.status} />}
       amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
@@ -468,7 +468,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               <p className="text-[14px] text-black/75 dark:text-white/75">
                 {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: formatMoney(detail.amount, detail.currency, locale) })}
               </p>
-              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "expenses" })}>
+              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "transactions" })}>
                 {t("business.review.view_expenses", "View expenses")}
               </button>
             </div>

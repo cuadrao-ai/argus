@@ -1,4 +1,4 @@
-import { openItemsHeaderCurrency } from "@/lib/business-month-close";
+import { formatDopCents, openItemsHeaderCurrency, parseDopCents } from "@/lib/business-month-close";
 
 /**
  * Transacciones, as the screen reads it. A row is a movement (money that
@@ -73,12 +73,50 @@ export type Totals = Readonly<{
   igualadas: Readonly<{ count: number; of: number }> | null;
 }>;
 
-export type TransaccionesView = Readonly<{
+export type IgualarView = Readonly<{
+  mode: "igualar";
   movements: readonly Movement[];
   totals: Totals;
   /** The last statement day the bank covers; null when no statement says. */
   coverageThrough: string | null;
 }>;
+
+export type RecordKind = "gasto" | "venta";
+
+/** Where a saved record opens: the existing record tray's receipt, draft or plain expense. */
+export type RecordTarget =
+  | { kind: "receipt"; receiptId: string; list: "transactions" }
+  | { kind: "draft"; draftId: string; list: "transactions" }
+  | { kind: "expense"; expenseId: string };
+
+/** A saved gasto or venta, as the screen lists it with no statement to igualar against. */
+export type RecordRow = Readonly<{
+  id: string;
+  kind: RecordKind;
+  occurredOn: string;
+  counterparty: string | null;
+  /** Signed like a movement: a gasto is money out, a venta money in. */
+  money: Money;
+  categoryId: string | null;
+  account: MovementAccount | null;
+  /** Its file: true shows the receipt icon, false nothing, null unknown. */
+  hasProof: boolean | null;
+  /** A personal gasto stays listed but out of Salidas, so the row says so; the fiscal mark is the same one Gastos showed. */
+  marks: Readonly<{ personal: boolean; markedBy: string | null; fiscal: "sin_comprobante" | "missing_ncf" | null }>;
+  /** Null while the record has no screen of its own (a venta today). */
+  opens: RecordTarget | null;
+}>;
+
+/** A null total is one no read can give exactly for this period: the screen shows it as unknown. */
+export type RecordsTotals = Readonly<{ entradas: readonly Money[] | null; salidas: readonly Money[] | null }>;
+
+/**
+ * With no statement to igualar against, the screen lists the period's saved
+ * gastos and ventas: no Por igualar flags, no suggestions, no coverage.
+ */
+export type RecordsView = Readonly<{ mode: "records"; records: readonly RecordRow[]; totals: RecordsTotals }>;
+
+export type TransaccionesView = IgualarView | RecordsView;
 
 export type Decision =
   | { kind: "igualar"; movementId: string; suggestionId: string }
@@ -156,8 +194,8 @@ export function defaultSegment(movements: readonly Movement[]): Segment {
 }
 
 /** The currency the Monto header names: DOP when any row is in pesos. One owner: `openItemsHeaderCurrency`. */
-export function headerCurrency(movements: readonly Movement[]): string | null {
-  return openItemsHeaderCurrency({ count: 0, items: [], totals: movements.map((movement) => ({ currency: movement.money.currency, total: movement.money.amount })) });
+export function headerCurrency(rows: readonly Readonly<{ money: Money }>[]): string | null {
+  return openItemsHeaderCurrency({ count: 0, items: [], totals: rows.map((row) => ({ currency: row.money.currency, total: row.money.amount })) });
 }
 
 /** Totals in one currency each, the header's first. Never added across currencies. */
@@ -170,6 +208,13 @@ export function signOf(money: Money): Sign {
   const trimmed = money.amount.trim();
   if (/^-?0*(\.0*)?$/.test(trimmed)) return "zero";
   return trimmed.startsWith("-") ? "out" : "in";
+}
+
+/** Exact sums of the amounts' sizes in minor units, one per currency, in the order each currency first appears. */
+export function sumByCurrency(items: readonly Money[]): Money[] {
+  const totals = new Map<string, bigint>();
+  for (const item of items) totals.set(item.currency, (totals.get(item.currency) ?? BigInt(0)) + parseDopCents(magnitude(item).amount));
+  return [...totals].map(([currency, cents]) => ({ currency, amount: formatDopCents(cents) }));
 }
 
 /** The amount without its sign, for a renderer that draws the sign itself. */

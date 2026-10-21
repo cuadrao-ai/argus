@@ -173,7 +173,7 @@ describe("Business hits open the panel that holds them", () => {
     expect(hit.detail).toContain("Caja");
     expect(hit.badge).toBe("Expense");
     hit.open?.();
-    expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-1", list: "expenses" }]);
+    expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-1", list: "transactions" }]);
   });
 
   test("an expense without a receipt opens the draft that recorded it, or its own detail", async () => {
@@ -183,7 +183,7 @@ describe("Business hits open the panel that holds them", () => {
     groups[0].hits[0].open?.();
     groups[0].hits[1].open?.();
     expect(periods).toEqual([]);
-    expect(opened).toEqual([{ kind: "draft", draftId: "draft-2", list: "expenses" }, { kind: "expense", expenseId: "exp-3" }]);
+    expect(opened).toEqual([{ kind: "draft", draftId: "draft-2", list: "transactions" }, { kind: "expense", expenseId: "exp-3" }]);
   });
 
   test("a receipt opens its review and shows the file type it is", async () => {

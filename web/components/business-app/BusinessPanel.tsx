@@ -11,9 +11,7 @@ import { useBusiness, type BusinessPanelState, type RecordList } from "./Busines
 import { useAccessBanner } from "./useAccessBanner";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
-import BusinessExpensesPanel from "./BusinessExpensesPanel";
 import TransaccionesPanel from "./transacciones/TransaccionesPanel";
-import { useTransaccionesEnabled } from "./transacciones/transacciones-gate";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
@@ -87,7 +85,7 @@ function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: Record
   const tray = useMemo(() => ({ footer, settleList }), [footer, settleList]);
   const close = () => {
     const host = listRef.current;
-    (host?.querySelector<HTMLElement>('[aria-current="true"] button') ?? host)?.focus();
+    (host?.querySelector<HTMLElement>('[aria-current="true"] button, tr[aria-selected="true"]') ?? host)?.focus();
     openPanel({ kind: list });
   };
   return (
@@ -110,14 +108,17 @@ function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: Record
   );
 }
 
+/** Inside the one canvas every screen starts at its left edge; a list or a form keeps a narrower column there. */
+const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as const;
+const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
+
 export default function BusinessPanel() {
   const { panel, lostAccess, records, reload } = useBusiness();
   const { isBelowDesktop } = useResponsiveLayout();
-  const transacciones = useTransaccionesEnabled();
   const listRef = useRef<HTMLDivElement>(null);
   if (records.closed) {
     return (
-      <div className="mx-auto flex w-full max-w-3xl justify-center pb-6">
+      <div className={`flex w-full justify-center pb-6 ${COLUMN.reading}`}>
         <BusinessClosedNotice />
       </div>
     );
@@ -125,7 +126,7 @@ export default function BusinessPanel() {
   if (records.serverReference) return <ServerErrorScreen reference={records.serverReference} onRetry={reload} />;
   if (lostAccess) {
     return (
-      <div className="mx-auto w-full max-w-3xl pb-6">
+      <div className={`w-full pb-6 ${COLUMN.reading}`}>
         <BusinessContextCue />
       </div>
     );
@@ -133,18 +134,15 @@ export default function BusinessPanel() {
   const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email" ? panel : null;
   // On a desktop a record opens in a tray beside its list; below it the record is the whole page.
   const tray = record && !isBelowDesktop ? recordList(record) : null;
-  // With the flag off a Transacciones link lands on Gastos, as today.
-  const shown = tray ?? (panel.kind === "transactions" && !transacciones ? "expenses" : panel.kind);
-  // A ledger needs the canvas: Transacciones is the one list that is not held to the reading column.
-  const wide = shown === "transactions" || (record && !tray && (record.kind === "receipt" || record.kind === "draft"));
+  const shown = tray ?? panel.kind;
+  const column = SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <div ref={listRef} tabIndex={-1} className={`mx-auto w-full outline-none ${wide ? "" : "max-w-3xl pb-6"}`}>
+    <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full pb-6 outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
-        {shown === "expenses" ? <BusinessExpensesPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}

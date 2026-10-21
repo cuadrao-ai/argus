@@ -67,9 +67,8 @@ import { quietButtonClass } from "./business-ui";
 export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
-  | { kind: "expenses"; expenseId?: string }
-  // Transacciones takes the third screen behind `businessBankMatchingEnabled`; its rows open in its own tray.
-  | { kind: "transactions" }
+  // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
+  | { kind: "transactions"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
@@ -79,7 +78,7 @@ export type BusinessPanelState =
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 
-export type RecordList = "inbox" | "expenses";
+export type RecordList = "inbox" | "transactions";
 export type BusinessTab = "datos" | "equipo" | "correo";
 const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 
@@ -142,7 +141,7 @@ export function useBusiness(): BusinessContextValue {
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "transactions"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "transactions"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -159,8 +158,10 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" | "transactions" };
+    return { kind: view as "overview" | "inbox" | "transactions" };
   }
+  // Gastos became Transacciones; an old link lands there.
+  if (view === "expenses") return { kind: "transactions" };
   if (view === "business") {
     const tab = params.get("tab");
     return tab && BUSINESS_TABS.has(tab) ? { kind: "business", tab: tab as BusinessTab } : { kind: "business" };
