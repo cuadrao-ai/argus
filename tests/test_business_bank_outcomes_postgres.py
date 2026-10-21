@@ -462,3 +462,67 @@ def _date(text: str):  # noqa: ANN202
     from datetime import date
 
     return date.fromisoformat(text)
+
+
+def test_inicio_and_the_bandeja_share_one_por_igualar_count(bank) -> None:  # noqa: ANN001, F811
+    owner = bank.alice.headers
+    checking = _checking(bank)
+    receipt = _record(bank, checking, "expense", "150", "DOP", "2026-10-12", "Banco")
+    august = _record(bank, checking, "expense", "999", "DOP", "2026-08-03", "Agosto")
+    _send(
+        bank,
+        "PATCH",
+        f"/business/month-close/documents/{august}",
+        {
+            "status": "pagado",
+            "settled_on": "2026-08-03",
+            "payment_method": "transferencia",
+        },
+        owner,
+    )
+    _import(
+        bank,
+        checking,
+        _statement(
+            [
+                ("20/09/2026", "CARGO SEPTIEMBRE", "80.00", ""),
+                ("12/10/2026", "COMISION", "150.00", ""),
+                ("13/10/2026", "SIN RECIBO", "60.00", ""),
+            ]
+        ),
+    )
+
+    def shared(headers: dict) -> tuple[int, int]:
+        counts = _ok(bank.client.get(f"{API}/business/receipt-activity", headers=headers))
+        overview = _ok(
+            bank.client.get(
+                f"{API}/business/overview", params={"from": "2026-10-01"}, headers=headers
+            )
+        )
+        return counts["por_igualar_count"], overview["por_igualar_count"]
+
+    every = _movements(bank, owner, period_start="2026-01-01", period_end="2026-12-31")
+    assert every["totals"][0]["counts"]["por_igualar"] == 4
+    assert shared(owner) == (4, 4)
+    assert shared(_as(bank.bob, bank.grant_a)) == (4, 4)
+
+    line = _line(_movements(bank, owner), "COMISION")
+    _ok(_post(bank, f"/movements/{line['id']}/match", owner, {"activity_id": receipt}))
+    september = _line(
+        _movements(bank, owner, period_start="2026-09-01", period_end="2026-09-30"),
+        "CARGO SEPTIEMBRE",
+    )
+    marked = bank.client.put(
+        f"{BANK}/movements/{september['id']}/disposition",
+        json={"reason": "cargo_banco"},
+        headers={**owner, "Idempotency-Key": str(uuid4())},
+    )
+    _ok(marked)
+    assert shared(owner) == (2, 2)
+
+
+def test_the_count_is_unknown_while_bank_matching_is_off(web) -> None:  # noqa: ANN001, F811
+    counts = _ok(
+        web.client.get(f"{API}/business/receipt-activity", headers=web.alice.headers)
+    )
+    assert counts["por_igualar_count"] is None

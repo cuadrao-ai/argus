@@ -36,10 +36,10 @@ from argus.domain.business.bank.model import (
     Suggestion,
 )
 from argus.domain.business.bank.service import (
+    bank_matching_on,
     bank_matching_service,
     confidence_of,
 )
-from argus.domain.business.config import business_bank_matching_enabled
 
 router = APIRouter(prefix="/bank", tags=["business-bank"])
 
@@ -69,7 +69,7 @@ _STATUSES = {
 
 
 def require_bank_surface(request: Request) -> None:
-    if not business_bank_matching_enabled() or bank_matching_service() is None:
+    if not bank_matching_on():
         raise unavailable_problem(request)
 
 

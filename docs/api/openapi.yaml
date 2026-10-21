@@ -15497,6 +15497,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        por_igualar_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
         last_received_at:
           anyOf:
           - type: string
@@ -25529,6 +25533,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        por_igualar_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -25538,6 +25546,7 @@ components:
       - pending_review_count
       - needs_attention_count
       - ready_to_review_count
+      - por_igualar_count
     ReceiptCardFacts:
       properties:
         execution_costs:

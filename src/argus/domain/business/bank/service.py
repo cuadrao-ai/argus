@@ -50,6 +50,14 @@ def bank_matching_service() -> BankMatchingService | None:
     return _SERVICE
 
 
+def bank_matching_on() -> bool:
+    """The switch is on and the service started."""
+
+    from argus.domain.business.config import business_bank_matching_enabled
+
+    return business_bank_matching_enabled() and _SERVICE is not None
+
+
 def unmatched_charge_count(space_id: UUID, period_start: date, period_end: date) -> int:
     """Charges in the inclusive period with no confirmed receipt.
 
