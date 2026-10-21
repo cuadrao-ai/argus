@@ -10123,9 +10123,11 @@ accept path recorded.
   filename and the reviewed amount as written.
   An expense, a venta or a receipt also matches by value. Its amount matches
   when the canonical amount reader reads `q` as exactly one amount (`3450`,
-  `3,450.00`, `$ 3450`, `RD$3,450.00`) equal to it, in its currency when `q`
-  names one; a signed amount, an ambiguous one (`3,450`) or one inside words
-  (`taller 3450`) is no amount. The RNC, NCF and e-CF its bridge draft knows
+  `3,450`, `3,450.00`, `1,234,567`, `$ 3450`, `RD$ 3,450`, `RD$3,450.00`)
+  equal to it, in its currency when `q` names one. In a search query a comma
+  before exactly three digits groups thousands; a signed amount, a number
+  grouped any other way (`1234,567`, `3.450`) or one inside words (`taller
+  3450`) is no amount. The RNC, NCF and e-CF its bridge draft knows
   match when their digits equal all of `q`'s digits (`B0100000001`,
   `b01-0000-0001`, `199-99002-1`); part of a number never matches. A receipt
   takes the numbers of the draft it is linked to, and the latest draft of a
@@ -10139,7 +10141,9 @@ accept path recorded.
   Expenses and ventas are newest first, receipts as the Bandeja lists them,
   deliveries newest first and senders in the order they were added. A receipt
   whose expense or venta is a hit on any page is left out, because the
-  record's `receipt_id` opens it and its source.
+  record's `receipt_id` opens it and its source. An email original
+  (`email_original`) is left out before the page is cut: it is the email
+  itself, and its delivery is the hit under `email_deliveries`.
   `next_cursors` names every list; each value is the cursor to that list's
   next page, or null. Load more sends the same `q` and `limit` with `kind`
   (`expenses`, `ventas`, `receipts`, `accounts`, `email_deliveries` or
