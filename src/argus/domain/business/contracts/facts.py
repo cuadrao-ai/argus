@@ -260,6 +260,9 @@ class BusinessResolution(Contract):
     bill_mark: Literal["Factura por pagar", "Factura pagada"] | None = None
     #: A person settled the read purchases this draft does not record.
     remainder_settled: bool = False
+    #: The due date a person set in review. None is unknown: never read from
+    #: the document and never defaulted.
+    due_on: date | None = Field(default=None, exclude_if=lambda value: value is None)
 
     def unrecorded_purchases(self) -> int:
         """Read purchases this draft's amount does not account for. One read
@@ -301,6 +304,15 @@ FactInput = TypeAliasType(
     Annotated[KnownInput[T] | UncertainInput, Field(discriminator="state")],
     type_params=(T,),
 )
+
+
+class UnknownInput(Contract):
+    state: Literal["unknown"]
+    value: None = None
+
+
+#: A due date a person states, or takes back to unknown.
+DueOnInput = Annotated[KnownInput[date] | UnknownInput, Field(discriminator="state")]
 
 
 def _patch_json_schema(schema: dict[str, Any]) -> None:

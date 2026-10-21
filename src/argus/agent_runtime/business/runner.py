@@ -165,9 +165,9 @@ class BusinessTurnRunner:
         }
         if touched_ids:
             saved_state["dossiers"] = [
-                context.actions.dossier(context.authorization, UUID(draft_id)).model_dump(
-                    mode="json"
-                )
+                context.actions.dossier(
+                    context.authorization, UUID(draft_id)
+                ).model_facing()
                 for draft_id in sorted(touched_ids)
             ]
         context.check_access()

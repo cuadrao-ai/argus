@@ -3518,6 +3518,16 @@ as `document_type`, null when the upload named none. A person's change is a
 normal revision on an open draft; the type is not stored on the revision row,
 whose web source holds the request that named it. No migration.
 
+The resolution's `due_on` is the due date a person set in review: a date, or
+absent while it is unknown. No read, default or issue date fills it. A change
+is a normal revision on an open draft, and the draft locks it with the other
+facts once approved. Migration `20261020120000_business_due_on.sql` adds the
+nullable `business_draft_revisions.before_due_on` and `after_due_on` date
+columns, so each revision keeps the value before and after it. The table keeps
+row-level security with no client policy; anon and authenticated hold no
+privilege and only the service role reads and appends rows. Month close and
+open items read the date from the resolution, not from the revision.
+
 | Table | Durable owner and invariants |
 | --- | --- |
 | `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`. Keep 10 years. No delete API. |

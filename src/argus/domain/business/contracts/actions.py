@@ -22,6 +22,7 @@ from .facts import (
     BusinessFactPatch,
     BusinessShare,
     Contract,
+    DueOnInput,
     FactField,
     FactInput,
     Funding,
@@ -144,11 +145,20 @@ class ReviewDraft(Contract):
     dgii: FiscalReview | None = None
     #: Sets the uploaded document's type while the draft is open.
     document_type: DocumentType | None = None
+    #: Sets the due date, or takes it back to unknown, while the draft is open.
+    due_on: DueOnInput | None = None
 
     @model_validator(mode="after")
     def some_review_input(self):
-        if self.facts is None and self.dgii is None and self.document_type is None:
-            raise ValueError("supply review facts, fiscal declaration or document type")
+        if (
+            self.facts is None
+            and self.dgii is None
+            and self.document_type is None
+            and self.due_on is None
+        ):
+            raise ValueError(
+                "supply review facts, fiscal declaration, document type or due date"
+            )
         return self
 
 

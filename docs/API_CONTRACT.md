@@ -9242,7 +9242,20 @@ as read. Setting the type, changed or not, ends `document_type_detected`. After
 approval the change is `422` `document_type_locked`. `BusinessDossier` carries
 `document_type`, `document_type_detected` and `document_type_editable` (open,
 and the caller holds `prepare`). A stale `version` is still `409`
-`stale_version` first. The same existing
+`stale_version` first.
+
+The same review may carry `due_on`, alone or with other review input.
+`{"state": "known", "value": "YYYY-MM-DD"}` sets the due date and
+`{"state": "unknown"}` clears it. Absent, the due date stays as it is. Only a
+person sets it: no read, default or issue date fills it. A change is one
+revision, and each `history` entry carries `before_due_on` and `after_due_on`.
+After approval the change is `422` `recorded_correction_unsupported`, the same
+as the other facts. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
+month-close and open-items line carry the date as `YYYY-MM-DD`, or `null` while
+it is unknown. Open items list the soonest due date first (see the
+[month-close contract](contracts/business-month-close.md)).
+
+The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
 `ApproveExpense | ApproveIncome`: `{version, action: "record_expense"}` or
 `{version, action: "record_income"}`, with the existing required

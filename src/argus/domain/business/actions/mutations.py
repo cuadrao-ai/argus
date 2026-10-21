@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
@@ -33,6 +33,7 @@ from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    DueOnInput,
     Known,
     ReadPurchase,
 )
@@ -102,6 +103,7 @@ def save_revision(
     clear_dgii: bool = False,
     document_type: DocumentType | None = None,
     document_type_detected: bool = False,
+    due_on: DueOnInput | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -129,6 +131,9 @@ def save_revision(
     if document_type == "venta":
         # An issued invoice is never a bill the business owes.
         bill_mark = None
+    kept_due_on = previous.get("due_on")
+    before_due_on = date.fromisoformat(kept_due_on) if kept_due_on else None
+    after_due_on = before_due_on if due_on is None else due_on.value
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
@@ -140,14 +145,16 @@ def save_revision(
         dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
         document_type=document_type,
         document_type_detected=document_type_detected,
+        due_on=after_due_on,
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
     tx.rows(
         "insert into public.business_draft_revisions"
-        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,before_dgii,after_dgii)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,"
+        "before_dgii,after_dgii,before_due_on,after_due_on)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -161,6 +168,8 @@ def save_revision(
             Jsonb(resolution["business"].get("dgii"))
             if resolution["business"].get("dgii")
             else None,
+            before_due_on,
+            after_due_on,
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
@@ -177,6 +186,7 @@ def revise(
     answer_id: UUID | None = None,
     fiscal_review: FiscalReview | None = None,
     document_type: DocumentType | None = None,
+    due_on: DueOnInput | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
@@ -264,6 +274,7 @@ def revise(
         # A declaration filled under the other type no longer applies.
         clear_dgii=retyped and declared is None,
         document_type=document_type,
+        due_on=due_on,
     )
 
 

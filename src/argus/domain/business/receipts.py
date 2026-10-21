@@ -263,6 +263,7 @@ class Receipt:
             "draft_id": self.review.event_id,
             "evidence": None if self.entered_by_owner else evidence(self.review),
             "missing_fields": self.missing_fields,
+            "due_on": None,
         }
 
 

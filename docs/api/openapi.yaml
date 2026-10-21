@@ -14576,6 +14576,11 @@ components:
         document_type_editable:
           type: boolean
           default: false
+        due_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -17258,6 +17263,11 @@ components:
         sin_comprobante:
           type: boolean
           default: false
+        due_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -17276,6 +17286,7 @@ components:
       - ncf
       - ecf
       - status
+      - due_on
     DocumentResponse:
       properties:
         connection_id:
@@ -17386,6 +17397,16 @@ components:
               mapping:
                 '606': '#/components/schemas/PurchaseDeclaration'
                 '607': '#/components/schemas/SalesDeclaration'
+          - type: 'null'
+        before_due_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        after_due_on:
+          anyOf:
+          - type: string
+            format: date
           - type: 'null'
       additionalProperties: false
       type: object
@@ -24623,6 +24644,11 @@ components:
             - category_id
             - account_id
           type: array
+        due_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -25668,6 +25694,17 @@ components:
             enum:
             - recibo
             - venta
+          - type: 'null'
+        due_on:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/KnownInput_date_'
+            - $ref: '#/components/schemas/UnknownInput'
+            discriminator:
+              propertyName: state
+              mapping:
+                known: '#/components/schemas/KnownInput_date_'
+                unknown: '#/components/schemas/UnknownInput'
           - type: 'null'
       additionalProperties: false
       type: object
@@ -27242,6 +27279,17 @@ components:
           default: []
       additionalProperties: false
       type: object
+    UnknownInput:
+      properties:
+        state:
+          type: string
+          const: unknown
+        value:
+          type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - state
     UnmatchedChargesResponse:
       properties:
         count:

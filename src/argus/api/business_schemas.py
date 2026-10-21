@@ -280,6 +280,8 @@ class ReceiptDetail(ReceiptSummary):
     version: int
     evidence: ReceiptEvidence | None
     missing_fields: list[ReviewField]
+    # The due date its draft holds; null while unknown or without a draft.
+    due_on: date | None = None
 
 
 class ReceiptPage(_Wire):

@@ -62,6 +62,7 @@ class MonthDocument:
     declared_base_minor: int | None = None
     counterparty: str | None = None
     sin_comprobante: bool = False
+    due_on: date | None = None
 
 
 @dataclass(frozen=True)
@@ -289,6 +290,7 @@ def _line(document: MonthDocument) -> dict:
         "ecf": document.ecf,
         "status": document.status,
         "sin_comprobante": document.sin_comprobante,
+        "due_on": None if document.due_on is None else document.due_on.isoformat(),
     }
 
 
@@ -426,8 +428,9 @@ OPEN_ITEMS_CAP = 100
 def open_items(documents: Sequence[MonthDocument], cap: int = OPEN_ITEMS_CAP) -> dict:
     """Every pending document the month close would list, from any month.
 
-    Oldest first. ``count`` and the per-currency totals cover every pending
-    document, including the ones past ``cap``.
+    Soonest due date first; documents with no due date follow, oldest first.
+    ``count`` and the per-currency totals cover every pending document,
+    including the ones past ``cap``.
     """
 
     pending = sorted(
@@ -436,7 +439,12 @@ def open_items(documents: Sequence[MonthDocument], cap: int = OPEN_ITEMS_CAP) ->
             for document in documents
             if in_close(document) and document.status == "pendiente"
         ),
-        key=lambda document: (document.occurred_on, document.activity_id),
+        key=lambda document: (
+            document.due_on is None,
+            document.due_on or date.min,
+            document.occurred_on,
+            document.activity_id,
+        ),
     )
     return {
         "cuentas_por_cobrar": _open_list(
@@ -487,6 +495,7 @@ class FiscalParts:
     declared_base_minor: int | None = None
     counterparty: str | None = None
     sin_comprobante: bool = False
+    due_on: date | None = None
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -497,7 +506,7 @@ def _known(fact: object) -> object | None:
 
 
 def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
-    """RNC, fiscal number, ITBIS, marks, and counterparty from one draft.
+    """RNC, fiscal number, ITBIS, marks, counterparty, and due date from one draft.
 
     An unreadable draft contributes no fiscal parts. The activity total is not
     read from the draft.
@@ -533,6 +542,7 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         declared,
         _text(_known(facts.counterparty)),
         is_sin_comprobante(facts),
+        parsed.due_on,
     )
 
 
@@ -600,6 +610,7 @@ def project_documents(
                 declared_base_minor=parts.declared_base_minor,
                 counterparty=parts.counterparty,
                 sin_comprobante=parts.sin_comprobante,
+                due_on=parts.due_on,
                 status=status,
                 settled_on=settled_on,
                 payment_method=method,
