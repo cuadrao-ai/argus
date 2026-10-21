@@ -53,7 +53,12 @@ export default function BusinessOverviewPanel() {
 
       {records.error ? (
         <div className={`${cardClass} mt-6`}>
-          <EmptyState kind="error" compact testId="inicio-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
+          {/* A refusal for good is not the connection's fault, and asking again gets the same answer. */}
+          {records.refused ? (
+            <EmptyState kind="error" compact testId="inicio-error" title={t("auth.business_unavailable.title", "Cuadrao Business isn't available for your account yet.")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
+          ) : (
+            <EmptyState kind="error" compact testId="inicio-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
+          )}
         </div>
       ) : null}
     </section>

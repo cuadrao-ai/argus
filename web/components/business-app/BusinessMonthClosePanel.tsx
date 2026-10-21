@@ -49,6 +49,7 @@ import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
 import { resolveLanguage } from "@/lib/language-features";
+import { refusedForGood } from "@/lib/failure-screen";
 import { setCurrencyView, useCurrencyView } from "@/lib/business-currency-view";
 import { currencySymbol } from "@/lib/money-entry";
 import { MonthCurrencyMenu } from "./MonthCurrencyMenu";
@@ -363,6 +364,8 @@ export function BusinessMonthCloseView({
   const [currentMonth, setCurrentMonth] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<MonthCloseSnapshot | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
+  // With an error: the server refused on purpose, so the error offers no Reintentar.
+  const [refused, setRefused] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [fiscalOpen, setFiscalOpen] = useState(false);
@@ -372,6 +375,7 @@ export function BusinessMonthCloseView({
   const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(() => new Set());
   const [openItems, setOpenItems] = useState<OpenItems | null>(null);
   const [openPhase, setOpenPhase] = useState<"loading" | "ready" | "error">("loading");
+  const [openRefused, setOpenRefused] = useState(false);
   const [openAttempt, setOpenAttempt] = useState(0);
   const inFlight = useRef(new Set<string>());
   // A mark or Deshacer that fails says so in Pendiente hoy, with Reintentar when trying again can work; a failed close says so inside its alert.
@@ -394,8 +398,9 @@ export function BusinessMonthCloseView({
       if (openGeneration.current !== request) return;
       setOpenItems(next);
       setOpenPhase("ready");
-    } catch {
+    } catch (error) {
       if (openGeneration.current !== request) return;
+      setOpenRefused(refusedForGood(error));
       setOpenPhase("error");
     }
   }
@@ -431,8 +436,9 @@ export function BusinessMonthCloseView({
         setSnapshot(preview === "empty" ? { ...next, documents: [], figures: [] } : next);
         setPhase("ready");
       },
-      () => {
+      (error: unknown) => {
         if (generation.current !== request) return;
+        setRefused(refusedForGood(error));
         setPhase("error");
       },
     );
@@ -844,7 +850,11 @@ export function BusinessMonthCloseView({
   function moneyError() {
     return (
       <div data-testid="month-close-money-error" className={`${cardClass} flex-1`}>
-        <EmptyState kind="error" compact title={t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setOpenAttempt((value) => value + 1) }} />
+        {openRefused ? (
+          <EmptyState kind="error" compact title={t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
+        ) : (
+          <EmptyState kind="error" compact title={t("business.month_close.open_items_error", "We couldn't load what is left to collect and pay")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setOpenAttempt((value) => value + 1) }} />
+        )}
       </div>
     );
   }
@@ -906,7 +916,12 @@ export function BusinessMonthCloseView({
 
       {phase === "error" ? (
         <div data-testid="month-close-error" data-layout="error" className={`${cardClass} ${WIDE.full}`}>
-          <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setAttempt((value) => value + 1) }} />
+          {/* A refusal for good is not the connection's fault, and asking again gets the same answer. */}
+          {refused ? (
+            <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
+          ) : (
+            <EmptyState kind="error" compact title={t("business.month_close.error_title", "We couldn't load the month")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("business.month_close.retry", "Try again"), run: () => setAttempt((value) => value + 1) }} />
+          )}
         </div>
       ) : !snapshot ? (
         <div role="status" data-testid="month-close-loading" data-layout="loading" aria-busy="true" className={WIDE.full}>

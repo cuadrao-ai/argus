@@ -44,6 +44,39 @@ export function classifyFailure(
   return "other";
 }
 
+/**
+ * Refusals where the server says, on purpose, that this Business or this part
+ * of it is not available. Asking again gets the same answer. Each one is its
+ * status and its code together: any other 503, business_bank_unavailable
+ * among them, is an outage that can pass.
+ */
+const REFUSED_FOR_GOOD: readonly (readonly [number, string])[] = [
+  [404, "business_unavailable"],
+  [503, "email_capture_unavailable"],
+];
+
+/** True when the server refused on purpose; a client that wraps the API error keeps it as its cause. */
+export function refusedForGood(error: unknown): boolean {
+  for (const candidate of [error, typeof error === "object" && error !== null ? (error as { cause?: unknown }).cause : undefined]) {
+    if (typeof candidate !== "object" || candidate === null) continue;
+    const { status, code } = candidate as { status?: unknown; code?: unknown };
+    if (REFUSED_FOR_GOOD.some(([refusedStatus, refusedCode]) => status === refusedStatus && code === refusedCode)) return true;
+  }
+  return false;
+}
+
+/**
+ * What a failed read can offer. Offline is the connection banner's to say;
+ * a refusal for good offers no Reintentar and never blames the connection;
+ * anything else can pass, so Reintentar stays.
+ */
+export type LoadRecovery = "offline" | "refused" | "retry";
+
+export function loadRecovery(error: unknown, online = typeof navigator === "undefined" || navigator.onLine !== false): LoadRecovery {
+  if (!online) return "offline";
+  return refusedForGood(error) ? "refused" : "retry";
+}
+
 const REFERENCE = /^[A-Za-z0-9_-]{4,64}$/;
 
 export function referenceCode(error: unknown): string {

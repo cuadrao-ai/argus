@@ -2213,8 +2213,7 @@
       "continue": "Continuar",
       "privacy_link": "Ver aviso de privacidad",
       "one_time": "Te lo pedimos una sola vez, para los datos de tu negocio.",
-      "save_failed": "No pudimos guardar tu aceptación. No cambió nada.",
-      "reference": "Ref. {{reference}}"
+      "save_failed": "No pudimos guardar tu aceptación. No cambió nada."
     },
     "export": {
       "start": "Desde",
@@ -2281,7 +2280,6 @@
       "error": {
         "load_title": "No pudimos cargar tus movimientos",
         "load_body": "Lo que ya igualaste sigue guardado.",
-        "reference": "Ref. {{reference}}",
         "reload": "Actualizar",
         "more": "No pudimos cargar más movimientos. Los que ves siguen aquí.",
         "list_changed": "La lista cambió mientras la leías. Actualízala para seguir.",
@@ -2662,7 +2660,7 @@
       "group_new": "Nuevo desde tu última visita",
       "group_earlier": "Antes",
       "no_problems": "Ningún recibo con problemas",
-      "nothing_to_review": "Nada por revisar",
+      "nothing_to_review": "Tus recibos están al día.",
       "see_all_body": "Todos tus recibos están en Todo.",
       "see_all": "Ver todo",
       "segment_review_short": "Revisar",

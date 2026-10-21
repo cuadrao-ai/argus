@@ -2213,8 +2213,7 @@
       "continue": "Continue",
       "privacy_link": "View privacy notice",
       "one_time": "We ask this once, for your business's data.",
-      "save_failed": "We couldn't save your acceptance. Nothing changed.",
-      "reference": "Ref. {{reference}}"
+      "save_failed": "We couldn't save your acceptance. Nothing changed."
     },
     "export": {
       "start": "From",
@@ -2281,7 +2280,6 @@
       "error": {
         "load_title": "We couldn't load your movements",
         "load_body": "What you already matched is still saved.",
-        "reference": "Ref. {{reference}}",
         "reload": "Refresh",
         "more": "We couldn't load more movements. The ones you see are still here.",
         "list_changed": "The list changed while you read it. Refresh it to continue.",
@@ -2798,7 +2796,7 @@
       "group_new": "New since your last visit",
       "group_earlier": "Earlier",
       "no_problems": "No receipts with problems",
-      "nothing_to_review": "Nothing to review",
+      "nothing_to_review": "Your receipts are up to date.",
       "see_all_body": "Every receipt you have is under All.",
       "see_all": "See all",
       "segment_review_short": "Review",

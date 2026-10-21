@@ -80,3 +80,13 @@ test("no screen prints a reference except through ReferenceCode", () => {
   const offenders = printing.filter((path) => !path.endsWith("components/status/ReferenceCode.tsx") && !NOT_YET_SWITCHED.has(path));
   assert.deepEqual(offenders, []);
 });
+
+test("the two copy keys that printed a reference on their own are gone in both languages", () => {
+  const root = join(import.meta.dir, "..");
+  for (const language of ["es-419", "en"]) {
+    const catalog = JSON.parse(readFileSync(join(root, "public/locales", language, "common.json"), "utf8"));
+    assert.equal(catalog.business.consent.reference, undefined, `${language} business.consent.reference`);
+    assert.equal(catalog.business.transactions.error.reference, undefined, `${language} business.transactions.error.reference`);
+    assert.equal(catalog.common.reference, "Ref. {{reference}}", `${language} keeps the one key ReferenceCode reads`);
+  }
+});

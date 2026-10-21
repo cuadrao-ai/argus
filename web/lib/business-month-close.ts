@@ -177,10 +177,12 @@ export type MonthCloseErrorCode = "not_found" | "closed" | "invalid_status" | "b
 export class MonthCloseError extends Error {
   readonly code: MonthCloseErrorCode;
 
-  constructor(code: MonthCloseErrorCode, message: string) {
+  /** The API error this one stands for, so a screen can still read what the server said. */
+  constructor(code: MonthCloseErrorCode, message: string, cause?: unknown) {
     super(message);
     this.name = "MonthCloseError";
     this.code = code;
+    if (cause !== undefined) this.cause = cause;
   }
 }
 
@@ -1014,7 +1016,7 @@ function monthCloseError(error: unknown): MonthCloseError {
     blockers: "blockers",
     unavailable: "unavailable",
   };
-  return new MonthCloseError(mapped[code ?? ""] ?? "unavailable", error instanceof Error ? error.message : "month close request failed");
+  return new MonthCloseError(mapped[code ?? ""] ?? "unavailable", error instanceof Error ? error.message : "month close request failed", error);
 }
 
 async function readTransport(transport: MonthCloseTransport, request: MonthCloseRequest): Promise<unknown> {

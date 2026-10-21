@@ -23,7 +23,6 @@ const SPANISH = {
   privacy_link: "Ver aviso de privacidad",
   one_time: "Te lo pedimos una sola vez, para los datos de tu negocio.",
   save_failed: "No pudimos guardar tu aceptación. No cambió nada.",
-  reference: "Ref. {{reference}}",
 };
 
 const ENGLISH = {
@@ -34,7 +33,6 @@ const ENGLISH = {
   privacy_link: "View privacy notice",
   one_time: "We ask this once, for your business's data.",
   save_failed: "We couldn't save your acceptance. Nothing changed.",
-  reference: "Ref. {{reference}}",
 };
 
 type ConsentBlock = Record<string, string>;
