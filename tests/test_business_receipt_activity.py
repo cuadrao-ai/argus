@@ -99,17 +99,21 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         "pending_review_count": 2,
         "needs_attention_count": 1,
         "ready_to_review_count": 2,
+        "por_igualar_count": None,
     }
     assert inbox_counts(views, notes=1, emails=["no_receipt", "no_receipt"]) == {
         "pending_review_count": 5,
         "needs_attention_count": 3,
         "ready_to_review_count": 3,
+        "por_igualar_count": None,
     }
     assert inbox_counts(views, emails=["reading", "no_receipt", "reading"]) == {
         "pending_review_count": 5,
         "needs_attention_count": 2,
         "ready_to_review_count": 2,
+        "por_igualar_count": None,
     }
+    assert inbox_counts(views, por_igualar=7)["por_igualar_count"] == 7
 
 
 def test_ready_to_review_matches_the_web_por_revisar_cases():

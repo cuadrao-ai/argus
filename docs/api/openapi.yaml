@@ -15497,6 +15497,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        por_igualar_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
         last_received_at:
           anyOf:
           - type: string
@@ -24159,6 +24163,14 @@ components:
           - type: string
             pattern: ^[A-Z]{3}$
           - type: 'null'
+        table_density:
+          anyOf:
+          - type: string
+            enum:
+            - compacto
+            - normal
+            - amplio
+          - type: 'null'
       type: object
     ProposalUpdate:
       properties:
@@ -25521,6 +25533,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        por_igualar_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -25530,6 +25546,7 @@ components:
       - pending_review_count
       - needs_attention_count
       - ready_to_review_count
+      - por_igualar_count
     ReceiptCardFacts:
       properties:
         execution_costs:
@@ -28731,6 +28748,13 @@ components:
           - type: string
             pattern: ^[A-Z]{3}$
           - type: 'null'
+        table_density:
+          type: string
+          enum:
+          - compacto
+          - normal
+          - amplio
+          default: normal
         is_admin:
           type: boolean
           default: false

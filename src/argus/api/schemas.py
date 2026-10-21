@@ -152,6 +152,9 @@ PreferredName = Annotated[
 ]
 
 
+TableDensity = Literal["compacto", "normal", "amplio"]
+
+
 class User(BaseModel):
     id: str
     email: str | None
@@ -168,6 +171,8 @@ class User(BaseModel):
     country: CountryCode = None
     #: ISO 4217 the user chose over the currency their country implies.
     currency_override: CurrencyCode = None
+    #: Row height for dense tables. Phones ignore it.
+    table_density: TableDensity = "normal"
     is_admin: bool = False
     onboarding: OnboardingState = Field(default_factory=OnboardingState)
     created_at: datetime
@@ -255,6 +260,7 @@ class ProfilePatch(BaseModel):
     avatar_theme: AvatarTheme = "ocean"
     country: AssignedCountryCode = None
     currency_override: TenderCurrencyCode = None
+    table_density: TableDensity | None = None
 
 
 ConversationSurface = Literal["personal", "business"]
