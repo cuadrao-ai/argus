@@ -46,8 +46,8 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                     HStack(spacing: 18) {
                         PlanLandscape(look: draft.look).frame(width: 64, height: 70)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(spanish ? "Dale un nombre." : "Make it yours.").font(CuadraoTypography.section)
-                            TextField(spanish ? "Por ejemplo, mi próximo viaje" : "For example, my next trip", text: $draft.name)
+                            Text(CuadraoCopy.text("copy.cuadraoPlanEditor.b6e583497b", spanish: spanish)).font(CuadraoTypography.section)
+                            TextField(CuadraoCopy.text("copy.cuadraoPlanEditor.686ef0b19c", spanish: spanish), text: $draft.name)
                                 .font(.body).focused($nameFocused).submitLabel(.done).onSubmit { nameFocused = false }
                                 .accessibilityIdentifier(ids.name)
                         }
@@ -65,21 +65,21 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                     }.background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 20))
                     details($draft)
                     HStack {
-                        CuadraoChoiceMenu(title: spanish ? "Espacio" : "Space", selection: $draft.spaceID,
+                        CuadraoChoiceMenu(title: CuadraoCopy.text("copy.cuadraoPlanEditor.35e8322d8a", spanish: spanish), selection: $draft.spaceID,
                             values: host.spaces.map(\.id),
-                            valueTitle: { id in host.spaces.first { $0.id == id }?.title ?? (spanish ? "Espacio archivado" : "Archived space") })
+                            valueTitle: { id in host.spaces.first { $0.id == id }?.title ?? (CuadraoCopy.text("copy.cuadraoPlanEditor.577a4529ed", spanish: spanish)) })
                             .accessibilityIdentifier("plan-edit-space")
                         Spacer()
                     }
                     if !editing {
-                        Text(spanish ? "La moneda queda fija al crear el plan." : "Currency is fixed once you create the plan.").font(.caption).foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoGroupEditor.5c8f67cfc6", spanish: spanish)).font(.caption).foregroundStyle(.secondary)
                     }
                     if draft.spaceID == "household" {
-                        Text(spanish ? "Este plan pertenece a Hogar. Sus miembros podrán verlo; tus cuentas personales siguen siendo privadas." : "This plan belongs to Household. Its members will see it; your personal accounts stay private.")
+                        Text(CuadraoCopy.text("copy.cuadraoPlanEditor.bf6659c2bb", spanish: spanish))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if host.showsLook {
-                        DisclosureGroup(spanish ? "Darle mi estilo" : "Make it mine") {
+                        DisclosureGroup(CuadraoCopy.text("copy.cuadraoPlanEditor.b549852830", spanish: spanish)) {
                             PlanLookPicker(look: $draft.look, spanish: spanish).padding(.top, 12)
                         }.font(.subheadline)
                     }
@@ -90,7 +90,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                                     amountRow(draft.kind.recordedTitle(spanish), value: $draft.recorded, id: "plan-recorded")
                                 }
                                 if draft.kind == .debt && host.showsRate {
-                                    PercentField(title: spanish ? "Interés anual" : "Annual interest", text: $rateText, bounds: .interest,
+                                    PercentField(title: CuadraoCopy.text("copy.cuadraoPlanDetail.71b1540ce2", spanish: spanish), text: $rateText, bounds: .interest,
                                                  spanish: spanish, identifier: ids.rate)
                                         .focused($rateFocused).padding(18)
                                         .onChange(of: rateText) { _, text in
@@ -99,36 +99,36 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                                             }
                                         }
                                     .onAppear { if draft.annualRate != 0 && rateText.isEmpty { rateText = draft.annualRate.formatted(.number.grouping(.never)) } }
-                                    Text(spanish ? "La estimación supone una tasa fija, pagos mensuales, sin compras nuevas ni comisiones." : "The estimate assumes a fixed rate, monthly payments, no new purchases or fees.")
+                                    Text(CuadraoCopy.text("copy.cuadraoPlanEditor.bd7e42d542", spanish: spanish))
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                             }.padding(.top, 12)
-                        } label: { Text(spanish ? "Punto de partida" : "Starting point").font(.subheadline.weight(.medium)) }
+                        } label: { Text(CuadraoCopy.text("copy.cuadraoPlanEditor.8b8cad6032", spanish: spanish)).font(.subheadline.weight(.medium)) }
                     }
                     if draft.kind == .debt && host.showsRate && !showDetails {
-                        Text(spanish ? "Supuesto: interés anual de \(draft.annualRate.formatted())%. Puedes cambiarlo en Punto de partida." : "Assumption: \(draft.annualRate.formatted())% annual interest. Change it in Starting point.")
+                        Text(CuadraoCopy.text("copy.cuadraoPlanEditor.fc6273400c", spanish: spanish, String(describing: draft.annualRate.formatted())))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if draft.kind != .budget && host.showsTarget && host.showsRecorded {
                         let months = draft.months(at: draft.monthly)
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(months.map { $0 == 0 ? (spanish ? "Ya llegaste." : "You're there.") : PlanFormat.month(after: $0, spanish: spanish) }
-                                 ?? (spanish ? "Prueba un aporte mayor" : "Try a higher amount"))
+                            Text(months.map { $0 == 0 ? (CuadraoCopy.text("copy.cuadraoPlanEditor.3fd01b458f", spanish: spanish)) : PlanFormat.month(after: $0, spanish: spanish) }
+                                 ?? (CuadraoCopy.text("copy.cuadraoPlanEditor.4f1aa8639a", spanish: spanish)))
                                 .font(CuadraoTypography.section).foregroundStyle(WelcomePalette.pine)
-                            Text(spanish ? "Fecha estimada con este ritmo. Puedes ajustarlo después." : "Estimated date at this pace. You can adjust it later.")
+                            Text(CuadraoCopy.text("copy.cuadraoPlanEditor.87e73474e8", spanish: spanish))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                     if !valid {
                         Text(PlanRateCheck.hint(rateProblem, spanish: spanish)
-                             ?? host.missing(draft) ?? (spanish ? "Añade un nombre y revisa los montos." : "Add a name and check the amounts."))
+                             ?? host.missing(draft) ?? (CuadraoCopy.text("copy.cuadraoPlanEditor.4e0d78bbf7", spanish: spanish)))
                             .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("plan.missing")
                     }
                     footer()
                 }.padding(24)
             }.safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    PlanPrimaryButton(title: editing ? (spanish ? "Guardar cambios" : "Save changes") : (spanish ? "Crear plan" : "Create plan")) {
+                    PlanPrimaryButton(title: editing ? (CuadraoCopy.text("copy.cuadraoGroupEditor.f16dc530c4", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanCanvas.2131013203", spanish: spanish))) {
                         draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
                         if draft.kind == .budget { draft.monthly = draft.target }
                         host.save(draft)
@@ -136,23 +136,23 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
                     }.disabled(!valid || host.saving).opacity(valid && !host.saving ? 1 : 0.45).accessibilityIdentifier(ids.save)
                 }.padding(.horizontal, 24).padding(.vertical, 12).background(.regularMaterial)
             }.cuadraoFormKeyboard().background(WelcomePalette.background)
-                .navigationTitle(editing ? (spanish ? "Editar plan" : "Edit plan") : (spanish ? "Un nuevo plan" : "A new plan"))
+                .navigationTitle(editing ? (CuadraoCopy.text("copy.cuadraoPlanDetail.507c662ea3", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanEditor.3fe8b9ec92", spanish: spanish)))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", disabled: host.saving) {
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), disabled: host.saving) {
                         if draft != initial { discard = true } else { dismiss() }
                     }
                 }
-                .confirmationDialog(spanish ? "¿Descartar cambios?" : "Discard changes?", isPresented: $discard, titleVisibility: .visible) {
-                    Button(spanish ? "Descartar" : "Discard", role: .destructive) { dismiss() }
+                .confirmationDialog(CuadraoCopy.text("copy.cuadraoGroupEditor.4a48e5135c", spanish: spanish), isPresented: $discard, titleVisibility: .visible) {
+                    Button(CuadraoCopy.text("copy.guestClaimModel.adac3a9868", spanish: spanish), role: .destructive) { dismiss() }
                 }
         }.sensoryFeedback(.selection, trigger: draft.look)
             .presentationDragIndicator(.visible).interactiveDismissDisabled(draft != initial || host.saving)
     }
-    private var monthlyTitle: String { host.monthlyTitle ?? (spanish ? "Cada mes" : "Each month") }
+    private var monthlyTitle: String { host.monthlyTitle ?? (CuadraoCopy.text("copy.cuadraoPlanEditor.90ae4ff82c", spanish: spanish)) }
     private var kindPicker: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(spanish ? "¿Qué tienes en mente?" : "What do you have in mind?").font(CuadraoTypography.section)
+            Text(CuadraoCopy.text("copy.cuadraoPlanComposition.3dc6d1d16a", spanish: spanish)).font(CuadraoTypography.section)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { kindButtons }
                 VStack(alignment: .leading, spacing: 8) { kindButtons }
@@ -162,7 +162,7 @@ struct CuadraoPlanEditor<Details: View, Footer: View>: View {
     private var kindButtons: some View {
         ForEach(host.allowedKinds) { kind in
             Button { draft.kind = kind } label: {
-                Text(kind == .goal ? (spanish ? "Meta" : "Goal") : kind == .budget ? (spanish ? "Mi mes" : "My month") : (spanish ? "Deuda" : "Debt")).font(.subheadline)
+                Text(kind == .goal ? (CuadraoCopy.text("copy.cuadraoVoiceProposalCanvas.a666a311f9", spanish: spanish)) : kind == .budget ? (CuadraoCopy.text("copy.cuadraoPlanEditor.7736181f54", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoPlanEditor.d7c2a3812a", spanish: spanish))).font(.subheadline)
                     .padding(.horizontal, 14).frame(minHeight: 44)
                     .foregroundStyle(draft.kind == kind ? WelcomePalette.onAccent : WelcomePalette.ink)
                     .background(draft.kind == kind ? WelcomePalette.pine : WelcomePalette.surface, in: Capsule())

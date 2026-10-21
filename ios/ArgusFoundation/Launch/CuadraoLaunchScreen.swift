@@ -51,7 +51,7 @@ struct CuadraoLaunchScreen: View {
         ZStack {
             WelcomePalette.brandPaper
             Image("CuadraoLaunchLockup")
-                .accessibilityLabel("cuadrao")
+                .accessibilityLabel(CuadraoCopy.text("copy.cuadraoLaunchScreen.d6c2cf736d", spanish: CuadraoCopy.isSpanish()))
                 .accessibilityIdentifier("app.launching.lockup")
             // Same centre as the lockup, so the logo never moves when the loader or the message appears.
             Color.clear

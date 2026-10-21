@@ -55,11 +55,11 @@ enum PercentInput {
     static func message(_ problem: Problem, _ bounds: Bounds, spanish: Bool) -> String {
         let low = NSDecimalNumber(decimal: bounds.minimum).stringValue
         switch problem {
-        case .notNumber: return spanish ? "Usa solo números, por ejemplo 18.5." : "Use numbers only, for example 18.5."
-        case .decimals where bounds.decimals == 0: return spanish ? "Usa un número entero." : "Use a whole number."
-        case .decimals: return spanish ? "Usa hasta 2 decimales." : "Use up to 2 decimals."
-        case .range: return spanish ? "Debe estar entre \(low) y 100." : "It must be between \(low) and 100."
-        case .required: return spanish ? "Escribe un porcentaje." : "Enter a percentage."
+        case .notNumber: return CuadraoCopy.text("copy.accountEntry.43a009b129", spanish: spanish)
+        case .decimals where bounds.decimals == 0: return CuadraoCopy.text("copy.accountEntry.265f673ea8", spanish: spanish)
+        case .decimals: return CuadraoCopy.text("copy.accountEntry.c1b113ea68", spanish: spanish)
+        case .range: return CuadraoCopy.text("copy.accountEntry.b8e5deab40", spanish: spanish, String(describing: low))
+        case .required: return CuadraoCopy.text("copy.accountEntry.d11f702e18", spanish: spanish)
         }
     }
 
@@ -75,6 +75,6 @@ enum PlanRateCheck {
         kind == "debt" && showsRate ? PercentInput.problem(text, .interest) : nil
     }
     static func hint(_ problem: PercentInput.Problem?, spanish: Bool) -> String? {
-        problem == nil ? nil : (spanish ? "Revisa el interés anual." : "Check the annual interest.")
+        problem == nil ? nil : (CuadraoCopy.text("copy.accountEntry.ad60309699", spanish: spanish))
     }
 }

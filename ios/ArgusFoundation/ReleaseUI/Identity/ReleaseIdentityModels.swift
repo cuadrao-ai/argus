@@ -45,7 +45,7 @@ public enum ReleaseDeletionState: Equatable {
 public enum ReleaseSocialProvider: String, CaseIterable, Identifiable {
     case apple, google
     public var id: String { rawValue }
-    public var title: String { self == .apple ? "Apple" : "Google" }
+    public var title: String { self == .apple ? CuadraoCopy.text("copy.releaseIdentityModels.b18e276ec9", spanish: CuadraoCopy.isSpanish()) : CuadraoCopy.text("copy.releaseIdentityModels.d35302cf6f", spanish: CuadraoCopy.isSpanish()) }
 }
 
 public struct ReleasePendingInvite: Equatable {

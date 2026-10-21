@@ -171,7 +171,7 @@ private struct AuthFormView: View {
                     let submittedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
                     let submittedName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
                     let submittedSignup = signup
-                    let submittedLanguage = locale.language.languageCode?.identifier == "es" ? "es-419" : "en"
+                    let submittedLanguage = CuadraoCopy.isSpanish() ? "es-419" : "en"
                     password = ""
                     Task {
                         await model.authenticate(email: submittedEmail,

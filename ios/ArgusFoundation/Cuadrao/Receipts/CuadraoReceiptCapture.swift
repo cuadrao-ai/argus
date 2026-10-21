@@ -95,7 +95,7 @@ struct CuadraoReceiptFlow: View {
     }
     private var closeTitle: String {
         let confirmed = workspace.receipts.receipt(id).map { !$0.prepared } ?? false
-        return confirmed ? (spanish ? "Listo" : "Done") : (spanish ? "Después" : "Later")
+        return confirmed ? (CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) : (CuadraoCopy.text("copy.receiptJourneyCopy.fb09b69c44", spanish: spanish))
     }
 }
 
@@ -104,10 +104,10 @@ enum ReceiptSourceChoice: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(_ es: Bool) -> String {
         switch self {
-        case .scan: es ? "Escanear recibo" : "Scan receipt"
-        case .photos: es ? "Fotos" : "Photos"
-        case .file: es ? "Archivos" : "Files"
-        case .sample: es ? "Probar un recibo de ejemplo" : "Try a sample receipt"
+        case .scan: CuadraoCopy.text("copy.cuadraoReceiptCapture.b00b2fb33c", spanish: es)
+        case .photos: CuadraoCopy.text("copy.cuadraoReceiptCapture.213e4fd15e", spanish: es)
+        case .file: CuadraoCopy.text("copy.cuadraoReceiptCapture.2cec6f3871", spanish: es)
+        case .sample: CuadraoCopy.text("copy.cuadraoReceiptCapture.26df817d58", spanish: es)
         }
     }
     var symbol: String {
@@ -163,10 +163,10 @@ struct CuadraoReceiptCapture: View {
             } else {
                 NavigationStack {
                     recovery
-                        .navigationTitle(spanish ? "Un recibo" : "A receipt")
+                        .navigationTitle(CuadraoCopy.text("copy.cuadraoReceiptCapture.e1509174f7", spanish: spanish))
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "receipt-later", action: cancel)
+                            CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), identifier: "receipt-later", action: cancel)
                         }
                 }
             }
@@ -178,15 +178,15 @@ struct CuadraoReceiptCapture: View {
     private var recovery: some View {
         VStack(spacing: 24) {
             if error.isEmpty {
-                ProgressView(spanish ? "Guardando recibo…" : "Saving receipt…")
+                ProgressView(CuadraoCopy.text("copy.savedReceiptCopy.5a6b400da0", spanish: spanish))
             } else {
                 Image(systemName: "receipt").font(.largeTitle).foregroundStyle(WelcomePalette.pine)
                 Text(error).font(CuadraoTypography.supporting).accessibilityIdentifier("receipt-error")
                 if let pending {
-                    Button(spanish ? "Guardar de nuevo" : "Save again") { commit(pending, example: selectedSource == .sample) }
+                    Button(CuadraoCopy.text("copy.cuadraoReceiptCapture.30251a1f7c", spanish: spanish)) { commit(pending, example: selectedSource == .sample) }
                         .accessibilityIdentifier("receipt-retry")
                 } else if selectedSource != .scan || VNDocumentCameraViewController.isSupported {
-                    Button(spanish ? "Intentar de nuevo" : "Try again") { begin(selectedSource) }
+                    Button(CuadraoCopy.text("copy.cuadraoReceiptCapture.46db9dd497", spanish: spanish)) { begin(selectedSource) }
                         .accessibilityIdentifier("receipt-retry")
                 }
                 ForEach(ReceiptSourceChoice.allCases.filter { $0 != .scan }) { alternative in
@@ -198,7 +198,7 @@ struct CuadraoReceiptCapture: View {
             .background(WelcomePalette.background)
     }
     private static func scannerUnavailable(_ spanish: Bool) -> String {
-        spanish ? "El escáner no está disponible aquí. Puedes elegir una foto o un archivo." : "The scanner is unavailable here. Choose a photo or file."
+        CuadraoCopy.text("copy.savedReceiptCopy.c20136d6f3", spanish: spanish)
     }
     private func begin(_ source: ReceiptSourceChoice) {
         error = ""; pending = nil; selectedSource = source
@@ -218,7 +218,7 @@ struct CuadraoReceiptCapture: View {
     }
     private func show(_ failure: Error) {
         picker = nil
-        error = (failure as? ReceiptError)?.message(spanish) ?? (spanish ? "No pudimos guardar el recibo. Inténtalo de nuevo." : "We couldn't save the receipt. Try again.")
+        error = (failure as? ReceiptError)?.message(spanish) ?? (CuadraoCopy.text("copy.cuadraoReceiptCapture.a4e4b3fc2c", spanish: spanish))
     }
     private func commit(_ files: ReceiptCapturedFiles, example: Bool = false) {
         guard !captured else { return }
@@ -237,9 +237,9 @@ struct CuadraoReceiptCapture: View {
             let sample = ReceiptSample(spanish: spanish)
             func money(_ cents: Int) -> String { CanvasMoney.format(Decimal(cents) / 100, currency: group?.currency ?? "DOP") }
             let items = sample.lines.map { "\($0.quantity) × \($0.name)\n    \(money($0.cents))" }.joined(separator: "\n")
-            let text = "\(sample.merchant)\n\(spanish ? "RECIBO DE EJEMPLO" : "SAMPLE RECEIPT")\n\n\(items)\n\nSubtotal  \(money(sample.subtotal))\n\(spanish ? "Impuesto" : "Tax")  \(money(sample.taxCents))\n\(spanish ? "Servicio" : "Service")  \(money(sample.serviceCents))\n\nTOTAL  \(money(sample.total))\n\(group?.currency ?? "DOP")"
+            let text = "\(sample.merchant)\n\(CuadraoCopy.text("copy.cuadraoReceiptCapture.3f5e066558", spanish: spanish))\n\n\(items)\n\nSubtotal  \(money(sample.subtotal))\n\(CuadraoCopy.text("copy.cuadraoReceiptCapture.fbd02a8e49", spanish: spanish))  \(money(sample.taxCents))\n\(CuadraoCopy.text("copy.cuadraoReceiptCapture.5c04d9f4ba", spanish: spanish))  \(money(sample.serviceCents))\n\nTOTAL  \(money(sample.total))\n\(group?.currency ?? "DOP")"
             (text as NSString).draw(in: CGRect(x: 42, y: 48, width: 520, height: 700), withAttributes: [.font: UIFont.monospacedSystemFont(ofSize: 24, weight: .regular), .foregroundColor: UIColor.black])
         }
-        commit([(data, spanish ? "Recibo de ejemplo" : "Sample receipt", false)], example: true)
+        commit([(data, CuadraoCopy.text("copy.cuadraoReceiptCapture.3095a4654a", spanish: spanish), false)], example: true)
     }
 }

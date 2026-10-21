@@ -44,11 +44,10 @@ struct GuestAccountSheet: View {
     private var locked: Bool { editedID.map { model.book.hasRecords($0) } ?? false }
 
     var body: some View {
-        CuadraoAccountEntryForm(entry: $entry, spaceTitle: spanish ? "Este iPhone" : "This iPhone", spanish: spanish,
+        CuadraoAccountEntryForm(entry: $entry, spaceTitle: CuadraoCopy.text("copy.guestAccountSheet.736ea2040f", spanish: spanish), spanish: spanish,
             editing: editedID != nil, ids: .guest, status: status, statusIdentifier: "guest.account.error",
             currencySelectable: !locked, kindLocked: locked,
-            lockNote: locked ? (spanish ? "La moneda y el tipo se conservan con el balance registrado."
-                                : "The currency and type are kept with the recorded balance.") : nil,
+            lockNote: locked ? (CuadraoCopy.text("copy.guestAccountPresentation.acf561eab5", spanish: spanish)) : nil,
             cancel: { dismiss() }) { save() }
             .onChange(of: entry) { _, _ in status = nil }
     }

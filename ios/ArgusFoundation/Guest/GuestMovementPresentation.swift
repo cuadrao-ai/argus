@@ -5,9 +5,9 @@ import CuadraoBook
 enum GuestMovementPresentation {
     static func kindTitle(_ kind: MovementKind, spanish: Bool) -> String {
         switch kind {
-        case .expense: spanish ? "Gasto" : "Expense"
-        case .income: spanish ? "Ingreso" : "Income"
-        case .transfer: spanish ? "Transferencia" : "Transfer"
+        case .expense: CuadraoCopy.text("copy.cuadraoAccountCanvas.705df72a66", spanish: spanish)
+        case .income: CuadraoCopy.text("copy.cuadraoAccountCanvas.68048ec6e6", spanish: spanish)
+        case .transfer: CuadraoCopy.text("copy.guestMovementPresentation.f860210241", spanish: spanish)
         }
     }
 
@@ -21,14 +21,14 @@ enum GuestMovementPresentation {
 
     static func categoryTitle(_ category: ExpenseCategory, spanish: Bool) -> String {
         switch category {
-        case .other: spanish ? "Otros" : "Other"
-        case .groceries: spanish ? "Supermercado" : "Groceries"
-        case .dining: spanish ? "Comida fuera" : "Dining out"
-        case .transport: spanish ? "Transporte" : "Transport"
-        case .housing: spanish ? "Vivienda" : "Housing"
-        case .health: spanish ? "Salud" : "Health"
-        case .shopping: spanish ? "Compras" : "Shopping"
-        case .interestFees: spanish ? "Intereses y cargos" : "Interest and fees"
+        case .other: CuadraoCopy.text("copy.guestMovementPresentation.08ceb8c09d", spanish: spanish)
+        case .groceries: CuadraoCopy.text("copy.cuadraoAccountsPreview.34164df7c7", spanish: spanish)
+        case .dining: CuadraoCopy.text("copy.guestMovementPresentation.ef1338cbc8", spanish: spanish)
+        case .transport: CuadraoCopy.text("copy.guestMovementPresentation.f74da3b9d7", spanish: spanish)
+        case .housing: CuadraoCopy.text("copy.guestMovementPresentation.22bf59e2ad", spanish: spanish)
+        case .health: CuadraoCopy.text("copy.guestMovementPresentation.3a0e5f831d", spanish: spanish)
+        case .shopping: CuadraoCopy.text("copy.guestMovementPresentation.5f2fe9268b", spanish: spanish)
+        case .interestFees: CuadraoCopy.text("copy.guestMovementPresentation.f0080ec33b", spanish: spanish)
         }
     }
 
@@ -46,7 +46,7 @@ enum GuestMovementPresentation {
     }
 
     static func accountTitle(_ id: UUID?, in book: DeviceBook, spanish: Bool) -> String {
-        guard let id, let account = book.account(id) else { return spanish ? "Cuenta" : "Account" }
+        guard let id, let account = book.account(id) else { return CuadraoCopy.text("copy.connectedAccountPresentation.f9d32ca2e5", spanish: spanish) }
         return GuestAccountPresentation.title(account, spanish: spanish)
     }
 

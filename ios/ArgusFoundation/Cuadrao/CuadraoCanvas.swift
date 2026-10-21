@@ -69,7 +69,7 @@ struct CuadraoCanvas: View {
                         NavigationLink {
                             CuadraoCreateAccount(spanish: spanish)
                         } label: {
-                            Text(spanish ? "Crear cuenta" : "Create account")
+                            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.87ab2b1835", spanish: spanish))
                                 .font(.system(.body, weight: .semibold))
                                 .multilineTextAlignment(.center)
                                 .padding(.vertical, 14)
@@ -81,7 +81,7 @@ struct CuadraoCanvas: View {
                         NavigationLink {
                             CuadraoCreateAccount(spanish: spanish, signingIn: true)
                         } label: {
-                            Text(spanish ? "Iniciar sesión" : "Sign in")
+                            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.99024c1d78", spanish: spanish))
                                 .font(.system(.body, weight: .semibold))
                                 .multilineTextAlignment(.center)
                                 .padding(.vertical, 14)

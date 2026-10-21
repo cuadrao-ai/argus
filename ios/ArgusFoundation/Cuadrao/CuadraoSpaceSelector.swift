@@ -6,7 +6,7 @@ struct CuadraoSpaceSelector: View {
     let add: () -> Void
     var body: some View {
         CuadraoSpaceSelectorLayout(selection: data.selectedSpaceID,
-            addTitle: spanish ? "Añadir o gestionar espacios" : "Add or manage spaces",
+            addTitle: CuadraoCopy.text("copy.cuadraoSpaceSelector.b50b0f7adc", spanish: spanish),
             addIdentifier: "cuadrao-spaces-add", add: add) {
             ForEach(data.visibleSpaces) { space in
                 Button { data.selectedSpaceID = space.id } label: {

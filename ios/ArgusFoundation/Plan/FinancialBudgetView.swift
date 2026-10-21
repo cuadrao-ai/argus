@@ -94,7 +94,7 @@ struct FinancialBudgetDetailView: View {
     let close: () -> Void
     @State private var removing = false
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     var body: some View {
         Group {
             if !nativeNavigation, let id = model.navigation?.activityID {
@@ -107,7 +107,7 @@ struct FinancialBudgetDetailView: View {
                             if progress.contributors.isEmpty {
                                 VStack(alignment: .leading, spacing: 12) {
                                     PlanLandscape(look: .sunshine).frame(height: 100)
-                                    Text(spanish ? "Tu ritmo aparecerá con tus primeros movimientos." : "Your pace will appear with your first transactions.")
+                                    Text(CuadraoCopy.text("copy.cuadraoPlanDetail.82ea69d62d", spanish: spanish))
                                         .font(.subheadline).foregroundStyle(.secondary)
                                 }
                             }

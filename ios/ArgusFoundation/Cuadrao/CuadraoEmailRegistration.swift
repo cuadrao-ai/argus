@@ -41,17 +41,16 @@ struct CuadraoEmailRegistration: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 32) {
                 RegistrationHeading(
-                    title: spanish ? "Empieza con\ntu correo." : "Start with\nyour email.",
-                    detail: spanish ? "Lo usarás para entrar a Cuadrao." : "You’ll use it to sign in to Cuadrao.")
+                    title: CuadraoCopy.text("copy.connectedCuadraoAuth.0a7068bf7e", spanish: spanish),
+                    detail: CuadraoCopy.text("copy.connectedCuadraoAuth.4246ac82f7", spanish: spanish))
                 VStack(alignment: .leading, spacing: 24) {
                     emailField
                     passwordField
                 }
                 if submission == .offline {
                     RegistrationNotice(
-                        title: spanish ? "No pudimos conectar." : "We couldn’t connect.",
-                        detail: spanish ? "Revisa tu conexión e inténtalo de nuevo. Tus datos siguen aquí."
-                            : "Check your connection and try again. Your details are still here.")
+                        title: CuadraoCopy.text("copy.connectedCuadraoAuth.a97f4e5c01", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoAuth.fe4b7ee370", spanish: spanish))
                 }
             }
             .padding(.horizontal, 28)
@@ -62,9 +61,9 @@ struct CuadraoEmailRegistration: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             RegistrationButton(
                 title: submission == .submitting
-                    ? (spanish ? "Creando cuenta…" : "Creating account…")
-                    : submission == .offline ? (spanish ? "Reintentar" : "Try again")
-                    : (spanish ? "Crear cuenta" : "Create account"),
+                    ? (CuadraoCopy.text("copy.connectedCuadraoAuth.35d3f284c0", spanish: spanish))
+                    : submission == .offline ? (CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: spanish))
+                    : (CuadraoCopy.text("copy.connectedCuadraoAuth.87ab2b1835", spanish: spanish)),
                 busy: submission == .submitting, enabled: canSubmit) {
                     focus = nil
                     submission = .submitting
@@ -97,8 +96,8 @@ struct CuadraoEmailRegistration: View {
 
     private var emailField: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(spanish ? "Correo electrónico" : "Email address").font(.subheadline.weight(.medium))
-            TextField(spanish ? "nombre@ejemplo.com" : "name@example.com", text: $email)
+            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.4e184d5fb9", spanish: spanish)).font(.subheadline.weight(.medium))
+            TextField(CuadraoCopy.text("copy.connectedCuadraoAuth.f99371c667", spanish: spanish), text: $email)
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)
                 .textInputAutocapitalization(.never)
@@ -108,11 +107,10 @@ struct CuadraoEmailRegistration: View {
                 .onSubmit { focus = passwordVisible ? .visiblePassword : .password }
                 .modifier(RegistrationField(focused: focus == .email, invalid: emailError))
                 .disabled(submission == .submitting)
-                .accessibilityLabel(spanish ? "Correo electrónico" : "Email address")
+                .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoAuth.4e184d5fb9", spanish: spanish))
                 .accessibilityIdentifier("cuadrao.signup.emailField")
             if emailError {
-                Label(spanish ? "Revisa el correo. Por ejemplo: nombre@ejemplo.com."
-                      : "Check the email. For example: name@example.com.", systemImage: "exclamationmark.circle")
+                Label(CuadraoCopy.text("copy.connectedCuadraoAuth.1176476358", spanish: spanish), systemImage: "exclamationmark.circle")
                     .font(.footnote).foregroundStyle(.red)
             }
         }
@@ -120,14 +118,14 @@ struct CuadraoEmailRegistration: View {
 
     private var passwordField: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(spanish ? "Contraseña" : "Password").font(.subheadline.weight(.medium))
+            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.e355fe3205", spanish: spanish)).font(.subheadline.weight(.medium))
             HStack(spacing: 0) {
                 Group {
                     if passwordVisible {
-                        TextField(spanish ? "Crea una contraseña" : "Create a password", text: $password)
+                        TextField(CuadraoCopy.text("copy.connectedCuadraoAuth.88359f60f2", spanish: spanish), text: $password)
                             .focused($focus, equals: .visiblePassword)
                     } else {
-                        SecureField(spanish ? "Crea una contraseña" : "Create a password", text: $password)
+                        SecureField(CuadraoCopy.text("copy.connectedCuadraoAuth.88359f60f2", spanish: spanish), text: $password)
                             .focused($focus, equals: .password)
                     }
                 }
@@ -136,7 +134,7 @@ struct CuadraoEmailRegistration: View {
                 .autocorrectionDisabled()
                 .submitLabel(.done)
                 .onSubmit { focus = nil }
-                .accessibilityLabel(spanish ? "Contraseña" : "Password")
+                .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoAuth.e355fe3205", spanish: spanish))
                 .accessibilityIdentifier("cuadrao.signup.password")
                 Button {
                     let wasFocused = passwordFocused
@@ -150,18 +148,18 @@ struct CuadraoEmailRegistration: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(passwordVisible
-                    ? (spanish ? "Ocultar contraseña" : "Hide password")
-                    : (spanish ? "Mostrar contraseña" : "Show password"))
+                    ? (CuadraoCopy.text("copy.cuadraoEmailRegistration.7b5b088b70", spanish: spanish))
+                    : (CuadraoCopy.text("copy.cuadraoEmailRegistration.45cf1d96bc", spanish: spanish)))
             }
             .modifier(RegistrationField(focused: passwordFocused))
             .disabled(submission == .submitting)
-            Label(spanish ? "Al menos 8 caracteres" : "At least 8 characters",
+            Label(CuadraoCopy.text("copy.connectedCuadraoAuth.3abe4914e5", spanish: spanish),
                   systemImage: password.count >= 8 ? "checkmark.circle.fill" : "circle")
                 .font(.footnote)
                 .foregroundStyle(password.count >= 8 ? WelcomePalette.pine : Color.secondary)
                 .accessibilityLabel(password.count >= 8
-                    ? (spanish ? "Longitud de contraseña suficiente" : "Password length met")
-                    : (spanish ? "Se requieren al menos 8 caracteres" : "At least 8 characters required"))
+                    ? (CuadraoCopy.text("copy.cuadraoEmailRegistration.c47ca0506d", spanish: spanish))
+                    : (CuadraoCopy.text("copy.cuadraoEmailRegistration.fad5da569f", spanish: spanish)))
         }
     }
 }

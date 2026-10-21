@@ -108,7 +108,7 @@ struct FinancialDebtDetail: View {
     let close: () -> Void
     @State private var archiving = false
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     var body: some View {
         ScrollViewReader { reader in
             CuadraoPlanDetailPage(scroll: nativeNavigation ? model.scrollContext : nil) {

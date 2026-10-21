@@ -8,7 +8,7 @@ struct HouseholdManagement: View {
     @State private var sharing: FinancialAccount?
     @State private var confirmation: HouseholdAction?
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     var body: some View {
         NavigationStack {
             Form {

@@ -18,7 +18,7 @@ struct FinancialActivityDetailView: View {
     @State private var receipt: FinancialDocumentDetail?
     @State private var viewingReceipt: ViewedReceipt?
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -41,8 +41,7 @@ struct FinancialActivityDetailView: View {
                     if detail.originalAmountAvailable {
                         actions(detail)
                     } else {
-                        Label(spanish ? "Monto original no disponible. Movimiento de solo lectura."
-                              : "Original amount unavailable. This movement is read-only.", systemImage: "lock")
+                        Label(CuadraoCopy.text("copy.financialActivityDetailView.151c37f24b", spanish: spanish), systemImage: "lock")
                             .font(.subheadline).foregroundStyle(.secondary)
                             .accessibilityIdentifier("activity.readOnly")
                     }
@@ -65,7 +64,7 @@ struct FinancialActivityDetailView: View {
         }
         let amount = detail.originalAmountAvailable
             ? detail.currency + " " + AccountPresentation.amount(detail.amount, locale: locale)
-            : (spanish ? "Monto no disponible" : "Amount unavailable")
+            : (CuadraoCopy.text("copy.financialActivityDetailView.fe5a1f51c9", spanish: spanish))
         return CanvasActivityDetailValue(
             title: detail.note.flatMap { $0.isEmpty ? nil : $0 } ?? NSLocalizedString("loop.kind." + detail.kind.rawValue, comment: ""),
             amount: amount, kind: NSLocalizedString("loop.kind." + detail.kind.rawValue, comment: ""),
@@ -122,7 +121,7 @@ struct FinancialActivityDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(verbatim: revision.originalAmountAvailable
                          ? revision.currency + " " + AccountPresentation.amount(revision.amount, locale: locale)
-                         : (spanish ? "Monto no disponible" : "Amount unavailable"))
+                         : (CuadraoCopy.text("copy.financialActivityDetailView.fe5a1f51c9", spanish: spanish)))
                         .font(CuadraoTypography.rowAmount)
                     Text(verbatim: AccountPresentation.date(revision.occurredAt, zone: revision.timeZone, locale: locale))
                         .font(.caption).foregroundStyle(.secondary)

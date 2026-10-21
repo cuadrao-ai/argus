@@ -32,11 +32,11 @@ struct CuadraoOrderedCollection<Item: Identifiable, Row: View>: View where Item.
                     itemButton(item)
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
                             if let custom = leadingSwipes?(item) { ForEach(custom) { swipeButton($0) } }
-                            else if canEdit(item) { Button { edit(item) } label: { Image(systemName: "pencil") }.tint(.blue).accessibilityLabel(spanish ? "Editar" : "Edit") }
+                            else if canEdit(item) { Button { edit(item) } label: { Image(systemName: "pencil") }.tint(.blue).accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish)) }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if let custom = trailingSwipes?(item) { ForEach(custom) { swipeButton($0) } }
-                            else { Button { archive(item) } label: { Image(systemName: "archivebox") }.tint(.orange).accessibilityLabel(spanish ? "Archivar" : "Archive") }
+                            else { Button { archive(item) } label: { Image(systemName: "archivebox") }.tint(.orange).accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish)) }
                         }
                 }.reorderable()
             }
@@ -59,9 +59,9 @@ struct CuadraoOrderedCollection<Item: Identifiable, Row: View>: View where Item.
                                 move([id], before: item.id); return true
                             }
                         HStack {
-                            if canEdit(item) { Button { edit(item) } label: { Label(spanish ? "Editar" : "Edit", systemImage: "pencil").frame(minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain) }
+                            if canEdit(item) { Button { edit(item) } label: { Label(CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish), systemImage: "pencil").frame(minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain) }
                             Spacer()
-                            Button { archive(item) } label: { Label(spanish ? "Archivar" : "Archive", systemImage: "archivebox").frame(minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain)
+                            Button { archive(item) } label: { Label(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish), systemImage: "archivebox").frame(minHeight: 44).contentShape(Rectangle()) }.buttonStyle(.plain)
                         }.font(.caption).frame(minHeight: 44)
                     }
                 }
@@ -75,15 +75,15 @@ struct CuadraoOrderedCollection<Item: Identifiable, Row: View>: View where Item.
     private func itemButton(_ item: Item) -> some View {
         Button { open(item) } label: { row(item).contentShape(Rectangle()) }
             .buttonStyle(.plain).accessibilityIdentifier(identifier(item))
-            .accessibilityAction(named: Text(spanish ? "Archivar" : "Archive")) { archive(item) }
+            .accessibilityAction(named: Text(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish))) { archive(item) }
             .accessibilityActions {
                 ForEach((leadingSwipes?(item) ?? []) + (trailingSwipes?(item) ?? [])) { swipe in Button(swipe.title, action: swipe.action) }
-                if leadingSwipes == nil, canEdit(item) { Button(spanish ? "Editar" : "Edit") { edit(item) } }
+                if leadingSwipes == nil, canEdit(item) { Button(CuadraoCopy.text("copy.connectedCuadraoHome.2ddd4a589f", spanish: spanish)) { edit(item) } }
                 if items.first?.id != item.id {
-                    Button(spanish ? "Mover arriba" : "Move up") { step(item.id, by: -1) }
+                    Button(CuadraoCopy.text("copy.cuadraoAvatarCrop.117365a0d7", spanish: spanish)) { step(item.id, by: -1) }
                 }
                 if items.last?.id != item.id {
-                    Button(spanish ? "Mover abajo" : "Move down") { step(item.id, by: 1) }
+                    Button(CuadraoCopy.text("copy.cuadraoAvatarCrop.e45af00213", spanish: spanish)) { step(item.id, by: 1) }
                 }
             }
     }

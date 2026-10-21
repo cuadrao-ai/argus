@@ -5,9 +5,9 @@ enum CanvasFeedbackKind: String, CaseIterable, Identifiable {
     var id: Self { self }
     func title(_ spanish: Bool) -> String {
         switch self {
-        case .general: spanish ? "Comentario" : "General feedback"
-        case .bug: spanish ? "Un problema" : "A problem"
-        case .feature: spanish ? "Una idea" : "An idea"
+        case .general: CuadraoCopy.text("copy.cuadraoFeedbackPage.170d56d3fe", spanish: spanish)
+        case .bug: CuadraoCopy.text("copy.cuadraoFeedbackPage.184bb939a5", spanish: spanish)
+        case .feature: CuadraoCopy.text("copy.cuadraoFeedbackPage.4103100739", spanish: spanish)
         }
     }
 }
@@ -46,41 +46,40 @@ struct CuadraoFeedbackPage: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent(spanish ? "¿Qué tienes en mente?" : "What’s on your mind?") {
-                    CuadraoChoiceMenu(title: spanish ? "Tipo de comentario" : "Feedback type", selection: $draft.kind,
+                LabeledContent(CuadraoCopy.text("copy.cuadraoFeedbackPage.574bdec2af", spanish: spanish)) {
+                    CuadraoChoiceMenu(title: CuadraoCopy.text("copy.cuadraoFeedbackPage.4526febebf", spanish: spanish), selection: $draft.kind,
                         values: CanvasFeedbackKind.allCases, valueTitle: { $0.title(spanish) })
                         .accessibilityIdentifier("cuadrao.feedback.kind")
                 }
             }.listRowBackground(CanvasSettingsStyle.surface)
             if draft.kind == .bug {
                 Section {
-                    field(spanish ? "¿Qué pasó?" : "What happened?", text: $draft.bugTitle, limit: 100, id: "title")
-                    field(spanish ? "Pasos para repetirlo" : "Steps to reproduce", text: $draft.steps, limit: 1000, id: "steps")
-                    field(spanish ? "¿Qué esperabas?" : "What did you expect?", text: $draft.expected, limit: 500, id: "expected")
-                    field(spanish ? "¿Qué ocurrió?" : "What actually happened?", text: $draft.actual, limit: 500, id: "actual")
-                } header: { Text(spanish ? "Ayúdanos a entenderlo" : "Help us understand") }
+                    field(CuadraoCopy.text("copy.cuadraoFeedbackPage.2a652ab658", spanish: spanish), text: $draft.bugTitle, limit: 100, id: "title")
+                    field(CuadraoCopy.text("copy.cuadraoFeedbackPage.3f925f2c59", spanish: spanish), text: $draft.steps, limit: 1000, id: "steps")
+                    field(CuadraoCopy.text("copy.cuadraoFeedbackPage.6271028868", spanish: spanish), text: $draft.expected, limit: 500, id: "expected")
+                    field(CuadraoCopy.text("copy.cuadraoFeedbackPage.569bdc26ac", spanish: spanish), text: $draft.actual, limit: 500, id: "actual")
+                } header: { Text(CuadraoCopy.text("copy.cuadraoFeedbackPage.6c2d8df5fa", spanish: spanish)) }
                     .listRowBackground(CanvasSettingsStyle.surface)
             } else {
                 Section {
                     if draft.kind == .general {
-                        field(spanish ? "Te escuchamos" : "We’re listening", text: $draft.general, limit: 1000, id: "general")
+                        field(CuadraoCopy.text("copy.cuadraoFeedbackPage.00c7565362", spanish: spanish), text: $draft.general, limit: 1000, id: "general")
                     } else {
-                        field(spanish ? "¿Qué te gustaría poder hacer?" : "What would you like to do?", text: $draft.feature, limit: 1000, id: "feature")
+                        field(CuadraoCopy.text("copy.cuadraoFeedbackPage.105bce0c0e", spanish: spanish), text: $draft.feature, limit: 1000, id: "feature")
                     }
                 }.listRowBackground(CanvasSettingsStyle.surface)
             }
             Section {
-                Button(spanish ? "Guardar borrador" : "Save draft") {
+                Button(CuadraoCopy.text("copy.cuadraoFeedbackPage.a070f191f6", spanish: spanish)) {
                     saved = draft; draftSaved = true
                 }.disabled(!draft.hasContent).accessibilityIdentifier("cuadrao.feedback.save")
                 if draftSaved {
-                    Label(spanish ? "Borrador guardado" : "Draft saved", systemImage: "checkmark")
+                    Label(CuadraoCopy.text("copy.cuadraoFeedbackPage.d967611bff", spanish: spanish), systemImage: "checkmark")
                         .foregroundStyle(WelcomePalette.pine).font(.subheadline)
                         .accessibilityIdentifier("cuadrao.feedback.saved")
                 }
             } footer: {
-                Text(spanish ? "El borrador dura hasta cerrar la vista previa. No se envía ni se adjuntan datos."
-                     : "The draft lasts until you close the preview. Nothing is sent and no data is attached.")
+                Text(CuadraoCopy.text("copy.cuadraoFeedbackPage.6ffc2db721", spanish: spanish))
             }.listRowBackground(CanvasSettingsStyle.surface)
         }.onChange(of: draft) { _, _ in draftSaved = false }
             .scrollContentBackground(.hidden).background(WelcomePalette.background)

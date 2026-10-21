@@ -35,13 +35,13 @@ struct FinancialPlanView: View {
     @State private var expanded = false
     @State private var creating = false
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     private var canCreate: Bool { model.projection != nil && loop.pendingConfirmation == nil && !model.saving }
 
     var body: some View {
         CuadraoPlanPage(spanish: spanish, audience: audience, bottomSpace: bottomSpace) {
-            CuadraoPlanHeader(spanish: spanish, createTitle: spanish ? "Crear plan" : "Create plan", canCreate: canCreate) { creating = true }
+            CuadraoPlanHeader(spanish: spanish, createTitle: CuadraoCopy.text("copy.cuadraoPlanCanvas.2131013203", spanish: spanish), canCreate: canCreate) { creating = true }
         } content: {
             if loop.pendingConfirmation != nil { PlanPendingView(loop: loop) }
             if model.loading { ProgressView("accounts.loading") }
@@ -137,7 +137,7 @@ struct FinancialPlanView: View {
         let names = projection.accounts.filter { currency.accountIds.contains($0.id) }.map {
             $0.nickname ?? NSLocalizedString("accounts.type." + $0.type, comment: "")
         }.joined(separator: " · ")
-        return names.isEmpty ? (spanish ? "Ninguna cuenta seleccionada" : "No accounts selected") : names
+        return names.isEmpty ? (CuadraoCopy.text("copy.financialPlanView.2311c9be10", spanish: spanish)) : names
     }
 }
 

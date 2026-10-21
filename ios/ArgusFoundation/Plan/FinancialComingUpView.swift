@@ -6,7 +6,7 @@ struct FinancialComingUpView: View {
     let viewPlan: () -> Void
     @State private var expanded = false
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private static let compactCount = 4
 
     var body: some View {
@@ -28,7 +28,7 @@ struct FinancialComingUpView: View {
                         .frame(minHeight: 44).accessibilityIdentifier("home.upcoming.more")
                 }
                 if planned.isEmpty {
-                    Text(spanish ? "No tienes pagos previstos en este período." : "No expected payments in this period.")
+                    Text(CuadraoCopy.text("copy.financialComingUpView.078d369754", spanish: spanish))
                         .font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                 }
             } else if model.loading { ProgressView("accounts.loading") }

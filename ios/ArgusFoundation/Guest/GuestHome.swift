@@ -44,19 +44,18 @@ struct GuestHome: View {
     let offerUndo: (GuestUndoOffer) -> Void
     @Environment(\.locale) private var locale
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         NavigationStack(path: $path) {
             CuadraoHomeLayout(order: [.overview, .accounts, .activity], canCustomize: false, spanish: spanish, customize: {}) {
                 CuadraoHomeGreeting(name: "", spanish: spanish)
-                Text(spanish ? "Este iPhone" : "This iPhone")
+                Text(CuadraoCopy.text("copy.guestAccountSheet.736ea2040f", spanish: spanish))
                     .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).frame(minHeight: 44)
                     .accessibilityIdentifier("guest.home.space")
             } notice: {
                 if model.saveFailed {
-                    Text(spanish ? "No se pudo guardar en este iPhone. Tus cambios siguen aquí mientras la app esté abierta."
-                         : "Couldn't save on this iPhone. Your changes stay here while the app is open.")
+                    Text(CuadraoCopy.text("copy.guestHome.8b20e18c96", spanish: spanish))
                         .font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("guest.home.saveFailed")
                 }
             } section: { section in
@@ -101,7 +100,7 @@ struct GuestHome: View {
             // A confirmed archive arrives as the sheet closing after the book changed.
             if case .archive(let id)? = previous, current == nil, model.book.account(id)?.archived == true {
                 path = []
-                offerUndo(GuestUndoOffer(text: spanish ? "Cuenta archivada" : "Account archived", identifier: "accounts.archived.undo",
+                offerUndo(GuestUndoOffer(text: CuadraoCopy.text("copy.connectedCuadraoHome.d6e6d390ca", spanish: spanish), identifier: "accounts.archived.undo",
                                          restore: { restore(id) }))
             }
         }
@@ -113,7 +112,7 @@ struct GuestHome: View {
 
     private func delete(_ id: UUID) {
         guard (try? model.apply { try $0.settingMovementDeleted(id, true) }) != nil else { return }
-        offerUndo(GuestUndoOffer(text: spanish ? "Movimiento eliminado" : "Transaction deleted", identifier: "guest.undo",
+        offerUndo(GuestUndoOffer(text: CuadraoCopy.text("copy.cuadraoDesignGallery.a6208e9178", spanish: spanish), identifier: "guest.undo",
                                  restore: { _ = try? model.apply { try $0.settingMovementDeleted(id, false) } }))
     }
 }

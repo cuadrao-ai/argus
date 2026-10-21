@@ -3,8 +3,8 @@ import SwiftUI
 struct ConnectedProfileCurrencyRow: View {
     @ObservedObject var model: ProfileAuthModel
     let spanish: Bool
-    private var title: String { spanish ? "Moneda preferida" : "Preferred currency" }
-    private var value: String { model.profile?.currency ?? (spanish ? "Elegir" : "Choose") }
+    private var title: String { CuadraoCopy.text("copy.connectedProfileCurrencyRow.8ceb934024", spanish: spanish) }
+    private var value: String { model.profile?.currency ?? (CuadraoCopy.text("copy.connectedProfileCurrencyRow.8f6645049d", spanish: spanish)) }
 
     var body: some View {
         HStack {

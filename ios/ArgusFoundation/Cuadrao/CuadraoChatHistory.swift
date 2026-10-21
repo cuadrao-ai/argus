@@ -25,40 +25,40 @@ struct CuadraoChatHistory: View {
     }
     var body: some View {
         VStack(spacing: 12) {
-            Picker(es ? "Ver chats" : "Show chats", selection: $scope) {
-                Text(es ? "Recientes" : "Recent").tag(Scope.recent)
-                Text(es ? "Archivados" : "Archived").tag(Scope.archived)
-                Text(es ? "Eliminados" : "Deleted").tag(Scope.deleted)
+            Picker(CuadraoCopy.text("copy.cuadraoChatHistory.94e3ec4d94", spanish: es), selection: $scope) {
+                Text(CuadraoCopy.text("copy.cuadraoChatHistory.a75f08cffc", spanish: es)).tag(Scope.recent)
+                Text(CuadraoCopy.text("copy.cuadraoChatHistory.e95aacbabf", spanish: es)).tag(Scope.archived)
+                Text(CuadraoCopy.text("copy.cuadraoChatHistory.343f039743", spanish: es)).tag(Scope.deleted)
             }.pickerStyle(.segmented).padding(.horizontal, 24)
             List {
                 if rows.isEmpty { empty }
                 else if scope == .recent {
-                    group(rows.filter(\.pinned), title: es ? "Fijados" : "Pinned")
-                    group(rows.filter { !$0.pinned }, title: es ? "Recientes" : "Recent")
+                    group(rows.filter(\.pinned), title: CuadraoCopy.text("copy.cuadraoChatHistory.5c9356bc6a", spanish: es))
+                    group(rows.filter { !$0.pinned }, title: CuadraoCopy.text("copy.cuadraoChatHistory.a75f08cffc", spanish: es))
                 } else { ForEach(rows) { row($0) } }
             }.listStyle(.plain).scrollContentBackground(.hidden)
-                .searchable(text: $query, prompt: es ? "Buscar chats" : "Search chats")
+                .searchable(text: $query, prompt: CuadraoCopy.text("copy.cuadraoChatHistory.8ee94305ef", spanish: es))
             Button(action: newChat) {
-                Label { Text(es ? "Nuevo chat" : "New chat") } icon: {
+                Label { Text(CuadraoCopy.text("copy.cuadraoChatHistory.284b0cf53b", spanish: es)) } icon: {
                     Image("CuadraoNewChat").resizable().scaledToFit().frame(width: 20, height: 20)
                 }.frame(minHeight: 44)
             }.accessibilityIdentifier("history-new")
-            Text(es ? "Vista previa · Chats locales" : "Preview · Local chats")
+            Text(CuadraoCopy.text("copy.cuadraoChatHistory.ae95f7287f", spanish: es))
                 .font(.caption).foregroundStyle(.secondary).padding(.bottom, 16)
         }
-        .alert(es ? "Cambiar nombre" : "Rename", isPresented: $showRename) {
-            TextField(es ? "Nombre del chat" : "Chat name", text: $renameDraft)
-            Button(es ? "Cancelar" : "Cancel", role: .cancel) { renaming = nil }
-            Button(es ? "Guardar" : "Save") {
+        .alert(CuadraoCopy.text("copy.cuadraoChatHistory.be04335b17", spanish: es), isPresented: $showRename) {
+            TextField(CuadraoCopy.text("copy.cuadraoChatHistory.d48f4627c6", spanish: es), text: $renameDraft)
+            Button(CuadraoCopy.text("copy.cuadraoChatHistory.62a128b722", spanish: es), role: .cancel) { renaming = nil }
+            Button(CuadraoCopy.text("copy.cuadraoChatHistory.553ab1bf1a", spanish: es)) {
                 renaming?.title = String(renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80))
                 renaming = nil
             }.disabled(renameDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .confirmationDialog(es ? "¿Eliminar chat?" : "Delete chat?", isPresented: $showDelete, titleVisibility: .visible) {
-            Button(es ? "Eliminar chat" : "Delete chat", role: .destructive) {
+        .confirmationDialog(CuadraoCopy.text("copy.cuadraoChatHistory.49e8eab1d4", spanish: es), isPresented: $showDelete, titleVisibility: .visible) {
+            Button(CuadraoCopy.text("copy.cuadraoChatHistory.63edcd617b", spanish: es), role: .destructive) {
                 if let deleting { store.delete(deleting) }; deleting = nil
             }
-        } message: { Text(es ? "Podrás recuperarlo en Eliminados." : "You can recover it in Deleted.") }
+        } message: { Text(CuadraoCopy.text("copy.cuadraoChatHistory.394d87c8ef", spanish: es)) }
     }
 
     @ViewBuilder private func group(_ items: [CanvasChatThread], title: String) -> some View {
@@ -72,7 +72,7 @@ struct CuadraoChatHistory: View {
     private func row(_ thread: CanvasChatThread) -> some View {
         Button { open(thread) } label: {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(thread.title.isEmpty ? (es ? "Nuevo chat" : "New chat") : thread.title)
+                Text(thread.title.isEmpty ? (CuadraoCopy.text("copy.cuadraoChatHistory.284b0cf53b", spanish: es)) : thread.title)
                     .font(.body.weight(thread.unread ? .semibold : .regular)).lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 6) {
@@ -84,7 +84,7 @@ struct CuadraoChatHistory: View {
                 }.accessibilityHidden(true)
             }.frame(minHeight: 52).contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityIdentifier("history-row-" + thread.id)
-            .accessibilityLabel(thread.title.isEmpty ? (es ? "Nuevo chat" : "New chat") : thread.title)
+            .accessibilityLabel(thread.title.isEmpty ? (CuadraoCopy.text("copy.cuadraoChatHistory.284b0cf53b", spanish: es)) : thread.title)
             .accessibilityValue(accessibilityValue(thread))
             .accessibilityActions { actions(thread) }
             .padding(.vertical, 4)
@@ -94,51 +94,51 @@ struct CuadraoChatHistory: View {
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 if scope == .recent {
                     Button { thread.pinned.toggle() } label: {
-                        Label(thread.pinned ? (es ? "Desfijar" : "Unpin") : (es ? "Fijar" : "Pin"), systemImage: thread.pinned ? "pin.slash" : "pin")
+                        Label(thread.pinned ? (CuadraoCopy.text("copy.cuadraoChatHistory.beaa2b609a", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatHistory.a470d7a873", spanish: es)), systemImage: thread.pinned ? "pin.slash" : "pin")
                     }.tint(Color(red: 0.62, green: 0.36, blue: 0.08))
                 }
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                 if scope == .recent {
-                    Button { store.archive(thread) } label: { Label(es ? "Archivar" : "Archive", systemImage: "archivebox") }
+                    Button { store.archive(thread) } label: { Label(CuadraoCopy.text("copy.cuadraoChatHistory.0960027352", spanish: es), systemImage: "archivebox") }
                         .tint(Color(red: 0.34, green: 0.41, blue: 0.47))
                 } else {
-                    Button { store.restore(thread) } label: { Label(es ? "Restaurar" : "Restore", systemImage: "arrow.uturn.backward") }
+                    Button { store.restore(thread) } label: { Label(CuadraoCopy.text("copy.cuadraoChatHistory.e203d01b16", spanish: es), systemImage: "arrow.uturn.backward") }
                         .tint(WelcomePalette.pine)
                 }
             }
     }
 
     private func accessibilityValue(_ thread: CanvasChatThread) -> String {
-        let state = thread.deleted ? (es ? "Restaurar y abrir" : "Restore and open")
-            : thread.unread ? (es ? "No leído" : "Unread")
-            : store.current.id == thread.id && !store.temporary ? (es ? "Actual" : "Current") : nil
+        let state = thread.deleted ? (CuadraoCopy.text("copy.cuadraoChatHistory.f6831c7566", spanish: es))
+            : thread.unread ? (CuadraoCopy.text("copy.cuadraoChatHistory.d2e70c1b3e", spanish: es))
+            : store.current.id == thread.id && !store.temporary ? (CuadraoCopy.text("copy.cuadraoChatHistory.cf81fc1799", spanish: es)) : nil
         return [state, thread.lastMessageDate.map { CanvasChatRecency.label($0, spanish: es) }]
             .compactMap { $0 }.joined(separator: ", ")
     }
 
     @ViewBuilder private func actions(_ thread: CanvasChatThread) -> some View {
         if thread.deleted {
-            Button(es ? "Restaurar" : "Restore", systemImage: "arrow.uturn.backward") { store.restore(thread) }
+            Button(CuadraoCopy.text("copy.cuadraoChatHistory.e203d01b16", spanish: es), systemImage: "arrow.uturn.backward") { store.restore(thread) }
         } else {
-            Button(thread.unread ? (es ? "Marcar como leído" : "Mark as read") : (es ? "Marcar como no leído" : "Mark as unread"), systemImage: thread.unread ? "envelope.open" : "envelope") { thread.unread.toggle() }
-            Button(thread.pinned ? (es ? "Desfijar" : "Unpin") : (es ? "Fijar" : "Pin"), systemImage: thread.pinned ? "pin.slash" : "pin") { thread.pinned.toggle() }
-            Button(es ? "Cambiar nombre" : "Rename", systemImage: "pencil") { renameDraft = thread.title; renaming = thread; showRename = true }
+            Button(thread.unread ? (CuadraoCopy.text("copy.cuadraoChatHistory.7f84db9dae", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatHistory.1194ea54ec", spanish: es)), systemImage: thread.unread ? "envelope.open" : "envelope") { thread.unread.toggle() }
+            Button(thread.pinned ? (CuadraoCopy.text("copy.cuadraoChatHistory.beaa2b609a", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatHistory.a470d7a873", spanish: es)), systemImage: thread.pinned ? "pin.slash" : "pin") { thread.pinned.toggle() }
+            Button(CuadraoCopy.text("copy.cuadraoChatHistory.be04335b17", spanish: es), systemImage: "pencil") { renameDraft = thread.title; renaming = thread; showRename = true }
             if thread.archived {
-                Button(es ? "Restaurar" : "Restore", systemImage: "arrow.uturn.backward") { store.restore(thread) }
+                Button(CuadraoCopy.text("copy.cuadraoChatHistory.e203d01b16", spanish: es), systemImage: "arrow.uturn.backward") { store.restore(thread) }
             } else {
-                Button(es ? "Archivar" : "Archive", systemImage: "archivebox") { store.archive(thread) }
+                Button(CuadraoCopy.text("copy.cuadraoChatHistory.0960027352", spanish: es), systemImage: "archivebox") { store.archive(thread) }
             }
             Divider()
-            Button(es ? "Eliminar" : "Delete", systemImage: "trash", role: .destructive) { deleting = thread; showDelete = true }
+            Button(CuadraoCopy.text("copy.cuadraoChatHistory.534547cf82", spanish: es), systemImage: "trash", role: .destructive) { deleting = thread; showDelete = true }
         }
     }
 
     private var empty: some View {
         let searching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return ContentUnavailableView(searching ? (es ? "Sin resultados" : "No results") : (es ? "Sin chats" : "No chats"),
+        return ContentUnavailableView(searching ? (CuadraoCopy.text("copy.cuadraoChatHistory.2448aace19", spanish: es)) : (CuadraoCopy.text("copy.cuadraoChatHistory.8b0c465c43", spanish: es)),
             systemImage: searching ? "magnifyingglass" : "bubble.left.and.bubble.right",
-            description: Text(searching ? (es ? "Prueba otra búsqueda." : "Try another search.")
-                : (es ? "Los chats aparecerán aquí." : "Chats will appear here.")))
+            description: Text(searching ? (CuadraoCopy.text("copy.cuadraoChatHistory.647ea08be0", spanish: es))
+                : (CuadraoCopy.text("copy.cuadraoChatHistory.7d25bb23b0", spanish: es))))
     }
 }

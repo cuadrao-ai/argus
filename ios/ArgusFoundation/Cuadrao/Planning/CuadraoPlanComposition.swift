@@ -48,8 +48,8 @@ struct CuadraoPlanExploreLink<Destination: View>: View {
         NavigationLink(destination: destination) {
             HStack {
                 Text(example
-                    ? (spanish ? "Explorar escenarios de ejemplo" : "Explore example scenarios")
-                    : (spanish ? "Explorar escenarios" : "Explore scenarios"))
+                    ? (CuadraoCopy.text("copy.cuadraoPlanComposition.f739366f11", spanish: spanish))
+                    : (CuadraoCopy.text("copy.cuadraoPlanComposition.6c6a4a78d1", spanish: spanish)))
                 Image(systemName: "chevron.right").font(.caption2).accessibilityHidden(true)
             }.font(CuadraoTypography.supporting).foregroundStyle(.secondary)
                 .frame(minHeight: 44).contentShape(Rectangle())
@@ -65,7 +65,7 @@ struct CuadraoPlanColdStart<Action: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             PlanLandscape(look: .sunshine).frame(height: 135)
-            Text(spanish ? "Lo que viene empieza aquí." : "What's next starts here.")
+            Text(CuadraoCopy.text("copy.cuadraoPlanComposition.882b007d0d", spanish: spanish))
                 .font(CuadraoTypography.feature)
             Text(detail).font(.subheadline).foregroundStyle(.secondary)
             action().font(.subheadline.weight(.medium)).frame(minHeight: 44)
@@ -83,16 +83,16 @@ struct CuadraoPlanCollection<Rows: View, Archives: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(spanish ? "Tus planes" : "Your plans").font(CuadraoTypography.section)
+            Text(CuadraoCopy.text("copy.cuadraoDesignGallery.daeb973c09", spanish: spanish)).font(CuadraoTypography.section)
             rows()
             archives()
             if isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(spanish ? "¿Qué tienes en mente?" : "What do you have in mind?")
+                    Text(CuadraoCopy.text("copy.cuadraoPlanComposition.3dc6d1d16a", spanish: spanish))
                         .font(CuadraoTypography.section)
-                    Text(spanish ? "Un viaje, un respiro, llegar a fin de mes con más espacio." : "A trip, a little breathing room, a month with more left over.")
+                    Text(CuadraoCopy.text("copy.cuadraoPlanComposition.4edfde5281", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary)
-                    PlanPrimaryButton(title: spanish ? "Crear mi primer plan" : "Make my first plan", symbol: "plus", action: create)
+                    PlanPrimaryButton(title: CuadraoCopy.text("copy.cuadraoPlanComposition.fb22e20911", spanish: spanish), symbol: "plus", action: create)
                         .disabled(!canCreate)
                 }.padding(24).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 26))
             }
@@ -106,7 +106,7 @@ struct CuadraoPlanArchiveLink<Destination: View>: View {
 
     var body: some View {
         NavigationLink(destination: destination) {
-            Label(spanish ? "Archivados" : "Archived", systemImage: "archivebox")
+            Label(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish), systemImage: "archivebox")
                 .font(CuadraoTypography.supporting).foregroundStyle(.secondary).frame(minHeight: 44)
         }.accessibilityIdentifier("plan-archives")
     }

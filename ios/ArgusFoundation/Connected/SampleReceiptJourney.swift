@@ -184,7 +184,7 @@ struct ReceiptJourneyHarness: View {
         if ProcessInfo.processInfo.arguments.contains("--receipt-reading-allowed") { defaults.set(true, forKey: "cuadrao.receiptReading.harness") }
         return defaults
     }()
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         VStack(spacing: 24) {

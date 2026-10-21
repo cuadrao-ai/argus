@@ -29,7 +29,7 @@ struct GuestClaimRow: View {
                 Image(systemName: "tray.and.arrow.down").frame(width: 24).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(GuestClaimCopy(spanish: spanish).title).font(.body)
-                    Text(spanish ? "Tienes datos de invitado en este iPhone." : "You have guest data on this iPhone.")
+                    Text(CuadraoCopy.text("copy.guestClaimSheet.4e38a1726d", spanish: spanish))
                         .font(.footnote).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.secondary).accessibilityHidden(true)
@@ -64,7 +64,7 @@ struct GuestClaimSheet: View {
         .interactiveDismissDisabled(isRunning)
         .task { await model.load() }
         .alert(copy.discardTitle, isPresented: $model.confirmingDiscard) {
-            Button(model.spanish ? "Cancelar" : "Cancel", role: .cancel) {}
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: model.spanish), role: .cancel) {}
             Button(copy.discard, role: .destructive) { Task { await model.discard() } }
                 .accessibilityIdentifier("guest.claim.discard.confirm")
         } message: { Text(copy.discardMessage) }

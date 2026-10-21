@@ -15,7 +15,7 @@ struct ConnectedCuadraoShell: View {
     @State private var homePath: [ConnectedHomeRoute] = []
     @State private var profilePath: [CanvasProfileRoute] = []
     @State private var avatar: CuadraoAvatarSelection = .none
-    @State private var chat = CuadraoChatPreview(spanish: Locale.current.language.languageCode?.identifier == "es", includeExamples: false)
+    @State private var chat = CuadraoChatPreview(spanish: CuadraoCopy.isSpanish(), includeExamples: false)
     @State private var chatEditing = false
     @State private var searchDetail = false
     @State private var addNotice: AddNotice?
@@ -24,7 +24,7 @@ struct ConnectedCuadraoShell: View {
     /// Files the picker returned, kept until its cover has closed so the next sheet can open.
     @State private var captured: [(data: Data, name: String, pdf: Bool)]?
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     @ViewBuilder
     var body: some View {

@@ -41,14 +41,14 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
                         .accessibilityIdentifier("home-distribution-total")
                 }
                 if partial {
-                    Text(spanish ? "Faltan balances por registrar" : "Some balances are missing")
+                    Text(CuadraoCopy.text("copy.cuadraoDistributionContent.0a57d3d74b", spanish: spanish))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 }
             }
             if let controls { controls }
             if !groups.isEmpty {
                 HStack {
-                    Text(spanish ? "Distribución de activos" : "Asset allocation")
+                    Text(CuadraoCopy.text("copy.cuadraoDistributionContent.7558ff10d9", spanish: spanish))
                     Spacer()
                     Text(assets).font(CuadraoTypography.rowAmount)
                 }.font(CuadraoTypography.supporting)
@@ -57,7 +57,7 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
                 }, selection: $selectedGroup, identifier: "home-distribution-segment-")
                 HStack(spacing: 8) {
                     Button { select(nil) } label: {
-                        Text(spanish ? "Todo" : "All").frame(minHeight: 44).contentShape(Rectangle())
+                        Text(CuadraoCopy.text("copy.cuadraoDistributionContent.64c04b1430", spanish: spanish)).frame(minHeight: 44).contentShape(Rectangle())
                     }.foregroundStyle(selectedGroup == nil ? WelcomePalette.ink : .secondary)
                         .accessibilityIdentifier("home-distribution-all")
                     if let selected = groups.first(where: { $0.id == selectedGroup }) {
@@ -70,7 +70,7 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
                     ForEach(groups) { group in categoryRow(group) }
                 }
             } else {
-                Text(spanish ? "Tus balances positivos aparecerán aquí." : "Your positive balances will appear here.")
+                Text(CuadraoCopy.text("copy.cuadraoDistributionContent.437f65fb9f", spanish: spanish))
                     .font(CuadraoTypography.supporting).foregroundStyle(.secondary).padding(.vertical, 32)
             }
             if let deductions {
@@ -81,7 +81,7 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
                     deductionLabel(deductions)
                 }
                 HStack {
-                    Text(spanish ? "Balance neto" : "Net balance")
+                    Text(CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.a3299351f5", spanish: spanish))
                     Spacer()
                     Text(balance).font(CuadraoTypography.rowAmount)
                 }.font(CuadraoTypography.supporting)
@@ -93,7 +93,7 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
     }
     private func deductionLabel(_ amount: String) -> some View {
         HStack {
-            Text(spanish ? "Por descontar" : "Deductions")
+            Text(CuadraoCopy.text("copy.cuadraoDistributionContent.4a2266fa10", spanish: spanish))
             Spacer()
             Text(amount).font(CuadraoTypography.rowAmount)
         }.font(CuadraoTypography.supporting).frame(minHeight: 44)
@@ -112,8 +112,7 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
                                 }
                             }
                             if let count = group.accountCount {
-                                Text(spanish ? "\(count) \(count == 1 ? "cuenta" : "cuentas")"
-                                    : "\(count) \(count == 1 ? "account" : "accounts")")
+                                Text(CuadraoCopy.text("copy.cuadraoDistributionContent.0cea7fab0e", spanish: spanish, String(describing: count), String(describing: ((count == 1 ? CuadraoCopy.text("copy.cuadraoDistributionContent.f08da4f153", spanish: spanish) : CuadraoCopy.text("copy.cuadraoDistributionContent.596ed8b9e3", spanish: spanish))))))
                                     .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -135,8 +134,8 @@ struct CuadraoDistributionContent<AccountRows: View, DeductionRows: View>: View 
     }
     private func selectionLabel(_ group: CuadraoDistributionGroup) -> String {
         if group.accountCount == nil {
-            return selectedGroup == group.id ? (spanish ? "Seleccionado" : "Selected") : ""
+            return selectedGroup == group.id ? (CuadraoCopy.text("copy.cuadraoDistributionContent.7dcec00d23", spanish: spanish)) : ""
         }
-        return selectedGroup == group.id ? (spanish ? "Expandido" : "Expanded") : (spanish ? "Contraído" : "Collapsed")
+        return selectedGroup == group.id ? (CuadraoCopy.text("copy.cuadraoDistributionContent.9224088f94", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoDistributionContent.5b51c07868", spanish: spanish))
     }
 }

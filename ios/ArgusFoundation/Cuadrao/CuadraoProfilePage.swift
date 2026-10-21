@@ -43,10 +43,9 @@ struct CuadraoProfilePage: View {
                 if let deletion = connectedDeletion { ConnectedAccountDeletion(model: deletion) }
             }
             .alert(notice ?? "", isPresented: Binding(get: { notice != nil }, set: { if !$0 { notice = nil } })) {
-                Button(spanish ? "Entendido" : "Got it", role: .cancel) { notice = nil }
+                Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.43385c465a", spanish: spanish), role: .cancel) { notice = nil }
             } message: {
-                Text(spanish ? "Esta acción aún no está conectada en la vista previa. No se cambia ni se envía información de tu cuenta."
-                     : "This action is not connected in the preview. No account information is changed or sent.")
+                Text(CuadraoCopy.text("copy.cuadraoProfilePage.29f88f2cfc", spanish: spanish))
             }
     }
 
@@ -59,33 +58,31 @@ struct CuadraoProfilePage: View {
         case .privacy: privacy
         case .usage:
             Section {
-                ContentUnavailableView(spanish ? "Tu uso, aquí" : "Your usage, here", systemImage: "chart.bar",
-                    description: Text(spanish ? "Verás tu disponibilidad y cuándo se renueva al conectar tu cuenta." : "Your allowance and reset time will appear when your account is connected."))
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoProfilePage.3171e82523", spanish: spanish), systemImage: "chart.bar",
+                    description: Text(CuadraoCopy.text("copy.cuadraoProfilePage.4f238c7d9d", spanish: spanish)))
             }
         case .help: help
         case .feedback: EmptyView()
         case .memory, .files, .conversations: records
         case .shared:
-            empty(spanish ? "Sin conversaciones compartidas" : "No shared conversations", detail: spanish ? "Los enlaces que compartas aparecerán aquí." : "Links you share will appear here.")
+            empty(CuadraoCopy.text("copy.cuadraoProfilePage.a3905cbc44", spanish: spanish), detail: CuadraoCopy.text("copy.cuadraoProfilePage.e1d7289cc8", spanish: spanish))
         case .removed:
-            empty(spanish ? "Sin movimientos eliminados" : "No removed activity", detail: spanish ? "Aquí podrás revisar los movimientos disponibles para restaurar." : "Review activity available to restore here.")
+            empty(CuadraoCopy.text("copy.cuadraoProfilePage.c5bc833234", spanish: spanish), detail: CuadraoCopy.text("copy.cuadraoProfilePage.b63961507f", spanish: spanish))
         case .voice:
             Section {
                 CuadraoVoicePreference(spanish: spanish)
-                LabeledContent(spanish ? "Idioma" : "Language", value: spanish ? "El de la conversación" : "Matches the conversation")
+                LabeledContent(CuadraoCopy.text("copy.cuadraoProfilePage.98633ea3c0", spanish: spanish), value: CuadraoCopy.text("copy.cuadraoProfilePage.ab3aeb0112", spanish: spanish))
             } footer: {
                 if CuadraoFirstRelease.shows(.personalization) {
-                    Text(spanish ? "La voz cambia cómo suena Cuadrao. El tono y la extensión se eligen en Personalización. Esta vista previa no activa el micrófono."
-                         : "Voice changes how Cuadrao sounds. Choose response tone and length in Personalization. This preview does not activate the microphone.")
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.e6c34c7e20", spanish: spanish))
                 } else {
-                    Text(spanish ? "La voz cambia cómo suena Cuadrao. Esta vista previa no activa el micrófono."
-                         : "Voice changes how Cuadrao sounds. This preview does not activate the microphone.")
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.650560a010", spanish: spanish))
                 }
             }
         case .advanced:
             Section {
-                previewAction(spanish ? "Sugerencias" : "Suggestions")
-                previewAction(spanish ? "Agitar para reportar un problema" : "Shake to report a problem")
+                previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.3c7c7cef20", spanish: spanish))
+                previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.8a579fc241", spanish: spanish))
             }
         case .personal, .invitations: EmptyView()
         }
@@ -98,25 +95,25 @@ struct CuadraoProfilePage: View {
                 case .preview: CuadraoAppearancePicker(spanish: spanish)
                 case .connected(let appearance, _): CuadraoAppearanceChoices(spanish: spanish, selection: appearance)
                 }
-            } header: { Text(spanish ? "Apariencia" : "Appearance") }
-              footer: { Text(spanish ? "Sistema sigue la apariencia de tu iPhone." : "System follows your iPhone's appearance.") }
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.6d3e76f91f", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.b894f61cc1", spanish: spanish)) }
             Section {
-                LabeledContent(spanish ? "Idioma" : "Language") { Text(spanish ? "Español" : "English").foregroundStyle(.secondary) }
+                LabeledContent(CuadraoCopy.text("copy.cuadraoProfilePage.98633ea3c0", spanish: spanish)) { Text(CuadraoCopy.text("copy.cuadraoProfilePage.244f0f8d3d", spanish: spanish)).foregroundStyle(.secondary) }
                     .accessibilityIdentifier("cuadrao.profile.language")
             }
             Section {
                 switch connection {
                 case .preview:
-                    LabeledContent(spanish ? "Moneda preferida" : "Preferred currency") {
-                        CuadraoChoiceMenu(title: spanish ? "Moneda preferida" : "Preferred currency",
+                    LabeledContent(CuadraoCopy.text("copy.connectedProfileCurrencyRow.8ceb934024", spanish: spanish)) {
+                        CuadraoChoiceMenu(title: CuadraoCopy.text("copy.connectedProfileCurrencyRow.8ceb934024", spanish: spanish),
                             selection: $settings.currency, values: PlanCurrency.supported, valueTitle: { $0 })
                             .accessibilityIdentifier("cuadrao.profile.currency")
                     }
                 case .connected(_, let profile):
                     ConnectedProfileCurrencyRow(model: profile, spanish: spanish)
                 }
-            } header: { Text(spanish ? "Moneda" : "Currency") }
-              footer: { Text(spanish ? "Elegir una moneda no convierte ni combina tus balances." : "Choosing a currency does not convert or combine your balances.") }
+            } header: { Text(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.854936f059", spanish: spanish)) }
             if CuadraoFirstRelease.shows(.voice) || CuadraoFirstRelease.shows(.advanced) {
                 Section { link(.voice); link(.advanced) }
             }
@@ -126,22 +123,22 @@ struct CuadraoProfilePage: View {
     private var personalization: some View {
         Group {
             Section {
-                Picker(spanish ? "Extensión" : "Length", selection: $settings.responseLength) {
-                    Text(spanish ? "Automática" : "Automatic").tag(0)
-                    Text(spanish ? "Breve" : "Brief").tag(1)
-                    Text(spanish ? "Detallada" : "Detailed").tag(2)
+                Picker(CuadraoCopy.text("copy.cuadraoProfilePage.26c969fea4", spanish: spanish), selection: $settings.responseLength) {
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.3749b3ae30", spanish: spanish)).tag(0)
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.91a73e61d9", spanish: spanish)).tag(1)
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.7ea2d26630", spanish: spanish)).tag(2)
                 }
-                Picker(spanish ? "Tono" : "Tone", selection: $settings.tone) {
-                    Text(spanish ? "Natural" : "Natural").tag(0)
-                    Text(spanish ? "Directo" : "Direct").tag(1)
-                    Text(spanish ? "Didáctico" : "Educational").tag(2)
+                Picker(CuadraoCopy.text("copy.cuadraoProfilePage.33744e618c", spanish: spanish), selection: $settings.tone) {
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.1af23c2bae", spanish: spanish)).tag(0)
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.3f8820339a", spanish: spanish)).tag(1)
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.60c71eac01", spanish: spanish)).tag(2)
                 }
-            } header: { Text(spanish ? "Respuestas" : "Responses") }
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.acb5baefff", spanish: spanish)) }
             Section {
-                TextField(spanish ? "Qué debería tener en cuenta" : "What should it keep in mind", text: $settings.instructions, axis: .vertical)
+                TextField(CuadraoCopy.text("copy.cuadraoProfilePage.ba489210bb", spanish: spanish), text: $settings.instructions, axis: .vertical)
                     .lineLimit(4...8)
-            } header: { Text(spanish ? "Tus instrucciones" : "Your instructions") }
-              footer: { Text(spanish ? "Son preferencias que tú eliges. No son recuerdos inferidos de tus chats. En esta vista previa no se envían al asistente." : "These are preferences you choose, not memories inferred from chats. This preview does not send them to the assistant.") }
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.d2392bf7bf", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.254f985940", spanish: spanish)) }
             if CuadraoFirstRelease.shows(.memory) { Section { link(.memory) } }
         }
     }
@@ -150,22 +147,22 @@ struct CuadraoProfilePage: View {
         Group {
             Section {
                 // Release rule (fc7650ea/#787): the "Por correo / By email" toggle is removed.
-                Toggle(spanish ? "En este dispositivo" : "On this device", isOn: $settings.push)
-            } header: { Text(spanish ? "Dónde recibirlas" : "Delivery") }
-              footer: { Text(spanish ? "Novedades sigue disponible aunque desactives estos avisos. Los controles de esta vista previa no solicitan permisos ni envían notificaciones." : "Updates remain available when these alerts are off. Preview controls do not request permission or send notifications.") }
+                Toggle(CuadraoCopy.text("copy.cuadraoProfilePage.187489ae69", spanish: spanish), isOn: $settings.push)
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.a0cea7d2a6", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.8e2c6cb930", spanish: spanish)) }
             Section {
-                Toggle(spanish ? "Presupuestos" : "Budgets", isOn: $settings.budgets)
-                Toggle(spanish ? "Metas" : "Goals", isOn: $settings.goals)
-                Toggle(spanish ? "Pagos próximos" : "Upcoming payments", isOn: $settings.payments)
-                Toggle(spanish ? "Por revisar" : "Needs review", isOn: $settings.records)
-                Toggle(spanish ? "Hogar" : "Household", isOn: $settings.household)
-            } header: { Text(spanish ? "Sobre qué" : "Topics") }
+                Toggle(CuadraoCopy.text("copy.cuadraoProfilePage.93f1c1ad0f", spanish: spanish), isOn: $settings.budgets)
+                Toggle(CuadraoCopy.text("copy.cuadraoProfilePage.c3ffb867e0", spanish: spanish), isOn: $settings.goals)
+                Toggle(CuadraoCopy.text("copy.cuadraoProfilePage.8c28ea141f", spanish: spanish), isOn: $settings.payments)
+                Toggle(CuadraoCopy.text("copy.cuadraoProfilePage.783c0fd8f1", spanish: spanish), isOn: $settings.records)
+                Toggle(CuadraoCopy.text("copy.cuadraoHouseholdSheet.b845d91db6", spanish: spanish), isOn: $settings.household)
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.b9584dcb70", spanish: spanish)) }
             Section {
-                Toggle(spanish ? "Horario de descanso" : "Quiet hours", isOn: $settings.quietHours)
+                Toggle(CuadraoCopy.text("copy.cuadraoProfilePage.11e90aae9d", spanish: spanish), isOn: $settings.quietHours)
                 if settings.quietHours {
-                    DatePicker(spanish ? "Desde" : "From", selection: $settings.quietStart, displayedComponents: .hourAndMinute)
+                    DatePicker(CuadraoCopy.text("copy.cuadraoProfilePage.e0979ec757", spanish: spanish), selection: $settings.quietStart, displayedComponents: .hourAndMinute)
                         .accessibilityIdentifier("cuadrao.quiet.start")
-                    DatePicker(spanish ? "Hasta" : "Until", selection: $settings.quietEnd, displayedComponents: .hourAndMinute)
+                    DatePicker(CuadraoCopy.text("copy.cuadraoProfilePage.cd188379f8", spanish: spanish), selection: $settings.quietEnd, displayedComponents: .hourAndMinute)
                         .accessibilityIdentifier("cuadrao.quiet.end")
                 }
             }
@@ -174,13 +171,13 @@ struct CuadraoProfilePage: View {
 
     private var security: some View {
         Group {
-            Section { previewAction(spanish ? "Cambiar contraseña" : "Change password") }
+            Section { previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.cde3685914", spanish: spanish)) }
             Section {
-                LabeledContent(spanish ? "Este dispositivo" : "This device", value: "iPhone")
-                previewAction(spanish ? "Cerrar otras sesiones" : "Sign out other sessions")
-                previewAction(spanish ? "Cerrar todas las sesiones" : "Sign out all sessions")
-            } header: { Text(spanish ? "Sesiones" : "Sessions") }
-              footer: { Text(spanish ? "Las sesiones reales se mostrarán al conectar tu cuenta." : "Real sessions will appear when your account is connected.") }
+                LabeledContent(CuadraoCopy.text("copy.cuadraoProfilePage.999d5ad00b", spanish: spanish), value: CuadraoCopy.text("copy.cuadraoProfilePage.230a57f1df", spanish: CuadraoCopy.isSpanish()))
+                previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.cf7d7f6d77", spanish: spanish))
+                previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.827752ebf1", spanish: spanish))
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.70971444f2", spanish: spanish)) }
+              footer: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.d79aa7158e", spanish: spanish)) }
         }
     }
 
@@ -189,7 +186,7 @@ struct CuadraoProfilePage: View {
             if CuadraoFirstRelease.shows(.memory) || CuadraoFirstRelease.shows(.files) || CuadraoFirstRelease.shows(.conversations) {
                 Section {
                     link(.memory); link(.files); link(.conversations)
-                } header: { Text(spanish ? "Tus datos" : "Your data") }
+                } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.ce43886b7d", spanish: spanish)) }
             }
             if CuadraoFirstRelease.savedReceipts, case .connected(_, let profile) = connection, let journey = profile.receiptJourney {
                 ReceiptReadingSetting(model: journey, spanish: spanish)
@@ -197,24 +194,24 @@ struct CuadraoProfilePage: View {
             if CuadraoFirstRelease.shows(.shared) || CuadraoFirstRelease.shows(.removed) {
                 Section {
                     link(.shared); link(.removed)
-                } header: { Text(spanish ? "Compartir y recuperar" : "Sharing and recovery") }
+                } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.76b002b9ac", spanish: spanish)) }
             }
             Section {
-                Button(spanish ? "Eliminar cuenta" : "Delete account", role: .destructive) {
+                Button(CuadraoCopy.text("copy.cuadraoProfilePage.a094025062", spanish: spanish), role: .destructive) {
                     if let deletion = connectedDeletion {
                         deletion.finish()
                         deletingAccount = true
                     } else {
-                        notice = spanish ? "Eliminar cuenta" : "Delete account"
+                        notice = CuadraoCopy.text("copy.cuadraoProfilePage.a094025062", spanish: spanish)
                     }
                 }
                 .foregroundStyle(.red)
                 .accessibilityIdentifier("cuadrao.profile.deleteAccount")
             } footer: {
                 if CuadraoFirstRelease.shows(.memory) {
-                    Text(spanish ? "Compartir un hogar no comparte tus chats, archivos ni memoria." : "Joining a household does not share your chats, files or memory.")
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.0ebaf506d1", spanish: spanish))
                 } else {
-                    Text(spanish ? "Compartir un hogar no comparte tus chats ni archivos." : "Joining a household does not share your chats or files.")
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.332280c2f1", spanish: spanish))
                 }
             }
         }
@@ -240,17 +237,17 @@ struct CuadraoProfilePage: View {
                         }.padding(.vertical, 6)
                     }
                 }
-                if rows.isEmpty { Text(spanish ? "Nada guardado todavía." : "Nothing saved yet.").foregroundStyle(.secondary) }
+                if rows.isEmpty { Text(CuadraoCopy.text("copy.cuadraoProfilePage.769c6d2a83", spanish: spanish)).foregroundStyle(.secondary) }
             } footer: {
                 if route == .memory {
-                    Text(spanish ? "Memoria guarda contexto que confirmas. Tus balances y movimientos permanecen en sus propios registros." : "Memory holds context you confirm. Balances and activity stay in their own records.")
+                    Text(CuadraoCopy.text("copy.cuadraoProfilePage.14a09af4aa", spanish: spanish))
                 }
             }
             if route == .conversations && CuadraoFirstRelease.showsConversationBulkActions {
                 Section {
-                    previewAction(spanish ? "Chats archivados" : "Archived chats")
-                    previewAction(spanish ? "Eliminados recientemente" : "Recently deleted")
-                    previewAction(spanish ? "Eliminar todas las conversaciones" : "Delete all conversations")
+                    previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.94e788c836", spanish: spanish))
+                    previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.430d2f5049", spanish: spanish))
+                    previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.d02b935981", spanish: spanish))
                 }
             }
         }
@@ -264,24 +261,24 @@ struct CuadraoProfilePage: View {
             Section {
                 switch connection {
                 case .preview:
-                    previewAction(spanish ? "Términos de uso" : "Terms of use")
-                    previewAction(spanish ? "Política de privacidad" : "Privacy policy")
+                    previewAction(CuadraoCopy.text("copy.connectedCuadraoProfile.2fe6836750", spanish: spanish))
+                    previewAction(CuadraoCopy.text("copy.cuadraoProfilePage.3a2527a0ac", spanish: spanish))
                 case .connected(_, let profile):
                     let legal = CuadraoLegalURLs.current
                     if legal.hasPages {
                         if let terms = legal.terms {
-                            Link(spanish ? "Términos de uso" : "Terms of use", destination: terms)
+                            Link(CuadraoCopy.text("copy.connectedCuadraoProfile.2fe6836750", spanish: spanish), destination: terms)
                                 .accessibilityIdentifier("release.legal.terms")
                         }
                         if let privacy = legal.privacy {
-                            Link(spanish ? "Política de privacidad" : "Privacy policy", destination: privacy)
+                            Link(CuadraoCopy.text("copy.cuadraoProfilePage.3a2527a0ac", spanish: spanish), destination: privacy)
                                 .accessibilityIdentifier("release.legal.privacy")
                         }
                     } else {
-                        Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren't available right now.")
+                        Text(CuadraoCopy.text("copy.connectedCuadraoProfile.7cc578247d", spanish: spanish))
                     }
                 }
-            } header: { Text(spanish ? "Acerca de Cuadrao" : "About Cuadrao") }
+            } header: { Text(CuadraoCopy.text("copy.cuadraoProfilePage.e9a2ff8d1a", spanish: spanish)) }
         }
     }
 

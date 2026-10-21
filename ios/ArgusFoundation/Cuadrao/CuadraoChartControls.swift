@@ -28,7 +28,7 @@ struct CuadraoChartViewChoice: View {
                 .contentShape(Rectangle())
                 .opacity(breakdown && !distributionEnabled ? 0.35 : 1)
         }.buttonStyle(.plain).disabled(breakdown && !distributionEnabled)
-            .accessibilityLabel(breakdown ? (spanish ? "Distribución" : "Breakdown") : (spanish ? "Evolución" : "History"))
+            .accessibilityLabel(breakdown ? (CuadraoCopy.text("copy.cuadraoChartControls.63521b1f42", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoChartControls.309e2bc554", spanish: spanish)))
             .accessibilityAddTraits(distribution == breakdown ? .isSelected : [])
             .accessibilityIdentifier(breakdown ? "home-view-distribution" : "home-view-history")
     }

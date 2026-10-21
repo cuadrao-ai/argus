@@ -99,7 +99,7 @@ struct SavedReceiptsScreen: View {
     private func detail(_ document: SavedDocument) -> String {
         let size = ByteCountFormatter.string(fromByteCount: Int64(document.sizeBytes), countStyle: .file)
         guard let created = document.created else { return size }
-        let date = created.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+        let date = created.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
         return size + " · " + date
     }
 

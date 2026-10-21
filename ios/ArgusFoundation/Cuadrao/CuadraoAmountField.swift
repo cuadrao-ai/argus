@@ -25,10 +25,10 @@ struct CuadraoAmountField: View {
             if currencySelectable {
                 Button { choosingCurrency = true } label: { CuadraoChoiceLabel(title: currency) }
                     .buttonStyle(.plain).accessibilityIdentifier(currencyIdentifier)
-                    .accessibilityLabel(spanish ? "Moneda, \(currency)" : "Currency, \(currency)")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAmountField.06c028f17d", spanish: spanish, String(describing: currency)))
             } else {
                 Text(currency).font(CuadraoTypography.supporting).foregroundStyle(WelcomePalette.ink.opacity(0.6))
-                    .accessibilityLabel(spanish ? "Moneda fija: \(currency)" : "Fixed currency: \(currency)")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAmountField.579ad15d4c", spanish: spanish, String(describing: currency)))
             }
             CanvasDecimalInput(raw: $raw, error: $error, currency: currency, spanish: spanish, allowNegative: allowNegative,
                                identifier: identifier, alignment: .center, autofocus: autofocus)
@@ -46,11 +46,11 @@ struct CuadraoAmountField: View {
                 if currencySelectable {
                     Button { choosingCurrency = true } label: { CuadraoChoiceLabel(title: currency) }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(spanish ? "Moneda, \(currency)" : "Currency, \(currency)")
+                        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAmountField.06c028f17d", spanish: spanish, String(describing: currency)))
                         .accessibilityIdentifier(currencyIdentifier)
                 } else {
                     CuadraoChoiceLabel(title: currency, selectable: false)
-                        .accessibilityLabel(spanish ? "Moneda fija: \(currency)" : "Fixed currency: \(currency)")
+                        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAmountField.579ad15d4c", spanish: spanish, String(describing: currency)))
                 }
                 CanvasDecimalInput(raw: $raw, error: $error, currency: currency,
                     spanish: spanish, allowNegative: allowNegative, identifier: identifier)
@@ -70,7 +70,7 @@ struct CuadraoAmountField: View {
     private func recheckDecimals() {
         let fraction = raw.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
         error = fraction > rules.digits(currency)
-            ? (spanish ? "Revisa los decimales para \(currency)." : "Check decimal places for \(currency).") : ""
+            ? (CuadraoCopy.text("copy.canvasDecimalInput.fb945d8969", spanish: spanish, String(describing: currency))) : ""
     }
 }
 
@@ -85,7 +85,7 @@ private struct CanvasCurrencyPicker: View {
         return all.filter { query.isEmpty || $0.localizedCaseInsensitiveContains(query) || name($0).localizedCaseInsensitiveContains(query) }
     }
     private func name(_ code: String) -> String {
-        Locale(identifier: spanish ? "es_DO" : "en_US").localizedString(forCurrencyCode: code) ?? code
+        Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)).localizedString(forCurrencyCode: code) ?? code
     }
     var body: some View {
         NavigationStack {
@@ -103,9 +103,9 @@ private struct CanvasCurrencyPicker: View {
                     }.padding(.vertical, 4)
                 }
             }.listStyle(.plain)
-                .searchable(text: $query, prompt: spanish ? "Nombre o código" : "Name or code")
-                .navigationTitle(spanish ? "Moneda" : "Currency").navigationBarTitleDisplayMode(.inline)
-                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+                .searchable(text: $query, prompt: CuadraoCopy.text("copy.cuadraoAmountField.d8f1c7193a", spanish: spanish))
+                .navigationTitle(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+                .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }.tint(WelcomePalette.pine)
     }
 }

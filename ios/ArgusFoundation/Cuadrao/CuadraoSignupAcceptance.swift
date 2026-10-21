@@ -6,9 +6,7 @@ struct CuadraoSignupAcceptance: View {
 
     var body: some View {
         if let terms = legal.terms, let privacy = legal.privacy {
-            Text(LocalizedStringKey(spanish
-                ? "Al continuar, aceptas los [Términos](\(terms.absoluteString)) y la [Política de privacidad](\(privacy.absoluteString))."
-                : "By continuing, you agree to the [Terms](\(terms.absoluteString)) and [Privacy Policy](\(privacy.absoluteString))."))
+            Text(LocalizedStringKey(CuadraoCopy.text("copy.cuadraoSignupAcceptance.29044df238", spanish: spanish, String(describing: terms.absoluteString), String(describing: privacy.absoluteString))))
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

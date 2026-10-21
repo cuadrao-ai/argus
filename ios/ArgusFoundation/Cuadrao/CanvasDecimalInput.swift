@@ -59,7 +59,7 @@ struct CanvasDecimalInput: UIViewRepresentable {
             if (field.text ?? "").replacingOccurrences(of: ",", with: "") != raw { field.text = Coordinator.group(raw) }
         }
         field.placeholder = rules.format(0, currency)
-        field.accessibilityLabel = title ?? (spanish ? "Monto" : "Amount")
+        field.accessibilityLabel = title ?? (CuadraoCopy.text("copy.canvasDecimalInput.69f09a95c5", spanish: spanish))
         field.textColor = (Decimal(string: raw) ?? 0) > 0
             ? UIColor(WelcomePalette.moneyInput) : .secondaryLabel
     }
@@ -84,17 +84,17 @@ struct CanvasDecimalInput: UIViewRepresentable {
             }
             if string.count > 1 && string.contains(",") &&
                 string.range(of: #"^-?(?:[0-9]{1,3}(?:,[0-9]{3})+)(?:\.[0-9]*)?$"#, options: .regularExpression) == nil {
-                commit(error: parent.spanish ? "Revisa las comas del monto." : "Check the amount’s grouping."); return false
+                commit(error: CuadraoCopy.text("copy.canvasDecimalInput.ae26ecf511", spanish: parent.spanish)); return false
             }
             var normalized = proposed.replacingOccurrences(of: ",", with: "")
             let pattern = parent.allowNegative ? #"^-?[0-9]*(?:\.[0-9]*)?$"# : #"^[0-9]*(?:\.[0-9]*)?$"#
             guard normalized.range(of: pattern, options: .regularExpression) != nil else {
-                commit(error: parent.spanish ? "Usa números y un punto decimal." : "Use digits and a decimal point."); return false
+                commit(error: CuadraoCopy.text("copy.canvasDecimalInput.a1483982c8", spanish: parent.spanish)); return false
             }
             if normalized.hasPrefix(".") { normalized = "0" + normalized; logical += 1 }
             let fraction = normalized.split(separator: ".", omittingEmptySubsequences: false).dropFirst().first?.count ?? 0
             guard fraction <= parent.rules.digits(parent.currency) else {
-                commit(error: parent.spanish ? "Revisa los decimales para \(parent.currency)." : "Check decimal places for \(parent.currency)."); return false
+                commit(error: CuadraoCopy.text("copy.canvasDecimalInput.fb945d8969", spanish: parent.spanish, String(describing: parent.currency))); return false
             }
             guard abs(Decimal(string: normalized) ?? 0) <= parent.rules.maximum(parent.currency), normalized.count <= 24 else {
                 commit(error: parent.rules.maximumMessage(parent.currency, parent.spanish)); return false

@@ -62,7 +62,7 @@ struct CuadraoToast: View {
             }.accessibilityIdentifier(actionIdentifier)
         }
         Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
-            .accessibilityLabel(spanish ? "Cerrar" : "Close")
+            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish))
             .accessibilityIdentifier("toast.close")
     }
 }

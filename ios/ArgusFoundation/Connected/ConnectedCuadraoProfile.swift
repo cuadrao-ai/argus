@@ -12,8 +12,8 @@ struct ConnectedCuadraoProfile: View {
     @State private var claim: GuestClaimModel?
     @Environment(\.cuadraoGuestClaim) private var guestClaim
     @State private var settingsExamples = CuadraoProfileSettingsDraft()
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
-    private var displayName: String { auth.profile?.displayName ?? (spanish ? "Tu perfil" : "Your profile") }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
+    private var displayName: String { auth.profile?.displayName ?? (CuadraoCopy.text("copy.connectedCuadraoProfile.95d374b19b", spanish: spanish)) }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -48,12 +48,12 @@ struct ConnectedCuadraoProfile: View {
             .sheet(item: $claim) { model in
                 GuestClaimSheet(model: model, close: { claim = nil }).preferredColorScheme(appearance.colorScheme)
             }
-            .alert(spanish ? "¿Cerrar sesión?" : "Sign out?", isPresented: $confirmingSignOut) {
-                Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
-                Button(spanish ? "Cerrar sesión" : "Sign out", role: .destructive) { Task { await auth.signOut() } }
+            .alert(CuadraoCopy.text("copy.connectedCuadraoProfile.acc5cbf2ec", spanish: spanish), isPresented: $confirmingSignOut) {
+                Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), role: .cancel) {}
+                Button(CuadraoCopy.text("copy.connectedCuadraoProfile.a47c0e9665", spanish: spanish), role: .destructive) { Task { await auth.signOut() } }
                     .accessibilityIdentifier("auth.signOut.confirm")
             } message: {
-                Text(spanish ? "Volverás a la pantalla de inicio de sesión." : "You'll return to the sign-in screen.")
+                Text(CuadraoCopy.text("copy.connectedCuadraoProfile.43803ec665", spanish: spanish))
             }
         }
         .toolbar(.hidden, for: .tabBar)
@@ -73,7 +73,7 @@ struct ConnectedCuadraoProfile: View {
 
     private var signOut: some View {
         VStack(spacing: 6) {
-            Button(spanish ? "Cerrar sesión" : "Sign out") { confirmingSignOut = true }
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.a47c0e9665", spanish: spanish)) { confirmingSignOut = true }
                 .font(.subheadline).foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .disabled(auth.busy)
@@ -96,7 +96,7 @@ private struct ConnectedProfileInvitationsRow: View {
             Rectangle().fill(CanvasSettingsStyle.separator).frame(height: 0.5)
                 .padding(.leading, 54).padding(.trailing, 18).accessibilityHidden(true)
             NavigationLink(value: CanvasProfileRoute.invitations) {
-                CanvasProfileRow(route: .invitations, spanish: locale.language.languageCode?.identifier == "es")
+                CanvasProfileRow(route: .invitations, spanish: CuadraoCopy.isSpanish())
             }.buttonStyle(.plain).accessibilityIdentifier("invites.profile")
         }
     }
@@ -105,25 +105,25 @@ private struct ConnectedProfileInvitationsRow: View {
 struct CuadraoLegalLinks: View {
     var legal: CuadraoLegalURLs = .current
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         List {
             if legal.hasPages {
                 if let privacy = legal.privacy {
                     Link(destination: privacy) {
-                        Label(spanish ? "Privacidad" : "Privacy", systemImage: "hand.raised")
+                        Label(CuadraoCopy.text("copy.connectedCuadraoProfile.a405422e66", spanish: spanish), systemImage: "hand.raised")
                     }.accessibilityIdentifier("release.legal.privacy")
                 }
                 if let terms = legal.terms {
                     Link(destination: terms) {
-                        Label(spanish ? "Términos de uso" : "Terms of use", systemImage: "doc.text")
+                        Label(CuadraoCopy.text("copy.connectedCuadraoProfile.2fe6836750", spanish: spanish), systemImage: "doc.text")
                     }.accessibilityIdentifier("release.legal.terms")
                 }
             } else {
-                Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren't available right now.")
+                Text(CuadraoCopy.text("copy.connectedCuadraoProfile.7cc578247d", spanish: spanish))
             }
-        }.navigationTitle(spanish ? "Privacidad y términos" : "Privacy and terms")
+        }.navigationTitle(CuadraoCopy.text("copy.connectedCuadraoProfile.7081fb1e80", spanish: spanish))
             .navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
     }
 }

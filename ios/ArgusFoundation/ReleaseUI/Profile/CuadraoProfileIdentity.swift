@@ -18,7 +18,7 @@ enum CuadraoAvatarTheme: String, CaseIterable, Identifiable {
         switch self { case .sun: WelcomePalette.pine; case .leaf: WelcomePalette.sunshine; case .moon: WelcomePalette.bloom; case .star: WelcomePalette.clay }
     }
     func title(_ spanish: Bool) -> String {
-        switch self { case .sun: spanish ? "Sol" : "Sun"; case .leaf: spanish ? "Hoja" : "Leaf"; case .moon: spanish ? "Luna" : "Moon"; case .star: spanish ? "Estrella" : "Star" }
+        switch self { case .sun: CuadraoCopy.text("copy.cuadraoProfileIdentity.d7d3325840", spanish: spanish); case .leaf: CuadraoCopy.text("copy.cuadraoProfileIdentity.de90a8165d", spanish: spanish); case .moon: CuadraoCopy.text("copy.cuadraoProfileIdentity.c41d8b1763", spanish: spanish); case .star: CuadraoCopy.text("copy.cuadraoProfileIdentity.74811abcf9", spanish: spanish) }
     }
 }
 
@@ -86,7 +86,7 @@ struct CuadraoIdentityEditor: View {
     @State private var loading = false
     @State private var failed = false
     @State private var generation = UUID()
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     init(name: String, selection: Binding<CuadraoAvatarSelection>) {
         self.name = name; _selection = selection; _draft = State(initialValue: selection.wrappedValue)
@@ -99,29 +99,29 @@ struct CuadraoIdentityEditor: View {
                     CuadraoIdentityAvatar(selection: draft, name: name, size: 96)
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
                     PhotosPicker(selection: $photo, matching: .images) {
-                        Label(spanish ? "Elegir foto" : "Choose photo", systemImage: "photo")
+                        Label(CuadraoCopy.text("copy.cuadraoProfileIdentity.3d62df090b", spanish: spanish), systemImage: "photo")
                     }.accessibilityIdentifier("release.avatar.photo")
                     if case .photo(let value) = draft {
-                        Button(spanish ? "Ajustar foto" : "Reposition photo") {
+                        Button(CuadraoCopy.text("copy.cuadraoProfileAvatar.7e0ac1d51c", spanish: spanish)) {
                             crop = CanvasAvatarCropRequest(source: value.source, crop: value.crop)
                         }
                     }
-                    if loading { ProgressView(spanish ? "Preparando foto" : "Preparing photo") }
-                    if failed { Text(spanish ? "No pudimos abrir esa foto. Prueba otra." : "We couldn't open that photo. Try another.").foregroundStyle(.secondary) }
+                    if loading { ProgressView(CuadraoCopy.text("copy.cuadraoProfileAvatar.7415241987", spanish: spanish)) }
+                    if failed { Text(CuadraoCopy.text("copy.cuadraoProfileIdentity.b7f2512242", spanish: spanish)).foregroundStyle(.secondary) }
                 }
-                Section(spanish ? "Tu avatar" : "Your avatar") {
-                    choice(.none, title: spanish ? "Icono de perfil" : "Profile icon", id: "none")
-                    choice(.initials, title: spanish ? "Iniciales" : "Initials", id: "initials")
+                Section(CuadraoCopy.text("copy.cuadraoProfileIdentity.236b6c6848", spanish: spanish)) {
+                    choice(.none, title: CuadraoCopy.text("copy.cuadraoProfileIdentity.5c22b309d1", spanish: spanish), id: "none")
+                    choice(.initials, title: CuadraoCopy.text("copy.cuadraoProfileAvatar.29387500ba", spanish: spanish), id: "initials")
                     ForEach(CuadraoAvatarTheme.allCases) { theme in
                         choice(.theme(theme), title: theme.title(spanish), id: theme.rawValue)
                     }
                 }
             }
-            .navigationTitle(spanish ? "Tu perfil" : "Your profile")
+            .navigationTitle(CuadraoCopy.text("copy.connectedCuadraoProfile.95d374b19b", spanish: spanish))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "release.avatar.cancel") { dismiss() }
-                CuadraoConfirmToolbar(title: spanish ? "Guardar" : "Save", disabled: loading, identifier: "release.avatar.save") { selection = draft; dismiss() }
+                CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), identifier: "release.avatar.cancel") { dismiss() }
+                CuadraoConfirmToolbar(title: CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish), disabled: loading, identifier: "release.avatar.save") { selection = draft; dismiss() }
             }
             .sheet(item: $crop) { request in
                 CanvasAvatarCropSheet(request: request, spanish: spanish) { draft = .photo($0) }

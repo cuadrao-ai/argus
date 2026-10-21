@@ -16,11 +16,11 @@ struct CuadraoHomeInsightsLayout<Content: View>: View {
         periodOffset = min(0, max(oldest, periodOffset + direction))
     }
     private var metricChoice: some View {
-        CuadraoChoiceMenu(title: spanish ? "Vista" : "View", selection: Binding(get: { activity }, set: { value in
+        CuadraoChoiceMenu(title: CuadraoCopy.text("copy.cuadraoHomeInsightsLayout.4da8ee795c", spanish: spanish), selection: Binding(get: { activity }, set: { value in
             periodOffset = max(oldestOffset(value), periodOffset)
             activity = value
         }), values: [false, true], valueTitle: { value in
-            value ? (spanish ? "Actividad" : "Activity") : "Balance"
+            value ? (CuadraoCopy.text("copy.cuadraoChatContext.fea64e51c2", spanish: spanish)) : CuadraoCopy.text("copy.cuadraoHomeInsightsLayout.02e2073456", spanish: spanish)
         }).accessibilityIdentifier("home-insight-metric")
     }
 
@@ -47,13 +47,13 @@ struct CuadraoHomeInsightsLayout<Content: View>: View {
                     }
                     .accessibilityIdentifier("home-insights-content")
                     .accessibilityHidden(offset != periodOffset)
-                    .accessibilityAction(named: Text(spanish ? "Período anterior" : "Previous period")) { movePeriod(-1) }
-                    .accessibilityAction(named: Text(spanish ? "Período siguiente" : "Next period")) { movePeriod(1) }
+                    .accessibilityAction(named: Text(CuadraoCopy.text("copy.cuadraoHomeInsightsLayout.0f09cd0d20", spanish: spanish))) { movePeriod(-1) }
+                    .accessibilityAction(named: Text(CuadraoCopy.text("copy.cuadraoHomeInsightsLayout.bd8c7d9ccb", spanish: spanish))) { movePeriod(1) }
                     .tag(offset)
                 }
             }.tabViewStyle(.page(indexDisplayMode: .never)).id(range.rawValue + String(activity))
-                .accessibilityAction(named: Text(spanish ? "Período anterior" : "Previous period")) { movePeriod(-1) }
-                .accessibilityAction(named: Text(spanish ? "Período siguiente" : "Next period")) { movePeriod(1) }
+                .accessibilityAction(named: Text(CuadraoCopy.text("copy.cuadraoHomeInsightsLayout.0f09cd0d20", spanish: spanish))) { movePeriod(-1) }
+                .accessibilityAction(named: Text(CuadraoCopy.text("copy.cuadraoHomeInsightsLayout.bd8c7d9ccb", spanish: spanish))) { movePeriod(1) }
         }.onChange(of: oldest) { _, value in periodOffset = max(value, periodOffset) }
     }
 }
@@ -69,7 +69,7 @@ struct CuadraoHomeInsightsChrome: ViewModifier {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                        .accessibilityLabel(spanish ? "Cerrar" : "Close")
+                        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish))
                         .accessibilityIdentifier("home-history-done")
                 }
             }

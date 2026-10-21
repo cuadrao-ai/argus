@@ -11,7 +11,7 @@ struct ConnectedTransactionSheet: View {
     @State private var amountError = ""
     @State private var currency = ""
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var reviewing: Bool { model.phase != .editing }
     private var closed: Bool { model.phase == .conflict || model.phase == .retired }
     private var locked: Bool { model.busy || model.phase == .uncertain }
@@ -97,7 +97,7 @@ struct ConnectedTransactionSheet: View {
             }
             if model.returning != nil { Text("debt.return.disclosure").font(.caption).foregroundStyle(.secondary) }
             MovementChipFlow {
-                MovementDateChip(caption: spanish ? "Fecha" : "Date", date: $model.date, range: .distantPast...Date(), identifier: "loop.date")
+                MovementDateChip(caption: CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish), date: $model.date, range: .distantPast...Date(), identifier: "loop.date")
                 if !model.kind.isPaired {
                     chip(model.kind == .refund ? "loop.activity.refundTo" : "loop.activity.account", symbol: "building.columns",
                          selection: $model.accountId, choices: model.singleChoices, id: "loop.account")
@@ -123,7 +123,7 @@ struct ConnectedTransactionSheet: View {
             }
             if model.kind == .refund, model.purchaseActivityId != nil { Text("loop.activity.linkedCategory").font(.caption).foregroundStyle(.secondary) }
             VStack(alignment: .leading, spacing: 8) {
-                TextField(spanish ? "Concepto (opcional)" : "Description (optional)", text: $model.note, axis: .vertical)
+                TextField(CuadraoCopy.text("copy.connectedTransactionSheet.b6d70b2c10", spanish: spanish), text: $model.note, axis: .vertical)
                     .focused($focused).lineLimit(1...4).modifier(RegistrationField())
                     .accessibilityIdentifier("loop.note")
                 Text("\(model.note.unicodeScalars.count)/200").font(.caption)
@@ -208,14 +208,14 @@ struct ConnectedTransactionSheet: View {
         let amount = Decimal(string: model.amount) ?? 0
         Text(sign + CanvasMoney.format(amount, currency: model.origin.currency))
             .font(CuadraoTypography.amount).monospacedDigit()
-        LabeledContent(spanish ? "Moneda" : "Currency", value: model.origin.currency)
-        LabeledContent(spanish ? "Tipo" : "Type", value: NSLocalizedString("loop.kind." + model.kind.rawValue, comment: ""))
+        LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish), value: model.origin.currency)
+        LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.36a6ac68b2", spanish: spanish), value: NSLocalizedString("loop.kind." + model.kind.rawValue, comment: ""))
         ForEach(reviewAccounts, id: \.0) { row in LabeledContent(row.0, value: row.1) }
         if let category = model.categoryId, model.kind == .expense || model.linkedPurchase == nil {
             LabeledContent(NSLocalizedString("loop.category", comment: ""), value: NSLocalizedString("loop.category." + category, comment: ""))
         }
-        if !model.note.isEmpty { LabeledContent(spanish ? "Concepto" : "Description", value: model.note) }
-        LabeledContent(spanish ? "Fecha" : "Date") { Text(model.date, format: .dateTime.day().month().year()) }
+        if !model.note.isEmpty { LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.387cf3bb68", spanish: spanish), value: model.note) }
+        LabeledContent(CuadraoCopy.text("copy.connectedTransactionSheet.9e3d3b41ed", spanish: spanish)) { Text(model.date, format: .dateTime.day().month().year()) }
         if let preview = model.preview { impact(preview) }
     }
 

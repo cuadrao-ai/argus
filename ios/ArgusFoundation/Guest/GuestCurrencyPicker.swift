@@ -16,7 +16,7 @@ struct GuestCurrencyPicker: View {
     }
 
     private func name(_ code: String) -> String {
-        Locale(identifier: spanish ? "es_419" : "en_US").localizedString(forCurrencyCode: code) ?? code
+        Locale(identifier: CuadraoCopy.text("copy.guestCurrencyPicker.6de40be718", spanish: spanish)).localizedString(forCurrencyCode: code) ?? code
     }
 
     var body: some View {
@@ -39,9 +39,9 @@ struct GuestCurrencyPicker: View {
                 .accessibilityAddTraits(code == selection ? .isSelected : [])
             }
             .listStyle(.plain)
-            .searchable(text: $query, prompt: spanish ? "Nombre o código" : "Name or code")
-            .navigationTitle(spanish ? "Moneda" : "Currency").navigationBarTitleDisplayMode(.inline)
-            .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+            .searchable(text: $query, prompt: CuadraoCopy.text("copy.cuadraoAmountField.d8f1c7193a", spanish: spanish))
+            .navigationTitle(CuadraoCopy.text("copy.connectedTransactionSheet.9b96ad5816", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
+            .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }.tint(WelcomePalette.pine)
     }
 }
