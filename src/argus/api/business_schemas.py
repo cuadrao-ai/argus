@@ -42,6 +42,10 @@ class BusinessSpaceInfo(_Wire):
     name: str
     country: str
     currency: str
+    logo_url: str | None = Field(
+        default=None,
+        description="A signed URL to the 256 px logo, valid for about an hour; null without one.",
+    )
 
 
 class BusinessNamingState(BusinessSpaceInfo):
@@ -66,6 +70,7 @@ class GrantedSpaceInfo(_Wire):
 
     space_id: str
     name: str
+    logo_url: str | None = None
     grant_id: str
     role: Literal["owner", "accountant"]
     capabilities: list[Literal["read", "prepare", "approve"]]
@@ -124,12 +129,17 @@ class BusinessWorkspace(_Wire):
     assistant_available: bool
     chat_available: bool
     receipt_limits: ReceiptLimits
+    logo_url: str | None = None
 
 
 class BusinessAccessGrant(_Wire):
     id: str
     email: str | None
     display_name: str
+    photo_url: str | None = Field(
+        default=None,
+        description="A signed URL to the member's 256 px profile photo, valid for about an hour; null without one, and null until the member has dismissed their access line (access_seen).",
+    )
     capabilities: list[Literal["read", "prepare", "approve"]]
     created_at: datetime
     #: The owner's own grant; it cannot be revoked here.

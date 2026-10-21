@@ -14,6 +14,7 @@ from fastapi.concurrency import run_in_threadpool
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
+from argus.api import state as api_state
 from argus.api.business import (
     BusinessContext,
     owner_only,
@@ -155,6 +156,15 @@ def _runtime(request: Request) -> EmailCapture:
             request, 503, "email_capture_unavailable", "Email receiving is unavailable."
         )
     return runtime
+
+
+def _stored_runtime(request: Request) -> EmailCapture | None:
+    """``_runtime`` for a read that lists: None when the in-memory app keeps no
+    deliveries, so the list is empty rather than refused."""
+
+    if email_intake() is None and api_state.PERSISTENCE_MODE != "supabase":
+        return None
+    return _runtime(request)
 
 
 def _readiness(runtime: EmailCapture, space_id: str) -> dict[str, Any]:
@@ -623,7 +633,9 @@ def deliveries(
     context: Annotated[BusinessContext, Depends(require_business)],
 ) -> dict[str, Any]:
     response.headers.update(NO_STORE)
-    runtime = _runtime(request)
+    runtime = _stored_runtime(request)
+    if runtime is None:
+        return {"items": []}
     space_id = context.scope.owner.space_id
     relations = runtime.store.membership(space_id)
     return {

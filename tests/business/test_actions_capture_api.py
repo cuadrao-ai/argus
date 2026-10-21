@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business import BusinessPerson, require_business_person
-from argus.api.business_drafts import DraftContext, require_drafts
+from argus.api.business_drafts import DraftContext, require_drafts, stored_drafts
 from argus.api.routers.business_manual import router
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import Applied, OutcomeUnknown, Refused
@@ -79,7 +79,9 @@ def capture_api():
     service = CaptureService(actor, space.id)
     app = FastAPI()
     app.include_router(router)
-    app.dependency_overrides[require_drafts] = lambda: DraftContext(service, actor)
+    context = DraftContext(service, actor)
+    app.dependency_overrides[require_drafts] = lambda: context
+    app.dependency_overrides[stored_drafts] = lambda: context
     app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
         str(actor), spaces
     )

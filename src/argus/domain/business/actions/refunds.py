@@ -43,9 +43,10 @@ def refund_candidates(
     facts: BusinessFacts, records: Callable[[], Iterable[FiscalRecord]]
 ) -> tuple[RefundCandidate, ...]:
     """Approved expenses in the draft's currency, within the 30 days up to its
-    date, from the draft's supplier when its RNC is known; newest first, at
-    most ``LIMIT``. Empty when the draft could not refund anything, and then
-    ``records`` is never read."""
+    date, from the draft's supplier when its RNC is known, and not paid from
+    the owner's own money (the money write refuses to refund those); newest
+    first, at most ``LIMIT``. Empty when the draft could not refund anything,
+    and then ``records`` is never read."""
 
     if not could_refund(facts):
         return ()
@@ -60,6 +61,7 @@ def refund_candidates(
         record
         for record in records()
         if record.kind == "expense"
+        and not record.owner_funded
         and record.currency == currency
         and 0 <= (day - record.occurred_on).days <= WINDOW_DAYS
         and (supplier is None or normalized_taxpayer_id(_rnc(record.facts)) == supplier)

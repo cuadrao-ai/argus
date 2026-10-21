@@ -50,12 +50,37 @@ Inline/fenced code and HTML comments are examples, not checked links.
 Run with `poetry run python scripts/check_docs_links.py --base <base-sha>`.
 Invalid bases, unreadable files, and checker errors fail the job.
 
+## Job selection
+
+[The classifier](../.github/docs-only-changes.sh) reads `BASE...HEAD` without
+rename detection, so a rename or deletion counts its old path too. On a ready
+pull request:
+
+| Changed paths | Jobs |
+| --- | --- |
+| Only `docs/` | docs-checks |
+| Anything else | backend-checks, frontend-checks, guest-release-gates |
+| Also `marketing/`, `supabase/functions/`, `.github/` or an unlisted path | plus marketing-checks |
+
+Backend and web cannot narrow: backend tests scan `git ls-files`, and a web
+test runs `git grep` over the whole checkout. guest-release-gates holds the
+guest gates and every shared `tests/test_*_postgres.py` proof, replaying all
+migrations on the pinned and latest Supabase CLI; its tests read `docs/`, `web/`,
+`scripts/` and `fixtures/`, so it runs with the backend. Its id and check name stay
+for required-check compatibility. Marketing reads nothing else outside its
+package; [the guard](../tests/test_ci_job_selection.py) proves that against the
+tree. Pushes run every code job on both CLIs, and so does a manual run with
+`full_run` checked. Without it, a manual or scheduled run is the latest-CLI
+Postgres probe. A git failure fails the classifier and so the `ci` check. The
+docs-only lane still skips web and Postgres tests that read `docs/` (for example
+`docs/api/openapi.yaml`), as it did before.
+
 ## Aggregation and regression proof
 
-The aggregate accepts only the exact `DOCS_ONLY` strings `true` and `false`.
-It always requires classifier and ownership success; docs-only runs also require
-docs-checks success. All other success/skipped allowances remain as before.
-Failure and cancellation cannot pass under either flag.
+The aggregate accepts only the exact strings `true` and `false` for `DOCS_ONLY`,
+`RUN_HEAVY` and `RUN_MARKETING`, and rejects inconsistent combinations. It always
+requires classifier and ownership success. A selected job must succeed; only an
+unselected job may skip. Failure and cancellation never pass.
 
 [Executable regression tests](../tests/test_docs_ci_gate.py) load and execute
 the actual workflow Bash with temporary commands and dependency results.

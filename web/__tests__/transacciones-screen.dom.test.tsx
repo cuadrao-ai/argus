@@ -557,6 +557,7 @@ describe("Transacciones decisions", () => {
   test("the suggestion run walks the tray one suggestion at a time; three igualadas share one toast", async () => {
     const page = await mount();
     await page.ready();
+    await page.settle(() => page.api().chosen?.space_id === "fixture-space", "the Business scope to finish loading");
     const run = document.querySelector<HTMLButtonElement>('[data-testid="transacciones-run"]')!;
     assert.match(run.textContent ?? "", /Igualar sugerencias\s*3/);
     await page.click(run);

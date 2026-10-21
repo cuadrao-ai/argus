@@ -3447,6 +3447,29 @@ claims produce one winner. Renaming preserves the timestamp. Client roles have
 no direct write grant on this state. Required naming for owner invites and
 exports derives from the current name, independently of this timestamp.
 
+### Profile photos and Business logos
+
+`20261021040000_profile_images.sql` adds the private `profile-images` Storage
+bucket (`image/webp` only, 1 MiB) and two server-only tables with RLS and no
+client grant: `profile_photos (user_id primary key → auth.users on delete
+cascade, sha256, updated_at)` and `business_logos (space_id primary key →
+spaces on delete cascade, sha256, updated_at)`. A row means the subject has a
+picture; the picture is the object at `people/{user_id}/256.webp` or
+`business/{space_id}/256.webp`, a path the server derives from the key, so the
+row stores no path. The server re-encodes every upload to one 256 px WebP
+square rebuilt from pixels, so no EXIF, GPS, ICC or XMP data is stored, and
+`sha256` is that object's digest; it versions the signed URL. Only the service
+role reads the rows or the bucket; readers get a signed URL (about an hour)
+from the API, which answers the visibility rule: a person's photo to that
+person, and to a Business owner whose access list names them once the person
+has dismissed their access line (their `access_seen` receipt); a logo to the
+Business's owner and live members. The `spaces` row is unchanged. The row goes
+with its auth user or space; the object does not: account deletion erases
+`people/{user_id}/` and `business/{space_id}/` for every space the person
+created in its `storage` step (`spaces.created_by` cascades with the user). No
+Business purge exists yet; the one #1222 adds must erase
+`business/{space_id}/` before it deletes the space row.
+
 ### Business receipt reading consent and attention
 
 `20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.
@@ -3534,7 +3557,7 @@ open items read the date from the resolution, not from the revision.
 
 | Table | Durable owner and invariants |
 | --- | --- |
-| `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`. Keep 10 years. No delete API. |
+| `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`, checked at commit (`deferrable initially deferred`, `20261021065000_business_bank_accounts_account_key_deferred.sql`): an owner's account deletion cascades to `financial_accounts` before `spaces`, and the binding goes with the space in the same delete. Deleting the account while the binding exists is still refused. Keep 10 years. No delete API. |
 | `business_bank_imports` | One accepted statement upload. Unique `(space_id, imported_by, idempotency_key)`. `source_sha256` is the file bytes. Keep 10 years. No delete API. |
 | `business_bank_lines` | Immutable raw statement lines. Unique `(bank_account_id, occurred_on, amount, normalized_description, line_hash)`. `raw_line` is the source cells. Updates are refused. Re-import returns the existing row. Keep 10 years. No delete API. |
 | `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only, with select, insert and update and no delete or truncate (`20261021060000_business_bank_line_outcomes_no_delete.sql`, as the other bank tables). Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |

@@ -3102,9 +3102,14 @@ Retrieve the current authenticated user profile and preferences.
     },
     "created_at": "timestamp",
     "updated_at": "timestamp"
-  }
+  },
+  "photo_url": "https://.../object/sign/profile-images/people/<id>/256.webp?token=...&v=..."
 }
 ```
+
+`photo_url` is a signed URL to the person's 256 px profile photo, valid for
+about an hour, or null without one (always null for a guest). Re-read `/me`
+for a fresh one.
 
 ## `GET /me/usage`
 
@@ -3551,6 +3556,24 @@ was verified, so the person existed a moment ago.
 - **locale:** `en-US`, `es-419`
 
 *Note: `language` controls the AI response language and the static UI preference. `locale` controls formatting (dates, numbers, currency).*
+
+## `PUT /me/photo`
+
+Replace the person's profile photo. The body is the picture itself, cropped
+square by the client: `Content-Type: image/jpeg`, `image/png` or `image/webp`
+(case-insensitive), at most 5 MiB, one still image of at least 64 pixels on
+each side and at most 25 million pixels in all. The server
+re-encodes it to a 256 px WebP square and drops every EXIF, GPS, ICC and XMP
+block; a non-square picture is center-cropped. The reply is the `GET /me`
+document with the fresh `photo_url`. Errors: 415 `image_media_type_unsupported`,
+413 `image_too_large`, 422 `image_invalid` (`context.reason` is `undecodable`,
+`too_small`, `animated` or `too_many_pixels`), 403
+`account_conversion_required` for a guest, 503 `profile_images_unavailable` or
+`profile_image_storage_unavailable`.
+
+## `DELETE /me/photo`
+
+Remove the person's profile photo. 204, also when there is none.
 
 ## Runtime Language Contract
 - User input may arrive in any supported language, currently English or Spanish (Latin America).
@@ -9240,8 +9263,11 @@ occurred_on, amount, currency}]` with `id` the activity the declaration's
 fiscal number is a credit note (NCF type 04 or 34) and its date and currency
 are known; otherwise the approved expenses in the draft's currency dated
 within the 30 days up to the draft's date (the 606 rule), restricted to the
-draft's supplier when its RNC is known, newest first, at most 20. The web
-renders the list; it no longer picks a window of its own. Sources expose original text or the
+draft's supplier when its RNC is known, and never a purchase paid from the
+owner's own money (the refund approval refuses one with 422
+`recorded_correction_unsupported`, so the list and the approval agree),
+newest first, at most 20. The web renders the list; it no longer picks a
+window of its own. Sources expose original text or the
 existing authorized attachment connection, channel and receipt time; receipt
 time does not become activity date. A human form submission has source kind
 `web_action`, channel `web`, and immutable canonical submitted command text in
@@ -9295,7 +9321,11 @@ it is unknown. Open items list the soonest due date first (see the
 
 `GET /business/month-close` and `GET /business/open-items` both carry `today`,
 the server's day in the recording time zone, so no client reads its own clock
-for overdue or for a default `settled_on`. Month close adds `earliest_month`
+for overdue or for a default `settled_on`. The in-memory app keeps no
+documents: both reads answer 200 with the full shape and nothing in it
+(`currencies`, the lists and `reasons` empty, every count zero, `closed` true,
+`earliest_month` null, both `dgii_forms` `no_operations`), once the caller's
+Business exists; the settlement write stays 404 `business_unavailable`. Month close adds `earliest_month`
 (`YYYY-MM` or `null`), `payment_methods` (the PATCH's accepted methods, in
 order) and `dgii_forms` (`{"606": status, "607": status}`, the export packet's
 own status words for that calendar month: `no_aplica`, `needs_review`,
@@ -9458,6 +9488,9 @@ stale targets, foreign targets and missing capabilities use the errors above.
 
 `GET /business/captures?q=&limit=&view=` returns `{items: [...]}` under the owner's
 existing Business and live read grant; it does not infer an accountant's client.
+The in-memory app keeps no notes: the read answers 200 `{items: [], has_more:
+false}` once the caller's Business exists, while `POST` stays 404
+`business_unavailable`.
 `view` is `all` (default) or `inbox`. `inbox` keeps only the notes of drafts
 awaiting review (`open` or `accepting`) that no receipt source carries, which is
 what the Bandeja lists as notes; a note added to a receipt's record is part of
@@ -9537,7 +9570,7 @@ person starts their space, every route below except POST `/space` answers 404
   `country` is `DO`, `US` or `CA`, default `DO`, else 422. It is set once: a
   later call with another country returns the existing space unchanged. The
   space's `currency` follows its country (`DOP`, `USD`, `CAD`).
-- GET `/api/v1/business/space` returns `{id, name, country, currency}`, or 404
+- GET `/api/v1/business/space` returns `{id, name, country, currency, logo_url}`, or 404
   `business_space_missing` before the space is started. The web bootstrap reads
   this endpoint before creation. It sends POST only after that exact 404, and
   propagates other failures without creating a space. Existing concurrent-call
@@ -9581,7 +9614,7 @@ person starts their space, every route below except POST `/space` answers 404
     stops a session mid-way and the header reveals nothing about any Business.
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
-    grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
+    logo_url, grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
     come from the spaces. Before it lists, the caller's pending invites
     become grants through the same idempotent accept that GET `/me` runs, so
     the first listing after sign-in already names an invited client's
@@ -9699,9 +9732,13 @@ person starts their space, every route below except POST `/space` answers 404
     `include_606` (`yes`, `no` or empty); a personal expense stays in the
     export with its mark.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
-    capabilities, created_at, owner}], invites: [{id, email, created_at,
+    photo_url, capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at, state}]}`: live grants, the owner first, and unaccepted, unrevoked
     invites. `state` is `pending` or `expired`, computed by the server.
+    `photo_url` is the member's signed profile photo URL, or null: null
+    without a photo, and null until that member has dismissed their one-time
+    access line (their `access_seen` receipt). A grant the owner creates by
+    email reveals the person's name only until they act on it.
   - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
     that email (case-insensitive) gets a read and prepare grant, never
     approve; any other email gets a pending invite that lasts 7 days and
@@ -9746,12 +9783,22 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{country, currency, accounts,
   currencies, assistant_available: false, chat_available, receipt_limits:
-  {max_bytes, media_types}}`. `country` and `currency` are the Business's own,
+  {max_bytes, media_types}, logo_url}`. `country` and `currency` are the Business's own,
   the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no
   composer, no New chat and no Business Recents.
+- Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
+  and `/workspace` is a signed URL to the Business's 256 px logo, valid for
+  about an hour, or null. PUT `/api/v1/business/logo` replaces it with the
+  raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most
+  5 MiB, re-encoded to a 256 px WebP square with its metadata dropped;
+  transparency is kept) and answers `{id, name, logo_url}` for the Business in
+  scope; DELETE `/api/v1/business/logo` removes it (204, also when absent).
+  Both take the grant header like every Business route and are allowed to the
+  owner and to a member whose live grant holds `prepare` (Editar); otherwise
+  403 `business_permission_denied`. Picture errors are those of `PUT /me/photo`.
 - POST `/api/v1/business/accounts` (`Idempotency-Key` required) takes
   `{nickname, type, currency}` and answers 201, or 200 with the same account on
   an exact replay.
@@ -9869,7 +9916,10 @@ accept path recorded.
     `email_parts_rejected`, else the first `rejected` part's `error_code`,
     else `email_no_attachment` when the email carried no file, else
     `email_parts_rejected`. It is null unless `standing` is `no_receipt`. The
-    web maps the code to copy; it does not derive the reason itself.
+    web maps the code to copy; it does not derive the reason itself. The
+    in-memory app keeps no deliveries: the list answers 200 `{items: []}` once
+    the caller's Business exists; every other email route there stays 503
+    `email_capture_unavailable`.
     `waiting` is an additive nullable object. While a `received` delivery is
     deferred by either daily allowance and its durable `available_at` is still
     in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`

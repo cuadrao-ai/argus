@@ -25,7 +25,12 @@ from argus.api.business_bank_schemas import (
     MovementsResponse,
     OutcomeHistoryEntry,
 )
-from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_drafts import (
+    DraftContext,
+    action_problem,
+    require_drafts,
+    stored_drafts,
+)
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.routers.business_bank import (
@@ -37,7 +42,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.bank import outcomes_store
 from argus.domain.business.bank.model import BankMatchingError
 from argus.domain.business.bank.movements import MAX_PAGE, InvalidCursor
-from argus.domain.business.bank.movements_store import read_movements
+from argus.domain.business.bank.movements_store import movements_page, read_movements
 
 router = APIRouter(prefix="/bank", tags=["business-bank"])
 
@@ -65,7 +70,7 @@ def _refuse(request: Request, status: int, code: str):  # noqa: ANN202
 def list_movements(
     request: Request,
     response: Response,
-    context: Annotated[DraftContext, Depends(require_drafts)],
+    context: Annotated[DraftContext | None, Depends(stored_drafts)],
     person: Annotated[BusinessPerson, Depends(require_business_person)],
     period_start: date,
     period_end: date,
@@ -85,6 +90,18 @@ def list_movements(
     if period_end < period_start:
         raise _refuse(request, 422, "invalid_period")
     try:
+        if context is None:
+            return movements_page(
+                [],
+                (),
+                period_start=period_start,
+                period_end=period_end,
+                segment=segment,
+                sense=sense,
+                limit=limit,
+                cursor=cursor,
+                currency=currency,
+            )
         return read_movements(
             context.service.authority.pool,
             context.for_space(request, person.spaces),

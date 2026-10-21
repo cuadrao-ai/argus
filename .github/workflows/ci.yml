@@ -10,9 +10,15 @@ name: CI
     types: [opened, synchronize, reopened, ready_for_review]
   # Only the real-Postgres matrix on the latest Supabase CLI runs on these, so
   # a new Supabase image that breaks a migration shows up before a PR does.
+  # A manual run with full_run checked runs every job instead, on both CLIs.
   schedule:
     - cron: "17 9 * * 1"
   workflow_dispatch:
+    inputs:
+      full_run:
+        description: Run every job, as an integration push does
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,6 +37,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     outputs:
       run_heavy: ${{ steps.classify.outputs.run_heavy }}
+      run_marketing: ${{ steps.classify.outputs.run_marketing }}
       docs_only: ${{ steps.classify.outputs.docs_only }}
     steps:
       - name: Checkout
@@ -38,7 +45,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Classify docs-only changes
+      - name: Select jobs from changed files
         id: classify
         env:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -46,7 +53,7 @@ jobs:
 
   ownership-gate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -146,7 +153,7 @@ jobs:
   backend-checks:
     runs-on: ubuntu-latest
     needs: docs-change-gate
-    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && needs.docs-change-gate.outputs.run_heavy == 'true'
+    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_heavy == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -191,9 +198,9 @@ jobs:
         run: poetry run pytest tests -q --no-cov
 
   frontend-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: docs-change-gate
-    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && needs.docs-change-gate.outputs.run_heavy == 'true'
+    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_heavy == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -239,9 +246,9 @@ jobs:
           if-no-files-found: warn
 
   marketing-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: docs-change-gate
-    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && needs.docs-change-gate.outputs.run_heavy == 'true'
+    if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run)) && needs.docs-change-gate.outputs.run_marketing == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -288,6 +295,9 @@ jobs:
           name: marketing-playwright-report
           path: marketing/playwright-report
 
+  # The id and check name are kept for required-check compatibility. Besides the
+  # guest gates, this job runs every shared tests/test_*_postgres.py proof and
+  # replays all migrations, on the pinned and the latest Supabase CLI.
   guest-release-gates:
     runs-on: ubuntu-latest
     needs: docs-change-gate
@@ -297,7 +307,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        supabase-cli: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["latest"]' || '["pinned", "latest"]') }}
+        supabase-cli: ${{ fromJSON((github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.full_run)) && '["latest"]' || '["pinned", "latest"]') }}
     env:
       OPENROUTER_API_KEY: ""
       ALPACA_API_KEY: ""
@@ -404,7 +414,7 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
-    if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false))
+    if: always() && (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || (github.event_name == 'workflow_dispatch' && inputs.full_run))
     needs:
       - docs-change-gate
       - ownership-gate
@@ -419,11 +429,14 @@ jobs:
           DOCS_CHANGE_GATE: ${{ needs.docs-change-gate.result }}
           OWNERSHIP_GATE: ${{ needs.ownership-gate.result }}
           DOCS_ONLY: ${{ needs.docs-change-gate.outputs.docs_only }}
+          RUN_HEAVY: ${{ needs.docs-change-gate.outputs.run_heavy }}
+          RUN_MARKETING: ${{ needs.docs-change-gate.outputs.run_marketing }}
           DOCS_CHECKS: ${{ needs.docs-checks.result }}
           BACKEND_CHECKS: ${{ needs.backend-checks.result }}
           FRONTEND_CHECKS: ${{ needs.frontend-checks.result }}
           MARKETING_CHECKS: ${{ needs.marketing-checks.result }}
           GUEST_RELEASE_GATES: ${{ needs.guest-release-gates.result }}
+        # A selected job must succeed; only an unselected job may skip.
         run: |
           require_success() {
             if [ "$2" != success ]; then
@@ -431,25 +444,29 @@ jobs:
               exit 1
             fi
           }
-          require_success_or_skipped() {
-            if [ "$2" != success ] && [ "$2" != skipped ]; then
-              echo "$1: $2"
+          require_selected() {
+            if [ "$2" = true ]; then
+              require_success "$1" "$3"
+            elif [ "$3" != success ] && [ "$3" != skipped ]; then
+              echo "$1: $3 (not selected)"
               exit 1
             fi
           }
-          case "${DOCS_ONLY:-}" in
-            true|false) ;;
-            *) echo "Invalid DOCS_ONLY: expected true or false."; exit 1 ;;
-          esac
           require_success docs-change-gate "$DOCS_CHANGE_GATE"
           require_success ownership-gate "$OWNERSHIP_GATE"
-          if [ "$DOCS_ONLY" = true ]; then
-            require_success docs-checks "$DOCS_CHECKS"
-          else
-            require_success_or_skipped docs-checks "$DOCS_CHECKS"
+          for flag in DOCS_ONLY RUN_HEAVY RUN_MARKETING; do
+            case "${!flag:-}" in
+              true|false) ;;
+              *) echo "Invalid $flag: expected true or false."; exit 1 ;;
+            esac
+          done
+          if [ "$DOCS_ONLY" = "$RUN_HEAVY" ] || { [ "$DOCS_ONLY" = true ] && [ "$RUN_MARKETING" = true ]; }; then
+            echo "Inconsistent selection: DOCS_ONLY=$DOCS_ONLY RUN_HEAVY=$RUN_HEAVY RUN_MARKETING=$RUN_MARKETING."
+            exit 1
           fi
-          require_success_or_skipped backend-checks "$BACKEND_CHECKS"
-          require_success_or_skipped frontend-checks "$FRONTEND_CHECKS"
-          require_success_or_skipped marketing-checks "$MARKETING_CHECKS"
-          require_success_or_skipped guest-release-gates "$GUEST_RELEASE_GATES"
+          require_selected docs-checks "$DOCS_ONLY" "$DOCS_CHECKS"
+          require_selected backend-checks "$RUN_HEAVY" "$BACKEND_CHECKS"
+          require_selected frontend-checks "$RUN_HEAVY" "$FRONTEND_CHECKS"
+          require_selected marketing-checks "$RUN_MARKETING" "$MARKETING_CHECKS"
+          require_selected guest-release-gates "$RUN_HEAVY" "$GUEST_RELEASE_GATES"
           echo "CI checks passed."

@@ -3,7 +3,12 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
 from argus.api.business import BusinessPerson, require_business_person
-from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_drafts import (
+    DraftContext,
+    action_problem,
+    require_drafts,
+    stored_drafts,
+)
 from argus.api.business_manual_schemas import ManualCapturePage
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
@@ -70,13 +75,15 @@ def capture_note(
 def list_captures(
     request: Request,
     response: Response,
-    context: Annotated[DraftContext, Depends(require_drafts)],
+    context: Annotated[DraftContext | None, Depends(stored_drafts)],
     person: Annotated[BusinessPerson, Depends(require_business_person)],
     q: Annotated[str, Query(max_length=200, pattern=r"^[^\x00]*$")] = "",
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
     view: Literal["inbox", "all"] = "all",
 ):
     response.headers.update(NO_STORE)
+    if context is None:
+        return ManualCapturePage(items=())
     try:
         actor = _owner(request, context, person)
         return context.service.captures_page(actor, query=q, limit=limit, view=view)

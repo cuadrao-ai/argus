@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
 
+from argus.api import state as api_state
 from argus.api.business import (
     BusinessContext,
     _captured,
@@ -133,6 +134,24 @@ def require_drafts(
         scope.owner.space_id,
         UUID(scope.grant_id) if scope.grant_id else None,
     )
+
+
+def stored_drafts(
+    request: Request,
+    _surface: Annotated[None, Depends(require_business_surface)],
+    ingestion: Annotated[IngestionContext, Depends(require_ingestion_context)],
+) -> DraftContext | None:
+    """``require_drafts`` for a read whose answer without a store is nothing:
+    None when the in-memory app keeps no Business store, once the caller's
+    Business is in scope. Durable mode refuses exactly as ``require_drafts``."""
+
+    pool = getattr(request.app.state, "financial_accounts_pool", None)
+    spaces = business_spaces()
+    if pool is not None or api_state.PERSISTENCE_MODE == "supabase" or spaces is None:
+        return require_drafts(request, _surface, ingestion)
+    if working_scope(request, spaces, ingestion.user_id) is None:
+        raise space_missing_problem(request)
+    return None
 
 
 def legacy_action(request) -> str | None:  # noqa: ANN001
