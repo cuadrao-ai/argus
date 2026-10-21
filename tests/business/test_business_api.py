@@ -262,6 +262,7 @@ def test_every_route_waits_for_the_space_and_starting_it_is_idempotent(
         "name": "Taller Gómez",
         "country": "DO",
         "currency": "DOP",
+        "logo_url": None,
     }
     assert alice.get("/space").json() == renamed.json()
     assert alice.get("/workspace").status_code == 200
@@ -342,6 +343,7 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
         "currencies": ["DOP", "USD"],
         "assistant_available": False,
         "chat_available": False,
+        "logo_url": None,
         "receipt_limits": {
             "max_bytes": 10485760,
             "media_types": [

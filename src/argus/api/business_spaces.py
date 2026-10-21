@@ -7,12 +7,15 @@ space only with ``resolve_business_scope``.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import HTTPException, Request
 from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.api.profile_images import picture_urls
 from argus.domain.business.access import (
     AccessStore,
     InMemoryAccessStore,
@@ -26,6 +29,7 @@ from argus.domain.business.search_memory import (
 from argus.domain.business.spaces import (
     InMemorySpaceStore,
     PostgresSpaceStore,
+    Space,
     SpaceStore,
 )
 
@@ -47,6 +51,18 @@ def space_missing_problem(request: Request) -> HTTPException:
 
 def business_spaces() -> SpaceStore | None:
     return _spaces
+
+
+def space_payload(space: Space) -> dict[str, Any]:
+    """The space as every Business route answers it, logo included."""
+
+    return {
+        "id": space.id,
+        "name": space.name,
+        "country": space.country,
+        "currency": space.currency,
+        "logo_url": picture_urls("business", [space.id])[space.id],
+    }
 
 
 def configure_business_spaces(store: SpaceStore | None) -> None:
