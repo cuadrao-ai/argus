@@ -122,11 +122,15 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
+        # Try every user, then fail loudly: a refused delete leaks a test user
+        # and hides a deletion bug.
+        leaked = []
         for user_id in created:
             try:
                 gateway.delete_auth_user(user_id)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                leaked.append(f"{user_id}: {exc!r}")
+        assert not leaked, f"fixture cleanup left auth users behind: {leaked}"
 
 
 def _grant(world, owner: Person, grantee: Person) -> str:  # noqa: ANN001
