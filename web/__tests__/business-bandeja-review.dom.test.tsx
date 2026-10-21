@@ -109,7 +109,8 @@ test("still-reading and unreadable receipts stay off the por revisar number", as
   });
   try {
     const segment = (key: string) => page.host.querySelector(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)?.textContent;
-    await page.settle(() => segment("review") !== undefined);
+    // The bar shows while the list loads; its counts arrive with it.
+    await page.settle(() => /\d/.test(segment("review") ?? ""));
     assert.equal(segment("review"), "Por revisar1");
     assert.equal(segment("problem"), "Con problema1");
     assert.equal(segment("all"), "Todo");
@@ -131,5 +132,15 @@ test("a contador gets Revisar recibos as the green primary and no upload", async
     assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Subir recibo"), false);
     await page.act(async () => { review.click(); });
     assert.equal(page.panel(), "rcpt-ferreteria");
+  } finally { await page.close(); }
+});
+
+test("the segment bar stays while the list loads, with no count until one is known", async () => {
+  const page = await mount({ receiptPage: () => new Promise(() => {}) });
+  try {
+    await page.settle(() => page.host.querySelector('[data-testid="bandeja-segments"]') !== null);
+    const bar = page.host.querySelector('[data-testid="bandeja-segments"]')?.textContent ?? "";
+    assert.match(bar, /Por revisar/);
+    assert.equal(/\d/.test(bar), false, "an unknown count is never shown as 0");
   } finally { await page.close(); }
 });

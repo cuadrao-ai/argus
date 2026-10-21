@@ -3094,7 +3094,9 @@
       "title": "Business",
       "tab_datos": "Details",
       "tab_equipo": "Team and access",
+      "tab_equipo_short": "Team",
       "tab_correo": "Receipt email",
+      "tab_correo_short": "Email",
       "datos_title": "Name and RNC",
       "datos_body": "They appear on your 606 and 607 and on what you export."
     },

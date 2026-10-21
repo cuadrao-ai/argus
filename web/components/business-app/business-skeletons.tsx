@@ -10,7 +10,7 @@ export const CONTENT_FADE_MS = 150;
 /** The screen-reader label is this word, and it is never visible. */
 export const SCREEN_READER_LOADING_LABEL = "Cargando";
 
-export type SkeletonLayout = "overview" | "inbox" | "expenses" | "access" | "detail" | "rows";
+export type SkeletonLayout = "overview" | "inbox" | "expenses" | "access" | "detail" | "rows" | "form";
 
 export function placeholderPhase(elapsedMs: number, delayMs = SKELETON_DELAY_MS): "blank" | "skeleton" {
   return elapsedMs < delayMs ? "blank" : "skeleton";
@@ -84,7 +84,7 @@ function AccessRow() {
   );
 }
 
-type ListLayout = Exclude<SkeletonLayout, "overview" | "detail">;
+type ListLayout = Exclude<SkeletonLayout, "overview" | "detail" | "form">;
 
 const LIST_ROWS: Record<ListLayout, () => ReactNode> = {
   inbox: InboxRow,
@@ -148,6 +148,20 @@ function DetailSkeleton() {
   );
 }
 
+/** Labelled fields, drawn inside the card that holds the real form. */
+function FormSkeleton() {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      {["w-56", "w-24", "w-40"].map((width) => (
+        <span key={width} className="space-y-1.5">
+          <Bar className="h-[13px] w-16" />
+          <Bar className={`h-11 rounded-lg ${width}`} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function Rows({ count, layout }: { count: number; layout: ListLayout }) {
   const Row = LIST_ROWS[layout];
   const rows = Array.from({ length: count }, (_, index) => <Row key={index} />);
@@ -160,7 +174,7 @@ export function BusinessSkeleton({ layout, rows = 3 }: { layout: SkeletonLayout;
     <div role="status" aria-live="polite" data-testid="business-loading" data-layout={layout}>
       <span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span>
       <div aria-hidden="true">
-        {layout === "overview" ? <OverviewSkeleton /> : layout === "detail" ? <DetailSkeleton /> : <Rows count={count} layout={layout} />}
+        {layout === "overview" ? <OverviewSkeleton /> : layout === "detail" ? <DetailSkeleton /> : layout === "form" ? <FormSkeleton /> : <Rows count={count} layout={layout} />}
       </div>
     </div>
   );

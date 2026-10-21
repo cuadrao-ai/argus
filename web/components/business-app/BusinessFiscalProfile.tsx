@@ -11,6 +11,7 @@ import {
 import { randomId } from "@/lib/random-id";
 import { BusinessContext } from "./BusinessWorkspace";
 import { secondaryButtonClass } from "./business-ui";
+import { Settle } from "./business-skeletons";
 
 const LENGTH = { rnc: 9, cedula: 11 } as const;
 
@@ -99,6 +100,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
   return (
     <div className="mt-3 space-y-2" data-testid="business-fiscal-profile">
+      {profile === null && !loadFailed ? <Settle pending layout="form" /> : null}
       {/* The editable fields already show the name and number; the summary line is for those who can only read. */}
       {profile && !profile.can_edit ? (
         <p className="text-[13px] text-black/65 dark:text-white/65">

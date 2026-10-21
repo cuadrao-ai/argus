@@ -9,6 +9,7 @@ import { BusinessEmailAddress } from "./BusinessEmailDeliveries";
 import { formatBusinessName } from "./business-format";
 import { PanelHeading } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 
 /**
  * Negocio: everything about the business itself, apart from the person's own
@@ -18,18 +19,19 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: BusinessTab }) {
   const { t } = useTranslation();
   const { chosen, openPanel } = useBusiness();
+  const { isBelowTablet } = useResponsiveLayout();
   const owner = chosen?.role !== "accountant";
   const tabs = [
     { key: "datos" as const, label: t("business.settings.tab_datos", "Details") },
-    ...(owner ? [{ key: "equipo" as const, label: t("business.settings.tab_equipo", "Team and access") }] : []),
-    { key: "correo" as const, label: t("business.settings.tab_correo", "Receipt email") },
+    ...(owner ? [{ key: "equipo" as const, label: isBelowTablet ? t("business.settings.tab_equipo_short", "Team") : t("business.settings.tab_equipo", "Team and access") }] : []),
+    { key: "correo" as const, label: isBelowTablet ? t("business.settings.tab_correo_short", "Email") : t("business.settings.tab_correo", "Receipt email") },
   ];
   const shown = tabs.some((item) => item.key === tab) ? tab : "datos";
   return (
     <section data-testid="business-settings">
       <PanelHeading title={t("business.settings.title", "Business")} subtitle={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />
       <div className="mb-6">
-        <SegmentedControl testId="business-settings-tabs" label={t("business.settings.title", "Business")} value={shown} onChange={(next) => openPanel({ kind: "business", tab: next })} segments={tabs} />
+        <SegmentedControl testId="business-settings-tabs" label={t("business.settings.title", "Business")} value={shown} onChange={(next) => openPanel({ kind: "business", tab: next })} segments={tabs} fill={isBelowTablet} />
       </div>
       {shown === "datos" ? (
         <div className={SURFACE_CARD}>

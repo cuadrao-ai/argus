@@ -3094,7 +3094,9 @@
       "title": "Negocio",
       "tab_datos": "Datos",
       "tab_equipo": "Equipo y accesos",
+      "tab_equipo_short": "Equipo",
       "tab_correo": "Correo de recibos",
+      "tab_correo_short": "Correo",
       "datos_title": "Nombre y RNC",
       "datos_body": "Salen en tu 606 y 607 y en lo que exportas."
     },

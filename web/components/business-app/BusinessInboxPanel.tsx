@@ -194,31 +194,31 @@ export default function BusinessInboxPanel() {
       {records.error ? (
         <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : (
-        <Settle pending={receipts === null || notes === null} layout="inbox">
-          {rows === null || counts === null ? null : (
-            <>
-              <div className="mb-4">
-                {/* A phone fits all four only with their short names. */}
-                <SegmentedControl
-                  testId="bandeja-segments"
-                  label={t("business.inbox.segments", "Show")}
-                  value={list}
-                  onChange={setList}
-                  fill={isBelowTablet}
-                  segments={[
-                    { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts.review },
-                    { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts.problem },
-                    { key: "all", label: t("business.inbox.segment_all", "All") },
-                    { key: "emails", label: t("business.inbox.segment_emails", "Emails") },
-                  ]}
-                />
-              </div>
-              {list === "emails" ? (
-                <BusinessEmailDeliveries
-                  openEmailId={askedEmail}
-                  onOpenReceipt={(id) => openPanel({ kind: "receipt", receiptId: id, list: "inbox" })}
-                />
-              ) : empty ? (
+        <>
+          <div className="mb-4">
+            {/* A phone fits all four only with their short names. Counts wait for the list, never a 0. */}
+            <SegmentedControl
+              testId="bandeja-segments"
+              label={t("business.inbox.segments", "Show")}
+              value={list}
+              onChange={setList}
+              fill={isBelowTablet}
+              segments={[
+                { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts?.review },
+                { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts?.problem },
+                { key: "all", label: t("business.inbox.segment_all", "All") },
+                { key: "emails", label: t("business.inbox.segment_emails", "Emails") },
+              ]}
+            />
+          </div>
+          {list === "emails" ? (
+            <BusinessEmailDeliveries
+              openEmailId={askedEmail}
+              onOpenReceipt={(id) => openPanel({ kind: "receipt", receiptId: id, list: "inbox" })}
+            />
+          ) : (
+            <Settle pending={receipts === null || notes === null} layout="inbox">
+              {rows === null || counts === null ? null : empty ? (
                 <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
               ) : (
                 <>
@@ -239,9 +239,9 @@ export default function BusinessInboxPanel() {
                   {records.notesTruncated ? <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.inbox.notes_latest", "Showing the latest 50 saved notes. Older open notes are reachable through search.")}</p> : null}
                 </>
               )}
-            </>
+            </Settle>
           )}
-        </Settle>
+        </>
       )}
     </section>
   );
