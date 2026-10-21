@@ -191,7 +191,7 @@ jobs:
         run: poetry run pytest tests -q --no-cov
 
   frontend-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: docs-change-gate
     if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && needs.docs-change-gate.outputs.run_heavy == 'true'
     steps:
@@ -239,7 +239,7 @@ jobs:
           if-no-files-found: warn
 
   marketing-checks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: docs-change-gate
     if: (github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && needs.docs-change-gate.outputs.run_heavy == 'true'
     steps:
