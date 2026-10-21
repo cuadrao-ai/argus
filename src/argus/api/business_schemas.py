@@ -6,13 +6,21 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+)
 
 from argus.api.schemas import Language
 from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import Attention
+from argus.domain.business.search import SearchKind
 from argus.domain.business.spaces import MAX_NAME_LENGTH
+from argus.domain.financial_search import query_text
 from argus.domain.ingestion.receipt_review import ReceiptStatus
 
 ExpenseAccountType = Literal["cash", "checking", "savings", "credit_card"]
@@ -436,3 +444,36 @@ class BusinessSearch(_Wire):
     email_deliveries: list[EmailDeliveryHit]
     email_senders: list[EmailSenderHit]
     next_cursors: SearchCursors
+
+
+def _searchable(value: str) -> str:
+    if not query_text(value):
+        raise ValueError("a search needs a letter, a digit or a sign")
+    return value
+
+
+class RememberSearch(_Wire):
+    q: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+        AfterValidator(_searchable),
+    ]
+
+
+class RecentSearch(_Wire):
+    id: str
+    q: str
+    searched_at: datetime
+
+
+class RecentSearches(_Wire):
+    """The member's newest distinct searches in this Business, newest first."""
+
+    items: list[RecentSearch]
+
+
+class OpenSearchResult(_Wire):
+    """A record the member opened from a search result."""
+
+    kind: SearchKind
+    id: UUID

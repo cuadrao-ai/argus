@@ -10125,6 +10125,31 @@ accept path recorded.
   one with no `kind`, answers 422 `business_search_invalid_cursor`. When the
   list's records changed since the cursor was issued it answers 409
   `business_search_stale_cursor`; search again from the first page.
+  Each list ranks the records this member opened before first (most opened,
+  then most recently opened); the rest keep the order above. Opens are per
+  member and per Business: the owner and a grantee in the same Business rank
+  by their own. An open recorded after a first page reorders that list, so
+  its cursor answers 409.
+- Search memory belongs to the signed-in member in the Business their live
+  grant names; any live grant may keep its own, a read-only one included.
+  No member ever reads or changes another member's.
+  - GET `/api/v1/business/search/recents` returns `{items: [{id, q,
+    searched_at}]}`, the member's 10 newest distinct searches, newest first.
+  - POST `/api/v1/business/search/recents` with `{q}` (1 to 512 characters
+    after trimming; one that folds to nothing, as a lone accent mark, is
+    422) saves one and answers 201 `{id, q, searched_at}`. The
+    same query again, folded as search folds it (`Ferretería`,
+    ` ferreteria `), keeps its id, takes the new text and moves to the top.
+    The eleventh drops the oldest.
+  - DELETE `/api/v1/business/search/recents/{id}` removes one (204); an id
+    that is not this member's in this Business is 404
+    `business_search_recent_not_found`. DELETE
+    `/api/v1/business/search/recents` removes all of the member's recents in
+    this Business (204).
+  - POST `/api/v1/business/search/opens` with `{kind, id}` records that the
+    member opened that record from a result (204). `kind` is one of the
+    search lists and `id` the record's id as the list gives it. The member's
+    200 most recently opened records are kept.
 
 Another person's receipt id answers 404 `receipt_not_found` on every receipt
 route. 
