@@ -260,6 +260,10 @@ Represents the application-facing user profile. Supabase Auth owns identity and 
   `plum`, `teal`, `ember`, `gold`, `indigo`, or `slate`)
 - `country`: `text` (Nullable; an ISO 3166-1 alpha-2 code when present)
 - `currency_override`: `text` (Nullable; an ISO 4217 code when present)
+- `table_density`: `text` (Default: `'normal'`; one of `compacto`, `normal`, or
+  `amplio`; the row height for dense tables. Migration
+  `20261020220000_profile_table_density.sql`. Written only through `PATCH /me`;
+  no client column grant)
 - `is_admin`: `boolean` (Default: `false`)
 - `onboarding`: `jsonb` (legacy/inert; the applied migration defaults new rows
   to the historical shape below)

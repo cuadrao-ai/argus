@@ -1052,6 +1052,7 @@ Application-facing user object.
   "country": "MX",
   "currency_override": null,
   "currency": "MXN",
+  "table_density": "normal",
   "is_admin": false,
   "onboarding": {
     "completed": false,
@@ -1086,6 +1087,10 @@ Application-facing user object.
   records there with no end date), and null when neither is known. Only the
   override is stored.
   - All three are registered-account preferences. Guest responses omit them.
+- `table_density` is the row height the person chose for dense tables such as
+  Transacciones: `compacto` (40px), `normal` (48px), or `amplio` (56px). It is
+  `normal` until they choose. Type size does not change, and phones ignore it.
+  A registered-account preference; guest responses omit it.
 - `email` is for auth/contact, not primary UX identity.
 - `username` is optional for Alpha unless implemented.
 - Supabase Auth owns identity/session.
@@ -3323,7 +3328,8 @@ Update profile preferences. Partial update semantics are supported.
   "locale": "es-419",
   "avatar_theme": "plum",
   "country": "DO",
-  "currency_override": "USD"
+  "currency_override": "USD",
+  "table_density": "compacto"
 }
 ```
 
@@ -3357,6 +3363,8 @@ Update profile preferences. Partial update semantics are supported.
   clears it, and `currency` returns to the one the country implies. A stored
   code the standards later retire still reads back; only an edit is held to
   the current codes.
+- `table_density` accepts only `compacto`, `normal`, or `amplio`; it cannot be
+  `null`, and other values return 422. Omitting it leaves it untouched.
 - `currency` is derived and cannot be written; a patch that sends it is
   ignored.
 - Country and currency are registered-account preferences. Guests cannot

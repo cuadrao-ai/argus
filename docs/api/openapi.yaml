@@ -23917,6 +23917,14 @@ components:
           - type: string
             pattern: ^[A-Z]{3}$
           - type: 'null'
+        table_density:
+          anyOf:
+          - type: string
+            enum:
+            - compacto
+            - normal
+            - amplio
+          - type: 'null'
       type: object
     ProposalUpdate:
       properties:
@@ -28450,6 +28458,13 @@ components:
           - type: string
             pattern: ^[A-Z]{3}$
           - type: 'null'
+        table_density:
+          type: string
+          enum:
+          - compacto
+          - normal
+          - amplio
+          default: normal
         is_admin:
           type: boolean
           default: false
