@@ -33,6 +33,8 @@ class FiscalRecord:
     facts: BusinessFacts
     declaration: DgiiDeclaration | None
     source_ids: tuple[str, ...]
+    # Paid from the owner's own money: the money write refuses to refund it.
+    owner_funded: bool = False
 
 
 def ncf_type(value: str) -> str | None:

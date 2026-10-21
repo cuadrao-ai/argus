@@ -15,6 +15,7 @@ from psycopg.rows import dict_row
 
 from argus.domain.business import ledger
 from argus.domain.business.authority import ActionContext, ActionError, authorize
+from argus.domain.business.dgii_columns import COLUMNS
 from argus.domain.business.dgii_export import fiscal_manifest
 from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.month_close import (
@@ -97,6 +98,18 @@ def read_month(authority, context: ActionContext, month: str) -> dict:
         forms = _form_statuses(
             connection, auth.context, tuple(by_id.values()), start, end, today
         )
+    return month_close(month, today, documents, forms)
+
+
+def empty_month(month: str) -> dict:
+    """The month as it reads with no documents and no store: the whole shape,
+    nothing in it, and the forms with no operations."""
+
+    return month_close(month, ledger.today(), (), dict.fromkeys(COLUMNS, "no_operations"))
+
+
+def month_close(month: str, today, documents, forms: dict[str, str]) -> dict:  # noqa: ANN001
+    start, end = month_period(month)
     return {
         "month": month,
         "today": today,
@@ -157,9 +170,7 @@ def settle_document(
             )
         except _Race:
             continue
-    raise ActionError(
-        "idempotency_conflict", "business_document_settlement_conflict"
-    )
+    raise ActionError("idempotency_conflict", "business_document_settlement_conflict")
 
 
 def _settle_once(
