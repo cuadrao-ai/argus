@@ -113,36 +113,73 @@ describe("the purchases read on a receipt", () => {
 });
 
 describe("the original purchase picker in the tax details", () => {
-  async function mountEditor(expense: Record<string, unknown>) {
-    const dossier = structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready));
-    globalThis.fetch = async (url) => {
+  const candidate = { id: "act-1", merchant: "Ferretería", amount: "1234.50", currency: "USD", occurred_on: "2026-10-01" };
+  async function mountEditor(candidates: BusinessDossier["refund_candidates"], answer: (body: Record<string, unknown>) => Response = () => Response.json({})) {
+    const dossier = { ...structuredClone(await createDossierFixtures([{ id: "cash", type: "cash", currency: "DOP", nickname: "caja" }]).dossier(dossierFixtureIds.ready)), refund_candidates: candidates };
+    const asked: string[] = [];
+    const sent: Record<string, unknown>[] = [];
+    globalThis.fetch = async (url, init) => {
+      asked.push(String(url));
       if (String(url).includes("/fields")) return Response.json({ "606": [], "607": [] });
-      return Response.json({ items: [expense] });
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      sent.push(body);
+      return answer(body);
     };
     const view = await render(<FiscalDeclarationEditor dossier={dossier} disabled={false} onChanged={() => undefined} onBusy={() => undefined} onDirty={() => undefined} />);
     const refund = view.host.querySelector<HTMLInputElement>('input[type="checkbox"]');
     assert.ok(refund);
     await act(async () => refund.click());
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
-    const options = [...view.host.querySelectorAll("select option")].map((option) => option.textContent ?? "");
-    return { view, options };
+    const rows = () => [...view.host.querySelectorAll<HTMLElement>('[data-testid="refund-candidate"]')];
+    const pick = (index: number) => act(async () => rows()[index].querySelector<HTMLInputElement>('input[type="radio"]')!.click());
+    const save = async () => {
+      const button = [...view.host.querySelectorAll("button")].find((node) => node.textContent === "Guardar revisión fiscal");
+      assert.ok(button);
+      await act(async () => button.click());
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    };
+    return { view, rows, pick, save, asked, sent };
   }
-  const expense = { id: "exp-1", merchant: "Ferretería", amount: "1234.5", currency: "USD", occurred_on: "2026-10-01", category_id: null, account_id: null, receipt_id: null };
 
-  test("offers each purchase with its amount through the shared formatter", async () => {
-    const { view, options } = await mountEditor(expense);
+  test("lists the server's candidates with each amount through the shared formatter and asks for no window of its own", async () => {
+    const { view, rows, asked } = await mountEditor([candidate, { ...candidate, id: "act-2", merchant: null, amount: "980.00", currency: "DOP", occurred_on: "2026-09-28" }]);
     try {
-      assert.ok(options.some((text) => text.includes("US$ 1,234.50")), options.join(" | "));
-      assert.ok(!options.some((text) => /1234\.5 USD/.test(text)));
+      assert.equal(rows().length, 2);
+      assert.match(rows()[0].textContent ?? "", /Ferretería.*US\$ 1,234\.50/);
+      assert.doesNotMatch(rows()[0].textContent ?? "", /1234\.5 USD/);
+      assert.match(rows()[1].textContent ?? "", /^-/, "a candidate with no merchant names none");
+      assert.match(rows()[1].textContent ?? "", /RD\$ 980\.00/);
+      assert.deepEqual(asked.filter((url) => !url.includes("/fields")), [], "no expenses request picks purchases in the browser");
     } finally { await view.dispose(); }
   });
 
-  test("a purchase with no currency reads as unknown", async () => {
-    const { view, options } = await mountEditor({ ...expense, currency: null });
+  test("with no candidates it says so", async () => {
+    const { view } = await mountEditor([]);
     try {
-      const own = options.find((text) => text.includes("Ferretería")) ?? "";
-      assert.match(own, /· -$/);
-      assert.doesNotMatch(own, /RD\$|DOP|1234/);
+      assert.equal(view.host.querySelector('[data-testid="refund-candidates-none"]')?.textContent, "No hay compras aprobadas para elegir.");
+    } finally { await view.dispose(); }
+  });
+
+  test("a candidate the server refuses says so in place, keeps the choice, and another can be picked and saved", async () => {
+    const { view, rows, pick, save, sent } = await mountEditor(
+      [candidate, { ...candidate, id: "act-2", merchant: "Colmado" }],
+      (body) => (body.dgii as { declaration: { purchase_activity_id: string } }).declaration.purchase_activity_id === "act-1"
+        ? Response.json({ code: "recorded_correction_unsupported" }, { status: 422 })
+        : Response.json({}),
+    );
+    try {
+      await pick(0);
+      await save();
+      const refused = rows()[0].querySelector('[data-testid="refund-candidate-refused"]');
+      assert.equal(refused?.textContent, "Esa compra no se puede usar para este reembolso. Elige otra.");
+      assert.equal(rows()[0].querySelector<HTMLInputElement>('input[type="radio"]')?.checked, true, "the choice stays");
+      assert.equal(view.host.querySelectorAll('[role="alert"]').length, 1, "one message, beside the purchase");
+      assert.equal(rows()[1].querySelector<HTMLInputElement>('input[type="radio"]')?.disabled, false);
+      await pick(1);
+      assert.equal(view.host.querySelector('[data-testid="refund-candidate-refused"]'), null);
+      await save();
+      assert.deepEqual(sent.map((body) => (body.dgii as { declaration: { purchase_activity_id: string } }).declaration.purchase_activity_id), ["act-1", "act-2"]);
+      assert.equal(view.host.querySelector('[role="alert"]'), null);
     } finally { await view.dispose(); }
   });
 });

@@ -158,7 +158,7 @@ describe("the AI reading state", () => {
     const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
     const source: BusinessDataSource = {
       ...fixture,
-      receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), read_pending: true, activity: { state: "reading", unread: false, completion_cursor: null } }),
+      receipt: async (id, signal) => ({ ...await fixture.receipt(id, signal), activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } }),
     };
     const page = await render(<BusinessConsentTestProvider accepted><BusinessWorkspaceProvider source={source}><ReceiptReviewPanel target={{ kind: "receipt", id: "rcpt-ferreteria" }} /></BusinessWorkspaceProvider></BusinessConsentTestProvider>);
     for (let i = 0; i < 80 && !page.host.querySelector('[data-testid="receipt-reading-state"]'); i += 1) await page.act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });

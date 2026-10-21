@@ -11,7 +11,7 @@ const prepared: BusinessOverride = (parts, _route, source) => {
 
 const reading: BusinessOverride = (parts, _route, source) => {
   if (parts[0] === "receipts" && parts[1] === "rcpt-ferreteria" && parts.length === 2) {
-    return source.receipt("rcpt-ferreteria").then((receipt) => ({ ...receipt, read_pending: true, activity: { state: "reading", unread: false, completion_cursor: null } }));
+    return source.receipt("rcpt-ferreteria").then((receipt) => ({ ...receipt, activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } }));
   }
   return undefined;
 };

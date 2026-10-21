@@ -33,7 +33,7 @@ async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string 
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
-  const source = { ...fixture, captures: async () => [], emailDeliveries: async () => [], ...overrides };
+  const source = { ...fixture, captures: async () => ({ items: [] }), emailDeliveries: async () => [], ...overrides };
   let panel = "";
   function Probe() {
     const business = useBusiness();
@@ -86,23 +86,34 @@ test("a Bandeja that has never been used keeps the plain empty copy", async () =
   } finally { await page.close(); }
 });
 
-test("an approved Bandeja reads the locked empty line", async () => {
-  const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
-  const confirmed = { ...(await fixture.receipt("rcpt-confirmed")), status: "confirmed" as const };
+test("an approved Bandeja reads the locked empty line from the server's closed counts, with no second read of every receipt", async () => {
+  const views: string[] = [];
   const page = await mount({
-    receiptPage: async (view) => ({ items: view === "all" ? [confirmed] : [], activity: none }),
+    receiptPage: async (view) => { views.push(view); return { items: [], activity: { ...none, confirmed_count: 3, dismissed_count: 0 } }; },
   });
   try {
     await page.settle(() => (page.host.textContent ?? "").includes("Todo aprobado. Pa'que cuadre."));
     assert.equal(page.host.textContent?.includes("Todo aprobado. Pa'que cuadre."), true);
+    assert.ok(views.length > 0 && views.every((view) => view === "inbox"), `only the inbox view is read, got ${views.join(",")}`);
   } finally { await page.close(); }
+});
+
+test("a Bandeja emptied by a dismissal, or by a server that sends no closed counts, keeps the plain empty copy", async () => {
+  for (const activity of [{ ...none, confirmed_count: 2, dismissed_count: 1 }, none]) {
+    const page = await mount({ receiptPage: async () => ({ items: [], activity }) });
+    try {
+      await page.settle(() => page.host.querySelector('[data-testid="business-inbox-empty"]') !== null);
+      assert.equal(page.host.textContent?.includes("Todo aprobado"), false);
+      assert.equal(page.host.querySelector("h3")?.textContent, "Aquí llegan tus recibos");
+    } finally { await page.close(); }
+  }
 });
 
 test("still-reading and unreadable receipts stay off the por revisar number", async () => {
   const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
   const ready = await fixture.receipt("rcpt-ferreteria");
   const blurry = await fixture.receipt("rcpt-blurry");
-  const reading: ReceiptSummary = { ...ready, id: "rcpt-reading", status: "queued", read_pending: true, merchant: "En lectura", activity: { state: "reading", unread: true, completion_cursor: null } };
+  const reading: ReceiptSummary = { ...ready, id: "rcpt-reading", status: "queued", merchant: "En lectura", activity: { state: "reading", unread: true, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } };
   const items = [ready, reading, blurry];
   const page = await mount({
     receiptPage: async (view) => ({ items: view === "all" ? items : items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1, ready_to_review_count: 1 } }),
@@ -118,6 +129,32 @@ test("still-reading and unreadable receipts stay off the por revisar number", as
     assert.equal(/Revisar \d+ recibo/.test(page.host.textContent ?? ""), false);
     assert.match(page.host.textContent ?? "", /RD\$/);
     assert.equal((page.host.textContent ?? "").includes("DOP"), false);
+  } finally { await page.close(); }
+});
+
+test("each segment lists what the server flags, and a queued receipt the server is not reading never says Leyendo", async () => {
+  const fixture = (await import("@/components/business-app/fixture-data")).createFixtureBusinessDataSource();
+  const ready = await fixture.receipt("rcpt-ferreteria");
+  const flags = (por_revisar: boolean, con_problema: boolean, leyendo: boolean) => ({ por_revisar, con_problema, leyendo });
+  // Statuses that the old browser rule read the other way: the server's flags decide.
+  const queued: ReceiptSummary = { ...ready, id: "rcpt-queued", status: "queued", merchant: "En cola", activity: { state: "saved_unread", unread: false, completion_cursor: null }, bandeja: flags(false, false, false) };
+  const flaggedProblem: ReceiptSummary = { ...ready, id: "rcpt-flagged", merchant: "Marcado", activity: { state: "ready", unread: false, completion_cursor: null }, bandeja: flags(false, true, false) };
+  const page = await mount({
+    receiptPage: async () => ({ items: [queued, flaggedProblem], activity: { ...none, pending_review_count: 2, needs_attention_count: 1 } }),
+  });
+  const names = () => [...page.host.querySelectorAll('[data-testid="bandeja-row"]')].map((row) => row.querySelector("span span span")?.textContent);
+  const choose = (key: string) => page.act(async () => page.host.querySelector<HTMLButtonElement>(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)!.click());
+  try {
+    await page.settle(() => page.host.querySelector('[data-testid="bandeja-segment-empty"]') !== null);
+    assert.deepEqual(names(), [], "neither row is flagged por revisar");
+    await choose("problem");
+    assert.deepEqual(names(), ["Marcado"]);
+    await choose("all");
+    assert.deepEqual(names().sort(), ["En cola", "Marcado"]);
+    const row = [...page.host.querySelectorAll('[data-testid="bandeja-row"]')].find((item) => item.textContent?.includes("En cola"))!;
+    assert.equal(row.querySelector('[data-testid="receipt-reading-ring"]'), null, "no spinner for a receipt nothing reads");
+    assert.match(row.querySelector('[data-testid="bandeja-row-state"]')?.textContent ?? "", /^Guardado, sin leer · /);
+    assert.equal(row.textContent?.includes("Leyendo"), false);
   } finally { await page.close(); }
 });
 

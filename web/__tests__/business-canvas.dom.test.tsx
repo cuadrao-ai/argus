@@ -39,7 +39,7 @@ async function mount() {
   setChosenGrant(null);
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-  const source = { ...createFixtureBusinessDataSource({ chatAvailable: false }), captures: async () => [] };
+  const source = { ...createFixtureBusinessDataSource({ chatAvailable: false }), captures: async () => ({ items: [] }) };
   const bridge = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: undefined };
   let api: ReturnType<typeof useBusiness> | null = null;
   function Main() {

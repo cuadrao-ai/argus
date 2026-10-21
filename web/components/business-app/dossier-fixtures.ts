@@ -1,5 +1,5 @@
 import type { BusinessAccount, BusinessCapture, BusinessCaptureInput, ReceiptDetail } from "@/lib/business-api";
-import { factsRevision, type BusinessActor, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts } from "@/lib/business-dossier";
+import { factsRevision, type BusinessActor, type BusinessApprovalAction, type BusinessDossier, type BusinessFact, type BusinessFactPatch, type BusinessFacts, type RefundCandidate } from "@/lib/business-dossier";
 
 export const dossierFixtureIds = {
   unknown: "10000000-0000-4000-8000-000000000001",
@@ -95,6 +95,29 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
   const personalSourceId = "20000000-0000-4000-8000-000000000016";
   const personalFacts: BusinessFacts = { ...marked.facts, business_share: { state: "known", value: { kind: "none" }, origin: "member_set", verified: true, source_ids: [personalSourceId] } };
   dossiers.set(marked.draft_id, { ...marked, version: 4, review_state: "accepted", approval_available: false, personal: true, personal_marked_by: elena.display_name, facts: personalFacts, sources: [...marked.sources, { id: personalSourceId, kind: "web_action", channel: "web", received_at: "2026-10-10T15:05:00Z", text: JSON.stringify({ version: 3, personal: true }) }], history: [...marked.history, { draft_id: marked.draft_id, version: 4, actor: elena, before: marked.facts, after: personalFacts, source_ids: [personalSourceId], turn_key: null, created_at: "2026-10-10T15:05:00Z" }], approval_result: { status: "recorded", activity_id: "70000000-0000-4000-8000-000000000002", reviewed_version: 2, approved_revision: 2, approved_at: "2026-10-10T14:40:00Z", actor } });
+  // The three gates the server serves on a dossier, by the rules its actions enforce. The sample's
+  // owner holds approve, so a prepare-holder without it stands in for the accountant.
+  const approvalActions: Record<string, BusinessApprovalAction> = { expense: "record_expense", income: "record_income", refund: "record_refund" };
+  const refundCandidates = (draft: BusinessDossier): RefundCandidate[] => {
+    const { kind, occurred_on: day, currency: money, fiscal } = draft.facts;
+    const number = fiscal?.ecf.value ?? fiscal?.ncf.value ?? "";
+    const creditNote = /^[BE](04|34)/.test(number);
+    if (!(kind.value === "refund" || creditNote) || day.state !== "known" || money.state !== "known") return [];
+    const from = new Date(`${day.value}T12:00:00Z`);
+    from.setUTCDate(from.getUTCDate() - 30);
+    const earliest = from.toISOString().slice(0, 10);
+    const rnc = fiscal?.rnc.state === "known" ? fiscal.rnc.value : null;
+    return [...dossiers.values()]
+      .filter((other) => other.approval_result?.status === "recorded" && other.facts.kind.value === "expense" && other.facts.currency.value === money.value && other.facts.amount.state === "known" && other.facts.occurred_on.state === "known" && other.facts.occurred_on.value >= earliest && other.facts.occurred_on.value <= day.value && (!rnc || other.facts.fiscal?.rnc.value === rnc))
+      .sort((a, b) => (b.facts.occurred_on.value ?? "").localeCompare(a.facts.occurred_on.value ?? ""))
+      .slice(0, 20)
+      .map((other) => ({ id: other.approval_result?.status === "recorded" ? other.approval_result.activity_id : other.draft_id, merchant: other.facts.counterparty.value, occurred_on: other.facts.occurred_on.value ?? "", amount: other.facts.amount.value ?? "", currency: money.value }));
+  };
+  const served = (draft: BusinessDossier): Pick<BusinessDossier, "approval_action" | "fiscal_inclusion_available" | "refund_candidates"> => ({
+    approval_action: draft.approval_available && draft.facts.kind.state === "known" ? approvalActions[draft.facts.kind.value] ?? null : null,
+    fiscal_inclusion_available: draft.capabilities.includes("prepare") && !draft.capabilities.includes("approve") && (draft.review_state === "open" || draft.review_state === "accepted") && draft.personal === true && Boolean(draft.fiscal_value),
+    refund_candidates: refundCandidates(draft),
+  });
   const reviewReceipts = new Map<string, { input: string; result: BusinessDossier }>();
   const fail = (status: number, code: string): never => { throw Object.assign(new Error(code), { status, code }); };
   const get = (id: string) => {
@@ -102,7 +125,7 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
     if (!found) return fail(404, "draft_not_found");
     // The sample reads a type the way the server does: open and preparable means it can still change.
     const stated = found.facts.receipt_state.state === "known" && (found.facts.receipt_state.value === "no_receipt" || found.facts.receipt_state.value === "informal_receipt");
-    return structuredClone({ document_type: "recibo" as const, ...found, sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare") });
+    return structuredClone({ document_type: "recibo" as const, ...found, sin_comprobante: stated && !found.fiscal_value, document_type_editable: found.review_state === "open" && found.capabilities.includes("prepare"), ...served(found) });
   };
   let receiptDraftCount = 0;
   let captureCount = 0;
@@ -141,7 +164,12 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       if (query.includes("\0") || [...query].length > 200 || !Number.isInteger(limit) || limit < 1 || limit > 50) fail(422, "invalid_request");
       // The Bandeja's notes, as the API answers them: drafts awaiting review that no receipt carries.
       const listed = (note: BusinessCapture) => view === "all" || (["open", "accepting"].includes(get(note.draft_id).review_state) && !get(note.draft_id).sources.some((item) => item.kind === "attachment"));
-      return captures.filter((note) => listed(note) && note.text.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id)).slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state }; });
+      const newestFirst = (a: BusinessCapture, b: BusinessCapture) => b.received_at.localeCompare(a.received_at) || b.source_id.localeCompare(a.source_id);
+      // As the server counts it: every note of the draft before this one, whatever the query or the page keeps.
+      const earlier = (note: BusinessCapture) => captures.filter((other) => other.draft_id === note.draft_id && newestFirst(other, note) > 0).length;
+      const found = captures.filter((note) => listed(note) && note.text.toLowerCase().includes(query.toLowerCase())).sort(newestFirst);
+      const items = found.slice(0, limit).map((note) => { const current = get(note.draft_id); return { ...note, version: current.version, review_state: current.review_state, earlier_count: earlier(note) }; });
+      return { items, has_more: found.length > limit };
     },
     createReceiptDraft: (receipt: ReceiptDetail) => {
       const id = `80000000-0000-4000-8000-${String(++receiptDraftCount).padStart(12, "0")}`;
@@ -214,8 +242,9 @@ export function createDossierFixtures(accounts: BusinessAccount[]) {
       dossiers.set(id, { ...current, version: current.version + 1, unrecorded_purchases: 0 });
       return get(id);
     },
-    approveDraft: async (id: string, version: number) => {
+    approveDraft: async (id: string, version: number, action: BusinessApprovalAction = "record_expense") => {
       const current = get(id);
+      if (current.approval_action && action !== current.approval_action) fail(422, "invalid_request");
       if (id === dossierFixtureIds.denied) fail(403, "permission_denied");
       if (id === dossierFixtureIds.stale) {
         // Another person saved a revision first: the facts changed, so the

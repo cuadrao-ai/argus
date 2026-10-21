@@ -55,7 +55,7 @@ async function mount({ width = 800, overrides = () => ({}), panel }: { width?: n
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: true });
-  const source = { ...fixture, captures: async () => [], ...overrides(fixture) };
+  const source = { ...fixture, captures: async () => ({ items: [] }), ...overrides(fixture) };
   let api: ReturnType<typeof useBusiness> | null = null;
   function Probe() {
     api = useBusiness();
@@ -145,7 +145,7 @@ describe("a list that did not load", () => {
     let fail = true;
     const overrides = () => ({
       receiptPage: async (view: string) => { if (view === "inbox") calls.receipts += 1; return NOTHING; },
-      captures: async () => { calls.notes += 1; if (fail) throw Object.assign(new Error("business_unavailable"), { status: 404 }); return []; },
+      captures: async () => { calls.notes += 1; if (fail) throw Object.assign(new Error("business_unavailable"), { status: 404 }); return { items: [] }; },
       emailDeliveries: async () => { calls.emails += 1; if (fail) throw Object.assign(new Error("email_capture_unavailable"), { status: 503 }); return []; },
     });
     return { calls, overrides, recover: () => { fail = false; } };
@@ -222,9 +222,10 @@ describe("new since the last visit", () => {
 });
 
 describe("typed notes in the list", () => {
+  // The server counts the notes before each one over the whole draft, not the page.
   const NOTES = [
     note("draft-a", "Ayer compré pintura para el taller.", "2000-01-02T14:00:00Z"),
-    note("draft-a", "Pagué con mi dinero.", "2000-01-02T15:30:00Z"),
+    { ...note("draft-a", "Pagué con mi dinero.", "2000-01-02T15:30:00Z"), earlier_count: 1 },
   ];
 
   test("an open note is a Por revisar row with its latest words and earlier count, never a problem, and opens its draft", async () => {
@@ -232,7 +233,7 @@ describe("typed notes in the list", () => {
     const page = await mount({
       panel: { kind: "inbox" },
       overrides: (fixture) => ({
-        captures: async () => NOTES,
+        captures: async () => ({ items: NOTES }),
         receiptPage: async (view) => {
           const shown = await fixture.receiptPage!(view);
           return { ...shown, activity: shown.activity && { ...shown.activity, ready_to_review_count: shown.activity.ready_to_review_count + 1 } };
@@ -263,11 +264,22 @@ describe("typed notes in the list", () => {
     assert.equal(page.names().length, 4);
   });
 
-  test("a full page of notes says it shows the latest ones", async () => {
+  test("the server's has_more, not a full page, says older notes wait in search", async () => {
     const many = Array.from({ length: 50 }, (_, index) => note(`draft-${index}`, `Nota ${index}`, `2000-01-01T00:${String(index).padStart(2, "0")}:00Z`));
-    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => many }) });
-    await page.settle(() => page.host.querySelector('[data-testid="bandeja-note"]') !== null, "the note rows");
-    assert.ok(page.host.textContent?.includes("Se muestran las últimas 50 notas guardadas."));
+    const full = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => ({ items: many, has_more: false }) }) });
+    await full.settle(() => full.host.querySelector('[data-testid="bandeja-note"]') !== null, "the note rows");
+    assert.ok(!full.host.textContent?.includes("Se muestran las últimas 50 notas guardadas."), "fifty notes and nothing past them is the whole list");
+    while (unmounts.length) await unmounts.pop()!();
+    document.body.innerHTML = "";
+    const more = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => ({ items: many.slice(0, 3), has_more: true }) }) });
+    await more.settle(() => more.host.querySelector('[data-testid="bandeja-note"]') !== null, "the note rows");
+    assert.ok(more.host.textContent?.includes("Se muestran las últimas 50 notas guardadas."));
+  });
+
+  test("a draft's note says how many came before it as the server counts them, past the page", async () => {
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => ({ items: [{ ...note("draft-b", "Era en efectivo.", "2000-01-03T10:00:00Z"), earlier_count: 4 }] }) }) });
+    await page.settle(() => page.host.querySelector('[data-testid="bandeja-note"]') !== null, "the note row");
+    assert.match(page.host.querySelector('[data-testid="bandeja-note"]')?.textContent ?? "", /4 notas anteriores/);
   });
 });
 
@@ -325,15 +337,6 @@ describe("emails in the Bandeja", () => {
     assert.match(reading.textContent ?? "", /“Recibo de combustible” · Leyendo…/);
     assert.ok(reading.querySelector('[data-testid="receipt-reading-ring"]'), "it reads like a receipt still being read");
     assert.equal(page.segment("review")?.textContent, "Por revisar4");
-  });
-
-  test("a repeat of a file already saved is never a problem row", async () => {
-    const repeat = { id: "email-repeat", state: "captured" as const, received_at: "2026-10-13T17:14:00Z", updated_at: "2026-10-13T17:14:00Z", original_document_id: null, retryable: false, subject: "Factura otra vez", sender: "ventas@repetido.example", sent_at: null, error_code: null, parts: [{ id: "1.2", filename: "factura.pdf", media_type: "application/pdf", state: "captured" as const, document_id: "rcpt-papeleria", error_code: null, repeat_of_delivery_id: "email-ferreteria" }] };
-    const uploaded = { ...repeat, id: "email-uploaded", sender: "ventas@subido.example", parts: [{ ...repeat.parts[0], repeat_of_delivery_id: null, repeat_of_upload: true }] };
-    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ emailDeliveries: async () => [repeat, uploaded] }) });
-    await inboxReady(page);
-    await page.choose("all");
-    assert.equal(emailRows(page).length, 0);
   });
 
   test("on a desktop an email row opens the email beside the list, and the tray closes back to it", async () => {

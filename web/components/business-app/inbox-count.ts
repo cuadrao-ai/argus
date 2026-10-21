@@ -1,23 +1,21 @@
 import type { BusinessCapture, ReceiptActivityCounts } from "@/lib/business-api";
-import { emailStanding, type BusinessEmailDelivery, type EmailStanding } from "@/lib/business-email";
+import type { BusinessEmailDelivery, EmailStanding } from "@/lib/business-email";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
 /**
  * One row per draft still awaiting review: its latest note, and how many came
- * before it. Recorded and dismissed drafts leave the Inbox.
+ * before it as the server counts them over every note of the draft, not only
+ * the page. Recorded and dismissed drafts leave the Inbox.
  */
 export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote[] {
   const byDraft = new Map<string, OpenNote>();
   for (const note of captures) {
     if (note.review_state !== "open" && note.review_state !== "accepting") continue;
     const current = byDraft.get(note.draft_id);
-    if (!current) {
-      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: note.revision, earlier: 0 });
-    } else if (note.received_at > current.receivedAt) {
-      byDraft.set(note.draft_id, { ...current, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current.revision), earlier: current.earlier + 1 });
+    if (!current || note.received_at > current.receivedAt) {
+      byDraft.set(note.draft_id, { draftId: note.draft_id, text: note.text, receivedAt: note.received_at, revision: Math.max(note.revision, current?.revision ?? 0), earlier: note.earlier_count ?? 0 });
     } else {
-      current.earlier += 1;
       current.revision = Math.max(note.revision, current.revision);
     }
   }
@@ -28,10 +26,7 @@ export function openNotesByDraft(captures: readonly BusinessCapture[]): OpenNote
 export type BandejaEmail = { delivery: BusinessEmailDelivery; standing: EmailStanding };
 
 export function bandejaEmails(deliveries: readonly BusinessEmailDelivery[]): BandejaEmail[] {
-  return deliveries.flatMap((delivery) => {
-    const standing = emailStanding(delivery);
-    return standing ? [{ delivery, standing }] : [];
-  });
+  return deliveries.flatMap((delivery) => (delivery.standing ? [{ delivery, standing: delivery.standing }] : []));
 }
 
 type CountRecords = { receiptActivity?: ReceiptActivityCounts | null };

@@ -165,7 +165,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       const receipt = await page.source.receipt("rcpt-ferreteria");
       const saved = await page.source.saveReview(receipt.id, receipt.version, { account_id: "acct-ops" });
       const record = await page.source.dossier(saved.draft_id!);
-      await page.source.approveDraft(record.draft_id, record.version, "approve-1113");
+      await page.source.approveDraft(record.draft_id, record.version, "approve-1113", "record_expense");
       page.api().reload();
     });
     await page.settle(() => page.reviewCount() === "3");

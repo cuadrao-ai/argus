@@ -9,8 +9,7 @@ import type {
 import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
-import { emailStanding } from "@/lib/business-email";
-import { countNeedsAttention, countPorRevisar, countStillReading } from "@/lib/business-review-count";
+import { projectActivity, served, servedCounts, servedEmail } from "./fixture-server-rules";
 import type { BusinessDataSource } from "./business-data";
 import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
 
@@ -367,8 +366,8 @@ export function createFixtureBusinessDataSource(
   return {
     mode: "fixture",
     ...dossierSource,
-    approveDraft: async (id, version, key) => {
-      const dossier = await dossierSource.approveDraft(id, version);
+    approveDraft: async (id, version, key, action) => {
+      const dossier = await dossierSource.approveDraft(id, version, action);
       const receipt = receipts.find((item) => item.draft_id === id);
       if (receipt && dossier.approval_result?.status === "recorded") {
         const facts = dossier.facts;
@@ -450,9 +449,9 @@ export function createFixtureBusinessDataSource(
     },
     receipts: async (view) => {
       await delay();
-      return view === "all"
+      return (view === "all"
         ? receipts
-        : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
+        : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed")).map(served);
     },
     // The sample's stand-in for the server's one count projection: every row
     // the Bandeja lists (never the email itself), notes no receipt carries,
@@ -460,31 +459,17 @@ export function createFixtureBusinessDataSource(
     receiptPage: async (view) => {
       await delay();
       const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
-      const pending = receipts.filter((item) => !item.email_original && item.status !== "confirmed" && item.status !== "dismissed");
-      const notes = new Set((await dossierSource.captures("", 50, "inbox")).map((note) => note.draft_id)).size;
-      const standings = SAMPLE_EMAILS.map((email) => emailStanding(email)).filter((standing) => standing !== null);
-      const reading = countStillReading(receipts) + standings.filter((standing) => standing === "reading").length;
-      const unread = receipts.filter((item) => item.activity?.unread).length;
-      return {
-        items,
-        activity: {
-          reading_count: reading,
-          unread_count: unread,
-          presentation: reading ? "working" : unread ? "unread" : "none",
-          pending_review_count: pending.length + notes + standings.length,
-          needs_attention_count: countNeedsAttention(receipts) + standings.filter((standing) => standing === "no_receipt").length,
-          ready_to_review_count: countPorRevisar(receipts) + notes,
-        },
-      };
+      const notes = new Set((await dossierSource.captures("", 50, "inbox")).items.map((note) => note.draft_id)).size;
+      return { items: items.map(served), activity: servedCounts(receipts, notes, SAMPLE_EMAILS.map((email) => servedEmail(email).standing)) };
     },
     receipt: async (id) => {
       await delay();
-      return find(id);
+      return served(find(id));
     },
     markReceiptRead: async (id, cursor) => {
       await delay(120);
       const item = find(id);
-      const activity = { state: item.activity?.state ?? "ready", unread: false, completion_cursor: cursor } as const;
+      const activity = { ...projectActivity(item), unread: false, completion_cursor: cursor };
       replace({ ...item, activity });
       return activity;
     },
@@ -534,7 +519,7 @@ export function createFixtureBusinessDataSource(
         }
       }
       const earlier = uploads.get(key);
-      if (earlier) return earlier;
+      if (earlier) return served(earlier);
       counter += 1;
       const created = receipt({
         id: `rcpt-new-${counter}`,
@@ -554,11 +539,11 @@ export function createFixtureBusinessDataSource(
       });
       receipts = [created, ...receipts];
       uploads.set(key, created);
-      return created;
+      return served(created);
     },
     rebindReceipt: async (id) => {
       await delay();
-      return find(id);
+      return served(find(id));
     },
     prepareReceipt: async (id) => {
       await delay();
@@ -566,7 +551,7 @@ export function createFixtureBusinessDataSource(
       if (!current.preparable) {
         throw Object.assign(new Error("document_busy"), { status: 409, code: "document_busy" });
       }
-      return replace({ ...current, status: "queued", error_code: null, attention: null, preparable: false, enterable: false, read_pending: true });
+      return served(replace({ ...current, status: "queued", error_code: null, attention: null, preparable: false, enterable: false, read_pending: true }));
     },
     saveReview: async (id, version, fields) => {
       await delay();
@@ -586,12 +571,12 @@ export function createFixtureBusinessDataSource(
         version: current.version + 1,
         missing_fields: missing(merged),
       };
-      return replace({ ...reviewed, draft_id: current.draft_id === dossierFixtureIds.unprepared ? current.draft_id : createReceiptDraft(reviewed) });
+      return served(replace({ ...reviewed, draft_id: current.draft_id === dossierFixtureIds.unprepared ? current.draft_id : createReceiptDraft(reviewed) }));
     },
     confirmReceipt: async (id, version) => {
       await delay(400);
       const current = find(id);
-      if (current.expense_id) return current;
+      if (current.expense_id) return served(current);
       if (current.version !== version) {
         throw Object.assign(new Error("stale_version"), { status: 409, code: "stale_version" });
       }
@@ -616,7 +601,7 @@ export function createFixtureBusinessDataSource(
         },
         ...expenses,
       ];
-      return replace({ ...current, status: "confirmed", expense_id: expenseId });
+      return served(replace({ ...current, status: "confirmed", expense_id: expenseId }));
     },
     ...search,
     emailIntake: async () => {
@@ -641,14 +626,14 @@ export function createFixtureBusinessDataSource(
       return SAMPLE_EMAILS.map((item) => {
         const { text_body, ...delivery } = item;
         void text_body;
-        return delivery;
+        return servedEmail(delivery);
       });
     },
     emailDelivery: async (id) => {
       await delay();
       const found = SAMPLE_EMAILS.find((item) => item.id === id);
       if (!found) throw Object.assign(new Error("not_found"), { status: 404 });
-      return found;
+      return servedEmail(found);
     },
     retryEmailDelivery: async (id) => {
       await delay();

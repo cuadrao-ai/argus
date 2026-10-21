@@ -1,49 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, test } from "bun:test";
-import { emailStanding, type BusinessEmailDelivery, type BusinessEmailPart } from "@/lib/business-email";
-import { inboxCount, problemCount, readingCount } from "@/components/business-app/inbox-count";
+import type { BusinessEmailDelivery, BusinessEmailPart } from "@/lib/business-email";
+import { bandejaEmails, inboxCount, problemCount, readingCount } from "@/components/business-app/inbox-count";
 
 const part = (overrides: Partial<BusinessEmailPart> = {}): BusinessEmailPart => ({ id: "1.2", filename: "factura.pdf", media_type: "application/pdf", state: "captured", document_id: "rcpt-1", error_code: null, ...overrides });
 const email = (overrides: Partial<BusinessEmailDelivery> = {}): BusinessEmailDelivery => ({
   id: "email-1", state: "captured", received_at: "2026-10-13T17:14:00Z", updated_at: "2026-10-13T17:14:00Z", original_document_id: null, retryable: false,
-  subject: "Factura", sender: "ventas@example.test", sent_at: null, error_code: null, parts: [part()], ...overrides,
+  subject: "Factura", sender: "ventas@example.test", sent_at: null, error_code: null, parts: [part()], standing: null, ...overrides,
 });
 
-describe("where an email stands in the Bandeja", () => {
-  test("a file it saved is a receipt row of its own, so the email is no row", () => {
-    assert.equal(emailStanding(email()), null);
-    assert.equal(emailStanding(email({ state: "partial", parts: [part(), part({ id: "1.3", state: "rejected", document_id: null, error_code: "too_large" })] })), null);
-  });
-
-  test("still moving with nothing saved yet, it is being read", () => {
-    assert.equal(emailStanding(email({ state: "received", parts: [] })), "reading");
-    assert.equal(emailStanding(email({ state: "processing", parts: [part({ state: "pending", document_id: null })] })), "reading");
-    assert.equal(emailStanding(email({ state: "partial", parts: [part({ state: "pending", document_id: null }), part({ id: "1.3", state: "rejected", document_id: null })] })), "reading");
-    assert.equal(emailStanding(email({ state: "received", parts: [], waiting: { reason: "daily_budget", retry_at: "2026-10-15T00:00:00Z" } })), "reading");
-  });
-
-  test("finished with no receipt, it is a problem: rejected, every part rejected, or no attachment", () => {
-    assert.equal(emailStanding(email({ state: "rejected", error_code: "email_route_unavailable", parts: [] })), "no_receipt");
-    assert.equal(emailStanding(email({ state: "partial", parts: [part({ state: "rejected", document_id: null, error_code: "unsupported_media_type" })] })), "no_receipt");
-    assert.equal(emailStanding(email({ state: "captured", parts: [] })), "no_receipt");
-    assert.equal(emailStanding(email({ state: "partial", parts: [part({ repeat_of_delivery_id: "email-0" }), part({ id: "1.3", state: "rejected", document_id: null })] })), "no_receipt", "a rejected file beside a repeat still brought nothing new");
-  });
-
-  test("a repeat of a file already saved is not a problem and not a row", () => {
-    assert.equal(emailStanding(email({ parts: [part({ repeat_of_delivery_id: "email-0" })] })), null);
-    assert.equal(emailStanding(email({ parts: [part({ repeat_of_upload: true })] })), null);
-  });
-});
-
-describe("the server's standing, when it sends one", () => {
-  test("the server's word wins over the browser's rule, including an email whose own text was saved", () => {
-    assert.equal(emailStanding(email({ standing: null, original_document_id: "rcpt-text", parts: [] })), null, "its text is already a receipt row");
-    assert.equal(emailStanding(email({ standing: "reading" })), "reading");
-    assert.equal(emailStanding(email({ standing: "no_receipt", state: "captured" })), "no_receipt");
-  });
-
-  test("an older server that sends no standing still gets the browser's rule", () => {
-    assert.equal(emailStanding(email({ state: "rejected", parts: [] })), "no_receipt");
+describe("where an email stands in the Bandeja is the server's word", () => {
+  test("an email is a row only when the server gives it a standing, whatever its state and parts say", () => {
+    const rows = bandejaEmails([
+      email({ id: "rejected-no-row", state: "rejected", parts: [], standing: null }),
+      email({ id: "captured-problem", state: "captured", standing: "no_receipt" }),
+      email({ id: "reading", state: "captured", standing: "reading" }),
+      email({ id: "saved", standing: null }),
+    ]);
+    assert.deepEqual(rows.map((row) => [row.delivery.id, row.standing]), [["captured-problem", "no_receipt"], ["reading", "reading"]]);
   });
 });
 

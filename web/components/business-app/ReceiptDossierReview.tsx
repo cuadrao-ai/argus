@@ -12,7 +12,6 @@ import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import { approveFiscalRecord } from "@/lib/business-dgii";
 import { duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
@@ -153,7 +152,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
 
   const write = async (action: "save" | "approve", facts?: BusinessFactPatch): Promise<BusinessDossier | null> => {
-    if (!dossier || inFlight.current || fiscalBusy || action === "approve" && fiscalDirty || operation.kind !== "idle" || action === "save" && !facts) return null;
+    const approval = dossier?.approval_action;
+    if (!dossier || inFlight.current || fiscalBusy || action === "approve" && (fiscalDirty || !approval) || operation.kind !== "idle" || action === "save" && !facts) return null;
     inFlight.current = true;
     setOperation({ kind: action === "save" ? "saving" : "approving" });
     setProblem(null);
@@ -166,13 +166,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
         next = await source.reviewDraft(draftId, request.version, request.facts, request.key);
         reviewRequest.current = null;
       }
-      else {
+      else if (approval) {
         if (approvalKey.current?.version !== dossier.version) approvalKey.current = { version: dossier.version, key: randomId() };
-        const kind = dossier.facts.kind.value;
-        next = source.mode === "live" && (kind === "income" || kind === "refund")
-          ? await approveFiscalRecord(draftId, dossier.version, kind === "income" ? "record_income" : "record_refund", approvalKey.current.key)
-          : await source.approveDraft(draftId, dossier.version, approvalKey.current.key);
-      }
+        next = await source.approveDraft(draftId, dossier.version, approvalKey.current.key, approval);
+      } else return null;
       setDossier(next);
       if (action === "save" && facts) {
         const saved = Object.keys(facts);
@@ -249,7 +246,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
   const approval = dossier.approval_result?.status === "recorded" ? dossier.approval_result : null;
   const recorded = approval !== null;
-  const supportedKind = dossier.facts.kind.state === "known" && ["expense", "income", "refund"].includes(dossier.facts.kind.value);
+  // The server names the approve action; without one there is nothing this screen may approve.
+  const supportedKind = Boolean(dossier.approval_action);
   const mutable = !capturePending && !captureOpen && !fiscalBusy && !fiscalDirty && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
@@ -280,7 +278,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
   const pillStatus = receipt?.status ?? (recorded || dossier.review_state === "accepted" ? "confirmed" : dossier.review_state === "open" ? "review_ready" : null);
   const reasonId = `approve-reason-${dossier.draft_id}`;
-  const approvalLabel = dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Approve income") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
+  const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
 
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
   return (<><ContentFade><>

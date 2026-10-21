@@ -128,7 +128,7 @@ export function useBusinessSearch({
           id: "captures",
           label: t("business.capture.notes", "Original notes"),
           ...(captures.status === "rejected" ? { error: t("business.capture.search_failed", "Notes are unavailable. Other record results are shown below.") } : {}),
-          hits: captures.status === "fulfilled" ? captures.value.map((note) => ({
+          hits: captures.status === "fulfilled" ? captures.value.items.map((note) => ({
             id: note.source_id,
             icon: FileText,
             title: note.text,

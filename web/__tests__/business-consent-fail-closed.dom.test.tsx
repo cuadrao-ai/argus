@@ -85,7 +85,7 @@ const inboxReceipt = {
   replayed: false,
   preparable: true,
   enterable: false,
-  read_pending: false,
+  bandeja: { por_revisar: true, con_problema: true, leyendo: false },
   expense_id: null,
   merchant: "Ferretería",
   occurred_on: null,

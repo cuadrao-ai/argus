@@ -67,7 +67,7 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
-    captures: async () => [],
+    captures: async () => ({ items: [] }),
     receiptPage: porIgualarCount === undefined ? fixture.receiptPage : async (view: "inbox" | "all") => {
       const page = await fixture.receiptPage!(view);
       return { ...page, activity: page.activity ? { ...page.activity, por_igualar_count: porIgualarCount } : page.activity };

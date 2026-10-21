@@ -16,10 +16,10 @@ afterAll(async () => {
 const HINT = "Guardado, sin leer. Pulsa «Preparar con IA» para que Cuadrao lo lea, o complétalo tú.";
 
 const receipt = (over: Partial<ReceiptSummary>): ReceiptSummary =>
-  ({ id: "rcpt-1", channel: "web", filename: "recibo-prueba-ferreteria.pdf", source_text: null, media_type: "application/pdf", size_bytes: 70, received_at: "2026-10-13T17:14:00Z", status: "saved", error_code: null, attention: null, duplicate_of: null, replayed: false, preparable: true, enterable: true, read_pending: false, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, email_delivery_ids: ["d1"], email_original: false, missing_fields: [], version: 0, draft_id: null, ...over } as unknown as ReceiptSummary);
+  ({ id: "rcpt-1", channel: "web", filename: "recibo-prueba-ferreteria.pdf", source_text: null, media_type: "application/pdf", size_bytes: 70, received_at: "2026-10-13T17:14:00Z", status: "saved", error_code: null, attention: null, duplicate_of: null, replayed: false, preparable: true, enterable: true, activity: { state: "saved_unread", unread: true, completion_cursor: null }, bandeja: { por_revisar: true, con_problema: false, leyendo: false }, expense_id: null, merchant: null, occurred_on: null, amount: null, currency: null, category_id: null, account_id: null, email_delivery_ids: ["d1"], email_original: false, missing_fields: [], version: 0, draft_id: null, ...over } as unknown as ReceiptSummary);
 
 const delivery: BusinessEmailDelivery = {
-  id: "d1", state: "captured", received_at: "2026-10-13T17:14:00Z", updated_at: "2026-10-13T17:14:00Z", original_document_id: null, retryable: false, subject: "Factura 0041", sender: "ventas@ferreteria.example", sent_at: null, error_code: null,
+  id: "d1", state: "captured", received_at: "2026-10-13T17:14:00Z", updated_at: "2026-10-13T17:14:00Z", original_document_id: null, retryable: false, subject: "Factura 0041", sender: "ventas@ferreteria.example", sent_at: null, error_code: null, standing: null, saved_receipt_count: 1, no_receipt_reason: null,
   parts: [{ id: "1.2", filename: "recibo-prueba-ferreteria.pdf", media_type: "application/pdf", state: "captured", document_id: "rcpt-1", error_code: null }],
 };
 
@@ -64,7 +64,7 @@ describe("a receipt saved without a read never looks stuck", () => {
 
   test("a receipt being read keeps its own words on the row", async () => {
     const { default: BusinessInboxPanel } = await import("@/components/business-app/BusinessInboxPanel");
-    const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", read_pending: true })]);
+    const reading = await mount((React) => React.createElement(BusinessInboxPanel), [receipt({ status: "queued", activity: { state: "reading", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } })]);
     await reading.act(async () => reading.host.querySelector<HTMLButtonElement>('[data-segment="all"]')!.click());
     assert.match(reading.host.querySelector('[data-testid="bandeja-row-state"]')?.textContent ?? "", /^Leyendo… · /);
     assert.ok(!reading.host.textContent?.includes("Guardado, sin leer"));
@@ -82,7 +82,7 @@ describe("a receipt saved without a read never looks stuck", () => {
     assert.ok([...(detail?.querySelectorAll("button") ?? [])].some((b) => b.textContent === "Abrir recibo"));
     await page.act(async () => page.root.unmount());
     // Once the receipt was read, the line is gone.
-    const read = await mount((React) => React.createElement(EmailHistory), [receipt({ status: "review_ready" })]);
+    const read = await mount((React) => React.createElement(EmailHistory), [receipt({ status: "review_ready", activity: { state: "ready", unread: false, completion_cursor: null } })]);
     const row2 = read.host.querySelector('[data-testid="email-delivery-row"]') as HTMLButtonElement;
     await read.act(async () => { row2.click(); });
     await read.act(async () => { await Promise.resolve(); await Promise.resolve(); });

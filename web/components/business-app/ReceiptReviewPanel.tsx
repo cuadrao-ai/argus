@@ -93,8 +93,8 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
     [detail, draft],
   );
   const confirmed = detail?.status === "confirmed";
-  // Backend state only: a read is pending when the API says so, never from the status alone.
-  const waitingForAi = detail?.read_pending === true;
+  // Backend state only: the receipt is being read when the server's Bandeja flag says so, never from the status.
+  const waitingForAi = detail?.bandeja?.leyendo === true;
   const [readStalled, setReadStalled] = useState(false);
   // The read settles on the server; this page asks again until it has, so the
   // same page fills in. Fields the person typed meanwhile keep their text.
@@ -149,7 +149,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       {children}
     </ReceiptReviewFrame></ContentFade>
   );
-  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
+  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
   const canEnter = detail.enterable && canPrepare && !locked;
@@ -381,7 +381,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
+          <ReceiptReadNotice receipt={detail} enterable={canEnter} preparable={detail.preparable && canPrepare} />
 
           <section data-testid="receipt-facts-activity" className={`${SURFACE_CARD} space-y-4`}>
             {field(

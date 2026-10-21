@@ -3,7 +3,7 @@ import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-a
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
-import type { BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
+import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
 
 /**
@@ -71,7 +71,12 @@ export type ReceiptActivityCounts = {
   ready_to_review_count: number;
   /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
   por_igualar_count?: number | null;
+  /** Receipts that left the Bandeja saved as a record, or dismissed, over every receipt whichever view was read. Absent from servers older than #1353. */
+  confirmed_count?: number;
+  dismissed_count?: number;
 };
+/** Which Bandeja buckets a receipt sits in, by the predicates the counts sum. A closed receipt and an email original sit in none. */
+export type BandejaMembership = { por_revisar: boolean; con_problema: boolean; leyendo: boolean };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -90,6 +95,8 @@ export function markReceiptRead(id: string, completionCursor: string): Promise<R
 export type ReceiptSummary = ReceiptReviewFields & {
   id: string;
   activity?: ReceiptActivity | null;
+  /** The server's Bandeja membership; absent from servers older than #1353, which reads as in no bucket. */
+  bandeja?: BandejaMembership | null;
   channel: ReceiptChannel;
   /** Marked by a person as no part of the Business: left out of the totals, kept visible. */
   personal?: boolean;
@@ -128,7 +135,7 @@ export type ReceiptSummary = ReceiptReviewFields & {
   replayed?: boolean;
   /** The owner may ask for a consented AI read now. */
   preparable: boolean;
-  /** A read is in flight or will start; a queued receipt nothing will read says false and reads as saved. */
+  /** The server's read-in-flight flag. The screens read `bandeja.leyendo`, which the server derives from it. */
   read_pending?: boolean;
   /** The owner may fill in the one purchase by hand from version 0. */
   enterable: boolean;
@@ -222,11 +229,12 @@ export async function setBusinessDraftDocumentType(draftId: string, version: num
   });
 }
 
-export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
+/** `action` is the dossier's `approval_action`: the server names the approve action the draft takes. */
+export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string, action: BusinessApprovalAction): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify({ version, action: "record_expense" }),
+    body: JSON.stringify({ version, action }),
   });
 }
 
@@ -366,7 +374,11 @@ export type BusinessCapture = {
   text: string;
   received_at: string;
   review_state: BusinessDossier["review_state"];
+  /** How many notes of the same draft came before this one, over every note of the draft. */
+  earlier_count?: number;
 };
+/** One page of notes. `has_more` says more exist past the limit; the route has no cursor. */
+export type BusinessCapturePage = { items: BusinessCapture[]; has_more?: boolean };
 
 export async function captureBusinessNote(input: BusinessCaptureInput, key: string): Promise<BusinessDossier> {
   const authHeaders = await authenticatedRequestHeaders();
@@ -386,10 +398,9 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
 }
 
 /** `inbox` asks for the notes the Bandeja lists: drafts awaiting review that no receipt carries. */
-export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" = "all"): Promise<BusinessCapture[]> {
+export async function listBusinessCaptures(query = "", limit = 20, view: "inbox" | "all" = "all"): Promise<BusinessCapturePage> {
   const params = new URLSearchParams({ q: query, limit: String(limit), view });
-  const page = await apiFetch<{ items: BusinessCapture[] }>(`/business/captures?${params}`);
-  return page.items;
+  return apiFetch<BusinessCapturePage>(`/business/captures?${params}`);
 }
 
 

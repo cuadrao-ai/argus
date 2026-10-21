@@ -164,14 +164,14 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
     const receipt = inbox?.find((item) => item.id === documentId);
     return receipt && savedUnread(receipt) ? receipt : null;
   };
-  const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
+  const savedCount = delivery.saved_receipt_count;
   const resumeAt = waiting ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(waiting.retry_at)) : null;
   const reason = waiting
     ? t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })
     : delivery.error_code
       ? t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))
-      : delivery.state === "captured"
-        ? t("business.email.saved_line", { count: captured.length, defaultValue: "{{count}} receipts went to the Bandeja." })
+      : delivery.state === "captured" && savedCount !== undefined
+        ? t("business.email.saved_line", { count: savedCount, defaultValue: "{{count}} receipts went to the Bandeja." })
         : null;
 
   return (
@@ -228,7 +228,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
             setRetry("sending");
             try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
           }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}
-          {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
+          {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{savedCount ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
         </div>
       ) : null}
       {retry === "accepted" ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.retry_accepted", "Retry requested. The status updates after processing.")}</p> : null}
@@ -243,13 +243,10 @@ export function useEmailWords() {
   return {
     title: (delivery: BusinessEmailDelivery) => delivery.sender ? t("business.inbox.email_row_title", { sender: delivery.sender, defaultValue: "Email from {{sender}}" }) : t("business.inbox.email_row_unknown", "Email with no sender"),
     subject: (delivery: BusinessEmailDelivery) => delivery.subject ? t("business.inbox.email_subject", { subject: delivery.subject, defaultValue: "“{{subject}}”" }) : t("business.email.no_subject", "No subject"),
-    // The email's own failure when it says more than "some parts", then the first file's, then a missing file.
+    // The server names why; a code without copy of its own, or no code from an older server, says it plainly.
     noReceipt: (delivery: BusinessEmailDelivery) => {
-      if (delivery.error_code && delivery.error_code !== "email_parts_rejected") return t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."));
-      const rejected = delivery.parts.find((part) => part.state === "rejected");
-      if (rejected) return t(`business.email.part_error.${rejected.error_code ?? "other"}`, t("business.email.part_error.other", "It isn't a file we can save as a receipt."));
-      if (!delivery.parts.length) return t("business.email.no_attachment", "It had no attachment");
-      return t("business.email.part_error.other", "It isn't a file we can save as a receipt.");
+      const other = t("business.email.no_receipt_reason.other", "It brought no receipt we could save");
+      return delivery.no_receipt_reason ? t(`business.email.no_receipt_reason.${delivery.no_receipt_reason}`, other) : other;
     },
   };
 }

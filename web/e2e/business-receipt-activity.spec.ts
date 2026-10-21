@@ -20,7 +20,7 @@ async function mockInbox(page: Page, language: "en" | "es-419", collapsed: boole
   const state: { phase: "saved" | "reading" | "ready"; enabled: boolean; reads: number } = { phase: "saved", enabled: false, reads: 0 };
   const receipts = (): ReceiptSummary[] => seed.map((receipt, index) => ({ ...receipt,
     status: state.phase === "saved" ? "saved" : state.phase === "reading" && index === 0 ? "queued" : "review_ready",
-    read_pending: state.phase === "reading" && index === 0,
+    bandeja: { por_revisar: !(state.phase === "reading" && index === 0), con_problema: false, leyendo: state.phase === "reading" && index === 0 },
     activity: { state: state.phase === "saved" ? "saved_unread" : state.phase === "reading" && index === 0 ? "reading" : "ready", unread: state.phase !== "reading" || index !== 0, completion_cursor: state.phase === "ready" || index === 1 && state.phase === "reading" ? (index ? "b" : "a").repeat(64) : null },
   }));
   const reading = () => ({ scope_version: 1, enabled: state.enabled, available: true, can_change: true,

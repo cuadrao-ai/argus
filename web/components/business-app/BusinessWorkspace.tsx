@@ -93,7 +93,7 @@ type Records = {
   /** Saved notes, newest first; null until loaded or after a failed load. A notes outage never hides receipts, and never reads as no notes. */
   notes: BusinessCapture[] | null;
   notesFailure?: LoadFailure | null;
-  /** The captures list stops at the server's page size; older open notes are found through search. */
+  /** The server says more notes exist past the page it sent; older open notes are found through search. */
   notesTruncated: boolean;
   /** Received emails, newest first; null until loaded. An email outage never hides receipts. */
   emails: BusinessEmailDelivery[] | null;
@@ -146,7 +146,7 @@ export function useBusiness(): BusinessContextValue {
 }
 
 const NO_ACCOUNTS: never[] = [];
-// The captures endpoint's largest page; it has no cursor.
+// The captures endpoint's largest page; it has no cursor, so `has_more` sends the rest to search.
 const NOTES_PAGE = 50;
 const PANEL_KINDS = new Set(["overview", "inbox", "transactions"]);
 
@@ -443,12 +443,12 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     if (onRecord) return;
     source.ensureSpace(normalizeEnabledLanguage(i18n.language)).then(() => {
-      if (cancelled) return [];
+      if (cancelled) return { items: [] };
       return source.captures("", NOTES_PAGE, "inbox");
     }).then(
-      (notes) => {
+      (page) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, notes, notesFailure: null, notesTruncated: notes.length >= NOTES_PAGE }));
+        setRecords((current) => ({ ...current, notes: page.items, notesFailure: null, notesTruncated: page.has_more === true }));
         reloadWaits.answered("notes", revision, true);
       },
       (error: unknown) => {

@@ -52,7 +52,7 @@ async function mount({ width = 1280, grant = null, overrides = {} }: { width?: n
   clearToasts();
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
-  const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), captures: async () => [], ...overrides };
+  const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), captures: async () => ({ items: [] }), ...overrides };
   const searches: string[] = [];
   const below = width < 720;
   const shell = { currentView: "workspace", conversationId: null, isBelowTablet: below, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: () => searches.push("open") };

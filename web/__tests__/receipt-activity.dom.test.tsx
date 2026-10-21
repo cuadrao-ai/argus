@@ -111,8 +111,13 @@ test("switching Business aborts discovery and ignores the old response", async (
 test("a receipt row has exactly one marker and the badge uses server count", async () => {
   const detail = await receipt();
   const render = (row: ReceiptDetail) => renderToStaticMarkup(<I18nextProvider i18n={i18n}><ReceiptRow receipt={row} onOpen={() => {}} /></I18nextProvider>);
-  const reading = render({ ...detail, activity: { state: "reading", unread: true, completion_cursor: null } });
+  const reading = render({ ...detail, activity: { state: "reading", unread: true, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: true } });
   assert.ok(reading.includes("receipt-reading-ring"));
+  // A queued receipt nothing will read: the server leaves it out of leyendo, so it never spins.
+  const queued = render({ ...detail, status: "queued", activity: { state: "saved_unread", unread: false, completion_cursor: null }, bandeja: { por_revisar: false, con_problema: false, leyendo: false } });
+  assert.ok(!queued.includes("receipt-reading-ring"));
+  assert.ok(!queued.includes("Reading…"));
+  assert.ok(queued.includes("Saved, not read"));
   assert.ok(!reading.includes("receipt-unread-dot"));
   const ready = render(detail);
   assert.ok(ready.includes("receipt-unread-dot"));

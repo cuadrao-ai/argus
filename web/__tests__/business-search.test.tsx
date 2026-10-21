@@ -126,7 +126,7 @@ async function businessSearch(partial: Partial<BusinessSearchResult>, notes: Bus
   const found = { ...NO_RESULTS, ...partial };
   const opened: BusinessPanelState[] = [];
   const periods: string[] = [];
-  const source = { search: async () => found, captures: async () => { if (notes instanceof Error) throw notes; return notes; } } as unknown as BusinessDataSource;
+  const source = { search: async () => found, captures: async () => { if (notes instanceof Error) throw notes; return { items: notes }; } } as unknown as BusinessDataSource;
   const actions = { create: [{ id: "upload_receipt" as const, label: "Add", icon: Banknote, run: noop }], composer: [], starterEntries: [] };
   let built: WorkspaceSearch | null = null;
   function Probe() {

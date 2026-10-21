@@ -48,7 +48,7 @@ test("canonical draft transport binds explicit ID, version, human effect and ide
     await reviewBusinessDraft(dossierFixtureIds.ready, 8, { funding: { state: "owner_does_not_know", value: null } }, "human-review-once");
     await reviewBusinessDraft(dossierFixtureIds.ready, 8, { funding: { state: "owner_does_not_know", value: null } }, "human-review-once");
     await reviewBusinessDraft(dossierFixtureIds.ready, 9, { kind: { state: "known", value: "expense" } }, "human-review-new-intent");
-    await approveBusinessDraft(dossierFixtureIds.ready, 10, "human-approval-once");
+    await approveBusinessDraft(dossierFixtureIds.ready, 10, "human-approval-once", "record_income");
     assert.equal(calls.length, 5);
     assert.ok(calls[0].url.endsWith(`/business/drafts/${dossierFixtureIds.ready}/dossier`));
     assert.deepEqual(calls[1].body, { version: 8, facts: { funding: { state: "owner_does_not_know", value: null } } });
@@ -56,7 +56,7 @@ test("canonical draft transport binds explicit ID, version, human effect and ide
     assert.deepEqual(calls[2], calls[1]);
     assert.equal(calls[3].key, "human-review-new-intent");
     assert.deepEqual(calls[3].body, { version: 9, facts: { kind: { state: "known", value: "expense" } } });
-    assert.deepEqual(calls[4].body, { version: 10, action: "record_expense" });
+    assert.deepEqual(calls[4].body, { version: 10, action: "record_income" }, "the action is the one the dossier named");
     assert.equal(calls[4].key, "human-approval-once");
     assert.equal(calls[4].method, "POST");
   } finally {

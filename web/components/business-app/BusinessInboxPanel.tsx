@@ -11,7 +11,6 @@ import { useReceiptStateWord } from "./receipt-state-word";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
-import { isStillReading, needsAttention, porRevisar } from "@/lib/business-review-count";
 import { bandejaEmails, inboxCount, openNotesByDraft, problemCount, type BandejaEmail, type OpenNote } from "./inbox-count";
 import { sourceLoad, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { useOnline } from "@/components/ui/ConnectionBanner";
@@ -39,19 +38,19 @@ type BandejaItem = { kind: "receipt"; receipt: ReceiptSummary } | { kind: "note"
 const itemTime = (item: BandejaItem) => (item.kind === "receipt" ? item.receipt.received_at : item.kind === "note" ? item.note.receivedAt : item.email.delivery.received_at);
 const itemNew = (item: BandejaItem) => item.kind === "receipt" && Boolean(item.receipt.activity?.unread);
 
-/** What each segment keeps of each kind. Por revisar's count is the one review count every screen shares. */
-const SEGMENT: Record<ListKey, { receipts: (receipts: readonly ReceiptSummary[]) => readonly ReceiptSummary[]; notes: boolean; email: (email: BandejaEmail) => boolean }> = {
-  // Anything still being read, receipt or email, waits under Todo; Por revisar lists exactly what its number counts.
-  review: { receipts: porRevisar, notes: true, email: () => false },
-  problem: { receipts: (receipts) => receipts.filter(needsAttention), notes: false, email: (email) => email.standing === "no_receipt" },
-  all: { receipts: (receipts) => receipts, notes: true, email: () => true },
+/** What each segment keeps of each kind: a receipt by the server's flag for that segment, so each list is exactly what its number counts. */
+const SEGMENT: Record<ListKey, { receipt: (receipt: ReceiptSummary) => boolean; notes: boolean; email: (email: BandejaEmail) => boolean }> = {
+  // Anything still being read, receipt or email, waits under Todo.
+  review: { receipt: (receipt) => receipt.bandeja?.por_revisar === true, notes: true, email: () => false },
+  problem: { receipt: (receipt) => receipt.bandeja?.con_problema === true, notes: false, email: (email) => email.standing === "no_receipt" },
+  all: { receipt: () => true, notes: true, email: () => true },
 };
 
 /** The rows a segment shows, newest first. */
 export function bandejaRows(list: ListKey, receipts: readonly ReceiptSummary[], notes: readonly OpenNote[], emails: readonly BandejaEmail[] = []): BandejaItem[] {
   const segment = SEGMENT[list];
   const rows: BandejaItem[] = [
-    ...segment.receipts(receipts).map((receipt) => ({ kind: "receipt" as const, receipt })),
+    ...receipts.filter(segment.receipt).map((receipt) => ({ kind: "receipt" as const, receipt })),
     ...(segment.notes ? notes.map((note) => ({ kind: "note" as const, note })) : []),
     ...emails.filter(segment.email).map((email) => ({ kind: "email" as const, email })),
   ];
@@ -68,7 +67,7 @@ export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: Receipt
   const stateWord = useReceiptStateWord();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   const problem = receipt.status === "needs_attention";
-  const reading = isStillReading(receipt);
+  const reading = receipt.bandeja?.leyendo === true;
   const fiscalMark = recordFiscalMark(receipt);
   const marks = [
     receipt.personal ? t("business.marks.personal_chip", "Personal") : null,
@@ -182,21 +181,12 @@ function EmailRow({ email, open, onOpen }: { email: BandejaEmail; open: boolean;
   );
 }
 
+/** "All approved" is the server's counts saying so: nothing waits, and every receipt that left was saved, none dismissed. */
 function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | null }) {
   const { t } = useTranslation();
-  const { source, records } = useBusiness();
-  const [proof, setProof] = useState<{ source: typeof source; activity: typeof records.receiptActivity; approved: boolean } | null>(null);
-  const approved = !records.notesTruncated && proof?.source === source && proof.activity === records.receiptActivity && proof.approved;
-  useEffect(() => {
-    let current = true;
-    if (records.notesTruncated || records.receiptActivity?.pending_review_count !== 0 || !source.receiptPage) return;
-    const controller = new AbortController();
-    source.receiptPage("all", controller.signal).then((page) => {
-      const receipts = bandejaReceipts(page.items);
-      if (current) setProof({ source, activity: records.receiptActivity, approved: page.activity?.pending_review_count === 0 && receipts.length > 0 && receipts.every((receipt) => receipt.status === "confirmed") });
-    }).catch(() => undefined);
-    return () => { current = false; controller.abort(); };
-  }, [source, records.receiptActivity, records.notesTruncated]);
+  const { records } = useBusiness();
+  const activity = records.receiptActivity;
+  const approved = !records.notesTruncated && activity?.pending_review_count === 0 && (activity.confirmed_count ?? 0) > 0 && activity.dismissed_count === 0;
   return (
     <div data-testid="business-inbox-empty" className={cardClass}>
       {approved ? (
@@ -272,7 +262,7 @@ export default function BusinessInboxPanel() {
   const fresh = rows?.filter(itemNew) ?? [];
   const earlier = rows?.filter((row) => !itemNew(row)) ?? [];
   const openReview = () => {
-    const next = porRevisar(receipts)[0];
+    const next = receipts.find((receipt) => receipt.bandeja?.por_revisar);
     if (next) openPanel({ kind: "receipt", receiptId: next.id, list: "inbox" });
   };
   const renderRow = (row: BandejaItem) => {
