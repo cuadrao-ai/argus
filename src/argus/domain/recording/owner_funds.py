@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 from uuid import uuid4
 
 from argus.domain.owner_scope import BusinessSpace, OwnerScope
@@ -27,6 +27,17 @@ if TYPE_CHECKING:
         FinancialAccountRepository,
         StoredAccount,
     )
+
+
+#: The ledger's word for a purchase paid from the owner's own money.
+OWNER_FUNDS = "owner_funds"
+
+
+def owner_funded(activity: Mapping[str, Any]) -> bool:
+    """Whether a rendered activity is an ``OwnerFundedExpense`` row: the rows
+    ``MoneyService.require_personal`` refuses to correct or refund."""
+
+    return activity.get("funding") == OWNER_FUNDS
 
 
 @dataclass(frozen=True)
@@ -64,7 +75,7 @@ class OwnerFundedExpense:
             "reason": None,
             "recorded_at": self.recorded_at,
             "recorded_by": self.user_id,
-            "funding": "owner_funds",
+            "funding": OWNER_FUNDS,
             "legs": [],
         }
 

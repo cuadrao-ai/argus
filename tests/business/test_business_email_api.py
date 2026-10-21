@@ -143,9 +143,13 @@ def test_owner_sees_readiness_and_in_memory_app_cannot_mint_an_address(
 
 
 def test_endpoints_say_unavailable_without_a_runtime(alice: Owner) -> None:  # noqa: F811
+    """The in-memory app keeps no deliveries: the list is empty, every other
+    email route is unavailable."""
+
     runtime_module.configure_email_intake(None)
     assert alice.get("/email").status_code == 503
-    assert alice.get("/email/deliveries").status_code == 503
+    deliveries = alice.get("/email/deliveries")
+    assert (deliveries.status_code, deliveries.json()) == (200, {"items": []})
 
 
 def test_a_grouped_email_original_is_context_not_a_second_receipt(
@@ -176,7 +180,9 @@ def test_a_grouped_email_original_is_context_not_a_second_receipt(
     # Intake saves the documents after the email arrived: the save follows the arrival.
     original = alice.upload(
         content=b"Subject: Factura 0041\r\n\r\nForwarded receipt",
-        consent=False, name="forwarded.eml", media_type="message/rfc822",
+        consent=False,
+        name="forwarded.eml",
+        media_type="message/rfc822",
     )
     attachment = alice.upload(content=UNREADABLE, consent=False, name="recibo.png")
     assert (original.status_code, attachment.status_code) == (200, 200), attachment.text
@@ -740,7 +746,9 @@ def test_approve_waits_until_the_sender_is_authorized(alice: Owner, runtime) -> 
     store.update(claimed, sender="caja@tienda.test")
     store.put_part(
         claimed,
-        EmailDeliveryPart("1.2", "recibo.png", "image/png", "captured", str(document_id), None),
+        EmailDeliveryPart(
+            "1.2", "recibo.png", "image/png", "captured", str(document_id), None
+        ),
     )
     store.stamp_route(
         claimed,

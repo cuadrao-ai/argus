@@ -9263,8 +9263,11 @@ occurred_on, amount, currency}]` with `id` the activity the declaration's
 fiscal number is a credit note (NCF type 04 or 34) and its date and currency
 are known; otherwise the approved expenses in the draft's currency dated
 within the 30 days up to the draft's date (the 606 rule), restricted to the
-draft's supplier when its RNC is known, newest first, at most 20. The web
-renders the list; it no longer picks a window of its own. Sources expose original text or the
+draft's supplier when its RNC is known, and never a purchase paid from the
+owner's own money (the refund approval refuses one with 422
+`recorded_correction_unsupported`, so the list and the approval agree),
+newest first, at most 20. The web renders the list; it no longer picks a
+window of its own. Sources expose original text or the
 existing authorized attachment connection, channel and receipt time; receipt
 time does not become activity date. A human form submission has source kind
 `web_action`, channel `web`, and immutable canonical submitted command text in
@@ -9318,7 +9321,11 @@ it is unknown. Open items list the soonest due date first (see the
 
 `GET /business/month-close` and `GET /business/open-items` both carry `today`,
 the server's day in the recording time zone, so no client reads its own clock
-for overdue or for a default `settled_on`. Month close adds `earliest_month`
+for overdue or for a default `settled_on`. The in-memory app keeps no
+documents: both reads answer 200 with the full shape and nothing in it
+(`currencies`, the lists and `reasons` empty, every count zero, `closed` true,
+`earliest_month` null, both `dgii_forms` `no_operations`), once the caller's
+Business exists; the settlement write stays 404 `business_unavailable`. Month close adds `earliest_month`
 (`YYYY-MM` or `null`), `payment_methods` (the PATCH's accepted methods, in
 order) and `dgii_forms` (`{"606": status, "607": status}`, the export packet's
 own status words for that calendar month: `no_aplica`, `needs_review`,
@@ -9481,6 +9488,9 @@ stale targets, foreign targets and missing capabilities use the errors above.
 
 `GET /business/captures?q=&limit=&view=` returns `{items: [...]}` under the owner's
 existing Business and live read grant; it does not infer an accountant's client.
+The in-memory app keeps no notes: the read answers 200 `{items: [], has_more:
+false}` once the caller's Business exists, while `POST` stays 404
+`business_unavailable`.
 `view` is `all` (default) or `inbox`. `inbox` keeps only the notes of drafts
 awaiting review (`open` or `accepting`) that no receipt source carries, which is
 what the Bandeja lists as notes; a note added to a receipt's record is part of
@@ -9906,7 +9916,10 @@ accept path recorded.
     `email_parts_rejected`, else the first `rejected` part's `error_code`,
     else `email_no_attachment` when the email carried no file, else
     `email_parts_rejected`. It is null unless `standing` is `no_receipt`. The
-    web maps the code to copy; it does not derive the reason itself.
+    web maps the code to copy; it does not derive the reason itself. The
+    in-memory app keeps no deliveries: the list answers 200 `{items: []}` once
+    the caller's Business exists; every other email route there stays 503
+    `email_capture_unavailable`.
     `waiting` is an additive nullable object. While a `received` delivery is
     deferred by either daily allowance and its durable `available_at` is still
     in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`

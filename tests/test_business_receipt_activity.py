@@ -187,6 +187,9 @@ def test_each_bandeja_count_is_the_sum_of_its_flag_over_the_receipts():
         projected(id="confirmed", status="confirmed"),
         projected(id="dismissed", status="dismissed"),
         projected(id="email", email_original=True, status="needs_attention"),
+        # The email itself leaves the Bandeja too, and still counts as no receipt.
+        projected(id="email_confirmed", email_original=True, status="confirmed"),
+        projected(id="email_dismissed", email_original=True, status="dismissed"),
     ]
     flags = {view["id"]: bandeja(view) for view in views}
     none = {"por_revisar": False, "con_problema": False, "leyendo": False}
@@ -195,7 +198,7 @@ def test_each_bandeja_count_is_the_sum_of_its_flag_over_the_receipts():
     assert flags["duplicate"] == {**none, "por_revisar": True, "con_problema": True}
     assert flags["reading"] == {**none, "leyendo": True}
     assert flags["queued"] == none
-    for name in ("confirmed", "dismissed", "email"):
+    for name in ("confirmed", "dismissed", "email", "email_confirmed", "email_dismissed"):
         assert flags[name] == none
     counts = {**inbox_counts(views, notes=2), **aggregate_activity(views)}
     rows = flags.values()
