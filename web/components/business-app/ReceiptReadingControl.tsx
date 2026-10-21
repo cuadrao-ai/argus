@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { Switch } from "@/components/ui/Switch";
@@ -17,8 +17,11 @@ import { showToast } from "./foundation/toasts";
  * recibos, where the switch sits beside the words the owner agrees to.
  * Nothing shows while the setting is unknown, so a failed read never claims
  * reading is off. `showWhenOn` keeps a quiet line with the way to turn it off.
+ * `variant="row"` is the same control as a settings row: its state in words
+ * (a dash while it is unknown) and, for whoever may change it, the button that
+ * opens the same sheet.
  */
-export default function ReceiptReadingControl({ showWhenOn = false }: { showWhenOn?: boolean }) {
+export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice" }: { showWhenOn?: boolean; variant?: "notice" | "row" }) {
   const { source, reload, chosen } = useBusiness();
   const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
@@ -30,9 +33,10 @@ export default function ReceiptReadingControl({ showWhenOn = false }: { showWhen
     generation.current += 1;
     return () => { generation.current += 1; mutation.current?.abort(); };
   }, [source, businessKey, language]);
-  const [reading, setReading] = useState<ReceiptReading | null>(null);
+  const [stored, setReading] = useState<ReceiptReading | null>(null);
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
+  const titleId = useId();
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
@@ -42,7 +46,11 @@ export default function ReceiptReadingControl({ showWhenOn = false }: { showWhen
     source.receiptReading?.(language, controller.signal).then((value) => { if (current) setReading(value); }, () => undefined);
     return () => { current = false; controller.abort(); };
   }, [source, language, businessKey]);
-  if (!consent.accepted || !reading || (reading.enabled && !showWhenOn)) return null;
+  const reading = consent.accepted ? stored : null;
+  const isRow = variant === "row";
+  if (!reading || (reading.enabled && !showWhenOn && !isRow)) {
+    return isRow ? <ReadingRow titleId={titleId} title={t("business.activity.sheet_title", "Receipt reading")} reading={null} /> : null;
+  }
 
   const change = async (enabled: boolean) => {
     if (!source.setReceiptReading) return;
@@ -72,14 +80,24 @@ export default function ReceiptReadingControl({ showWhenOn = false }: { showWhen
       : t("business.activity.owner_only", "Your receipts are saved unread. The Business owner can turn reading on.");
   return (
     <>
-      <div data-testid="receipt-reading-control" data-enabled={reading.enabled ? "true" : "false"} className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="min-w-[16rem] flex-1 text-[14px] text-[#56635e] dark:text-white/70">{line}</p>
-        {reading.can_change ? (
-          <button type="button" onClick={() => setOpen(true)} className={reading.enabled ? quietButtonClass : secondaryButtonClass}>
-            {reading.enabled ? t("business.activity.change", "Change") : t("business.activity.turn_on", "Turn receipt reading on")}
-          </button>
-        ) : null}
-      </div>
+      {isRow ? (
+        <ReadingRow
+          titleId={titleId}
+          title={t("business.activity.sheet_title", "Receipt reading")}
+          reading={reading}
+          changeLabel={t("business.activity.change", "Change")}
+          onChange={() => setOpen(true)}
+        />
+      ) : (
+        <div data-testid="receipt-reading-control" data-enabled={reading.enabled ? "true" : "false"} className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="min-w-[16rem] flex-1 text-[14px] text-[#56635e] dark:text-white/70">{line}</p>
+          {reading.can_change ? (
+            <button type="button" onClick={() => setOpen(true)} className={reading.enabled ? quietButtonClass : secondaryButtonClass}>
+              {reading.enabled ? t("business.activity.change", "Change") : t("business.activity.turn_on", "Turn receipt reading on")}
+            </button>
+          ) : null}
+        </div>
+      )}
       {open ? (
         <AdaptivePanel title={t("business.activity.sheet_title", "Receipt reading")} closeLabel={t("common.close", "Close")} onClose={() => setOpen(false)} width="sm">
           <div data-testid="receipt-reading-sheet" className="flex flex-col gap-3 desktop:px-5">
@@ -99,5 +117,29 @@ export default function ReceiptReadingControl({ showWhenOn = false }: { showWhen
         </AdaptivePanel>
       ) : null}
     </>
+  );
+}
+
+function ReadingRow({ titleId, title, reading, changeLabel, onChange }: { titleId: string; title: string; reading: ReceiptReading | null; changeLabel?: string; onChange?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div data-testid="receipt-reading-row" data-enabled={reading ? (reading.enabled ? "true" : "false") : "unknown"} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0">
+        <p id={titleId} className="text-[16px] font-medium text-[#172b26] dark:text-white">{title}</p>
+        <p data-testid="receipt-reading-state" className="text-[14px] text-[#56635e] dark:text-white/70">
+          {reading ? (
+            reading.enabled ? t("business.activity.state_on", "On") : t("business.activity.state_off", "Off")
+          ) : (
+            <>
+              <span aria-hidden="true">-</span>
+              <span className="sr-only">{t("business.activity.state_unknown", "Not available")}</span>
+            </>
+          )}
+        </p>
+      </div>
+      {reading?.can_change && onChange ? (
+        <button type="button" onClick={onChange} aria-describedby={titleId} className={secondaryButtonClass}>{changeLabel}</button>
+      ) : null}
+    </div>
   );
 }

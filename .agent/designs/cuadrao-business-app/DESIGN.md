@@ -160,11 +160,25 @@ loading and error. A disabled control shows why it is disabled next to it.
 
 ### Forms
 
-- Every field has a visible label. Example text never replaces the label or
-  the instructions.
-- Errors sit under their field, in plain words that say how to fix the value.
-  Never use browser validation pop-ups.
-- A valid edit clears that field's error. Editing another field does not.
+One owner builds every field: `web/components/ui/FormField.tsx` (field styles in
+`web/components/ui/form-field.ts`, password rules in `web/lib/password-strength.ts`).
+Use it; never restyle a field by hand (Lucas, October 21, 2026).
+
+- Every field has a real label above it that never leaves. Example text never
+  replaces the label or the instructions.
+- A field stays quiet while the owner types. Leaving it with something in it
+  checks it. From then on it is checked on every keystroke, so the error clears
+  the moment the value is fixed. Editing another field does not clear it.
+- Each field reserves one line for its hint or its error, so the submit never
+  moves. Errors say how to fix the value. Never use browser validation pop-ups.
+- The submit stays pressable. A failed submit opens a summary at the top that
+  links to each broken field and moves focus there.
+- Autofill is styled to the surface. Codes such as an RNC are text with
+  `inputMode="numeric"`, never `type="number"`.
+- Passwords show a live checklist and a strength meter (Débil, Casi lista,
+  Fuerte), always with the word. They use the shared eye toggle, never block
+  paste, have no confirm field, and set `passwordrules` for password managers.
+  Only the server's real minimum blocks a password.
 
 ### Delete confirmations
 
@@ -339,7 +353,7 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 
 | Type | Example | Surface |
 | --- | --- | --- |
-| Validation | A typo in an RNC | Inline under the field, as the owner types. The action stays disabled until the value is valid. |
+| Validation | A typo in an RNC | Inline under the field, after the owner leaves it and live from then on. The action stays pressable and a failed press lists each broken field (see Forms). |
 | Network | The connection dropped | The banner docked at the top ("Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva."). It moves the bar and the page down, never covers them, and leaves when the connection is back. |
 | Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
 | Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |

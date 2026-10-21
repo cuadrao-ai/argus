@@ -383,13 +383,15 @@ export default function AccountSecurityPage() {
                 }}
               />
             ))}
-            <div className="pt-2">
-              <button type="submit" disabled={disabled} className={primaryButtonClass}>
-                {busy === "password"
-                  ? t("account_security.password.changing", "Changing...")
-                  : t("account_security.password.submit", "Change password")}
-              </button>
-            </div>
+            {freshLogin ? null : (
+              <div className="pt-2">
+                <button type="submit" disabled={disabled} className={primaryButtonClass}>
+                  {busy === "password"
+                    ? t("account_security.password.changing", "Changing...")
+                    : t("account_security.password.submit", "Change password")}
+                </button>
+              </div>
+            )}
           </form>
           {outcomeFor("password")}
         </section>

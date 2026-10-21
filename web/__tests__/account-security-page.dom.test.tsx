@@ -8,11 +8,12 @@ import type { SessionActionResult } from "@/lib/auth-security";
 // makes today, and these tests watch what the person sees around them.
 const calls: string[] = [];
 let failing = new Set<string>();
+let freshLoginRequired = false;
 const done: SessionActionResult = { currentSessionPreserved: true, freshLoginRequired: false, revocation: "complete", cookieSync: "cleared" };
 const run = (name: string) => async (input?: unknown) => {
   calls.push(input ? `${name} ${JSON.stringify(input)}` : name);
   if (failing.has(name)) throw new Error("auth unavailable");
-  return done;
+  return { ...done, freshLoginRequired };
 };
 
 const realAuth = await import("@/lib/auth-security");
@@ -36,6 +37,7 @@ afterEach(() => {
   document.body.innerHTML = "";
   calls.length = 0;
   failing = new Set();
+  freshLoginRequired = false;
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();
@@ -131,6 +133,25 @@ describe("account security", () => {
       await page.settle();
       assert.deepEqual(calls, [`changePassword ${JSON.stringify({ currentPassword: current, newPassword: next })}`]);
       assert.equal(page.input("new-password").value, "");
+    } finally {
+      await page.close();
+    }
+  });
+
+  test("after the change needs a fresh login the submit leaves and the sign-in link is the one green action", async () => {
+    freshLoginRequired = true;
+    const page = await mount();
+    try {
+      await page.type("current-password", strong());
+      await page.type("new-password", strong());
+      await page.press("Cambiar contraseña");
+      await page.settle();
+      assert.equal(page.host.querySelector('button[type="submit"]'), null);
+      const link = [...page.host.querySelectorAll("a")].find((node) => node.textContent?.trim() === "Volver a iniciar sesión");
+      assert.ok(link, "the sign-in link is shown");
+      assert.match(link.className, /bg-\[var\(--cuadrao-green\)\]/);
+      const primaries = [...page.host.querySelectorAll("a, button")].filter((node) => /bg-\[var\(--cuadrao-green\)\]/.test(node.className));
+      assert.equal(primaries.length, 1, "one primary on screen");
     } finally {
       await page.close();
     }

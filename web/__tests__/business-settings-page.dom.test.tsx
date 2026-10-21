@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, afterEach, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { GrantedSpace } from "@/lib/business-api";
+import type { GrantedSpace, ReceiptReading } from "@/lib/business-api";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
@@ -170,5 +170,63 @@ describe("the Negocio page", () => {
     } finally {
       await page.close();
     }
+  });
+
+  describe("Lectura de recibos", () => {
+    const reading = (over: Partial<ReceiptReading> = {}): ReceiptReading => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto del servidor", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null, ...over });
+    const row = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="receipt-reading-row"]');
+    const state = (page: Awaited<ReturnType<typeof mount>>) => row(page)?.querySelector('[data-testid="receipt-reading-state"]')?.textContent?.trim();
+
+    test("Datos holds one row with the state in words, and its button opens the same sheet", async () => {
+      const page = await mount("view=business", OWN, { receiptReading: async () => reading({ enabled: true }) });
+      try {
+        await page.settle(() => state(page) === "Activada");
+        assert.equal(state(page), "Activada");
+        assert.equal(row(page)?.querySelector("p")?.textContent, "Lectura de recibos");
+        assert.equal(page.host.querySelector('[data-testid="receipt-reading-control"]'), null, "the row is not the notice");
+        const change = [...(row(page)?.querySelectorAll("button") ?? [])].find((button) => button.textContent?.trim() === "Cambiar");
+        assert.ok(change);
+        await page.click(change);
+        assert.ok(document.body.querySelector('[data-testid="receipt-reading-sheet"]')?.textContent?.includes("Texto del servidor"), "the server's words sit in the sheet");
+        assert.ok(document.body.querySelector('[data-testid="receipt-reading-switch"]'));
+      } finally {
+        await page.close();
+      }
+    });
+
+    test("an off setting reads Desactivada", async () => {
+      const page = await mount("view=business", OWN, { receiptReading: async () => reading() });
+      try {
+        await page.settle(() => state(page) === "Desactivada");
+        assert.equal(state(page), "Desactivada");
+      } finally {
+        await page.close();
+      }
+    });
+
+    test("a setting that failed to load shows a dash and no button, never a guess", async () => {
+      const page = await mount("view=business", OWN, { receiptReading: async () => { throw new Error("offline"); } });
+      try {
+        await page.settle(() => row(page) !== null);
+        await page.settle(() => false);
+        assert.equal(row(page)?.getAttribute("data-enabled"), "unknown");
+        assert.ok(state(page)?.startsWith("-"));
+        assert.ok(!/Activada|Desactivada/.test(state(page) ?? ""));
+        assert.equal(row(page)?.querySelector("button"), null);
+      } finally {
+        await page.close();
+      }
+    });
+
+    test("whoever may not change it sees the state and no button", async () => {
+      const page = await mount("view=business", CLIENT, { receiptReading: async () => reading({ can_change: false }) });
+      try {
+        await page.settle(() => state(page) === "Desactivada");
+        assert.equal(state(page), "Desactivada");
+        assert.equal(row(page)?.querySelector("button"), null);
+      } finally {
+        await page.close();
+      }
+    });
   });
 });
