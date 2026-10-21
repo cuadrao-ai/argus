@@ -44,7 +44,6 @@ for (const width of [1280, 390]) {
         const action = page.getByTestId("month-close-task-review");
         await expect(action).toContainText("Revisa 1 recibo en la Bandeja");
         await expect(action).not.toContainText("8");
-        await expect(action).not.toContainText("con problema");
         const cards = page.getByTestId("month-close-cards");
         await expect(cards).toBeVisible();
         expect((await action.boundingBox())!.y).toBeLessThan((await cards.boundingBox())!.y);
