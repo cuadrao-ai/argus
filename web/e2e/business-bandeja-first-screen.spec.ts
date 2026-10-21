@@ -57,8 +57,13 @@ for (const width of [1280, 390]) {
     expect(uploadBox!.y).toBeLessThan(receiptBox!.y);
     expect(receiptBox!.y).toBeLessThan(height);
     await page.screenshot({ path: test.info().outputPath(`after-inbox-${width}.png`) });
-    await segments.locator('[data-segment="emails"]').click();
-    await expect(page.getByTestId("bandeja-emails").getByTestId("email-copy-address")).toHaveText("Copiar dirección");
+    // Emails are not a segment: an email without a receipt is a row of Con problema and Todo.
+    await expect(segments.locator("[data-segment]")).toHaveCount(3);
+    await expect(segments.locator('[data-segment="emails"]')).toHaveCount(0);
+    await segments.locator('[data-segment="problem"]').click();
+    await expect(page.getByTestId("bandeja-segment-empty")).toBeVisible();
     await expect(receipts).toHaveCount(0);
+    await segments.locator('[data-segment="all"]').click();
+    await expect(receipts).toBeVisible();
   });
 }

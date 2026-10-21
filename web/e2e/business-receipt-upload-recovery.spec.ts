@@ -52,11 +52,11 @@ for (const width of [1280, 390]) {
       const reading = dialog.getByTestId("receipt-reading-control");
       await reading.scrollIntoViewIfNeeded();
       const readingBounds = await reading.boundingBox();
-      const footerBounds = await dialog.getByTestId("receipt-intake-footer").boundingBox();
-      if (!readingBounds || !footerBounds) throw new Error("Reading setting and footer must render");
+      if (!readingBounds) throw new Error("Reading setting must render");
       expect(readingBounds.y).toBeGreaterThanOrEqual(0);
-      expect(readingBounds.y + readingBounds.height).toBeLessThanOrEqual(footerBounds.y);
-      expect(footerBounds.y + footerBounds.height).toBeLessThanOrEqual(844);
+      expect(readingBounds.y + readingBounds.height).toBeLessThanOrEqual(844);
+      // The footer holds only the review action, which waits for a saved receipt.
+      await expect(dialog.getByTestId("receipt-intake-footer")).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-reading-${width}.png`) });
       await expect(dialog.getByRole("alert")).toHaveText("No se pudo subir. Tu archivo sigue aquí.");
       await expect(dialog).not.toContainText("PRIVATE_VALIDATION_DETAIL");
@@ -90,6 +90,9 @@ for (const width of [1280, 390]) {
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-limit-${width}.png`) });
       await expect(dialog).not.toContainText("No pudimos leer el recibo");
       await expect(dialog.getByRole("button", { name: "Revisar los recibos guardados", exact: true })).toBeVisible({ timeout: 15_000 });
+      // The X closes the sheet; the footer holds the next step alone.
+      await expect(dialog.getByTestId("receipt-intake-footer").getByRole("button")).toHaveCount(1);
+      await expect(dialog.getByRole("button", { name: "Listo", exact: true })).toHaveCount(0);
       // Nine saved files fold into one line that opens to the rows.
       const fold = dialog.getByTestId("receipt-upload-saved-fold");
       await expect(fold).toContainText("9 guardados");

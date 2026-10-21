@@ -100,7 +100,7 @@ test.describe("Business preview", () => {
     await expect(trigger).toHaveAccessibleName("Más acciones");
     const menu = page.getByRole("menu", { name: "Más acciones" });
     await trigger.click();
-    await expect(menu.getByRole("menuitem")).toHaveCount(3);
+    await expect(menu.getByRole("menuitem")).toHaveCount(2);
     await trigger.click();
     await expect(menu).toHaveCount(0);
 
@@ -116,7 +116,7 @@ test.describe("Business preview", () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 
     const items = menu.getByRole("menuitem");
-    await expect(items).toHaveText(["Exportar registros", "Copiar dirección de reenvío", "Ver correos"]);
+    await expect(items).toHaveText(["Exportar registros", "Copiar dirección de reenvío"]);
     await expect(items.nth(0)).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(items.nth(1)).toBeFocused();
@@ -170,6 +170,36 @@ test.describe("Business preview", () => {
 
     await page.reload();
     await expect(panelHeading(page, "Bandeja")).toBeVisible();
+  });
+
+  test("an email is how a receipt arrived: emails with no receipt are problem rows, one being read waits in Todo, and the old Correos link lands on Negocio", async ({ page }) => {
+    await openPreview(page, `${PREVIEW}?view=inbox`);
+    const segments = page.getByTestId("bandeja-segments");
+    await expect(segments.locator("[data-segment]")).toHaveText([/^Por revisar/, /^Con problema/, /^Todo/]);
+    await expect(segments.locator('[data-segment="emails"]')).toHaveCount(0);
+    await expect(segments.locator('[data-segment="problem"]')).toContainText("5");
+
+    await segments.locator('[data-segment="problem"]').click();
+    const rows = page.getByTestId("business-inbox-receipts");
+    await expect(rows.getByTestId("bandeja-row")).toHaveCount(3);
+    await expect(rows.getByTestId("bandeja-email")).toHaveCount(2);
+    await expect(rows.getByTestId("bandeja-email").first()).toContainText("Correo de noticias@proveedor.example");
+    await expect(rows).not.toContainText("Leyendo…");
+
+    await segments.locator('[data-segment="all"]').click();
+    await expect(rows.getByTestId("bandeja-email").filter({ hasText: "Leyendo…" })).toHaveCount(1);
+    await expect(rows.getByTestId("bandeja-email")).toHaveCount(3);
+
+    await rows.getByTestId("bandeja-row").filter({ has: page.getByTestId("inbox-channel-email") }).getByRole("button").first().click();
+    await expect(tray(page).getByTestId("receipt-source-channel")).toContainText("Llegó por correo");
+    await tray(page).getByRole("button", { name: "Ver correo" }).click();
+    await expect(tray(page).getByRole("heading", { name: /^Correo de / })).toBeVisible();
+    await expect(page).toHaveURL(/email=/);
+
+    await page.goto(`${PREVIEW}?view=inbox&segment=emails`);
+    await expect(page).toHaveURL(/tab=correo/);
+    await expect(page.getByTestId("workspace-panel-region").getByText("Correo de recibos", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar dirección", exact: true })).toBeVisible();
   });
 
   test("receipt entry marks missing fields and requires separate canonical approval", async ({ page }) => {

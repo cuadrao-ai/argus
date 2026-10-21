@@ -178,7 +178,7 @@ test("new-note entry waits for successful own-workspace load", async ({ page }) 
   await expect(page.getByTestId("workspace-panel-region").getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
   await page.getByTestId("business-primary-upload").click();
   // Agregar opens, but the typed-note door stays closed until the own workspace has loaded.
-  await expect(page.getByRole("dialog", { name: "Subir recibo" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Agregar", exact: true })).toBeVisible();
   await expect(page.getByTestId("intake-write-open")).toHaveCount(0);
   expect(state.captures).toEqual([]);
 });
