@@ -3449,7 +3449,7 @@ exports derives from the current name, independently of this timestamp.
 
 ### Profile photos and Business logos
 
-`20261021010000_profile_images.sql` adds the private `profile-images` Storage
+`20261021040000_profile_images.sql` adds the private `profile-images` Storage
 bucket (`image/webp` only, 1 MiB) and two server-only tables with RLS and no
 client grant: `profile_photos (user_id primary key → auth.users on delete
 cascade, sha256, updated_at)` and `business_logos (space_id primary key →
