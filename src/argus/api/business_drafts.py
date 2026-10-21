@@ -626,10 +626,18 @@ def _with_records(context: BusinessContext, expenses: list[dict]) -> list[dict]:
     ]
 
 
-def expenses_with_receipts(context: BusinessContext, start, end) -> list[dict]:  # noqa: ANN001
-    """The saved expenses of a period, each with the receipt that opens its record."""
+def expenses_with_receipts(
+    context: BusinessContext,
+    start,  # noqa: ANN001
+    end,  # noqa: ANN001
+    kind: str = "expense",
+) -> list[dict]:
+    """The saved expenses (or ventas, as ``income``) of a period, each with the
+    receipt that opens its record."""
 
-    return _with_records(context, context.service.expenses(context.scope, start, end))
+    return _with_records(
+        context, context.service.expenses(context.scope, start, end, kind=kind)
+    )
 
 
 def expense_detail(context: BusinessContext, expense_id: str) -> dict:

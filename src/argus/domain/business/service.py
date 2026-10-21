@@ -371,10 +371,14 @@ class BusinessService:
 
     # --- Expenses ---------------------------------------------------------
     def expenses(
-        self, scope: BusinessScope, start: date, end: date | None = None
+        self,
+        scope: BusinessScope,
+        start: date,
+        end: date | None = None,
+        kind: str = "expense",
     ) -> list[dict[str, Any]]:
         end = end if end is not None else ledger.today()
-        return self._expenses(scope, self._activities(scope), start, end)
+        return self._expenses(scope, self._activities(scope), start, end, kind=kind)
 
     def expense_rows(
         self, scope: BusinessScope, start: date, end: date
