@@ -20,9 +20,9 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await setup(page);
   await page.goto("/dev/business-preview?chat=off");
   await expect(page.getByTestId("business-sidebar-nav")).toBeVisible();
-  await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(4);
+  await expect(page.getByTestId("business-sidebar-nav").getByRole("button")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Recientes", exact: true })).toHaveCount(0);
-  await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
+  await expect(page.locator("#business-overview-title")).toBeVisible();
   await expect(page.getByTestId("month-close-cards")).toBeVisible();
   await screenshot(page, "after-navigation-1280");
   await chord(page, "Slash");
@@ -46,7 +46,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await expect(page.getByRole("button", { name: "Cerrar búsqueda", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   const command = await page.evaluate(() => /Mac/.test(navigator.userAgent));
-  for (const [index, view] of ["overview", "inbox", "expenses", "updates"].entries()) {
+  for (const [index, view] of ["overview", "inbox", "expenses"].entries()) {
     await chord(page, `${command ? "Alt" : "Shift"}+Digit${index + 1}`);
     await expect(page.getByTestId("business-sidebar-nav").getByRole("button").nth(index)).toHaveAttribute("aria-current", "page");
     if (view !== "overview") await expect(page).toHaveURL(new RegExp(`view=${view}`));
@@ -57,7 +57,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await chord(page, "Shift+Semicolon");
   await expect(page.getByRole("button", { name: "Perfil", exact: true })).toBeVisible();
   await chord(page, command ? "Alt+Digit1" : "Shift+Digit1");
-  await expect(page).toHaveURL(/view=updates/);
+  await expect(page).toHaveURL(/view=expenses/);
   await page.keyboard.press("Escape");
   await chord(page, "Shift+Backslash");
   await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos", exact: true }).focus();
@@ -109,8 +109,10 @@ test("review keys approve through existing revision action; edit keys focus fiel
   await expect(page.locator('[data-testid^="edit-"] input, [data-testid^="edit-"] select').first()).toBeFocused();
   await chord(page, "Shift+Enter");
   await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeVisible();
-  await page.getByRole("heading", { name: "Ferretería La Esquina", exact: true }).focus();
+  await page.locator("#receipt-review-title").focus();
   await chord(page, "Shift+Enter");
+  // A receipt without an RNC asks once before it is approved.
+  await page.getByRole("alertdialog").getByRole("button", { name: "Aprobar", exact: true }).click();
   await expect(page.getByText(/Se registró un gasto/)).toBeVisible();
   await page.goto(`/dev/business-preview?chat=off&draft=${dossierFixtureIds.readOnly}`);
   await expect(page.getByTestId("receipt-current-facts")).toBeVisible();
@@ -124,19 +126,19 @@ test("previous/next preserve inbox order and approve-next records before moving"
   await page.goto("/dev/business-preview?chat=off&view=inbox");
   await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.getByLabel("Pagado desde")).toBeVisible();
-  await page.getByRole("heading", { name: "Revisar recibo", exact: true }).focus();
+  await page.locator("#receipt-review-title").focus();
   await chord(page, "Shift+ArrowDown");
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
-  await page.getByRole("heading", { name: "Revisar recibo", exact: true }).focus();
+  await page.locator("#receipt-review-title").focus();
   await chord(page, "Shift+ArrowUp");
   await expect(page).toHaveURL(/receipt=rcpt-ferreteria/);
   await page.getByLabel("Pagado desde").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
   await expect(page.getByRole("button", { name: "Aprobar y siguiente", exact: true })).toBeEnabled();
-  await page.getByRole("heading", { name: "Ferretería La Esquina", exact: true }).focus();
+  await page.locator("#receipt-review-title").focus();
   await chord(page, "Shift+KeyS");
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
-  await expect(page.getByRole("heading", { name: "Revisar recibo", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Papelería Central", level: 2 })).toBeFocused();
 });
 
 test("reserved, repeated, composing, and editable keys leave Business actions alone", async ({ page }) => {

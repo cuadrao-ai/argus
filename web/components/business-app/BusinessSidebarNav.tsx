@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
-import { Bell, House, Inbox, ReceiptText, UsersRound } from "lucide-react";
+import { NAV_GLYPHS, navGlyph } from "./nav-glyphs";
 import { useTranslation } from "react-i18next";
 import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
+import { CuadraoMark } from "@/components/CuadraoMark";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
 import { inboxCount as countInbox } from "./inbox-count";
+import { recordList } from "./record-tray";
+import { useTransaccionesEnabled } from "./transacciones/transacciones-gate";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
   const { t } = useTranslation();
@@ -15,9 +18,10 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
   const { panel, openPanel, records } = useBusiness();
   const inboxCount = countInbox(records);
+  const third = useTransaccionesEnabled() ? "transactions" : "expenses";
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
-    (panel.kind === kind || (kind === "inbox" && ["receipt", "draft"].includes(panel.kind)) || (kind === "expenses" && panel.kind === "expense"));
+    (panel.kind === kind || recordList(panel) === kind);
   const count = (value: number | null) =>
     value !== null && value > 0 && !shell.sidebarCollapsed ? (
       <span data-testid="business-inbox-count" className="rounded-full bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
@@ -32,7 +36,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
       className="flex flex-col"
     >
       <SidebarNavButton
-        icon={House}
+        glyph={navGlyph(NAV_GLYPHS.overview)}
         label={t("business.nav.overview", "Overview")}
         active={isActive("overview")}
         shortcutHint={quickJumpHintDisplay(1, command)}
@@ -43,7 +47,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         variant="business"
       />
       <SidebarNavButton
-        icon={Inbox}
+        glyph={navGlyph(NAV_GLYPHS.inbox)}
         label={t("business.nav.inbox", "Inbox")}
         active={isActive("inbox")}
         shortcutHint={quickJumpHintDisplay(2, command)}
@@ -56,24 +60,13 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         variant="business"
       />
       <SidebarNavButton
-        icon={ReceiptText}
-        label={t("business.nav.expenses", "Expenses")}
-        active={isActive("expenses")}
+        glyph={navGlyph(NAV_GLYPHS[third])}
+        label={t(`business.nav.${third}`)}
+        active={isActive(third)}
         shortcutHint={quickJumpHintDisplay(3, command)}
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
-        onClick={() => openPanel({ kind: "expenses" })}
-        iconSize={20}
-        variant="business"
-      />
-      <SidebarNavButton
-        icon={Bell}
-        label={t("business.nav.updates", "Updates")}
-        active={isActive("updates")}
-        shortcutHint={quickJumpHintDisplay(4, command)}
-        shortcutOnInteraction={!shell.isBelowTablet}
-        collapsed={shell.sidebarCollapsed}
-        onClick={() => openPanel({ kind: "updates" })}
+        onClick={() => openPanel({ kind: third })}
         iconSize={20}
         variant="business"
       />
@@ -81,19 +74,13 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   );
 }
 
-/** Acceso sits above Ajustes at the foot of the rail, in the same row shape. */
+/** The foot of the rail: the product's own mark, quiet, so the business above stays the one name that reads first. */
 export function BusinessSidebarFooter({ shell }: { shell: ChatShellBridge }) {
-  const { t } = useTranslation();
-  const { panel, openPanel } = useBusiness();
   return (
-    <SidebarNavButton
-      icon={UsersRound}
-      label={t("business_access.nav", "Access")}
-      active={shell.currentView === "workspace" && panel.kind === "access"}
-      collapsed={shell.sidebarCollapsed}
-      onClick={() => openPanel({ kind: "access" })}
-      iconSize={20}
-      variant="business"
-    />
+    // The mark keeps one place, centred on the closed rail; the word fades and the rail's width clips it.
+    <div data-testid="sidebar-brand" className="flex items-center gap-2 overflow-hidden pb-3 pl-3 pt-2">
+      <CuadraoMark size={20} className="h-5 w-5 shrink-0 opacity-70" />
+      <span aria-hidden={shell.sidebarCollapsed || undefined} className={`whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-[#56635e] transition-opacity duration-150 ease-out motion-reduce:transition-none dark:text-white/60 ${shell.sidebarCollapsed ? "opacity-0" : "opacity-100"}`}>cuadrao</span>
+    </div>
   );
 }

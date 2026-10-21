@@ -97,7 +97,7 @@ async function installBusinessShell(page: Page) {
     }
     if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
-    if (path === "email/deliveries" || path === "captures" || path === "updates") {
+    if (path === "email/deliveries" || path === "captures") {
       return route.fulfill({ json: { items: [] } });
     }
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
@@ -233,7 +233,8 @@ test.describe("signed-in home with business-only on", () => {
       `biz response ${response.status()} location=${location} url=${response.url()}`,
     ).toBe(200);
     await expect(page).toHaveURL(/\/biz(?:\?|$)/);
-    await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+    await expect(page.locator("#business-overview-title")).toBeVisible();
+    await expect(page.getByTestId("header-search")).toBeVisible();
     expect(visits.chat).toEqual([]);
     expect(visits.biz.length).toBeGreaterThan(0);
     mkdirSync(shots, { recursive: true });

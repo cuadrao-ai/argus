@@ -7,8 +7,9 @@ import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
+import { quietButtonClass } from "../business-ui";
 
-type Month = { year: number; month: number };
+export type Month = { year: number; month: number };
 
 export function dayText(iso: string): string {
   return iso ? iso.split("-").reverse().join("/") : "";
@@ -23,22 +24,22 @@ export function parseDayText(text: string): string | null {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === iso ? iso : null;
 }
 
-function monthOf(iso: string): Month {
+export function monthOf(iso: string): Month {
   const [year, month] = iso.split("-").map(Number);
   return { year, month: month - 1 };
 }
 
-function isoOf(year: number, month: number, day: number): string {
+export function isoOf(year: number, month: number, day: number): string {
   return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
 }
 
-function shiftDay(iso: string, days: number): string {
+export function shiftDay(iso: string, days: number): string {
   const [year, month, day] = iso.split("-").map(Number);
   return isoOf(year, month - 1, day + days);
 }
 
 /** The month's days in Monday-first weeks; null fills the cells outside the month. */
-function weeks({ year, month }: Month): (string | null)[][] {
+export function weeks({ year, month }: Month): (string | null)[][] {
   const lead = (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7;
   const length = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const cells = [...Array(lead).fill(null), ...Array.from({ length }, (_, index) => isoOf(year, month, index + 1))];
@@ -49,7 +50,6 @@ function weeks({ year, month }: Month): (string | null)[][] {
 const KEY_STEP: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]";
 const iconButton = `inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#172b26] disabled:opacity-40 dark:text-white ${focusRing}`;
-const quickButton = `inline-flex min-h-11 items-center rounded-full px-4 text-[15px] font-medium text-[#2f5a49] dark:text-[#8fcbb0] ${focusRing}`;
 
 /**
  * The one single-date field: shows the day as "14 oct 2026", takes a typed
@@ -149,8 +149,8 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
   const month = (
     <div data-testid="date-picker-month" className="business-foundation">
       <div className="flex gap-2">
-        <button type="button" className={quickButton} onClick={() => choose(today)}>{t("business.date_picker.today", "Today")}</button>
-        <button type="button" className={quickButton} onClick={() => choose(yesterday)}>{t("business.date_picker.yesterday", "Yesterday")}</button>
+        <button type="button" className={`${quietButtonClass} px-3`} onClick={() => choose(today)}>{t("business.date_picker.today", "Today")}</button>
+        <button type="button" className={`${quietButtonClass} px-3`} onClick={() => choose(yesterday)}>{t("business.date_picker.yesterday", "Yesterday")}</button>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" className={iconButton} aria-label={t("business.date_picker.previous_month", "Previous month")} onClick={() => turn(-1)}>
@@ -239,7 +239,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
         </div>
       ) : null}
       {isBelowTablet ? (
-        <BottomSheet isOpen={open} onClose={close} title={label} titleHidden closeLabel={t("common.close", "Close")} height="auto" initialFocusRef={activeDay}>
+        <BottomSheet isOpen={open} onClose={close} title={label} titleHidden closeLabel={t("common.close", "Close")} snaps="fit" initialFocusRef={activeDay}>
           {month}
         </BottomSheet>
       ) : null}

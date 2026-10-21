@@ -6,7 +6,7 @@ import { I18nextProvider } from "react-i18next";
 
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
-import { EmailDeliveryRow, EmailReceivingAddress } from "../components/business-app/BusinessEmailDeliveries";
+import { EmailDeliveryDetail, EmailDeliveryRow, EmailReceivingAddress } from "../components/business-app/BusinessEmailDeliveries";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "../lib/business-email";
 
@@ -26,19 +26,18 @@ describe("received emails in the Inbox", () => {
     assert.equal(businessReceivingAddress({ enabled: true, receiving_address: "x@y.test" }), "x@y.test");
   });
 
-  test("a row shows subject, sender, state and attachment count in Spanish; expanded shows the parts and the original", async () => {
+  test("a row shows subject, sender, state and attachment count in Spanish; the opened email shows the parts and the original", async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-    const render = (expanded: boolean) => renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}>
-        <ul><EmailDeliveryRow delivery={delivery()} expanded={expanded} onExpanded={() => undefined} loadDetail={async () => ({ ...delivery(), text_body: "hola" })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></ul>
-      </I18nextProvider>,
+    const row = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}><ul><EmailDeliveryRow delivery={delivery()} onOpen={() => undefined} /></ul></I18nextProvider>,
     );
-    const collapsed = render(false);
-    assert.ok(collapsed.includes("Factura 0041") && collapsed.includes("ventas@proveedor.example"));
-    assert.ok(collapsed.includes("1 adjunto") && collapsed.includes(">Guardado<"));
-    assert.ok(!collapsed.includes("IMG_2214.jpg"));
-    const open = render(true);
+    assert.ok(row.includes("Factura 0041") && row.includes("ventas@proveedor.example"));
+    assert.ok(row.includes("1 adjunto") && row.includes(">Guardado<"));
+    assert.ok(!row.includes("IMG_2214.jpg"));
+    const open = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}><EmailDeliveryDetail delivery={delivery()} loadDetail={async () => ({ ...delivery(), text_body: "hola" })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></I18nextProvider>,
+    );
     assert.ok(open.includes("IMG_2214.jpg") && open.includes("Abrir recibo") && open.includes("Abrir el correo original"));
   });
 
@@ -49,7 +48,8 @@ describe("received emails in the Inbox", () => {
       <I18nextProvider i18n={i18n}><EmailReceivingAddress intake={intake} onActivate={async () => undefined} /></I18nextProvider>,
     );
     assert.ok(render({ enabled: false, receiving_address: null }).includes("Obtener una dirección"));
-    const ready = render({ enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" });
+    // The address may break after the @; the reader still sees one address.
+    const ready = render({ enabled: true, receiving_address: "recibos-7f3a9c21@recibos.cuadrao.example" }).replace(/<wbr\/?>/g, "");
     assert.ok(ready.includes("recibos-7f3a9c21@recibos.cuadrao.example") && ready.includes("Copiar dirección"));
   });
 
@@ -57,7 +57,7 @@ describe("received emails in the Inbox", () => {
     const source = createFixtureBusinessDataSource();
     assert.equal((await source.emailIntake()).enabled, true);
     const items = await source.emailDeliveries();
-    assert.equal(items.length, 2);
+    assert.equal(items.length, 5);
     assert.equal("text_body" in items[0], false);
     assert.equal((await source.emailDelivery("email-ferreteria")).text_body?.startsWith("Buenas tardes"), true);
     const inbox = await source.receipts("all");
@@ -79,7 +79,10 @@ for (const [locale, resources, label, resume] of [
     const waiting = delivery({ state: "received", retryable: true, error_code: "email_daily_message_budget", parts: [], original_document_id: null,
       waiting: { reason: "daily_budget", retry_at: "2026-10-15T00:00:00Z" } });
     const render = (item: BusinessEmailDelivery) => renderToStaticMarkup(
-      <I18nextProvider i18n={i18n}><ul><EmailDeliveryRow delivery={item} expanded onExpanded={() => undefined} loadDetail={async () => ({ ...item, text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: item.id })} /></ul></I18nextProvider>,
+      <I18nextProvider i18n={i18n}>
+        <ul><EmailDeliveryRow delivery={item} onOpen={() => undefined} /></ul>
+        <EmailDeliveryDetail delivery={item} loadDetail={async () => ({ ...item, text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: item.id })} />
+      </I18nextProvider>,
     );
     for (const code of ["email_daily_message_budget", "email_daily_byte_budget"]) {
       const item = { ...waiting, error_code: code };

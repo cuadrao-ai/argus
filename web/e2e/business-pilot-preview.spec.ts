@@ -17,13 +17,13 @@ async function openPreview(
       : route.abort("blockedbyclient");
   });
   await installBreakpointFixture(page, {
-    language: "en",
+    language: "es-419",
     theme: "light",
     emptyChat: options.emptyChat ?? true,
   });
   if (options.sidebarMode) {
     await page.addInitScript((mode) => {
-      window.localStorage.setItem("argus:sidebar_mode", mode);
+      window.localStorage.setItem("cuadrao:business_sidebar_mode", mode);
     }, options.sidebarMode);
   }
   await page.goto(url);
@@ -44,6 +44,9 @@ async function openRecordExpense(page: Page) {
 const nav = (page: Page) => page.getByTestId("business-sidebar-nav");
 const panelHeading = (page: Page, name: string) =>
   page.getByTestId("workspace-panel-region").getByRole("heading", { name, exact: true });
+const tray = (page: Page) => page.getByTestId("side-drawer");
+const trayHeading = (page: Page, name: string) => tray(page).getByRole("heading", { name, level: 2 });
+const reviewField = (page: Page, label: string) => page.getByTestId("receipt-review-fields").getByLabel(label);
 
 test.describe("Business preview", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
@@ -52,54 +55,57 @@ test.describe("Business preview", () => {
     test.setTimeout(180_000);
     const switchTo = async (name: string) => {
       await page.getByTestId("business-switcher").getByRole("button").click();
+      await page.getByRole("menuitem", { name: "Cambiar de negocio" }).click();
       await page.getByRole("option", { name: new RegExp(name) }).click();
       await expect(page.getByTestId("business-current-name")).toHaveText(name);
-      await expect(page.getByText("Your account changed", { exact: false })).toHaveCount(0);
+      await expect(page.getByText("Tu cuenta cambió", { exact: false })).toHaveCount(0);
     };
-    await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
+    await openPreview(page, `${PREVIEW}?chat=on&receipt=rcpt-ferreteria`);
     for (let round = 0; round < 6; round += 1) {
-      // Each round: a receipt open in the own Business, a switch to the client, a draft typed, a switch back.
-      if (round > 0) await page.goto(`${PREVIEW}?receipt=rcpt-ferreteria`);
-      await expect(panelHeading(page, "Review receipt")).toBeVisible();
+      if (round > 0) await page.goto(`${PREVIEW}?chat=on&receipt=rcpt-ferreteria`);
+      await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
       await switchTo("Colmado Peña");
       await expect(page).not.toHaveURL(/receipt=|expense=|draft=/);
-      await expect(panelHeading(page, "Review receipt")).toHaveCount(0);
-      await expect(page.getByTestId("business-client-cue")).toHaveText("Client: Colmado Peña");
+      await expect(tray(page)).toHaveCount(0);
+      await expect(page.getByTestId("business-client-cue")).toHaveText("Cliente: Colmado Peña");
       await page.getByTestId("chat-input").fill(`Pagué 850 en pintura ${round}`);
       await switchTo("Mi negocio");
       await expect(page.getByTestId("business-client-cue")).toHaveCount(0);
-      // The typed draft is kept: a switch is a change of scope, not a navigation.
       await expect(page.getByTestId("chat-input")).toHaveText(`Pagué 850 en pintura ${round}`);
     }
   });
 
   test("an Overview draft survives a visit to the Inbox", async ({ page }) => {
-    await openPreview(page);
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
+    await openPreview(page, `${PREVIEW}?chat=on`);
+    await expect(panelHeading(page, "Hola")).toBeVisible();
 
     const composer = page.getByTestId("chat-input");
     await composer.click();
-    await page.keyboard.type("How much did I spend on paint?");
+    await page.keyboard.type("¿Cuánto gasté en pintura?");
 
-    await nav(page).getByRole("button", { name: /^Inbox/ }).click();
-    await expect(panelHeading(page, "Inbox")).toBeVisible();
+    await nav(page).getByRole("button", { name: /^Bandeja/ }).click();
+    await expect(panelHeading(page, "Bandeja")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
 
-    await nav(page).getByRole("button", { name: /^Overview/ }).click();
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
-    await expect(page.getByTestId("chat-input")).toHaveText("How much did I spend on paint?");
+    await nav(page).getByRole("button", { name: /^Inicio/ }).click();
+    await expect(panelHeading(page, "Hola")).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toHaveText("¿Cuánto gasté en pintura?");
   });
 
-  test("the Create menu opens from the collapsed rail inside the viewport", async ({ page }) => {
+  test("the Agregar menu opens from the collapsed rail inside the viewport", async ({ page }) => {
     await openPreview(page, PREVIEW, { sidebarMode: "collapsed" });
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
+    await expect(panelHeading(page, "Hola")).toBeVisible();
 
-    const trigger = page.getByTestId("business-create");
-    await expect(trigger).toHaveAccessibleName("Create");
+    const trigger = page.getByTestId("add-menu-more");
+    await expect(trigger).toHaveAccessibleName("Más acciones");
+    const menu = page.getByRole("menu", { name: "Más acciones" });
+    await trigger.click();
+    await expect(menu.getByRole("menuitem")).toHaveCount(2);
+    await trigger.click();
+    await expect(menu).toHaveCount(0);
+
     await trigger.focus();
     await page.keyboard.press("Enter");
-
-    const menu = page.getByRole("menu", { name: "Create" });
     await expect(menu).toBeVisible();
     const box = await menu.boundingBox();
     const viewport = page.viewportSize();
@@ -110,7 +116,7 @@ test.describe("Business preview", () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 
     const items = menu.getByRole("menuitem");
-    await expect(items).toHaveText(["Upload receipt", "Record expense"]);
+    await expect(items).toHaveText(["Exportar registros", "Copiar dirección de reenvío"]);
     await expect(items.nth(0)).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(items.nth(1)).toBeFocused();
@@ -153,102 +159,131 @@ test.describe("Business preview", () => {
   });
 
   test("leaving a conversation for a panel keeps the panel in the address bar", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?conversation=conversation-alpha`, { emptyChat: false });
+    await openPreview(page, `${PREVIEW}?chat=on&conversation=conversation-alpha`, { emptyChat: false });
     await expect(page.getByTestId("workspace-panel-region")).toHaveCount(0);
     await expect(page.getByTestId("chat-input")).toBeVisible();
 
-    await nav(page).getByRole("button", { name: /^Inbox/ }).click();
-    await expect(panelHeading(page, "Inbox")).toBeVisible();
+    await nav(page).getByRole("button", { name: /^Bandeja/ }).click();
+    await expect(panelHeading(page, "Bandeja")).toBeVisible();
     await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(/\/dev\/business-preview\?view=inbox$/);
+    await expect(page).toHaveURL(/\/dev\/business-preview\?(chat=on&)?view=inbox$/);
 
     await page.reload();
-    await expect(panelHeading(page, "Inbox")).toBeVisible();
+    await expect(panelHeading(page, "Bandeja")).toBeVisible();
+  });
+
+  test("an email is how a receipt arrived: emails with no receipt are problem rows, one being read waits in Todo, and the old Correos link lands on Negocio", async ({ page }) => {
+    await openPreview(page, `${PREVIEW}?view=inbox`);
+    const segments = page.getByTestId("bandeja-segments");
+    await expect(segments.locator("[data-segment]")).toHaveText([/^Por revisar/, /^Con problema/, /^Todo/]);
+    await expect(segments.locator('[data-segment="emails"]')).toHaveCount(0);
+    await expect(segments.locator('[data-segment="problem"]')).toContainText("5");
+
+    await segments.locator('[data-segment="problem"]').click();
+    const rows = page.getByTestId("business-inbox-receipts");
+    await expect(rows.getByTestId("bandeja-row")).toHaveCount(3);
+    await expect(rows.getByTestId("bandeja-email")).toHaveCount(2);
+    await expect(rows.getByTestId("bandeja-email").first()).toContainText("Correo de noticias@proveedor.example");
+    await expect(rows).not.toContainText("Leyendo…");
+
+    await segments.locator('[data-segment="all"]').click();
+    await expect(rows.getByTestId("bandeja-email").filter({ hasText: "Leyendo…" })).toHaveCount(1);
+    await expect(rows.getByTestId("bandeja-email")).toHaveCount(3);
+
+    await rows.getByTestId("bandeja-row").filter({ has: page.getByTestId("inbox-channel-email") }).getByRole("button").first().click();
+    await expect(tray(page).getByTestId("receipt-source-channel")).toContainText("Llegó por correo");
+    await tray(page).getByRole("button", { name: "Ver correo" }).click();
+    await expect(tray(page).getByRole("heading", { name: /^Correo de / })).toBeVisible();
+    await expect(page).toHaveURL(/email=/);
+
+    await page.goto(`${PREVIEW}?view=inbox&segment=emails`);
+    await expect(page).toHaveURL(/tab=correo/);
+    await expect(page.getByTestId("workspace-panel-region").getByText("Correo de recibos", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copiar dirección", exact: true })).toBeVisible();
   });
 
   test("receipt entry marks missing fields and requires separate canonical approval", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    await expect(panelHeading(page, "Review receipt")).toBeVisible();
+    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
 
-    const needed = page.getByText("Needed", { exact: true });
+    const needed = tray(page).getByText("Falta", { exact: true });
     await expect(needed).toHaveCount(1);
-    const paidFrom = page.locator("label", { hasText: "Paid from" });
-    await expect(paidFrom.getByText("Needed", { exact: true })).toBeVisible();
-    const save = page.getByRole("button", { name: "Save review details" });
+    const paidFrom = page.locator("label", { hasText: "Pagado desde" });
+    await expect(paidFrom.getByText("Falta", { exact: true })).toBeVisible();
+    const save = page.getByRole("button", { name: "Guardar detalles de revisión" });
     await expect(save).toBeDisabled();
 
     await paidFrom.locator("select").selectOption("acct-ops");
     await expect(needed).toHaveCount(0);
     await save.click();
 
-    await expect(panelHeading(page, "Ferretería La Esquina")).toBeVisible();
-    await expect(page.getByText("One expense was recorded", { exact: false })).toHaveCount(0);
-    await page.getByRole("button", { name: "Approve expense", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "One expense was recorded" })).toBeVisible();
-    await page.getByTestId("workspace-panel-region").getByRole("button", { name: "Expenses", exact: true }).click();
-    await expect(panelHeading(page, "Expenses")).toBeVisible();
+    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
+    await expect(page.getByText("Se registró un gasto", { exact: false })).toHaveCount(0);
+    await tray(page).getByRole("button", { name: "Aprobar", exact: true }).click();
+    await expect(tray(page).getByRole("status").filter({ hasText: "Se registró un gasto" })).toBeVisible();
+    await expect(panelHeading(page, "Gastos")).toBeVisible();
     await expect(page.getByTestId("workspace-panel-region")).toContainText("Ferretería La Esquina");
   });
 
   test("an unknown AI outcome offers a consented retry beside entry by hand", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-unknown`);
     const attention = page.getByTestId("receipt-attention");
-    await expect(attention).toContainText("We couldn't recover the AI reading result");
-    await expect(attention).toContainText("Trying again sends this receipt to our AI provider.");
-    await expect(page.getByRole("button", { name: "Prepare with AI" })).toHaveCount(0);
-    await expect(page.getByLabel("Merchant")).toBeEnabled();
+    await expect(attention).toContainText("No pudimos recuperar el resultado de la lectura con IA");
+    await expect(attention).toContainText("Si reintentas, el recibo se envía a nuestro proveedor de IA.");
+    await expect(page.getByRole("button", { name: "Preparar con IA" })).toHaveCount(0);
+    await expect(reviewField(page, "Comercio o persona")).toBeEnabled();
 
-    await attention.getByRole("button", { name: "Try again with AI" }).click();
-    await expect(page.getByTestId("workspace-panel-region")).toContainText("Reading your receipt");
-    await expect(page.getByRole("button", { name: "Try again with AI" })).toHaveCount(0);
-    await expect(page.getByLabel("Merchant")).toBeDisabled();
+    await attention.getByRole("button", { name: "Reintentar con IA" }).click();
+    await expect(tray(page)).toContainText("Leyendo tu recibo");
+    await expect(page.getByRole("button", { name: "Reintentar con IA" })).toHaveCount(0);
+    await expect(reviewField(page, "Comercio o persona")).toHaveCount(0);
   });
 
   test("a read with no single purchase is entered by hand and keeps what was read", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ambiguous`);
     const attention = page.getByTestId("receipt-attention");
-    await expect(attention).toContainText("couldn't match this receipt to one purchase. Enter the details yourself");
-    await expect(page.getByRole("button", { name: /with AI/ })).toHaveCount(0);
-    await expect(page.getByText("What the receipt says")).toBeVisible();
+    await expect(attention).toContainText("Cuadrao no pudo asociar este recibo a una sola compra. Escribe los detalles tú mismo");
+    await expect(page.getByRole("button", { name: /con IA/ })).toHaveCount(0);
+    await expect(page.getByText("Lo que dice el recibo")).toBeVisible();
 
-    await page.getByLabel("Merchant").fill("Colmado Don Pedro");
-    await page.getByLabel("Date").fill("2026-10-05");
-    await page.locator("label", { hasText: "Currency" }).locator("select").selectOption("DOP");
+    await reviewField(page, "Comercio o persona").fill("Colmado Don Pedro");
+    await reviewField(page, "Fecha de actividad").fill("05/10/2026");
+    await page.locator("label", { hasText: "Moneda" }).locator("select").selectOption("DOP");
     await page.getByTestId("receipt-review-amount").fill("706.10");
-    await page.locator("label", { hasText: "Paid from" }).locator("select").selectOption("acct-ops");
-    await page.getByRole("button", { name: "Save review details" }).click();
+    await page.locator("label", { hasText: "Pagado desde" }).locator("select").selectOption("acct-ops");
+    await page.getByRole("button", { name: "Guardar detalles de revisión" }).click();
 
-    await expect(panelHeading(page, "Colmado Don Pedro")).toBeVisible();
+    await expect(trayHeading(page, "Colmado Don Pedro")).toBeVisible();
     await expect(page.getByTestId("receipt-attention")).toHaveCount(0);
     await expect(page.getByTestId("receipt-original-source")).toBeVisible();
-    await page.getByRole("button", { name: "Approve expense", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "One expense was recorded" })).toBeVisible();
+    await tray(page).getByRole("button", { name: "Aprobar", exact: true }).click();
+    await expect(tray(page).getByRole("status").filter({ hasText: "Se registró un gasto" })).toBeVisible();
   });
 
   test("an unreadable receipt offers entry by hand and no AI retry", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-blurry`);
-    await expect(page.getByTestId("receipt-attention")).toContainText("We couldn't read this file");
-    await expect(page.getByRole("button", { name: "Upload another file" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Enter details" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /with AI/ })).toHaveCount(0);
-    await expect(page.getByLabel("Merchant")).toBeEnabled();
+    await expect(page.getByTestId("receipt-attention")).toContainText("No pudimos leer este archivo");
+    await expect(page.getByRole("button", { name: "Subir otro archivo" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Escribir datos" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /con IA/ })).toHaveCount(0);
+    await expect(reviewField(page, "Comercio o persona")).toBeEnabled();
   });
 
   test("the review Total refuses letters, pads on blur and refuses a decimal comma paste", async ({ page, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
-    await expect(panelHeading(page, "Review receipt")).toBeVisible();
+    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
 
     const total = page.getByTestId("receipt-review-amount");
     await expect(total).toHaveValue("3,450.00");
-    await expect(total).toHaveAccessibleName("Total in DOP (RD$)");
+    await expect(total).toHaveAccessibleName("Monto en DOP (RD$)");
     const message = await amountMessage(page, total);
 
     await total.click();
     await page.keyboard.press("End");
     await page.keyboard.type("wfr");
     await expect(total).toHaveValue("3,450.00");
-    await expect(message).toHaveText("Use digits and one decimal point.");
+    await expect(message).toHaveText("Usa solo números y un punto decimal.");
 
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("1250.5");
@@ -262,7 +297,7 @@ test.describe("Business preview", () => {
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.press("ControlOrMeta+v");
     await expect(total).toHaveValue("1,250.50");
-    await expect(message).toContainText("Use a point for decimals");
+    await expect(message).toContainText("Usa un punto para los decimales");
   });
 
   test("a bare $ pasted into a DOP field is refused as ambiguous", async ({ page, context }) => {
@@ -277,7 +312,7 @@ test.describe("Business preview", () => {
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.press("ControlOrMeta+v");
     await expect(total).toHaveValue("3,450.00");
-    await expect(message).toHaveText("$ could mean RD$ or US$. Enter the amount without a symbol, or with RD$ or US$.");
+    await expect(message).toHaveText("$ puede ser RD$ o US$. Escribe el monto sin símbolo o con RD$ o US$.");
   });
 
   test("a currency change keeps the digits and says there is no conversion", async ({ page }) => {
@@ -286,10 +321,10 @@ test.describe("Business preview", () => {
     await expect(total).toHaveValue("3,450.00");
     const message = await amountMessage(page, total);
 
-    await page.locator("label", { hasText: "Currency" }).locator("select").selectOption("USD");
-    await expect(total).toHaveAccessibleName("Total in USD (US$)");
+    await page.locator("label", { hasText: "Moneda" }).locator("select").selectOption("USD");
+    await expect(total).toHaveAccessibleName("Monto en USD (US$)");
     await expect(total).toHaveValue("3,450.00");
-    await expect(message).toHaveText("Same amount, no conversion.");
+    await expect(message).toHaveText("Mismo monto, sin conversión.");
 
     await total.click();
     await page.keyboard.press("End");
@@ -300,10 +335,10 @@ test.describe("Business preview", () => {
   test("Total announces Needed when the backend lists the amount as missing", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-saved`);
     const total = page.getByTestId("receipt-review-amount");
-    await expect(total).toHaveAccessibleDescription(/Needed/);
+    await expect(total).toHaveAccessibleDescription(/Falta/);
     await total.click();
     await page.keyboard.type("80");
-    await expect(total).not.toHaveAccessibleDescription(/Needed/);
+    await expect(total).not.toHaveAccessibleDescription(/Falta/);
   });
 
   test("an edit the browser does not let us cancel is read past the field's grouping", async ({ page }) => {
@@ -325,23 +360,23 @@ test.describe("Business preview", () => {
 
     await replaceWithoutBeforeInput("1,5,00,000");
     await expect(total).toHaveValue("1,500,000");
-    await expect(message).toHaveText("Check the thousands commas, as in 1,250.50.");
+    await expect(message).toHaveText("Revisa las comas de miles, como en 1,250.50.");
   });
 
   test("the review maps the backend's amount_out_of_range onto its Total", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?receipt=rcpt-ferreteria`);
     const total = page.getByTestId("receipt-review-amount");
     await expect(total).toHaveValue("3,450.00");
-    await page.locator("label", { hasText: "Paid from" }).locator("select").selectOption("acct-ops");
+    await page.locator("label", { hasText: "Pagado desde" }).locator("select").selectOption("acct-ops");
 
     await page.evaluate(() => {
       (globalThis as { __businessFixtureFailNextWrite?: string }).__businessFixtureFailNextWrite = "amount_out_of_range";
     });
-    await page.getByRole("button", { name: "Save review details" }).click();
+    await page.getByRole("button", { name: "Guardar detalles de revisión" }).click();
 
-    await expect(await amountMessage(page, total)).toHaveText("This amount is too large to record.");
+    await expect(await amountMessage(page, total)).toHaveText("Este monto es demasiado grande para registrarlo.");
     await expect(total).toHaveAttribute("aria-invalid", "true");
-    await expect(panelHeading(page, "Review receipt")).toBeVisible();
+    await expect(trayHeading(page, "Ferretería La Esquina")).toBeVisible();
   });
 
   test("Record expense guards the length and maps the backend's amount codes onto its Total", async ({ page }) => {
@@ -378,7 +413,7 @@ test.describe("Business preview", () => {
   });
 
   test("a reload of view=chat stays on the chat surface", async ({ page }) => {
-    await openPreview(page, `${PREVIEW}?view=chat`);
+    await openPreview(page, `${PREVIEW}?chat=on&view=chat`);
     const home = page.locator('[data-business-home="new_chat"]');
     await expect(home).toBeVisible();
 
@@ -420,18 +455,17 @@ test.describe("Business preview on a comma-decimal device", () => {
 test.describe("Business preview on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("the drawer shows the Business destinations with labels and Create", async ({ page }) => {
+  test("the bottom tabs show the Business destinations with labels, and Agregar sits at the top of the screen", async ({ page }) => {
     await openPreview(page);
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
+    await expect(panelHeading(page, "Hola")).toBeVisible();
 
-    await page.getByTestId("chat-shell-menu-trigger").click();
-
-    const drawerNav = nav(page);
-    for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
-      await expect(drawerNav.getByText(label, { exact: true })).toBeVisible();
+    await expect(nav(page)).toHaveCount(0);
+    const tabs = page.getByTestId("business-bottom-tabs");
+    for (const label of ["Inicio", "Bandeja", "Gastos"]) {
+      await expect(tabs.getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(drawerNav.getByRole("button", { name: /^Inbox/ })).toContainText("5");
-    await expect(page.getByTestId("business-create")).toHaveText("Create");
+    await expect(tabs.getByRole("button", { name: /Bandeja$/ })).toContainText("4");
+    await expect(page.getByTestId("add-menu-page").getByRole("button", { name: "Agregar" })).toBeVisible();
   });
 });
 
@@ -518,8 +552,8 @@ test.describe("A conversation opens in the shell of its own surface", () => {
     const notice = page.getByTestId("conversation-unavailable");
     await expect(notice).toBeVisible();
     await expect(page).toHaveURL(/\/dev\/business-preview\?notice=conversation_unavailable$/);
-    await expect(notice).toContainText("This conversation isn't available in Cuadrao Business.");
-    await expect(notice.getByRole("link", { name: "Go to Cuadrao Business" })).toHaveAttribute("href", "/biz");
+    await expect(notice).toContainText("Esta conversación no está disponible en Cuadrao Business.");
+    await expect(notice.getByRole("link", { name: "Ir a Cuadrao Business" })).toHaveAttribute("href", "/biz");
     // Give a loop time to show itself: no further page load, no further ask for the conversation.
     await page.waitForTimeout(3000);
     expect(loads.length).toBeLessThanOrEqual(2);
@@ -571,44 +605,38 @@ test.describe("Business preview while its chat is off", () => {
 
   async function openLoaded(page: Page, url = CHAT_OFF) {
     await openPreview(page, url, { emptyChat: false });
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
-    // The inbox chip comes with the workspace payload, so chat_available has been read.
+    await expect(panelHeading(page, "Hola")).toBeVisible();
+    // The month-close step comes with the workspace payload, so chat_available has been read.
     await expect(
-      page.getByTestId("workspace-panel-region").getByRole("button", { name: /^Review \d+ receipts/ }),
+      page.getByTestId("workspace-panel-region").getByRole("button", { name: "Revisar", exact: true }),
     ).toBeVisible();
   }
 
   test("the shell keeps its records and offers no way into a chat", async ({ page }) => {
-    await openLoaded(page, PREVIEW);
+    await openLoaded(page, `${PREVIEW}?chat=on`);
     await expect(page.getByTestId("chat-input")).toHaveCount(1);
-    await expect(page.getByRole("button", { name: /^New chat/ })).toHaveCount(1);
-    await expect(page.getByRole("button", { name: /^Recents/ })).toHaveCount(1);
 
     await openLoaded(page);
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^New chat/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Recents/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "What did I spend this month?" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Nuevo chat/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Recientes/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "¿Cuánto gasté este mes?" })).toHaveCount(0);
 
     await page.keyboard.press("ControlOrMeta+Shift+Period");
     await page.keyboard.press("ControlOrMeta+Shift+Comma");
     await expect(page.getByTestId("chat-input")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
+    await expect(panelHeading(page, "Hola")).toBeVisible();
 
-    await page.getByTestId("business-create").click();
-    await expect(page.getByRole("menu", { name: "Create" }).getByRole("menuitem")).toHaveText([
-      "Upload receipt",
-      "Record expense",
-      "Save a note",
-    ]);
+    await page.getByTestId("business-primary-upload").click();
+    await expect(page.getByRole("dialog", { name: "Agregar" })).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
     for (const [label, heading] of [
-      ["Inbox", "Inbox"],
-      ["Expenses", "Expenses"],
-      ["Updates", "Updates"],
-      ["Overview", "Mi negocio"],
+      ["Bandeja", "Bandeja"],
+      ["Gastos", "Gastos"],
+      ["Inicio", "Hola"],
     ]) {
       await nav(page).getByRole("button", { name: new RegExp(`^${label}`) }).click();
       await expect(panelHeading(page, heading)).toBeVisible();
@@ -621,20 +649,20 @@ test.describe("Business preview while its chat is off", () => {
       route.fulfill({ json: { items: [], next_cursor: null, ledger_groups: [] } }),
     );
     await openLoaded(page);
-    await page.getByRole("button", { name: /^Search/ }).first().click();
-    const input = page.getByPlaceholder("Search expenses and receipts");
+    await page.getByTestId("header-search").click();
+    const input = page.getByPlaceholder("Busca comercio, monto o nota");
     await expect(input).toBeFocused();
-    await expect(page.getByText("No conversations yet")).toHaveCount(0);
+    await expect(page.getByText("No hay conversaciones aún")).toHaveCount(0);
     await expect(page.locator("[data-palette-row-index]")).toHaveCount(0);
 
     await input.fill("nube hosting");
-    const expenses = page.getByTestId("workspace-search-results").getByRole("group", { name: "Expenses" });
+    const expenses = page.getByTestId("workspace-search-results").getByRole("group", { name: "Gastos" });
     await expect(expenses.getByRole("button")).toContainText("Nube Hosting");
     await expect(page.locator("[data-palette-row-index]")).toHaveCount(0);
 
     await input.fill("no such merchant anywhere");
-    await expect(page.getByText("No results found")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Ask/ })).toHaveCount(0);
+    await expect(page.getByText(/No encontramos nada con/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Preguntar/ })).toHaveCount(0);
   });
 
   test("a chat link lands on the workspace panel", async ({ page }) => {
@@ -667,15 +695,15 @@ test.describe("Business preview while its chat is off", () => {
 test.describe("Business preview on a phone while its chat is off", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("the drawer keeps the destinations and Create, with no New chat or Recents", async ({ page }) => {
+  test("the bottom tabs keep the destinations and Agregar, with no New chat or Recents", async ({ page }) => {
     await openPreview(page, `${PREVIEW}?chat=off`);
-    await expect(panelHeading(page, "Mi negocio")).toBeVisible();
-    await page.getByTestId("chat-shell-menu-trigger").click();
-    for (const label of ["Overview", "Inbox", "Expenses", "Updates"]) {
-      await expect(nav(page).getByText(label, { exact: true })).toBeVisible();
+    await expect(panelHeading(page, "Hola")).toBeVisible();
+    const tabs = page.getByTestId("business-bottom-tabs");
+    for (const label of ["Inicio", "Bandeja", "Gastos"]) {
+      await expect(tabs.getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(page.getByTestId("business-create").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /^New chat/ })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Recents/ })).toHaveCount(0);
+    await expect(page.getByTestId("add-menu-page").getByRole("button", { name: "Agregar" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Nuevo chat/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Recientes/ })).toHaveCount(0);
   });
 });

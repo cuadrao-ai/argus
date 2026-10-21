@@ -15,7 +15,8 @@ mock.module("next/navigation", () => ({
 }));
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  // Below the desktop stop a record is the whole page; record-tray.dom.test.tsx covers the desktop tray.
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 800, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
@@ -83,6 +84,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
   const held = new Promise<void>((resolve) => { release = resolve; });
   const source = {
     ...fixture,
+    // No email waits in this Bandeja, so approving the last receipt empties it.
+    emailDeliveries: async () => [],
     receipts: async () => {
       bandejaReads += 1;
       if (hold === "bandeja") await held;
@@ -187,7 +190,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     assert.ok(next, "Aprobar y siguiente is shown");
     assert.ok(plain, "Aprobar stays");
     assert.ok(next.className.includes("border"), "Aprobar y siguiente is the secondary button");
-    assert.ok(plain.className.includes("bg-[#2f5a49]"), "Aprobar is the green primary button");
+    assert.ok(plain.className.includes("bg-[var(--cuadrao-green)]"), "Aprobar is the green primary button");
     await page.act(async () => page.root.unmount());
   });
 

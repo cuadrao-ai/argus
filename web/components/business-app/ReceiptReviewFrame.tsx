@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useBusiness } from "./BusinessWorkspace";
 import { takeTitleFocus } from "./bandeja-order";
+import { TrayFooter, useRecordTray } from "./record-tray";
 
 /**
  * The one receipt review page: a way back, then the supplier, the total and
@@ -12,6 +13,10 @@ import { takeTitleFocus } from "./bandeja-order";
  * on a desktop the source sits to their left. The footer spans the pane and sticks to its bottom edge.
  * Every state of a receipt renders inside this frame, read or not, prepared
  * or not.
+ *
+ * Inside the desktop tray it is one column (source, fields, history) with no
+ * way back, since the tray's close control returns to the list, and the footer
+ * goes to the tray's pinned footer.
  */
 export default function ReceiptReviewFrame({ recordId, back, title, badge, amount, mark, source, children, history, footer }: {
   recordId: string;
@@ -29,24 +34,46 @@ export default function ReceiptReviewFrame({ recordId, back, title, badge, amoun
 }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
+  const tray = useRecordTray();
+  const presentation = tray ? "tray" : "page";
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (takeTitleFocus(recordId)) heading.current?.focus();
   }, [recordId]);
+  const settleList = tray?.settleList;
+  useEffect(() => {
+    settleList?.(back);
+  }, [settleList, back]);
+  const top = (
+    <header className="mb-6" data-testid="receipt-top-block">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="min-w-0 break-words rounded-[12px] font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
+        {badge}
+      </div>
+      {amount ? <p data-testid="receipt-total" className="cuadrao-amount mt-2 text-[28px] font-medium leading-[34px] tabular-nums text-[#172b26] dark:text-white">{amount}</p> : null}
+      {mark ? <p data-testid="bill-mark" className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{mark}</p> : null}
+    </header>
+  );
+  if (presentation === "tray") {
+    return (
+      <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="tray">
+        {top}
+        <div className="space-y-4">
+          <div className="min-w-0 space-y-4" data-testid="receipt-review-source">{source}</div>
+          <div className="min-w-0 space-y-4" data-testid="receipt-review-fields">{children}</div>
+          {history ? <div className="min-w-0 empty:hidden" data-testid="receipt-review-history">{history}</div> : null}
+        </div>
+        {footer ? <TrayFooter><div data-testid="receipt-review-footer">{footer}</div></TrayFooter> : null}
+      </section>
+    );
+  }
   return (
-    <section aria-labelledby="receipt-review-title" data-testid="business-record-review">
+    <section aria-labelledby="receipt-review-title" data-testid="business-record-review" data-presentation="page">
       <button type="button" onClick={() => openPanel({ kind: back })} className="mb-4 flex min-h-11 items-center gap-2 rounded-full pr-3 text-[15px] text-[#56635e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white/70">
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         {back === "expenses" ? t("business.nav.expenses", "Expenses") : t("business.nav.inbox", "Inbox")}
       </button>
-      <header className="mb-6" data-testid="receipt-top-block">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="receipt-review-title" ref={heading} tabIndex={-1} className="min-w-0 break-words rounded-[12px] font-display text-[22px] font-medium leading-7 text-[#172b26] focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
-          {badge}
-        </div>
-        {amount ? <p data-testid="receipt-total" className="mt-2 text-[28px] font-medium leading-[34px] tabular-nums text-[#172b26] dark:text-white">{amount}</p> : null}
-        {mark ? <p data-testid="bill-mark" className="mt-1 text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{mark}</p> : null}
-      </header>
+      {top}
       <div className="grid items-start gap-4 desktop:grid-cols-[minmax(280px,1fr)_minmax(0,640px)] desktop:grid-rows-[auto_1fr] desktop:gap-6">
         <div className="min-w-0 space-y-4 desktop:col-start-2 desktop:row-start-1 desktop:space-y-6" data-testid="receipt-review-fields">{children}</div>
         <div className="min-w-0 space-y-4 desktop:col-start-1 desktop:row-span-2 desktop:row-start-1 desktop:space-y-6" data-testid="receipt-review-source">{source}</div>

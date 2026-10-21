@@ -164,10 +164,6 @@ class TargetCatalog(Protocol):
         period_end: date,
     ) -> tuple[MatchTarget, ...]: ...
 
-    def get(
-        self, space_id: UUID, *, kind: TargetKind, target_id: str
-    ) -> MatchTarget | None: ...
-
 
 @dataclass(frozen=True)
 class ImportResult:

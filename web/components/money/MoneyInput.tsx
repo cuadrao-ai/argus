@@ -183,7 +183,7 @@ export default function MoneyInput({
       <div
         className={`mt-1.5 flex min-h-11 w-full items-center gap-2 rounded-[12px] border bg-white px-3 transition-colors focus-within:ring-[0.125rem] dark:bg-[#141517] ${
           shown
-            ? "border-[#a8434c]/60 focus-within:ring-[#a8434c]/15 dark:border-[#ec9aa0]/60"
+            ? "border-[#9e2f39]/60 focus-within:ring-[#9e2f39]/15 dark:border-[#ec9aa0]/60"
             : "border-[#7d8a84] focus-within:ring-black/10"
         } ${disabled ? "bg-black/[0.03] dark:bg-white/[0.03]" : ""}`}
       >
@@ -220,7 +220,7 @@ export default function MoneyInput({
         aria-live="polite"
         className={
           shown
-            ? "mt-1 text-[13px] text-[#a8434c] dark:text-[#ec9aa0]"
+            ? "mt-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]"
             : currencyNote
               ? "mt-1 text-[13px] text-black/55 dark:text-white/55"
               : ""

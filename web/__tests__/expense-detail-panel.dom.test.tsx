@@ -160,11 +160,11 @@ describe("the expense detail panel", () => {
 
   test("an expense that names a receipt opens that receipt's record instead; one from a draft opens the draft", async () => {
     const withReceipt = await mountWorkspace({ detail: expense({ id: "exp-hosting", receipt_id: "rcpt-confirmed" }) });
-    assert.deepEqual(withReceipt.opened, [{ kind: "receipt", receiptId: "rcpt-confirmed" }]);
+    assert.deepEqual(withReceipt.opened, [{ kind: "receipt", receiptId: "rcpt-confirmed", list: "expenses" }]);
     assert.ok(!withReceipt.host.textContent?.includes("Sin recibo adjunto"));
     await withReceipt.act(async () => withReceipt.root.unmount());
     const fromDraft = await mountWorkspace({ detail: expense({ id: "exp-note", draft_id: "draft-7" }) });
-    assert.deepEqual(fromDraft.opened, [{ kind: "draft", draftId: "draft-7" }]);
+    assert.deepEqual(fromDraft.opened, [{ kind: "draft", draftId: "draft-7", list: "expenses" }]);
     await fromDraft.act(async () => fromDraft.root.unmount());
   });
 });

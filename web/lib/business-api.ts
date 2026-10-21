@@ -61,7 +61,15 @@ export type ReceiptActivity = {
  * lists (receipts not yet saved or dismissed, and notes no receipt carries);
  * `needs_attention_count` is how many of those receipts need attention.
  */
-export type ReceiptActivityCounts = { reading_count: number; unread_count: number; presentation: "working" | "unread" | "none"; pending_review_count: number; needs_attention_count: number };
+export type ReceiptActivityCounts = {
+  reading_count: number;
+  unread_count: number;
+  presentation: "working" | "unread" | "none";
+  pending_review_count: number;
+  needs_attention_count: number;
+  /** Rows a person can review now: the Bandeja's Por revisar. Absent from servers that do not send it yet. */
+  ready_to_review_count?: number;
+};
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 
 export function getReceiptActivity(signal?: AbortSignal): Promise<ReceiptActivityCounts> {
@@ -89,6 +97,8 @@ export type ReceiptSummary = ReceiptReviewFields & {
   fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one or before a read. */
   fiscal_value?: "ncf" | "ecf" | null;
+  /** A person stated it has no comprobante fiscal and it carries no NCF or e-CF: it counts in the totals, stays out of the 606 and 607. Absent when false. */
+  sin_comprobante?: boolean;
   /** The accountant's 606 answer for a personal receipt with a fiscal number; absent until given. */
   include_606?: boolean | null;
   /** Who gave the 606 answer; absent while there is none. */
@@ -97,6 +107,10 @@ export type ReceiptSummary = ReceiptReviewFields & {
   personal_editable?: boolean;
   /** `venta` is an invoice this business already issued. Absent means a receipt. */
   document_type?: "recibo" | "venta";
+  /** The type was read from the document (its RNC is the Business's own), not picked; absent when false. */
+  document_type_detected?: boolean;
+  /** True while the draft is open and the caller can prepare: the type can still change. */
+  document_type_editable?: boolean;
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;
@@ -196,6 +210,15 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
   });
 }
 
+/** Compra or Venta on an open draft. Null clears a picked type so the server detects it again. */
+export async function setBusinessDraftDocumentType(draftId: string, version: number, documentType: "recibo" | "venta" | null, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {
+    method: "PATCH",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, document_type: documentType }),
+  });
+}
+
 export async function approveBusinessDraft(draftId: string, version: number, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/approve`, {
     method: "POST",
@@ -241,7 +264,6 @@ export async function settleBusinessRemainder(draftId: string, version: number, 
 export const EXPENSE_ACCOUNT_TYPES = ["cash", "checking", "savings", "credit_card"] as const;
 export type ExpenseAccountType = (typeof EXPENSE_ACCOUNT_TYPES)[number];
 
-export type NewBusinessAccount = { nickname: string; type: ExpenseAccountType; currency: CurrencyCode };
 
 export type BusinessAccount = {
   id: string;
@@ -294,6 +316,8 @@ export type BusinessExpense = {
   fiscal_known?: boolean;
   /** The fiscal number the draft carries (NCF or e-CF); absent without one. */
   fiscal_value?: "ncf" | "ecf" | null;
+  /** A person stated it has no comprobante fiscal and it carries no NCF or e-CF: it counts in the totals, stays out of the 606 and 607. Absent when false. */
+  sin_comprobante?: boolean;
   /** The accountant's 606 answer for a personal expense with a fiscal number; absent until given. */
   include_606?: boolean | null;
   /** Who gave the 606 answer; absent while there is none. */
@@ -321,28 +345,8 @@ export type BusinessOverview = {
   outside_period_latest_on: string | null;
 };
 
-export type BusinessUpdate = {
-  id: string;
-  kind: "receipt_ready" | "receipt_needs_attention" | "expense_confirmed";
-  occurred_at: string;
-  receipt_id: string | null;
-  expense_id: string | null;
-  error_code: string | null;
-  attention: ReceiptAttention | null;
-  label: string | null;
-};
-
-/**
- * Business records matching a query, each list capped by `limit`. A receipt
- * whose expense also matched is only under its expense, as `receipt_id`.
- */
-export type BusinessSearchResult = {
-  expenses: BusinessExpense[];
-  receipts: ReceiptSummary[];
-  accounts: BusinessAccount[];
-};
-
-export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number } };
+/** `document_type` only on a new note: a note on a draft is refused with it. Left out, the note is a detected receipt. */
+export type BusinessCaptureInput = { text: string; draft?: { draft_id: string; version: number }; document_type?: "recibo" | "venta" };
 export type BusinessCapture = {
   draft_id: string;
   /** The draft's current version, which also counts approvals and settlements. */
@@ -379,13 +383,6 @@ export async function listBusinessCaptures(query = "", limit = 20, view: "inbox"
   return page.items;
 }
 
-export type ExpenseInput = {
-  account_id: string;
-  amount: DecimalString;
-  occurred_on: string;
-  merchant: string | null;
-  category_id: string | null;
-};
 
 /** The owner's one Business space. Business records live only inside it. */
 export type BusinessSpace = { id: string; name: string };
@@ -482,16 +479,6 @@ export async function getBusinessReceipt(id: string, signal?: AbortSignal): Prom
   return apiFetch(`/business/receipts/${encodeURIComponent(id)}`, { signal });
 }
 
-export async function listBusinessUpdates(): Promise<BusinessUpdate[]> {
-  const page = await apiFetch<{ items: BusinessUpdate[] }>("/business/updates");
-  return page.items;
-}
-
-export async function searchBusiness(q: string, limit = 5): Promise<BusinessSearchResult> {
-  const query = new URLSearchParams({ q, limit: String(limit) });
-  return apiFetch(`/business/search?${query}`);
-}
-
 export async function getBusinessExpense(expenseId: string): Promise<BusinessExpenseDetail> {
   return apiFetch<BusinessExpenseDetail>(`/business/expenses/${encodeURIComponent(expenseId)}`);
 }
@@ -516,11 +503,37 @@ export function retryAfterMs(header: string | null, now = Date.now()): number | 
   return Number.isNaN(at) ? null : Math.max(0, at - now);
 }
 
+/** Bytes of one upload sent so far; `total` is the whole file. */
+export type UploadProgressListener = (sent: number, total: number) => void;
+
+type UploadError = Error & { status: number; code: string; retryAfterMs: number | null };
+
+function uploadError(status: number, body: string, retryAfter: string | null): UploadError {
+  let code: string | undefined;
+  try {
+    code = (JSON.parse(body) as { code?: string }).code;
+  } catch {
+    code = undefined;
+  }
+  const error = new Error(code ?? `API error ${status}`) as UploadError;
+  error.status = status;
+  error.code = code ?? "unknown";
+  error.retryAfterMs = retryAfterMs(retryAfter);
+  return error;
+}
+
+/**
+ * One receipt file to the Inbox. With a progress listener the body goes over
+ * XMLHttpRequest, the one browser API that reports bytes sent; a lost
+ * connection rejects with a TypeError, as fetch does, so it reads as offline.
+ */
 export async function uploadBusinessReceipt(
   file: File,
   consentToPrepare: boolean,
   idempotencyKey: string,
-  documentType: "recibo" | "venta" = "recibo",
+  /** Null leaves the header out so the server detects the type; a picked type turns detection off. */
+  documentType: "recibo" | "venta" | null = null,
+  onProgress?: UploadProgressListener,
 ): Promise<ReceiptSummary> {
   const authHeaders = await authenticatedRequestHeaders();
   const headers = argusApiRequestHeaders(
@@ -528,29 +541,42 @@ export async function uploadBusinessReceipt(
       "Content-Type": file.type,
       "Idempotency-Key": idempotencyKey,
       "X-Document-Filename": encodeURIComponent(file.name),
-      ...(documentType === "venta" ? { "X-Document-Type": "venta" } : {}),
+      ...(documentType ? { "X-Document-Type": documentType } : {}),
       ...(consentToPrepare ? { "X-Extraction-Consent": "true" } : {}),
     },
     authHeaders,
   );
-  const response = await fetch(`${ARGUS_API_BASE_URL}/business/receipts`, {
+  const url = `${ARGUS_API_BASE_URL}/business/receipts`;
+  if (onProgress && typeof XMLHttpRequest !== "undefined") {
+    return new Promise<ReceiptSummary>((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open("POST", url);
+      request.withCredentials = true;
+      headers.forEach((value, key) => request.setRequestHeader(key, value));
+      request.upload.onprogress = (event) => onProgress(event.loaded, event.lengthComputable ? event.total : file.size);
+      request.onload = () => {
+        if (request.status >= 200 && request.status < 300) {
+          try {
+            resolve(JSON.parse(request.responseText) as ReceiptSummary);
+          } catch (error) {
+            reject(error);
+          }
+        } else {
+          reject(uploadError(request.status, request.responseText, request.getResponseHeader("Retry-After")));
+        }
+      };
+      request.onerror = () => reject(new TypeError("Network request failed"));
+      request.onabort = () => reject(new TypeError("Upload aborted"));
+      request.send(file);
+    });
+  }
+  const response = await fetch(url, {
     method: "POST",
     body: file,
     credentials: "include",
     headers,
   });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { code?: string };
-    const error = new Error(body.code ?? `API error ${response.status}`) as Error & {
-      status: number;
-      code: string;
-      retryAfterMs: number | null;
-    };
-    error.status = response.status;
-    error.code = body.code ?? "unknown";
-    error.retryAfterMs = retryAfterMs(response.headers.get("Retry-After"));
-    throw error;
-  }
+  if (!response.ok) throw uploadError(response.status, await response.text().catch(() => ""), response.headers.get("Retry-After"));
   return response.json() as Promise<ReceiptSummary>;
 }
 
@@ -594,28 +620,6 @@ export async function confirmBusinessReceipt(
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version }),
-  });
-}
-
-export async function recordBusinessExpense(
-  input: ExpenseInput,
-  idempotencyKey: string,
-): Promise<BusinessExpense> {
-  return apiFetch("/business/expenses", {
-    method: "POST",
-    headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(input),
-  });
-}
-
-export async function createBusinessAccount(
-  input: NewBusinessAccount,
-  idempotencyKey: string,
-): Promise<BusinessAccount> {
-  return apiFetch("/business/accounts", {
-    method: "POST",
-    headers: { "Idempotency-Key": idempotencyKey },
-    body: JSON.stringify(input),
   });
 }
 

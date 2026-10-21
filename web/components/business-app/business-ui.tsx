@@ -3,24 +3,26 @@
 import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
-import { BusinessContext, useBusiness } from "./BusinessWorkspace";
+import { BusinessContext } from "./BusinessWorkspace";
 import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
-import { ToastNotice } from "./foundation/ToastNotice";
 
 export const cardClass =
   "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
-/** The locked card edge and surface, without padding. */
-export const lockedCardClass =
-  "rounded-[20px] border border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/[0.06] dark:bg-[#1f2225]";
-
+/**
+ * The one owner of button looks (Lucas, October 21, 2026). Four levels, never a fifth:
+ * primary is the screen's one main action in Cuadrao green; secondary is an outlined
+ * alternative such as Listo or Volver; quiet is a green text action inside content;
+ * danger is the red confirm of a delete. All are fully round with a 44px target.
+ */
 export const pillButtonClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 disabled:opacity-40 dark:focus-visible:ring-white/30";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-[opacity,background-color] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40";
 
-export const primaryButtonClass = `${pillButtonClass} bg-black text-white dark:bg-white dark:text-black`;
-export const secondaryButtonClass = `${pillButtonClass} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`;
+export const primaryButtonClass = `${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
+export const secondaryButtonClass = `${pillButtonClass} border border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] hover:opacity-100 dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]`;
+export const quietButtonClass = "inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[15px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40";
 /** A destructive action: red, and always behind a confirmation. */
-export const dangerButtonClass = `${pillButtonClass} border border-[#a8434c]/40 bg-white text-[#a8434c] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
-export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#a8434c] text-white dark:bg-[#ec9aa0] dark:text-black`;
+export const dangerButtonClass = `${pillButtonClass} border border-[#9e2f39]/40 bg-white text-[#9e2f39] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
+export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#9e2f39] text-white dark:bg-[#ec9aa0] dark:text-[#172b26]`;
 
 export function PanelHeading({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
@@ -30,25 +32,6 @@ export function PanelHeading({ title, subtitle, action }: { title: string; subti
         {subtitle ? <p className="mt-1 text-[14px] text-black/55 dark:text-white/55">{subtitle}</p> : null}
       </div>
       {action}
-    </div>
-  );
-}
-
-/** Says, on every Business screen, when the records are invented. */
-export function SampleDataNotice() {
-  const { t } = useTranslation();
-  const { source } = useBusiness();
-  if (source.mode !== "fixture") return null;
-  return (
-    <div
-      role="note"
-      data-testid="business-sample-data"
-      className="mb-5 rounded-[14px] border border-dashed border-[#c2a44d]/60 bg-[#c2a44d]/10 px-4 py-2.5 text-[13px] text-black/70 dark:text-white/70"
-    >
-      {t(
-        "business.sample.notice",
-        "Design preview with sample data. Nothing here is saved, uploaded or sent.",
-      )}
     </div>
   );
 }
@@ -198,11 +181,21 @@ export function useOwnerView(): boolean {
  * When someone other than the owner marked it Personal, the owner sees a small
  * dot on the chip that reads "Marcado por <nombre>".
  */
-export function RecordMarks({ personal, fiscalValue, known, markedBy = null, className = "" }: { personal?: boolean; fiscalValue?: "ncf" | "ecf" | null; known: boolean; markedBy?: string | null; className?: string }) {
+/**
+ * A record's marks, as the server reads them: Personal, and either "Sin
+ * comprobante" (stated, out of the 606 and 607) or "Falta NCF" (no fiscal
+ * number yet and none stated as missing). Nothing shows while unknown.
+ */
+export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_known?: boolean; fiscal_value?: "ncf" | "ecf" | null }): "sin_comprobante" | "missing_ncf" | null {
+  if (record.sin_comprobante) return "sin_comprobante";
+  return record.fiscal_known && !record.fiscal_value ? "missing_ncf" : null;
+}
+
+export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: string | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
   const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-full border px-2 text-[11px] font-medium";
-  if (!personal && (!known || fiscalValue)) return null;
+  if (!personal && !fiscal) return null;
   const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
   return (
     <span className={`flex flex-wrap items-center gap-1.5 ${className}`} data-testid="record-marks">
@@ -212,13 +205,9 @@ export function RecordMarks({ personal, fiscalValue, known, markedBy = null, cla
           {marker ? <><span data-testid="personal-marked-dot" aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--cuadrao-green)]" /><span className="sr-only">{marker}</span></> : null}
         </span>
       ) : null}
-      {known && !fiscalValue ? <span data-mark="no_fiscal" className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{t("business.marks.no_fiscal_chip", "No fiscal receipt number")}</span> : null}
+      {fiscal ? <span data-mark={fiscal === "sin_comprobante" ? "sin_comprobante" : "no_fiscal"} className={`${chip} border-black/15 text-black/55 dark:border-white/15 dark:text-white/55`}>{fiscal === "sin_comprobante" ? t("business.marks.sin_comprobante_chip", "No comprobante") : t("business.marks.missing_ncf_chip", "NCF missing")}</span> : null}
     </span>
   );
 }
 
 /** A short announcement with one way back, for a change the person can undo. */
-export function UndoToast({ text, onUndo, onClose }: { text: string; onUndo?: () => void; onClose: () => void }) {
-  return <ToastNotice text={text} kind={onUndo ? "undo" : "confirm"} onUndo={onUndo} onClose={onClose} />;
-}
-

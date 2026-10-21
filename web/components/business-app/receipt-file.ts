@@ -13,8 +13,12 @@ const FILE_TYPES: Record<string, { label: string; extensions: string[] }> = {
   "text/xml": { label: "XML", extensions: ["xml"] },
 };
 
+export function receiptFormatLabel(type: string): string {
+  return FILE_TYPES[type]?.label ?? type;
+}
+
 export function receiptFormatLabels(limits: ReceiptLimits): string[] {
-  return [...new Set(limits.media_types.map((type) => FILE_TYPES[type]?.label ?? type))];
+  return [...new Set(limits.media_types.map(receiptFormatLabel))];
 }
 
 export function receiptFileAccept(limits: ReceiptLimits): string {

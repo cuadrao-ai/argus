@@ -56,6 +56,12 @@ _STATUSES = {
     "suggestion_not_pending": 409,
     "pair_declined": 409,
     "line_already_confirmed": 409,
+    "line_marked_no_receipt": 409,
+    "line_not_matched": 409,
+    "line_not_marked": 409,
+    "line_not_found": 404,
+    "document_already_matched": 409,
+    "document_not_matchable": 422,
     "target_not_approved": 409,
     "idempotency_conflict": 409,
     "business_bank_matching_off": 404,
@@ -67,7 +73,7 @@ def require_bank_surface(request: Request) -> None:
         raise unavailable_problem(request)
 
 
-def _key(request: Request, raw: str | None) -> str:
+def required_key(request: Request, raw: str | None) -> str:
     from argus.domain.backtest_admission import validate_idempotency_key
 
     state, key = validate_idempotency_key(raw)
@@ -106,7 +112,7 @@ def _capabilities(space_id: str, person_id: str) -> frozenset[str]:
     return frozenset(access.capabilities(space_id, person_id))
 
 
-def _fail(request: Request, error: BankMatchingError) -> Exception:
+def bank_problem(request: Request, error: BankMatchingError) -> Exception:
     status = _STATUSES.get(error.code, 400)
     return problem(
         request,
@@ -131,14 +137,13 @@ def _line(service, line: BankLine) -> BankLineResponse:  # noqa: ANN001
 
 
 def _suggestion(service, row: Suggestion) -> BankSuggestionResponse:  # noqa: ANN001
-    confirmed = service.store.confirmed_for_line(row.line_id)
-    actionable = row.status == "pending" and confirmed is None
+    status, actionable = service.suggestion_view(row)
     return BankSuggestionResponse(
         id=row.id,
         line_id=row.line_id,
         target_id=row.target_id,
         target_kind=row.target_kind,
-        status=row.status,
+        status=status,
         amount_score=row.parts.amount_score,
         date_score=row.parts.date_score,
         merchant_score=row.parts.merchant_score,
@@ -181,7 +186,7 @@ async def import_statement(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BankImportResponse:
     response.headers.update(NO_STORE)
-    key = _key(request, idempotency_key)
+    key = required_key(request, idempotency_key)
     scope = _scope(request, person)
     actor_id = UUID(scope.actor_id or scope.person_id)
     content = await statement.read(_MAX_BYTES + 1)
@@ -218,7 +223,7 @@ async def import_statement(
             idempotency_key=key,
         )
     except BankMatchingError as error:
-        raise _fail(request, error) from None
+        raise bank_problem(request, error) from None
     logger.info(
         "business bank import space={} reader={} inserted={} unchanged={}",
         scope.owner.space_id,
@@ -262,42 +267,8 @@ def list_suggestions(
             status=status,
         )
     except BankMatchingError as error:
-        raise _fail(request, error) from None
+        raise bank_problem(request, error) from None
     return [_suggestion(service, row) for row in rows]
-
-
-@router.post(
-    "/suggestions/{suggestion_id}/confirm",
-    response_model=BankSuggestionResponse,
-    dependencies=[Depends(require_bank_surface)],
-)
-def confirm_suggestion(
-    request: Request,
-    response: Response,
-    suggestion_id: UUID,
-    person: Annotated[BusinessPerson, Depends(require_business_person)],
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> BankSuggestionResponse:
-    return _decide(
-        request, response, person, suggestion_id, idempotency_key, confirm=True
-    )
-
-
-@router.post(
-    "/suggestions/{suggestion_id}/decline",
-    response_model=BankSuggestionResponse,
-    dependencies=[Depends(require_bank_surface)],
-)
-def decline_suggestion(
-    request: Request,
-    response: Response,
-    suggestion_id: UUID,
-    person: Annotated[BusinessPerson, Depends(require_business_person)],
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> BankSuggestionResponse:
-    return _decide(
-        request, response, person, suggestion_id, idempotency_key, confirm=False
-    )
 
 
 @router.get(
@@ -338,43 +309,13 @@ def list_unmatched(
             space_id=space_id, period_start=period_start, period_end=period_end
         )
     except BankMatchingError as error:
-        raise _fail(request, error) from None
+        raise bank_problem(request, error) from None
     return UnmatchedChargesResponse(
         count=len(lines),
         period_start=period_start,
         period_end=period_end,
         lines=[_line(service, line) for line in lines],
     )
-
-
-def _decide(
-    request: Request,
-    response: Response,
-    person: BusinessPerson,
-    suggestion_id: UUID,
-    idempotency_key: str | None,
-    *,
-    confirm: bool,
-) -> BankSuggestionResponse:
-    response.headers.update(NO_STORE)
-    key = _key(request, idempotency_key)
-    scope = _scope(request, person)
-    actor_id = UUID(scope.actor_id or scope.person_id)
-    service = bank_matching_service()
-    if service is None:
-        raise unavailable_problem(request)
-    action = service.confirm_suggestion if confirm else service.decline_suggestion
-    try:
-        row = action(
-            space_id=UUID(scope.owner.space_id),
-            actor_id=actor_id,
-            capabilities=_capabilities(scope.owner.space_id, person.person_id),
-            suggestion_id=suggestion_id,
-            idempotency_key=key,
-        )
-    except BankMatchingError as error:
-        raise _fail(request, error) from None
-    return _suggestion(service, row)
 
 
 def _mapping(
