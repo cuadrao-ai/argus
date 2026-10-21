@@ -933,6 +933,8 @@ def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch)
         response = client.get("/business/workspace")
         assert response.status_code == 200, response.text
         assert set(response.json()) == {
+            "country",
+            "currency",
             "accounts",
             "currencies",
             "assistant_available",

@@ -15458,6 +15458,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         name_required:
           type: boolean
         name_prompt_seen:
@@ -15469,6 +15473,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
       - name_required
       - name_prompt_seen
       - show_prompt
@@ -15487,6 +15493,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         name_required:
           type: boolean
         name_prompt_seen:
@@ -15496,6 +15506,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
       - name_required
       - name_prompt_seen
     BusinessOverview:
@@ -15509,6 +15521,10 @@ components:
         today:
           type: string
           format: date
+        country:
+          type: string
+        currency:
+          type: string
         totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
@@ -15555,6 +15571,8 @@ components:
       - from
       - to
       - today
+      - country
+      - currency
       - totals
       - awaiting_review
       - needs_attention
@@ -15606,11 +15624,17 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
       additionalProperties: false
       type: object
       required:
       - id
       - name
+      - country
+      - currency
     BusinessSpaces:
       properties:
         spaces:
@@ -15679,6 +15703,10 @@ components:
       - label
     BusinessWorkspace:
       properties:
+        country:
+          type: string
+        currency:
+          type: string
         accounts:
           items:
             $ref: '#/components/schemas/BusinessAccount'
@@ -15696,6 +15724,8 @@ components:
       additionalProperties: false
       type: object
       required:
+      - country
+      - currency
       - accounts
       - currencies
       - assistant_available
@@ -28418,6 +28448,14 @@ components:
             enum:
             - en
             - es-419
+          - type: 'null'
+        country:
+          anyOf:
+          - type: string
+            enum:
+            - DO
+            - US
+            - CA
           - type: 'null'
       additionalProperties: false
       type: object

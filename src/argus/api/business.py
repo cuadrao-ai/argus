@@ -88,12 +88,18 @@ def chosen_scope(request: Request, user_id: str) -> BusinessScope | None:
     found = access.granted(user_id, grant_id)
     if found is None:
         raise grant_not_live_problem(request)
+    spaces = business_spaces()
+    space = spaces.get(found.space_id) if spaces is not None else None
+    if space is None:
+        raise space_missing_problem(request)
     return BusinessScope(
         person_id=found.owner_id,
         owner=BusinessSpace(found.space_id),
         actor_id=user_id,
         grant_id=found.grant_id,
         role=found.role,  # type: ignore[arg-type]
+        country=space.country,
+        currency=space.currency,
     )
 
 
