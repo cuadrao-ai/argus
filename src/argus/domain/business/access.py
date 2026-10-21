@@ -155,6 +155,10 @@ class AccessStore(Protocol):
         own first; the name comes from the space, never from the client."""
         ...
 
+    def capabilities(self, space_id: str, grantee_id: str) -> tuple[str, ...]:
+        """What this person's live grant on the space allows, or nothing."""
+        ...
+
     def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
         """One live grant of this person, by id, or None: a grant that is not
         theirs, revoked or expired answers the same None."""
@@ -373,6 +377,19 @@ class PostgresAccessStore:
         "     and own.issuer_id=own.grantee_id and own.revoked_at is null"
         "     and (own.expires_at is null or own.expires_at > clock_timestamp())))"
     )
+
+    def capabilities(self, space_id: str, grantee_id: str) -> tuple[str, ...]:
+        from argus.domain.business.authority import ActionError, authorize
+        from argus.domain.business.contracts.authority import TrustedActor
+
+        actor = TrustedActor(
+            actor_id=UUID(grantee_id), actor_kind="member", space_id=UUID(space_id)
+        )
+        with self.pool.connection() as connection, connection.transaction():
+            try:
+                return tuple(sorted(authorize(connection, actor).capabilities))
+            except ActionError:
+                return ()
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
         with self.pool.connection() as connection:

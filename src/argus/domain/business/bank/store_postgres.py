@@ -26,7 +26,7 @@ from argus.domain.business.bank.model import (
     TargetKind,
 )
 
-_LINE = """
+LINE_COLUMNS = """
     id, space_id, bank_account_id, first_import_id, occurred_on, description,
     normalized_description, amount, currency, raw_line, line_hash, created_at
 """
@@ -130,7 +130,7 @@ class PostgresBankStore:
     def upsert_line(self, line: BankLine) -> tuple[BankLine, bool]:
         inserted = self._one(
             f"""
-            insert into public.business_bank_lines ({_LINE})
+            insert into public.business_bank_lines ({LINE_COLUMNS})
             values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             on conflict (
                 bank_account_id, occurred_on, amount,
@@ -176,7 +176,7 @@ class PostgresBankStore:
     ) -> BankLine | None:
         row = self._one(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where bank_account_id = %s
                 and occurred_on = %s
@@ -192,38 +192,38 @@ class PostgresBankStore:
                 line_hash,
             ),
         )
-        return None if row is None else _line(row)
+        return None if row is None else line_from_row(row)
 
     def list_lines(
         self, space_id: UUID, *, period_start: date, period_end: date
     ) -> tuple[BankLine, ...]:
         rows = self._rows(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where space_id = %s and occurred_on between %s and %s
             order by occurred_on, id
             """,
             (space_id, period_start, period_end),
         )
-        return tuple(_line(row) for row in rows)
+        return tuple(line_from_row(row) for row in rows)
 
     def lines_for_import(self, space_id: UUID, import_id: UUID) -> tuple[BankLine, ...]:
         rows = self._rows(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where space_id = %s and first_import_id = %s
             order by occurred_on, id
             """,
             (space_id, import_id),
         )
-        return tuple(_line(row) for row in rows)
+        return tuple(line_from_row(row) for row in rows)
 
     def get_line(self, space_id: UUID, line_id: UUID) -> BankLine:
         row = self._one(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where id = %s and space_id = %s
             """,
@@ -231,7 +231,7 @@ class PostgresBankStore:
         )
         if row is None:
             raise BankMatchingError("suggestion_not_found")
-        return _line(row)
+        return line_from_row(row)
 
     def get_pair(
         self, line_id: UUID, target_kind: TargetKind, target_id: str
@@ -400,7 +400,7 @@ def _import(row: dict[str, Any]) -> BankImport:
     )
 
 
-def _line(row: dict[str, Any]) -> BankLine:
+def line_from_row(row: dict[str, Any]) -> BankLine:
     raw = row["raw_line"]
     return BankLine(
         id=row["id"],

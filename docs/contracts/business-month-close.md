@@ -123,7 +123,7 @@ Two ITBIS rules are decisions, recorded on 2026-10-20 by the coordinator. Lucas 
 
 Receipt summaries and details, and expenses and their detail, carry the mark as `sin_comprobante` only when it is true. The draft dossier and every month-close and open-items line always carry it.
 
-This mark is not the bank matching state `sin_comprobante`. That state is an outgoing bank charge with no matched receipt. This mark is a recorded document that a person stated has no comprobante fiscal.
+This mark is not a bank matching state. A bank line with no matched document is `falta_comprobante`, and a bank line that needs no comprobante is `no_lleva_comprobante`. This mark is a recorded document that a person stated has no comprobante fiscal.
 
 ## Venta
 
