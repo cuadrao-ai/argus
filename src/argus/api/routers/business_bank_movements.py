@@ -73,6 +73,13 @@ def list_movements(
     sense: Literal["charge", "deposit"] | None = None,
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 50,
     cursor: Annotated[str | None, Query(max_length=512)] = None,
+    currency: Annotated[
+        str | None,
+        Query(
+            pattern=r"^[A-Z]{3}$",
+            description="ISO 4217 code. Items and totals hold only this currency; `other_currencies` counts the rows left out.",
+        ),
+    ] = None,
 ):
     response.headers.update(NO_STORE)
     if period_end < period_start:
@@ -87,6 +94,7 @@ def list_movements(
             sense=sense,
             limit=limit,
             cursor=cursor,
+            currency=currency,
         )
     except InvalidCursor:
         raise _refuse(request, 422, "invalid_cursor") from None

@@ -161,13 +161,29 @@ class MovementTotals(BaseModel):
     counts: MovementCounts
 
 
+class OtherCurrencyCount(BaseModel):
+    currency: str
+    count: int
+
+
 class MovementsResponse(BaseModel):
     period_start: date
     period_end: date
     segment: Literal["por_igualar", "igualadas", "todas"]
     sense: Literal["charge", "deposit"] | None
+    currency: str | None = Field(
+        default=None,
+        description="The chosen currency. Items and totals hold only that currency while set.",
+    )
     accounts: list[AccountCoverage]
     totals: list[MovementTotals]
+    counts: MovementCounts = Field(
+        description="The period's counts across every currency, whatever the segment, sense, currency or page."
+    )
+    other_currencies: list[OtherCurrencyCount] = Field(
+        default_factory=list,
+        description="Rows of the segment and sense that the chosen currency leaves out, per other currency. Empty while no currency is chosen.",
+    )
     items: list[MovementItem]
     next_cursor: str | None
 

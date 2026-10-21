@@ -53,6 +53,31 @@ def _statement(rows: list[tuple[str, str, str, str]]) -> bytes:
     return ("\n".join(lines) + "\n").encode()
 
 
+def _foreign_line(world, listed: dict, import_id: str, day: str, amount: str) -> str:  # noqa: ANN001
+    """A statement line in another currency, written as the bank would have it.
+    An import refuses a line outside the account's currency, so the row is
+    inserted directly; the read must still keep it apart from the account's."""
+
+    with Connection.connect(shared.DSN) as db:
+        return str(
+            db.execute(
+                "insert into public.business_bank_lines ("
+                " space_id, bank_account_id, first_import_id, occurred_on, description,"
+                " normalized_description, amount, currency, raw_line, line_hash)"
+                " values (%s, %s, %s, %s, 'PAGO USD', 'pago usd', %s, 'USD',"
+                " '{\"synthetic\": true}'::jsonb, %s) returning id",
+                (
+                    world.alice.space_id,
+                    listed["accounts"][0]["bank_account_id"],
+                    import_id,
+                    day,
+                    amount,
+                    uuid4().hex * 2,
+                ),
+            ).fetchone()[0]
+        )
+
+
 def _import(world, account: str, content: bytes) -> dict:  # noqa: ANN001
     answer = world.client.post(
         f"{BANK}/imports",
@@ -220,6 +245,70 @@ def test_movements_carry_state_document_and_totals(bank) -> None:  # noqa: ANN00
     assert matched["counterparty"] == "Ferreteria La Esquina"
     assert matched["document"]["activity_id"] == hardware
     assert matched["suggestions"] == []
+
+
+def test_the_table_follows_the_chosen_currency_and_counts_span_them(bank) -> None:  # noqa: ANN001
+    owner = bank.alice.headers
+    checking = _checking(bank)
+    imported = _import(
+        bank,
+        checking,
+        _statement(
+            [
+                ("10/10/2026", "DEP CLIENTE UNO", "", "5000.00"),
+                ("12/10/2026", "COMISION MANEJO", "150.00", ""),
+            ]
+        ),
+    )
+    listed = _movements(bank, owner)
+    usd_fee = _foreign_line(bank, listed, imported["id"], "2026-10-13", "-20")
+    usd_sale = _foreign_line(bank, listed, imported["id"], "2026-10-14", "300")
+
+    every = _movements(bank, owner)
+    counts = {
+        "movimientos": 4,
+        "igualadas": 0,
+        "no_lleva_comprobante": 0,
+        "sugerencias": 0,
+        "falta_comprobante": 4,
+        "sin_movimiento": 0,
+        "por_igualar": 4,
+    }
+    assert (every["currency"], every["other_currencies"], every["counts"]) == (
+        None,
+        [],
+        counts,
+    )
+    assert [block["currency"] for block in every["totals"]] == ["DOP", "USD"]
+    assert {item["id"] for item in every["items"]} > {usd_fee, usd_sale}
+
+    dollars = _movements(bank, owner, currency="USD")
+    assert [item["id"] for item in dollars["items"]] == [usd_sale, usd_fee]
+    assert dollars["currency"] == "USD"
+    assert [block["currency"] for block in dollars["totals"]] == ["USD"]
+    assert (dollars["totals"][0]["entradas"], dollars["totals"][0]["salidas"]) == (
+        "300.00",
+        "20.00",
+    )
+    assert dollars["other_currencies"] == [{"currency": "DOP", "count": 2}]
+    assert dollars["counts"] == counts
+
+    charges = _movements(bank, owner, currency="DOP", sense="charge")
+    assert [item["description"] for item in charges["items"]] == ["COMISION MANEJO"]
+    assert charges["other_currencies"] == [{"currency": "USD", "count": 1}]
+    assert charges["counts"] == counts
+
+    euros = _movements(bank, owner, currency="EUR")
+    assert (euros["items"], euros["totals"]) == ([], [])
+    assert euros["other_currencies"] == [
+        {"currency": "DOP", "count": 2},
+        {"currency": "USD", "count": 2},
+    ]
+
+    lower = bank.client.get(
+        f"{BANK}/movements", params={**OCTOBER, "currency": "usd"}, headers=owner
+    )
+    assert lower.status_code == 422, lower.text
 
 
 def test_a_settled_document_the_bank_reached_has_no_movement(bank) -> None:  # noqa: ANN001

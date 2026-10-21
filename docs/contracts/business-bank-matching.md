@@ -131,7 +131,7 @@ Query `period_start` and `period_end` as dates. `period_end` before `period_star
 
 Transacciones. Every line of the period, newest first, with its state. The caller needs `read`. Scope and grants are the month-close rule: the caller's own Business, or the client named by `X-Business-Grant`. It needs the durable Business store.
 
-Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` of `por_igualar`, `igualadas`, or `todas` (default). Optional `sense` of `charge` or `deposit`. Optional `limit` from 1 to 200, default 50. Optional `cursor` from the previous page's `next_cursor`.
+Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` of `por_igualar`, `igualadas`, or `todas` (default). Optional `sense` of `charge` or `deposit`. Optional `currency`, an ISO 4217 code in upper case (anything else is 422): the table follows that currency. Optional `limit` from 1 to 200, default 50. Optional `cursor` from the previous page's `next_cursor`.
 
 ```json
 {
@@ -139,6 +139,7 @@ Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` o
   "period_end": "2026-10-31",
   "segment": "por_igualar",
   "sense": null,
+  "currency": "DOP",
   "accounts": [
     {
       "account_id": "uuid",
@@ -169,6 +170,16 @@ Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` o
       }
     }
   ],
+  "counts": {
+    "movimientos": 5,
+    "igualadas": 0,
+    "no_lleva_comprobante": 1,
+    "sugerencias": 2,
+    "falta_comprobante": 2,
+    "sin_movimiento": 1,
+    "por_igualar": 5
+  },
+  "other_currencies": [{"currency": "USD", "count": 1}],
   "items": [
     {
       "kind": "movement",
@@ -233,9 +244,12 @@ Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` o
 | `document` | The matched document, or the `sin_movimiento` document. Null otherwise. |
 | `suggestions` | Only on a `sugerencia` line. Best `confidence` first. Each `reasons` entry is a data code the web words: `monto_exacto`, `misma_fecha`, `fecha_cercana` with `days` (document date minus movement date), and `nombre_parecido`. |
 | `covered_through` | The newest movement date imported for that account. A date after it is unknown, not missing. |
-| `totals` | One block per currency for the whole period, whatever the segment, sense, or page. Currencies are never added together. `salidas` is a positive amount. `por_igualar` adds the size of every `sugerencia`, `falta_comprobante`, and `sin_movimiento` row. `counts.por_igualar` counts those rows. |
+| `totals` | One block per currency for the whole period, whatever the segment, sense, or page. Currencies are never added together. `salidas` is a positive amount. `por_igualar` adds the size of every `sugerencia`, `falta_comprobante`, and `sin_movimiento` row. `counts.por_igualar` counts those rows. With `currency`, only that currency's block, and an empty list when the period has no row in it. |
+| `counts` | The period's counts across every currency, the same keys as a block's `counts` added over every block, whatever the segment, sense, currency, or page. Counts are not money. The web renders these and adds nothing. |
+| `currency` | The chosen currency, or null. |
+| `other_currencies` | With `currency`, how many rows of the chosen segment and sense are in each other currency, sorted by code, so the table can say what it leaves out. Empty without `currency`. |
 
-`segment=por_igualar` lists `sugerencia` rows first (best offer first), then `falta_comprobante`, then `sin_movimiento`, each newest first. `igualadas` lists `igualada` and `no_lleva_comprobante`. `todas` lists every line and no document row. `sense` filters lines by sense and documents by kind.
+`segment=por_igualar` lists `sugerencia` rows first (best offer first), then `falta_comprobante`, then `sin_movimiento`, each newest first. `igualadas` lists `igualada` and `no_lleva_comprobante`. `todas` lists every line and no document row. `sense` filters lines by sense and documents by kind. `currency` keeps only the rows in that currency; the page and `next_cursor` walk those rows.
 
 A document is `sin_movimiento` when it is recorded on the bank-bound account, it is settled (`pagado` or `cobrado`), its date is in the period, no line is matched to it, and its settlement date plus the 5-day match window is on or before `covered_through`.
 
