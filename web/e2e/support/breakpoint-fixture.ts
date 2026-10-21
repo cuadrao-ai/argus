@@ -357,6 +357,8 @@ export async function installBreakpointFixture(
     usage?: UsageState;
     emptyChat?: boolean;
     consent?: "accepted" | "required";
+    /** Whether the account ever saved its language. Default true; false leaves the row default. */
+    languageChosen?: boolean;
   } = {},
 ): Promise<void> {
   const account = options.account ?? "registered";
@@ -365,6 +367,7 @@ export async function installBreakpointFixture(
   const usage = options.usage ?? "healthy";
   const emptyChat = options.emptyChat ?? false;
   const consent = options.consent ?? "accepted";
+  const languageChosen = options.languageChosen ?? true;
   const isGuest = account === "guest";
   const isSpanish = language === "es-419";
 
@@ -412,7 +415,7 @@ export async function installBreakpointFixture(
           onboarding: {
             completed: true,
             stage: "completed",
-            language_confirmed: true,
+            language_confirmed: languageChosen,
             primary_goal: null,
           },
         },
