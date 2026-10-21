@@ -3762,7 +3762,7 @@ None of these rows is a financial record or affects balances.
   a unique index allows one event per `(user_id, activity_id)`, so one purchase
   cannot be recorded or linked twice. A partial unique index
   (`financial_import_events_sale_ncf_idx`, migration
-  `20261021030000_business_sale_ncf_once.sql`) allows one accepting or accepted
+  `20261021050000_business_sale_ncf_once.sql`) allows one accepting or accepted
   sale (`facts.kind` income) per `owner_space_id` and normalized NCF or e-CF, so
   two approvals of the same sale comprobante cannot both land.
 - `financial_import_account_links`: person-confirmed mapping from
