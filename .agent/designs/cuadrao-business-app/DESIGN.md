@@ -455,9 +455,12 @@ table only.
 - A sort arrow shows only on the sorted column.
 - Density: Compacto 40px, Normal 48px (the default), Amplio 56px. Type stays
   14px in every mode; inputs stay 16px. The choice sits in a quiet view
-  options button and is kept per person (in the browser until the profile
-  keeps it; owner `table-density.ts`). Phones ignore it: rows become two-line
+  options button and is kept per person on the account (`table_density` on
+  `/me`; owner `table-density.ts`). Phones ignore it: rows become two-line
   list items of at least 64px.
+- Ventas and Entradas in records mode (no bank data) wait on a server read of
+  the period's ventas; until then records mode lists gastos and Entradas
+  shows "-".
 - Single-letter keys work only while focus is in the table and not in a field.
 
 ## 4. Accessibility
