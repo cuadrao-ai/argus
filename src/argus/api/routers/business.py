@@ -107,6 +107,7 @@ from argus.api.routers.business_bank import router as business_bank_router
 from argus.api.routers.business_bank_movements import (
     router as business_bank_movements_router,
 )
+from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
@@ -151,6 +152,7 @@ router = APIRouter(
 )
 router.include_router(business_bank_router)
 router.include_router(business_bank_movements_router)
+router.include_router(business_search_router)
 _CONFLICTS = frozenset(
     {
         "receipt_not_prepared",

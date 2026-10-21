@@ -2,7 +2,7 @@
 
 Records come from their owners on every request: the money service and the
 overlaid receipt views (``search_with_drafts``), the bridge drafts' fiscal
-facts, and the email queue. Nothing here is stored.
+facts, and the email queue. The member's opens (``search_memory``) rank them.
 """
 
 from __future__ import annotations
@@ -11,11 +11,13 @@ from typing import Any
 
 from argus.api.business import BusinessContext
 from argus.api.business_drafts import search_with_drafts
+from argus.api.business_spaces import business_search_memory
 from argus.api.email_intake import email_intake
 from argus.domain import financial_search
 from argus.domain.business import search as business_search
 from argus.domain.business.contracts.facts import BusinessResolution, Known
 from argus.domain.business.search import KINDS, SearchKind, SearchQuery
+from argus.domain.business.search_memory import ranked
 from argus.domain.business.transactions import GrantImportStore, transaction
 
 # Search reads the Business's newest deliveries, as many as the email inbox lists.
@@ -104,22 +106,25 @@ def search(
     limit: int,
     cursor: str | None,
 ) -> dict[str, Any]:
-    """A page of each kind, or of the one ``kind`` asked for. A cursor is
-    scoped to the kind it was issued for, so it continues only that ``kind``."""
+    """A page of each kind, or of the one ``kind`` asked for, with the records
+    this member opened before ranked first. A cursor is scoped to the kind it
+    was issued for, so it continues only that ``kind``; an open recorded since
+    reorders the list, so its cursor is stale."""
 
     query = business_search.parse(q)
     found = search_with_drafts(context, query, fiscal_numbers(context))
     found["email_deliveries"], found["email_senders"] = _email_hits(context, query)
+    space_id = context.scope.owner.space_id
     member = context.scope.actor_id or context.scope.person_id
+    memory = business_search_memory()
+    opens = memory.opens(space_id, member) if memory is not None else {}
     result: dict[str, Any] = {name: [] for name in KINDS}
     result["next_cursors"] = dict.fromkeys(KINDS)
     for name in (kind,) if kind else KINDS:
-        items = found[name]
+        items = ranked(found[name], name, opens)
         result[name], result["next_cursors"][name] = financial_search.page(
             items,
-            scope=financial_search.digest(
-                [context.scope.owner.space_id, member, q, name]
-            ),
+            scope=financial_search.digest([space_id, member, q, name]),
             snapshot=financial_search.digest([item["id"] for item in items]),
             limit=limit,
             cursor=cursor,

@@ -331,6 +331,26 @@ async def test_transient_storage_failure_keeps_the_delivery_retryable_and_resume
 
 
 @pytest.mark.asyncio
+async def test_parts_by_delivery_reads_one_businesses_parts_in_the_order_of_parts():
+    world = rig(
+        message(("a.png", "image/png", png()), ("b.png", "image/png", png()))
+    )
+    space = world.route.space_id
+    first = world.enqueue()
+    assert await world.runtime.next()
+    world.enqueue()
+    assert await world.runtime.next()
+    found = world.store.parts_by_delivery(space)
+    assert set(found) == {item.id for item in world.store.list(space, limit=None)}
+    assert len(found) == 2
+    assert found[first.id] == world.store.parts(first.id)
+    assert all(len(parts) == 2 for parts in found.values())
+    assert world.store.parts_by_delivery(str(uuid4())) == {}
+    assert len(world.store.list(space, limit=None)) == 2
+    assert len(world.store.list(space, limit=1)) == 1
+
+
+@pytest.mark.asyncio
 async def test_provider_outage_backs_off_caps_attempts_and_waits_for_an_explicit_retry():
     world = rig()
     world.provider.failure = EmailProviderError("provider_unavailable", retryable=True)
