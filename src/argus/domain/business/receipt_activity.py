@@ -2,14 +2,15 @@
 
 Two counts with different meanings come from here and nowhere else: ``unread``
 is new activity this person has not opened; ``pending_review`` is every row the
-Bandeja lists, opened or not. The Bandeja and the Resumen both read them."""
+Bandeja lists, opened or not, emails that are a row of their own included. The
+Bandeja and the Resumen both read them."""
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterable, Literal, Mapping
+from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from argus.domain.business.receipts import CLOSED
 
@@ -90,23 +91,32 @@ def awaiting_owner(view: Mapping[str, Any]) -> bool:
     return not view.get("email_original") and view["status"] not in CLOSED
 
 
-def inbox_counts(views: Iterable[Mapping[str, Any]], notes: int = 0) -> dict[str, int]:
+def inbox_counts(
+    views: Iterable[Mapping[str, Any]],
+    notes: int = 0,
+    emails: Sequence[str] = (),
+) -> dict[str, int]:
     """What waits for a person in the Bandeja: every receipt row it lists plus
-    ``notes``, the saved notes awaiting review that no receipt carries, and
-    how many of those receipts need attention."""
+    ``notes``, the saved notes awaiting review that no receipt carries, plus
+    ``emails``, the standing of each email that is a row of its own. An email
+    still being read waits like a receipt being read; one that brought no
+    receipt also needs attention."""
 
     pending = [view for view in views if awaiting_owner(view)]
     return {
-        "pending_review_count": len(pending) + notes,
-        "needs_attention_count": sum(
-            view["status"] == "needs_attention" for view in pending
-        ),
+        "pending_review_count": len(pending) + notes + len(emails),
+        "needs_attention_count": emails.count("no_receipt")
+        + sum(view["status"] == "needs_attention" for view in pending),
     }
 
 
-def aggregate_activity(items: Iterable[ReceiptActivity]) -> dict[str, Any]:
+def aggregate_activity(
+    items: Iterable[ReceiptActivity], reading_emails: int = 0
+) -> dict[str, Any]:
+    """``reading_emails``: emails still being read count with receipts being read."""
+
     rows = list(items)
-    reading = sum(row.state == "reading" for row in rows)
+    reading = sum(row.state == "reading" for row in rows) + reading_emails
     unread = sum(row.unread for row in rows)
     return {
         "reading_count": reading,

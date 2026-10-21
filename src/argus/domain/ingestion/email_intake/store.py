@@ -119,7 +119,11 @@ class EmailStore(Protocol):
 
     def parts(self, delivery_id: str) -> list[EmailDeliveryPart]: ...
 
-    def list(self, space_id: str, *, limit: int = 50) -> list[EmailDelivery]: ...
+    def parts_by_delivery(self, space_id: str) -> dict[str, list[EmailDeliveryPart]]: ...
+
+    def list(
+        self, space_id: str, *, limit: int | None = 50
+    ) -> list[EmailDelivery]: ...
 
     def get(self, delivery_id: str, space_id: str) -> EmailDelivery | None: ...
 
@@ -628,7 +632,23 @@ class PostgresEmailStore(PostgresAddressing):
             ).fetchall()
             return [EmailDeliveryPart(**row) for row in rows]
 
-    def list(self, space_id: str, *, limit: int = 50) -> list[EmailDelivery]:
+    def parts_by_delivery(self, space_id: str) -> dict[str, list[EmailDeliveryPart]]:
+        with (
+            self.pool.connection() as connection,
+            connection.cursor(row_factory=dict_row) as cursor,
+        ):
+            rows = cursor.execute(
+                "select p.delivery_id::text as delivery_id,p.id,p.filename,p.media_type,p.state,p.document_id::text,p.error_code "
+                "from public.business_email_parts p join public.business_email_deliveries d on d.id=p.delivery_id "
+                "where d.space_id=%s order by p.id",
+                (space_id,),
+            ).fetchall()
+        found: dict[str, list[EmailDeliveryPart]] = {}
+        for row in rows:
+            found.setdefault(row.pop("delivery_id"), []).append(EmailDeliveryPart(**row))
+        return found
+
+    def list(self, space_id: str, *, limit: int | None = 50) -> list[EmailDelivery]:
         with (
             self.pool.connection() as connection,
             connection.cursor(row_factory=dict_row) as cursor,
@@ -1129,6 +1149,14 @@ class InMemoryEmailStore(MemoryAddressing):
             self._parts.get(delivery_id, {})[key]
             for key in sorted(self._parts.get(delivery_id, {}))
         ]
+
+    @_synchronized
+    def parts_by_delivery(self, space_id):
+        return {
+            delivery.id: self.parts(delivery.id)
+            for delivery in self._deliveries.values()
+            if delivery.space_id == space_id and self._parts.get(delivery.id)
+        }
 
     @_synchronized
     def list(self, space_id, *, limit=50):

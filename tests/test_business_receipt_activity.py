@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from argus.domain.business.receipt_activity import (
     acknowledge,
     aggregate_activity,
+    inbox_counts,
     project_activity,
 )
 
@@ -84,3 +85,37 @@ def test_saved_unread_counts_but_failed_read_requires_recovery():
     assert failed.state == "read_failed"
     assert failed.completion_cursor is None
     assert aggregate_activity([saved, failed])["unread_count"] == 1
+
+
+def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
+    views = [
+        receipt(id="a", status="needs_attention"),
+        receipt(id="b"),
+        receipt(id="c", status="confirmed"),
+        receipt(id="d", email_original=True, status="needs_attention"),
+    ]
+    assert inbox_counts(views) == {"pending_review_count": 2, "needs_attention_count": 1}
+    assert inbox_counts(views, notes=1, emails=["no_receipt", "no_receipt"]) == {
+        "pending_review_count": 5,
+        "needs_attention_count": 3,
+    }
+    assert inbox_counts(views, emails=["reading", "no_receipt", "reading"]) == {
+        "pending_review_count": 5,
+        "needs_attention_count": 2,
+    }
+
+
+def test_emails_being_read_count_as_reading_and_make_the_badge_work():
+    unread = project_activity(receipt(status="saved"), completion="v1", seen=None)
+    assert aggregate_activity([unread]) == {
+        "reading_count": 0,
+        "unread_count": 1,
+        "presentation": "unread",
+    }
+    assert aggregate_activity([unread], reading_emails=2) == {
+        "reading_count": 2,
+        "unread_count": 1,
+        "presentation": "working",
+    }
+    assert aggregate_activity([])["presentation"] == "none"
+    assert aggregate_activity([], reading_emails=1)["presentation"] == "working"
