@@ -3443,6 +3443,28 @@ claims produce one winner. Renaming preserves the timestamp. Client roles have
 no direct write grant on this state. Required naming for owner invites and
 exports derives from the current name, independently of this timestamp.
 
+### Profile photos and Business logos
+
+`20261021010000_profile_images.sql` adds the private `profile-images` Storage
+bucket (`image/webp` only, 1 MiB) and two server-only tables with RLS and no
+client grant: `profile_photos (user_id primary key → auth.users on delete
+cascade, sha256, updated_at)` and `business_logos (space_id primary key →
+spaces on delete cascade, sha256, updated_at)`. A row means the subject has a
+picture; the picture is the object at `people/{user_id}/256.webp` or
+`business/{space_id}/256.webp`, a path the server derives from the key, so the
+row stores no path. The server re-encodes every upload to one 256 px WebP
+square rebuilt from pixels, so no EXIF, GPS, ICC or XMP data is stored, and
+`sha256` is that object's digest; it versions the signed URL. Only the service
+role reads the rows or the bucket; readers get a signed URL (about an hour)
+from the API, which answers the visibility rule: a person's photo to that
+person and to a Business owner whose access list names them, a logo to the
+Business's owner and live members. The `spaces` row is unchanged. The row goes
+with its auth user or space; the object does not: account deletion erases
+`people/{user_id}/` and `business/{space_id}/` for every space the person
+created in its `storage` step (`spaces.created_by` cascades with the user). No
+Business purge exists yet; the one #1222 adds must erase
+`business/{space_id}/` before it deletes the space row.
+
 ### Business receipt reading consent and attention
 
 `20261014130000_business_receipt_reading_activity.sql` adds server-only `business_receipt_reading_consents`. Each generation records the Business, affirmative owner, scope version 1, displayed disclosure, disclosed configured route and accepted time. Revocation ends that generation. `business_receipt_consent_commands` records every scoped enable, no-op and disable key/hash under the owner lock. Replays cannot override later choices. Existing channel-specific consent does not backfill it. DocumentDraft JSON captures `business_reading_consent_id` at capture or explicit backlog/recovery queue. Dispatch and result use validate that generation, current route and original grant.

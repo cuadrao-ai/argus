@@ -172,6 +172,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_email_retired_aliases",
         "public.business_email_routes",
         "public.business_email_senders",
+        "public.business_logos",
         "public.business_questions",
         "public.business_receipt_activity_baseline",
         "public.business_receipt_consent_commands",
@@ -241,6 +242,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.private_alpha_access_welcome_claims",
         "public.private_alpha_access_welcome_deliveries",
         "public.private_alpha_allowlist",
+        "public.profile_photos",
         "public.profiles",
         "public.public_excerpt_snapshots",
         "public.refusal_log",
@@ -785,7 +787,7 @@ def test_a_signed_in_person_writes_and_reads_only_their_own_consent(
 # Storage. Buckets no client may reach, and every storage.objects policy; an
 # empty policy list means only the service role reads or writes any object.
 
-PRIVATE_BUCKETS = frozenset({"financial-document-sources"})
+PRIVATE_BUCKETS = frozenset({"financial-document-sources", "profile-images"})
 STORAGE_OBJECT_POLICIES: frozenset[str] = frozenset()
 
 

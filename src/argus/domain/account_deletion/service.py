@@ -84,6 +84,7 @@ from argus.domain.apple_sign_in.credentials_postgres import (
 from argus.domain.household import deletion as household_deletion
 from argus.domain.ingestion.documents.objects import SourceObjects, owner_prefix
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.profile_images import ProfileImages, business, person
 from argus.observability.analytics_deletion import (
     NOT_APPLICABLE_REASON,
     AnalyticsDeletion,
@@ -195,6 +196,7 @@ class AccountDeletionService:
         secret_box: SecretBox | None = None,
         allow_fake_analytics: bool = False,
         source_objects: SourceObjects | None = None,
+        profile_images: ProfileImages | None = None,
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
         # The household repository owns the pool and binds one connection per
@@ -212,6 +214,7 @@ class AccountDeletionService:
         # no PostHog events at all (not_applicable, decision 1B).
         self._allow_fake_analytics = allow_fake_analytics
         self._sources = source_objects
+        self._profile_images = profile_images
         self._clock = clock
 
     # -- entry point -------------------------------------------------------------
@@ -1193,10 +1196,18 @@ class AccountDeletionService:
     ) -> str | None:
         """The reason while the person's Storage objects are still owed."""
 
-        if self._sources is None:
+        if self._sources is None and self._profile_images is None:
             return None
         try:
-            self._sources.delete(owner_prefix(user_id))
+            if self._sources is not None:
+                self._sources.delete(owner_prefix(user_id))
+            if self._profile_images is not None:
+                self._profile_images.erase(person(user_id))
+                # spaces.created_by cascades from auth.users, so every Business
+                # the person created goes at step 7, logo row included; the
+                # object does not, and is erased here while the row still names it.
+                for space_id in self._owned_spaces(user_id):
+                    self._profile_images.erase(business(space_id))
         except Exception as exc:
             logger.warning(
                 "Account deletion could not erase document sources",
@@ -1205,6 +1216,13 @@ class AccountDeletionService:
             return "storage_delete_failed"
         self._record_step(subject, "storage", "deleted", run=run)
         return None
+
+    def _owned_spaces(self, user_id: str) -> list[str]:
+        with self._households.connection() as connection:
+            rows = connection.execute(
+                "select id::text from public.spaces where created_by = %s", (user_id,)
+            ).fetchall()
+        return [row[0] for row in rows]
 
     def _analytics_at_open(self, origin: DeletionOrigin) -> dict[str, Any]:
         """Only the route opening a run can decide there are no events."""

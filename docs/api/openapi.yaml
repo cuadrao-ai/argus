@@ -2551,6 +2551,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/logo:
+    put:
+      tags:
+      - financial-accounts
+      - business
+      description: 'Replace the Business logo with the raw picture in the body
+
+        (`Content-Type: image/jpeg`, `image/png` or `image/webp`, at most 5 MiB).
+
+        It is stored as a 256 px WebP square with its metadata dropped.'
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessSpaceInfo'
+        '403':
+          description: '`business_permission_denied`: the live grant does not hold `prepare`.'
+        '413':
+          description: '`image_too_large`: the picture is over 5 MiB.'
+        '415':
+          description: '`image_media_type_unsupported`: not a JPEG, PNG or WebP.'
+        '422':
+          description: '`image_invalid`: the bytes are not a still picture of at least 64
+            pixels on each side.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      description: Remove the Business logo; removing an absent logo is a 204 too.
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: '`business_permission_denied`: the live grant does not hold `prepare`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/month-close:
     get:
       tags:
@@ -11461,6 +11543,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/me/photo:
+    put:
+      tags:
+      - profile
+      description: 'Replace the person''s photo with the raw picture in the body
+
+        (`Content-Type: image/jpeg`, `image/png` or `image/webp`, at most 5 MiB).
+
+        It is stored as a 256 px WebP square with its metadata dropped.'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '413':
+          description: '`image_too_large`: the picture is over 5 MiB.'
+        '415':
+          description: '`image_media_type_unsupported`: not a JPEG, PNG or WebP.'
+        '422':
+          description: '`image_invalid`: the bytes are not a still picture of at least 64
+            pixels on each side.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - profile
+      description: Remove the person's photo; removing an absent photo is a 204 too.
+      responses:
+        '204':
+          description: Successful Response
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/me/usage:
     get:
       tags:
@@ -14568,6 +14696,10 @@ components:
           - type: 'null'
         display_name:
           type: string
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
         capabilities:
           items:
             type: string
@@ -15004,6 +15136,10 @@ components:
           type: string
         name:
           type: string
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
         name_required:
           type: boolean
         name_prompt_seen:
@@ -15033,6 +15169,10 @@ components:
           type: string
         name:
           type: string
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
         name_required:
           type: boolean
         name_prompt_seen:
@@ -15148,6 +15288,10 @@ components:
           type: string
         name:
           type: string
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -15235,6 +15379,10 @@ components:
           type: boolean
         receipt_limits:
           $ref: '#/components/schemas/ReceiptLimits'
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -19419,6 +19567,10 @@ components:
           type: string
         name:
           type: string
+        logo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
         grant_id:
           type: string
         role:
@@ -27965,6 +28117,12 @@ components:
         public_account_access_enabled:
           type: boolean
           description: Server-authoritative permission to expose ordinary account creation.
+        photo_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: A signed URL to the person's 256 px profile photo, valid for about
+            an hour; null without one.
       type: object
       required:
       - user

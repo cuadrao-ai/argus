@@ -3097,9 +3097,14 @@ Retrieve the current authenticated user profile and preferences.
     },
     "created_at": "timestamp",
     "updated_at": "timestamp"
-  }
+  },
+  "photo_url": "https://.../object/sign/profile-images/people/<id>/256.webp?token=...&v=..."
 }
 ```
+
+`photo_url` is a signed URL to the person's 256 px profile photo, valid for
+about an hour, or null without one (always null for a guest). Re-read `/me`
+for a fresh one.
 
 ## `GET /me/usage`
 
@@ -3539,6 +3544,23 @@ was verified, so the person existed a moment ago.
 - **locale:** `en-US`, `es-419`
 
 *Note: `language` controls the AI response language and the static UI preference. `locale` controls formatting (dates, numbers, currency).*
+
+## `PUT /me/photo`
+
+Replace the person's profile photo. The body is the picture itself, cropped
+square by the client: `Content-Type: image/jpeg`, `image/png` or `image/webp`,
+at most 5 MiB, one still image of at least 64 pixels on each side. The server
+re-encodes it to a 256 px WebP square and drops every EXIF, GPS, ICC and XMP
+block; a non-square picture is center-cropped. The reply is the `GET /me`
+document with the fresh `photo_url`. Errors: 415 `image_media_type_unsupported`,
+413 `image_too_large`, 422 `image_invalid` (`context.reason` is `undecodable`,
+`too_small`, `animated` or `too_many_pixels`), 403
+`account_conversion_required` for a guest, 503 `profile_images_unavailable` or
+`profile_image_storage_unavailable`.
+
+## `DELETE /me/photo`
+
+Remove the person's profile photo. 204, also when there is none.
 
 ## Runtime Language Contract
 - User input may arrive in any supported language, currently English or Spanish (Latin America).
@@ -9482,7 +9504,7 @@ person starts their space, every route below except POST `/space` answers 404
   Without `name` the space is named "Mi negocio", or "My business" when
   `language` is `en`. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
-- GET `/api/v1/business/space` returns `{id, name}`, or 404
+- GET `/api/v1/business/space` returns `{id, name, logo_url}`, or 404
   `business_space_missing` before the space is started. The web bootstrap reads
   this endpoint before creation. It sends POST only after that exact 404, and
   propagates other failures without creating a space. Existing concurrent-call
@@ -9526,7 +9548,7 @@ person starts their space, every route below except POST `/space` answers 404
     stops a session mid-way and the header reveals nothing about any Business.
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
-    grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
+    logo_url, grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
     come from the spaces. Before it lists, the caller's pending invites
     become grants through the same idempotent accept that GET `/me` runs, so
     the first listing after sign-in already names an invited client's
@@ -9644,9 +9666,10 @@ person starts their space, every route below except POST `/space` answers 404
     `include_606` (`yes`, `no` or empty); a personal expense stays in the
     export with its mark.
   - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
-    capabilities, created_at, owner}], invites: [{id, email, created_at,
+    photo_url, capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at, state}]}`: live grants, the owner first, and unaccepted, unrevoked
     invites. `state` is `pending` or `expired`, computed by the server.
+    `photo_url` is the member's signed profile photo URL, or null.
   - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
     that email (case-insensitive) gets a read and prepare grant, never
     approve; any other email gets a pending invite that lasts 7 days and
@@ -9691,11 +9714,21 @@ accept path recorded.
 
 - GET `/api/v1/business/workspace` returns `{accounts, currencies,
   assistant_available: false, chat_available, receipt_limits: {max_bytes,
-  media_types}}`. `accounts` lists unarchived cash, checking, savings and credit
+  media_types}, logo_url}`. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no
   composer, no New chat and no Business Recents.
+- Logo. `logo_url` on `/space`, `/space/name`, `/space/name-prompt`, `/spaces`
+  and `/workspace` is a signed URL to the Business's 256 px logo, valid for
+  about an hour, or null. PUT `/api/v1/business/logo` replaces it with the
+  raw picture in the body (`image/jpeg`, `image/png` or `image/webp`, at most
+  5 MiB, re-encoded to a 256 px WebP square with its metadata dropped;
+  transparency is kept) and answers `{id, name, logo_url}` for the Business in
+  scope; DELETE `/api/v1/business/logo` removes it (204, also when absent).
+  Both take the grant header like every Business route and are allowed to the
+  owner and to a member whose live grant holds `prepare` (Editar); otherwise
+  403 `business_permission_denied`. Picture errors are those of `PUT /me/photo`.
 - POST `/api/v1/business/accounts` (`Idempotency-Key` required) takes
   `{nickname, type, currency}` and answers 201, or 200 with the same account on
   an exact replay.
