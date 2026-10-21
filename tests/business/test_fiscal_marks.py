@@ -332,7 +332,14 @@ def test_every_wire_that_carries_marks_declares_every_mark_and_answers_200():
 
     @app.get("/search", response_model=BusinessSearch)
     def search():  # noqa: ANN202
-        return {"expenses": [expense], "receipts": [receipt], "accounts": []}
+        lists = ("ventas", "accounts", "email_deliveries", "email_senders")
+        return {
+            **dict.fromkeys(lists, []),
+            "expenses": [expense],
+            "ventas": [expense],
+            "receipts": [receipt],
+            "next_cursors": dict.fromkeys((*lists, "expenses", "receipts")),
+        }
 
     @app.get("/receipts", response_model=ReceiptPage)
     def receipts():  # noqa: ANN202

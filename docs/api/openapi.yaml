@@ -3592,6 +3592,28 @@ paths:
           maximum: 20
           minimum: 1
           default: 5
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - expenses
+            - ventas
+            - receipts
+            - accounts
+            - email_deliveries
+            - email_senders
+            type: string
+          - type: 'null'
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 2048
+          - type: 'null'
       - name: X-Business-Grant
         in: header
         required: false
@@ -14865,6 +14887,10 @@ components:
           items:
             $ref: '#/components/schemas/BusinessExpense'
           type: array
+        ventas:
+          items:
+            $ref: '#/components/schemas/BusinessExpense'
+          type: array
         receipts:
           items:
             $ref: '#/components/schemas/ReceiptSummary'
@@ -14873,13 +14899,27 @@ components:
           items:
             $ref: '#/components/schemas/BusinessAccount'
           type: array
+        email_deliveries:
+          items:
+            $ref: '#/components/schemas/EmailDeliveryHit'
+          type: array
+        email_senders:
+          items:
+            $ref: '#/components/schemas/EmailSenderHit'
+          type: array
+        next_cursors:
+          $ref: '#/components/schemas/SearchCursors'
       additionalProperties: false
       type: object
       required:
       - expenses
+      - ventas
       - receipts
       - accounts
-      description: Each list is capped at the request's ``limit``; nothing is paged.
+      - email_deliveries
+      - email_senders
+      - next_cursors
+      description: A page of each list, or only of the ``kind`` asked for.
     BusinessSpaceInfo:
       properties:
         id:
@@ -17554,6 +17594,70 @@ components:
       - membership_id
       - expected_authorization_version
       - expected_plan_version
+    EmailDeliveryHit:
+      properties:
+        id:
+          type: string
+        sender:
+          anyOf:
+          - type: string
+          - type: 'null'
+        subject:
+          anyOf:
+          - type: string
+          - type: 'null'
+        received_at:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum:
+          - received
+          - processing
+          - partial
+          - captured
+          - rejected
+        inbox_group:
+          anyOf:
+          - type: string
+            enum:
+            - bandeja
+            - remitentes_nuevos
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - sender
+      - subject
+      - received_at
+      - state
+      - inbox_group
+      description: One email delivery; ``/business/email/deliveries/{id}`` opens it.
+    EmailSenderHit:
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum:
+          - address
+          - domain
+        value:
+          type: string
+        status:
+          type: string
+          enum:
+          - authorized
+          - blocked
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
+      - value
+      - status
+      description: One sender rule, as ``/business/email/senders`` lists it.
     EnableAIConsent:
       properties:
         action:
@@ -26078,6 +26182,42 @@ components:
       - run_count
       - decision_counts
       - last_touched_at
+    SearchCursors:
+      properties:
+        expenses:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ventas:
+          anyOf:
+          - type: string
+          - type: 'null'
+        receipts:
+          anyOf:
+          - type: string
+          - type: 'null'
+        accounts:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email_deliveries:
+          anyOf:
+          - type: string
+          - type: 'null'
+        email_senders:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - expenses
+      - ventas
+      - receipts
+      - accounts
+      - email_deliveries
+      - email_senders
+      description: Per list, the cursor to its next page; null when it has no more.
     SearchDecisionAction:
       properties:
         type:

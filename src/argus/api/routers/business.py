@@ -25,6 +25,7 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 from loguru import logger
 
+from argus.api import business_search
 from argus.api.business import (
     BusinessContext,
     BusinessPerson,
@@ -46,7 +47,6 @@ from argus.api.business_drafts import (
     receipt_summaries,
     receipt_summary,
     require_legacy_receipt_write,
-    search_with_drafts,
     unread_backlog,
     updates_with_drafts,
     upload_recorder,
@@ -108,9 +108,11 @@ from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.document_type import parse_document_type
+from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
 from argus.domain.business.transactions import GrantImportStore
+from argus.domain.financial_search import InvalidCursor, StaleCursor
 from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -1048,20 +1050,25 @@ def search(
     request: Request,
     q: Annotated[str, Query(min_length=1, max_length=512)],
     limit: Annotated[int, Query(ge=1, le=20)] = 5,
+    kind: SearchKind | None = None,
+    cursor: Annotated[str | None, Query(max_length=2048)] = None,
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        found = search_with_drafts(context, q, limit)
+        return business_search.search(context, q, kind=kind, limit=limit, cursor=cursor)
+    except (InvalidCursor, StaleCursor) as error:
+        stale = isinstance(error, StaleCursor)
+        raise problem(
+            request,
+            status_code=409 if stale else 422,
+            code="business_search_stale_cursor"
+            if stale
+            else "business_search_invalid_cursor",
+            title="Search changed" if stale else "Invalid cursor",
+            detail="Search again from the first page.",
+        ) from None
     except Exception as error:
         raise _problem(request, error) from None
-    flags = email_receipt_flags(context.scope.owner.space_id)
-    for item in found["receipts"]:
-        if item["id"] in flags:
-            if arrived_by_email(item["received_at"], flags[item["id"]][2]):
-                item["channel"] = "email"
-            item["email_delivery_ids"] = list(flags[item["id"]][0])
-            item["email_original"] = flags[item["id"]][1]
-    return found
 
 
 @router.get("/overview", response_model=BusinessOverview)

@@ -28,7 +28,13 @@ def occurred_on(activity: Mapping[str, Any]) -> date:
 def expense_activities(
     activities: Iterable[Mapping[str, Any]],
 ) -> list[Mapping[str, Any]]:
-    return [item for item in activities if item["kind"] == "expense"]
+    return kind_activities(activities, "expense")
+
+
+def kind_activities(
+    activities: Iterable[Mapping[str, Any]], kind: str
+) -> list[Mapping[str, Any]]:
+    return [item for item in activities if item["kind"] == kind]
 
 
 def today() -> date:
@@ -49,8 +55,11 @@ def expenses(
     receipt_of: Mapping[str, str],
     start: date,
     end: date,
+    *,
+    kind: str = "expense",
 ) -> list[dict[str, Any]]:
-    """Expenses that happened in ``[start, end]``, newest first."""
+    """Expenses (or another ``kind``, as a venta's income) that happened in
+    ``[start, end]``, newest first."""
 
     items = [
         {
@@ -65,7 +74,7 @@ def expenses(
             "occurred_on": occurred_on(item),
             "receipt_id": receipt_of.get(item["activity_id"]),
         }
-        for item in expense_activities(activities)
+        for item in kind_activities(activities, kind)
         if start <= occurred_on(item) <= end
     ]
     return sorted(items, key=lambda item: (item["occurred_on"], item["id"]), reverse=True)
