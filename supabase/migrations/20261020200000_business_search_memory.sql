@@ -10,7 +10,7 @@ create table public.business_search_recents (
     user_id uuid not null references auth.users (id) on delete cascade,
     query text not null check (char_length(query) between 1 and 512),
     -- The query folded as search folds it: one recent per meaning.
-    query_key text not null check (char_length(query_key) between 1 and 512),
+    query_key text not null check (char_length(query_key) > 0),
     searched_at timestamptz not null default clock_timestamp(),
     unique (space_id, user_id, query_key)
 );

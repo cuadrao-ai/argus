@@ -10123,12 +10123,13 @@ accept path recorded.
   by their own. An open recorded after a first page reorders that list, so
   its cursor answers 409.
 - Search memory belongs to the signed-in member in the Business their live
-  grant names; any live grant may keep its own. No member ever reads or
-  changes another member's.
+  grant names; any live grant may keep its own, a read-only one included.
+  No member ever reads or changes another member's.
   - GET `/api/v1/business/search/recents` returns `{items: [{id, q,
     searched_at}]}`, the member's 10 newest distinct searches, newest first.
   - POST `/api/v1/business/search/recents` with `{q}` (1 to 512 characters
-    after trimming) saves one and answers 201 `{id, q, searched_at}`. The
+    after trimming; one that folds to nothing, as a lone accent mark, is
+    422) saves one and answers 201 `{id, q, searched_at}`. The
     same query again, folded as search folds it (`Ferretería`,
     ` ferreteria `), keeps its id, takes the new text and moves to the top.
     The eleventh drops the oldest.

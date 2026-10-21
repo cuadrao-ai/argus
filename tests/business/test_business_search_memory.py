@@ -133,3 +133,11 @@ def test_an_open_names_a_known_list_and_a_record_id(alice: Owner) -> None:  # no
         {"kind": "expenses"},
     ):
         assert alice.post("/search/opens", body).status_code == 422
+
+
+def test_a_query_that_folds_to_nothing_is_refused_and_a_long_fold_is_kept(
+    alice: Owner,  # noqa: F811
+) -> None:
+    assert alice.post("/search/recents", {"q": "́"}).status_code == 422
+    remember(alice, "ﬃ" * 200)
+    assert recents(alice) == ["ﬃ" * 200]

@@ -129,3 +129,24 @@ def test_a_members_memory_goes_with_the_member(world) -> None:  # noqa: ANN001, 
                 f"select count(*) from public.{table} where user_id=%s", (world.bob.id,)
             ).fetchone()
             assert count == (0,), table
+
+
+def test_a_read_only_grant_keeps_its_own_memory(world) -> None:  # noqa: ANN001, F811
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_client_grants set capabilities=array['read']"
+            " where id=%s",
+            (world.grant,),
+        )
+    bob = _as(world.bob, world.grant)
+    saved = _call(world, "POST", "/recents", bob, {"q": "taller"})
+    assert saved.status_code == 201, saved.text
+    opened = _call(world, "POST", "/opens", bob, {"kind": "expenses", "id": str(uuid4())})
+    assert opened.status_code == 204, opened.text
+    assert (
+        _call(world, "DELETE", f"/recents/{saved.json()['id']}", bob).status_code == 204
+    )
+    assert _call(world, "DELETE", "/recents", bob).status_code == 204
+    # Folding may lengthen a query; it is still one recent.
+    long = _call(world, "POST", "/recents", bob, {"q": "\ufb03" * 200})
+    assert long.status_code == 201, long.text
