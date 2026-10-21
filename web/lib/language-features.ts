@@ -25,30 +25,26 @@ export const ENABLED_LANGUAGE_CODES = ENABLED_LANGUAGES.map(
   (language) => language.code,
 );
 
-/** Languages the landing page may offer. A Business build offers none, so the English link cannot save `en` on the account. A consumer build offers every enabled language except the one already shown. */
+/** Every enabled language except the one already shown. */
 export function landingLanguageChoices(
-  businessBuild: boolean,
   shown: ArgusLanguage,
   languages: readonly ArgusLanguageOption[] = ENABLED_LANGUAGES,
 ): readonly ArgusLanguageOption[] {
-  if (businessBuild) return [];
   return languages.filter((language) => language.code !== shown);
 }
 
-/** The language a visitor sees before any choice: Spanish on a Cuadrao Business build that ships it, English otherwise. */
+/** The language shown when nothing is saved: Spanish on a Business build that ships it, English otherwise. */
 export function defaultLanguage(spanishEnabled: boolean, businessBuild: boolean): ArgusLanguage {
   return spanishEnabled && businessBuild ? "es-419" : "en";
 }
 
-/** Where the shown language comes from. A Business build reads nothing, so a stored value and the browser cannot decide. A consumer build reads a saved choice, then the browser. */
+/** Where the shown language is read from, first match wins. Only a consumer build lets the browser language decide. */
 export function languageDetectionOrder(businessBuild: boolean): readonly string[] {
-  return businessBuild ? [] : ["localStorage", "navigator"];
+  return businessBuild ? ["localStorage"] : ["localStorage", "navigator"];
 }
 
-/** Where a language change is written. A Business build writes nothing, so it cannot store English. A consumer build keeps the saved choice. */
-export function languageDetectionCaches(businessBuild: boolean): readonly string[] {
-  return businessBuild ? [] : ["localStorage"];
-}
+/** The one place a language choice is written. */
+export const LANGUAGE_DETECTION_CACHES = ["localStorage"] as const;
 
 /** The languages to read a key from, in order, when the shown language lacks it: an English reader never sees Spanish; a Spanish reader falls back to English; nothing shown yet starts from the default. */
 export function fallbackChain(shown: string | undefined, defaultLanguage: ArgusLanguage): ArgusLanguage[] {
@@ -67,47 +63,27 @@ export function normalizeEnabledLanguage(language?: string | null, spanishEnable
   return "en";
 }
 
-/** Language a build may show. Business Spanish is always es-419. A consumer build shows the requested language. */
-export function languageToShow(
-  businessBuild: boolean,
-  requested: string | null | undefined,
-  spanishEnabled: boolean = SPANISH_ENABLED,
-): string | null {
-  if (businessBuild && spanishEnabled) return "es-419";
-  return requested ?? null;
-}
-
-/** Language applied once the account is known. Business ignores the account and anything stored on the device. A consumer build keeps the account language. */
-export function accountLanguageToApply(
-  businessBuild: boolean,
-  accountLanguage: string | null | undefined,
-  spanishEnabled: boolean = SPANISH_ENABLED,
-): string | null {
-  if (businessBuild && spanishEnabled) return "es-419";
-  return accountLanguage ?? null;
-}
-
-/** Switches the shell language. A Business build can only move to es-419. */
+/** Moves the shell to the account language. The build does not change the outcome. */
 export async function commitShellLanguage(
   i18n: { language?: string; changeLanguage: (language: string) => Promise<unknown> },
   businessBuild: boolean,
   accountLanguage: string | null | undefined,
-  spanishEnabled: boolean = SPANISH_ENABLED,
 ): Promise<void> {
-  const resolved = accountLanguageToApply(businessBuild, accountLanguage, spanishEnabled);
-  if (!resolved || resolved === i18n.language) return;
-  if (businessBuild && resolved !== "es-419") return;
-  await i18n.changeLanguage(resolved);
+  if (!accountLanguage || accountLanguage === i18n.language) return;
+  await i18n.changeLanguage(accountLanguage);
 }
 
-/** Document language. Business Spanish is `es` for the whole response. A consumer page stays `es-419` or `en`. */
+/** Document language. Business spells Spanish `es`; a consumer page keeps `es-419`. English is `en` on both. */
 export function documentLanguage(
   language: string | null | undefined,
   businessBuild: boolean,
   spanishEnabled: boolean = SPANISH_ENABLED,
 ): "en" | "es" | "es-419" {
-  if (businessBuild && spanishEnabled) return "es";
-  return normalizeEnabledLanguage(language, spanishEnabled);
+  const shown = normalizeEnabledLanguage(
+    language ?? defaultLanguage(spanishEnabled, businessBuild),
+    spanishEnabled,
+  );
+  return businessBuild && shown === "es-419" ? "es" : shown;
 }
 
 export function localeForLanguage(language?: string | null): ArgusLocale {

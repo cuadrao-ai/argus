@@ -19,7 +19,6 @@ beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   Object.defineProperty(window.navigator, "language", { configurable: true, value: "en-US" });
   Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["en-US", "en"] });
-  window.localStorage.setItem("i18nextLng", "en");
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
@@ -42,24 +41,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     assert.equal(layout.includes('lang="en"'), false);
   });
 
-  test("overview, the Agregar sheet, and receipt review render Spanish", async () => {
-    const { accountLanguageToApply, commitShellLanguage, documentLanguage } = await import("@/lib/language-features");
-    const calls: string[] = [];
-    await commitShellLanguage(
-      { language: "en", changeLanguage: async (next: string) => { calls.push(next); } },
-      true,
-      "en",
-      true,
-    );
-    assert.deepEqual(calls, ["es-419"]);
-    const language = accountLanguageToApply(true, "en", true);
-    assert.equal(language, "es-419");
-    assert.equal(window.localStorage.getItem("i18nextLng"), "en");
-    assert.equal(documentLanguage(language, true, true), "es");
-    assert.equal(documentLanguage("en", true, true), "es");
-    assert.equal(documentLanguage("es-419", false, true), "es-419");
-    document.documentElement.lang = documentLanguage(language, true, true);
-
+  async function renderShown(language: "es-419" | "en", readyText: string[]): Promise<string> {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -82,7 +64,7 @@ describe("Business stays in Spanish for an en-US browser", () => {
     const base = createFixtureBusinessDataSource({ chatAvailable: false });
     const i18n = i18next.createInstance();
     await i18n.init({
-      lng: language ?? "en",
+      lng: language,
       resources: {
         en: { translation: english },
         "es-419": { translation: spanish },
@@ -113,30 +95,30 @@ describe("Business stays in Spanish for an en-US browser", () => {
       );
     });
     const text = () => document.body.textContent ?? "";
-    const ready = () => ["en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Comercio"].every((item) => text().includes(item));
+    const ready = () => readyText.every((item) => text().includes(item));
     for (let i = 0; i < 80 && !ready(); i += 1) {
       await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
     }
     const visible = text();
-    for (const spanishText of [
-      "Mi negocio",
-      "Hola",
-      "en la Bandeja",
-      "Ingresos",
-      "Agregar",
-      "Escríbelo",
-      "Se guardan como",
-      "Compra",
-      "Comercio",
-      "Fecha",
-    ]) {
-      assert.ok(visible.includes(spanishText), spanishText);
-    }
-    for (const englishText of ["Upload receipts", "My business", "Record expense", "Open inbox", "Actual expenses", "Merchant", "Write it", "Saved as", "Welcome", "to review"]) {
-      assert.equal(visible.includes(englishText), false, englishText);
-    }
-    assert.equal(document.documentElement.lang, "es");
-    assert.equal(window.navigator.language, "en-US");
     await act(async () => rootNode.unmount());
+    host.remove();
+    return visible;
+  }
+
+  const spanishCopy = ["Mi negocio", "Hola", "en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Comercio", "Fecha"];
+  const englishCopy = ["Welcome", "in the Inbox", "Income", "Add", "Write it", "Saved as", "Purchase", "Merchant", "Date"];
+  const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
+
+  test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
+    const visible = await renderShown("es-419", ["en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Comercio"]);
+    for (const spanishText of spanishCopy) assert.ok(visible.includes(spanishText), spanishText);
+    for (const englishText of [...englishCopy, ...retiredEnglishCopy]) assert.equal(visible.includes(englishText), false, englishText);
+    assert.equal(window.navigator.language, "en-US");
+  });
+
+  test("an English account sees the same surfaces in English", async () => {
+    const visible = await renderShown("en", ["in the Inbox", "Income", "Merchant", "Write it"]);
+    for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
+    for (const spanishText of spanishCopy) assert.equal(visible.includes(spanishText), false, spanishText);
   });
 });
