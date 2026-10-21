@@ -114,6 +114,7 @@ describe("the Business top bar on a desktop", () => {
     const search = page.bar().querySelector<HTMLButtonElement>('[data-testid="header-search"]')!;
     assert.ok(search, "the top bar carries the search field");
     assert.equal(search.querySelector("span")?.textContent, "Busca comercio, monto o nota");
+    assert.equal(search.getAttribute("aria-label"), "Busca comercio, monto o nota", "named even when the bar is narrow and only the icon shows");
     await page.act(async () => search.click());
     assert.deepEqual(page.searches, ["open"]);
     const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
