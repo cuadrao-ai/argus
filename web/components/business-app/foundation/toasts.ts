@@ -11,7 +11,6 @@ export type Toast = ToastInput & { id: number };
 export const TOAST_MS: Record<ToastKind, number | null> = { info: 4000, success: 4000, warning: 7000, error: null };
 /** A toast with an action (Deshacer) stays long enough to reach it. */
 export const ACTION_TOAST_MS = 8000;
-export const MAX_VISIBLE_TOASTS = 3;
 
 export function toastDuration(toast: ToastInput): number | null {
   if (toast.kind === "error") return null;
@@ -19,8 +18,9 @@ export function toastDuration(toast: ToastInput): number | null {
 }
 
 /**
- * One presenter shows every toast. A fourth pushes out the oldest one that is
- * not an error, so an error is never lost before the owner has seen it.
+ * One presenter shows one toast at a time. The newest replaces the one on
+ * screen, Deshacer included, so an old undo never lands after newer work.
+ * Errors that must not be missed live where the work is, not only in a toast.
  */
 let toasts: readonly Toast[] = [];
 let nextId = 0;
@@ -33,12 +33,7 @@ function publish(next: readonly Toast[]) {
 
 export function showToast(input: ToastInput): number {
   nextId += 1;
-  let next = [...toasts, { ...input, id: nextId }];
-  while (next.length > MAX_VISIBLE_TOASTS) {
-    const drop = next.find((toast) => toast.kind !== "error") ?? next[0];
-    next = next.filter((toast) => toast !== drop);
-  }
-  publish(next);
+  publish([{ ...input, id: nextId }]);
   return nextId;
 }
 

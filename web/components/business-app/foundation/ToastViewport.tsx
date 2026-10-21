@@ -21,8 +21,8 @@ const TONE: Record<ToastKind, { icon: LucideIcon; border: string; ink: string }>
 
 /**
  * The one place toasts appear: bottom right on desktop, top on a phone, never
- * over the middle of the work. Up to three stack; a new one springs the older
- * ones away from the edge.
+ * over the middle of the work. One at a time: a new one springs in and the
+ * one it replaces leaves.
  */
 export function ToastViewport() {
   const items = useToasts();

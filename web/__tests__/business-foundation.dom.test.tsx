@@ -90,12 +90,11 @@ describe("toasts", () => {
     assert.equal(toastDuration({ kind: "error", text: "x", action: { label: "Reintentar", run: () => undefined } }), null);
   });
 
-  test("three show at most; a fourth pushes out the oldest one that is not an error", async () => {
+  test("one toast at a time: the newest replaces the one on screen, and its Deshacer leaves with it", async () => {
     const { clearToasts, showToast, useToasts } = await import("@/components/business-app/foundation/toasts");
     clearToasts();
     showToast({ kind: "error", text: "error uno" });
-    showToast({ kind: "success", text: "guardado uno" });
-    showToast({ kind: "success", text: "guardado dos" });
+    showToast({ kind: "success", text: "guardado uno", action: { label: "Deshacer", run: () => undefined } });
     showToast({ kind: "info", text: "aviso" });
     let seen: string[] = [];
     function Probe() {
@@ -103,7 +102,7 @@ describe("toasts", () => {
       return null;
     }
     const page = await render(<Probe />);
-    assert.deepEqual(seen, ["error uno", "guardado dos", "aviso"]);
+    assert.deepEqual(seen, ["aviso"]);
     await page.close();
     clearToasts();
   });
