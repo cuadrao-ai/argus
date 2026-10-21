@@ -15,7 +15,7 @@ from tests.test_business_reading_setting_postgres import (  # noqa: F401
     API,
     _email_runtime,
     pytestmark,
-    web,
+    web,  # noqa: ANN001, F811
 )
 
 
@@ -25,18 +25,25 @@ def _message(n: int) -> bytes:
     message["Subject"] = f"Factura {n}"
     message.set_content("Adjunto la factura.")
     message.add_attachment(
-        RECEIPT + bytes([n]), maintype="image", subtype="png", filename=f"forwarded-{n}.png"
+        RECEIPT + bytes([n]),
+        maintype="image",
+        subtype="png",
+        filename=f"forwarded-{n}.png",
     )
     return message.as_bytes()
 
 
 def test_a_page_holds_limit_attachments_and_never_an_email_original(
-    web, monkeypatch  # noqa: ANN001
+    web,  # noqa: ANN001, F811
+    monkeypatch,  # noqa: ANN001
 ) -> None:
     for n in (1, 2):
         runtime, route = _email_runtime(web, monkeypatch, _message(n))
         body = json.dumps(
-            {"type": "email.received", "data": {"email_id": str(uuid4()), "to": [route.recipient]}}
+            {
+                "type": "email.received",
+                "data": {"email_id": str(uuid4()), "to": [route.recipient]},
+            }
         ).encode()
         received = web.client.post(WEBHOOK, content=body, headers=signed(body))
         assert received.status_code == 202, received.text

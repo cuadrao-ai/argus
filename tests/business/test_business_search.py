@@ -255,7 +255,15 @@ def test_an_expense_matches_its_amount_by_value_only(alice: Owner) -> None:  # n
     def found(q: str) -> list[str]:
         return [e["id"] for e in alice.get("/search", q=q).json()["expenses"]]
 
-    for q in ("3450", "3450.00", "3,450", "3,450.00", "$ 3450", "RD$ 3,450", "RD$3,450.00"):
+    for q in (
+        "3450",
+        "3450.00",
+        "3,450",
+        "3,450.00",
+        "$ 3450",
+        "RD$ 3,450",
+        "RD$3,450.00",
+    ):
         assert found(q) == [expense], q
     for q in ("345", "34", "3450.01", "US$3,450.00", "-3450", "taller 3450"):
         assert expense not in found(q), q
@@ -265,7 +273,7 @@ def test_an_expense_matches_its_amount_by_value_only(alice: Owner) -> None:  # n
 
 def test_email_originals_are_left_out_before_the_page_is_cut(
     alice: Owner,  # noqa: F811
-    runtime,  # noqa: ANN001
+    runtime,  # noqa: ANN001, F811
 ) -> None:
     """Two forwarded emails: each original is the email, not a receipt, so a
     page of two holds both attachments and has no next page."""
@@ -294,18 +302,26 @@ def test_email_originals_are_left_out_before_the_page_is_cut(
         claimed = store.claim()
         original = alice.upload(
             content=b"Subject: Factura %d\r\n\r\nForwarded receipt" % n,
-            consent=False, name=f"factura-{n}.eml", media_type="message/rfc822",
+            consent=False,
+            name=f"factura-{n}.eml",
+            media_type="message/rfc822",
         )
         attachment = alice.upload(
             content=UNREADABLE + bytes([n]), consent=False, name=f"factura-{n}.png"
         )
         assert (original.status_code, attachment.status_code) == (200, 200)
-        store.update(claimed, original_document_id=original.json()["id"], subject="Factura")
+        store.update(
+            claimed, original_document_id=original.json()["id"], subject="Factura"
+        )
         store.put_part(
             claimed,
             EmailDeliveryPart(
-                "1.2", f"factura-{n}.png", "image/png", "captured",
-                attachment.json()["id"], None,
+                "1.2",
+                f"factura-{n}.png",
+                "image/png",
+                "captured",
+                attachment.json()["id"],
+                None,
             ),
         )
         store.finish(claimed, "captured")
