@@ -106,7 +106,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
     expenses: group("expenses", t("business.expenses.title", "Expenses"), (items) => items.map(expenseHit("expenses"))),
     ventas: group("ventas", t("business.search.ventas", "Sales"), (items) => items.map(expenseHit("ventas"))),
     receipts: group("receipts", t("business.search.receipts", "Receipts"), (items) =>
-      items.filter((receipt) => !receipt.email_original).map((receipt) => ({
+      items.map((receipt) => ({
         id: receipt.id,
         icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
         title: receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt"),
