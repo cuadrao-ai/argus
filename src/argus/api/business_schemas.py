@@ -177,6 +177,9 @@ class ReceiptActivityCounts(_Wire):
     # Of those rows, how many need the person's attention; an email that
     # brought no receipt always does, an email being read does not.
     needs_attention_count: int
+    # "Por revisar": the receipts a person can review now (not being read,
+    # not unreadable) plus those notes. An email never counts here.
+    ready_to_review_count: int
 
 
 class ReceiptReadingBody(_Wire):
@@ -380,6 +383,8 @@ class BusinessOverview(_Wire):
     without_fiscal_totals: list[CurrencyTotal] = Field(default_factory=list)
     awaiting_review: int
     needs_attention: int
+    #: "Por revisar": the Bandeja's ``ready_to_review_count``.
+    ready_to_review_count: int
     last_received_at: datetime | None
     last_confirmed_at: datetime | None
     # Saved expenses the chosen period leaves out, so none looks vanished.
