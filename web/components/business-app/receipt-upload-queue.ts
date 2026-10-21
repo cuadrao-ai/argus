@@ -2,7 +2,7 @@ import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { classifyFailure, type FailureClass } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import { receiptFileWithType } from "./receipt-file";
-import { nextWaitingUpload, runFifo, waitingUploads } from "./receipt-upload-fifo";
+import { runFifo } from "./receipt-upload-fifo";
 
 /** Where a captured receipt goes next: its review, or the composer. */
 export type IntakeTarget = "inbox" | "composer";
@@ -42,7 +42,7 @@ export function uploadSecondsLeft(sent: number, total: number, elapsedMs: number
 function bytesPerSecond(sent: number, elapsedMs: number): number | null {
   return elapsedMs < 1_000 || sent <= 0 ? null : (sent * 1_000) / elapsedMs;
 }
-/** Where the file stands in the running drain: "Subiendo 6 de 9". */
+/** Where the file stands among its target's files in the running drain: "Subiendo 6 de 9". */
 export type UploadProgress = { target: IntakeTarget; position: number; total: number };
 
 /** The wait after a 429 that names no Retry-After. */
@@ -66,17 +66,21 @@ function rejectionFor(file: File, limits: ReceiptLimits): UploadRejection | null
 
 /**
  * Owned by one mounted business workspace, including while its dialog is
- * hidden. Each file keeps one upload key, so a retry never saves it twice,
- * and one file's failure never blocks its siblings. The upload limit (429)
- * is not a failure: the drain waits out Retry-After and sends the same file again.
+ * hidden. One drain sends files one at a time in arrival order, whatever
+ * their target: every queued file, and every failed file whose retry was
+ * asked for. It ends only when nothing waits, so a file added or retried
+ * while it runs is never left behind. Each file keeps one upload key, so a
+ * retry never saves it twice, and one file's failure never blocks its
+ * siblings. The upload limit (429) is not a failure: the drain waits out
+ * Retry-After and sends the same file again.
  */
 export class ReceiptUploadQueue {
   private items: readonly ReceiptUpload[] = [];
   private listeners = new Set<() => void>();
   private running = false;
   private current: UploadProgress | null = null;
-  /** Failed files whose retry was tapped while another drain ran; each goes once that drain ends. */
-  private retryLater = new Map<string, IntakeTarget>();
+  /** Files asked to upload and not yet taken by the drain, with the consent they were asked with. */
+  private asked = new Map<string, boolean>();
 
   constructor(private upload: Upload, private onSaved: (receipt: ReceiptSummary, origin: UploadOrigin) => void) {}
 
@@ -91,19 +95,18 @@ export class ReceiptUploadQueue {
   get progress() { return this.current; }
   get unfinished() { return this.items.some(isUnfinishedUpload); }
   /** Whether this failed file's retry waits for the running drain. */
-  retryWaiting = (key: string) => this.retryLater.has(key);
+  retryWaiting = (key: string) => this.asked.has(key) && this.items.some((item) => item.key === key && item.status === "failed");
 
-  /** One tap retries a failed file with the same file and upload key; during a drain it waits its turn. */
+  /** One tap retries a failed file with the same file, upload key and consent; during a drain it waits its turn. */
   retry(key: string) {
-    const item = this.items.find((candidate) => candidate.key === key && candidate.status === "failed");
-    if (!item) return;
-    if (this.running) {
-      this.retryLater.set(key, item.target);
-      this.publish([...this.items]);
-      return;
-    }
-    void this.save(item.target, false, key);
+    const item = this.items.find((candidate) => candidate.key === key);
+    if (item?.status !== "failed") return;
+    this.asked.set(key, item.consent);
+    this.publish([...this.items]);
+    void this.drain();
   }
+
+  private waiting = (item: ReceiptUpload) => item.status === "queued" || (item.status === "failed" && this.asked.has(item.key));
 
   private publish(items: readonly ReceiptUpload[]) {
     this.items = items;
@@ -151,24 +154,32 @@ export class ReceiptUploadQueue {
     if (!this.running) this.publish(this.items.filter((item) => item.target !== target));
   }
 
-  /** `only` limits this drain to one file key or a set of them; files added during the drain still join the tail. */
-  async save(target: IntakeTarget, consent: boolean, only?: string | ReadonlySet<string>) {
+  /** Uploads every queued file, and the failed files of `target` that `only` names (all of them when it is omitted). */
+  save(target: IntakeTarget, consent: boolean, only?: string | ReadonlySet<string>) {
+    const included = (key: string) => only === undefined || (typeof only === "string" ? key === only : only.has(key));
+    for (const item of this.items) {
+      if (item.target !== target || !included(item.key) || this.asked.has(item.key)) continue;
+      if (item.status === "queued") this.asked.set(item.key, consent);
+      else if (item.status === "failed") this.asked.set(item.key, item.consent);
+    }
+    return this.drain();
+  }
+
+  private async drain() {
     if (this.running) return;
     this.running = true;
-    const included = (key: string) => only === undefined || (typeof only === "string" ? key === only : only.has(key));
-    const presentAtStart = new Set(this.items.map((item) => item.key));
-    const seeded = new Set(this.items.filter((item) => item.target === target &&
-      included(item.key) && (item.status === "queued" || item.status === "failed")).map((item) => item.key));
-    const attempted = new Set<string>();
+    const sentBy = new Map<IntakeTarget, number>();
     try {
       await runFifo(
-        () => nextWaitingUpload(this.items, target, attempted, seeded, presentAtStart),
+        () => this.items.find(this.waiting),
         async (item) => {
-          attempted.add(item.key);
-          const remaining = waitingUploads(this.items, target, attempted, seeded, presentAtStart).length;
-          this.current = { target, position: attempted.size, total: attempted.size + remaining };
-          const chosenConsent = item.status === "failed" ? item.consent : consent;
-          const attempt = { ...item, consent: chosenConsent };
+          const consent = this.asked.get(item.key) ?? false;
+          this.asked.delete(item.key);
+          const position = (sentBy.get(item.target) ?? 0) + 1;
+          sentBy.set(item.target, position);
+          const remaining = this.items.filter((other) => other.key !== item.key && other.target === item.target && this.waiting(other)).length;
+          this.current = { target: item.target, position, total: position + remaining };
+          const attempt = { ...item, consent };
           const uploading = { ...attempt, status: "uploading" as const };
           this.replace({ ...uploading, bytes: null });
           let painted = 0;
@@ -180,7 +191,7 @@ export class ReceiptUploadQueue {
           };
           let receipt: ReceiptSummary;
           try {
-            receipt = await this.uploadPastLimits(item.file, chosenConsent, item.key, item.documentType, onProgress);
+            receipt = await this.uploadPastLimits(item.file, consent, item.key, item.documentType, onProgress);
           } catch (error: unknown) {
             if (error instanceof Error && "status" in error && error.status === 415) {
               this.replace({ ...item, status: "rejected", reason: "unsupported" });
@@ -201,12 +212,10 @@ export class ReceiptUploadQueue {
     } finally {
       this.running = false;
       this.current = null;
-      const next = this.retryLater.values().next();
-      const keys = next.done ? null : new Set([...this.retryLater].filter(([, waiting]) => waiting === next.value).map(([key]) => key));
-      keys?.forEach((key) => this.retryLater.delete(key));
       this.publish([...this.items]);
-      if (keys && !next.done) void this.save(next.value, false, keys);
     }
+    // Something asked to upload in the moment between the last file and the end of the drain still goes.
+    if (this.items.some(this.waiting)) await this.drain();
   }
 
   private async uploadPastLimits(file: File, consent: boolean, key: string, documentType: DocumentType | null, onProgress: (sent: number, total: number, startedAt: number) => void): Promise<ReceiptSummary> {

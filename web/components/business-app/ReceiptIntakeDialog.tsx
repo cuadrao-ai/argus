@@ -19,6 +19,7 @@ import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./re
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReceiptUploadQueue, isUnfinishedUpload, type DocumentType, type IntakeTarget, type ReceiptUpload, type UploadRejection } from "./receipt-upload-queue";
 import { CopyButton, WrappingAddress, useCopyLabels } from "./foundation/CopyButton";
+import { EmptyState } from "./foundation/EmptyState";
 import { randomId } from "@/lib/random-id";
 import { captureOutcomeUnknown, validCaptureText } from "./ManualCaptureDialog";
 import { useForwardAddress } from "./useForwardAddress";
@@ -49,16 +50,23 @@ export default function ReceiptIntakeDialog({ target, ...props }: Omit<IntakePro
   return <IntakeSurface target={target} {...props} />;
 }
 
+/** The form needs the business's upload limits; until they arrive the sheet shows the load's own state. */
 function IntakeSurface(props: IntakeProps) {
   const { t } = useTranslation();
-  const { records } = useBusiness();
+  const { records, reload } = useBusiness();
   const limits = records.workspace?.receipt_limits;
-  return limits ? (
-    <IntakeForm limits={limits} {...props} />
-  ) : (
-    <AdaptivePanel title={t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
+  if (limits) return <IntakeForm limits={limits} {...props} />;
+  const failed = records.error || Boolean(records.serverReference);
+  return (
+    <AdaptivePanel title={props.target === "inbox" ? t("business.intake.add_title", "Add") : t("business.intake.title", "Upload receipt")} closeLabel={t("common.close", "Close")} onClose={props.onClose} width="md">
       <div className="px-4 pb-4">
-        <Settle pending layout="rows" rows={2} />
+        {records.closed ? (
+          <div className="flex justify-center"><BusinessClosedNotice /></div>
+        ) : failed ? (
+          <EmptyState kind="error" compact testId="receipt-intake-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
+        ) : (
+          <Settle pending layout="rows" rows={2} />
+        )}
       </div>
     </AdaptivePanel>
   );

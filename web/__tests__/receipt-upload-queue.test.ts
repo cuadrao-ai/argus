@@ -85,8 +85,8 @@ test("composer accepts one file without replacing the inbox queue, and cancellin
   queue.add([], limits, "composer");
   expect(queue.snapshot().map((item) => item.file.name)).toEqual(["inbox.txt", "composer.txt"]);
   await queue.save("composer", false);
-  expect(reported).toEqual(["composer"]);
-  expect(queue.snapshot()[0].status).toBe("queued");
+  expect(reported).toEqual(["inbox", "composer"]);
+  expect(queue.snapshot()[0].status).toBe("saved");
   queue.clear("composer");
   expect(queue.snapshot()).toHaveLength(1);
 });
