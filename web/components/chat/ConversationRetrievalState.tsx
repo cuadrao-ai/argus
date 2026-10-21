@@ -1,7 +1,9 @@
 "use client";
 
 import { MessageSquareWarning } from "lucide-react";
-import { ArgusLogo } from "@/components/ArgusLogo";
+import { CuadraoMark } from "@/components/CuadraoMark";
+import type { ReactNode } from "react";
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { useTranslation } from "react-i18next";
 import { panelFailureIconClass } from "@/lib/failure-treatment";
 
@@ -15,8 +17,9 @@ type ConversationRetrievalStateProps =
       onRetry: () => void;
     }>;
 
-export function ConversationRetrievalAnnouncement() {
-  const { t } = useTranslation();
+export function ConversationRetrievalAnnouncement({ business = false, initial = false }: { business?: boolean; initial?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const spanishBusiness = business && (i18n.resolvedLanguage ?? i18n.language).startsWith("es");
 
   return (
     <span
@@ -25,15 +28,18 @@ export function ConversationRetrievalAnnouncement() {
       role="status"
       aria-live="polite"
     >
-      {t("chat.opening_conversation", "Opening conversation…")}
+      {spanishBusiness ? "Cargando Cuadrao" : initial ? t("guest.entry.loading", "Opening Argus") : t("chat.opening_conversation", "Opening conversation…")}
     </span>
   );
 }
 
+export const InitialConversationRetrievalState: (props: { business?: boolean }) => ReactNode = FullscreenLoading;
+
 export default function ConversationRetrievalState(
-  props: ConversationRetrievalStateProps,
+  props: ConversationRetrievalStateProps & { business?: boolean },
 ) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const spanishBusiness = props.business && (i18n.resolvedLanguage ?? i18n.language).startsWith("es");
 
   if (props.state === "error") {
     return (
@@ -66,12 +72,9 @@ export default function ConversationRetrievalState(
       aria-hidden="true"
       className="flex min-h-[45vh] flex-col items-center justify-center gap-4 px-6 text-center"
     >
-      <ArgusLogo
-        aria-hidden="true"
-        className="h-7 w-7 animate-pulse text-black/30 motion-reduce:animate-none dark:text-white/30"
-      />
-      <p className="text-[13px] text-black/45 dark:text-white/45">
-        {t("chat.opening_conversation", "Opening conversation…")}
+      <CuadraoMark size={28} className="h-7 w-7 animate-pulse motion-reduce:animate-none" />
+      <p className="text-[13px] text-black/60 dark:text-white/65">
+        {spanishBusiness ? "Cuadrando…" : t("chat.opening_conversation", "Opening conversation…")}
       </p>
     </div>
   );

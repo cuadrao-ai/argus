@@ -13,6 +13,7 @@ import pytest
 from argus.domain.ingestion.plaid.config import PlaidConfig
 from argus.domain.ingestion.plaid.connector import PlaidConnector
 from argus.domain.ingestion.plaid.link import PlaidItemOwnedElsewhere
+from argus.domain.owner_scope import PERSONAL
 
 from tests import test_financial_accounts_postgres as shared
 from tests.ingestion.plaid_fakes import (
@@ -67,14 +68,14 @@ def test_exchange_sync_and_resync_on_postgres(repo, users):  # noqa: ANN001
     assert again.connection.id == first.connection.id
     assert connector.hub.credential(first.connection) == ACCESS_TOKEN
     assert connector.sync(first.connection).status == "synced"
-    row = repo.get(user_id=owner, connection_id=first.connection.id)
+    row = repo.get(user_id=owner, connection_id=first.connection.id, scope=PERSONAL)
     assert row.cursor == "c2" and row.lease_holder is None
     # The sealing key's fingerprint round-trips through the table (Priya B1).
     assert row.secret_key == connector.hub.box.key_id
     assert connector.sync(row).added == 0
     fake.item_error = "ITEM_LOGIN_REQUIRED"
     assert connector.sync(row).error_code == "plaid_item_login_required"
-    failed = repo.get(user_id=owner, connection_id=row.id)
+    failed = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert failed.status == "needs_reauth"
     assert failed.cursor == "c2" and failed.last_success_at == row.last_success_at
     fake.item_error = None
@@ -90,16 +91,18 @@ def test_exchange_sync_and_resync_on_postgres(repo, users):  # noqa: ANN001
         }
     )
     assert connector.sync(restored).status == "synced"
-    warned = repo.get(user_id=owner, connection_id=row.id)
+    warned = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert (warned.status, warned.attention_code) == (
         "active",
         "plaid_pending_expiration",
     )
     cleared = connector.link.reconnected(user_id=owner, connection_id=row.id)
     assert cleared.attention_code is None and cleared.attention_at is None
-    outcome = connector.hub.disconnect(user_id=owner, connection_id=row.id)
+    outcome = connector.hub.disconnect(
+        user_id=owner, connection_id=row.id, scope=PERSONAL
+    )
     assert outcome.provider_revocation == "revoked"
-    assert repo.get(user_id=owner, connection_id=row.id).secret is None
+    assert repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL).secret is None
 
 
 def test_concurrent_syncs_advance_the_cursor_once(repo, users):  # noqa: ANN001
@@ -131,7 +134,7 @@ def test_concurrent_syncs_advance_the_cursor_once(repo, users):  # noqa: ANN001
         statuses = sorted(pool.map(guarded, [first, second]))
     assert statuses == ["busy", "synced"]
     assert len(sink.batches) == 1
-    stored = repo.get(user_id=owner, connection_id=row.id)
+    stored = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert stored.cursor == "c1" and stored.lease_holder is None
     # A stale writer (cursor moved underneath it) cannot advance it again.
     assert repo.lease(connection_id=row.id, holder="late", now=first.hub.clock())
@@ -143,7 +146,7 @@ def test_concurrent_syncs_advance_the_cursor_once(repo, users):  # noqa: ANN001
         now=first.hub.clock(),
     )
     repo.release(connection_id=row.id, holder="late")
-    assert repo.get(user_id=owner, connection_id=row.id).cursor == "c1"
+    assert repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL).cursor == "c1"
 
 
 def test_webhook_needs_reauth_mid_sync_wins_on_postgres(repo, users):  # noqa: ANN001
@@ -159,7 +162,7 @@ def test_webhook_needs_reauth_mid_sync_wins_on_postgres(repo, users):  # noqa: A
     row = connector.link.exchange(user_id=owner, public_token=PUBLIC_TOKEN).connection
     fake.hook = webhook_login_required(connector, row)
     assert connector.sync(row).status == "superseded"
-    after = repo.get(user_id=owner, connection_id=row.id)
+    after = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert (after.status, after.cursor, after.lease_holder) == (
         "needs_reauth",
         None,
@@ -193,7 +196,7 @@ def test_failure_between_pages_cannot_be_undone_by_renewal_on_postgres(repo, use
     calls = failure_just_before_renewal(connector, row)
     outcome = connector.sync(row)
     assert len(calls) == 2 and outcome.status == "superseded"
-    after = repo.get(user_id=owner, connection_id=row.id)
+    after = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert (after.status, after.cursor, after.lease_holder) == (
         "needs_reauth",
         None,

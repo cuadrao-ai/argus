@@ -1,0 +1,7 @@
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' started.
+/tmp/cuadrao-lane4-ios-followups/ios/ArgusFoundationUITests/GuestPlansUITests.swift:211: error: -[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish] : XCTAssertTrue failed
+Test Case '-[ArgusFoundationUITests.FinancialLoopUITests testGuestPlansInSpanish]' failed (52.024 seconds).
+	 Executed 1 test, with 1 failure (0 unexpected) in 52.024 (52.028) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 52.024 (52.029) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 52.024 (52.029) seconds
+** TEST FAILED **

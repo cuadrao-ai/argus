@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import (
     debt_model,
     goal_model,
@@ -91,7 +92,7 @@ def pool(c, repository, owner):
     from argus.domain.recording.money_postgres import load_owner
 
     state = storage.load(c, owner, repository)
-    records = load_owner(repository, c, owner)
+    records = load_owner(repository, c, owner, scope=PERSONAL)
     amounts, _, __ = goal_projection.pool_assignments(state, records)
     return goal_projection.pool_facts(state, records, amounts)
 

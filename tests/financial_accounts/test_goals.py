@@ -4,6 +4,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.goal_schemas import (
     AllocationWrite,
     ContributionLink,
@@ -42,7 +43,10 @@ def setup_goal(scene, aid=None, **changes):
 
 def versions(scene, *ids):
     return {
-        aid: scene[0].get(user_id=scene[1], account_id=aid).account.version for aid in ids
+        aid: scene[0]
+        .get(user_id=scene[1], account_id=aid, scope=PERSONAL)
+        .account.version
+        for aid in ids
     }
 
 
@@ -89,7 +93,7 @@ def test_shared_allocations_withdrawal_and_atomic_rebalance(scene):
         next(p for p in result["pools"] if p["account_id"] == aid)["available_minor"]
         == "10000"
     )
-    original = scene[0].get(user_id=scene[1], account_id=aid)
+    original = scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
     assert (
         account_response(original).balance.amount_minor == 100000
         and original.expenses == ()
@@ -108,7 +112,7 @@ def test_shared_allocations_withdrawal_and_atomic_rebalance(scene):
     assert sorted(p["supported_minor"] for p in recovered["goals"]) == ["30000", "50000"]
     assert (
         account_response(
-            scene[0].get(user_id=scene[1], account_id=aid)
+            scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
         ).balance.amount_minor
         == 80000
     )
@@ -154,6 +158,7 @@ def test_included_transfer_correction_uses_current_amount(scene, corrected, expe
 @pytest.mark.parametrize(
     "amount,code", [(None, "goal_backing_unknown"), ("0", "goal_backing_shortfall")]
 )
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_unknown_and_known_zero_do_not_fund_positive_claims(scene, amount, code):
     aid = account(scene, "savings", amount=amount)
     service, _, g = setup_goal(scene, aid)
@@ -264,6 +269,7 @@ def test_shared_ownership_capacity_and_stale_review(scene):
         user_id=scene[1],
         account_id=aid,
         request=EditFinancialAccountRequest(expected_version=1, ownership_share_bps=5000),
+        scope=PERSONAL,
     )
     with pytest.raises(RecordingInputError):
         allocate(scene, service, [(g, aid, "5.01")])

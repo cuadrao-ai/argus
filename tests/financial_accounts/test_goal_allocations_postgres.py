@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import storage
 from argus.domain.planning.goal_schemas import AllocationWrite, ContributionRecord
 from argus.domain.recording.errors import (
@@ -439,8 +440,16 @@ def test_failure_after_residual_write_rolls_back_money_goal_claim_and_receipt(
         service.record(scene[1], goal["id"], body, "retry-record")
     assert service.get(scene[1], funding_goal["id"])["supported_minor"] == "90000"
     assert service.get(scene[1], goal["id"])["goal"]["version"] == 1
-    assert scene[0].get(user_id=scene[1], account_id=source).account.version == 1
-    assert scene[0].get(user_id=scene[1], account_id=destination).account.version == 1
+    assert (
+        scene[0].get(user_id=scene[1], account_id=source, scope=PERSONAL).account.version
+        == 1
+    )
+    assert (
+        scene[0]
+        .get(user_id=scene[1], account_id=destination, scope=PERSONAL)
+        .account.version
+        == 1
+    )
     with repository._pool.connection() as connection:
         for table in ["financial_activity_groups", "financial_plan_links"]:
             assert (

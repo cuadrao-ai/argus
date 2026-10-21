@@ -7,12 +7,14 @@ struct CuadraoAccountCanvas: View {
     let actions: (CanvasAccountSheet) -> Void
     let record: (UUID) -> Void
     @State private var showingBalanceInfo = false
+    @State private var refreshedAt: Date?
     @State private var chatFocus: CanvasChatFocus?
     @Environment(\.locale) private var locale
 
     var body: some View {
         if let account = data.account(accountID) {
             ScrollView {
+                CuadraoLastUpdated(date: refreshedAt, spanish: spanish).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 24)
                 CanvasAccountDetailContent(
                     value: CanvasAccountDetailValue(title: account.displayName(spanish), artwork: account.kind,
                         balanceLabel: account.balanceLabel(spanish), currency: account.currency,
@@ -24,11 +26,10 @@ struct CuadraoAccountCanvas: View {
                         Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section)
                         let entries = data.activity.filter { $0.accountID == accountID }.sorted { $0.date > $1.date }
                         if entries.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(spanish ? "Aún no hay movimientos." : "No activity yet.").font(.body)
-                                Text(spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.")
-                                    .font(.subheadline).foregroundStyle(.secondary)
-                            }.padding(.vertical, 18)
+                            CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
+                                detail: spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.",
+                                actionTitle: spanish ? "Añadir movimiento" : "Add transaction", action: { record(accountID) },
+                                identifier: "account-detail.empty", actionIdentifier: "account-detail.empty.record")
                         } else {
                             ForEach(entries) { entry in
                                 NavigationLink {
@@ -45,7 +46,9 @@ struct CuadraoAccountCanvas: View {
                         }
                     }
                 }.padding(24).padding(.bottom, 32)
-            }.background(WelcomePalette.background)
+            // Design preview only: the data is in memory, so there is no load behind this stamp. Connected detail uses AccountsModel.refreshedAt.
+            }.refreshable { try? await Task.sleep(for: .milliseconds(400)); refreshedAt = Date() }
+                .background(WelcomePalette.background)
                 .navigationTitle("").navigationBarTitleDisplayMode(.inline)
                 .toolbar(.visible, for: .navigationBar)
                 .toolbar {

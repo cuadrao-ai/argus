@@ -18,6 +18,7 @@ from pydantic import (
 )
 from typing_extensions import NotRequired, TypedDict
 
+from argus.api.age_confirmation import AgeConfirmation
 from argus.api.artifact_presentation import ReaderJobResponse, reader_run
 from argus.api.conversation_preview_contract import ConversationPreview
 
@@ -54,6 +55,7 @@ from argus.domain.home_country import (
     TenderCurrencyCode,
     resolved_currency,
 )
+from argus.domain.owner_scope import surface_of
 from argus.domain.result_readout_content import ResultReadoutContent
 from argus.domain.strategy_template_contract import (
     ExecutableStrategyTemplate as StrategyTemplate,
@@ -255,9 +257,15 @@ class ProfilePatch(BaseModel):
     currency_override: TenderCurrencyCode = None
 
 
+ConversationSurface = Literal["personal", "business"]
+
+
 class ConversationCreate(BaseModel):
     title: str | None = None
     language: Language | None = None
+    #: Which chats the new conversation joins. The server resolves Business to
+    #: the person's own space; the client never names a space.
+    surface: ConversationSurface = "personal"
 
 
 class ConversationPatch(BaseModel):
@@ -322,6 +330,16 @@ class Conversation(BaseModel):
     preview: ConversationPreview | None = None
     language: Language | None = None
     activity: ConversationActivity | None = None
+    #: The chats it belongs to, from its stored owner_space_id: Personal (/chat)
+    #: or Business (/biz). A shell that receives the other surface sends it there.
+    surface: ConversationSurface = "personal"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _surface_from_stored_space(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "owner_space_id" in data and "surface" not in data:
+            return {**data, "surface": surface_of(data["owner_space_id"])}
+        return data
 
 
 class ConversationResponse(BaseModel):
@@ -340,6 +358,8 @@ class Message(BaseModel):
 class PaginatedMessages(BaseModel):
     items: list[Message]
     next_cursor: str | None = None
+    #: The surface of the conversation these messages belong to.
+    surface: ConversationSurface = "personal"
 
 
 class PaginatedConversations(BaseModel):
@@ -990,6 +1010,7 @@ def _context_depth(value: Any) -> int:
 
 
 class SignupRequest(BaseModel):
+    age_confirmed_at: AgeConfirmation = None
     email: str
     password: str
     captcha_token: str = Field(min_length=1, max_length=4096)
@@ -1153,6 +1174,7 @@ class GuestHandoffClaimResponse(BaseModel):
 
 
 class GuestAccountSignupRequest(BaseModel):
+    age_confirmed_at: AgeConfirmation = None
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     email: str = Field(min_length=3, max_length=320)

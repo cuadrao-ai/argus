@@ -32,12 +32,22 @@ struct ArgusFoundationApp: App {
 
     @ViewBuilder private var appContent: some View {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--apple-session-harness") {
+        if ProcessInfo.processInfo.arguments.contains("--age-confirmation-harness") {
+            AgeConfirmationHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--apple-session-harness") {
             AppleSessionHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--cuadrao-release-ui") {
             ReleaseUIReview()
+        } else if ProcessInfo.processInfo.arguments.contains("--saved-receipts-harness") {
+            SavedReceiptsHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--guest-claim-harness") {
+            GuestClaimHarness()
         } else if ProcessInfo.processInfo.arguments.contains("--invitations-harness") {
             InvitationsHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--captcha-harness") {
+            CaptchaHarness()
+        } else if ProcessInfo.processInfo.arguments.contains("--receipt-journey-harness") {
+            ReceiptJourneyHarness().preferredColorScheme(appearance.colorScheme)
         } else {
             connectedContent
         }
@@ -47,16 +57,21 @@ struct ArgusFoundationApp: App {
     }
 
     @ViewBuilder private var connectedContent: some View {
+        Group {
             if CuadraoDesignPreview.isActive {
 
                 CuadraoCanvas()
                     .preferredColorScheme(previewAppearance.colorScheme)
             } else {
-                ConnectedCuadraoRoot(appearance: $appearance)
-                    .environmentObject(auth)
-                    .modifier(SessionLifecycle(model: auth))
-                    .preferredColorScheme(appearance.colorScheme)
+                // The launch screen follows the system appearance like the static one; the saved preference applies with the app.
+                LaunchGateHost {
+                    GuestModeRouter(appearance: $appearance) { ConnectedCuadraoRoot(appearance: $appearance) }
+                        .preferredColorScheme(appearance.colorScheme)
+                }
+                .environmentObject(auth)
+                .modifier(SessionLifecycle(model: auth))
             }
+        }.background(KeyboardTapAway())
     }
 }
 

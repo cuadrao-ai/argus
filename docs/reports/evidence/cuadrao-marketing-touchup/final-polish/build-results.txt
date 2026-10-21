@@ -1,0 +1,38 @@
+$ node scripts/sync-brand.mjs && next build
+▲ Next.js 16.2.4 (Turbopack)
+- Experiments (use with caution):
+  ✓ globalNotFound
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 987ms
+  Running TypeScript ...
+  Finished TypeScript in 1268ms ...
+  Collecting page data using 12 workers ...
+  Generating static pages using 12 workers (0/16) ...
+  Generating static pages using 12 workers (4/16)
+  Generating static pages using 12 workers (8/16)
+  Generating static pages using 12 workers (12/16)
+✓ Generating static pages using 12 workers (16/16) in 165ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /_not-found
+├ ● /[locale]/[[...slug]]
+│ ├ /es
+│ ├ /es/personal
+│ ├ /es/contacto
+│ └ [+5 more paths]
+├ ƒ /api/health
+├ ƒ /api/inquiries
+├ ƒ /api/signups
+├ ○ /apple-icon.png
+├ ○ /icon.svg
+├ ƒ /robots.txt
+└ ƒ /sitemap.xml
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand

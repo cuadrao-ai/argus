@@ -37,9 +37,7 @@ struct CuadraoGroupCodeCard: View {
             }.background(WelcomePalette.background)
                 .navigationTitle(spanish ? "Código de muestra" : "Sample code").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(spanish ? "Listo" : "Done") { dismiss() }.accessibilityIdentifier("group-code-done")
-                    }
+                    CuadraoDoneToolbar(title: spanish ? "Listo" : "Done", identifier: "group-code-done") { dismiss() }
                 }
                 .sheet(item: $share) { item in GroupCodeShareSheet(image: item.image, message: sampleMessage) }
         }.tint(WelcomePalette.pine).presentationDragIndicator(.visible)

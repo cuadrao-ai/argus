@@ -116,7 +116,7 @@ struct CuadraoHome: View {
                     List { Text("No hay cuentas archivadas") }
                         .navigationTitle("Cuentas archivadas").navigationBarTitleDisplayMode(.inline)
                         .scrollContentBackground(.hidden).background(Cuadrao.paper)
-                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Listo") { showAccounts = false } } }
+                        .toolbar { CuadraoDoneToolbar(title: "Listo") { showAccounts = false } }
                 }.presentationDetents([.medium]).presentationDragIndicator(.visible)
             }
             .alert("Añadir cuenta", isPresented: $showAdd) {

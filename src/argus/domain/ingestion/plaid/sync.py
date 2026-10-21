@@ -42,6 +42,7 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.plaid.candidates import build_candidates
 from argus.domain.ingestion.plaid.client import PlaidClient, PlaidError
 from argus.domain.ingestion.plaid.failures import MUTATION_DURING_PAGINATION, meaning
+from argus.domain.owner_scope import PERSONAL
 
 SyncStatus = Literal[
     "synced", "not_ready", "busy", "no_sink", "failed", "sink_failed", "superseded"
@@ -126,7 +127,9 @@ class PlaidSync:
         try:
             try:
                 current = repo.get(
-                    user_id=connection.user_id, connection_id=connection.id
+                    user_id=connection.user_id,
+                    connection_id=connection.id,
+                    scope=PERSONAL,
                 )
             except ConnectionNotFound:
                 return SyncOutcome("busy")
@@ -167,6 +170,7 @@ class PlaidSync:
                 user_id=current.user_id,
                 connection_id=current.id,
                 candidates=candidates,
+                scope=PERSONAL,
             )
         except Exception as exc:
             logger.warning(

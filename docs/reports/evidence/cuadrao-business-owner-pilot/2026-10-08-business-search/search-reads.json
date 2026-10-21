@@ -1,0 +1,107 @@
+{
+ "A GET /business/search?q=Ferretería": {
+  "status": 200,
+  "expenses": [
+   {
+    "id": "business_expense",
+    "merchant": "Ferretería La Esquina",
+    "amount": "3450.00",
+    "currency": "DOP",
+    "receipt_id": "business_receipt"
+   }
+  ],
+  "receipts": [],
+  "accounts": []
+ },
+ "A GET /business/search?q=ferreteria": {
+  "status": 200,
+  "expenses": [
+   {
+    "id": "business_expense",
+    "merchant": "Ferretería La Esquina",
+    "amount": "3450.00",
+    "currency": "DOP",
+    "receipt_id": "business_receipt"
+   }
+  ],
+  "receipts": [],
+  "accounts": []
+ },
+ "A GET /business/search?q=receipt-web": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [
+   {
+    "id": "business_receipt",
+    "status": "confirmed",
+    "filename": "receipt-web.png"
+   }
+  ],
+  "accounts": []
+ },
+ "A GET /business/search?q=3450": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [
+   {
+    "id": "business_receipt",
+    "status": "confirmed",
+    "filename": "receipt-web.png"
+   }
+  ],
+  "accounts": []
+ },
+ "A GET /business/search?q=Casa": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [],
+  "accounts": []
+ },
+ "A GET /financial-search?q=ferreteria (Personal)": {
+  "status": 200,
+  "activities": [
+   {
+    "id": "personal_expense",
+    "note": "Ferretería La Esquina",
+    "amount": "99.00"
+   }
+  ]
+ },
+ "B GET /business/search?q=Ferretería": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [],
+  "accounts": []
+ },
+ "B GET /business/search?q=ferreteria": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [],
+  "accounts": []
+ },
+ "B GET /business/search?q=receipt-web": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [],
+  "accounts": []
+ },
+ "B GET /business/search?q=3450": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [],
+  "accounts": []
+ },
+ "B GET /business/search?q=Casa": {
+  "status": 200,
+  "expenses": [],
+  "receipts": [],
+  "accounts": []
+ },
+ "B GET /financial-search?q=ferreteria (Personal)": {
+  "status": 200,
+  "activities": []
+ },
+ "B GET /business/receipts/<A's receipt>/source": {
+  "status": 404
+ }
+}

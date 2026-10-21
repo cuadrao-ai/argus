@@ -94,7 +94,7 @@ struct FinancialDebtSheets: View {
                 NavigationStack {
                     List((loop.plan.projection?.accounts ?? []).filter { account in !account.archived && ["credit_card", "other_debt"].contains(account.type) && !(loop.plan.projection?.debts ?? []).contains(where: { !$0.debt.archived && $0.debt.debtAccountId == account.id }) }) { account in
                         Button(loop.accountName(account.id)) { model.chooseAccount(account) }.accessibilityIdentifier("debt.account." + account.id.uuidString)
-                    }.navigationTitle("debt.chooseAccount").toolbar { ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { model.choosingAccount = false } } }
+                    }.navigationTitle("debt.chooseAccount").toolbar { CuadraoCancelToolbar(title: "accounts.cancel") { model.choosingAccount = false } }
                 }
             }
             .sheet(isPresented: $model.linking) { FinancialDebtLinkView(model: model, loop: loop) }
@@ -285,7 +285,7 @@ struct FinancialDebtLinkView: View {
                     if let key = model.errorKey { Text(LocalizedStringKey(key)).accessibilityIdentifier("debt.error") }
                     if loop.pendingConfirmation != nil { PlanPendingView(loop: loop) }
                 }.padding(24)
-            }.navigationTitle("debt.link").toolbar { ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() }.disabled(model.saving).accessibilityIdentifier("debt.action.cancel") } }
+            }.navigationTitle("debt.link").toolbar { CuadraoCancelToolbar(title: "accounts.cancel", disabled: model.saving, identifier: "debt.action.cancel") { dismiss() }}
         }
     }
 }

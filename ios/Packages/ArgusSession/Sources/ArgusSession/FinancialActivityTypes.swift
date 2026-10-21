@@ -41,6 +41,8 @@ public struct FinancialActivityCommand: Codable, Equatable, Sendable {
     public var expectedVersions: [String: Int]
     public var coverage: [FinancialAccountCoverage]
     public var previewToken: String?
+    /// The entry day the preview decided; sent back so confirm keeps it across midnight.
+    public var enteredOn: String?
 
     public init(kind: FinancialActivityKind, accountId: UUID? = nil, sourceAccountId: UUID? = nil,
                 destinationAccountId: UUID? = nil, amount: String, occurredAt: String,
@@ -67,6 +69,7 @@ public struct FinancialActivityCommand: Codable, Equatable, Sendable {
         case timeZone = "time_zone", categoryId = "category_id", sourceId = "source_id"
         case purchaseActivityId = "purchase_activity_id", expectedRevision = "expected_revision"
         case expectedVersions = "expected_versions", previewToken = "preview_token"
+        case enteredOn = "entered_on"
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -89,6 +92,7 @@ public struct FinancialActivityCommand: Codable, Equatable, Sendable {
         try value.encode(expectedVersions, forKey: .expectedVersions)
         try value.encode(coverage, forKey: .coverage)
         try value.encode(previewToken, forKey: .previewToken)
+        try value.encodeIfPresent(enteredOn, forKey: .enteredOn)
     }
 }
 

@@ -292,6 +292,13 @@ describe("conversation activity locales", () => {
 });
 
 
+describe("business dossier refresh copy", () => {
+  test("es-419 supplies the Spanish label and English stays the fallback", () => {
+    expect(translationAt(es419, "business.dossier.refresh")).toBe("Consultar registro actual");
+    expect(translationAt(en, "business.dossier.refresh")).toBe("Check current record");
+  });
+});
+
 describe("daily question limit copy", () => {
   test.each([
     [en, "You've reached today's question limit. It resets at {{time}}."],

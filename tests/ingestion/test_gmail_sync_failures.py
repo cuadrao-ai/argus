@@ -3,6 +3,7 @@ provider outages with bounded backoff, missing sink and lost leases."""
 
 import pytest
 from argus.domain.ingestion.gmail.sync import LEASE_TTL
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.gmail_fakes import (
     FakeGoogle,
@@ -26,7 +27,9 @@ def synced_once(sink=None, sleeps=None):
 
 
 def stored(connector, row):
-    return connector.hub.connections.get(user_id=USER, connection_id=row.id)
+    return connector.hub.connections.get(
+        user_id=USER, connection_id=row.id, scope=PERSONAL
+    )
 
 
 def test_history_too_old_recovers_with_a_bounded_rescan_and_resets_the_cursor():

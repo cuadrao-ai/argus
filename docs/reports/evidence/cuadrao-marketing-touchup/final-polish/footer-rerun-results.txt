@@ -1,0 +1,32 @@
+$ playwright test "e2e/footer.spec.ts"
+(node:30544) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:30545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:30546) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:30547) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+(node:30565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30565) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:30565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/footer.spec.ts:4:7 › / ends at the cropped wordmark without a photo reveal (756ms)
+  ✓  2 [desktop] › e2e/footer.spec.ts:4:7 › /en ends at the cropped wordmark without a photo reveal (740ms)
+  ✓  3 [desktop] › e2e/footer.spec.ts:4:7 › /personal ends at the cropped wordmark without a photo reveal (740ms)
+  ✓  4 [desktop] › e2e/footer.spec.ts:4:7 › /en/personal ends at the cropped wordmark without a photo reveal (738ms)
+(node:30577) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30577) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:30577) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 [mobile] › e2e/footer.spec.ts:4:7 › / ends at the cropped wordmark without a photo reveal (742ms)
+  ✓  6 [mobile] › e2e/footer.spec.ts:4:7 › /en ends at the cropped wordmark without a photo reveal (741ms)
+  ✓  7 [mobile] › e2e/footer.spec.ts:4:7 › /personal ends at the cropped wordmark without a photo reveal (733ms)
+  ✓  8 [mobile] › e2e/footer.spec.ts:4:7 › /en/personal ends at the cropped wordmark without a photo reveal (735ms)
+
+  8 passed (7.5s)

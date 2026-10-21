@@ -51,6 +51,7 @@ from argus.domain.ingestion.gmail.senders import (
     sender_query,
 )
 from argus.domain.ingestion.hub import IngestionHub
+from argus.domain.owner_scope import PERSONAL
 
 SyncStatus = Literal[
     "synced", "busy", "no_sink", "no_senders", "failed", "sink_failed", "superseded"
@@ -127,7 +128,9 @@ class GmailSync:
         try:
             try:
                 current = repo.get(
-                    user_id=connection.user_id, connection_id=connection.id
+                    user_id=connection.user_id,
+                    connection_id=connection.id,
+                    scope=PERSONAL,
                 )
             except ConnectionNotFound:
                 return SyncOutcome("busy")
@@ -173,6 +176,7 @@ class GmailSync:
                     user_id=current.user_id,
                     connection_id=current.id,
                     candidates=tally.candidates,
+                    scope=PERSONAL,
                 )
                 counts["ignored"] = result.ignored
             except Exception as exc:

@@ -25,6 +25,7 @@ from argus.api.routers import agent as agent_router
 from argus.api.routers import auth as auth_router
 from argus.api.schemas import GuestPendingAction, Message
 from argus.domain.guest_cleanup import cleanup_expired_guest_workspaces
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from argus.domain.username_signup import serialized_username_signup
 from argus.domain.visitor_usage import visitor_key_for
@@ -204,7 +205,7 @@ def test_real_anonymous_identity_survives_reload(
         ):
             created = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert created.status_code == 200
@@ -216,7 +217,7 @@ def test_real_anonymous_identity_survives_reload(
 
             reloaded = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert reloaded.status_code == 200
@@ -255,7 +256,7 @@ def test_real_guest_terminal_message_settles_visitor_day_window(
         ):
             created = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert created.status_code == 200
@@ -417,7 +418,7 @@ def test_guest_run_through_real_flag_off_tool_corridor_settles_simulation(
         ):
             created = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
             assert created.status_code == 200
@@ -599,7 +600,7 @@ def test_expired_real_anonymous_session_renews_with_fresh_identity(
             client.cookies.set("sb-auth-token", access_token)
             renewed = client.post(
                 "/api/v1/auth/guest",
-                json={"captcha_token": "local-captcha-proof", "language": "en"},
+                json={"age_confirmed_at": "2026-01-01T00:00:00Z", "captcha_token": "local-captcha-proof", "language": "en"},
                 headers={"origin": "http://localhost:3000"},
             )
 
@@ -635,6 +636,7 @@ def test_cleanup_deletes_real_anonymous_auth_user_through_admin() -> None:
         auth_user_id = str(auth_user["id"])
         profile = gateway.get_or_create_profile_for_auth_user(auth_user)
         conversation = gateway.create_conversation(
+            scope=PERSONAL,
             user_id=profile.id,
             title="expired guest proof",
             title_source="system_default",
@@ -773,6 +775,7 @@ def test_signup_taken_username_creates_no_auth_user_or_profile(
             response = client.post(
                 "/api/v1/auth/signup",
                 json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
                     "email": fresh_email,
                     "password": f"Fresh-{secrets.token_urlsafe(18)}",
                     "captcha_token": "local-captcha-proof",
@@ -894,6 +897,7 @@ def test_concurrent_same_username_signup_calls_auth_only_for_winner(
             [{"email": first_email}, {"email": second_email}]
         ).execute()
         payload = {
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "password": password,
             "captcha_token": "local-captcha-proof",
             "username": username,
@@ -983,6 +987,7 @@ def test_signup_creates_profile_before_first_login_claims_pending_handoff(
             created_at=guest_profile.created_at,
         )
         conversation = gateway.create_conversation(
+            scope=PERSONAL,
             user_id=source_user_id,
             title="First login claim proof",
             title_source="system_default",
@@ -1022,6 +1027,7 @@ def test_signup_creates_profile_before_first_login_claims_pending_handoff(
             signed_up = signup_client.post(
                 "/api/v1/auth/signup",
                 json={
+                    "age_confirmed_at": "2026-01-01T00:00:00Z",
                     "email": email,
                     "password": password,
                     "captcha_token": "local-captcha-proof",
@@ -1127,6 +1133,7 @@ def test_existing_account_claim_preserves_same_conversation_and_deletes_source_o
             created_at=guest_profile.created_at,
         )
         conversation = gateway.create_conversation(
+            scope=PERSONAL,
             user_id=source_user_id,
             title="Claim proof",
             title_source="system_default",

@@ -1,0 +1,20 @@
+{
+  "journey": "transfer",
+  "passed": true,
+  "deltas": {
+    "DOP": {
+      "assets_minor": 97500,
+      "cash_minor": 97500,
+      "other_assets_minor": 0,
+      "debts_minor": 0,
+      "net_worth_minor": 97500,
+      "recorded_spending_minor": 12500,
+      "gross_income_minor": 0,
+      "gross_purchases_minor": 12500,
+      "refunds_minor": 0,
+      "net_spending_minor": 12500,
+      "known_accounts": 2,
+      "unknown_accounts": 0
+    }
+  }
+}

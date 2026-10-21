@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import AccountNotFound, StaleVersion
 
 from tests import test_personal_money_postgres as shared
@@ -35,7 +36,10 @@ def test_concurrent_lost_response_pair_is_one_committed_revision(
         results = list(
             pool.map(
                 lambda _: money.write(
-                    user_id=scene[1], request=body, idempotency_key="paired-response-loss"
+                    user_id=scene[1],
+                    request=body,
+                    idempotency_key="paired-response-loss",
+                    scope=PERSONAL,
                 ),
                 range(4),
             )
@@ -86,9 +90,11 @@ def test_failure_after_persisted_pair_rolls_back_before_receipt(
 
     monkeypatch.setattr(money_postgres, "persist", interrupted)
     with pytest.raises(RuntimeError, match="Synthetic interruption"):
-        money.write(user_id=scene[1], request=body, idempotency_key="interrupted")
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="interrupted", scope=PERSONAL
+        )
     for aid in (source, dest):
-        stored = scene[0].get(user_id=scene[1], account_id=aid)
+        stored = scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
         assert stored.account.version == 1 and not stored.expenses
     with repository._pool.connection() as c:
         for table in tables:
@@ -99,9 +105,9 @@ def test_failure_after_persisted_pair_rolls_back_before_receipt(
                 == before[table]
             )
     monkeypatch.setattr(money_postgres, "persist", original)
-    assert not money.write(user_id=scene[1], request=body, idempotency_key="interrupted")[
-        "replayed"
-    ]
+    assert not money.write(
+        user_id=scene[1], request=body, idempotency_key="interrupted", scope=PERSONAL
+    )["replayed"]
 
 
 def test_unauthorized_and_stale_pair_have_no_protected_effect(
@@ -109,13 +115,17 @@ def test_unauthorized_and_stale_pair_have_no_protected_effect(
 ):
     source, dest, money, body = paired
     with pytest.raises(AccountNotFound):
-        money.write(user_id=users["other"], request=body, idempotency_key="denied")
+        money.write(
+            user_id=users["other"], request=body, idempotency_key="denied", scope=PERSONAL
+        )
     save(scene, kind="income", account_id=source, amount="1")
-    before = scene[0].get(user_id=scene[1], account_id=source)
+    before = scene[0].get(user_id=scene[1], account_id=source, scope=PERSONAL)
     with pytest.raises(StaleVersion):
-        money.write(user_id=scene[1], request=body, idempotency_key="stale")
-    assert scene[0].get(user_id=scene[1], account_id=source) == before
-    assert not scene[0].get(user_id=scene[1], account_id=dest).expenses
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="stale", scope=PERSONAL
+        )
+    assert scene[0].get(user_id=scene[1], account_id=source, scope=PERSONAL) == before
+    assert not scene[0].get(user_id=scene[1], account_id=dest, scope=PERSONAL).expenses
     with repository._pool.connection() as c:
         assert (
             c.execute(

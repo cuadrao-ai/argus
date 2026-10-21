@@ -1,0 +1,106 @@
+{
+  "checked_at_utc": "2026-10-11T22:25:50.460655+00:00",
+  "document": {
+    "url": "https://cuadrao-web-staging.onrender.com/auth/native-captcha",
+    "status": 200,
+    "headers": {
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Frame-Options": "DENY",
+      "Content-Type": "text/html; charset=utf-8"
+    },
+    "sha256": "6037327ccbf9a595ebd2554952766b33d95d19f2d4a514f9ecd158c36e4372c7"
+  },
+  "assets": [
+    {
+      "path": "/_next/static/chunks/0f2a_cf1fjqd2.js",
+      "sha256": "e6080c67bd21e6cbd2c45fd3cdc2fce9ad3492beca1ba04cc44decd623d45c76",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/0~_gy9umnp-u_.js",
+      "sha256": "b4f264bd7d7213e508741831e0fbdd3c23ea6595fe27165a9f1c2984af02da5e",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/0.soge99f089f.js",
+      "sha256": "fd4a495bcd9364a1d1d22482eb94318a0cc3fd72f5b012b1d341d1e087221dbd",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/0pqt~8bl3ukh4.js",
+      "sha256": "5261101892e2476e4346e19e86fd5f19cbcf7c765ff76e92eb9cefcc86b6db6a",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/turbopack-00m770ktm2p1k.js",
+      "sha256": "c56a049cd8474a30fc94ec68b4836ecaa74cde51ed9d898695a2b606eba2437b",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/07traz6trfxlj.js",
+      "sha256": "7e0c5ecfe0fc719564e4a04f6ac08f389385b3584b2c007336c3a122cfa010bf",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/0y0226cnuexcq.js",
+      "sha256": "a965267beefcb0c99d83183fbc5c24c6c9686b8ef862e1093476d1c56d6d97a0",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/1167o~c78e75h.js",
+      "sha256": "b24ab11e6e3c31806b461ea046f59dc5818f0fab62e713b4417e7e28ac29657b",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/0018dy-m-kusj.js",
+      "sha256": "33ad5b2981e5d19cbecff83ec1c3f8d7e798435ea493bf1da5884c93f5c5e068",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/0trok8.m2.k7p.js",
+      "sha256": "04ee69eb53623c22ff491a8c90c10adde4c3f1b9cf9e8584b3d9b010f3a0cb46",
+      "native_handler_present": true,
+      "approved_staging_public_key_present": true,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/03~yq9q893hmn.js",
+      "sha256": "0973c1d64c88adc8e3c950410cb58b288f72118d5965b78049438deb8f2f9683",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    },
+    {
+      "path": "/_next/static/chunks/047-cys6mtmnu.js",
+      "sha256": "087150d4e4d088be1c4c9fad2b2893e9421c80cfaeeaca13411c32a19cb72663",
+      "native_handler_present": false,
+      "approved_staging_public_key_present": false,
+      "dummy_always_pass_key_present": false
+    }
+  ],
+  "native_handler_present": true,
+  "approved_staging_public_key_present": true,
+  "javascript_executed": false,
+  "challenge_attempts": 0,
+  "authentication_attempts": 0,
+  "hosted_changes": false
+}

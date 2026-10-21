@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import psycopg
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.postgres_history_reader import (
     HistoryCursorError,
     PostgresHistoryReader,
@@ -501,6 +502,7 @@ def _read(
             cursor_activity_at = datetime.fromisoformat(cursor_activity_at)
         cursor_id = str(row["id"])
     return reader.list_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         limit=source_limit,
         archived=archived,
@@ -711,6 +713,7 @@ def test_history_cursor_retains_unpinned_rank_after_pivot_is_pinned(
         )
 
     rows = reader.list_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         limit=3,
         archived=False,
@@ -768,6 +771,7 @@ def test_history_cursor_retains_pinned_rank_after_pivot_is_unpinned(
         )
 
     rows = reader.list_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         limit=3,
         archived=False,
@@ -800,6 +804,7 @@ def test_history_all_specialized_sql_variants_prepare(history_identities) -> Non
                     cursor.execute(
                         "explain "
                         + _candidate_sql(
+                            business=False,
                             archived=archived,
                             deleted=deleted,
                             has_cursor=has_cursor,
@@ -808,6 +813,7 @@ def test_history_all_specialized_sql_variants_prepare(history_identities) -> Non
                         ),
                         {
                             "user_id": owner_id,
+                            "owner_space_id": None,
                             "cursor_activity_at": (timestamp if has_cursor else None),
                             "cursor_id": uuid4() if has_cursor else None,
                             "source_limit": 4,
@@ -1126,6 +1132,7 @@ def test_history_owner_scope_is_present_in_every_source(history_identities) -> N
     foreign_pivot = next(iter(foreign_rows))
     with pytest.raises(HistoryCursorError):
         reader.list_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             limit=2,
             archived=False,
@@ -1150,6 +1157,7 @@ def test_history_owner_scope_is_present_in_every_source(history_identities) -> N
         )
     with pytest.raises(HistoryCursorError):
         reader.list_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             limit=2,
             archived=False,
@@ -1205,6 +1213,7 @@ def test_history_run_and_chat_plans_are_page_bounded_at_64_and_12k(
                 cursor.execute(
                     "explain (analyze, buffers, format json) "
                     + _candidate_sql(
+                        business=False,
                         archived=False,
                         deleted=False,
                         has_cursor=has_cursor,
@@ -1213,6 +1222,7 @@ def test_history_run_and_chat_plans_are_page_bounded_at_64_and_12k(
                     ),
                     {
                         "user_id": history_plan_scale_rows[owner_key],
+                        "owner_space_id": None,
                         "cursor_activity_at": (
                             history_plan_scale_rows["base"]
                             + timedelta(milliseconds=position)
@@ -1324,6 +1334,7 @@ def test_history_state_partition_plans_stay_bounded_as_volume_grows(
         cursor.execute(
             "explain (analyze, buffers, format json) "
             + _candidate_sql(
+                business=False,
                 archived=archived,
                 deleted=deleted,
                 has_cursor=has_cursor,
@@ -1332,6 +1343,7 @@ def test_history_state_partition_plans_stay_bounded_as_volume_grows(
             ),
             {
                 "user_id": owner_id,
+                "owner_space_id": None,
                 "cursor_activity_at": (
                     history_plan_scale_rows["base"] + timedelta(milliseconds=8_000)
                     if has_cursor
@@ -1400,6 +1412,7 @@ def test_history_candidate_plan_keeps_a_limit_inside_each_source(
         cursor.execute(
             "explain (analyze, buffers, format json) "
             + _candidate_sql(
+                business=False,
                 archived=False,
                 deleted=False,
                 has_cursor=False,
@@ -1408,6 +1421,7 @@ def test_history_candidate_plan_keeps_a_limit_inside_each_source(
             ),
             {
                 "user_id": owner_id,
+                "owner_space_id": None,
                 "cursor_activity_at": None,
                 "cursor_id": None,
                 "source_limit": 6,

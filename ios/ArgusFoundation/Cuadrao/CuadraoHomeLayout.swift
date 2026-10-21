@@ -70,13 +70,9 @@ struct CuadraoHomeLayoutSheet: View {
                 .navigationTitle(spanish ? "Ordenar Inicio" : "Reorder Home")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(spanish ? "Cancelar" : "Cancel") { dismiss() }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(spanish ? "Listo" : "Done") {
-                            savedOrder = sections.map(\.rawValue).joined(separator: ","); dismiss()
-                        }.fontWeight(.semibold)
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
+                    CuadraoConfirmToolbar(title: spanish ? "Listo" : "Done") {
+                        savedOrder = sections.map(\.rawValue).joined(separator: ","); dismiss()
                     }
                 }
         }.tint(WelcomePalette.pine).presentationDragIndicator(.visible)

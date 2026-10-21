@@ -1,3 +1,4 @@
+import { WEB_APP_NAME } from "./app-brand";
 import type { TitleSource } from "@/lib/argus-api";
 
 export type ConversationTitleRecord = {
@@ -51,4 +52,16 @@ export function shouldPlayTitleReveal(
     return false;
   }
   return previous.title !== next.title;
+}
+
+export function conversationTabTitle(
+  record: ConversationTitleRecord | null,
+  isChatViewActive: boolean,
+): string {
+  // One brand on every surface since the Cuadrao web branding reconciliation.
+  const brand = WEB_APP_NAME;
+  const named = isChatViewActive && record &&
+    (record.title_source === "ai_generated" || record.title_source === "user_renamed") &&
+    record.title.trim();
+  return named ? `${record.title} · ${brand}` : brand;
 }

@@ -25,6 +25,7 @@ from argus.domain.ingestion.reconcile.model import (
     Observation,
 )
 from argus.domain.ingestion.reconcile.store import ImportTx
+from argus.domain.owner_scope import OwnerScope, space_id, sql_predicate
 
 _EVENT = (
     "id::text, user_id::text, state, evidence, anchor_on, attention, attention_detail, "
@@ -38,9 +39,13 @@ _OBS = (
 
 
 class _PostgresTx:
-    def __init__(self, connection: Connection, user_id: str) -> None:
+    def __init__(self, connection: Connection, user_id: str, scope: OwnerScope) -> None:
         self._c = connection
         self._user = user_id
+        self._space = space_id(scope)
+        # Events are the scoped root here; observations and links follow
+        # their event or connection.
+        self._in_scope, self._scope_params = sql_predicate(scope, "owner_space_id")
 
     def _rows(self, statement: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
         with self._c.cursor(row_factory=dict_row) as cursor:
@@ -82,8 +87,8 @@ class _PostgresTx:
             raise EventNotFound() from None
         rows = self._rows(
             f"""select {_EVENT} from public.financial_import_events
-            where user_id = %s and id = %s::uuid""",
-            (self._user, event_id),
+            where user_id = %s and id = %s::uuid and {self._in_scope}""",
+            (self._user, event_id, *self._scope_params),
         )
         if not rows:
             raise EventNotFound()
@@ -94,8 +99,9 @@ class _PostgresTx:
             _event(r)
             for r in self._rows(
                 f"""select {_EVENT} from public.financial_import_events
-                where user_id = %s and anchor_on between %s and %s""",
-                (self._user, start, end),
+                where user_id = %s and anchor_on between %s and %s
+                and {self._in_scope}""",
+                (self._user, start, end, *self._scope_params),
             )
         ]
 
@@ -104,17 +110,18 @@ class _PostgresTx:
             _event(r)
             for r in self._rows(
                 f"""select {_EVENT} from public.financial_import_events
-                where user_id = %s and state = any(%s) order by created_at, id""",
-                (self._user, list(states)),
+                where user_id = %s and state = any(%s) and {self._in_scope}
+                order by created_at, id""",
+                (self._user, list(states), *self._scope_params),
             )
         ]
 
     def activity_links(self) -> dict[str, str]:
         rows = self._rows(
-            """select activity_id::text as activity_id, id::text as event_id
+            f"""select activity_id::text as activity_id, id::text as event_id
             from public.financial_import_events
-            where user_id = %s and activity_id is not null""",
-            (self._user,),
+            where user_id = %s and activity_id is not null and {self._in_scope}""",
+            (self._user, *self._scope_params),
         )
         return {r["activity_id"]: r["event_id"] for r in rows}
 
@@ -132,8 +139,8 @@ class _PostgresTx:
             """insert into public.financial_import_events
                 (id, user_id, state, evidence, anchor_on, attention, attention_detail,
                  possible_duplicates, resolution, activity_id, accept_key,
-                 created_at, updated_at, version)
-            values (%s, %s, %s, %s, %s, %s, %s, %s::uuid[], %s, %s, %s, %s, %s, %s)
+                 created_at, updated_at, version, owner_space_id)
+            values (%s, %s, %s, %s, %s, %s, %s, %s::uuid[], %s, %s, %s, %s, %s, %s, %s)
             on conflict (id) do update set
                 state = excluded.state, evidence = excluded.evidence,
                 anchor_on = excluded.anchor_on, attention = excluded.attention,
@@ -142,7 +149,9 @@ class _PostgresTx:
                 resolution = excluded.resolution, activity_id = excluded.activity_id,
                 accept_key = excluded.accept_key, updated_at = excluded.updated_at,
                 version = excluded.version
-            where financial_import_events.user_id = excluded.user_id""",
+            where financial_import_events.user_id = excluded.user_id
+            and financial_import_events.owner_space_id
+                is not distinct from excluded.owner_space_id""",
             (
                 e.id,
                 self._user,
@@ -158,13 +167,15 @@ class _PostgresTx:
                 e.created_at,
                 e.updated_at,
                 e.version,
+                self._space,
             ),
         )
 
     def delete_event(self, event_id: str) -> None:
         self._rows(
-            "delete from public.financial_import_events where user_id = %s and id = %s::uuid",
-            (self._user, event_id),
+            "delete from public.financial_import_events"
+            f" where user_id = %s and id = %s::uuid and {self._in_scope}",
+            (self._user, event_id, *self._scope_params),
         )
 
     def put_observation(self, o: Observation) -> None:
@@ -240,13 +251,13 @@ class PostgresImportStore:
         self._pool = pool
 
     @contextmanager
-    def transaction(self, user_id: str) -> Iterator[ImportTx]:
+    def transaction(self, user_id: str, *, scope: OwnerScope) -> Iterator[ImportTx]:
         with self._pool.connection() as connection, connection.transaction():
             connection.execute(
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
                 (f"financial_import:{user_id}",),
             )
-            yield _PostgresTx(connection, user_id)
+            yield _PostgresTx(connection, user_id, scope)
 
 
 def _event(r: dict[str, Any]) -> ImportEvent:

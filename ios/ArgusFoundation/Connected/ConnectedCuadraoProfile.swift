@@ -9,6 +9,8 @@ struct ConnectedCuadraoProfile: View {
     @Environment(\.locale) private var locale
     @State private var editing = false
     @State private var confirmingSignOut = false
+    @State private var claim: GuestClaimModel?
+    @Environment(\.cuadraoGuestClaim) private var guestClaim
     @State private var settingsExamples = CuadraoProfileSettingsDraft()
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
     private var displayName: String { auth.profile?.displayName ?? (spanish ? "Tu perfil" : "Your profile") }
@@ -19,12 +21,17 @@ struct ConnectedCuadraoProfile: View {
                 identity: .init(name: displayName, emailAddress: auth.profile?.email, avatar: avatar),
                 bottomSpace: bottomSpace, editProfile: { editing = true }) {
                 if let invitations = auth.invitations { ConnectedProfileInvitationsRow(model: invitations) }
+                if let guestClaim { GuestClaimRow(spanish: spanish) { openClaim(guestClaim) } }
             } accountActions: {
                 signOut
             }
             .navigationDestination(for: CanvasProfileRoute.self) { route in
                 if route == .invitations, let invitations = auth.invitations {
                     InvitationsHub(model: invitations).toolbar(.visible, for: .navigationBar)
+                } else if route == .files, CuadraoFirstRelease.savedReceipts, let receipts = auth.savedReceipts {
+                    SavedReceiptsScreen(model: receipts, spanish: spanish, review: { document in
+                        Task { await auth.receiptJourney?.open(document.connectionID) }
+                    }).toolbar(.visible, for: .navigationBar)
                 } else {
                     CuadraoProfilePage(route: route, settings: $settingsExamples, spanish: spanish,
                         includeExamples: true, connection: .connected(appearance: $appearance, profile: auth))
@@ -38,12 +45,15 @@ struct ConnectedCuadraoProfile: View {
                         saveNames: { await auth.setNames(displayName: $0, preferredName: $1) })
                 }.tint(WelcomePalette.pine).preferredColorScheme(appearance.colorScheme)
             }
+            .sheet(item: $claim) { model in
+                GuestClaimSheet(model: model, close: { claim = nil }).preferredColorScheme(appearance.colorScheme)
+            }
             .alert(spanish ? "¿Cerrar sesión?" : "Sign out?", isPresented: $confirmingSignOut) {
                 Button(spanish ? "Cancelar" : "Cancel", role: .cancel) {}
                 Button(spanish ? "Cerrar sesión" : "Sign out", role: .destructive) { Task { await auth.signOut() } }
                     .accessibilityIdentifier("auth.signOut.confirm")
             } message: {
-                Text(spanish ? "Volverás a la pantalla de inicio de sesión." : "You’ll return to the sign-in screen.")
+                Text(spanish ? "Volverás a la pantalla de inicio de sesión." : "You'll return to the sign-in screen.")
             }
         }
         .toolbar(.hidden, for: .tabBar)
@@ -51,6 +61,13 @@ struct ConnectedCuadraoProfile: View {
             settingsExamples = CuadraoProfileSettingsDraft()
             editing = false
             confirmingSignOut = false
+        }
+    }
+
+    private func openClaim(_ entry: GuestClaimEntry) {
+        Task {
+            guard let server = await auth.guestClaimServer() else { return }
+            claim = GuestClaimModel(directory: entry.directory, server: server, spanish: spanish, discard: entry.discard)
         }
     }
 
@@ -86,21 +103,25 @@ private struct ConnectedProfileInvitationsRow: View {
 }
 
 struct CuadraoLegalLinks: View {
-    let webURL: URL?
+    var legal: CuadraoLegalURLs = .current
     @Environment(\.locale) private var locale
     private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
 
     var body: some View {
         List {
-            if let webURL {
-                Link(destination: webURL.appendingPathComponent("privacy")) {
-                    Label(spanish ? "Privacidad" : "Privacy", systemImage: "hand.raised")
-                }.accessibilityIdentifier("release.legal.privacy")
-                Link(destination: webURL.appendingPathComponent("terms")) {
-                    Label(spanish ? "Términos de uso" : "Terms of use", systemImage: "doc.text")
-                }.accessibilityIdentifier("release.legal.terms")
+            if legal.hasPages {
+                if let privacy = legal.privacy {
+                    Link(destination: privacy) {
+                        Label(spanish ? "Privacidad" : "Privacy", systemImage: "hand.raised")
+                    }.accessibilityIdentifier("release.legal.privacy")
+                }
+                if let terms = legal.terms {
+                    Link(destination: terms) {
+                        Label(spanish ? "Términos de uso" : "Terms of use", systemImage: "doc.text")
+                    }.accessibilityIdentifier("release.legal.terms")
+                }
             } else {
-                Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren’t available right now.")
+                Text(spanish ? "Los enlaces no están disponibles en este momento." : "These links aren't available right now.")
             }
         }.navigationTitle(spanish ? "Privacidad y términos" : "Privacy and terms")
             .navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)

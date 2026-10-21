@@ -1,5 +1,6 @@
 """Ended consent pins canonical history, never a former member's live backing."""
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording import canonical_groups
 from argus.domain.recording.money_postgres import owner_lock
 
@@ -32,7 +33,7 @@ def retain_membership(c, hid, user_id, now, repository):
         "select id from public.financial_accounts where user_id=any(%s::uuid[]) order by id for update",
         (owners,),
     ).fetchall()
-    canonical = canonical_groups.load(repository, c, owners)
+    canonical = canonical_groups.load(repository, c, owners, scope=PERSONAL)
     for owner, owner_mid, kind, did in bindings:
         b = store.binding(c, str(owner), hid, str(owner_mid), kind, str(did))
         body = store.definition(c, kind, str(did), str(owner))

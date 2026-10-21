@@ -41,6 +41,7 @@ from argus.domain.ingestion.gmail.senders import SenderRepository, SenderRule
 from argus.domain.ingestion.gmail.state import OAuthStates
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.secrets import SecretBoxUnavailable
+from argus.domain.owner_scope import PERSONAL
 
 # Google issued a time-limited grant (refresh_token_expires_in); re-authorizing
 # clears it.
@@ -227,6 +228,7 @@ class GmailOAuth:
                 ),
                 connection_id=connection_id,
                 secret_key=box.key_id,
+                scope=PERSONAL,
             )
         except DuplicateConnection as duplicate:
             if duplicate.elsewhere:
@@ -235,7 +237,7 @@ class GmailOAuth:
                 raise MailboxOwnedElsewhere() from None
             # This person's concurrent callback won the insert.
             existing = self.hub.connections.get(
-                user_id=user_id, connection_id=duplicate.existing_id
+                user_id=user_id, connection_id=duplicate.existing_id, scope=PERSONAL
             )
             return self._reseal(existing, refresh_token), False
         return row, True

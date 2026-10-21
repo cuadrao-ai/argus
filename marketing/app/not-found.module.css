@@ -1,0 +1,48 @@
+.page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  background: #fafbf8;
+  color: #172b26;
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+.card {
+  display: grid;
+  gap: 12px;
+  max-width: 440px;
+  padding: 32px 24px;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #172b26;
+  color: #f4efe0;
+  font-size: 26px;
+  font-weight: 600;
+}
+.card h1,
+.card h2 {
+  margin: 8px 0 0;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+.card h2 {
+  font-size: 20px;
+  color: #56635e;
+}
+.card p {
+  margin: 0;
+}
+.card a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.card a:focus-visible {
+  outline: 3px solid #778d39;
+  outline-offset: 4px;
+}

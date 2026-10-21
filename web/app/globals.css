@@ -46,6 +46,12 @@
   --rui-color-teal: #5ba897;
   --rui-color-warning: #c2a44d;
   --rui-color-danger: #d66d75;
+  /* Cuadrao Business: the cream canvas and the deep green of the approved
+     landing, as tokens so Business surfaces share one owner for them. */
+  --cuadrao-cream: #F7F5EE;
+  --cuadrao-green: #2f5a49;
+  /* A floating menu's surface, light and dark, one owner for Business menus. */
+  --cuadrao-menu-surface: #ffffff;
   --argus-scroll-indicator: rgba(0, 0, 0, 0.12);
   --argus-scroll-indicator-dark: rgba(255, 255, 255, 0.16);
 }
@@ -53,6 +59,9 @@
 .dark {
   --bg: #191c1f;
   --fg: #ffffff;
+  --cuadrao-cream: #172b26;
+  --cuadrao-green: #8fcbb0;
+  --cuadrao-menu-surface: #1f2225;
 }
 
 body {
@@ -780,3 +789,114 @@ body {
  * Below the desktop stop the row offers an explicit menu whose trigger and
  * items are already 44px, so there is nothing left to expand.
  */
+
+[data-auth-brand="cuadrao"] {
+  --auth-paper: #fafbf8;
+  --auth-ink: #172b26;
+  --auth-muted: #56635e;
+  --auth-line: #dce0da;
+  --auth-field-border: color-mix(in srgb, var(--auth-pine) 60%, var(--auth-paper));
+  --auth-pine: rgb(16% 29% 25%);
+  --auth-pine-hover: #1d4236;
+  --auth-on-pine: #fafbf8;
+  --auth-sage: rgb(91% 93% 91%);
+}
+
+.dark [data-auth-brand="cuadrao"] {
+  --auth-paper: #172b26;
+  --auth-ink: #fafbf8;
+  --auth-muted: color-mix(in srgb, var(--auth-ink) 75%, var(--auth-paper));
+  --auth-line: color-mix(in srgb, var(--auth-pine) 30%, var(--auth-paper));
+  --auth-pine: rgb(67% 83% 75%);
+  --auth-pine-hover: color-mix(in srgb, var(--auth-pine) 90%, var(--auth-ink));
+  --auth-on-pine: rgb(8% 15% 12%);
+  --auth-sage: rgb(17% 22% 20%);
+}
+
+[data-auth-brand="cuadrao"].border {
+  background-color: var(--auth-paper);
+  border-color: var(--auth-line);
+}
+
+[data-auth-brand="cuadrao"] h2,
+[data-auth-brand="cuadrao"] input {
+  color: var(--auth-ink);
+}
+
+[data-auth-brand="cuadrao"] input {
+  border-color: var(--auth-field-border);
+  caret-color: var(--auth-pine);
+}
+
+[data-auth-brand="cuadrao"] input:hover {
+  border-color: var(--auth-pine);
+}
+
+[data-auth-brand="cuadrao"] input::placeholder,
+[data-auth-brand="cuadrao"] p:not([role="alert"]),
+[data-auth-brand="cuadrao"] button[type="button"] {
+  color: var(--auth-muted);
+}
+
+[data-auth-brand="cuadrao"] a,
+[data-auth-brand="cuadrao"] button[type="button"]:hover {
+  color: var(--auth-pine);
+}
+
+[data-auth-brand="cuadrao"] button[aria-label]:hover {
+  background-color: var(--auth-sage);
+}
+
+[data-auth-brand="cuadrao"] :is(input, button, a):focus-visible {
+  box-shadow: none;
+  outline: 2px solid var(--auth-pine);
+  outline-offset: 3px;
+}
+
+[data-auth-brand="cuadrao"] button[type="submit"] {
+  background-color: var(--auth-pine);
+  color: var(--auth-on-pine);
+}
+
+[data-auth-brand="cuadrao"] button[type="submit"]:hover:not(:disabled) {
+  background-color: var(--auth-pine-hover);
+  opacity: 1;
+}
+
+[data-auth-brand="cuadrao"] button[type="submit"]:disabled {
+  background-color: var(--auth-sage);
+  color: var(--auth-muted);
+  opacity: 1;
+}
+
+.business-foundation :is(h1, h2, h3) {
+  font-weight: 500;
+}
+
+.business-foundation :is(input, textarea, select) {
+  font-size: 16px;
+  border-color: #7d8a84;
+}
+
+.business-foundation :is(button, a, input, textarea, select, [role="button"], [role="menuitem"]):focus-visible {
+  outline: 2px solid #2f5a49;
+  outline-offset: 2px;
+}
+
+.dark .business-foundation :is(button, a, input, textarea, select, [role="button"], [role="menuitem"]):focus-visible {
+  outline-color: #8fcbb0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .business-foundation,
+  .business-foundation::before,
+  .business-foundation::after,
+  .business-foundation *,
+  .business-foundation *::before,
+  .business-foundation *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

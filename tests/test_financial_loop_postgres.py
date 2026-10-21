@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import StaleVersion
 from argus.domain.recording.loop_schemas import ActivityRequest
 from argus.domain.recording.schemas import CreateFinancialAccountRequest
@@ -32,6 +33,7 @@ def create(repository, owner):
         request=CreateFinancialAccountRequest(
             type="checking", currency="USD", amount="1000", as_of=now - timedelta(days=10)
         ),
+        scope=PERSONAL,
     ).stored
     request = ActivityRequest(
         expected_version=1,
@@ -67,7 +69,7 @@ def test_concurrent_response_loss_retry_writes_one_revision_and_receipt(
     assert sum(not r.replayed for r in results) == 1
     assert len({r.record_id for r in results}) == 1
     reopened = repository.get_account(
-        user_id=users["owner"], account_id=account.account.id
+        user_id=users["owner"], account_id=account.account.id, scope=PERSONAL
     )
     assert reopened.account.version == 2 and len(reopened.expenses) == 1
     with repository._pool.connection() as connection:
@@ -100,7 +102,7 @@ def test_concurrent_distinct_writes_reject_stale_preview_without_partial_records
         results = list(threads.map(submit, ("a", "b")))
     assert sum(r is not None for r in results) == 1
     reopened = repository.get_account(
-        user_id=users["owner"], account_id=account.account.id
+        user_id=users["owner"], account_id=account.account.id, scope=PERSONAL
     )
     assert reopened.account.version == 2 and len(reopened.expenses) == 1
 
@@ -121,6 +123,7 @@ def test_new_tables_enforce_same_account_foreign_keys_and_owner_only_reads(
         user_id=users["owner"],
         idempotency_key="another",
         request=CreateFinancialAccountRequest(type="cash", currency="USD", amount="1"),
+        scope=PERSONAL,
     ).stored
     with repository._pool.connection() as connection:
         with pytest.raises(psycopg.errors.ForeignKeyViolation), connection.transaction():
@@ -166,7 +169,7 @@ def test_new_tables_enforce_same_account_foreign_keys_and_owner_only_reads(
 def test_postgres_hydration_normalizes_uuid_before_loading_opening(repository, users):
     _, account, _ = create(repository, users["owner"])
     loaded = repository.get_account(
-        user_id=users["owner"], account_id=account.account.id.upper()
+        user_id=users["owner"], account_id=account.account.id.upper(), scope=PERSONAL
     )
     assert loaded.opening is not None
     assert loaded.opening.current.amount_minor == 100000

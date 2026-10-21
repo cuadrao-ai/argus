@@ -16,6 +16,7 @@ from argus.api.schemas import (
     Message,
 )
 from argus.api.search_utils import search_rank_key
+from argus.domain.owner_scope import PERSONAL
 
 
 @pytest.fixture(autouse=True)
@@ -116,8 +117,7 @@ def test_memory_asset_prefix_resolution_uses_a_bounded_sorted_window() -> None:
     ):
         symbols.reset()
         assert (
-            memory_search_candidates._resolve_asset_symbol(index, query=query)
-            == expected
+            memory_search_candidates._resolve_asset_symbol(index, query=query) == expected
         )
         assert symbols.lookups <= max_lookups
 
@@ -139,8 +139,8 @@ def test_memory_search_index_cache_evicts_and_closes_only_after_active_readers(
 
     built: list[_Index] = []
 
-    def _build(*, store: Any, user: Any) -> _Index:
-        del user
+    def _build(*, store: Any, user: Any, scope: Any) -> _Index:
+        del user, scope
         index = _Index(store.search_revision)
         built.append(index)
         return index
@@ -156,15 +156,18 @@ def test_memory_search_index_cache_evicts_and_closes_only_after_active_readers(
     stores = [type(api_state.store)() for _ in range(3)]
 
     with memory_search_candidates._memory_search_index(
+        scope=PERSONAL,
         store=stores[0],
         user=user,
     ):
         with memory_search_candidates._memory_search_index(
+            scope=PERSONAL,
             store=stores[1],
             user=user,
         ):
             pass
         with memory_search_candidates._memory_search_index(
+            scope=PERSONAL,
             store=stores[2],
             user=user,
         ):
@@ -175,6 +178,7 @@ def test_memory_search_index_cache_evicts_and_closes_only_after_active_readers(
 
     stores[1].bump_search_revision()
     with memory_search_candidates._memory_search_index(
+        scope=PERSONAL,
         store=stores[1],
         user=user,
     ):
@@ -217,6 +221,7 @@ def test_memory_asset_rollup_is_precomputed_once_per_search_revision(
         _store_run(index)
 
     first = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="AAPL",
@@ -236,6 +241,7 @@ def test_memory_asset_rollup_is_precomputed_once_per_search_revision(
             _fail_if_lineage_is_revisited,
         )
         second = memory_search_candidates.bounded_memory_search_snapshot(
+            scope=PERSONAL,
             store=api_state.store,
             user=user,
             query="AAP",
@@ -249,6 +255,7 @@ def test_memory_asset_rollup_is_precomputed_once_per_search_revision(
 
     _store_run(200)
     refreshed = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="AAP",
@@ -312,11 +319,13 @@ def test_memory_search_bounds_message_candidates_and_copies_outside_finalization
     )
 
     search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="needle",
         source_limit=2,
     )
     search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="transcript",
         source_limit=2,
@@ -380,6 +389,7 @@ def test_memory_search_bounds_exact_checks_before_scoring_common_postings(
     )
 
     snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="needle",
@@ -392,6 +402,7 @@ def test_memory_search_bounds_exact_checks_before_scoring_common_postings(
 
     exact_checks = 0
     cursor_snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="needle",
@@ -434,6 +445,7 @@ def test_memory_search_keeps_bounded_match_counts_for_the_winning_layer() -> Non
     ]
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="needle",
         source_limit=1,
@@ -444,9 +456,7 @@ def test_memory_search_keeps_bounded_match_counts_for_the_winning_layer() -> Non
     assert read.scored_items[0][1].match.count == 3
 
 
-def test_memory_search_does_not_let_false_positive_trigrams_hide_an_exact_match() -> (
-    None
-):
+def test_memory_search_does_not_let_false_positive_trigrams_hide_an_exact_match() -> None:
     user = api_state.store.get_or_create_dev_user()
     now = datetime.now(timezone.utc)
 
@@ -492,6 +502,7 @@ def test_memory_search_does_not_let_false_positive_trigrams_hide_an_exact_match(
     ]
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="abcdef",
         source_limit=1,
@@ -500,9 +511,7 @@ def test_memory_search_does_not_let_false_positive_trigrams_hide_an_exact_match(
     assert [item.id for _, item in read.scored_items] == [target_id]
 
 
-def test_memory_search_applies_decision_filter_before_filling_candidate_window() -> (
-    None
-):
+def test_memory_search_applies_decision_filter_before_filling_candidate_window() -> None:
     user = api_state.store.get_or_create_dev_user()
     now = datetime.now(timezone.utc)
 
@@ -574,6 +583,7 @@ def test_memory_search_applies_decision_filter_before_filling_candidate_window()
     api_state.store.decision_note_owners[target_decision_id] = user.id
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="needle",
         source_limit=1,
@@ -629,6 +639,7 @@ def test_memory_search_preserves_text_rank_at_equal_conversation_activity() -> N
     ]
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="alpha beta",
         source_limit=1,
@@ -696,6 +707,7 @@ def test_memory_search_casefolds_stored_symbols_for_exact_rank() -> None:
     api_state.store.evidence_artifact_owners[object_match.id] = user.id
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="ss/eur",
         source_limit=2,
@@ -740,7 +752,8 @@ def test_memory_search_counts_winning_layer_when_page_is_full() -> None:
                 conversation_id=conversation_id,
                 role="user",
                 content=f"needle in message {message_index}",
-                created_at=now + timedelta(
+                created_at=now
+                + timedelta(
                     minutes=index,
                     microseconds=message_index,
                 ),
@@ -750,6 +763,7 @@ def test_memory_search_counts_winning_layer_when_page_is_full() -> None:
         ]
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="needle",
         source_limit=1,
@@ -808,6 +822,7 @@ def test_memory_search_cursor_window_crosses_matching_layers() -> None:
     api_state.store.conversation_owners[target_id] = user.id
 
     snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="needle",
@@ -880,6 +895,7 @@ def test_memory_search_cursor_keeps_each_rows_global_winning_layer() -> None:
     api_state.store.decision_note_owners[target_decision_id] = user.id
 
     snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="needle",
@@ -889,9 +905,7 @@ def test_memory_search_cursor_keeps_each_rows_global_winning_layer() -> None:
         cursor_id=cursor_id,
     )
 
-    target = next(
-        row for row in snapshot.conversations if row["id"] == target_id
-    )
+    target = next(row for row in snapshot.conversations if row["id"] == target_id)
     assert target["_recall_match"]["layer"] == "decision"
 
 
@@ -950,6 +964,7 @@ def test_memory_search_cursor_slots_exclude_rows_that_win_above_cursor() -> None
     api_state.store.conversation_owners[target_id] = user.id
 
     snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="needle",
@@ -962,9 +977,7 @@ def test_memory_search_cursor_slots_exclude_rows_that_win_above_cursor() -> None
     assert target_id in {row["id"] for row in snapshot.conversations}
 
 
-def test_memory_candidate_window_uses_final_conversation_rank_beyond_source_cap() -> (
-    None
-):
+def test_memory_candidate_window_uses_final_conversation_rank_beyond_source_cap() -> None:
     user = api_state.store.get_or_create_dev_user()
     now = datetime.now(timezone.utc)
 
@@ -1012,6 +1025,7 @@ def test_memory_candidate_window_uses_final_conversation_rank_beyond_source_cap(
     ]
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="needle",
         source_limit=1,
@@ -1080,6 +1094,7 @@ def test_memory_recents_window_uses_final_seek_key_before_candidate_cap() -> Non
     api_state.store.decision_note_owners[decision_id] = user.id
 
     base_snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="",
@@ -1087,6 +1102,7 @@ def test_memory_recents_window_uses_final_seek_key_before_candidate_cap() -> Non
         include_conversation_rows=True,
     )
     cursor_snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="",
@@ -1137,6 +1153,7 @@ def test_memory_recents_cursor_window_uses_final_seek_key_beyond_head() -> None:
         api_state.store.conversation_owners[conversation_id] = user.id
 
     base_snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="",
@@ -1144,6 +1161,7 @@ def test_memory_recents_cursor_window_uses_final_seek_key_beyond_head() -> None:
         include_conversation_rows=True,
     )
     cursor_snapshot = memory_search_candidates.bounded_memory_search_snapshot(
+        scope=PERSONAL,
         store=api_state.store,
         user=user,
         query="",
@@ -1232,6 +1250,7 @@ def test_memory_search_preserves_the_latest_untaken_assistant_offer() -> None:
     api_state.store.messages[conversation_id] = [offer]
 
     read = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="",
         source_limit=1,
@@ -1244,6 +1263,7 @@ def test_memory_search_preserves_the_latest_untaken_assistant_offer() -> None:
     assert "left_off" not in item.dossier.model_dump()
 
     assistant_text_search = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="supported follow-ups",
         source_limit=1,
@@ -1262,6 +1282,7 @@ def test_memory_search_preserves_the_latest_untaken_assistant_offer() -> None:
         ),
     ]
     followed_up = search_assembly.memory_search_read(
+        scope=PERSONAL,
         user=user,
         query="",
         source_limit=1,

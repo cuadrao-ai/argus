@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import {
   AlertCircle,
@@ -46,6 +47,7 @@ export default function FeedbackDialog({
   context,
 }: FeedbackDialogProps) {
   const { t } = useTranslation();
+  const isBusiness = useConversationSurface() === "business";
   // The actions sit outside the form so they can stay pinned, so they submit
   // it by name instead of by containment.
   const formId = useId();
@@ -205,7 +207,9 @@ export default function FeedbackDialog({
       ? t("feedback.subheading.bug", "File a bug report.")
       : type === "feature"
         ? t("feedback.subheading.feature", "Request a feature for Argus.")
-        : t("feedback.subheading.general", "Share feedback about your Argus experience.");
+        : isBusiness
+          ? t("feedback.subheading.business_general", "Tell us how Cuadrao is working for you. We read every comment.")
+          : t("feedback.subheading.general", "Share feedback about your Argus experience.");
 
   return (
     <AdaptivePanel
@@ -460,12 +464,14 @@ export default function FeedbackDialog({
                       "feedback.footer_note",
                       "No conversation transcript or contact information is attached.",
                     )}{" "}
+                {!isBusiness && (
                 <button
                   type="button"
                   className="font-medium text-black underline underline-offset-2 hover:text-black/70 dark:text-white dark:hover:text-white/70"
                 >
                   {t("common.learn_more", "Learn more")}
                 </button>
+                )}
               </p>
 
             </form>

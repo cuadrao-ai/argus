@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from argus.api import state as api_state
 from argus.api.conversation_activity import conversation_activity_service
 from argus.api.conversation_previews import conversation_previews
+from argus.api.conversation_surface import memory_conversation_in_scope, surface_scope
 from argus.api.dependencies import current_user
 from argus.api.guest_access import account_context
 from argus.api.memory_ownership import memory_object_visible
@@ -16,11 +17,13 @@ from argus.api.pagination import decode_cursor, encode_cursor, invalid_cursor_pr
 from argus.api.schemas import (
     BacktestRun,
     Conversation,
+    ConversationSurface,
     HistoryItem,
     PaginatedHistory,
     User,
 )
 from argus.api.search_utils import search_type_rank
+from argus.domain.owner_scope import holds
 from argus.domain.postgres_history_reader import HistoryCursorError
 
 router = APIRouter(prefix="/api/v1", tags=["history"])
@@ -67,8 +70,12 @@ def history(
     cursor: str | None = Query(None),
     archived: bool = Query(False),
     deleted: bool = Query(False),
+    surface: ConversationSurface = Query("personal"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedHistory:
+    scope = surface_scope(request, user_id=user.id, surface=surface)
+    # Strategies and collections store no space, so they are Personal.
+    spaceless_in_scope = holds(scope, None)
     context = account_context(request)
     if context.kind == "guest":
         if api_state.supabase_gateway is None:
@@ -137,6 +144,7 @@ def history(
         try:
             raw = gateway.list_history_rows(
                 user_id=user.id,
+                scope=scope,
                 limit=limit + 1,
                 cursor_activity_at=cursor_dt,
                 cursor_id=cursor_id,
@@ -200,7 +208,7 @@ def history(
                 owner_map=api_state.store.backtest_run_owners,
                 object_id=run_id,
                 user_id=user.id,
-            ):
+            ) or not memory_conversation_in_scope(run.conversation_id or "", scope):
                 continue
             if _run_matches_history_filters(
                 run,
@@ -223,7 +231,7 @@ def history(
                 owner_map=api_state.store.conversation_owners,
                 object_id=stored_conversation.id,
                 user_id=user.id,
-            ):
+            ) or not memory_conversation_in_scope(stored_conversation.id, scope):
                 continue
             if (
                 stored_conversation.deleted_at is not None
@@ -242,10 +250,13 @@ def history(
                     )
                 )
         for stored_strategy in api_state.store.strategies.values():
-            if not memory_object_visible(
-                owner_map=api_state.store.strategy_owners,
-                object_id=stored_strategy.id,
-                user_id=user.id,
+            if (
+                not memory_object_visible(
+                    owner_map=api_state.store.strategy_owners,
+                    object_id=stored_strategy.id,
+                    user_id=user.id,
+                )
+                or not spaceless_in_scope
             ):
                 continue
             if (
@@ -264,10 +275,13 @@ def history(
                     )
                 )
         for stored_collection in api_state.store.collections.values():
-            if not memory_object_visible(
-                owner_map=api_state.store.collection_owners,
-                object_id=stored_collection.id,
-                user_id=user.id,
+            if (
+                not memory_object_visible(
+                    owner_map=api_state.store.collection_owners,
+                    object_id=stored_collection.id,
+                    user_id=user.id,
+                )
+                or not spaceless_in_scope
             ):
                 continue
             if (

@@ -6,6 +6,7 @@ import type { ComputationComparison, ComputedAnswerSummary } from "@/lib/computa
 import { comparedValueText, differenceText } from "@/lib/computation-compare";
 import { compareComputedAnswers, listComputedAnswers } from "@/lib/computations-api";
 import { localizedToolText, parseToolResultCard, type ToolTranslator } from "@/lib/tool-result-card";
+import { useConversationSurface } from "./ChatWorkspace";
 
 export type ComputationSource = { conversationId: string; messageId: string; kind: string };
 
@@ -18,17 +19,18 @@ export function ComputationComparePanel({ source, t, locale }: { source: Computa
   const [comparison, setComparison] = useState<ComputationComparison | null>(null);
   const [busy, setBusy] = useState(true);
   const [failed, setFailed] = useState(false);
+  const surface = useConversationSurface();
   useEffect(() => {
     let active = true;
     setBusy(true);
     setFailed(false);
     setComparison(null);
-    listComputedAnswers(source.kind, source.messageId)
+    listComputedAnswers(source.kind, source.messageId, surface)
       .then((page) => { if (active) setChoices(page.items); })
       .catch(() => { if (active) setFailed(true); })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
-  }, [source.kind, source.messageId]);
+  }, [source.kind, source.messageId, surface]);
   const pick = async (choice: ComputedAnswerSummary) => {
     setBusy(true);
     setFailed(false);

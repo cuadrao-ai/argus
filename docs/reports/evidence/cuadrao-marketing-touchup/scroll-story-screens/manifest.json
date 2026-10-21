@@ -1,0 +1,99 @@
+{
+  "sourceCommit": "5c3c2d4a41ea2a1d1d76244b0158a1c32f28e805",
+  "capturedAt": "2026-10-09T22:55:54.817Z",
+  "baseURL": "http://127.0.0.1:4512",
+  "browser": "Playwright Chromium headless, isolated contexts",
+  "captures": [
+    {
+      "route": "/",
+      "file": "story-es-1440-1.png",
+      "width": 1440,
+      "height": 900,
+      "step": 1
+    },
+    {
+      "route": "/",
+      "file": "story-es-1440-2.png",
+      "width": 1440,
+      "height": 900,
+      "step": 2
+    },
+    {
+      "route": "/",
+      "file": "story-es-1440-3.png",
+      "width": 1440,
+      "height": 900,
+      "step": 3
+    },
+    {
+      "route": "/en",
+      "file": "story-en-1440-1.png",
+      "width": 1440,
+      "height": 900,
+      "step": 1
+    },
+    {
+      "route": "/en",
+      "file": "story-en-1440-2.png",
+      "width": 1440,
+      "height": 900,
+      "step": 2
+    },
+    {
+      "route": "/en",
+      "file": "story-en-1440-3.png",
+      "width": 1440,
+      "height": 900,
+      "step": 3
+    },
+    {
+      "route": "/",
+      "file": "story-es-390-1.png",
+      "width": 390,
+      "height": 844,
+      "step": 1
+    },
+    {
+      "route": "/",
+      "file": "story-es-390-2.png",
+      "width": 390,
+      "height": 844,
+      "step": 2
+    },
+    {
+      "route": "/",
+      "file": "story-es-390-3.png",
+      "width": 390,
+      "height": 844,
+      "step": 3
+    },
+    {
+      "route": "/en",
+      "file": "story-en-390-1.png",
+      "width": 390,
+      "height": 844,
+      "step": 1
+    },
+    {
+      "route": "/en",
+      "file": "story-en-390-2.png",
+      "width": 390,
+      "height": 844,
+      "step": 2
+    },
+    {
+      "route": "/en",
+      "file": "story-en-390-3.png",
+      "width": 390,
+      "height": 844,
+      "step": 3
+    },
+    {
+      "route": "/",
+      "file": "short-screen-manual.png",
+      "width": 844,
+      "height": 390,
+      "mode": "manual"
+    }
+  ]
+}

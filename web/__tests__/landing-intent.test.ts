@@ -7,7 +7,12 @@ import {
   authLoginPathFromSearch,
   CAMPAIGN_VALUE_FIELDS,
   captureLandingIntent,
+  businessShellPath,
   currentChatPath,
+  businessShellEntry,
+  postAuthPath,
+  resolveSignedInHome,
+  signedInHomePath,
   hasCampaignAttribution,
   LANDING_INTENT_STORAGE_KEY,
   LANDING_STARTER_STORAGE_KEY,
@@ -461,11 +466,11 @@ describe("landing starter prefill wiring", () => {
     expect(hook).toContain("if (!canConsume) return");
     expect(hook).not.toContain("onSend");
     expect(hook).not.toContain("admitSend");
-    expect(empty).toContain("useLandingStarterPrefill(canConsumeLandingStarter)");
+    expect(empty).toContain("useLandingStarterPrefill(canConsumeLandingStarter && !workspace)");
     expect(empty).toContain("canConsumeLandingStarter");
     expect(empty).toContain("draftText={draftText}");
     expect(empty).toContain(
-      "key={`new-conversation-${landingStarterSurfaceEpoch()}`}",
+      "`new-conversation-${landingStarterSurfaceEpoch()}`",
     );
     expect(input).toContain("draftText");
     expect(input).not.toContain("onSend(draftText");
@@ -490,24 +495,10 @@ describe("landing starter prefill wiring", () => {
       join(root, "components/chat/ChatInterface.tsx"),
       "utf-8",
     );
-    const guest = readFileSync(
-      join(root, "components/guest/useGuestExperience.ts"),
-      "utf-8",
-    );
     expect(init).toContain("setInitialRoutingSettled(true)");
     expect(init).toContain("return initialRoutingSettled");
     expect(chat).toContain("canConsumeLandingStarter={initialRoutingSettled}");
-    expect(guest).toContain("if (isGuestBootstrapAbortError(error)) return;");
-    expect(guest).not.toContain("if (!isGuestBootstrapAbortError(error)) throw error");
-    const signInStart = guest.indexOf("onRequestSignIn: () => {");
-    const signInBlock = guest.slice(
-      signInStart,
-      guest.indexOf("omnisearchShortcutEnabled,", signInStart),
-    );
-    expect(signInBlock).toContain("prepareLandingStarterAuthHandoff()");
-    expect(signInBlock.indexOf("prepareLandingStarterAuthHandoff()")).toBeLessThan(
-      signInBlock.indexOf("cancelPendingGuestBootstrap()"),
-    );
+    expect(chat).not.toContain("admitSend");
   });
 
   test("public receipt landings capture the live path before a follow-up forks", () => {
@@ -523,7 +514,7 @@ describe("landing starter prefill wiring", () => {
     expect(layout).toContain("LandingIntentCapture");
     expect(capture).toContain("captureLandingIntentFromLocation");
     expect(followup).toContain("captureLandingIntentFromLocation");
-    expect(followup).toContain("currentChatPath()");
+    expect(followup).toContain("receiptFollowupTarget()");
     expect(followup).not.toContain('router.push("/chat")');
   });
 
@@ -594,6 +585,48 @@ describe("landing intent merge and redirects", () => {
       location: { search: "?utm_campaign=x" },
     };
     expect(currentChatPath()).toBe("/chat?utm_campaign=x");
+    // The signed-in home: chat on a consumer build, the Business workspace on a Business build.
+    expect(signedInHomePath(false, false)).toBe("/chat?utm_campaign=x");
+    expect(signedInHomePath(true, false)).toBe("/biz");
+    expect(postAuthPath(false, false)).toBe("/chat?utm_campaign=x");
+    expect(postAuthPath(true, false)).toBe("/biz");
+    // A listed return page wins on either build; anything else is ignored.
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=%2Fbiz%3Freceipt%3Dr1&auth=login" },
+    };
+    expect(postAuthPath(true, false)).toBe("/biz?receipt=r1");
+    expect(postAuthPath(false, false)).toBe("/biz?receipt=r1");
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=https%3A%2F%2Fevil.example%2Fbiz" },
+    };
+    expect(postAuthPath(true)).toBe("/biz");
+    // Protocol-relative, backslash, scheme and encoded spellings of another host all fall back to home.
+    for (const hostile of [
+      "%2F%2Fevil.example",
+      "%2F%5Cevil.example%2Fbiz",
+      "/\\evil.example",
+      "javascript%3Aalert(1)",
+      "%2Fbiz%2F..%2F..%2F%2Fevil.example",
+      "%252F%252Fevil.example",
+      "https%3A%2F%2Fevil.example%2Fbiz",
+      "%2Fchat",
+    ]) {
+      (globalThis as { window?: { location: { search: string } } }).window = {
+        location: { search: `?return_to=${hostile}` },
+      };
+      expect(postAuthPath(true, false)).toBe("/biz");
+      expect(postAuthPath(false, false)).toBe("/chat");
+    }
+    // A listed page carrying junk keeps only its listed keys: the junk is dropped, the page stays.
+    (globalThis as { window?: { location: { search: string } } }).window = {
+      location: { search: "?return_to=%2Fbiz%3Freturn_to%3D%2F%2Fevil.example%26receipt%3Dr9" },
+    };
+    expect(postAuthPath(false, false)).toBe("/biz?receipt=r9");
+    delete (globalThis as { window?: unknown }).window;
+    // The Business shell path keeps only the conversation and message a chat address named.
+    expect(businessShellPath("conversation=c1&message=m2&auth=login&next=%2Fadmin")).toBe("/biz?conversation=c1&message=m2");
+    expect(businessShellPath("conversation=%2F%2Fevil")).toBe("/biz");
+    expect(businessShellPath("")).toBe("/biz");
   });
 
   test("login bounce drops next, redirect, unknown params, and invalid starters", () => {
@@ -611,5 +644,23 @@ describe("landing intent merge and redirects", () => {
         "/chat",
       ),
     ).toBe("/?from_path=%2Fchat&auth=login");
+  });
+
+  test("business-only never targets chat", () => {
+    const chatPath = "/chat";
+    const rows = [
+      [false, false, { href: chatPath }],
+      [true, false, { href: "/biz" }],
+      [true, true, { href: "/biz" }],
+      [false, true, { closed: true }],
+    ] as const;
+    for (const [pilot, businessOnly, expected] of rows) {
+      const target = resolveSignedInHome({ pilot, businessOnly, chatPath });
+      expect(target).toEqual(expected);
+      if (businessOnly) {
+        expect("href" in target ? target.href : "/?auth=login").not.toMatch(/^\/chat/);
+      }
+    }
+    expect(businessShellEntry({ pilot: false, businessOnly: true })).toEqual({ closed: true });
   });
 });

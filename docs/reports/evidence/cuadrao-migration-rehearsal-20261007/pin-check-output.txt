@@ -1,0 +1,6 @@
+production ledger rows: 81
+rebuilt ledger hash    : e352a2c003572611f0fb201305e085e3736eefbfae0d62ef29f4322a18062032
+gate's pinned hash     : e352a2c003572611f0fb201305e085e3736eefbfae0d62ef29f4322a18062032
+pin matches            : True
+gate (offline): blocked ['missing_candidate_migrations'] ['historical_migration_ledger_variance']
+missing: 35 | content drift: 0 | name drift: 0

@@ -5,6 +5,7 @@ import json
 from typing import Any
 
 from argus.domain.backtest_admission import canonical_hash
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording import canonical_groups
 from argus.domain.recording.errors import (
     IdempotencyConflict,
@@ -32,7 +33,7 @@ class HouseholdFinancialService:
 
     def records(self, c: Any, scope: HouseholdFinancialScope) -> list:
         return [
-            self.repository._load(c, a.owner_id, aid)
+            self.repository._load(c, a.owner_id, aid, scope=PERSONAL)
             for aid, a in sorted(scope.accounts.items())
         ]
 
@@ -50,7 +51,7 @@ class HouseholdFinancialService:
             for owner in owners:
                 owner_lock(c, owner)
             records = self.records(c, scope)
-            canonical = canonical_groups.load(self.repository, c, owners)
+            canonical = canonical_groups.load(self.repository, c, owners, scope=PERSONAL)
             projected = []
             for aid, number in canonical.current_visible(scope.accounts).items():
                 projected.append(
@@ -113,7 +114,10 @@ class HouseholdFinancialService:
             for owner in sorted({a.owner_id for a in scope.accounts.values()}):
                 owner_lock(c, owner)
             canonical = canonical_groups.load(
-                self.repository, c, {a.owner_id for a in scope.accounts.values()}
+                self.repository,
+                c,
+                {a.owner_id for a in scope.accounts.values()},
+                scope=PERSONAL,
             )
             hist = canonical.history.get(aid)
             if not hist or not any(
@@ -243,9 +247,9 @@ class HouseholdFinancialService:
             owner = require_edit(scope, targets)
             for dependency_owner in canonical_groups.owner_closure(c, {owner}):
                 owner_lock(c, dependency_owner)
-            canonical = canonical_groups.load(self.repository, c, {owner})
+            canonical = canonical_groups.load(self.repository, c, {owner}, scope=PERSONAL)
             records = canonical_groups.VisibleAccounts(
-                load_owner(self.repository, c, owner), canonical
+                load_owner(self.repository, c, owner, scope=PERSONAL), canonical
             )
             required = dependencies(records, request, activity_id)
             require_edit(scope, required)
@@ -311,12 +315,12 @@ class HouseholdFinancialService:
             )
             return self.receipt(
                 scope,
-                load_owner(self.repository, c, owner),
+                load_owner(self.repository, c, owner, scope=PERSONAL),
                 result.activity_id,
                 result.revision,
                 result.affected,
                 False,
-                canonical_groups.load(self.repository, c, {owner}),
+                canonical_groups.load(self.repository, c, {owner}, scope=PERSONAL),
             )
 
     def receipt(

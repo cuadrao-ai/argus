@@ -1,6 +1,6 @@
 """Reconciliation storage: one per-person transaction, two backends.
 
-All reconciliation logic runs inside ``ImportStore.transaction(user_id)`` so
+All reconciliation logic runs inside ``ImportStore.transaction(user_id, scope=...)`` so
 submit, review and acceptance for one person serialize, while different
 people never wait on each other. The in-memory twin restores its snapshot on
 error; Postgres uses a transaction-scoped advisory lock.
@@ -20,6 +20,7 @@ from argus.domain.ingestion.reconcile.model import (
     ImportEvent,
     Observation,
 )
+from argus.domain.owner_scope import OwnerScope, holds, space_id
 
 
 class ImportTx(Protocol):
@@ -41,13 +42,23 @@ class ImportTx(Protocol):
 
 
 class ImportStore(Protocol):
-    def transaction(self, user_id: str) -> AbstractContextManager[ImportTx]: ...
+    def transaction(
+        self, user_id: str, *, scope: OwnerScope
+    ) -> AbstractContextManager[ImportTx]: ...
 
 
 class _MemoryTx:
-    def __init__(self, store: InMemoryImportStore, user_id: str) -> None:
+    def __init__(
+        self, store: InMemoryImportStore, user_id: str, scope: OwnerScope
+    ) -> None:
         self._s = store
         self._user = user_id
+        self._scope = scope
+
+    def _mine(self, event: ImportEvent) -> bool:
+        return event.user_id == self._user and holds(
+            self._scope, self._s.event_spaces.get(event.id)
+        )
 
     def observation(self, connection_id: str, external_id: str) -> Observation | None:
         return self._s.observations.get((self._user, connection_id, external_id))
@@ -67,7 +78,7 @@ class _MemoryTx:
 
     def event(self, event_id: str) -> ImportEvent:
         event = self._s.events.get(event_id)
-        if event is None or event.user_id != self._user:
+        if event is None or not self._mine(event):
             raise EventNotFound()
         return event
 
@@ -75,16 +86,12 @@ class _MemoryTx:
         return [
             e
             for e in self._s.events.values()
-            if e.user_id == self._user
-            and e.anchor_on is not None
-            and start <= e.anchor_on <= end
+            if self._mine(e) and e.anchor_on is not None and start <= e.anchor_on <= end
         ]
 
     def events(self, states: tuple[str, ...]) -> list[ImportEvent]:
         found = [
-            e
-            for e in self._s.events.values()
-            if e.user_id == self._user and e.state in states
+            e for e in self._s.events.values() if self._mine(e) and e.state in states
         ]
         return sorted(found, key=lambda e: (e.created_at, e.id))
 
@@ -94,7 +101,7 @@ class _MemoryTx:
         return {
             e.activity_id: e.id
             for e in self._s.events.values()
-            if e.user_id == self._user and e.activity_id
+            if self._mine(e) and e.activity_id
         }
 
     def links(self) -> dict[tuple[str, str], str]:
@@ -113,10 +120,17 @@ class _MemoryTx:
         ):
             # Mirrors the database's one-import-per-activity unique index.
             raise ValueError("activity already has an import event")
+        stored = self._s.events.get(event.id)
+        if stored is not None and not self._mine(stored):
+            return
         self._s.events[event.id] = event
+        self._s.event_spaces[event.id] = space_id(self._scope)
 
     def delete_event(self, event_id: str) -> None:
-        self._s.events.pop(event_id, None)
+        stored = self._s.events.get(event_id)
+        if stored is not None and self._mine(stored):
+            del self._s.events[event_id]
+            self._s.event_spaces.pop(event_id, None)
 
     def put_observation(self, observation: Observation) -> None:
         key = (self._user, observation.connection_id, observation.external_id)
@@ -144,16 +158,23 @@ class _MemoryTx:
 class InMemoryImportStore:
     def __init__(self) -> None:
         self.events: dict[str, ImportEvent] = {}
+        # Event id to its stored ``owner_space_id``, set from the transaction scope.
+        self.event_spaces: dict[str, str | None] = {}
         self.observations: dict[tuple[str, str, str], Observation] = {}
         self.links: dict[tuple[str, str, str], AccountLink] = {}
         self._lock = threading.RLock()
 
     @contextmanager
-    def transaction(self, user_id: str) -> Iterator[ImportTx]:
+    def transaction(self, user_id: str, *, scope: OwnerScope) -> Iterator[ImportTx]:
         with self._lock:
-            snapshot = (dict(self.events), dict(self.observations), dict(self.links))
+            snapshot = (
+                dict(self.events),
+                dict(self.event_spaces),
+                dict(self.observations),
+                dict(self.links),
+            )
             try:
-                yield _MemoryTx(self, user_id)
+                yield _MemoryTx(self, user_id, scope)
             except BaseException:
-                self.events, self.observations, self.links = snapshot
+                self.events, self.event_spaces, self.observations, self.links = snapshot
                 raise

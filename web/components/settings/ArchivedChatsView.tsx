@@ -7,6 +7,7 @@ import {
   RotateCcw,
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { conversationPreviewText } from "@/lib/conversation-preview-display";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -26,12 +27,13 @@ export default function ArchivedChatsView({ onClose, onBack, backLabel, onRestor
   const { t } = useTranslation();
   const [archivedChats, setArchivedChats] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const surface = useConversationSurface();
 
   useEffect(() => {
-    listConversations({ archived: true })
+    listConversations({ archived: true, surface })
       .then(({ items }) => setArchivedChats(items))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [surface]);
 
   const handleUnarchive = async (id: string) => {
     try {

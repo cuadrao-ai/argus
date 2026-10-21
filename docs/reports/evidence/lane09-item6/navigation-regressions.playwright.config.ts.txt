@@ -1,0 +1,3 @@
+import { defineConfig } from "@playwright/test";
+import navigation from "../e2e/business-navigation.playwright.config";
+export default defineConfig({ ...navigation, testDir: "../e2e", testMatch: ["business-navigation-focus.spec.ts", "business-clutter.spec.ts"], outputDir: "../temp/navigation-regressions" });

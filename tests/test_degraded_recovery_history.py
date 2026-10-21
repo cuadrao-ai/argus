@@ -26,6 +26,7 @@ from argus.api.message_store import (
 from argus.api.routers.history import history as list_history
 from argus.api.search_assembly import scored_memory_search_items
 from argus.domain.conversation_previews import project_conversation_preview
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.supabase_gateway import SupabaseGateway
 from langchain_core.messages import AIMessage
 
@@ -85,6 +86,7 @@ def test_degraded_compatibility_text_stays_durable_but_not_in_history_or_preview
     user = api_state.store.get_or_create_dev_user()
     user_id = user.id
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="AAPL idea",
         title_source="system_default",
         language="es-419",
@@ -139,11 +141,10 @@ def test_degraded_compatibility_text_stays_durable_but_not_in_history_or_preview
     assert search_items[0][1].matched_text == ("Prueba AAPL con velas de cinco minutos.")
 
 
-def test_llm_voice_remains_in_history_preview_and_interpreter_only() -> (
-    None
-):
+def test_llm_voice_remains_in_history_preview_and_interpreter_only() -> None:
     user_id = "user-1"
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="AAPL idea",
         title_source="system_default",
         language="en",
@@ -318,6 +319,7 @@ def test_chat_history_keeps_degraded_replies_and_only_naming_drops_failed_lookup
 ):
     user_id = "user-1"
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="AAPL",
         title_source="system_default",
         language="en",

@@ -1,0 +1,10 @@
+W_share_personal_account_with_household: {"ok": true, "value": "CommandResult"}
+W_share_business_account_with_household: {"ok": false, "error": "RaiseException: business_account_not_shareable\nCONTEXT:  PL/pgSQL function argus_private.refuse_business_account_grant() line 7 at RAISE"}
+Traceback (most recent call last):
+  File "/private/tmp/claude-501/-Users-garces-Documents-projects-repos-argus--claude-worktrees-decision-attachment-refactor-098d43/a87878b8-b98a-412b-99b4-afda86e843b6/scratchpad/compat/probe_business.py", line 420, in grant
+    share(s, person, hid, ids["business_account"], member)
+  File "/Users/garces/Documents/projects/repos/argus-worktrees/compat-build2/tests/household/financial_fixtures.py", line 139, in share
+    return command(
+psycopg.errors.RaiseException: business_account_not_shareable
+CONTEXT:  PL/pgSQL function argus_private.refuse_business_account_grant() line 7 at RAISE
+exit=0

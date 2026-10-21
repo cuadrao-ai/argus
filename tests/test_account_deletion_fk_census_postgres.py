@@ -21,6 +21,7 @@ import pytest
 from argus.domain.household import planning_schemas as wire
 from argus.domain.household.schemas import CreateHouseholdRequest
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.asset_schemas import AssetDetailsRequest
 from argus.domain.recording.assets import AssetService
 from argus.domain.recording.service import FinancialAccountService
@@ -144,7 +145,9 @@ def _occurrence(plan):
 
 def _allocate(s, actor, plan, account_id, amount="15"):
     version = (
-        s["records"].get_account(user_id=actor, account_id=account_id).account.version
+        s["records"]
+        .get_account(user_id=actor, account_id=account_id, scope=PERSONAL)
+        .account.version
     )
     return s["plans"].allocate(
         actor,
@@ -314,6 +317,7 @@ def build_world(services, pool):  # noqa: ANN001
         label="Bank",
         now=NOW,
         secret=b"sealed",
+        scope=PERSONAL,
     )
     with pool.connection() as conn:
         conn.execute(
@@ -344,7 +348,7 @@ def build_world(services, pool):  # noqa: ANN001
     debts = [create_asset(accounts, a, "other_debt", "1000000", 10000) for _ in range(2)]
     for debt in debts:
         version = records.get_account(
-            user_id=a, account_id=house.account.id
+            user_id=a, account_id=house.account.id, scope=PERSONAL
         ).account.version
         assets.details(
             a,

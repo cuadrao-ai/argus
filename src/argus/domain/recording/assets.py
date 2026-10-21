@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from pydantic import BaseModel
 
 from argus.domain.backtest_admission import canonical_hash
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.accounts import OPTIONAL_ASSET_TYPES
 from argus.domain.recording.asset_schemas import AssetDetailsRequest, AssetEstimateRequest
 from argus.domain.recording.currency import parse_minor_units
@@ -78,7 +79,7 @@ class AssetService:
     def preview(
         self, owner: str, account_id: str, request: AssetEstimateRequest
     ) -> AssetPreviewResponse:
-        stored = self.accounts.get(user_id=owner, account_id=account_id)
+        stored = self.accounts.get(user_id=owner, account_id=account_id, scope=PERSONAL)
         if stored.account.version != request.expected_version:
             raise StaleVersion()
         mutation = self._estimate(stored, request)
@@ -90,7 +91,9 @@ class AssetService:
     def write(
         self, owner: str, account_id: str, request: AssetEstimateRequest, key: str
     ) -> OperationResult:
-        account_id = self.accounts.get(user_id=owner, account_id=account_id).account.id
+        account_id = self.accounts.get(
+            user_id=owner, account_id=account_id, scope=PERSONAL
+        ).account.id
         token = identity(account_id, request)
 
         def plan(stored: StoredAccount) -> Mutation:
@@ -107,6 +110,7 @@ class AssetService:
             identity_hash=token,
             expected_version=request.expected_version,
             planner=plan,
+            scope=PERSONAL,
         )
 
     def _estimate(self, stored: StoredAccount, request: AssetEstimateRequest) -> Mutation:
@@ -182,11 +186,14 @@ class AssetService:
     def details(
         self, owner: str, account_id: str, request: AssetDetailsRequest, key: str
     ) -> AssetDetailsResult:
-        account_id = self.accounts.get(user_id=owner, account_id=account_id).account.id
+        account_id = self.accounts.get(
+            user_id=owner, account_id=account_id, scope=PERSONAL
+        ).account.id
         return self.accounts._repository.write_asset_details(
             user_id=owner,
             account_id=account_id,
             request=request,
             idempotency_key=key,
             identity_hash=identity(account_id, request),
+            scope=PERSONAL,
         )

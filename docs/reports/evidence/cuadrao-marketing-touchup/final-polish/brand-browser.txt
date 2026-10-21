@@ -1,0 +1,241 @@
+$ playwright test
+(node:38237) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:38238) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:38239) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:38240) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 184 tests using 1 worker
+
+(node:38242) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38242) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:38242) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓    1 [desktop] › e2e/capture-story.spec.ts:14:7 › / scroll advances and reverses the receipt chapters before releasing the page (400ms)
+  ✓    2 [desktop] › e2e/capture-story.spec.ts:14:7 › /en scroll advances and reverses the receipt chapters before releasing the page (288ms)
+  ✓    3 [desktop] › e2e/capture-story.spec.ts:39:5 › scroll chapters retain click and keyboard shortcuts without moving passive-scroll focus (282ms)
+  ✓    4 [desktop] › e2e/capture-story.spec.ts:56:7 › reduced motion keeps an ordinary manual rail with no added scroll distance (158ms)
+  ✓    5 [desktop] › e2e/capture-story.spec.ts:56:7 › short landscape keeps an ordinary manual rail with no added scroll distance (155ms)
+  ✓    6 [desktop] › e2e/capture-story.spec.ts:75:5 › 320px viewport keeps the rail and every receipt readable (396ms)
+  ✓    7 [desktop] › e2e/capture-story.spec.ts:88:5 › native wheel input advances and reverses a pinned chapter (344ms)
+  ✓    8 [desktop] › e2e/capture-story.spec.ts:106:5 › phone introduction scrolls away before the complete rail and card stay in view (163ms)
+  ✓    9 [desktop] › e2e/contact.spec.ts:25:9 › contact form es › sends one message that reaches the configured inbox with the visitor as reply-to (275ms)
+  ✓   10 [desktop] › e2e/contact.spec.ts:43:9 › contact form es › a double click sends one request and one message (1.0s)
+  ✓   11 [desktop] › e2e/contact.spec.ts:59:9 › contact form es › an unavailable service keeps the text, and a retry sends exactly one message (353ms)
+  ✓   12 [desktop] › e2e/contact.spec.ts:78:9 › contact form es › a retry after a lost response does not send twice (336ms)
+  ✓   13 [desktop] › e2e/contact.spec.ts:100:9 › contact form es › required fields are reported and nothing is sent (128ms)
+  ✓   14 [desktop] › e2e/contact.spec.ts:109:9 › contact form es › links to the privacy page next to the form (140ms)
+  ✓   15 [desktop] › e2e/contact.spec.ts:25:9 › contact form en › sends one message that reaches the configured inbox with the visitor as reply-to (225ms)
+  ✓   16 [desktop] › e2e/contact.spec.ts:43:9 › contact form en › a double click sends one request and one message (976ms)
+  ✓   17 [desktop] › e2e/contact.spec.ts:59:9 › contact form en › an unavailable service keeps the text, and a retry sends exactly one message (351ms)
+  ✓   18 [desktop] › e2e/contact.spec.ts:78:9 › contact form en › a retry after a lost response does not send twice (338ms)
+  ✓   19 [desktop] › e2e/contact.spec.ts:100:9 › contact form en › required fields are reported and nothing is sent (128ms)
+  ✓   20 [desktop] › e2e/contact.spec.ts:109:9 › contact form en › links to the privacy page next to the form (148ms)
+  ✓   21 [desktop] › e2e/contact.spec.ts:117:5 › without JavaScript the form cannot be submitted natively (85ms)
+  ✓   22 [desktop] › e2e/footer.spec.ts:4:7 › / ends at the cropped wordmark without a photo reveal (838ms)
+  ✓   23 [desktop] › e2e/footer.spec.ts:4:7 › /en ends at the cropped wordmark without a photo reveal (858ms)
+  ✓   24 [desktop] › e2e/footer.spec.ts:4:7 › /personal ends at the cropped wordmark without a photo reveal (737ms)
+  ✓   25 [desktop] › e2e/footer.spec.ts:4:7 › /en/personal ends at the cropped wordmark without a photo reveal (732ms)
+  ✓   26 [desktop] › e2e/personal-motion.spec.ts:13:5 › waits for confirmed registration, then delivers once while confirmation receives focus (2.1s)
+  ✓   27 [desktop] › e2e/personal-motion.spec.ts:36:5 › failed and unexpected responses preserve the email without a flight, then allow retry (2.0s)
+  ✓   28 [desktop] › e2e/personal-motion.spec.ts:56:5 › fine-pointer eyes follow and reset without changing form focus (126ms)
+  ✓   29 [desktop] › e2e/personal-motion.spec.ts:69:5 › reduced motion confirms directly with a still pet (118ms)
+  ✓   30 [desktop] › e2e/personal-motion.spec.ts:82:7 › narrow 320px form confirms without scrolling toward the offscreen phone (224ms)
+  ✓   31 [desktop] › e2e/personal-motion.spec.ts:82:7 › narrow 390px form confirms without scrolling toward the offscreen phone (231ms)
+  ✓   32 [desktop] › e2e/personal-motion.spec.ts:98:5 › scrolling during delivery removes the flight and keeps the true confirmation (320ms)
+  ✓   33 [desktop] › e2e/personal.spec.ts:25:9 › personal signup es › registers durably and confirms only after the database accepted the row (217ms)
+  ✓   34 [desktop] › e2e/personal.spec.ts:37:9 › personal signup es › a repeat registration looks the same and stores one row (480ms)
+  ✓   35 [desktop] › e2e/personal.spec.ts:48:9 › personal signup es › an unavailable database keeps the email and never claims success (1.0s)
+  ✓   36 [desktop] › e2e/personal.spec.ts:65:9 › personal signup es › links to the privacy page near the form (129ms)
+  ✓   37 [desktop] › e2e/personal.spec.ts:72:7 › personal es cannot submit natively before hydration (74ms)
+  ✓   38 [desktop] › e2e/personal.spec.ts:25:9 › personal signup en › registers durably and confirms only after the database accepted the row (209ms)
+  ✓   39 [desktop] › e2e/personal.spec.ts:37:9 › personal signup en › a repeat registration looks the same and stores one row (636ms)
+  ✓   40 [desktop] › e2e/personal.spec.ts:48:9 › personal signup en › an unavailable database keeps the email and never claims success (1.0s)
+  ✓   41 [desktop] › e2e/personal.spec.ts:65:9 › personal signup en › links to the privacy page near the form (149ms)
+  ✓   42 [desktop] › e2e/personal.spec.ts:72:7 › personal en cannot submit natively before hydration (72ms)
+  ✓   43 [desktop] › e2e/site.spec.ts:22:9 › page identity › / declares its language, title, canonical and alternates (106ms)
+  ✓   44 [desktop] › e2e/site.spec.ts:22:9 › page identity › /personal declares its language, title, canonical and alternates (98ms)
+  ✓   45 [desktop] › e2e/site.spec.ts:22:9 › page identity › /contacto declares its language, title, canonical and alternates (95ms)
+  ✓   46 [desktop] › e2e/site.spec.ts:22:9 › page identity › /privacidad declares its language, title, canonical and alternates (88ms)
+  ✓   47 [desktop] › e2e/site.spec.ts:22:9 › page identity › /en declares its language, title, canonical and alternates (101ms)
+  ✓   48 [desktop] › e2e/site.spec.ts:22:9 › page identity › /en/personal declares its language, title, canonical and alternates (96ms)
+  ✓   49 [desktop] › e2e/site.spec.ts:22:9 › page identity › /en/contact declares its language, title, canonical and alternates (94ms)
+  ✓   50 [desktop] › e2e/site.spec.ts:22:9 › page identity › /en/privacy declares its language, title, canonical and alternates (88ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   51 [desktop] › e2e/site.spec.ts:38:7 › page identity › every page serves the Cuadrao icons, not an inherited Argus icon (104ms)
+  ✓   52 [desktop] › e2e/site.spec.ts:56:7 › page identity › language links keep the visitor on the same page (189ms)
+  ✓   53 [desktop] › e2e/site.spec.ts:83:9 › routes › /business redirects permanently to / (6ms)
+  ✓   54 [desktop] › e2e/site.spec.ts:83:9 › routes › /business/personal redirects permanently to /personal (4ms)
+  ✓   55 [desktop] › e2e/site.spec.ts:83:9 › routes › /business/demo redirects permanently to /contacto (4ms)
+  ✓   56 [desktop] › e2e/site.spec.ts:83:9 › routes › /business/en redirects permanently to /en (4ms)
+  ✓   57 [desktop] › e2e/site.spec.ts:83:9 › routes › /business/en/personal redirects permanently to /en/personal (4ms)
+  ✓   58 [desktop] › e2e/site.spec.ts:83:9 › routes › /business/en/demo redirects permanently to /en/contact (4ms)
+  ✓   59 [desktop] › e2e/site.spec.ts:83:9 › routes › /es redirects permanently to / (4ms)
+  ✓   60 [desktop] › e2e/site.spec.ts:83:9 › routes › /es/contacto redirects permanently to /contacto (4ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   61 [desktop] › e2e/site.spec.ts:91:9 › routes › /foo is not found (7ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   62 [desktop] › e2e/site.spec.ts:91:9 › routes › /en/foo is not found (6ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   63 [desktop] › e2e/site.spec.ts:91:9 › routes › /contact is not found (6ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   64 [desktop] › e2e/site.spec.ts:91:9 › routes › /en/contacto is not found (7ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   65 [desktop] › e2e/site.spec.ts:91:9 › routes › /api/inquiries/x is not found (6ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   66 [desktop] › e2e/site.spec.ts:91:9 › routes › /business/private is not found (6ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓   67 [desktop] › e2e/site.spec.ts:96:7 › routes › the not-found page has a language, a title and a way home in both languages (93ms)
+  ✓   68 [desktop] › e2e/site.spec.ts:106:9 › routes › /EN redirects to /en and does not poison the lowercase page (8ms)
+  ✓   69 [desktop] › e2e/site.spec.ts:106:9 › routes › /en/Personal redirects to /en/personal and does not poison the lowercase page (7ms)
+  ✓   70 [desktop] › e2e/site.spec.ts:106:9 › routes › /En/PRIVACY redirects to /en/privacy and does not poison the lowercase page (7ms)
+  ✓   71 [desktop] › e2e/site.spec.ts:106:9 › routes › /Contacto redirects to /contacto and does not poison the lowercase page (8ms)
+  ✓   72 [desktop] › e2e/site.spec.ts:114:7 › routes › the health endpoint needs no providers (5ms)
+  ✓   73 [desktop] › e2e/site.spec.ts:120:7 › routes › images on a candidate host are also excluded from search (5ms)
+  ✓   74 [desktop] › e2e/site.spec.ts:126:7 › routes › form endpoints reject GET (6ms)
+  ✓   75 [desktop] › e2e/site.spec.ts:133:7 › indexing › a candidate host is excluded from search (11ms)
+  ✓   76 [desktop] › e2e/site.spec.ts:142:7 › indexing › the public host is indexable and lists every page once, without private routes (20ms)
+  ✓   77 [desktop] › e2e/site.spec.ts:158:9 › accessibility › / has no automated WCAG 2.1 AA violations (378ms)
+  ✓   78 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /personal has no automated WCAG 2.1 AA violations (306ms)
+  ✓   79 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /contacto has no automated WCAG 2.1 AA violations (321ms)
+  ✓   80 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /privacidad has no automated WCAG 2.1 AA violations (305ms)
+  ✓   81 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /en has no automated WCAG 2.1 AA violations (360ms)
+  ✓   82 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /en/personal has no automated WCAG 2.1 AA violations (309ms)
+  ✓   83 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /en/contact has no automated WCAG 2.1 AA violations (324ms)
+  ✓   84 [desktop] › e2e/site.spec.ts:158:9 › accessibility › /en/privacy has no automated WCAG 2.1 AA violations (318ms)
+  ✓   85 [desktop] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (321ms)
+  ✓   86 [desktop] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (219ms)
+  ✓   87 [desktop] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (102ms)
+  ✓   88 [desktop] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (177ms)
+  ✓   89 [desktop] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (181ms)
+  ✓   90 [desktop] › e2e/touchup.spec.ts:72:5 › reduced motion is static and small screens do not overflow (278ms)
+  ✓   91 [desktop] › e2e/touchup.spec.ts:103:7 › / omits the editorial photo section and withdrawn product capture (92ms)
+  ✓   92 [desktop] › e2e/touchup.spec.ts:103:7 › /en omits the editorial photo section and withdrawn product capture (95ms)
+(node:38509) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:38509) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:38509) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   93 [mobile] › e2e/capture-story.spec.ts:14:7 › / scroll advances and reverses the receipt chapters before releasing the page (323ms)
+  ✓   94 [mobile] › e2e/capture-story.spec.ts:14:7 › /en scroll advances and reverses the receipt chapters before releasing the page (306ms)
+  ✓   95 [mobile] › e2e/capture-story.spec.ts:39:5 › scroll chapters retain click and keyboard shortcuts without moving passive-scroll focus (257ms)
+  ✓   96 [mobile] › e2e/capture-story.spec.ts:56:7 › reduced motion keeps an ordinary manual rail with no added scroll distance (145ms)
+  ✓   97 [mobile] › e2e/capture-story.spec.ts:56:7 › short landscape keeps an ordinary manual rail with no added scroll distance (138ms)
+  ✓   98 [mobile] › e2e/capture-story.spec.ts:75:5 › 320px viewport keeps the rail and every receipt readable (373ms)
+  ✓   99 [mobile] › e2e/capture-story.spec.ts:88:5 › native wheel input advances and reverses a pinned chapter (352ms)
+  ✓  100 [mobile] › e2e/capture-story.spec.ts:106:5 › phone introduction scrolls away before the complete rail and card stay in view (255ms)
+  ✓  101 [mobile] › e2e/contact.spec.ts:25:9 › contact form es › sends one message that reaches the configured inbox with the visitor as reply-to (229ms)
+  ✓  102 [mobile] › e2e/contact.spec.ts:43:9 › contact form es › a double click sends one request and one message (997ms)
+  ✓  103 [mobile] › e2e/contact.spec.ts:59:9 › contact form es › an unavailable service keeps the text, and a retry sends exactly one message (356ms)
+  ✓  104 [mobile] › e2e/contact.spec.ts:78:9 › contact form es › a retry after a lost response does not send twice (333ms)
+  ✓  105 [mobile] › e2e/contact.spec.ts:100:9 › contact form es › required fields are reported and nothing is sent (129ms)
+  ✓  106 [mobile] › e2e/contact.spec.ts:109:9 › contact form es › links to the privacy page next to the form (143ms)
+  ✓  107 [mobile] › e2e/contact.spec.ts:25:9 › contact form en › sends one message that reaches the configured inbox with the visitor as reply-to (220ms)
+  ✓  108 [mobile] › e2e/contact.spec.ts:43:9 › contact form en › a double click sends one request and one message (989ms)
+  ✓  109 [mobile] › e2e/contact.spec.ts:59:9 › contact form en › an unavailable service keeps the text, and a retry sends exactly one message (355ms)
+  ✓  110 [mobile] › e2e/contact.spec.ts:78:9 › contact form en › a retry after a lost response does not send twice (336ms)
+  ✓  111 [mobile] › e2e/contact.spec.ts:100:9 › contact form en › required fields are reported and nothing is sent (128ms)
+  ✓  112 [mobile] › e2e/contact.spec.ts:109:9 › contact form en › links to the privacy page next to the form (130ms)
+  ✓  113 [mobile] › e2e/contact.spec.ts:117:5 › without JavaScript the form cannot be submitted natively (83ms)
+  ✓  114 [mobile] › e2e/footer.spec.ts:4:7 › / ends at the cropped wordmark without a photo reveal (841ms)
+  ✓  115 [mobile] › e2e/footer.spec.ts:4:7 › /en ends at the cropped wordmark without a photo reveal (867ms)
+  ✓  116 [mobile] › e2e/footer.spec.ts:4:7 › /personal ends at the cropped wordmark without a photo reveal (740ms)
+  ✓  117 [mobile] › e2e/footer.spec.ts:4:7 › /en/personal ends at the cropped wordmark without a photo reveal (741ms)
+  ✓  118 [mobile] › e2e/personal-motion.spec.ts:13:5 › waits for confirmed registration, then delivers once while confirmation receives focus (2.1s)
+  ✓  119 [mobile] › e2e/personal-motion.spec.ts:36:5 › failed and unexpected responses preserve the email without a flight, then allow retry (2.0s)
+  -  120 [mobile] › e2e/personal-motion.spec.ts:56:5 › fine-pointer eyes follow and reset without changing form focus
+  ✓  121 [mobile] › e2e/personal-motion.spec.ts:69:5 › reduced motion confirms directly with a still pet (233ms)
+  ✓  122 [mobile] › e2e/personal-motion.spec.ts:82:7 › narrow 320px form confirms without scrolling toward the offscreen phone (138ms)
+  ✓  123 [mobile] › e2e/personal-motion.spec.ts:82:7 › narrow 390px form confirms without scrolling toward the offscreen phone (145ms)
+  ✓  124 [mobile] › e2e/personal-motion.spec.ts:98:5 › scrolling during delivery removes the flight and keeps the true confirmation (355ms)
+  ✓  125 [mobile] › e2e/personal.spec.ts:25:9 › personal signup es › registers durably and confirms only after the database accepted the row (175ms)
+  ✓  126 [mobile] › e2e/personal.spec.ts:37:9 › personal signup es › a repeat registration looks the same and stores one row (1.2s)
+  ✓  127 [mobile] › e2e/personal.spec.ts:48:9 › personal signup es › an unavailable database keeps the email and never claims success (1.2s)
+  ✓  128 [mobile] › e2e/personal.spec.ts:65:9 › personal signup es › links to the privacy page near the form (138ms)
+  ✓  129 [mobile] › e2e/personal.spec.ts:72:7 › personal es cannot submit natively before hydration (79ms)
+  ✓  130 [mobile] › e2e/personal.spec.ts:25:9 › personal signup en › registers durably and confirms only after the database accepted the row (227ms)
+  ✓  131 [mobile] › e2e/personal.spec.ts:37:9 › personal signup en › a repeat registration looks the same and stores one row (654ms)
+  ✓  132 [mobile] › e2e/personal.spec.ts:48:9 › personal signup en › an unavailable database keeps the email and never claims success (1.0s)
+  ✓  133 [mobile] › e2e/personal.spec.ts:65:9 › personal signup en › links to the privacy page near the form (143ms)
+  ✓  134 [mobile] › e2e/personal.spec.ts:72:7 › personal en cannot submit natively before hydration (72ms)
+  ✓  135 [mobile] › e2e/site.spec.ts:22:9 › page identity › / declares its language, title, canonical and alternates (101ms)
+  ✓  136 [mobile] › e2e/site.spec.ts:22:9 › page identity › /personal declares its language, title, canonical and alternates (94ms)
+  ✓  137 [mobile] › e2e/site.spec.ts:22:9 › page identity › /contacto declares its language, title, canonical and alternates (96ms)
+  ✓  138 [mobile] › e2e/site.spec.ts:22:9 › page identity › /privacidad declares its language, title, canonical and alternates (92ms)
+  ✓  139 [mobile] › e2e/site.spec.ts:22:9 › page identity › /en declares its language, title, canonical and alternates (116ms)
+  ✓  140 [mobile] › e2e/site.spec.ts:22:9 › page identity › /en/personal declares its language, title, canonical and alternates (101ms)
+  ✓  141 [mobile] › e2e/site.spec.ts:22:9 › page identity › /en/contact declares its language, title, canonical and alternates (94ms)
+  ✓  142 [mobile] › e2e/site.spec.ts:22:9 › page identity › /en/privacy declares its language, title, canonical and alternates (95ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  143 [mobile] › e2e/site.spec.ts:38:7 › page identity › every page serves the Cuadrao icons, not an inherited Argus icon (99ms)
+  ✓  144 [mobile] › e2e/site.spec.ts:56:7 › page identity › language links keep the visitor on the same page (198ms)
+  ✓  145 [mobile] › e2e/site.spec.ts:83:9 › routes › /business redirects permanently to / (4ms)
+  ✓  146 [mobile] › e2e/site.spec.ts:83:9 › routes › /business/personal redirects permanently to /personal (3ms)
+  ✓  147 [mobile] › e2e/site.spec.ts:83:9 › routes › /business/demo redirects permanently to /contacto (3ms)
+  ✓  148 [mobile] › e2e/site.spec.ts:83:9 › routes › /business/en redirects permanently to /en (3ms)
+  ✓  149 [mobile] › e2e/site.spec.ts:83:9 › routes › /business/en/personal redirects permanently to /en/personal (3ms)
+  ✓  150 [mobile] › e2e/site.spec.ts:83:9 › routes › /business/en/demo redirects permanently to /en/contact (3ms)
+  ✓  151 [mobile] › e2e/site.spec.ts:83:9 › routes › /es redirects permanently to / (3ms)
+  ✓  152 [mobile] › e2e/site.spec.ts:83:9 › routes › /es/contacto redirects permanently to /contacto (4ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  153 [mobile] › e2e/site.spec.ts:91:9 › routes › /foo is not found (5ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  154 [mobile] › e2e/site.spec.ts:91:9 › routes › /en/foo is not found (5ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  155 [mobile] › e2e/site.spec.ts:91:9 › routes › /contact is not found (5ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  156 [mobile] › e2e/site.spec.ts:91:9 › routes › /en/contacto is not found (4ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  157 [mobile] › e2e/site.spec.ts:91:9 › routes › /api/inquiries/x is not found (5ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  158 [mobile] › e2e/site.spec.ts:91:9 › routes › /business/private is not found (5ms)
+[WebServer] Error: Internal: NoFallbackError
+[WebServer]     at ignore-listed frames
+  ✓  159 [mobile] › e2e/site.spec.ts:96:7 › routes › the not-found page has a language, a title and a way home in both languages (79ms)
+  ✓  160 [mobile] › e2e/site.spec.ts:106:9 › routes › /EN redirects to /en and does not poison the lowercase page (7ms)
+  ✓  161 [mobile] › e2e/site.spec.ts:106:9 › routes › /en/Personal redirects to /en/personal and does not poison the lowercase page (6ms)
+  ✓  162 [mobile] › e2e/site.spec.ts:106:9 › routes › /En/PRIVACY redirects to /en/privacy and does not poison the lowercase page (6ms)
+  ✓  163 [mobile] › e2e/site.spec.ts:106:9 › routes › /Contacto redirects to /contacto and does not poison the lowercase page (5ms)
+  ✓  164 [mobile] › e2e/site.spec.ts:114:7 › routes › the health endpoint needs no providers (5ms)
+  ✓  165 [mobile] › e2e/site.spec.ts:120:7 › routes › images on a candidate host are also excluded from search (4ms)
+  ✓  166 [mobile] › e2e/site.spec.ts:126:7 › routes › form endpoints reject GET (5ms)
+  ✓  167 [mobile] › e2e/site.spec.ts:133:7 › indexing › a candidate host is excluded from search (7ms)
+  ✓  168 [mobile] › e2e/site.spec.ts:142:7 › indexing › the public host is indexable and lists every page once, without private routes (12ms)
+  ✓  169 [mobile] › e2e/site.spec.ts:158:9 › accessibility › / has no automated WCAG 2.1 AA violations (330ms)
+  ✓  170 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /personal has no automated WCAG 2.1 AA violations (279ms)
+  ✓  171 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /contacto has no automated WCAG 2.1 AA violations (279ms)
+  ✓  172 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /privacidad has no automated WCAG 2.1 AA violations (271ms)
+  ✓  173 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /en has no automated WCAG 2.1 AA violations (337ms)
+  ✓  174 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /en/personal has no automated WCAG 2.1 AA violations (273ms)
+  ✓  175 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /en/contact has no automated WCAG 2.1 AA violations (282ms)
+  ✓  176 [mobile] › e2e/site.spec.ts:158:9 › accessibility › /en/privacy has no automated WCAG 2.1 AA violations (270ms)
+  ✓  177 [mobile] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (210ms)
+  ✓  178 [mobile] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (107ms)
+  ✓  179 [mobile] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (96ms)
+  ✓  180 [mobile] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (231ms)
+  ✓  181 [mobile] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (230ms)
+  ✓  182 [mobile] › e2e/touchup.spec.ts:72:5 › reduced motion is static and small screens do not overflow (282ms)
+  ✓  183 [mobile] › e2e/touchup.spec.ts:103:7 › / omits the editorial photo section and withdrawn product capture (89ms)
+  ✓  184 [mobile] › e2e/touchup.spec.ts:103:7 › /en omits the editorial photo section and withdrawn product capture (88ms)
+
+  1 skipped
+  183 passed (51.5s)

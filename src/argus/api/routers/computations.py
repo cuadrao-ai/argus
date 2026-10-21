@@ -23,8 +23,13 @@ from argus.api.computation_contract import (
     ComputedAnswerList,
     ContinuedResultResponse,
 )
+from argus.api.conversation_surface import (
+    refuse_business_under_grant,
+    require_open_business_chat,
+    surface_scope,
+)
 from argus.api.dependencies import current_user, problem, require_account_capability
-from argus.api.schemas import User
+from argus.api.schemas import ConversationSurface, User
 
 router = APIRouter(prefix="/api/v1", tags=["computations"])
 
@@ -45,13 +50,16 @@ def _answer_problem(request: Request, exc: Exception):
 
 @router.get("/computations/answers", response_model=ComputedAnswerList)
 def list_computed_answers(
+    request: Request,
     kind: str = Query(min_length=1, max_length=80),
     exclude_message_id: str | None = Query(default=None, max_length=64),
+    surface: ConversationSurface = Query("personal"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> ComputedAnswerList:
+    scope = surface_scope(request, user_id=user.id, surface=surface)
     return ComputedAnswerList(
         items=computed_answers_of_kind(
-            user=user, kind=kind, exclude_message_id=exclude_message_id
+            user=user, scope=scope, kind=kind, exclude_message_id=exclude_message_id
         )
     )
 
@@ -79,6 +87,7 @@ def compare_computed_answers_route(
 @router.post(
     "/conversations/{conversation_id}/messages/{message_id}/continue",
     response_model=ContinuedResultResponse,
+    dependencies=[Depends(require_open_business_chat)],
 )
 def continue_computed_answer_route(
     conversation_id: str,
@@ -86,6 +95,10 @@ def continue_computed_answer_route(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ContinuedResultResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=str(conversation_id)
+    )
     require_account_capability(
         request,
         "can_create_additional_conversation",
@@ -104,6 +117,7 @@ def continue_computed_answer_route(
 @router.post(
     "/conversations/{conversation_id}/messages/{message_id}/computation/refresh",
     response_model=ComputationRefreshResponse,
+    dependencies=[Depends(require_open_business_chat)],
 )
 async def refresh_computed_answer_route(
     conversation_id: str,
@@ -111,6 +125,10 @@ async def refresh_computed_answer_route(
     request: Request,
     user: User = Depends(current_user),  # noqa: B008
 ) -> ComputationRefreshResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=str(conversation_id)
+    )
     from argus.api.chat.research_evidence import guest_research_visitor_key
     from argus.api.guest_access import account_context, client_identity
 

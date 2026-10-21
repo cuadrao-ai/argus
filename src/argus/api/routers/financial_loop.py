@@ -7,6 +7,7 @@ from argus.api.financial_accounts import (
     domain_problem,
     require_financial_accounts_context,
 )
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.budget_schemas import BudgetHomeResponse
 from argus.domain.planning.budgets import BudgetService
 from argus.domain.planning.service import PlanService
@@ -175,7 +176,9 @@ def activity_list(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ):
     def read():
-        stored = context.service.get(user_id=context.user_id, account_id=account_id)
+        stored = context.service.get(
+            user_id=context.user_id, account_id=account_id, scope=PERSONAL
+        )
         items = sorted(
             stored.expenses, key=lambda e: (e.current.occurred_at, e.id), reverse=True
         )
@@ -201,7 +204,9 @@ def activity_detail(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ):
     def read():
-        stored = context.service.get(user_id=context.user_id, account_id=account_id)
+        stored = context.service.get(
+            user_id=context.user_id, account_id=account_id, scope=PERSONAL
+        )
         return activity_response(stored, expense_record(stored, record_id))
 
     return _call(request, read)
@@ -220,7 +225,9 @@ def activity_history(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ):
     def read():
-        stored = context.service.get(user_id=context.user_id, account_id=account_id)
+        stored = context.service.get(
+            user_id=context.user_id, account_id=account_id, scope=PERSONAL
+        )
         record = expense_record(stored, record_id)
         return page(
             stored,
@@ -292,7 +299,9 @@ def check_list(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ):
     def read():
-        stored = context.service.get(user_id=context.user_id, account_id=account_id)
+        stored = context.service.get(
+            user_id=context.user_id, account_id=account_id, scope=PERSONAL
+        )
         return page(
             stored,
             [

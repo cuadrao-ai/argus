@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: private-alpha-smoke-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/codex/private-alpha-next' && github.ref != 'refs/heads/codex/private-alpha-next-jules-intake' }}
 
 jobs:
   docs-change-gate:

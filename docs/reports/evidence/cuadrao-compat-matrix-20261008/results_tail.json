@@ -1,0 +1,44 @@
+[
+  {
+    "code": "previous_main",
+    "schema": "compat_s3",
+    "files": 34,
+    "summary": "1 failed, 379 passed, 27 skipped in 124.90s (0:02:04)",
+    "counts": {
+      "failed": 1,
+      "passed": 379,
+      "skipped": 27
+    },
+    "failed": [
+      "tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract"
+    ]
+  },
+  {
+    "code": "build1",
+    "schema": "compat_s3",
+    "files": 73,
+    "summary": "1 failed, 722 passed, 31 skipped, 80 warnings in 189.18s (0:03:09)",
+    "counts": {
+      "failed": 1,
+      "passed": 722,
+      "skipped": 31
+    },
+    "failed": [
+      "tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract"
+    ]
+  },
+  {
+    "code": "build2",
+    "schema": "compat_s3",
+    "files": 74,
+    "summary": "1 failed, 727 passed, 52 skipped, 80 warnings in 197.04s (0:03:17)",
+    "counts": {
+      "failed": 1,
+      "passed": 727,
+      "skipped": 52
+    },
+    "failed": [
+      "tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract"
+    ]
+  }
+]

@@ -10,6 +10,7 @@ from argus.domain.household.errors import HouseholdNotFound as HouseholdUnavaila
 from argus.domain.household.errors import HouseholdRule, InvitationConsumed
 from argus.domain.household.financial import HouseholdFinancialService
 from argus.domain.household.financial_schemas import Snapshot
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
@@ -33,7 +34,7 @@ pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required"
 
 def stored_account(records, owner, amount=1000, **kwargs):
     aid = account(records, owner, amount, **kwargs)
-    return records.get_account(user_id=owner, account_id=aid)
+    return records.get_account(user_id=owner, account_id=aid, scope=PERSONAL)
 
 
 def scoped_money(
@@ -79,11 +80,13 @@ def test_projection_hides_linked_accounts_and_search_never_matches_private_recor
         occurred_at=NOW - timedelta(days=1),
         time_zone="UTC",
     )
-    preview = money.preview(user_id=a, request=request)
+    preview = money.preview(user_id=a, request=request, scope=PERSONAL)
     request = MoneyRequest.model_validate(
         preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
     )
-    receipt = money.write(user_id=a, request=request, idempotency_key=key())
+    receipt = money.write(
+        user_id=a, request=request, idempotency_key=key(), scope=PERSONAL
+    )
     share(service, a, hid, visible.account.id, mid, "edit")
     snap = financial.snapshot(b, hid)
     Snapshot.model_validate(snap)
@@ -117,13 +120,14 @@ def test_reverse_refund_dependency_is_checked_before_private_limits(lane):
     money = MoneyService(FinancialAccountService(records, clock=lambda: NOW))
 
     def post(body):
-        p = money.preview(user_id=a, request=body)
+        p = money.preview(user_id=a, request=body, scope=PERSONAL)
         return money.write(
             user_id=a,
             request=MoneyRequest.model_validate(
                 p["reviewed_request"] | {"preview_token": p["preview_token"]}
             ),
             idempotency_key=key(),
+            scope=PERSONAL,
         )
 
     purchase = post(expense(visible.account.id))
@@ -175,13 +179,14 @@ def test_partial_paired_history_never_promotes_destination_to_total(
         occurred_at=NOW - timedelta(days=1),
         time_zone="UTC",
     )
-    p = money.preview(user_id=a, request=request)
+    p = money.preview(user_id=a, request=request, scope=PERSONAL)
     receipt = money.write(
         user_id=a,
         request=MoneyRequest.model_validate(
             p["reviewed_request"] | {"preview_token": p["preview_token"]}
         ),
         idempotency_key=key(),
+        scope=PERSONAL,
     )
     visible = source if visible_role == "source" else dest
     hidden = dest if visible_role == "source" else source
@@ -206,7 +211,9 @@ def test_historical_reassignment_redacts_old_and_current_legs(lane):
     money = MoneyService(FinancialAccountService(records, clock=lambda: NOW))
 
     def post(request, activity_id=None):
-        p = money.preview(user_id=a, request=request, activity_id=activity_id)
+        p = money.preview(
+            user_id=a, request=request, activity_id=activity_id, scope=PERSONAL
+        )
         return money.write(
             user_id=a,
             request=MoneyRequest.model_validate(
@@ -214,6 +221,7 @@ def test_historical_reassignment_redacts_old_and_current_legs(lane):
             ),
             activity_id=activity_id,
             idempotency_key=key(),
+            scope=PERSONAL,
         )
 
     request = MoneyRequest(
@@ -257,7 +265,9 @@ def test_corrected_away_activity_is_absent_without_losing_authorized_position(la
     money = MoneyService(FinancialAccountService(records, clock=lambda: NOW))
 
     def post(request, activity_id=None):
-        preview = money.preview(user_id=owner, request=request, activity_id=activity_id)
+        preview = money.preview(
+            user_id=owner, request=request, activity_id=activity_id, scope=PERSONAL
+        )
         return money.write(
             user_id=owner,
             request=MoneyRequest.model_validate(
@@ -265,6 +275,7 @@ def test_corrected_away_activity_is_absent_without_losing_authorized_position(la
             ),
             activity_id=activity_id,
             idempotency_key=key(),
+            scope=PERSONAL,
         )["activity"]
 
     original = post(expense(visible.account.id))
@@ -281,7 +292,7 @@ def test_corrected_away_activity_is_absent_without_losing_authorized_position(la
         visible.account.id
     ]
     expected = FinancialAccountService(records, clock=lambda: NOW).get(
-        user_id=owner, account_id=visible.account.id
+        user_id=owner, account_id=visible.account.id, scope=PERSONAL
     )
     from argus.domain.recording.schemas import account_response
 
@@ -348,7 +359,7 @@ def test_changed_asset_uses_redacted_household_wire_contract(lane, surface):
     assert owner not in response.text and debt.account.id not in response.text
     personal = account_response(
         FinancialAccountService(records, clock=lambda: NOW).get(
-            user_id=owner, account_id=asset.account.id
+            user_id=owner, account_id=asset.account.id, scope=PERSONAL
         )
     )
     assert personal.asset.changes[-1].recorded_by == owner
@@ -383,9 +394,9 @@ def test_concurrent_revoke_and_write_is_serialized_before_receipt_replay(lane):
         posting, revoking = executor.submit(write), executor.submit(revoke)
         result = posting.result()
         revoking.result()
-    assert len(records.get_account(user_id=a, account_id=aid).expenses) == (
-        1 if result else 0
-    )
+    assert len(
+        records.get_account(user_id=a, account_id=aid, scope=PERSONAL).expenses
+    ) == (1 if result else 0)
     with pytest.raises(HouseholdUnavailable):
         scoped_money(financial, b, hid, body, k=token)
 
@@ -406,7 +417,9 @@ def test_concurrent_exact_financial_retry_and_conflicting_body(lane):
         )
     assert {x["replayed"] for x in outcomes} == {False, True}
     assert len({x["activity"]["activity"]["activity_id"] for x in outcomes}) == 1
-    assert len(records.get_account(user_id=a, account_id=aid).expenses) == 1
+    assert (
+        len(records.get_account(user_id=a, account_id=aid, scope=PERSONAL).expenses) == 1
+    )
     with pytest.raises(IdempotencyConflict):
         scoped_money(financial, b, hid, body.model_copy(update={"amount": "30"}), k=token)
 
@@ -429,7 +442,9 @@ def test_old_membership_journal_cannot_replay_after_rejoin_and_fresh_share(lane)
     with pytest.raises(HouseholdUnavailable):
         scoped_money(financial, b, hid, body, k=k, member=mid)
     assert service.accept(user_id=b, token=token).membership_id == mid
-    assert len(records.get_account(user_id=a, account_id=aid).expenses) == 1
+    assert (
+        len(records.get_account(user_id=a, account_id=aid, scope=PERSONAL).expenses) == 1
+    )
 
 
 def test_search_cursor_invalidates_on_consent_change(lane):

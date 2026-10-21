@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
     <key>CFBundleDevelopmentRegion</key><string>$(DEVELOPMENT_LANGUAGE)</string>
-    <key>CFBundleDisplayName</key><string>Argus Sample</string>
+    <key>CFBundleDisplayName</key><string>Cuadrao</string>
     <key>CUADRAO_DESIGN_PREVIEW</key><string>$(CUADRAO_DESIGN_PREVIEW)</string>
     <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
@@ -12,14 +12,15 @@
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
     <key>LSRequiresIPhoneOS</key><true/>
-    <key>UILaunchScreen</key><dict/>
+    <key>UILaunchScreen</key><dict>
+        <key>UIColorName</key><string>BrandPaper</string>
+        <key>UIImageName</key><string>CuadraoLaunchLockup</string>
+    </dict>
     <key>UIApplicationSceneManifest</key><dict>
         <key>UIApplicationSupportsMultipleScenes</key><false/>
     </dict>
     <key>UISupportedInterfaceOrientations</key><array>
         <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UIAppFonts</key><array>
         <string>Inter-Regular.ttf</string>
@@ -27,6 +28,9 @@
         <string>SpaceGrotesk-Medium.ttf</string>
     </array>
     <key>ARGUS_AUTH_ENABLED</key><string>$(ARGUS_AUTH_ENABLED)</string>
+    <key>ARGUS_CUADRAO_LEGAL_LINKS_ENABLED</key><string>$(ARGUS_CUADRAO_LEGAL_LINKS_ENABLED)</string>
+    <key>ARGUS_CUADRAO_TERMS_URL</key><string>$(ARGUS_CUADRAO_TERMS_URL)</string>
+    <key>ARGUS_CUADRAO_PRIVACY_URL</key><string>$(ARGUS_CUADRAO_PRIVACY_URL)</string>
     <key>ARGUS_API_URL</key><string>$(ARGUS_API_URL)</string>
     <key>ARGUS_SUPABASE_URL</key><string>$(ARGUS_SUPABASE_URL)</string>
     <key>ARGUS_SUPABASE_ANON_KEY</key><string>$(ARGUS_SUPABASE_ANON_KEY)</string>
@@ -46,7 +50,7 @@
             <key>CFBundleURLSchemes</key><array><string>$(GOOGLE_SIGN_IN_IOS_URL_SCHEME)</string></array>
         </dict>
     </array>
-    <key>NSCameraUsageDescription</key><string>Scan a receipt when you choose Scan Receipt.</string>
+    <key>NSCameraUsageDescription</key><string>Cuadrao uses the camera to scan your receipts. Only what you choose is saved.</string>
     <key>NSLocationWhenInUseUsageDescription</key><string>Add your current location to a receipt only when you choose to.</string>
     <!-- REWORD when group cards are a real feature: "sample group card" is preview-only copy. -->
     <key>NSPhotoLibraryAddUsageDescription</key><string>Save a sample group card to Photos when you choose Save Image.</string>

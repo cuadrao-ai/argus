@@ -4,6 +4,7 @@ from typing import Any
 
 from psycopg.types.json import Jsonb
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import model
 from argus.domain.recording.errors import StaleVersion
 from argus.domain.recording.money_postgres import owner_lock
@@ -267,7 +268,7 @@ def archive_owner(c: Any, hid: str, user_id: str, now: Any, repository: Any) -> 
         "select id from public.financial_accounts where user_id=any(%s::uuid[]) order by id for update",
         (owners,),
     ).fetchall()
-    canonical = canonical_groups.load(repository, c, owners)
+    canonical = canonical_groups.load(repository, c, owners, scope=PERSONAL)
     for bid, kind, did, publish in rows:
         body = definition(c, kind, str(did), user_id)
         b = dict(

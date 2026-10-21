@@ -139,14 +139,13 @@ checkpoints or memory infrastructure needed by its successor. Preserve current
 behavior until its authorized transition and verify secret consumers before
 revocation or renaming.
 
-## Agent Quality Pillars
+## Agent Quality
 
-The four assistant-quality pillars (Intelligence, Evaluation, Platform, User
-Experience) that keep AI work grounded in this architecture are defined once, in
-`AGENTS.md` → "Agent Quality Pillars". That is their canonical home; do not
-restate them here (a second copy drifts). This doc only adds architecture-
-specific emphasis: durable facts come from product records, engine outputs, and
-provider-backed validation — LLMs interpret and voice, they do not own truth.
+The engineering rules that keep AI work grounded in this architecture live once,
+in `AGENTS.md` under "Codebase rules" and "Checks". Do not restate them here (a
+second copy drifts). This doc only adds architecture-specific emphasis: durable
+facts come from product records, engine outputs, and provider-backed validation.
+LLMs interpret and voice; they do not own truth.
 
 ---
 
@@ -554,9 +553,18 @@ Argus does not have one canonical object. It has multiple first-class objects.
 
 Authenticated profile language is product state, not browser state. Signup
 validates the selected language and creates the profile with its server-derived
-locale in the same server-owned path. Browser detection is only a logged-out
-hint; login and reload hydrate the authoritative profile before rendering the
-authenticated application.
+locale in the same server-owned path. Login and reload hydrate the
+authoritative profile before rendering the authenticated application.
+
+The language a visitor sees is decided in this order: the account's saved
+language once signed in; else a choice saved on the device (the one `i18nextLng`
+key); else the default, which is `es-419` on a Cuadrao Business build that ships
+Spanish and `en` otherwise. The browser's language is a logged-out hint on a
+consumer build only; a Business build never reads it. The auth page offers the
+other language by its own name; a press switches at once and the choice is saved
+on the account at sign-in. A key the shown language lacks is read from that
+language's own chain (`en` for English readers, `es-419` then `en` for Spanish
+readers), and both locale files carry the same keys, which a test enforces.
 
 # 11. Conversation Model
 

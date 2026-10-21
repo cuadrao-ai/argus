@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.supabase_computed_answers import SupabaseComputedAnswerReadMixin
 from faker import Faker
 
@@ -186,7 +187,7 @@ def test_symbol_rows_are_owner_scoped_live_and_optionally_one_conversation() -> 
     ]
     reader = _Reader(_Client(rows, conversations))
 
-    everything = reader.computed_answer_rows_for_symbols(user_id="owner")
+    everything = reader.computed_answer_rows_for_symbols(scope=PERSONAL, user_id="owner")
 
     assert sorted(row["conversation_id"] for row in everything) == sorted([mine, other])
     messages, live = reader.client.queries
@@ -200,18 +201,23 @@ def test_symbol_rows_are_owner_scoped_live_and_optionally_one_conversation() -> 
     )
     assert set(asked) == {mine, other, deleted}
     scoped = reader.computed_answer_rows_for_symbols(
-        user_id="owner", conversation_id=mine
+        scope=PERSONAL, user_id="owner", conversation_id=mine
     )
     assert [row["conversation_id"] for row in scoped] == [mine]
     assert (
-        reader.computed_answer_rows_for_symbols(user_id="owner", conversation_id=deleted)
+        reader.computed_answer_rows_for_symbols(
+            scope=PERSONAL, user_id="owner", conversation_id=deleted
+        )
         == []
     )
 
 
 def test_no_symbol_row_skips_the_conversation_read() -> None:
     client = _Client([])
-    assert _Reader(client).computed_answer_rows_for_symbols(user_id="owner") == []
+    assert (
+        _Reader(client).computed_answer_rows_for_symbols(scope=PERSONAL, user_id="owner")
+        == []
+    )
     assert [query.table_name for query in client.queries] == ["messages"]
 
 
@@ -231,7 +237,7 @@ def test_symbol_rows_read_past_answers_in_deleted_conversations(monkeypatch) -> 
         _conversation(deleted, deleted_at="2026-09-11T00:00:00+00:00"),
     ]
     found = _Reader(_Client(rows, conversations)).computed_answer_rows_for_symbols(
-        user_id="owner"
+        scope=PERSONAL, user_id="owner"
     )
     assert [row["conversation_id"] for row in found] == [live]
 

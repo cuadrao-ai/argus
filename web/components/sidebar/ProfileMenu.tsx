@@ -15,6 +15,8 @@ import ProfileDeleteRequestDialog, {
   type DeleteRequestState,
 } from "./ProfileDeleteRequestDialog";
 import ProfileDetailsDialog from "./ProfileDetailsDialog";
+import { businessNameCopy } from "@/components/business-app/business-name-copy";
+import { useBusinessNaming } from "@/components/business-app/BusinessNamingProvider";
 import ProfileSettingsPanels, {
   type SettingsPanel,
 } from "./ProfileSettingsPanels";
@@ -23,6 +25,7 @@ import {
   profileMenuClass,
   profileSubmenuAnchorClass,
   profileSubmenuClass,
+  type ProfileMenuPlacement,
 } from "./profileMenuPlacement";
 import {
   Activity,
@@ -48,6 +51,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import {
@@ -79,7 +83,8 @@ import {
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
-import { evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
+import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
+import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
 import { QuickJumpBadge } from "@/components/keyboard/QuickJumpBadge";
@@ -92,7 +97,6 @@ type ProfileMenuProps = {
   onClose: () => void;
   onLogout: (options?: LogoutOptions) => void;
   onFeedback?: (type: "bug" | "feature" | "general") => void;
-  onDeleteAllConversations?: () => void;
   onHistoryMutated?: () => void;
   /** Every successful patch reports upward, not just the fields a surface reads. */
   onProfileUpdated?: (user: ApiUser) => void;
@@ -106,7 +110,7 @@ type ProfileMenuProps = {
    * Where the menu is opening from. The rail can afford a detached popover that
    * flies its submenus out to the right; a drawer cannot.
    */
-  placement?: "rail" | "drawer";
+  placement?: ProfileMenuPlacement;
 };
 
 // Derived from the panel registry, so a new settings panel needs no edit here.
@@ -120,14 +124,31 @@ type ProfileQuickJumpItem = {
   onSelect: () => void;
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+type HelpLegalLink = {
+  id: "terms" | "privacy";
+  href: string;
+  external: boolean;
+};
+
+function menuLegalLinks(business: boolean): HelpLegalLink[] {
+  if (!business) {
+    return [
+      { id: "terms", href: "/terms", external: false },
+      { id: "privacy", href: "/privacy", external: false },
+    ];
+  }
+  const published = cuadraoLegalLinks();
+  const links: HelpLegalLink[] = [];
+  if (published.terms) links.push({ id: "terms", href: published.terms, external: true });
+  if (published.privacy) links.push({ id: "privacy", href: published.privacy, external: true });
+  return links;
+}
 
 export default function ProfileMenu({
   isOpen,
   onClose,
   onLogout,
   onFeedback,
-  onDeleteAllConversations,
   onHistoryMutated,
   onProfileUpdated,
   onOpenSidebarPreference,
@@ -137,13 +158,9 @@ export default function ProfileMenu({
   placement = "rail",
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
+  const isBusiness = useConversationSurface() === "business";
+  const legalLinks = menuLegalLinks(isBusiness);
   const { isBelowDesktop } = useResponsiveLayout();
-  /*
-   * Below the panel line this menu is a sheet, whatever the sidebar is doing.
-   * Tying it to the sidebar's own 720 line left the tablet band showing a
-   * shrunken mouse menu whose submenus only opened on a hover that a tablet
-   * cannot produce.
-   */
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
   const handlePageLinkClick = useCallback(
@@ -180,7 +197,14 @@ export default function ProfileMenu({
   const receiptsAvailable =
     evidenceReceiptSharingEnabled && accountKind === "registered";
   // A country is a registered-account setting; a guest has nowhere to keep one.
-  const homeCountryAvailable = accountKind === "registered";
+  const homeCountryAvailable = !isBusiness && accountKind === "registered";
+  const naming = useBusinessNaming();
+  const businessNameAvailable = naming?.canEdit === true;
+  const whatsappLinkAvailable =
+    accountKind === "registered" &&
+    (isBusiness
+      ? businessWhatsappPreferencesEnabledFromEnv()
+      : businessPilotEnabledFromEnv());
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
@@ -475,12 +499,6 @@ export default function ProfileMenu({
     [asSheet, onClose],
   );
 
-  const handleDeleteAllConversations = useCallback(() => {
-    setActiveSubmenu(null);
-    onClose();
-    onDeleteAllConversations?.();
-  }, [onClose, onDeleteAllConversations]);
-
   const handleOpenKeyboardShortcuts = useCallback(() => {
     setActiveSubmenu(null);
     onClose();
@@ -723,15 +741,14 @@ export default function ProfileMenu({
         ...(receiptsAvailable
           ? [{ id: "receipts", onSelect: () => openModal("receipts") }]
           : []),
-        { id: "archived", onSelect: () => openModal("archived") },
+        ...(!isBusiness ? [{ id: "archived", onSelect: () => openModal("archived") }] : []),
         { id: "deleted", onSelect: () => openModal("deleted") },
         {
           id: "security",
           onSelect: () =>
             navigateFromOverlay("/account/security", onClose),
         },
-        { id: "usage", onSelect: () => openModal("usage") },
-        { id: "delete-all", onSelect: handleDeleteAllConversations },
+        ...(!isBusiness ? [{ id: "usage", onSelect: () => openModal("usage") }] : []),
         { id: "delete-account", onSelect: handleOpenDeleteRequest },
       ];
     }
@@ -741,6 +758,10 @@ export default function ProfileMenu({
         { id: "language", onSelect: () => openModal("language") },
         ...(homeCountryAvailable
           ? [{ id: "country", onSelect: () => openModal("country") }]
+          : []),
+        ...(businessNameAvailable ? [{ id: "business_name", onSelect: () => openModal("business_name") }] : []),
+        ...(whatsappLinkAvailable
+          ? [{ id: "whatsapp", onSelect: () => openModal("whatsapp") }]
           : []),
         ...(onOpenSidebarPreference
           ? [
@@ -761,14 +782,17 @@ export default function ProfileMenu({
           id: "keyboard-shortcuts",
           onSelect: handleOpenKeyboardShortcuts,
         },
-        {
-          id: "terms",
-          onSelect: () => navigateFromOverlay("/terms", onClose),
-        },
-        {
-          id: "privacy",
-          onSelect: () => navigateFromOverlay("/privacy", onClose),
-        },
+        ...legalLinks.map((link) => ({
+          id: link.id,
+          onSelect: () => {
+            if (link.external) {
+              window.open(link.href, "_blank", "noopener,noreferrer");
+              onClose();
+              return;
+            }
+            navigateFromOverlay(link.href, onClose);
+          },
+        })),
       ];
     }
     if (activeSubmenu === "feedback") {
@@ -805,11 +829,14 @@ export default function ProfileMenu({
     ];
   }, [
     activeSubmenu,
-    handleDeleteAllConversations,
+    isBusiness,
+    legalLinks,
     handleOpenDeleteRequest,
     handleOpenKeyboardShortcuts,
     handleSubmenuToggle,
     homeCountryAvailable,
+    whatsappLinkAvailable,
+    businessNameAvailable,
     memoryControlsAvailable,
     receiptsAvailable,
     onClose,
@@ -880,12 +907,12 @@ export default function ProfileMenu({
   const supportMailto = `mailto:${supportEmail}?subject=${encodeURIComponent(
     t(
       "settings.profile.request_deletion.email_subject",
-      "Argus account deletion request",
+      "Cuadrao account deletion request",
     ),
   )}&body=${encodeURIComponent(
     t(
       "settings.profile.request_deletion.email_body",
-      "Please help me request deletion for my Argus account{{account_hint}}.",
+      "Please help me request deletion for my Cuadrao account{{account_hint}}.",
       { account_hint: accountHint },
     ),
   )}`;
@@ -1077,6 +1104,7 @@ export default function ProfileMenu({
                 </span>
               </button>
             ) : null}
+            {!isBusiness && (
             <button
               onClick={() => openModal("archived")}
               className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
@@ -1087,6 +1115,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("archived")}</span>
             </button>
+            )}
             <button
               onClick={() => openModal("deleted")}
               className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
@@ -1109,6 +1138,7 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("security")}</span>
             </button>
+            {!isBusiness && (
             <button
               onClick={() => openModal("usage")}
               className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
@@ -1119,16 +1149,8 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("usage")}</span>
             </button>
-            <button
-              onClick={handleDeleteAllConversations}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-[#d66d75] transition-colors hover:bg-[#d66d75]/10 dark:hover:bg-[#d66d75]/10"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("settings.data.delete_all_conversations", "Delete all conversations")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("delete-all")}</span>
-            </button>
+            )}
+            <div role="separator" className="my-1 border-t border-black/5 dark:border-white/5" />
             <button
               type="button"
               onClick={handleOpenDeleteRequest}
@@ -1144,7 +1166,7 @@ export default function ProfileMenu({
               <span className="pl-6 text-[11px] leading-snug text-black/35 dark:text-white/35">
                 {t(
                   "settings.profile.delete_account_note",
-                  "Permanently delete your Argus account and your data.",
+                  "Permanently delete your Cuadrao account and your data.",
                 )}
               </span>
             </button>
@@ -1211,6 +1233,24 @@ export default function ProfileMenu({
                 <span className="ml-auto flex shrink-0">{quickJumpBadge("country")}</span>
               </button>
             )}
+            {businessNameAvailable && (
+              <button onClick={() => openModal("business_name")} className="flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5">
+                <span>{businessNameCopy.title}</span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge("business_name")}</span>
+              </button>
+            )}
+            {whatsappLinkAvailable && (
+              <button
+                onClick={() => openModal("whatsapp")}
+                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+              >
+                <MessageCircle className="h-3.5 w-3.5 text-black/60 dark:text-white/60" />
+                <span className="whitespace-nowrap">
+                  {t("settings.whatsapp.title", "WhatsApp")}
+                </span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge("whatsapp")}</span>
+              </button>
+            )}
             {onOpenSidebarPreference && (
               <button
                 onClick={() => {
@@ -1270,28 +1310,24 @@ export default function ProfileMenu({
               <span className="ml-auto flex shrink-0">{quickJumpBadge("keyboard-shortcuts")}</span>
             </button>
             )}
-            <a
-              href="/terms"
-              onClick={(event) => handlePageLinkClick(event, "/terms")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("settings.help.terms", "Terms of Use")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("terms")}</span>
-            </a>
-            <a
-              href="/privacy"
-              onClick={(event) => handlePageLinkClick(event, "/privacy")}
-              className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
-            >
-              <Shield className="h-3.5 w-3.5" />
-              <span className="whitespace-nowrap">
-                {t("settings.help.privacy", "Privacy Policy")}
-              </span>
-              <span className="ml-auto flex shrink-0">{quickJumpBadge("privacy")}</span>
-            </a>
+            {legalLinks.length === 0 ? (
+              <p role="status" data-testid="help-legal-empty" className="min-h-[38px] px-3.5 py-2" />
+            ) : legalLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.href}
+                target={link.external ? "_blank" : undefined}
+                rel={link.external ? "noreferrer" : undefined}
+                onClick={link.external ? undefined : (event) => handlePageLinkClick(event, link.href)}
+                className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+              >
+                {link.id === "terms" ? <FileText className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+                <span className="whitespace-nowrap">
+                  {t(link.id === "terms" ? "settings.help.terms" : "settings.help.privacy", link.id === "terms" ? "Terms" : "Privacy")}
+                </span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge(link.id)}</span>
+              </a>
+            ))}
           </div>
         )}
       </div>
@@ -1380,6 +1416,7 @@ export default function ProfileMenu({
         {t("settings.logout", "Log out")}
       </button>
 
+      {!isBusiness && <>
       {/* Footer links */}
       <div className={`my-1 border-t border-black/5 dark:border-white/5${rootRow}`} />
       <div className={`flex items-center gap-1 px-3.5 py-1.5 text-[10px] text-black/25 dark:text-white/25${rootRow}`}>
@@ -1388,7 +1425,7 @@ export default function ProfileMenu({
           onClick={(event) => handlePageLinkClick(event, "/terms")}
           className="transition-colors hover:text-black dark:hover:text-white"
         >
-          {t("settings.help.terms", "Terms of Use")}
+          {t("settings.help.terms", "Terms")}
         </a>
         <span aria-hidden="true">·</span>
         <a
@@ -1396,9 +1433,10 @@ export default function ProfileMenu({
           onClick={(event) => handlePageLinkClick(event, "/privacy")}
           className="transition-colors hover:text-black dark:hover:text-white"
         >
-          {t("settings.help.privacy", "Privacy Policy")}
+          {t("settings.help.privacy", "Privacy")}
         </a>
       </div>
+      </>}
     </div>
   );
 

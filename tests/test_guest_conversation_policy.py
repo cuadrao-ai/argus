@@ -8,6 +8,7 @@ from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.schemas import Conversation, OnboardingState, User
 from argus.domain.guest_workspaces import GuestWorkspace
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from argus.domain.supabase_gateway import SupabaseGateway
 from fastapi.testclient import TestClient
@@ -451,6 +452,7 @@ def test_guest_search_is_limited_to_current_workspace_artifacts(
     assert payload["items"][0]["conversation_id"] == CONVERSATION_ID
     assert payload["ledger_groups"] == []
     gateway.search_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id=USER_ID,
         query="btc",
         source_limit=21,

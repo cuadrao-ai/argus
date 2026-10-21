@@ -1,0 +1,361 @@
+{
+  "prior_staging_failures": "../consumer-staging-preflight-20261009/README.md",
+  "hidden_home_target": {
+    "test": "testAccountTapDiagnostic",
+    "observed": [
+      "Tap \"tab.home\" Button",
+      "Scroll element to visible",
+      "Computed hit point {-1, -1} after scrolling to visible"
+    ],
+    "interpretation": "The old helper accepted an existing collapsed tab as a usable target."
+  },
+  "direct_back_probe": {
+    "test": "testAccountDirectBackTapDiagnostic",
+    "cycles": 3,
+    "tap": "ordinary XCTest element.tap()",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "centre_tap_hypothesis": {
+    "result": "refuted",
+    "disposition": "removed; the permanent regression uses ordinary taps"
+  },
+  "caret_replacement": {
+    "field": "loop.amount",
+    "intended_value": "1100",
+    "observed_value": "1,101,000.00",
+    "outcome": "Review stayed disabled; the attempted correction was not committed.",
+    "repair": "Native Select All before replacement typing.",
+    "passing_evidence": "results/income.json"
+  },
+  "permanent_navigation_regression": "results/account-return-navigation.json",
+  "coverage_selection": {
+    "case": "testMoneyReconciliationCurrenciesAndSpanish",
+    "initial_attempt": "Failed waiting for loop.confirm before any transfer write. Xcode stalled during verbose diagnostics; only its completed collector was stopped.",
+    "retained_account_replay": {
+      "test": "testRetainedReconciliationCoverageDiagnostic",
+      "writes": "No transfer confirmation; Back and Cancel completed.",
+      "first_answer": {
+        "frame": [
+          167.3333333333,
+          752.3333333333,
+          105.6666666667,
+          44
+        ],
+        "hittable": true,
+        "selected_before": false,
+        "selected_after": false
+      },
+      "final_state": {
+        "helper_counted_answers": 4,
+        "actually_selected": 3,
+        "confirm_ready": false
+      }
+    },
+    "cause": "Full-screen scrolls overshot the first answer and returned it beneath the fixed footer. The helper then tapped and counted it without confirming selection."
+  },
+  "currency_picker": {
+    "case": "testMoneyReconciliationCurrenciesAndSpanish",
+    "failure": "The control could not reach the visible scroll area: accounts.currency",
+    "sequence": "Nickname typing immediately preceded the currency tap without dismissing the keyboard.",
+    "repair": "Use the existing verified keyboard dismissal before choosing a non-default currency.",
+    "rerun": "Passed 1 test, 0 failures, 0 skips; canonical readback passed."
+  },
+  "plan_header": {
+    "original_case": "testConnectedBudgetSpendingCorrectionRefundSearchAndReopen",
+    "failure": "The control could not reach the visible scroll area: plan-create",
+    "probe": {
+      "frame": [
+        334,
+        82,
+        44,
+        44
+      ],
+      "hittable": true,
+      "navigation_or_status_bars": 0,
+      "ordinary_tap_opened_plan_picker": true,
+      "cancelled_without_writes": true
+    },
+    "cause": "The helper excluded an unobstructed header button with its invented y=115 top boundary.",
+    "repair": "Derive the top boundary from visible bars and the containing scroll view; retain the existing footer guard."
+  },
+  "offscreen_header": {
+    "test": "testRetainedHomeHeaderTapDiagnostic",
+    "observed_frames_y": [
+      -713.3333333333,
+      -354,
+      2
+    ],
+    "hittable_at_each_frame": false,
+    "computed_viewport_top": 0,
+    "computed_viewport_bottom": 744,
+    "failure": "The control could not reach the visible scroll area: accounts.add",
+    "cause": "The helper stopped when the frame entered its bounds although XCTest still reported the button as not hittable.",
+    "repair": "Continue bounded movement toward the viewport center until both frame containment and hittability pass.",
+    "regression": "testAccountEntryOpensAfterScrollingHeaderOffscreen",
+    "rerun": "Passed 1 test, 0 failures, 0 skips; actual account sheet opened and cancelled without saving."
+  },
+  "home_loading": {
+    "failed_case": "testConnectedBudgetSpendingCorrectionRefundSearchAndReopen",
+    "before_history": {
+      "account_add_y": 750,
+      "loading_indicator_present": true
+    },
+    "after_history_and_scroll": {
+      "account_add_y": 574,
+      "loading_indicator_present": false
+    },
+    "probe": "testRetainedLoadedHomeTapDiagnostic",
+    "probe_wait": "home-chart-loading firstMatch waitForNonExistence(timeout: 45)",
+    "probe_before_tap": {
+      "account_add_y": 632.6666666667,
+      "hittable": true
+    },
+    "probe_result": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "writes": false
+    },
+    "full_budget_rerun": "Account entries and plan creation menu passed in attempt4; later stopped at the plan amount field identifier before saving a budget."
+  },
+  "landscape_capture": {
+    "automated_tests": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "app_frame": [
+      0,
+      0,
+      874,
+      402
+    ],
+    "tray_frame": [
+      287,
+      37,
+      300,
+      275
+    ],
+    "add_frame": [
+      366.6666666667,
+      322,
+      140.6666666667,
+      48
+    ],
+    "app_screenshot": "Clipped capture; not usable as visual acceptance.",
+    "screen_screenshot": "Full simulator screen inspected; all three Add menu rows are visible at accessibility XXXL in landscape.",
+    "evidence": "screenshots/large-text-landscape-full-screen.png",
+    "final_regression": {
+      "source": "6cf0e029faeadced98d8e407ce499f92c4c9ae33",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "screenshots/large-text-landscape-final.png"
+    }
+  },
+  "plan_amount_identity": {
+    "test": "testPlanAmountIdentityFollowsSelectedKind",
+    "before": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "runtime_hierarchy": {
+      "name_identifier": "budget.name",
+      "amount_identifier": "goal.target",
+      "amount_label": "I want to spend up to"
+    },
+    "cause": "The reused UIKit amount field assigned its identifier only when first created, while plan switching changed the current identifier property.",
+    "writes": false,
+    "status": "Approved by the founder and applied at 7a66caad04e3c4ecadd48c8ae6a11042fd077bcc",
+    "fix": "Move the identifier assignment into updateUIView beside the current coordinator and presentation properties.",
+    "after": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "results/plan-identity-after.json"
+    }
+  },
+  "empty_amount_replacement": {
+    "test": "testConnectedGoalAllocationContributionCorrectionSearchAndRestore",
+    "source": "6cf0e029faeadced98d8e407ce499f92c4c9ae33",
+    "before": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "assertion": "The field must offer Select All before replacing its text",
+    "runtime_hierarchy": {
+      "identifier": "loop.amount",
+      "placeholderValue": "0.00",
+      "value": null,
+      "menuItems": [
+        "Paste",
+        "AutoFill"
+      ]
+    },
+    "retained_records": "Goal funding 81DE5 and Goal savings 81DE5, each opened at DOP 1000. Emergency 81DE5 goal saved and DOP 600 allocated. Contribution was not reviewed or confirmed.",
+    "status": "Investigating test helper treatment of an empty field placeholder.",
+    "repair": "Native Select All remains first. If absent, allow typing only when the reported value equals the placeholder; a no-save regression also tests real entered zero.",
+    "review": "Independent code and comment review clean. Release simulator test build passed. Native regression pending.",
+    "regression": {
+      "test": "testMoneyReplacementHandlesEmptyGroupedAndZeroAmounts",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "source": "bc8e6afa92f92f3c7ac7407c7c215a8e01624a34",
+      "writes": false,
+      "coverage": [
+        "empty placeholder to 200",
+        "200 to grouped 1100",
+        "grouped 1100 to real 0.00",
+        "real 0.00 to 250"
+      ],
+      "goal_rerun": "Passed empty replacement, recorded contribution and submitted correction. Later failed return navigation after correction."
+    }
+  },
+  "search_startup": {
+    "source": "6cf0e029faeadced98d8e407ce499f92c4c9ae33",
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "stage": "Sign-in precondition, before any Search records were created",
+    "observed": "Welcome sign-in was found and tapped; email choice did not appear. Final hierarchy showed the prior signed-in goal detail. Following app launch completed the large-text check.",
+    "status": "Investigating session restoration and test readiness; no auth product changes.",
+    "investigation": "Independent source review supports delayed session restoration replacing Welcome with the retained signed-in goal detail. This is not proof of a broken Sign in tap. No test-visible readiness signal exists; no auth implementation changed.",
+    "retry": "Retry completed sign-in and saved its synthetic account and income. Later stopped before saving an expectation because tapVisible reserved a footer area that this sheet does not have. Search assertions not reached."
+  },
+  "inline_expectation_save": {
+    "test": "testConnectedSearchOpensActualEditorsAndPreservesOrigin",
+    "failure": "The control could not reach the visible scroll area: plan.expectation.save",
+    "source": "6cf0e029faeadced98d8e407ce499f92c4c9ae33",
+    "observed": "The native screenshot shows Save expectation visible near the bottom of an ordinary scroll form. Repeated -96 point drags did not satisfy the invented app.maxY - 130 limit.",
+    "retained_records": "Search bank 4D1755 and Search income 4D1755. No expectation was saved.",
+    "status": "Preparing a test-only boundary repair.",
+    "probe": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "writes": false,
+      "expectation": {
+        "save_frame": [
+          24,
+          764,
+          354,
+          52
+        ],
+        "in_scroll": true,
+        "hittable": true,
+        "legacy_bottom": 744,
+        "observed_bottom": 874
+      },
+      "transaction": {
+        "review_frame": [
+          24,
+          760,
+          354,
+          56
+        ],
+        "in_scroll": false,
+        "hittable": true,
+        "observed_bottom": 760
+      }
+    },
+    "coverage_rerun": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "confirmed": false,
+      "result": "All required coverage answers reached Confirm; Back and Cancel completed without saving the transfer."
+    },
+    "search_rerun": "The original expectation Save step passed. Save was absent at271.15s, and Search query entry began at280.53s. Later Search assertions are still running."
+  },
+  "goal_return_navigation": {
+    "source": "bc8e6afa9",
+    "test": "testConnectedGoalAllocationContributionCorrectionSearchAndRestore",
+    "failure": "goal.supported did not exist after returnFromDetail",
+    "observed": "The native BackButton existed, but its tap computed hit point {-1,-1}. Final hierarchy remained Activity details. A preceding snapshot shows Correct entry over Activity details.",
+    "status": "Investigating navigation readiness. Existing synthetic goal and money records retained.",
+    "probe": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "writes": false,
+      "retained_goal": "Emergency B95F1",
+      "activity_amount": "DOP 150.00",
+      "goal_amount": "DOP 750.00",
+      "sequence": "Open contribution; open correction; cancel without editing; return once Back is hittable."
+    }
+  },
+  "search_currency_summary": {
+    "original_case": "testConnectedSearchOpensActualEditorsAndPreservesOrigin",
+    "failure": "Plans is a perspective, not a filter",
+    "retained_synthetic_stamp": "FFEF18",
+    "completed_before_failure": [
+      "account nickname edit through Search",
+      "income correction from 25 to 27 through Search",
+      "origin restoration after both editors"
+    ],
+    "cause": "The test selected DOP and then incorrectly required the currency summary to disappear when switching perspective. The product correctly keeps the currency filter.",
+    "repair": "Require Plans selected and optional currency summary unchanged.",
+    "failing_evidence": "results/search-before-filter-assertion-repair.json",
+    "rerun": "Passed1 test,0 failures,0 skips on64c26e085; account edit, income correction, expectation edit, preserved currency/query and Spanish relaunch.",
+    "passing_evidence": "results/search-final.json"
+  },
+  "goal_search_navigation": {
+    "test": "testConnectedGoalAllocationContributionCorrectionSearchAndRestore",
+    "native_result": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0
+    },
+    "retained_synthetic_goal": "Emergency DC955",
+    "goal_id": "F2739B19-AD0E-4624-B02B-A581654F72A1",
+    "verified_before_failure": [
+      "allocate 600",
+      "record contribution 200 once",
+      "correct contribution to150 and return to goal at750",
+      "release and relink contribution once",
+      "edit target to2500",
+      "archive and restore goal at750"
+    ],
+    "failure": "Direct tab.search tap at638.31s computed hit point{-1,-1}; search.query did not appear.",
+    "repair": "Use existing canonical revealConnectedTabBar before selecting Search.",
+    "retained_replay": "Passed1 test,0 failures,0 skips at333751f21; Plan entry, Search, exact supported750, relaunch, origin preservation and Spanish; no money writes.",
+    "evidence": "results/goal-before-search-navigation-repair.json",
+    "visual": "screenshots/goal-corrected-target-and-backing.png",
+    "passing_replay_evidence": "results/goal-retained-search.json"
+  },
+  "large_text_money_forms": {
+    "test": "testReleaseSurfaceMoneyFormsRemainUsableAtLargestTextWithoutSaving",
+    "test_source": "125087e96",
+    "result": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    "financial_writes": "No Save, Review or Confirm action; both forms cancelled. No dedicated API before/after readback.",
+    "verified": [
+      "account input1250 formats1,250.00",
+      "expense input25 formats25.00",
+      "Save/Review/Cancel are enabled and hittable",
+      "both editors close on Cancel"
+    ],
+    "visual_acceptance": "open",
+    "visual_issue": "Date label wraps one letter per line at largest text beside the picker.",
+    "source": "ios/ArgusFoundation/Accounts/ConnectedTransactionSheet.swift:98",
+    "evidence": "screenshots/large-text-transaction-ready-unreviewed.png",
+    "software_keyboard_occlusion": "not established; screenshots do not show the onscreen keyboard"
+  },
+  "budget_after_identifier_fix": {
+    "source": "7a66caad04e3c4ecadd48c8ae6a11042fd077bcc",
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "result": "Failed before the first account editor opened: accounts.add could not reach the visible scroll area. No budget was created; no Save, Review or Confirm action occurred in this run. The broader budget journey remains unverified.",
+    "cause": "Not yet established; the failure occurred in account-entry setup before any budget assertions.",
+    "evidence": "results/budget-after-identifier-fix.json"
+  }
+}

@@ -3,6 +3,7 @@
 from dataclasses import replace
 from typing import Any
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import AccountNotFound, RecordingInputError
 from argus.domain.recording.loop_schemas import ActivityRequest
 from argus.domain.recording.loop_service import token
@@ -84,14 +85,16 @@ def preview(
     request: ActivityRequest,
     record_id: str | None = None,
 ) -> dict[str, Any]:
-    account_id = service.accounts.get(user_id=user_id, account_id=account_id).account.id
+    account_id = service.accounts.get(
+        user_id=user_id, account_id=account_id, scope=PERSONAL
+    ).account.id
     return legacy_plan(
         service,
         user_id,
         account_id,
         request,
         service._record_id(record_id),
-        service.accounts.list_accounts(user_id=user_id),
+        service.accounts.list_accounts(user_id=user_id, scope=PERSONAL),
     ).preview
 
 
@@ -104,7 +107,9 @@ def write(
     idempotency_key: str,
     record_id: str | None = None,
 ) -> OperationResult:
-    account_id = service.accounts.get(user_id=user_id, account_id=account_id).account.id
+    account_id = service.accounts.get(
+        user_id=user_id, account_id=account_id, scope=PERSONAL
+    ).account.id
     record_id = service._record_id(record_id)
 
     def planner(accounts: list[StoredAccount]) -> MoneyPlan:
@@ -120,6 +125,7 @@ def write(
         planner,
         service.clock(),
         account_id,
+        scope=PERSONAL,
     )
     stored = next(s for s in records if s.account.id == account_id)
     return OperationResult(stored, aid, revision, "expense", replayed)

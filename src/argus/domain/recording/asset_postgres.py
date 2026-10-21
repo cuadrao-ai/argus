@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from psycopg import Connection
 
+from argus.domain.owner_scope import OwnerScope, sql_predicate
 from argus.domain.recording.asset_model import AssetChange
 from argus.domain.recording.asset_schemas import AssetDetailsRequest
 from argus.domain.recording.asset_storage import debt_id, validate_debt
@@ -70,7 +71,9 @@ def write_details(
     request: AssetDetailsRequest,
     idempotency_key: str,
     identity_hash: str,
+    scope: OwnerScope,
 ) -> AssetDetailsResult:
+    in_scope, in_params = sql_predicate(scope, "owner_space_id")
     with repository._pool.connection() as connection, connection.transaction():
         if not connection.execute(
             "select 1 from auth.users where id=%s and coalesce(is_anonymous,false)=false",
@@ -79,12 +82,13 @@ def write_details(
             raise RegisteredAccountRequired()
         lock_owner(connection, user_id)
         locked = connection.execute(
-            "select version from public.financial_accounts where id=%s and user_id=%s for update",
-            (account_id, user_id),
+            "select version from public.financial_accounts where id=%s and user_id=%s"
+            f" and {in_scope} for update",
+            (account_id, user_id, *in_params),
         ).fetchone()
         if not locked:
             raise AccountNotFound()
-        stored = repository._load(connection, user_id, account_id)
+        stored = repository._load(connection, user_id, account_id, scope=scope)
         assert stored is not None
         previous = next(
             (c for c in stored.asset_changes if c.idempotency_key == idempotency_key),
@@ -99,7 +103,7 @@ def write_details(
         require_asset(stored)
         target = debt_id(request)
         if target is not None:
-            validate_debt(repository._load(connection, user_id, target))
+            validate_debt(repository._load(connection, user_id, target, scope=scope))
         version = stored.account.version + 1
         connection.execute(
             "update public.financial_accounts set ownership_share_bps=%s,version=%s where id=%s and user_id=%s",
@@ -124,6 +128,6 @@ def write_details(
                 identity_hash,
             ),
         )
-        updated = repository._load(connection, user_id, account_id)
+        updated = repository._load(connection, user_id, account_id, scope=scope)
         assert updated is not None
         return AssetDetailsResult(updated, version, False)

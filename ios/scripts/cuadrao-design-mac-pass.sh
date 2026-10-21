@@ -48,7 +48,7 @@ run_checks() {
   {
     for runner in run_home_balance run_plan_preview run_group_preview run_receipt_preview \
                   run_temporary_chat run_avatar_crop run_release_updates run_release_identity run_tap_targets \
-                  run_money_format; do
+                  run_money_format run_cuadrao_legal_urls; do
       echo "== $runner"
       python3 "$ios_dir/DesignPreviewTests/$runner.py" || { echo "FAILED $runner"; failed=1; }
     done
@@ -61,7 +61,10 @@ run_checks() {
 run_tests() {
   local only=() name status=0 bundle
   for name in "${design_tests[@]}"; do only+=("-only-testing:ArgusFoundationUITests/$name"); done
-  RESULT_DIR="$out/results" "$ios_dir/scripts/verify.sh" test "${only[@]}" || status=$?
+  # These design classes run auth-disabled and offline on purpose; the opt-out lets the UI test
+  # build gate (CuadraoBuildGate) pass them. Without it every test stops on the missing Local.xcconfig.
+  TEST_RUNNER_ARGUS_UI_TESTS_ALLOW_PREVIEW_BUILD=true RESULT_DIR="$out/results" \
+    "$ios_dir/scripts/verify.sh" test "${only[@]}" || status=$?
   bundle="$(ls -dt "$out"/results/*.xcresult 2>/dev/null | head -1 || true)"
   if [[ -n "$bundle" ]]; then
     xcrun xcresulttool export attachments --path "$bundle" --output-path "$out/ui-attachments" \

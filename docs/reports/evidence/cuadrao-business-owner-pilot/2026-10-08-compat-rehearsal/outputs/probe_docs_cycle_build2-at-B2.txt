@@ -1,0 +1,18 @@
+2026-10-08 02:23:28.503 | INFO     | argus.api.app_setup:lifespan:65 - Using Supabase product persistence with memory LangGraph checkpointer
+2026-10-08 02:23:28.510 | INFO     | argus.api.shortcuts:start_shortcuts:90 - Shortcuts connector ready
+upload: {"http": 200, "status": "saved", "replayed": false, "connection_id": "f62e5c36-ad35-457e-9ae4-f47b7ab8b0d0"}
+row_after_upload: {"source_bytes_len": null, "source_path": "d0ed87cb-42b4-4b9b-89cc-0276f29c9c8d/f62e5c36-ad35-457e-9ae4-f47b7ab8b0d0/27a35ad536369e6d11aec5bae68927e5da4ef7388a37d2d62bb05435ccaac4c8", "preparation_job": null}
+objects_after_upload: ["d0ed87cb-42b4-4b9b-89cc-0276f29c9c8d/f62e5c36-ad35-457e-9ae4-f47b7ab8b0d0/27a35ad536369e6d11aec5bae68927e5da4ef7388a37d2d62bb05435ccaac4c8"]
+list: {"http": 200, "items": [{"connection_id": "f62e5c36-ad35-457e-9ae4-f47b7ab8b0d0", "status": "saved", "source_available": true}]}
+get: {"http": 200, "status": "saved", "connection_id": "f62e5c36-ad35-457e-9ae4-f47b7ab8b0d0", "source_available": true}
+source: {"http": 200, "bytes": 5909, "bytes_match": true}
+replay_upload: {"http": 200, "status": "saved", "replayed": true, "connection_id": "f62e5c36-ad35-457e-9ae4-f47b7ab8b0d0"}
+disconnect: {"http": 200}
+row_after_disconnect: null
+objects_after_disconnect: []
+list_after_disconnect: {"http": 200, "items": []}
+2026-10-08 02:23:28.984 | WARNING  | argus.api.account_deletion_runtime:standalone_apple:123 - Apple revoke for deletion unavailable
+account_delete: {"http": 200, "status": "done", "pending": []}
+auth_user_exists_after_delete: false
+objects_after_account_delete: []
+exit=0

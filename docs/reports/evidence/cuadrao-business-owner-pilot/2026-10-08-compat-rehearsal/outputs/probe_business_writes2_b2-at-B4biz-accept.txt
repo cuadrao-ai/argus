@@ -1,0 +1,4 @@
+W_accept_business_receipt_into_personal_account: {"ok": true, "value": {"account": "personal_account", "activity": "5764aa7f-84ab-4c9a-9330-d8bbef774fa9", "state": null}}
+W_records_by_account_space: [["1ccaca74-cb12-4d1b-b6f4-3392a01a971c", "expense", 2], ["personal", "expense", 2]]
+W_event_space_vs_account: [true, "accepted"]
+exit=0

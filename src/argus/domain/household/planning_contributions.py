@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from psycopg.types.json import Jsonb
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import goal_commands, goal_projection, model
 from argus.domain.recording.canonical_groups import VisibleAccounts
 from argus.domain.recording.currency import parse_minor_units
@@ -334,7 +335,7 @@ def money(service, actor, hid, kind, identifier, body, key=None, cid=None):
         from argus.domain.recording import canonical_groups
 
         canonical = canonical_groups.load(
-            service.repository, c, {p["user_id"] for p in ctx[3].values()}
+            service.repository, c, {p["user_id"] for p in ctx[3].values()}, scope=PERSONAL
         )
         actual = render_activity(
             result.activity_id, canonical.history[result.activity_id], result.revision

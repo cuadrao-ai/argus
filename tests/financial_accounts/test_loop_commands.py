@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import (
     IdempotencyConflict,
     RecordingInputError,
@@ -57,6 +58,7 @@ def scene(request):
             amount="10000",
             as_of=NOW - timedelta(days=10),
         ),
+        scope=PERSONAL,
     ).stored
     yield service, user, account.account.id
     if pool:
@@ -70,7 +72,7 @@ def scene(request):
 
 def expense(scene, amount, day, coverage=None, record_id=None, reason=None):
     service, user, account = scene
-    current = service.get(user_id=user, account_id=account)
+    current = service.get(user_id=user, account_id=account, scope=PERSONAL)
     body = ActivityRequest(
         expected_version=current.account.version,
         expected_revision=1 if record_id else None,
@@ -94,7 +96,7 @@ def expense(scene, amount, day, coverage=None, record_id=None, reason=None):
 
 def checked(scene, amount, day):
     service, user, account = scene
-    current = service.get(user_id=user, account_id=account)
+    current = service.get(user_id=user, account_id=account, scope=PERSONAL)
     body = CheckRequest(
         expected_version=current.account.version,
         amount=amount,
@@ -133,7 +135,7 @@ def test_response_loss_replay_precedes_stale_version_and_does_not_repeat_expense
     service, user, account = scene
     result, body = expense(scene, "500", 8)
     key = "response-loss"
-    current = service.get(user_id=user, account_id=account)
+    current = service.get(user_id=user, account_id=account, scope=PERSONAL)
     request = ActivityRequest(
         expected_version=current.account.version,
         amount="100",
@@ -174,13 +176,15 @@ def test_missing_coverage_is_previewable_but_cannot_commit(scene):
         service.loop.write_activity(
             user_id=user, account_id=account, request=body, idempotency_key="no"
         )
-    assert service.get(user_id=user, account_id=account).account.version == 1
+    assert (
+        service.get(user_id=user, account_id=account, scope=PERSONAL).account.version == 1
+    )
 
 
 def test_later_confirmed_same_day_check_becomes_current(scene):
     checked(scene, "9000", 5)
     service, user, account = scene
-    current = service.get(user_id=user, account_id=account)
+    current = service.get(user_id=user, account_id=account, scope=PERSONAL)
     request = CheckRequest(
         expected_version=current.account.version,
         amount="8000",
@@ -198,12 +202,14 @@ def test_later_confirmed_same_day_check_becomes_current(scene):
     assert account_response(result.stored).balance.amount_minor == 800000
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_unknown_opening_after_spending_requires_review_and_preserves_inclusion(scene):
     service, user, _ = scene
     account = service.create(
         user_id=user,
         idempotency_key="unknown",
         request=CreateFinancialAccountRequest(type="cash", currency="USD"),
+        scope=PERSONAL,
     ).stored
     local = (service, user, account.account.id)
     e, _ = expense(local, "20", 5)
@@ -242,6 +248,7 @@ def test_timezone_transition_cannot_exclude_already_included_activity(scene):
         request=CreateFinancialAccountRequest(
             type="cash", currency="USD", amount="100", as_of=start, time_zone="UTC"
         ),
+        scope=PERSONAL,
     ).stored
     body = ActivityRequest(
         expected_version=1,
@@ -269,7 +276,12 @@ def test_timezone_transition_cannot_exclude_already_included_activity(scene):
         service.loop.preview_check(
             user_id=user, account_id=account.account.id, request=check
         )
-    assert service.get(user_id=user, account_id=account.account.id).account.version == 2
+    assert (
+        service.get(
+            user_id=user, account_id=account.account.id, scope=PERSONAL
+        ).account.version
+        == 2
+    )
 
 
 def test_opening_correction_cannot_overflow_current_residual(scene):
@@ -280,6 +292,7 @@ def test_opening_correction_cannot_overflow_current_residual(scene):
         request=CreateFinancialAccountRequest(
             type="cash", currency="USD", amount="0", as_of=NOW - timedelta(days=10)
         ),
+        scope=PERSONAL,
     ).stored
     local = (service, user, account.account.id)
     checked(local, "-92233720368547758.07", 5)
@@ -293,10 +306,11 @@ def test_opening_correction_cannot_overflow_current_residual(scene):
         service.loop.preview_opening(
             user_id=user, account_id=account.account.id, request=body
         )
-    current = service.get(user_id=user, account_id=account.account.id)
+    current = service.get(user_id=user, account_id=account.account.id, scope=PERSONAL)
     assert current.account.version == 2 and current.opening.current.amount_minor == 0
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_home_aggregates_exact_strings_beyond_int64_and_preserves_archived_unknown(scene):
     from argus.domain.recording.loop_reads import home_response
 
@@ -308,34 +322,40 @@ def test_home_aggregates_exact_strings_beyond_int64_and_preserves_archived_unkno
             request=CreateFinancialAccountRequest(
                 type="cash", currency="USD", amount="92233720368547758.07"
             ),
+            scope=PERSONAL,
         )
     service.create(
         user_id=user,
         idempotency_key="blank",
         request=CreateFinancialAccountRequest(type="cash", currency="USD"),
+        scope=PERSONAL,
     )
     usd = next(
         row
-        for row in home_response(service.list_accounts(user_id=user))["currencies"]
+        for row in home_response(service.list_accounts(user_id=user, scope=PERSONAL))[
+            "currencies"
+        ]
         if row["currency"] == "USD"
     )
     assert usd["net_worth_minor"] == str(2 * (2**63 - 1))
     assert usd["unknown_accounts"] == 1 and usd["known_accounts"] == 2
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_edit_cannot_apply_currency_rules_from_a_different_version(scene, monkeypatch):
     service, user, _ = scene
     account = service.create(
         user_id=user,
         idempotency_key="race-account",
         request=CreateFinancialAccountRequest(type="cash", currency="DOP"),
+        scope=PERSONAL,
     ).stored
     original_get = service.get
     fired = False
 
-    def interleaved_get(*, user_id, account_id):
+    def interleaved_get(*, user_id, account_id, scope):
         nonlocal fired
-        old = original_get(user_id=user_id, account_id=account_id)
+        old = original_get(user_id=user_id, account_id=account_id, scope=scope)
         if not fired:
             fired = True
             expense((service, user, account.account.id), "100", 5)
@@ -347,14 +367,16 @@ def test_edit_cannot_apply_currency_rules_from_a_different_version(scene, monkey
             user_id=user,
             account_id=account.account.id,
             request=EditFinancialAccountRequest(expected_version=2, currency="JPY"),
+            scope=PERSONAL,
         )
-    stored = original_get(user_id=user, account_id=account.account.id)
+    stored = original_get(user_id=user, account_id=account.account.id, scope=PERSONAL)
     assert stored.account.version == 2 and stored.account.currency == "DOP"
     assert stored.expenses[0].current.amount_minor == 10000
 
 
 @pytest.mark.parametrize("with_opening", [False, True])
 @pytest.mark.parametrize("source_kind", ["balance_check", "expense"])
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_balance_date_uses_latest_source_zone_after_reopen(
     scene, with_opening, source_kind
 ):
@@ -371,8 +393,9 @@ def test_balance_date_uses_latest_source_zone_after_reopen(
             user_id=user,
             idempotency_key=str(uuid4()),
             request=CreateFinancialAccountRequest(type="checking", currency="DOP"),
+            scope=PERSONAL,
         ).stored.account.id
-    current = service.get(user_id=user, account_id=account_id)
+    current = service.get(user_id=user, account_id=account_id, scope=PERSONAL)
     source_time = (NOW - timedelta(days=5)).replace(hour=1)
     source_zone = "America/Chicago"
     body = CheckRequest(
@@ -413,7 +436,7 @@ def test_balance_date_uses_latest_source_zone_after_reopen(
             idempotency_key=str(uuid4()),
         )
     expected = source_time.astimezone(ZoneInfo(source_zone)).isoformat()
-    reopened = service.get(user_id=user, account_id=account_id)
+    reopened = service.get(user_id=user, account_id=account_id, scope=PERSONAL)
     for stored in (result.stored, reopened):
         balance = position(
             stored.opening, stored.checks, stored.expenses, stored.coverage
@@ -431,6 +454,7 @@ def test_balance_date_uses_latest_source_zone_after_reopen(
         ("investment", "checking", "value_update"),
     ],
 )
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_observation_locks_account_type_without_expenses(
     scene, with_opening, initial_type, target_type, record_kind
 ):
@@ -444,6 +468,7 @@ def test_observation_locks_account_type_without_expenses(
             amount="100" if with_opening else None,
             as_of=NOW - timedelta(days=10) if with_opening else None,
         ),
+        scope=PERSONAL,
     ).stored
     observed = checked((service, user, account.account.id), "90", 5).stored
     assert not observed.expenses and observed.checks[0].kind == record_kind
@@ -454,8 +479,9 @@ def test_observation_locks_account_type_without_expenses(
             request=EditFinancialAccountRequest(
                 expected_version=observed.account.version, type=target_type
             ),
+            scope=PERSONAL,
         )
-    reopened = service.get(user_id=user, account_id=account.account.id)
+    reopened = service.get(user_id=user, account_id=account.account.id, scope=PERSONAL)
     assert reopened.account.type == initial_type
     assert reopened.account.version == observed.account.version
     assert reopened.checks == observed.checks
@@ -476,6 +502,7 @@ def test_home_freshness_compares_instants_across_source_zone_clock_change(scene)
                 as_of=datetime(2025, 11, 2, hour, minute, tzinfo=timezone.utc),
                 time_zone="America/Chicago",
             ),
+            scope=PERSONAL,
         ).stored
         for hour, minute in ((6, 45), (7, 15))
     ]

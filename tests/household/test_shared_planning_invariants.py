@@ -9,6 +9,7 @@ import pytest
 from argus.domain.household import planning_schemas as wire
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.financial import HouseholdFinancialService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.debts import DebtService
 from argus.domain.planning.goal_schemas import AllocationWrite, GoalEdit
 from argus.domain.planning.goals import GoalService
@@ -270,10 +271,10 @@ def test_failed_post_claim_rolls_back_money_versions_receipt_and_link(lane):
     s = scene(lane)
     s["bd"] = account(s["records"], s["b"], amount=None)
     p = create(s, "goal")
-    before = s["records"].get_account(user_id=s["b"], account_id=s["ba"])
+    before = s["records"].get_account(user_id=s["b"], account_id=s["ba"], scope=PERSONAL)
     with pytest.raises(RecordingInputError, match="known available"):
         money(s, s["b"], p, request("transfer", s["ba"], "20", s["bd"]), "goal_saving")
-    after = s["records"].get_account(user_id=s["b"], account_id=s["ba"])
+    after = s["records"].get_account(user_id=s["b"], account_id=s["ba"], scope=PERSONAL)
     assert after.account.version == before.account.version
     assert len(after.expenses) == len(before.expenses)
     view = get(s, s["a"], p)
@@ -332,7 +333,11 @@ def test_personal_owned_shared_residual_preserves_identity_and_consent(lane):
     s = scene(lane)
     p = create(s, "goal")
     aid = s["ad"]
-    version = s["records"].get_account(user_id=s["a"], account_id=aid).account.version
+    version = (
+        s["records"]
+        .get_account(user_id=s["a"], account_id=aid, scope=PERSONAL)
+        .account.version
+    )
     shared = s["plans"].allocate(
         s["a"],
         s["hid"],
@@ -438,7 +443,9 @@ def test_old_foreign_leg_correction_requires_live_original_account_authority(lan
     from argus.domain.recording.money_service import MoneyService
 
     with pytest.raises(AccountNotFound):
-        MoneyService(planners(s, s["a"]).accounts).detail(user_id=s["a"], activity_id=aid)
+        MoneyService(planners(s, s["a"]).accounts).detail(
+            user_id=s["a"], activity_id=aid, scope=PERSONAL
+        )
     household_command(
         s["households"],
         s["a"],

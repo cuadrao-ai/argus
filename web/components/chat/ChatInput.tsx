@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { TFunction } from "i18next";
 import { ArrowUp, AtSign, MessageSquareWarning } from "lucide-react";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
@@ -36,6 +43,15 @@ type ChatInputProps = {
   placeholder?: string;
   onToast?: (message: string) => void;
   draftText?: string | null;
+  /**
+   * Replaces the asset/indicator mention control. A workspace that passes one
+   * has no mention picker at all, including the typed `@` trigger.
+   */
+  leadingControl?: ReactNode;
+  /** Unsent text, so a workspace can keep a draft across navigation. */
+  onDraftChange?: (text: string) => void;
+  /** Called once a send is accepted. */
+  onSent?: () => void;
 };
 
 export type DiscoverySection = {
@@ -85,6 +101,9 @@ export default function ChatInput({
   placeholder,
   onToast,
   draftText,
+  leadingControl,
+  onDraftChange,
+  onSent,
 }: ChatInputProps) {
   const { t } = useTranslation();
   const [segments, setSegments] = useState<ComposerSegment[]>([{ type: "text", text: "" }]);
@@ -106,6 +125,11 @@ export default function ChatInput({
   const buttonDiscoveryAnchorOffsetRef = useRef<number | null>(null);
   const buttonDiscoveryQueryEndOffsetRef = useRef<number | null>(null);
   const composerIsEmpty = !composerHasContent;
+  const mentionsEnabled = leadingControl === undefined;
+  const onDraftChangeRef = useRef(onDraftChange);
+  useLayoutEffect(() => {
+    onDraftChangeRef.current = onDraftChange;
+  }, [onDraftChange]);
 
   const inputPlaceholder = placeholder ?? t("chat.input_placeholder");
   const discoverySections = useMemo(
@@ -163,11 +187,11 @@ export default function ChatInput({
   }, [composerHasContent, composerRawText, draftText]);
 
   useEffect(() => {
-    if (!draftText?.trim()) return;
+    if (!mentionsEnabled || !draftText?.trim()) return;
     noteLandingStarterComposerMatch(
       Boolean(appliedDraftRef.current) && composerRawText === draftText,
     );
-  }, [composerRawText, draftText]);
+  }, [composerRawText, draftText, mentionsEnabled]);
 
   useEffect(() => {
     if (!isDiscoveryOpen) return;
@@ -242,6 +266,7 @@ export default function ChatInput({
     writeSegmentsToEditor(editorRef.current, segments);
     setComposerHasContent(!isComposerEmpty(segments));
     setComposerRawText(rawComposerText(segments));
+    onDraftChangeRef.current?.(rawComposerText(segments));
     if (pendingCaretOffsetRef.current !== null) {
       const offset = pendingCaretOffsetRef.current;
       pendingCaretOffsetRef.current = null;
@@ -262,6 +287,7 @@ export default function ChatInput({
   };
 
   const updateDiscoveryState = (current: ComposerSegment[], cursor: number | null) => {
+    if (!mentionsEnabled) return;
     const rawText = rawComposerText(current);
     const currentCursor = cursor ?? rawText.length;
     const mention = findMentionAtOffset(current, currentCursor);
@@ -327,6 +353,7 @@ export default function ChatInput({
     if (message) {
       const accepted = await onSend(message, composerMentions(current, message));
       if (accepted === false) return;
+      onSent?.();
       setSegments([{ type: "text", text: "" }]);
       setComposerHasContent(false);
       setComposerRawText("");
@@ -412,6 +439,7 @@ export default function ChatInput({
     const cursor = getCaretTextOffset(editorRef.current);
     setComposerHasContent(!isComposerEmpty(current));
     setComposerRawText(rawComposerText(current));
+    onDraftChangeRef.current?.(rawComposerText(current));
     updateDiscoveryState(current, cursor);
     scheduleComposerTokenFocus();
   };
@@ -520,6 +548,7 @@ export default function ChatInput({
         </div>
       )}
 
+      {mentionsEnabled ? (
       <button
         type="button"
         onMouseDown={(event) => event.preventDefault()}
@@ -539,6 +568,9 @@ export default function ChatInput({
       >
         <AtSign className="h-4 w-4" />
       </button>
+      ) : (
+        <div className="absolute left-3 top-1/2 z-20 -translate-y-1/2">{leadingControl}</div>
+      )}
 
       <div className="relative flex min-w-0 flex-1 flex-col justify-center py-2 pl-14 pr-2">
         <div
@@ -628,7 +660,7 @@ export default function ChatInput({
                   updateDiscoveryState(next.segments, next.offset);
                 }
               }
-            } else if (e.key === "@" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            } else if (mentionsEnabled && e.key === "@" && !e.ctrlKey && !e.metaKey && !e.altKey) {
               buttonDiscoveryAnchorOffsetRef.current = null;
               buttonDiscoveryQueryEndOffsetRef.current = null;
               activeMentionOffsetRef.current = null;

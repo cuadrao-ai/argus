@@ -22,10 +22,15 @@ from argus.domain.apple_sign_in.credentials_postgres import (
     PostgresAppleCredentialRepository,
 )
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.ingestion.documents.models import DocumentDraft
+from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.owner_scope import PERSONAL
+from loguru import logger
 from psycopg_pool import ConnectionPool
 
 from tests import apple_sign_in_support as apple_support
+from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
 from tests.household.financial_fixtures import DSN, NOW, key
 from tests.household.financial_fixtures import lane as lane  # noqa: F401 - fixture
 from tests.test_account_deletion_fk_census_postgres import (
@@ -59,6 +64,7 @@ def _other_credential(box: SecretBox, user_id: str) -> str:
             label="Gmail",
             now=NOW,
             secret=b"x",
+            scope=PERSONAL,
         )
     finally:
         repo._pool.close()  # noqa: SLF001
@@ -143,10 +149,11 @@ def test_a_wrong_or_missing_key_never_drops_a_live_token(lane, world):  # noqa: 
     assert _run(run_id)[4]["revocations"]["plaid"] == {"unrecoverable": 1}
 
 
-def test_the_recording_fake_is_never_done_outside_tests(lane, world):  # noqa: F811
+def test_the_recording_fake_is_never_done_outside_tests(lane, world, monkeypatch):  # noqa: F811
     """Priya 2: deleted nothing at PostHog, so where the fake is not explicitly
     the adapter the step stays pending; only an operator can close it, with a
     reason kept in the run record."""
+    monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", "synthetic-event-token")
     a = world["a"]
     admin = SqlAuthAdmin()
     with pytest.raises(AccountDeletionIncomplete) as raised:
@@ -430,3 +437,139 @@ def test_an_unreadable_apple_token_is_discarded_only_under_its_own_key(lane, wor
         assert _apple_state(a, run_id) == (False, False, "done", "unrecoverable")
     finally:
         apple.close()
+
+
+class _StorageDown:
+    bucket = "financial-document-sources"
+
+    def delete(self, prefix: str) -> None:
+        raise ConnectionError("storage unavailable")
+
+
+@pytest.mark.skipif(not LOCAL_STORAGE, reason="Local Supabase Storage required")
+def test_document_sources_are_erased_before_the_account_delete(lane, world):  # noqa: F811
+    """#778: every object under the person's prefix goes, a referenced capture
+    and an unreferenced one alike; anyone else's stays. Storage down keeps the
+    run pending and the account locked, like any third party."""
+    from hashlib import sha256
+
+    a, b = world["a"], world["b"]
+    digest = sha256(b"%PDF-fixture").hexdigest()
+    objects = source_objects()
+    orphan, theirs = f"{a}/{uuid4()}/{digest}", f"{b}/{uuid4()}/{digest}"
+    for path in (orphan, theirs):
+        objects.put(path, b"%PDF-fixture", "application/pdf")
+    with ConnectionPool(DSN, min_size=0, max_size=2) as pool:
+        statement = PostgresConnectionRepository(pool).create(
+            user_id=a,
+            source="statement",
+            external_ref=key(),
+            label=None,
+            now=NOW,
+            scope=PERSONAL,
+        )
+        draft = DocumentDraft(
+            connection_id=statement.id,
+            filename="statement.pdf",
+            media_type="application/pdf",
+            sha256=digest,
+            size_bytes=12,
+            created_at=NOW,
+            updated_at=NOW,
+        )
+        assert PostgresDocumentStore(pool, objects).capture(
+            user_id=a, draft=draft, content=b"%PDF-fixture"
+        )
+    with psycopg.connect(DSN) as c:
+        assert stored_paths(c, f"{a}/") == [orphan]
+        assert stored_paths(c, f"sealed/{a}/") == [f"sealed/{a}/{digest}"]
+        assert stored_paths(c, f"rebuilt/{a}/") == []
+    try:
+        admin = SqlAuthAdmin()
+        with pytest.raises(AccountDeletionIncomplete) as raised:
+            _service(lane, admin, source_objects=_StorageDown()).delete_account(user_id=a)
+        world["placeholders"] += admin.created
+        assert raised.value.pending == ["storage"]
+        assert _locked(a) == (True, True)
+        assert admin.deleted == []
+        run_id = _run_id(a)
+        assert _run(run_id)[4]["last_error"] == {"storage": "storage_delete_failed"}
+        # A week later: our own Storage gets its own alert, and no operator
+        # can force the step closed.
+        lines: list[str] = []
+        metrics: list[object] = []
+        sink = logger.add(
+            lambda message: (
+                lines.append(str(message)),
+                metrics.append(message.record["extra"].get("metric")),
+            ),
+            level="ERROR",
+        )
+        week = _service(
+            lane,
+            SqlAuthAdmin(),
+            source_objects=_StorageDown(),
+            clock=lambda: NOW + timedelta(days=7, minutes=1),
+        )
+        try:
+            with pytest.raises(AccountDeletionIncomplete):
+                week.delete_account(user_id=a)
+        finally:
+            logger.remove(sink)
+        assert any("fix Storage" in line for line in lines)
+        assert "account_deletion.storage_failing" in metrics
+        assert "account_deletion.needs_operator" not in metrics
+        assert not any("needs an operator" in line for line in lines)
+        with pytest.raises(ValueError, match="step must be one of"):
+            week.force_complete_step(
+                user_id=a, step="storage", reason="down", operator="ops", confirm=True
+            )
+
+        done = _service(lane, SqlAuthAdmin(), source_objects=objects).delete_account(
+            user_id=a
+        )
+        assert done.status == "done"
+        assert _run(run_id)[4]["storage"] == "deleted"
+        with psycopg.connect(DSN) as c:
+            for prefix in (f"{a}/", f"sealed/{a}/", f"rebuilt/{a}/"):
+                assert stored_paths(c, prefix) == []
+            assert stored_paths(c, f"{b}/") == [theirs]
+    finally:
+        objects.delete(f"{a}/")
+        objects.delete(f"{b}/")
+
+
+class _LateUpload:
+    """Storage that sees an upload, authenticated before the lock, land
+    right after the run's first erase."""
+
+    bucket = "financial-document-sources"
+
+    def __init__(self, objects, late: str) -> None:  # noqa: ANN001
+        self._objects, self._late, self.erases = objects, late, 0
+
+    def delete(self, prefix: str) -> None:
+        self._objects.delete(prefix)
+        self.erases += 1
+        if self.erases == 1:
+            self._objects.put(self._late, b"%PDF-late", "application/pdf")
+
+
+@pytest.mark.skipif(not LOCAL_STORAGE, reason="Local Supabase Storage required")
+def test_a_source_written_after_the_first_erase_is_gone_before_the_auth_delete(
+    lane,  # noqa: ANN001, F811
+    world,  # noqa: ANN001, F811
+) -> None:
+    a = world["a"]
+    objects = source_objects()
+    late = _LateUpload(objects, f"{a}/{uuid4()}/{'d' * 64}")
+    try:
+        admin = SqlAuthAdmin()
+        done = _service(lane, admin, source_objects=late).delete_account(user_id=a)
+        world["placeholders"] += admin.created
+        assert done.status == "done"
+        assert late.erases == 2
+        with psycopg.connect(DSN) as c:
+            assert stored_paths(c, f"{a}/") == []
+    finally:
+        objects.delete(f"{a}/")

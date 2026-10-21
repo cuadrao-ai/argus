@@ -161,11 +161,10 @@ struct PlanExactAmount: View {
                 }
             }.navigationTitle(title).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cancelar" : "Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(spanish ? "Listo" : "Done") { amount = input; dismiss() }
-                            .disabled(!error.isEmpty || !input.isFinite || input < minimum || input > maximum).accessibilityIdentifier("plan-exact-done")
-                    }
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
+                    CuadraoConfirmToolbar(title: spanish ? "Listo" : "Done",
+                                          disabled: !error.isEmpty || !input.isFinite || input < minimum || input > maximum,
+                                          identifier: "plan-exact-done") { amount = input; dismiss() }
                 }
         }.presentationDetents([.medium]).presentationDragIndicator(.visible)
             .onAppear { input = amount }

@@ -37,9 +37,7 @@ struct CuadraoChatSheet: View {
             }
             .background(WelcomePalette.background).foregroundStyle(WelcomePalette.ink)
             .navigationTitle(heading).navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) {
-                Button(es ? "Listo" : "Done") { dismiss() }
-            } }
+            .toolbar { CuadraoDoneToolbar(title: es ? "Listo" : "Done") { dismiss() } }
         }
         .presentationDragIndicator(.visible)
         .onAppear { title = store.current.title }

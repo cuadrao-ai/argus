@@ -14,6 +14,10 @@ from argus.api.chat.backtest_jobs import (
 )
 from argus.api.chat.confirmation import public_confirmation_projection
 from argus.api.chat.research_jobs import RESEARCH_OPERATION_SCOPE
+from argus.api.conversation_surface import (
+    refuse_business_under_grant,
+    refuse_closed_chat,
+)
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context, client_identity
 from argus.api.memory_ownership import memory_object_visible
@@ -66,6 +70,10 @@ def run_backtest(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     user: User = Depends(current_user),  # noqa: B008
 ) -> BacktestRunResponse:
+    # Chat is the owner's: a chosen client grant is refused on a Business conversation.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=payload.conversation_id
+    )
     endpoint = "/api/v1/backtests/run"
     clean_idempotency_key = _clean_required_idempotency_key(
         request=request,
@@ -91,6 +99,7 @@ def run_backtest(
                 title="Not Found",
                 detail="Conversation not found.",
             )
+        refuse_closed_chat(request, conversation.surface)
 
     data = payload.model_dump(exclude_none=True)
     if payload.strategy_id:
@@ -735,6 +744,10 @@ def get_backtest(
             title="Not Found",
             detail="Backtest run not found.",
         )
+    # Chat is the owner's: a run of a Business conversation is refused under a chosen grant.
+    refuse_business_under_grant(
+        request, user_id=user.id, conversation_id=run.conversation_id
+    )
     return BacktestRunResponse(run=run)
 
 

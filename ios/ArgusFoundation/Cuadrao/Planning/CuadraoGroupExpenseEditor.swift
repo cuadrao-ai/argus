@@ -120,7 +120,7 @@ struct CuadraoGroupExpenseEditor: View {
                 }.cuadraoFormKeyboard().background(WelcomePalette.background)
                     .navigationTitle(group.kind == .trip ? (spanish ? "Un gasto juntos" : "A shared expense") : (spanish ? "Un paso más" : "One step closer")).navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cancelar" : "Cancel") { dismiss() } }
+                        CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
                     }
                     .confirmationDialog(spanish ? "¿Eliminar este registro?" : "Delete this entry?", isPresented: $discard, titleVisibility: .visible) {
                         Button(spanish ? "Eliminar" : "Delete", role: .destructive) {
@@ -185,7 +185,7 @@ struct CuadraoGroupSettlement: View {
                     }
                 }.cuadraoFormKeyboard().navigationTitle(spanish ? "Vamos cuadrando" : "Settling up").navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cerrar" : "Close") { dismiss() } }
+                        CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
                     }
                     .onAppear { from = group.members.first { group.balance($0.id) < 0 }?.id; to = group.members.first { group.balance($0.id) > 0 }?.id; amount = Double(maximum) / 100 }
                     .onChange(of: from) { _, _ in amount = Double(maximum) / 100 }

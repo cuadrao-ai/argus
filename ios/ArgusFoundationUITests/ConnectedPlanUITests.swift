@@ -1,6 +1,28 @@
 import XCTest
 
 extension FinancialLoopUITests {
+    func testPlanAmountIdentityFollowsSelectedKind() throws {
+        try signIn()
+        app.openPlanSurface()
+        tapVisible(app.buttons["plan-create"])
+        let goalAmount = app.textFields["goal.target"]
+        let budgetAmount = app.textFields["budget.limit"]
+        XCTAssertTrue(goalAmount.waitForExistence(timeout: 5))
+        XCTAssertFalse(budgetAmount.exists)
+
+        tapVisible(app.buttons["plan-kind-budget"])
+        XCTAssertTrue(app.textFields["budget.name"].waitForExistence(timeout: 5))
+        XCTAssertTrue(budgetAmount.waitForExistence(timeout: 5))
+        XCTAssertFalse(goalAmount.exists)
+
+        tapVisible(app.buttons["plan-kind-goal"])
+        XCTAssertTrue(app.textFields["goal.name"].waitForExistence(timeout: 5))
+        XCTAssertTrue(goalAmount.waitForExistence(timeout: 5))
+        XCTAssertFalse(budgetAmount.exists)
+        tapVisible(app.buttons["Cancel"])
+        XCTAssertTrue(goalAmount.waitForNonExistence(timeout: 5))
+    }
+
     func testPlanDisclosuresAndExampleKeepRealForecastUnchanged() throws {
         try signIn()
         let bank = createMoneyAccount("Plan display " + UUID().uuidString.prefix(5), type: "checking", amount: "150")
@@ -150,22 +172,20 @@ extension FinancialLoopUITests {
         capture("plan-payment-recovered-once-after-reopen")
     }
 
-    func testPlanKeepsUnknownCurrencyAndLocalizedPresentation() throws {
+    func testPlanKeepsABlankDollarAccountAtZeroAndLocalizedPresentation() throws {
         try signIn()
         let stamp = String(UUID().uuidString.prefix(4))
-        let unknown = createMoneyAccount("Plan dollars " + stamp, type: "checking", currency: "USD")
-        addPlanExpectation("Monthly remittance " + stamp, kind: "Income", amount: "100", account: unknown,
+        let dollars = createMoneyAccount("Plan dollars " + stamp, type: "checking", currency: "USD")
+        addPlanExpectation("Monthly remittance " + stamp, kind: "Income", amount: "100", account: dollars,
                            cadence: "Every month", currency: "USD")
-        selectPlanAccounts([unknown])
-        XCTAssertFalse(app.staticTexts["plan.projected.USD"].exists)
+        selectPlanAccounts([dollars])
+        XCTAssertTrue(app.staticTexts["plan.projected.USD"].waitForExistence(timeout: 15),
+                      "A blank account starts at a recorded 0.00, so its dollars project")
         XCTAssertFalse(app.staticTexts["plan.projected.DOP"].exists)
-        XCTAssertFalse(app.staticTexts["home.projected.USD"].exists)
         XCTAssertFalse(app.staticTexts["home.projected.DOP"].exists)
-        assertText("Balance unknown")
-        XCTAssertFalse(app.staticTexts["plan.knownStarting.USD"].exists,
-                       "No selected account has a known balance; an empty subtotal is not a known zero")
-        capture("plan-unknown-dollar-balance")
-        openMoneyAccount(unknown); assertText("Balance unknown")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Balance unknown")).firstMatch.exists)
+        capture("plan-zero-dollar-balance")
+        openMoneyAccount(dollars); assertText("USD 0.00")
         app.terminate()
         app.launchArguments = ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO", "-appearancePreference", "light"]
         app.launch()
@@ -177,7 +197,7 @@ extension FinancialLoopUITests {
         app.terminate(); try signIn()
     }
 
-    func testPlanCanRemoveArchivedAndChangedSelectedAccounts() throws {
+    func testPlanCanRemoveArchivedSelectedAccounts() throws {
         try signIn()
         let stamp = String(UUID().uuidString.prefix(4))
         let archived = createMoneyAccount("Archived plan " + stamp, type: "checking", amount: "100")
@@ -188,25 +208,8 @@ extension FinancialLoopUITests {
         selectPlanAccounts([])
         XCTAssertFalse(app.staticTexts["plan.projected.DOP"].exists)
         XCTAssertFalse(app.staticTexts["home.projected.DOP"].exists)
-        let changed = createMoneyAccount("Changed plan " + stamp, type: "checking")
-        selectPlanAccounts([changed])
-        openMoneyAccount(changed)
-        tapVisible(app.buttons["accounts.edit"])
-        tapVisible(app.buttons["accounts.type"])
-        app.buttons["Investments"].tap()
-        tapVisible(app.buttons["accounts.save"])
-        XCTAssertTrue(app.buttons["accounts.save"].waitForNonExistence(timeout: 10))
-        app.openPlanSurface()
-        revealPlanForecastControls()
-        tapVisible(app.buttons["plan.accounts"])
-        assertText("Not a cash account. Remove it from this forecast.")
-        let toggle = app.switches["plan.selection." + changed.id.uppercased()]
-        tapVisible(toggle)
-        capture("plan-changed-account-remains-removable")
-        tapVisible(app.buttons["plan.selection.save"])
-        XCTAssertTrue(app.buttons["plan.selection.save"].waitForNonExistence(timeout: 15))
-        XCTAssertFalse(app.staticTexts["plan.projected.DOP"].exists)
-        XCTAssertFalse(app.staticTexts["home.projected.DOP"].exists)
+        // A changed account needs one with no recorded balance; a blank account now starts at 0.00
+        // and keeps its type, so the server test test_changed_empty_account_is_explicitly_excluded owns that case.
     }
 
     func choosePlanDetailAction(_ identifier: String) {

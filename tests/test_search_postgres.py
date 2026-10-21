@@ -14,6 +14,7 @@ import psycopg
 import pytest
 from argus.api.search_assembly import scored_supabase_search_items
 from argus.api.search_utils import search_rank_key
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.search_text import normalize_search_text
 from psycopg import sql
 from psycopg.types.json import Jsonb
@@ -483,6 +484,7 @@ def test_search_groups_all_matching_layers_into_one_conversation(
 
     reader, pool = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=4,
@@ -540,6 +542,7 @@ def test_search_recalls_latest_user_message_with_count_and_archive_visibility(
 
     reader, pool = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="copper lantern",
         source_limit=4,
@@ -586,6 +589,7 @@ def test_visible_id_recall_is_one_owner_scoped_hydration(
 
     reader, pool = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="",
         source_limit=3,
@@ -596,9 +600,7 @@ def test_visible_id_recall_is_one_owner_scoped_hydration(
         ],
     )
 
-    assert [row["id"] for row in result.rows["conversations"]] == [
-        str(archived_target)
-    ]
+    assert [row["id"] for row in result.rows["conversations"]] == [str(archived_target)]
     assert pool.tracker == {"query_count": 1, "row_counts": [1]}
 
 
@@ -666,6 +668,7 @@ def test_search_projects_the_latest_run_result_message_anchor(
 
     reader, _ = _reader()
     offered = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="GLD",
         source_limit=4,
@@ -685,6 +688,7 @@ def test_search_projects_the_latest_run_result_message_anchor(
         )
 
     followed_up = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="GLD",
         source_limit=4,
@@ -722,6 +726,7 @@ def test_search_centers_fragment_on_late_user_message_match(
 
     reader, _ = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="copper threshold",
         source_limit=4,
@@ -753,6 +758,7 @@ def test_search_title_match_returns_title_with_unrelated_preview(
 
     reader, pool = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=4,
@@ -780,6 +786,7 @@ def test_search_preview_match_returns_preview_with_unrelated_title(
 
     reader, pool = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=4,
@@ -826,6 +833,7 @@ def test_search_matches_all_tokens_across_decision_and_evidence_text(
 
     reader, _ = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query=query,
         source_limit=3,
@@ -856,6 +864,7 @@ def test_search_nul_query_preserves_normalized_matching(
 
     reader, _ = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query=query,
         source_limit=2,
@@ -902,6 +911,7 @@ def test_object_layer_precedes_recency_after_pinned_exact_and_symbol(
     reader, _ = _reader()
     ranked = _ranked(
         reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="gold",
             source_limit=5,
@@ -947,6 +957,7 @@ def test_conversation_cursor_pages_after_evidence_winner_without_gaps(
     cursor_id = None
     for expected_count in (3, 3, 1, 0):
         result = reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="needle",
             source_limit=4,
@@ -990,9 +1001,7 @@ def test_exact_two_character_symbol_pages_filter_and_ledger_are_owner_scoped(
                     cursor,
                     user_id=owner_id,
                     timestamp=(
-                        now
-                        - timedelta(minutes=offset)
-                        - timedelta(seconds=run_offset)
+                        now - timedelta(minutes=offset) - timedelta(seconds=run_offset)
                     ),
                     title=f"BA owner result {offset}-{run_offset}",
                     conversation_id=conversation_id,
@@ -1026,6 +1035,7 @@ def test_exact_two_character_symbol_pages_filter_and_ledger_are_owner_scoped(
 
     reader, _ = _reader()
     first_result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="ba",
         source_limit=2,
@@ -1043,6 +1053,7 @@ def test_exact_two_character_symbol_pages_filter_and_ledger_are_owner_scoped(
     }
 
     second_result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="ba",
         source_limit=2,
@@ -1052,14 +1063,12 @@ def test_exact_two_character_symbol_pages_filter_and_ledger_are_owner_scoped(
     second_page = _ranked(second_result.rows, "ba")[:1]
     pages = [*first_page, *second_page]
     assert {item.id for _, item in pages} == set(expected_counts)
-    assert {
-        item.id: item.match.count
-        for _, item in pages
-    } == expected_counts
+    assert {item.id: item.match.count for _, item in pages} == expected_counts
     assert str(foreign_conversation) not in {item.id for _, item in pages}
 
     promising = _ranked(
         reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="ba",
             source_limit=3,
@@ -1135,6 +1144,7 @@ def test_conversation_cursor_reaches_message_after_source_candidate_cap(
     cursor_id = None
     while True:
         result = reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="needle",
             source_limit=2,
@@ -1181,6 +1191,7 @@ def test_initial_source_cap_keeps_old_pinned_conversation_reachable(
     cursor_id = None
     for _ in range(12):
         result = reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="",
             source_limit=1,
@@ -1236,6 +1247,7 @@ def test_message_source_cap_collapses_conversation_before_limit(
 
     reader, _ = _reader()
     first_result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=2,
@@ -1252,6 +1264,7 @@ def test_message_source_cap_collapses_conversation_before_limit(
     page_one = first_ranked[:1]
     page_two = _ranked(
         reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="needle",
             source_limit=2,
@@ -1293,6 +1306,7 @@ def test_conversation_cursor_reaches_identical_rank_rows_after_source_cap(
     cursor_id = None
     for _ in range(22):
         result = reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="needle",
             source_limit=2,
@@ -1366,6 +1380,7 @@ def test_conversation_source_cap_uses_conversation_wide_activity(
     cursor_id = None
     for _ in range(22):
         result = reader.search_rows(
+            scope=PERSONAL,
             user_id=str(owner_id),
             query="needle",
             source_limit=2,
@@ -1419,6 +1434,7 @@ def test_message_activity_cursor_from_page_one_is_accepted_on_page_two(
 
     reader, _ = _reader()
     first_result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=2,
@@ -1430,6 +1446,7 @@ def test_message_activity_cursor_from_page_one_is_accepted_on_page_two(
     assert cursor_item.updated_at == message_at
 
     second_result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=2,
@@ -1470,6 +1487,7 @@ def test_cursor_pivot_rejects_foreign_or_query_mismatched_conversation(
     ):
         with pytest.raises(cursor_error):
             reader.search_rows(
+                scope=PERSONAL,
                 user_id=str(owner_id),
                 query=query,
                 source_limit=3,
@@ -1520,6 +1538,7 @@ def test_guest_scope_and_deleted_filter_apply_before_conversation_limit(
 
     reader, _ = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=1,
@@ -1558,12 +1577,9 @@ def test_full_lineage_aggregates_survive_more_than_five_children(
             spine = _insert_idea_spine(
                 cursor,
                 user_id=owner_id,
-                timestamp=now - timedelta(days=7 - offset)
-                + timedelta(minutes=1),
+                timestamp=now - timedelta(days=7 - offset) + timedelta(minutes=1),
                 title=f"Run {offset} evidence",
-                summary=(
-                    "Anchor decision" if offset == 0 else f"Run {offset} evidence"
-                ),
+                summary=("Anchor decision" if offset == 0 else f"Run {offset} evidence"),
                 decision_note=f"Decision {offset}",
                 conversation_id=conversation_id,
                 source_run_id=run_id,
@@ -1577,6 +1593,7 @@ def test_full_lineage_aggregates_survive_more_than_five_children(
 
     reader, _ = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="anchor",
         source_limit=2,
@@ -1682,26 +1699,31 @@ def test_asset_rollup_exact_prefix_multi_asset_and_guest_scope_use_run_lineage(
 
     prefix_reader, prefix_pool = _reader()
     prefix = prefix_reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="tsl",
         source_limit=20,
     )
     exact = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="TSLA",
         source_limit=20,
     )
     multi_asset = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="AAPL",
         source_limit=20,
     )
     no_alias = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="Tesla",
         source_limit=20,
     )
     guest = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="TSLA",
         source_limit=20,
@@ -1774,32 +1796,38 @@ def test_asset_rollup_pair_symbol_normalization_matches_memory_contract(
             )
 
     exact = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="  bTc/uSd  ",
         source_limit=20,
     )
     prefix = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="btc/",
         source_limit=20,
     )
     multi_symbol = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="BTC/USD TSLA",
         source_limit=20,
     )
     ambiguous = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="ts",
         source_limit=20,
     )
     combining = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="J\u030c/USD",
         source_limit=20,
     )
     expanding_reader, expanding_pool = _reader()
     expanding = expanding_reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="ss/e",
         source_limit=20,
@@ -1857,6 +1885,7 @@ def test_conversation_rank_casefolds_stored_symbols_like_memory(
         )
 
     result = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="ss/eur",
         source_limit=2,
@@ -1908,6 +1937,7 @@ def test_ledger_counts_distinct_conversations_across_all_match_layers(
 
     reader, _ = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=4,
@@ -1956,6 +1986,7 @@ def test_decision_filter_reaches_older_match_beyond_unfiltered_source_cap(
         )
 
     result = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=1,
@@ -1992,6 +2023,7 @@ def test_ledger_counts_include_matches_beyond_presentation_source_cap(
             )
 
     result = _reader()[0].search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=1,
@@ -2029,6 +2061,7 @@ def test_search_query_and_row_budget_are_constant_as_volume_grows(
     insert_conversations(0, initial_volume)
     first_reader, first_pool = _reader()
     first = first_reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=6,
@@ -2036,6 +2069,7 @@ def test_search_query_and_row_budget_are_constant_as_volume_grows(
     insert_conversations(initial_volume, larger_volume)
     larger_reader, larger_pool = _reader()
     larger = larger_reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="needle",
         source_limit=6,

@@ -1,0 +1,47 @@
+[
+  {
+    "code": "previous_main",
+    "schema": "compat_s3",
+    "files": 34,
+    "summary": "1 failed, 379 passed, 27 skipped in 113.35s (0:01:53)",
+    "counts": {
+      "failed": 1,
+      "passed": 379,
+      "skipped": 27
+    },
+    "failed": [
+      "tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract"
+    ]
+  },
+  {
+    "code": "build1",
+    "schema": "compat_s3",
+    "files": 73,
+    "summary": "3 failed, 720 passed, 31 skipped, 80 warnings in 204.66s (0:03:24)",
+    "counts": {
+      "failed": 3,
+      "passed": 720,
+      "skipped": 31
+    },
+    "failed": [
+      "tests/test_account_deletion_fk_census_postgres.py::test_sweep_names_every_user_reference_and_the_census_document_matches_it",
+      "tests/test_client_grants_postgres.py::test_every_relation_is_listed_exactly_once",
+      "tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract"
+    ]
+  },
+  {
+    "code": "build2",
+    "schema": "compat_s3",
+    "files": 82,
+    "summary": "2 failed, 771 passed, 84 skipped, 82 warnings in 202.22s (0:03:22)",
+    "counts": {
+      "failed": 2,
+      "passed": 771,
+      "skipped": 84
+    },
+    "failed": [
+      "tests/test_document_jobs_postgres.py::test_two_running_instances_recover_a_dead_worker_without_restart",
+      "tests/test_search_postgres.py::test_asset_rollup_pair_symbol_normalization_matches_memory_contract"
+    ]
+  }
+]

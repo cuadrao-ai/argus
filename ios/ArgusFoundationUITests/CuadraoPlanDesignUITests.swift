@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class CuadraoPlanDesignUITests: XCTestCase {
     func testForecastAndGoalPlaygrounds() {
@@ -46,9 +47,9 @@ final class CuadraoPlanDesignUITests: XCTestCase {
         XCTAssertFalse(app.buttons["plan-save"].isEnabled)
         app.textFields["plan-name"].tap(); app.textFields["plan-name"].typeText("Mi próxima laptop\n")
         app.textFields["plan-target"].tap(); app.textFields["plan-target"].typeText("60000")
-        app.toolbars.buttons["Listo"].tap()
+        app.dismissKeyboard()
         app.textFields["plan-monthly"].tap(); app.textFields["plan-monthly"].typeText("5000")
-        app.toolbars.buttons["Listo"].tap()
+        app.dismissKeyboard()
         capture(app, "plan-create-es")
         reveal(app, app.buttons["plan-save"])
         app.buttons["plan-save"].tap()
@@ -133,11 +134,11 @@ final class CuadraoPlanDesignUITests: XCTestCase {
             app.textFields["plan-name"].tap()
             app.textFields["plan-name"].typeText((kind == "budget" ? "Mis salidas" : "Mi préstamo") + "\n")
             app.textFields["plan-target"].tap(); app.textFields["plan-target"].typeText("60000")
-            app.toolbars.buttons["Listo"].tap()
+            app.dismissKeyboard()
             if kind == "budget" { XCTAssertFalse(app.textFields["plan-monthly"].exists) }
             else {
                 app.textFields["plan-monthly"].tap(); app.textFields["plan-monthly"].typeText("5000")
-                app.toolbars.buttons["Listo"].tap()
+                app.dismissKeyboard()
             }
             reveal(app, app.buttons["plan-save"])
             capture(app, "plan-create-\(kind)-es")
@@ -149,6 +150,82 @@ final class CuadraoPlanDesignUITests: XCTestCase {
             capture(app, "plan-new-\(kind)-es")
             app.navigationBars.buttons.element(boundBy: 0).tap()
         }
+    }
+
+    func testNativeEditMenuKeepsKeyboardAndAcceptsReplacement() {
+        continueAfterFailure = false
+        let app = openPlan(english: true)
+        app.buttons["plan-create"].tap()
+        let field = app.textFields["plan-name"]
+        field.tap()
+        field.typeText("Original name")
+        field.press(forDuration: 1.1)
+        let selectAll = app.menuItems["Select All"]
+        XCTAssertTrue(selectAll.waitForExistence(timeout: 3))
+        selectAll.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        field.typeText("Replaced name")
+        XCTAssertEqual(field.value as? String, "Replaced name")
+        UIPasteboard.general.string = " plus pasted text"
+        defer { UIPasteboard.general.items = [] }
+        field.press(forDuration: 1.1)
+        let paste = app.menuItems["Paste"]
+        XCTAssertTrue(paste.waitForExistence(timeout: 3))
+        paste.tap()
+        let permission = app.alerts.buttons["Allow Paste"]
+        if permission.waitForExistence(timeout: 1) { permission.tap() }
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        field.typeText("!")
+        XCTAssertEqual(field.value as? String, "Replaced name plus pasted text!")
+        capture(app, "native-edit-menu-keeps-focus")
+        app.dismissKeyboard()
+    }
+
+    func testDebtRateSavesWhileKeyboardIsFocusedAndSurvivesRelaunch() {
+        continueAfterFailure = false
+        let app = openPlan(english: true)
+        app.buttons["plan-create"].tap()
+        app.buttons["plan-kind-debt"].tap()
+        let name = "Rate persistence"
+        app.textFields["plan-name"].tap()
+        app.textFields["plan-name"].typeText(name + "\n")
+        app.textFields["plan-target"].tap()
+        app.textFields["plan-target"].typeText("60000")
+        app.dismissKeyboard()
+        app.textFields["plan-monthly"].tap()
+        app.textFields["plan-monthly"].typeText("5000")
+        app.dismissKeyboard()
+        let startingPoint = app.buttons["Starting point"]
+        reveal(app, startingPoint)
+        startingPoint.tap()
+        let rate = app.textFields["plan-rate"]
+        reveal(app, rate)
+        rate.tap()
+        rate.typeText("12.75")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        app.buttons["plan-save"].tap()
+        XCTAssertTrue(app.buttons["plan-detail-options"].waitForExistence(timeout: 5))
+        app.buttons["plan-detail-options"].tap()
+        app.buttons["Edit plan"].tap()
+        reveal(app, startingPoint)
+        startingPoint.tap()
+        XCTAssertEqual(rate.value as? String, "12.75")
+        reveal(app, rate)
+        capture(app, "debt-rate-persisted-after-focused-save")
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--plan-reset" }
+        app.launch()
+        app.buttons["tab.plan"].tap()
+        let saved = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "plan-row-", name)).firstMatch
+        reveal(app, saved)
+        saved.tap()
+        app.buttons["plan-detail-options"].tap()
+        app.buttons["Edit plan"].tap()
+        reveal(app, startingPoint)
+        startingPoint.tap()
+        XCTAssertEqual(rate.value as? String, "12.75")
+        reveal(app, rate)
+        capture(app, "debt-rate-persisted-after-relaunch")
     }
 
     private func openPlan(english: Bool = false) -> XCUIApplication {

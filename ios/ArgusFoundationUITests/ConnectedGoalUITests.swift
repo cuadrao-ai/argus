@@ -170,6 +170,18 @@ extension FinancialLoopUITests {
         verifyGoalSearch(title, supported: amount)
     }
 
+    func testRetainedGoalSearchSpanishAndReopen() throws {
+        guard let title = ProcessInfo.processInfo.environment["ARGUS_TEST_SEARCH_QUERY"],
+              let amount = ProcessInfo.processInfo.environment["ARGUS_TEST_GOAL_SUPPORTED"] else {
+            throw XCTSkip("Requires the retained isolated goal journey and expected supported amount.")
+        }
+        try signIn()
+        _ = openGoal(title)
+        assertGoal(amount)
+        app.returnFromDetail("goal.close")
+        verifyGoalSearch(title, supported: amount)
+    }
+
     private func verifyGoalSheetCancellation() {
         for action in ["goal.link", "goal.allocate"] {
             tapVisible(app.buttons[action])
@@ -207,6 +219,7 @@ extension FinancialLoopUITests {
     }
 
     private func verifyGoalSearch(_ title: String, supported: String) {
+        app.revealConnectedTabBar()
         app.buttons["tab.search"].tap()
         let query = app.textFields["search.query"]
         XCTAssertTrue(query.waitForExistence(timeout: 10)); query.tap()

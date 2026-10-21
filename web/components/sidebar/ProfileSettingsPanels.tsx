@@ -2,6 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 
+import BusinessNameSettings from "@/components/settings/BusinessNameSettings";
 import AppearanceModal from "@/components/settings/AppearanceModal";
 import LanguageModal from "@/components/settings/LanguageModal";
 import ArchivedChatsView from "@/components/settings/ArchivedChatsView";
@@ -10,6 +11,7 @@ import HomeCountryModal from "@/components/settings/HomeCountryModal";
 import MemoryControlsModal from "@/components/settings/MemoryControlsModal";
 import SharedReceiptsView from "@/components/settings/SharedReceiptsView";
 import UsageModal from "@/components/settings/UsageModal";
+import WhatsAppLinkModal from "@/components/settings/WhatsAppLinkModal";
 import type { ApiUser } from "@/lib/argus-api";
 
 /* Every settings surface the profile menu opens, registered once. A new panel
@@ -41,6 +43,16 @@ type SettingsPanelEntry = {
 };
 
 const SETTINGS_PANELS = {
+  business_name: {
+    parent: "settings",
+    render: ({ onClose }) => <BusinessNameSettings onClose={onClose} />,
+  },
+  whatsapp: {
+    parent: "settings",
+    render: ({ onClose, onBack, backLabel }) => (
+      <WhatsAppLinkModal onClose={onClose} onBack={onBack} backLabel={backLabel} />
+    ),
+  },
   appearance: {
     parent: "settings",
     render: ({ onClose, onBack, backLabel }) => (

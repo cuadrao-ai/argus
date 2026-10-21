@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.financial_search import search
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.budget_schemas import BudgetCreate, BudgetEdit, BudgetProgress
 from argus.domain.planning.budgets import BudgetScopeConflict, BudgetService
 from argus.domain.planning.schemas import SelectionWrite
@@ -52,7 +53,9 @@ def write(scene, *, identifier=None, **values):
     command = MoneyRequest.model_validate(
         dict(occurred_at=NOW - timedelta(days=2)) | values
     )
-    preview = service.preview(user_id=scene[1], request=command, activity_id=identifier)
+    preview = service.preview(
+        user_id=scene[1], request=command, activity_id=identifier, scope=PERSONAL
+    )
     if not preview["ready"]:
         command = command.model_copy(
             update={
@@ -68,7 +71,7 @@ def write(scene, *, identifier=None, **values):
             }
         )
         preview = service.preview(
-            user_id=scene[1], request=command, activity_id=identifier
+            user_id=scene[1], request=command, activity_id=identifier, scope=PERSONAL
         )
     assert preview["ready"]
     reviewed = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
@@ -79,6 +82,7 @@ def write(scene, *, identifier=None, **values):
         request=reviewed,
         activity_id=identifier,
         idempotency_key=str(uuid4()),
+        scope=PERSONAL,
     )["activity"]
 
 
@@ -158,7 +162,9 @@ def test_connected_acceptance_actuals_contributors_and_cash_independence(scene):
         purchase_activity_id=purchase["activity_id"],
     )
     check("15500", "-500", "500", 3)
-    assert scene[0].get(user_id=scene[1], account_id=unknown).opening is None
+    untouched = scene[0].get(user_id=scene[1], account_id=unknown, scope=PERSONAL)
+    assert [r.amount_minor for r in untouched.opening.revisions] == [0]
+    assert untouched.checks == ()
 
 
 def test_archive_restore_duplicate_replay_stale_and_search(scene):
@@ -353,6 +359,7 @@ def test_month_half_open_dst_and_date_correction(scene, zone, month, start, end)
         ({"currency": "USD"}, "currency_mismatch"),
     ],
 )
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_archive_survives_account_scope_change_but_restore_revalidates(
     scene, changes, error_code
 ):
@@ -362,6 +369,7 @@ def test_archive_survives_account_scope_change_but_restore_revalidates(
         user_id=scene[1],
         account_id=aid,
         request=EditFinancialAccountRequest(expected_version=1, **changes),
+        scope=PERSONAL,
     )
     command = BudgetEdit(expected_version=1, archived=True)
     archived = service.edit(scene[1], budget["id"], command, "archive-changed-account")

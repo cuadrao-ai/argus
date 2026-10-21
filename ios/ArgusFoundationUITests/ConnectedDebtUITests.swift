@@ -162,14 +162,12 @@ extension FinancialLoopUITests {
         capture("debt-canonical-money-preview")
     }
     private func assertReturnedMoneyDirection(from debt: String, to funding: String) {
-        let from = app.staticTexts["loop.destination.label"]
-        let to = app.staticTexts["loop.source.label"]
+        let from = app.buttons["loop.destination"]
+        let to = app.buttons["loop.source"]
         XCTAssertTrue(from.waitForExistence(timeout: 15))
         XCTAssertTrue(to.waitForExistence(timeout: 15))
-        XCTAssertEqual(from.label, "From")
-        XCTAssertEqual(to.label, "To")
-        XCTAssertTrue(app.buttons["loop.destination"].label.contains(debt))
-        XCTAssertTrue(app.buttons["loop.source"].label.contains(funding))
+        XCTAssertTrue(from.label.hasPrefix("From") && from.label.contains(debt))
+        XCTAssertTrue(to.label.hasPrefix("To") && to.label.contains(funding))
         XCTAssertLessThan(from.frame.minY, to.frame.minY)
     }
 

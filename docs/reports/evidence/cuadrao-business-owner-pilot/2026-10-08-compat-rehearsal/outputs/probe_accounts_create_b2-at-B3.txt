@@ -1,0 +1,4 @@
+function_signatures: ["p_user_id uuid, p_idempotency_key text, p_identity_hash text, p_type text, p_currency text, p_nickname text, p_ownership_share_bps integer, p_opening_amount_minor bigint, p_opening_as_of timestamp with time zone, p_opening_zone text"]
+build2_create_K1_before_B4: {"account_id": "27dbc3da-2a4a-4ee2-b74a-4f6de61fda11", "created": true}
+stored_identity_hash_before_B4: ["sha256:9d2438445b046a3c428664151665a83142b1972fbb929b4a19d2e9e08bceb143", "27dbc3da-2a4a-4ee2-b74a-4f6de61fda11"]
+exit=0

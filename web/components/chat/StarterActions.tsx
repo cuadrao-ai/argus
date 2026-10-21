@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bitcoin, LineChart, TrendingUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { researchRailEnabled } from "@/lib/private-alpha-flags";
 
 export type StarterSelectionMetadata = {
   strategy_category: "buy_and_hold" | "dca_accumulation";
@@ -19,14 +16,18 @@ type StarterActionsProps = {
    * fit, and only becomes a carousel once they do not.
    */
   layout?: "wrap" | "scroll";
+  /**
+   * A workspace's own chips. Each one runs its own action, which may open a
+   * flow or prepare an editable question; none of them sends on its own.
+   */
+  entries?: readonly WorkspaceStarterEntry[];
 };
 
-type StarterEntry = {
+export type WorkspaceStarterEntry = {
   key: string;
   icon: LucideIcon | null;
-  metadata?: StarterSelectionMetadata;
   label: string;
-  value: string;
+  onSelect: () => void;
 };
 
 const wrapPillClassName =
@@ -36,11 +37,10 @@ const scrollPillClassName =
   "flex min-h-11 shrink-0 snap-start items-center gap-2 whitespace-nowrap rounded-full border border-black/10 bg-white/50 px-3.5 text-[13px] font-medium text-black transition-colors hover:bg-black/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:border-white/10 dark:bg-[#1f2225]/50 dark:text-white dark:hover:bg-white/5 dark:focus-visible:ring-white/30";
 
 export default function StarterActions({
-  onSelect,
   disabled = false,
   layout = "wrap",
+  entries: workspaceEntries,
 }: StarterActionsProps) {
-  const { t } = useTranslation();
   // The trailing peek is a promise that more pills exist, so it may only appear
   // when they actually do. Overflow is a measured fact, not a width guess.
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -56,57 +56,16 @@ export default function StarterActions({
     observer.observe(scroller);
     for (const child of Array.from(scroller.children)) observer.observe(child);
     return () => observer.disconnect();
-  }, [layout]);
+  }, [layout, workspaceEntries]);
 
-  // One owner for the empty-chat chips, one entry vocabulary either way.
-  // Rail chips are user utterances spanning learn, compare, and test; the
-  // static set is the universal fallback, never a capability label. Legacy
-  // chips keep the shipped test actions with their icons.
-  const entries: StarterEntry[] = researchRailEnabled
-    ? (["q1", "q2", "q3"] as const).map((queryKey) => {
-        const value = t(
-          `chat.example_queries.${queryKey}`,
-          {
-            q1: "How does Netflix make money?",
-            q2: "Compare Costco against Walmart and Target",
-            q3: "What if I had bought Coca-Cola every month for five years?",
-          }[queryKey],
-        );
-        return { key: queryKey, icon: null, label: value, value };
-      })
-    : [
-        {
-          key: "tsla",
-          icon: TrendingUp,
-          metadata: { strategy_category: "buy_and_hold" as const },
-          label: t("chat.starter_actions.tsla.label", "Test Apple vs SPY"),
-          value: t(
-            "chat.starter_actions.tsla.value",
-            "Compare Apple with SPY over the last 12 months.",
-          ),
-        },
-        {
-          key: "btc",
-          icon: Bitcoin,
-          metadata: { strategy_category: "buy_and_hold" as const },
-          label: t("chat.starter_actions.btc.label", "Test Bitcoin (BTC) hold"),
-          value: t(
-            "chat.starter_actions.btc.value",
-            "What if I bought Bitcoin this year so far?",
-          ),
-        },
-        {
-          key: "dca",
-          icon: LineChart,
-          metadata: { strategy_category: "dca_accumulation" as const },
-          label: t("chat.starter_actions.dca.label", "Test weekly Nvidia buys"),
-          value: t(
-            "chat.starter_actions.dca.value",
-            "What if I bought $250 of Nvidia every week over the last 12 months?",
-          ),
-        },
-      ];
+  if (!workspaceEntries?.length) return null;
 
+  const pills = workspaceEntries.map(({ key, icon, label, onSelect: select }) => ({
+    key,
+    icon,
+    label,
+    select,
+  }));
   const isScroll = layout === "scroll";
 
   return (
@@ -128,12 +87,12 @@ export default function StarterActions({
           : "mt-6 flex flex-wrap items-center justify-center gap-3"
       }
     >
-      {entries.map(({ key, icon: Icon, metadata, label, value }) => (
+      {pills.map(({ key, icon: Icon, label, select }) => (
         <button
           key={key}
           type="button"
           disabled={disabled}
-          onClick={() => onSelect(value, metadata)}
+          onClick={select}
           className={isScroll ? scrollPillClassName : wrapPillClassName}
         >
           {Icon ? (

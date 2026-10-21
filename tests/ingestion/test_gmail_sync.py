@@ -6,6 +6,7 @@ from threading import Barrier
 
 import pytest
 from argus.domain.ingestion.gmail import sync as sync_module
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.gmail_fakes import (
     FakeGoogle,
@@ -34,7 +35,9 @@ def connected(fake=None, sink=None, **kwargs):
 
 
 def stored(connector, row):
-    return connector.hub.connections.get(user_id=USER, connection_id=row.id)
+    return connector.hub.connections.get(
+        user_id=USER, connection_id=row.id, scope=PERSONAL
+    )
 
 
 def full_fetches(fake):

@@ -6,6 +6,7 @@ from argus.api import state as api_state
 from argus.api.ingestion import ingestion_hub
 from argus.api.main import app
 from argus.api.plaid import configure_plaid_connector
+from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
@@ -124,7 +125,7 @@ def test_reauth_round_trip_keeps_cursor_and_freshness(client, plaid, identities,
     ).json()
     assert restored["status"] == "active" and restored["last_error_code"] is None
     row = ingestion_hub().connections.get(
-        user_id=identities[ALICE]["id"], connection_id=connection_id
+        user_id=identities[ALICE]["id"], connection_id=connection_id, scope=PERSONAL
     )
     assert row.cursor == "c1" and restored["last_success_at"] == fresh
     assert any("plaid_item_login_required" in line for line in logs)

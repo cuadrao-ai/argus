@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 from argus.domain.ingestion.contract import ImportCandidate
 from argus.domain.ingestion.reconcile.model import ReconcileError, StaleEvent
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.schemas import CreateFinancialAccountRequest
@@ -25,6 +26,7 @@ def new_account(world, kind="credit_card", currency="USD"):
         user_id=world.user,
         idempotency_key=str(uuid4()),
         request=CreateFinancialAccountRequest(type=kind, currency=currency),
+        scope=PERSONAL,
     ).stored.account.id
 
 
@@ -86,31 +88,32 @@ def plaid(
 
 def submit(world, conn, *candidates):
     return world.recon.submit(
-        user_id=world.user, connection_id=conn, candidates=candidates
+        user_id=world.user, connection_id=conn, candidates=candidates, scope=PERSONAL
     )
 
 
 def only(world, state="open"):
-    items = world.recon.list(user_id=world.user, states=(state,))
+    items = world.recon.list(user_id=world.user, states=(state,), scope=PERSONAL)
     assert len(items) == 1, items
     return items[0]
 
 
 def accept(world, event, key="accept-1", **overrides):
     preview = world.recon.preview(
-        user_id=world.user, event_id=event["id"], overrides=overrides
+        user_id=world.user, event_id=event["id"], overrides=overrides, scope=PERSONAL
     )
     reviewed = MoneyRequest.model_validate(preview["preview"]["reviewed_request"])
     reviewed = reviewed.model_copy(
         update={"preview_token": preview["preview"]["preview_token"]}
     )
-    current = world.recon.detail(user_id=world.user, event_id=event["id"])
+    current = world.recon.detail(user_id=world.user, event_id=event["id"], scope=PERSONAL)
     return world.recon.accept(
         user_id=world.user,
         event_id=event["id"],
         idempotency_key=key,
         version=current["version"],
         request=reviewed,
+        scope=PERSONAL,
     )
 
 
@@ -119,25 +122,35 @@ def link_accounts(world, account, *pairs):
 
     for conn, candidate in pairs:
         submit(world, conn, candidate)
-    for listed in world.recon.list(user_id=world.user, states=("open",)):
+    for listed in world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL):
         # Re-read: resolving one event may update its duplicate partner.
-        event = world.recon.detail(user_id=world.user, event_id=listed["id"])
+        event = world.recon.detail(
+            user_id=world.user, event_id=listed["id"], scope=PERSONAL
+        )
         world.recon.resolve(
             user_id=world.user,
             event_id=event["id"],
             version=event["version"],
             changes={"account_id": account},
+            scope=PERSONAL,
         )
-        current = world.recon.detail(user_id=world.user, event_id=event["id"])
+        current = world.recon.detail(
+            user_id=world.user, event_id=event["id"], scope=PERSONAL
+        )
         world.recon.dismiss(
-            user_id=world.user, event_id=event["id"], version=current["version"]
+            user_id=world.user,
+            event_id=event["id"],
+            version=current["version"],
+            scope=PERSONAL,
         )
 
 
 def activities(world):
     from argus.domain.recording.money_reads import current_activities
 
-    return current_activities(world.accounts.list_accounts(user_id=world.user))
+    return current_activities(
+        world.accounts.list_accounts(user_id=world.user, scope=PERSONAL)
+    )
 
 
 def test_same_purchase_from_four_sources_is_one_event_and_one_record(world):
@@ -182,7 +195,7 @@ def test_same_purchase_from_four_sources_is_one_event_and_one_record(world):
     )
     email = next(
         e
-        for e in world.recon.list(user_id=world.user, states=("open",))
+        for e in world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
         if e["evidence"] == "unclassified"
     )
     assert "kind" in email["unresolved"] and "amount" in email["unresolved"]
@@ -197,6 +210,7 @@ def test_same_purchase_from_four_sources_is_one_event_and_one_record(world):
             "account_id": card,
             "kind": "expense",
         },
+        scope=PERSONAL,
     )
     assert email["possible_duplicates"] == [event["id"]]
     merged = world.recon.merge(
@@ -204,9 +218,10 @@ def test_same_purchase_from_four_sources_is_one_event_and_one_record(world):
         event_id=email["id"],
         into_event_id=event["id"],
         version=email["version"],
-        into_version=world.recon.detail(user_id=world.user, event_id=event["id"])[
-            "version"
-        ],
+        into_version=world.recon.detail(
+            user_id=world.user, event_id=event["id"], scope=PERSONAL
+        )["version"],
+        scope=PERSONAL,
     )
     assert merged["id"] == event["id"]
     assert sorted(o["source"] for o in merged["observations"]) == [
@@ -258,7 +273,7 @@ def test_same_purchase_from_four_sources_is_one_event_and_one_record(world):
     ]
     superseded = [o for o in final["observations"] if not o["live"]]
     assert [(o["source"], o["status"]) for o in superseded] == [("plaid", "pending")]
-    assert world.recon.list(user_id=world.user, states=("open",)) == []
+    assert world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL) == []
     recorded = [a for a in activities(world) if a["amount"] == "12.50"]
     assert [a["activity_id"] for a in recorded] == [activity_id]
 
@@ -274,7 +289,7 @@ def test_equal_amount_and_date_never_merge_distinct_purchases(world):
     )
     submit(world, shortcuts, tap(shortcuts, "tap-a"), tap(shortcuts, "tap-b"))
     submit(world, bank, plaid(bank, "txn-a"), plaid(bank, "txn-b"))
-    open_events = world.recon.list(user_id=world.user, states=("open",))
+    open_events = world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
     assert len(open_events) == 4
     plaid_events = [e for e in open_events if e["observations"][0]["source"] == "plaid"]
     for e in plaid_events:
@@ -289,6 +304,7 @@ def test_equal_amount_and_date_never_merge_distinct_purchases(world):
             into_event_id=b["id"],
             version=a["version"],
             into_version=b["version"],
+            scope=PERSONAL,
         )
     assert caught.value.code == "import_merge_same_source"
 
@@ -297,7 +313,7 @@ def test_unconfirmed_account_is_only_a_possible_duplicate(world):
     shortcuts, bank = world.connect("shortcuts"), world.connect("plaid")
     submit(world, shortcuts, tap(shortcuts))
     submit(world, bank, plaid(bank, "txn-1"))
-    events = world.recon.list(user_id=world.user, states=("open",))
+    events = world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
     assert len(events) == 2
     later = next(e for e in events if e["observations"][0]["source"] == "plaid")
     assert later["attention"] == "possible_duplicate"
@@ -321,11 +337,14 @@ def test_source_removal_before_review_withdraws_the_draft(world):
     submit(world, bank, plaid(bank, "txn-1"))
     result = submit(world, bank, cand(bank, "txn-1", source="plaid", status="removed"))
     assert result.withdrawn == 1
-    assert world.recon.list(user_id=world.user, states=("open",)) == []
+    assert world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL) == []
     gone = only(world, "dismissed")
     with pytest.raises(ReconcileError):
         world.recon.reopen(
-            user_id=world.user, event_id=gone["id"], version=gone["version"]
+            user_id=world.user,
+            event_id=gone["id"],
+            version=gone["version"],
+            scope=PERSONAL,
         )
 
 
@@ -339,6 +358,7 @@ def test_source_change_after_acceptance_flags_but_never_edits_the_record(world):
         event_id=event["id"],
         version=event["version"],
         changes={"account_id": card},
+        scope=PERSONAL,
     )
     activity_id = accept(world, event)["activity"]["activity_id"]
     submit(
@@ -350,11 +370,14 @@ def test_source_change_after_acceptance_flags_but_never_edits_the_record(world):
     assert flagged["attention"] == "source_changed"
     assert flagged["attention_detail"]["amount"] == {"before": "12.5", "after": "15"}
     detail = MoneyService(world.accounts).detail(
-        user_id=world.user, activity_id=activity_id
+        user_id=world.user, activity_id=activity_id, scope=PERSONAL
     )
     assert detail["amount"] == "12.50"
     cleared = world.recon.acknowledge(
-        user_id=world.user, event_id=flagged["id"], version=flagged["version"]
+        user_id=world.user,
+        event_id=flagged["id"],
+        version=flagged["version"],
+        scope=PERSONAL,
     )
     assert cleared["attention"] is None
     submit(world, bank, cand(bank, "txn-x", source="plaid", status="removed"))
@@ -372,8 +395,11 @@ def test_acceptance_is_idempotent_and_single_under_concurrency(world):
         event_id=event["id"],
         version=event["version"],
         changes={"account_id": card},
+        scope=PERSONAL,
     )
-    preview = world.recon.preview(user_id=world.user, event_id=event["id"])
+    preview = world.recon.preview(
+        user_id=world.user, event_id=event["id"], scope=PERSONAL
+    )
     reviewed = MoneyRequest.model_validate(
         preview["preview"]["reviewed_request"]
     ).model_copy(update={"preview_token": preview["preview"]["preview_token"]})
@@ -386,6 +412,7 @@ def test_acceptance_is_idempotent_and_single_under_concurrency(world):
                 idempotency_key=key,
                 version=event["version"],
                 request=reviewed,
+                scope=PERSONAL,
             )["activity"]["activity_id"]
         except (ReconcileError, StaleEvent):
             return None
@@ -401,6 +428,7 @@ def test_acceptance_is_idempotent_and_single_under_concurrency(world):
         idempotency_key=winner_key(winner, ids),
         version=1,
         request=reviewed,
+        scope=PERSONAL,
     )
     assert again["replayed"] is True
     # A different body under the claiming key replays what was recorded; it
@@ -412,6 +440,7 @@ def test_acceptance_is_idempotent_and_single_under_concurrency(world):
         idempotency_key=winner_key(winner, ids),
         version=1,
         request=other,
+        scope=PERSONAL,
     )
     assert replay["replayed"] and replay["activity"]["amount"] == "12.50"
     assert len(activities(world)) == 1
@@ -440,16 +469,17 @@ def test_currency_is_never_guessed_or_converted(world):
     event = only(world)
     assert "currency" in event["unresolved"]
     with pytest.raises(ReconcileError) as caught:
-        world.recon.preview(user_id=world.user, event_id=event["id"])
+        world.recon.preview(user_id=world.user, event_id=event["id"], scope=PERSONAL)
     assert caught.value.code == "import_unresolved"
     event = world.recon.resolve(
         user_id=world.user,
         event_id=event["id"],
         version=event["version"],
         changes={"currency": "USD", "account_id": peso, "kind": "expense"},
+        scope=PERSONAL,
     )
     with pytest.raises(ReconcileError) as caught:
-        world.recon.preview(user_id=world.user, event_id=event["id"])
+        world.recon.preview(user_id=world.user, event_id=event["id"], scope=PERSONAL)
     assert caught.value.code == "import_currency_mismatch"
 
 
@@ -462,13 +492,14 @@ def test_already_recorded_purchase_links_instead_of_recording_twice(world):
         amount="12.50",
         occurred_at=datetime(2026, 9, 18, 15, tzinfo=timezone.utc),
     )
-    preview = money.preview(user_id=world.user, request=request)
+    preview = money.preview(user_id=world.user, request=request, scope=PERSONAL)
     manual = money.write(
         user_id=world.user,
         request=MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
             update={"preview_token": preview["preview_token"]}
         ),
         idempotency_key="manual-1",
+        scope=PERSONAL,
     )["activity"]["activity_id"]
     bank = world.connect("plaid")
     submit(world, bank, plaid(bank, "txn-1"))
@@ -478,6 +509,7 @@ def test_already_recorded_purchase_links_instead_of_recording_twice(world):
         event_id=event["id"],
         version=event["version"],
         changes={"account_id": card},
+        scope=PERSONAL,
     )
     assert event["existing_activity_matches"] == [manual]
     linked = world.recon.link_activity(
@@ -485,6 +517,7 @@ def test_already_recorded_purchase_links_instead_of_recording_twice(world):
         event_id=event["id"],
         activity_id=manual,
         version=event["version"],
+        scope=PERSONAL,
     )
     assert linked["state"] == "accepted" and linked["activity_id"] == manual
     submit(world, bank, plaid(bank, "txn-2", amount="40"))
@@ -495,6 +528,7 @@ def test_already_recorded_purchase_links_instead_of_recording_twice(world):
             event_id=second["id"],
             activity_id=manual,
             version=second["version"],
+            scope=PERSONAL,
         )
     assert caught.value.code == "activity_already_linked"
     assert len(activities(world)) == 1
@@ -528,10 +562,10 @@ def test_notices_and_balances_are_evidence_not_activity(world):
             currency="USD",
         ),
     )
-    for event in world.recon.list(user_id=world.user, states=("open",)):
+    for event in world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL):
         assert event["unresolved"] == []
         with pytest.raises(ReconcileError) as caught:
-            world.recon.preview(user_id=world.user, event_id=event["id"])
+            world.recon.preview(user_id=world.user, event_id=event["id"], scope=PERSONAL)
         assert caught.value.code == "import_not_activity"
     assert activities(world) == []
 
@@ -542,7 +576,7 @@ def test_disconnect_drops_drafts_and_keeps_recorded_provenance(world):
     submit(world, bank, plaid(bank, "txn-1"), plaid(bank, "txn-2", amount="40"))
     first = next(
         e
-        for e in world.recon.list(user_id=world.user, states=("open",))
+        for e in world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
         if e["facts"]["amount"] == "12.5"
     )
     first = world.recon.resolve(
@@ -550,11 +584,14 @@ def test_disconnect_drops_drafts_and_keeps_recorded_provenance(world):
         event_id=first["id"],
         version=first["version"],
         changes={"account_id": card},
+        scope=PERSONAL,
     )
     accept(world, first)
-    removed = world.recon.forget_connection(user_id=world.user, connection_id=bank)
+    removed = world.recon.forget_connection(
+        user_id=world.user, connection_id=bank, scope=PERSONAL
+    )
     assert removed == 1
-    assert world.recon.list(user_id=world.user, states=("open",)) == []
+    assert world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL) == []
     kept = only(world, "accepted")
     [observation] = kept["observations"]
     assert observation["redacted"] and observation["merchant"] is None
@@ -565,16 +602,22 @@ def test_people_are_isolated(world, other_world):
     bank = world.connect("plaid")
     submit(world, bank, plaid(bank, "txn-1"))
     event = only(world)
-    assert other_world.recon.list(user_id=other_world.user, states=("open",)) == []
+    assert (
+        other_world.recon.list(user_id=other_world.user, states=("open",), scope=PERSONAL)
+        == []
+    )
     from argus.domain.ingestion.reconcile.model import EventNotFound
 
     with pytest.raises(EventNotFound):
-        other_world.recon.detail(user_id=other_world.user, event_id=event["id"])
+        other_world.recon.detail(
+            user_id=other_world.user, event_id=event["id"], scope=PERSONAL
+        )
     with pytest.raises(ValueError):
         world.recon.submit(
             user_id=world.user,
             connection_id=str(uuid4()),
             candidates=[plaid(bank, "txn-2")],
+            scope=PERSONAL,
         )
 
 
@@ -582,15 +625,18 @@ def test_reviewed_batch_records_clear_items_and_returns_exceptions(world):
     card = new_account(world)
     bank = world.connect("plaid")
     submit(world, bank, plaid(bank, "seed", amount="1"))
-    [seed] = world.recon.list(user_id=world.user, states=("open",))
+    [seed] = world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
     world.recon.resolve(
         user_id=world.user,
         event_id=seed["id"],
         version=seed["version"],
         changes={"account_id": card},
+        scope=PERSONAL,
     )
-    seed = world.recon.detail(user_id=world.user, event_id=seed["id"])
-    world.recon.dismiss(user_id=world.user, event_id=seed["id"], version=seed["version"])
+    seed = world.recon.detail(user_id=world.user, event_id=seed["id"], scope=PERSONAL)
+    world.recon.dismiss(
+        user_id=world.user, event_id=seed["id"], version=seed["version"], scope=PERSONAL
+    )
     submit(
         world,
         bank,
@@ -603,7 +649,7 @@ def test_reviewed_batch_records_clear_items_and_returns_exceptions(world):
     submit(
         world, shortcuts, tap(shortcuts, "t", amount="10")
     )  # possible duplicate of "a"
-    listed = world.recon.list(user_id=world.user, states=("open",))
+    listed = world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
     by_amount = {
         e["facts"]["amount"]: e
         for e in listed
@@ -612,7 +658,7 @@ def test_reviewed_batch_records_clear_items_and_returns_exceptions(world):
     stale_id = by_amount["20"]["id"]
     items = [(e["id"], e["version"] + (9 if e["id"] == stale_id else 0)) for e in listed]
     results = world.recon.accept_batch(
-        user_id=world.user, items=items, idempotency_key="batch-1"
+        user_id=world.user, items=items, idempotency_key="batch-1", scope=PERSONAL
     )
     outcome = {r["event_id"]: r for r in results}
     assert outcome[by_amount["40"]["id"]]["outcome"] == "accepted"
@@ -621,7 +667,7 @@ def test_reviewed_batch_records_clear_items_and_returns_exceptions(world):
     assert outcome[by_amount["10"]["id"]]["code"] == "import_possible_duplicate"
     assert [r["outcome"] for r in results].count("accepted") == 1
     again = world.recon.accept_batch(
-        user_id=world.user, items=items, idempotency_key="batch-1"
+        user_id=world.user, items=items, idempotency_key="batch-1", scope=PERSONAL
     )
     [replayed] = [r for r in again if r["outcome"] == "accepted"]
     assert replayed["replayed"] is True

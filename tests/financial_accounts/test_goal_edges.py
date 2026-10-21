@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.financial_search import search
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.goal_schemas import (
     ContributionPlan,
     ContributionRelease,
@@ -133,6 +134,7 @@ def test_forecast_applies_selected_personal_legs_without_income_or_spending(
                 request=EditFinancialAccountRequest(
                     expected_version=1, ownership_share_bps=share
                 ),
+                scope=PERSONAL,
             )
     service, _, g = setup_goal(
         scene,

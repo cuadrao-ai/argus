@@ -4,7 +4,7 @@ extension View {
     @ViewBuilder
     func connectedReceiptDrafts(userID: UUID?, chat: CuadraoChatPreview, spanish: Bool) -> some View {
         #if DEBUG
-        if let userID {
+        if let userID, CuadraoFirstRelease.showsReceiptCapture {
             modifier(ConnectedReceiptDrafts(userID: userID, chat: chat, spanish: spanish))
                 .id(userID)
         } else {

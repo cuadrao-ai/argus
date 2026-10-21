@@ -52,9 +52,9 @@ struct HouseholdPlanActionSheet: View {
                 else if let error { Text(LocalizedStringKey(error)); Button("accounts.retry") { Task { await load() } } }
             }
             .navigationTitle(allocating ? "sharedPlan.allocate" : "sharedPlan.link")
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() } }
-                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("accounts.keyboard.done") { focused = false } }
+                CuadraoCancelToolbar(title: "accounts.cancel") { dismiss() }
             }
             .task { await load() }
         }
@@ -135,7 +135,7 @@ private struct HouseholdPlanOriginalView: View {
                     }
                 }.padding(24)
             }.navigationTitle("sharedPlan.original")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("accounts.back") { dismiss() }.accessibilityIdentifier("sharedPlan.original.back") } }
+                .toolbar { CuadraoCancelToolbar(title: "accounts.back", identifier: "sharedPlan.original.back") { dismiss() }}
                 .task { await load() }
         }
     }

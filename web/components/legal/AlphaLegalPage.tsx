@@ -1,5 +1,6 @@
 "use client";
 
+import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import type { TFunction } from "i18next";
@@ -75,9 +76,7 @@ export default function AlphaLegalPage({
               aria-hidden="true"
               className="h-4 w-4 text-black/40 transition-all group-hover:-translate-x-0.5 group-hover:text-black dark:text-white/40 dark:group-hover:text-white"
             />
-            <span className="font-display text-[18px] font-medium tracking-[0]">
-              argus
-            </span>
+            <CuadraoLockup width={96} />
           </Link>
           <Link
             href={alternateHref}

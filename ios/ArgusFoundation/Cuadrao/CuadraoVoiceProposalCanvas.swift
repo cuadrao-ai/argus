@@ -53,9 +53,7 @@ struct CuadraoVoiceProposalCanvas: View {
                             }
                             Button(spanish ? "Marcar como revisada" : "Mark reviewed") { state = .reviewed; reviewing = false }
                         }.navigationTitle(spanish ? "Revisar propuesta" : "Review proposal").navigationBarTitleDisplayMode(.inline)
-                            .toolbar { ToolbarItem(placement: .cancellationAction) {
-                                Button(spanish ? "Cancelar" : "Cancel") { reviewing = false }
-                            } }
+                            .toolbar { CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { reviewing = false } }
                     }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
                 }
         }

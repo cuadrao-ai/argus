@@ -13,6 +13,7 @@ from argus.domain.ingestion.gmail.oauth import (
     ScopeNotGranted,
 )
 from argus.domain.ingestion.gmail.state import StateRejected, challenge
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.gmail_fakes import (
     CLIENT_ID,
@@ -84,7 +85,7 @@ def test_state_is_bound_to_the_person_who_started_it():
     with pytest.raises(StateRejected) as rejected:
         connector.oauth.callback(user_id=BOB, code=code, state=state, senders=None)
     assert rejected.value.reason == "invalid"
-    assert connector.hub.connections.list(user_id=BOB) == []
+    assert connector.hub.connections.list(user_id=BOB, scope=PERSONAL) == []
     assert code in fake.codes  # nothing was exchanged
 
 
@@ -146,7 +147,7 @@ def test_partial_consent_without_gmail_scope_is_refused_and_released():
     connector = make_connector(fake)
     with pytest.raises(ScopeNotGranted):
         connect(connector, fake, ALICE, scopes=("openid",))
-    assert connector.hub.connections.list(user_id=ALICE) == []
+    assert connector.hub.connections.list(user_id=ALICE, scope=PERSONAL) == []
     assert fake.count("/revoke") == 1 and fake.revoked
     assert fake.count("/profile") == 0
 
@@ -156,7 +157,7 @@ def test_missing_refresh_token_stores_nothing_and_revokes_nothing():
     connector = make_connector(fake)
     with pytest.raises(RefreshTokenMissing):
         connect(connector, fake, ALICE, refresh=False)
-    assert connector.hub.connections.list(user_id=ALICE) == []
+    assert connector.hub.connections.list(user_id=ALICE, scope=PERSONAL) == []
     assert fake.count("/revoke") == 0
 
 
@@ -175,7 +176,7 @@ def test_reconnect_same_mailbox_replaces_the_credential_without_a_duplicate():
     assert (
         again.connection.status == "active" and again.connection.last_error_code is None
     )
-    assert len(repo.list(user_id=ALICE)) == 1
+    assert len(repo.list(user_id=ALICE, scope=PERSONAL)) == 1
     new = connector.hub.credential(again.connection)
     assert new != old and new in fake.refresh_tokens
     # senders=None keeps the allowlist chosen at first connect.
@@ -193,7 +194,9 @@ def test_reconnect_records_the_key_that_sealed_the_new_token():
         connection_id=first.id, secret=first.secret, status="needs_reauth",
         now=connector.hub.clock(), secret_key=None,
     )  # fmt: skip
-    assert repo.get(user_id=ALICE, connection_id=first.id).secret_key is None
+    assert (
+        repo.get(user_id=ALICE, connection_id=first.id, scope=PERSONAL).secret_key is None
+    )
     again = connect(connector, fake, ALICE, senders=None).connection
     assert again.secret_key == connector.hub.box.key_id
 
@@ -220,7 +223,7 @@ def test_mailbox_connected_by_someone_else_is_refused_without_revoking():
     connect(connector, fake, ALICE)
     with pytest.raises(MailboxOwnedElsewhere):
         connect(connector, fake, BOB)
-    assert connector.hub.connections.list(user_id=BOB) == []
+    assert connector.hub.connections.list(user_id=BOB, scope=PERSONAL) == []
     assert fake.count("/revoke") == 0
 
 
@@ -256,7 +259,7 @@ def test_a_new_connection_whose_setup_fails_is_ended_and_its_grant_released(
     _senders_unavailable(connector, monkeypatch)
     with pytest.raises(RuntimeError):
         connect(connector, fake, ALICE)
-    (row,) = connector.hub.connections.list(user_id=ALICE)
+    (row,) = connector.hub.connections.list(user_id=ALICE, scope=PERSONAL)
     assert row.status == "disconnected" and row.secret is None
     assert fake.count("/revoke") == 1 and fake.revoked
     assert connector.senders.list(connection_id=row.id) == []
@@ -269,7 +272,9 @@ def test_a_reconnect_whose_setup_fails_asks_for_authorization_again(monkeypatch)
     _senders_unavailable(connector, monkeypatch)
     with pytest.raises(RuntimeError):
         connect(connector, fake, ALICE, senders=("other-bank.test",))
-    row = connector.hub.connections.get(user_id=ALICE, connection_id=first.id)
+    row = connector.hub.connections.get(
+        user_id=ALICE, connection_id=first.id, scope=PERSONAL
+    )
     assert (row.status, row.last_error_code) == ("needs_reauth", "gmail_token_revoked")
     assert fake.count("/revoke") == 1
     # The allowlist chosen at first connect is untouched.

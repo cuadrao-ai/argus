@@ -15,11 +15,12 @@ from __future__ import annotations
 import re
 import threading
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Literal, Protocol
 
 from argus.domain.ingestion.contract import SourceKind, inert_text
+from argus.domain.owner_scope import OwnerScope
 
 ConnectionStatus = Literal["active", "needs_reauth", "error", "disconnected"]
 LIVE: frozenset[str] = frozenset({"active", "needs_reauth", "error"})
@@ -103,6 +104,9 @@ class SourceConnection:
     # Which key sealed ``secret`` (``SecretBox.key_id``), stored next to it.
     # None for rows sealed before Lane 6 or with no secret.
     secret_key: str | None = None
+    # The connection is a root row: its documents, observations and the import
+    # events made from them belong to this scope.
+    scope: OwnerScope = field(kw_only=True)
 
 
 class ConnectionRepository(Protocol):
@@ -117,11 +121,19 @@ class ConnectionRepository(Protocol):
         secret: bytes | None = None,
         connection_id: str | None = None,
         secret_key: str | None = None,
+        scope: OwnerScope,
     ) -> SourceConnection: ...
 
-    def get(self, *, user_id: str, connection_id: str) -> SourceConnection: ...
+    def get(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> SourceConnection: ...
 
-    def list(self, *, user_id: str) -> list[SourceConnection]: ...
+    def get_any_scope(self, *, user_id: str, connection_id: str) -> SourceConnection:
+        """The row whatever its scope, for server-keyed paths (preparation jobs,
+        storage liveness). A request path reads through ``get``."""
+        ...
+
+    def list(self, *, user_id: str, scope: OwnerScope) -> list[SourceConnection]: ...
 
     def find_live(
         self, *, source: SourceKind, external_ref: str
@@ -214,6 +226,7 @@ class InMemoryConnectionRepository:
         secret: bytes | None = None,
         connection_id: str | None = None,
         secret_key: str | None = None,
+        scope: OwnerScope,
     ) -> SourceConnection:
         external_ref, label = checked_ref(external_ref), checked_label(label)
         with self._lock:
@@ -223,7 +236,7 @@ class InMemoryConnectionRepository:
                     and row.external_ref == external_ref
                     and row.status in LIVE
                 ):
-                    if row.user_id != user_id:
+                    if row.user_id != user_id or row.scope != scope:
                         raise DuplicateConnection("", elsewhere=True)
                     raise DuplicateConnection(row.id)
             row = SourceConnection(
@@ -247,18 +260,29 @@ class InMemoryConnectionRepository:
                 disconnected_at=None,
                 version=1,
                 secret_key=secret_key if secret is not None else None,
+                scope=scope,
             )
             self._rows[row.id] = row
             return row
 
-    def get(self, *, user_id: str, connection_id: str) -> SourceConnection:
+    def get(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> SourceConnection:
+        row = self.get_any_scope(user_id=user_id, connection_id=connection_id)
+        if row.scope != scope:
+            raise ConnectionNotFound()
+        return row
+
+    def get_any_scope(self, *, user_id: str, connection_id: str) -> SourceConnection:
         row = self._rows.get(connection_id)
         if row is None or row.user_id != user_id:
             raise ConnectionNotFound()
         return row
 
-    def list(self, *, user_id: str) -> list[SourceConnection]:
-        rows = [r for r in self._rows.values() if r.user_id == user_id]
+    def list(self, *, user_id: str, scope: OwnerScope) -> list[SourceConnection]:
+        rows = [
+            r for r in self._rows.values() if r.user_id == user_id and r.scope == scope
+        ]
         return sorted(rows, key=lambda r: (r.created_at, r.id))
 
     def find_live(
@@ -418,7 +442,7 @@ class InMemoryConnectionRepository:
         self, *, user_id: str, connection_id: str, now: datetime
     ) -> SourceConnection:
         with self._lock:
-            row = self.get(user_id=user_id, connection_id=connection_id)
+            row = self.get_any_scope(user_id=user_id, connection_id=connection_id)
             if row.status == "disconnected":
                 return row
             return self._put(

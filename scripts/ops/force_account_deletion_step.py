@@ -16,6 +16,9 @@ at once so the account delete can finish.
 The reason is kept in the run record after the deletion: write what happened
 ("Apple invalid_request for 7 days, app removed by the person"), never the
 person's name, email or any other personal data. There is no route for this.
+
+The ``storage`` step (retained document sources) is not forceable: fix Storage
+and the next resume finishes it.
 """
 
 from __future__ import annotations
@@ -48,7 +51,12 @@ def _parser() -> argparse.ArgumentParser:
         description="Force-complete one third-party step of an account deletion.",
     )
     parser.add_argument("--user-id", required=True)
-    parser.add_argument("--step", required=True, choices=STEPS)
+    parser.add_argument(
+        "--step",
+        required=True,
+        choices=STEPS,
+        help="storage is not forceable: fix Storage and the next resume finishes it.",
+    )
     parser.add_argument(
         "--reason",
         required=True,
@@ -110,7 +118,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     print(json.dumps(report), flush=True)
     try:
-        outcome = service.delete_account(user_id=args.user_id)
+        outcome = service.delete_account(user_id=args.user_id, origin="force")
     except AccountDeletionIncomplete as exc:
         print(
             json.dumps(

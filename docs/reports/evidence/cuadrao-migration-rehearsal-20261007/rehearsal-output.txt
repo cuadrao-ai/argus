@@ -1,0 +1,17 @@
+candidate 93571e593e16 | main a9286b21886e
+candidate files 114 | main files 79 | new 35
+CLEAN INSTALL: applied 114 files, ledger rows 114
+UPGRADE gate before: blocked ['missing_candidate_migrations'] missing 35
+second run refused: True | refused: version 20260925120000 is already in the ledger
+UPGRADE gate after: pass [] ['historical_migration_ledger_variance'] missing 0 content drift 0 name drift 0
+ledger rows 116
+columns       clean  857 upgrade  857 differences 0
+constraints   clean  628 upgrade  628 differences 0
+indexes       clean  289 upgrade  289 differences 0
+triggers      clean   67 upgrade   67 differences 0
+functions     clean  102 upgrade  102 differences 0
+policies      clean   77 upgrade   77 differences 0
+table_grants  clean  452 upgrade  452 differences 0
+rls           clean   96 upgrade   96 differences 0
+TOTAL CATALOG DIFFERENCES 0
+RESULT PASS

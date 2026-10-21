@@ -1,0 +1,42 @@
+{
+  "readback_unit_tests": {
+    "passed": 5,
+    "failed": 0
+  },
+  "changed_python_ruff": "passed",
+  "modularity_budget": "passed against integration base plus test changes",
+  "branch_ownership": "No policy for this branch; enforcement skipped by the repository script.",
+  "repository_ruff": {
+    "errors": 652,
+    "reported_files": 111,
+    "reported_tracked_files_changed_from_integration": []
+  },
+  "repository_pytest": {
+    "status": "blocked during collection",
+    "collection_errors": 24,
+    "cause": "Local SciPy _spropack binary cannot load on this macOS environment.",
+    "live_evals_enabled": false
+  },
+  "scope": "Tests/evidence and the approved one-line native identifier refresh. No backend, dependency or hosted configuration change.",
+  "ci_scope_ruff": "passed: src tests workflows scripts",
+  "native_release_build": "passed: PlanIdentityApproved.xctestproducts",
+  "test_delta_reviews": {
+    "empty_amount": "clean",
+    "footer_boundary": "clean",
+    "back_readiness": "clean",
+    "search_filter_summary": "clean",
+    "goal_search_navigation": "clean",
+    "large_text_money": "clean"
+  },
+  "app_source_tree": "6f6e052f8ad348c247145915c5cb0c89c5d76c36",
+  "app_source_unchanged_from_integration": false,
+  "large_text_visual_acceptance": "open: transaction Date label wraps into a single-letter column",
+  "final_local_test_source": "7a66caad04e3c4ecadd48c8ae6a11042fd077bcc",
+  "source_summary_correction": {
+    "date": "2026-10-10",
+    "previous_value": "125087e96",
+    "reason": "The prior summary named the largest-text probe source. The later identifier regression and failed budget rerun used 7a66caad04e3c4ecadd48c8ae6a11042fd077bcc, as recorded in identifier-fix-source-provenance.json. Earlier native results retain their original sources; no tests were rerun for this correction."
+  },
+  "app_source_delta": "CanvasDecimalInput identifier assignment moved into updateUIView",
+  "identifier_regression": "passed:1 test,0 failures,0 skips"
+}

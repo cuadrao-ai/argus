@@ -61,14 +61,9 @@ struct CanvasAvatarCropSheet: View {
             }.background(Color(uiColor: .systemBackground))
                 .navigationTitle(spanish ? "Ajustar foto" : "Adjust photo").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(spanish ? "Cancelar" : "Cancel") { dismiss() }
-                            .accessibilityIdentifier("cuadrao.profile.crop.cancel")
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(spanish ? "Usar foto" : "Use photo") { accept() }
-                            .disabled(rendering).accessibilityIdentifier("cuadrao.profile.crop.use")
-                    }
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "cuadrao.profile.crop.cancel") { dismiss() }
+                    CuadraoConfirmToolbar(title: spanish ? "Usar foto" : "Use photo", disabled: rendering,
+                                          identifier: "cuadrao.profile.crop.use") { accept() }
                 }
         }.tint(WelcomePalette.pine)
             .onDisappear { renderTask?.cancel() }

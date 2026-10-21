@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from argus.domain.owner_scope import OwnerScope, postgrest_scoped
 from supabase import Client
 
 _COMPUTED_ANSWER_LIMIT = 500
@@ -75,7 +76,7 @@ class SupabaseComputedAnswerReadMixin:
         return dict(data[0]) if data else None
 
     def computed_answer_rows_for_symbols(
-        self, *, user_id: str, conversation_id: str | None = None
+        self, *, user_id: str, scope: OwnerScope, conversation_id: str | None = None
     ) -> list[dict[str, Any]]:
         """Computed answers that name an asset, in live conversations, newest first."""
 
@@ -92,11 +93,11 @@ class SupabaseComputedAnswerReadMixin:
             return query.order("created_at", desc=True).order("id", desc=True)
 
         return self._live_newest(
-            user_id=user_id, newest=newest, size=_COMPUTED_ANSWER_LIMIT
+            user_id=user_id, scope=scope, newest=newest, size=_COMPUTED_ANSWER_LIMIT
         )
 
     def computed_answers_of_kind(
-        self, *, user_id: str, kind: str, limit: int
+        self, *, user_id: str, scope: OwnerScope, kind: str, limit: int
     ) -> list[dict[str, Any]]:
         """The owner's newest computed answers of one kind, in live conversations."""
 
@@ -111,10 +112,15 @@ class SupabaseComputedAnswerReadMixin:
                 .order("id", desc=True)
             )
 
-        return self._live_newest(user_id=user_id, newest=newest, size=limit)
+        return self._live_newest(user_id=user_id, scope=scope, newest=newest, size=limit)
 
     def _live_newest(
-        self, *, user_id: str, newest: Callable[[], Any], size: int
+        self,
+        *,
+        user_id: str,
+        scope: OwnerScope,
+        newest: Callable[[], Any],
+        size: int,
     ) -> list[dict[str, Any]]:
         """Up to ``size`` newest rows in live conversations, reading on past rows
         whose conversation was soft-deleted until ``size`` are found or the rows
@@ -124,7 +130,9 @@ class SupabaseComputedAnswerReadMixin:
         while size > 0:
             rows = newest().range(start, start + page - 1).execute()
             found = [dict(row) for row in getattr(rows, "data", None) or []]
-            kept.extend(self._in_live_conversations(user_id=user_id, rows=found))
+            kept.extend(
+                self._in_live_conversations(user_id=user_id, scope=scope, rows=found)
+            )
             if len(kept) >= size or len(found) < page:
                 break
             start += page
@@ -132,9 +140,10 @@ class SupabaseComputedAnswerReadMixin:
         return kept[:size]
 
     def _in_live_conversations(
-        self, *, user_id: str, rows: list[dict[str, Any]]
+        self, *, user_id: str, scope: OwnerScope, rows: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """The rows whose conversation the owner holds and has not soft-deleted."""
+        """The rows whose conversation the owner holds in ``scope`` and has not
+        soft-deleted."""
         conversation_ids = list(
             dict.fromkeys(
                 str(row.get("conversation_id"))
@@ -144,13 +153,14 @@ class SupabaseComputedAnswerReadMixin:
         )
         if not conversation_ids:
             return []
-        live = (
+        live = postgrest_scoped(
             self.client.table("conversations")
             .select("id")
             .eq("user_id", user_id)
             .in_("id", conversation_ids)
-            .is_("deleted_at", "null")
-            .execute()
-        )
+            .is_("deleted_at", "null"),
+            scope,
+            "owner_space_id",
+        ).execute()
         live_ids = {str(row.get("id")) for row in getattr(live, "data", None) or []}
         return [row for row in rows if str(row.get("conversation_id")) in live_ids]

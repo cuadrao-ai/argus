@@ -36,6 +36,7 @@ from argus.domain.ingestion.gmail.state import (
 from argus.domain.ingestion.gmail.suggestions import SenderSuggestion, suggest_senders
 from argus.domain.ingestion.gmail.sync import GmailSync, SyncOutcome
 from argus.domain.ingestion.hub import IngestionHub
+from argus.domain.owner_scope import PERSONAL
 
 
 class ConnectionDisconnected(RuntimeError):
@@ -80,7 +81,9 @@ class GmailConnector:
         self.client.close()
 
     def connection(self, *, user_id: str, connection_id: str) -> SourceConnection:
-        row = self.hub.connections.get(user_id=user_id, connection_id=connection_id)
+        row = self.hub.connections.get(
+            user_id=user_id, connection_id=connection_id, scope=PERSONAL
+        )
         if row.source != "gmail":
             raise ConnectionNotFound()
         return row

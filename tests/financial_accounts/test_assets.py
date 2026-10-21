@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.asset_schemas import AssetDetailsRequest, AssetEstimateRequest
 from argus.domain.recording.assets import AssetService
 from argus.domain.recording.errors import (
@@ -69,6 +70,7 @@ def create(service, owner, kind="property", amount="8000000", share=5000, curren
             ownership_share_bps=share,
             as_of=NOW - timedelta(days=10),
         ),
+        scope=PERSONAL,
     ).stored
 
 
@@ -139,7 +141,9 @@ def test_link_share_replay_and_debt_count_once(assets):
     assert replay.replayed and replay.change_version == 2
     assert replay.stored.account.version == later.stored.account.version
     assert len(replay.stored.asset_changes) == 1
-    totals = home_response(service.list_accounts(user_id=owner), now=NOW)["currencies"][0]
+    totals = home_response(service.list_accounts(user_id=owner, scope=PERSONAL), now=NOW)[
+        "currencies"
+    ][0]
     assert totals["net_worth_minor"] == "355000000"
     assert totals["cash_minor"] == "0"
     assert totals["debts_minor"] == "100000000"
@@ -180,6 +184,7 @@ def test_estimate_replay_after_newer_write_and_opening_correction(assets):
         )
 
 
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_unknown_cross_currency_link_archive_restore_and_unlink_history(assets):
     from argus.domain.recording.schemas import EditFinancialAccountRequest
 
@@ -200,11 +205,13 @@ def test_unknown_cross_currency_link_archive_restore_and_unlink_history(assets):
         user_id=owner,
         account_id=asset.account.id,
         request=EditFinancialAccountRequest(expected_version=2, archived=True),
+        scope=PERSONAL,
     )
     restored = service.edit(
         user_id=owner,
         account_id=asset.account.id,
         request=EditFinancialAccountRequest(expected_version=3, archived=False),
+        scope=PERSONAL,
     )
     assert archived.account.archived and restored.account.id == asset.account.id
     assert restored.related_debt_account_id == debt.account.id
@@ -221,9 +228,9 @@ def test_unknown_cross_currency_link_archive_restore_and_unlink_history(assets):
     assert unlinked.stored.related_debt_account_id is None
     groups = {
         g["currency"]: g
-        for g in home_response(service.list_accounts(user_id=owner), now=NOW)[
-            "currencies"
-        ]
+        for g in home_response(
+            service.list_accounts(user_id=owner, scope=PERSONAL), now=NOW
+        )["currencies"]
     }
     assert set(groups) == {"DOP", "USD"}
     assert all(
@@ -250,7 +257,12 @@ def test_concurrent_link_and_estimate_accept_only_one_version(assets):
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: change(), range(2)))
     assert sum(r is not None for r in results) == 1
-    assert service.get(user_id=owner, account_id=asset.account.id).account.version == 2
+    assert (
+        service.get(
+            user_id=owner, account_id=asset.account.id, scope=PERSONAL
+        ).account.version
+        == 2
+    )
 
 
 @pytest.mark.parametrize("kind", ["property", "vehicle", "other_asset"])
@@ -277,7 +289,9 @@ def test_unknown_asset_details_lock_type_and_preserve_history(
     assert len(history) == 1
     edit = EditFinancialAccountRequest(expected_version=2, type="checking")
     with pytest.raises(RecordingInputError, match="type_locked"):
-        service.edit(user_id=owner, account_id=asset.account.id, request=edit)
+        service.edit(
+            user_id=owner, account_id=asset.account.id, request=edit, scope=PERSONAL
+        )
 
     monkeypatch.setitem(
         client.app.dependency_overrides,
@@ -290,7 +304,7 @@ def test_unknown_asset_details_lock_type_and_preserve_history(
     )
     assert response.status_code == 422, response.text
     assert response.json()["code"] == "type_locked"
-    unchanged = service.get(user_id=owner, account_id=asset.account.id)
+    unchanged = service.get(user_id=owner, account_id=asset.account.id, scope=PERSONAL)
     assert unchanged.account.type == kind
     assert unchanged.account.version == 2
     assert unchanged.asset_changes == history
@@ -300,11 +314,13 @@ def test_unknown_asset_details_lock_type_and_preserve_history(
         request=EditFinancialAccountRequest(
             expected_version=2, nickname="Updated asset", archived=True
         ),
+        scope=PERSONAL,
     )
     restored = service.edit(
         user_id=owner,
         account_id=asset.account.id,
         request=EditFinancialAccountRequest(expected_version=3, archived=False),
+        scope=PERSONAL,
     )
     assert archived.account.archived and not restored.account.archived
     assert restored.account.nickname == "Updated asset"

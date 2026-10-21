@@ -1,0 +1,13 @@
+{
+  "integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "app_source_unchanged": true,
+  "test_product": "NavigationRepairs.xctestproducts",
+  "sources": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "0f19b7fe4d88e7dd9cbf6b56b5dd5b10a5c2e7d7d019d8f19bef99bc5db00401",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "d9bfe8b7c198c90a967c6051fd8368c0d5d105c0de81a06e6357d7d1141c128b",
+    "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift": "3d9accfda7a24a18947c98d63b5180d5f52ff6a56a93097347b8ad961bda9f7e"
+  },
+  "source_commit": "248317cbf7063936cdc75c55d65665223f6afc80",
+  "app_source_tree": "0d9584a4489c5081a1856665e2fa2aba392b5ec2",
+  "revalidated_after_commit": true
+}

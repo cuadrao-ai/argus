@@ -26,6 +26,7 @@ from argus.domain.ingestion.reconcile.model import (
     StaleEvent,
 )
 from argus.domain.ingestion.reconcile.render import counterpart
+from argus.domain.owner_scope import OwnerScope
 from argus.domain.recording.errors import (
     AccountNotFound,
     IdempotencyConflict,
@@ -40,6 +41,7 @@ MAX_BATCH_KEY = 40
 MAX_BATCH = 100
 # Refusals the money service raises before it writes anything.
 _NOT_WRITTEN = (RecordingInputError, StaleVersion, AccountNotFound, ValidationError)
+_KIND_QUESTIONS = frozenset({"kind", "source_account_id", "destination_account_id"})
 _ITEM_REFUSALS = (
     *_NOT_WRITTEN,
     ReconcileError,
@@ -54,9 +56,15 @@ class Recording:
     ``clock``, ``detail``, ``_editable`` and ``_remember_account``."""
 
     def preview(
-        self, *, user_id: str, event_id: str, overrides: dict[str, Any] | None = None
+        self,
+        *,
+        user_id: str,
+        event_id: str,
+        overrides: dict[str, Any] | None = None,
+        kind: str | None = None,
+        scope: OwnerScope,
     ) -> dict[str, Any]:
-        detail = self.detail(user_id=user_id, event_id=event_id)
+        detail = self.detail(user_id=user_id, event_id=event_id, scope=scope)
         if detail["state"] != "open":
             raise ReconcileError(
                 "import_not_open", "This import is not waiting for review."
@@ -67,7 +75,7 @@ class Recording:
             )
         try:
             request = MoneyRequest.model_validate(
-                {**self._draft(user_id, detail), **(overrides or {})}
+                {**self._draft(user_id, detail, kind, scope=scope), **(overrides or {})}
             )
         except ValidationError:
             raise ReconcileError(
@@ -75,7 +83,7 @@ class Recording:
             ) from None
         return {
             "event": detail,
-            "preview": self.money.preview(user_id=user_id, request=request),
+            "preview": self.money.preview(user_id=user_id, request=request, scope=scope),
         }
 
     def accept(
@@ -86,13 +94,15 @@ class Recording:
         idempotency_key: str,
         version: int,
         request: MoneyRequest,
+        scope: OwnerScope,
     ) -> dict[str, Any]:
         if len(idempotency_key) > MAX_CLIENT_KEY:
             raise ReconcileError("idempotency_key_too_long", "Use at most 80 characters.")
         now = self.clock()
         claimed_now = False
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
             if event.state == "open":
                 claimed_now = True
                 if event.version != version:
@@ -119,15 +129,17 @@ class Recording:
             if event.state == "accepting":
                 # Someone else's interrupted acceptance: finish it, do not
                 # record a second time under this key.
-                self._complete(user_id, event)
+                self._complete(user_id, event, scope=scope)
             raise ReconcileError(
                 "import_already_accepted", "This import is already recorded."
             )
         # A retry of an already-claimed acceptance replays what was claimed,
         # not whatever this request body says.
-        result = self._write(user_id, event, request if claimed_now else None, now)
+        result = self._write(
+            user_id, event, request if claimed_now else None, now, scope=scope
+        )
         return {
-            "event": self.detail(user_id=user_id, event_id=event_id),
+            "event": self.detail(user_id=user_id, event_id=event_id, scope=scope),
             "activity": result["activity"],
             "replayed": result["replayed"],
         }
@@ -138,6 +150,7 @@ class Recording:
         user_id: str,
         items: Sequence[tuple[str, int]],
         idempotency_key: str,
+        scope: OwnerScope,
     ) -> list[dict[str, Any]]:
         """Record a reviewed batch; exceptions stay for individual review.
 
@@ -157,7 +170,9 @@ class Recording:
         for event_id, version in items:
             try:
                 results.append(
-                    self._accept_one(user_id, event_id, version, idempotency_key)
+                    self._accept_one(
+                        user_id, event_id, version, idempotency_key, scope=scope
+                    )
                 )
             except _ITEM_REFUSALS as error:
                 results.append(
@@ -169,14 +184,83 @@ class Recording:
                 )
         return results
 
+    def accept_reviewed(
+        self,
+        *,
+        user_id: str,
+        event_id: str,
+        version: int,
+        idempotency_key: str,
+        kind: str | None = None,
+        scope: OwnerScope,
+    ) -> dict[str, Any]:
+        """Record one import as reviewed, with its preview built here.
+
+        For a client that confirms by version and key alone; ``kind``, when
+        given, is what the client always records an import as. A retry under
+        the claiming key replays what was claimed. Another key's acceptance,
+        even an interrupted one, is finished first, so the import is recorded
+        once. A version other than the open import's is stale.
+        """
+
+        for _ in range(3):
+            with self.store.transaction(user_id, scope=scope) as tx:
+                event = tx.event(event_id)
+                self._require_legacy(event)
+            if (
+                event.state in ("accepting", "accepted")
+                and event.accept_key == idempotency_key
+            ):
+                result = self._write(user_id, event, None, self.clock(), scope=scope)
+                return {
+                    "event": self.detail(user_id=user_id, event_id=event_id, scope=scope),
+                    "activity": result["activity"],
+                    "replayed": True,
+                }
+            if event.state == "accepting":
+                self._complete(user_id, event, scope=scope)
+                continue
+            if event.state == "accepted":
+                raise ReconcileError(
+                    "import_already_accepted", "This import is already recorded."
+                )
+            if event.state != "open":
+                raise ReconcileError("import_not_open", "Reopen it to record it.")
+            if event.version != version:
+                raise StaleEvent()
+            try:
+                request = self._reviewed_request(user_id, event_id, kind, scope=scope)
+            except ReconcileError as error:
+                # Claimed between the read and the preview; read it again.
+                if error.code != "import_not_open":
+                    raise
+                continue
+            return self.accept(
+                user_id=user_id,
+                event_id=event_id,
+                idempotency_key=idempotency_key,
+                version=version,
+                request=request,
+                scope=scope,
+            )
+        raise ReconcileError("import_not_open", "This import is not waiting for review.")
+
     def link_activity(
-        self, *, user_id: str, event_id: str, activity_id: str, version: int
+        self,
+        *,
+        user_id: str,
+        event_id: str,
+        activity_id: str,
+        version: int,
+        scope: OwnerScope,
     ) -> dict[str, Any]:
         """The purchase is already recorded (by hand, by voice, earlier import)."""
 
-        activity = self.money.detail(user_id=user_id, activity_id=activity_id)
+        activity = self.money.detail(
+            user_id=user_id, activity_id=activity_id, scope=scope
+        )
         now = self.clock()
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = self._editable(tx, event_id, version)
             if tx.events(("accepting",)):
                 # Its new activity is not linked yet; linking now could point
@@ -195,20 +279,27 @@ class Recording:
                 resolution={**event.resolution, "accepted": _recorded(activity)},
             )
             tx.put_event(_bump(event, now))
-        return self.detail(user_id=user_id, event_id=event_id)
+        return self.detail(user_id=user_id, event_id=event_id, scope=scope)
 
     # --- Internals -----------------------------------------------------
     def _accept_one(
-        self, user_id: str, event_id: str, version: int, batch_key: str
+        self,
+        user_id: str,
+        event_id: str,
+        version: int,
+        batch_key: str,
+        *,
+        scope: OwnerScope,
     ) -> dict[str, Any]:
         key = f"b:{batch_key}:{event_id}"
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
         if event.state in ("accepted", "accepting") and event.accept_key == key:
             # A retried batch: this item was already claimed by this batch.
-            result = self._write(user_id, event, None, self.clock())
+            result = self._write(user_id, event, None, self.clock(), scope=scope)
             return _outcome(event_id, result["activity"]["activity_id"], True)
-        detail = self.detail(user_id=user_id, event_id=event_id)
+        detail = self.detail(user_id=user_id, event_id=event_id, scope=scope)
         if detail["version"] != version:
             raise StaleEvent()
         if (
@@ -220,26 +311,33 @@ class Recording:
             raise ReconcileError(
                 "import_possible_duplicate", "Review this one individually."
             )
-        preview = self.preview(user_id=user_id, event_id=event_id)["preview"]
-        if not preview["ready"]:
-            raise ReconcileError(
-                "balance_coverage_required", "Answer its balance question."
-            )
-        request = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
-            update={"preview_token": preview["preview_token"]}
-        )
         result = self.accept(
             user_id=user_id,
             event_id=event_id,
             idempotency_key=key,
             version=version,
-            request=request,
+            request=self._reviewed_request(user_id, event_id, scope=scope),
+            scope=scope,
         )
         return _outcome(event_id, result["activity"]["activity_id"], result["replayed"])
 
-    def _complete(self, user_id: str, event: ImportEvent) -> None:
+    def _reviewed_request(
+        self, user_id: str, event_id: str, kind: str | None = None, *, scope: OwnerScope
+    ) -> MoneyRequest:
+        preview = self.preview(
+            user_id=user_id, event_id=event_id, kind=kind, scope=scope
+        )["preview"]
+        if not preview["ready"]:
+            raise ReconcileError(
+                "balance_coverage_required", "Answer its balance question."
+            )
+        return MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
+            update={"preview_token": preview["preview_token"]}
+        )
+
+    def _complete(self, user_id: str, event: ImportEvent, *, scope: OwnerScope) -> None:
         try:
-            self._write(user_id, event, None, self.clock())
+            self._write(user_id, event, None, self.clock(), scope=scope)
         except _NOT_WRITTEN:
             pass  # released back to open by _write
 
@@ -249,6 +347,8 @@ class Recording:
         event: ImportEvent,
         request: MoneyRequest | None,
         now: datetime,
+        *,
+        scope: OwnerScope,
     ) -> dict[str, Any]:
         """Write (or replay) under the claiming key, then finalize the event."""
 
@@ -266,12 +366,13 @@ class Recording:
                 user_id=user_id,
                 request=request,
                 idempotency_key=f"imp:{event.id}:{event.accept_key}",
+                scope=scope,
             )
         except _NOT_WRITTEN:
-            self._release(user_id, event, now)
+            self._release(user_id, event, now, scope=scope)
             raise
         activity = result["activity"]
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             current = tx.event(event.id)
             if current.state == "accepting":
                 resolution = dict(current.resolution)
@@ -291,8 +392,10 @@ class Recording:
                 tx.put_event(_bump(current, now))
         return result
 
-    def _release(self, user_id: str, event: ImportEvent, now: datetime) -> None:
-        with self.store.transaction(user_id) as tx:
+    def _release(
+        self, user_id: str, event: ImportEvent, now: datetime, *, scope: OwnerScope
+    ) -> None:
+        with self.store.transaction(user_id, scope=scope) as tx:
             current = tx.event(event.id)
             if current.state == "accepting" and current.accept_key == event.accept_key:
                 resolution = dict(current.resolution)
@@ -306,15 +409,26 @@ class Recording:
                     )
                 )
 
-    def _draft(self, user_id: str, detail: dict[str, Any]) -> dict[str, Any]:
+    def _draft(
+        self,
+        user_id: str,
+        detail: dict[str, Any],
+        kind: str | None = None,
+        *,
+        scope: OwnerScope,
+    ) -> dict[str, Any]:
         facts, resolution = detail["facts"], detail["resolution"]
-        missing = [f for f in detail["unresolved"] if f != "direction"]
+        missing = missing_fields(detail)
+        if kind is not None and kind not in DESTINATION_ELIGIBILITY:
+            # The caller decided the kind, so the import's kind questions are moot.
+            missing = [f for f in missing if f not in _KIND_QUESTIONS]
+        kind = kind or resolution.get("kind") or facts["kind"]
         if missing:
             raise ReconcileError("import_unresolved", "Complete: " + ", ".join(missing))
         account_id = facts["account_id"]
         accounts = {
             s.account.id: s.account
-            for s in self.money.accounts.list_accounts(user_id=user_id)
+            for s in self.money.accounts.list_accounts(user_id=user_id, scope=scope)
         }
         account = accounts.get(account_id)
         if account is None:
@@ -326,14 +440,13 @@ class Recording:
                 "import_currency_mismatch",
                 "This import is in another currency than the account; nothing is converted.",
             )
-        kind = resolution.get("kind") or facts["kind"]
         zone = resolution.get("time_zone") or DEFAULT_ZONE
         draft: dict[str, Any] = {
             "kind": kind,
             "amount": facts["amount"],
             "occurred_at": _start_of_day(facts["occurred_on"], zone),
             "time_zone": zone,
-            "note": resolution.get("note") or _merchant(detail),
+            "note": recorded_note(detail),
         }
         if kind in DESTINATION_ELIGIBILITY:
             other = counterpart(facts["direction"])
@@ -395,7 +508,24 @@ def _code(error: Exception) -> str:
     }.get(type(error), "validation_error")
 
 
-def _merchant(detail: dict[str, Any]) -> str | None:
+def missing_fields(detail: dict[str, Any]) -> list[str]:
+    """What the person must still supply before ``accept`` can record it."""
+
+    return [f for f in detail["unresolved"] if f != "direction"]
+
+
+def recorded_note(detail: dict[str, Any]) -> str | None:
+    """The activity note ``accept`` records: the person's note, else the merchant."""
+
+    if "business" in detail["resolution"]:
+        from argus.domain.business.contracts.facts import BusinessResolution
+
+        value = BusinessResolution.model_validate(
+            detail["resolution"]["business"]
+        ).facts.counterparty.value
+        return value[:200] if value is not None else None
+    if detail["resolution"].get("note"):
+        return detail["resolution"]["note"]
     for observation in detail["observations"]:
         if observation["live"] and observation["merchant"]:
             return observation["merchant"][:200]

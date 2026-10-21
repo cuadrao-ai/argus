@@ -10,6 +10,7 @@ from argus.domain.household.postgres import PostgresHouseholdRepository
 from argus.domain.household.repository import FinancialAccountLookup
 from argus.domain.household.schemas import CreateHouseholdRequest, Recipient
 from argus.domain.household.service import HouseholdService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.postgres_repository import PostgresFinancialAccountRepository
 from argus.domain.recording.records import OpeningWrite
@@ -132,6 +133,7 @@ def account(records, owner, amount=1000, currency="DOP", share=10000, kind="chec
         )
         if amount is not None
         else None,
+        scope=PERSONAL,
     ).stored.account.id
 
 

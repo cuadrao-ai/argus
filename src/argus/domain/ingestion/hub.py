@@ -23,6 +23,7 @@ from argus.domain.ingestion.connections import (
 from argus.domain.ingestion.contract import SourceKind
 from argus.domain.ingestion.secrets import SecretBox, SecretUnreadable
 from argus.domain.ingestion.sink import CandidateSink
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 
 Revocation = Literal["revoked", "failed", "not_applicable"]
 # Account deletion also learns when the provider no longer held the grant
@@ -78,8 +79,8 @@ class IngestionHub:
     def adapter(self, source: str) -> SourceAdapter | None:
         return self._adapters.get(source)
 
-    def list(self, *, user_id: str) -> list[SourceConnection]:
-        return self.connections.list(user_id=user_id)
+    def list(self, *, user_id: str, scope: OwnerScope) -> list[SourceConnection]:
+        return self.connections.list(user_id=user_id, scope=scope)
 
     def credential(self, connection: SourceConnection) -> str | None:
         if connection.secret is None or self.box is None:
@@ -88,8 +89,12 @@ class IngestionHub:
             connection.secret, source=connection.source, connection_id=connection.id
         )
 
-    def disconnect(self, *, user_id: str, connection_id: str) -> DisconnectOutcome:
-        connection = self.connections.get(user_id=user_id, connection_id=connection_id)
+    def disconnect(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> DisconnectOutcome:
+        connection = self.connections.get(
+            user_id=user_id, connection_id=connection_id, scope=scope
+        )
         adapter = self._adapters.get(connection.source)
         if connection.status == "disconnected":
             # Already ended: never contact the provider again, but finish any
@@ -128,7 +133,9 @@ class IngestionHub:
             forget(ended)
         if self.sink is None:
             return 0
-        return self.sink.forget_connection(user_id=ended.user_id, connection_id=ended.id)
+        return self.sink.forget_connection(
+            user_id=ended.user_id, connection_id=ended.id, scope=ended.scope
+        )
 
     def revoke_for_deletion(
         self,
@@ -173,6 +180,8 @@ class IngestionHub:
             updated_at=now,
             disconnected_at=now,
             version=0,
+            # Only Plaid and Gmail hold a revocable grant, and both are Personal.
+            scope=PERSONAL,
         )
         try:
             credential = self.credential(connection)

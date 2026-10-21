@@ -6,6 +6,7 @@ import pytest
 from argus.api import state as api_state
 from argus.api.message_store import create_message, memory_conversation
 from argus.api.schemas import BacktestRun
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 
 
@@ -20,7 +21,9 @@ def _user_id() -> str:
     return "00000000-0000-0000-0000-000000000001"
 
 
-def _completed_run(*, conversation_id: str, strategy_id: str | None = None) -> BacktestRun:
+def _completed_run(
+    *, conversation_id: str, strategy_id: str | None = None
+) -> BacktestRun:
     return BacktestRun(
         id=api_state.store.new_id(),
         conversation_id=conversation_id,
@@ -68,6 +71,7 @@ def test_conversation_title_generation_prefers_current_run_facts(
     from argus.api import artifact_naming
 
     conversation = memory_conversation(
+        scope=PERSONAL,
         user_id=_user_id(),
         title="New idea",
         title_source="system_default",
@@ -108,6 +112,7 @@ def test_conversation_title_generation_uses_chat_context_without_run(
     from argus.api import artifact_naming
 
     conversation = memory_conversation(
+        scope=PERSONAL,
         user_id=_user_id(),
         title="New idea",
         title_source="system_default",
@@ -155,6 +160,7 @@ def test_conversation_title_finalizer_persists_utility_route_receipt(
     from argus.llm.openrouter import record_openrouter_route_receipt
 
     conversation = memory_conversation(
+        scope=PERSONAL,
         user_id=_user_id(),
         title="New idea",
         title_source="system_default",
@@ -237,6 +243,7 @@ def test_conversation_title_finalizer_records_observable_skip(
     from argus.api.chat import title_finalization
 
     conversation = memory_conversation(
+        scope=PERSONAL,
         user_id=_user_id(),
         title="My renamed thread",
         title_source="user_renamed",
@@ -283,6 +290,7 @@ def test_conversation_title_generation_never_overwrites_user_renamed(
     from argus.api import artifact_naming
 
     conversation = memory_conversation(
+        scope=PERSONAL,
         user_id=_user_id(),
         title="My Tesla Research",
         title_source="user_renamed",
@@ -305,6 +313,4 @@ def test_conversation_title_generation_never_overwrites_user_renamed(
 
     assert title is None
     assert api_state.store.conversations[conversation.id].title == "My Tesla Research"
-    assert (
-        api_state.store.conversations[conversation.id].title_source == "user_renamed"
-    )
+    assert api_state.store.conversations[conversation.id].title_source == "user_renamed"

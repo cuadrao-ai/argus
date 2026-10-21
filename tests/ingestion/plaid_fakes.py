@@ -21,6 +21,7 @@ from argus.domain.ingestion.plaid.config import PlaidConfig
 from argus.domain.ingestion.plaid.connector import PlaidConnector
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 
 NOW = datetime(2026, 10, 1, 13, 0, tzinfo=timezone.utc)
 ACCESS_TOKEN = "access-sandbox-11111111-2222-3333-4444-555555555555"
@@ -66,8 +67,14 @@ class RecordingSink:
         self.fail = False
 
     def submit(
-        self, *, user_id: str, connection_id: str, candidates: Sequence[ImportCandidate]
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        candidates: Sequence[ImportCandidate],
+        scope: OwnerScope,
     ) -> SubmitResult:
+        assert scope == PERSONAL
         if self.fail:
             raise RuntimeError("sink unavailable")
         assert all(c.source.connection_id == connection_id for c in candidates)
@@ -84,7 +91,10 @@ class RecordingSink:
             self.evidence[candidate.key] = candidate
         return SubmitResult(recorded, unchanged, withdrawn)
 
-    def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+    def forget_connection(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> int:
+        assert scope == PERSONAL
         drop = [k for k in self.evidence if k[1] == connection_id]
         for key in drop:
             del self.evidence[key]

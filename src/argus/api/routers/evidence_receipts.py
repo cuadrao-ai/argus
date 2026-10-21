@@ -14,6 +14,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from loguru import logger
 
+from argus.api.conversation_surface import (
+    require_personal_conversation,
+    require_personal_evidence_artifact,
+)
 from argus.api.dependencies import current_user, problem, require_account_capability
 from argus.api.guest_access import client_identity
 from argus.api.pagination import decode_cursor, encode_cursor, invalid_cursor_problem
@@ -145,6 +149,7 @@ def _enforce_create_rate_limit(request: Request, *, user: User) -> None:
 @router.post(
     "/evidence-artifacts/{artifact_id}/public-excerpt",
     response_model=PublicExcerptCreateResponse,
+    dependencies=[Depends(require_personal_evidence_artifact)],
 )
 def create_public_excerpt(
     artifact_id: str,
@@ -321,6 +326,7 @@ def _selection_owner(request: Request, conversation_id: str) -> str:
 @router.get(
     "/conversations/{conversation_id}/public-excerpt-candidates",
     response_model=PublicExcerptCandidates,
+    dependencies=[Depends(require_personal_conversation)],
 )
 def public_excerpt_candidates(
     conversation_id: str, request: Request, user: Annotated[User, Depends(current_user)]
@@ -335,6 +341,7 @@ def public_excerpt_candidates(
 @router.post(
     "/conversations/{conversation_id}/public-excerpt-preview",
     response_model=PublicExcerptPreview,
+    dependencies=[Depends(require_personal_conversation)],
 )
 def preview_public_excerpt(
     conversation_id: str,
@@ -357,6 +364,7 @@ def preview_public_excerpt(
 @router.post(
     "/conversations/{conversation_id}/public-excerpt",
     response_model=PublicExcerptCreateResponse,
+    dependencies=[Depends(require_personal_conversation)],
 )
 def create_selected_public_excerpt(
     conversation_id: str,

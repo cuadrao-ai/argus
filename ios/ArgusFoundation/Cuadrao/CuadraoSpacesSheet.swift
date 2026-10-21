@@ -64,7 +64,7 @@ struct CuadraoSpacesSheet: View {
                 Spacer(minLength: 0)
             }.padding(.horizontal, 24).padding(.top, 12)
                 .navigationTitle(spanish ? "Espacios" : "Spaces").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(spanish ? "Listo" : "Done") { dismiss() } } }
+                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
         }.tint(WelcomePalette.pine).presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
     }
 

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from uuid import uuid4
 
 from argus.domain.backtest_admission import canonical_hash
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import model, storage
 from argus.domain.recording import canonical_groups
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
@@ -57,9 +58,9 @@ class SharedPlanningService:
             access = {
                 aid: (a.owner_id, a.permission, hid) for aid, a in scope.accounts.items()
             }
-            owned = load_owner(self.repository, c, actor)
+            owned = load_owner(self.repository, c, actor, scope=PERSONAL)
             access.update({s.account.id: (actor, "edit", None) for s in owned})
-            canonical = canonical_groups.load(self.repository, c, owners)
+            canonical = canonical_groups.load(self.repository, c, owners, scope=PERSONAL)
             yield c, h, str(m["id"]), people, access, canonical
 
     @staticmethod
@@ -261,7 +262,10 @@ class SharedPlanningService:
                 (actor, mid, scope, key, identity, b["id"], claim_id),
             )
             canonical = canonical_groups.load(
-                self.repository, c, {p["user_id"] for p in people.values()}
+                self.repository,
+                c,
+                {p["user_id"] for p in people.values()},
+                scope=PERSONAL,
             )
             return dict(
                 plan=self.project(
@@ -339,7 +343,7 @@ class SharedPlanningService:
     def edit(self, actor, hid, kind, identifier, body, key):
         def action(ctx, b, current):
             c, _, __, people, *_ = ctx
-            owner_accounts = load_owner(self.repository, c, b["owner_id"])
+            owner_accounts = load_owner(self.repository, c, b["owner_id"], scope=PERSONAL)
             state = storage.load(c, b["owner_id"], self.repository)
             state["links"].update(
                 {

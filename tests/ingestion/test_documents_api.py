@@ -1,6 +1,7 @@
 """Upload through reviewed acceptance, with real preparation and a scripted provider response."""
 
 from pathlib import Path
+from urllib.parse import quote
 from uuid import uuid4
 
 import pytest
@@ -183,10 +184,13 @@ def test_document_extraction_flag_uses_the_shared_true_values(monkeypatch, raw, 
     [
         {"ARGUS_DOCUMENT_EXTRACTION_ENABLED": ""},
         {"ARGUS_DOCUMENT_EXTRACTION_ENABLED": "garbage"},
-        {
-            "ARGUS_DOCUMENT_EXTRACTION_ENABLED": "true",
-            "ARGUS_DOCUMENT_EXTRACTION_MAX_BYTES": "not-an-integer",
-        },
+        *(
+            {
+                "ARGUS_DOCUMENT_EXTRACTION_ENABLED": "true",
+                "ARGUS_DOCUMENT_EXTRACTION_MAX_BYTES": value,
+            }
+            for value in ("not-an-integer", "0", "-1", str(10 * 1024 * 1024 + 1))
+        ),
     ],
 )
 def test_bad_document_settings_fail_closed_without_darkening_connectors(
@@ -197,9 +201,11 @@ def test_bad_document_settings_fail_closed_without_darkening_connectors(
     from argus.api import state as api_state
     from argus.api.ingestion import ingestion_hub
     from argus.api.main import app
+    from argus.domain.ingestion.documents import config
     from fastapi.testclient import TestClient
     from loguru import logger
 
+    monkeypatch.setattr(config, "_warned_invalid", False)
     monkeypatch.setenv("ARGUS_INGESTION_ENABLED", "true")
     for name, value in overrides.items():
         monkeypatch.setenv(name, value)
@@ -226,7 +232,38 @@ def test_bad_document_settings_fail_closed_without_darkening_connectors(
     assert missing.json()["code"] == "financial_connection_not_found"
     assert documents.status_code == 404
     assert documents.json()["code"] == "financial_connections_unavailable"
+    assert documents.headers["cache-control"] == "no-store"
     assert any("document surface stays off" in line for line in lines)
+
+
+def test_invalid_document_settings_warn_once_per_process(monkeypatch):
+    from argus.domain.ingestion.documents import config
+    from loguru import logger
+
+    monkeypatch.setattr(config, "_warned_invalid", False)
+    monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("ARGUS_DOCUMENT_EXTRACTION_MAX_BYTES", "0")
+    lines: list[str] = []
+    sink = logger.add(lambda message: lines.append(str(message)), level="WARNING")
+    try:
+        loaded = [config.load_document_extraction_settings() for _ in range(3)]
+    finally:
+        logger.remove(sink)
+    assert [settings.enabled for settings in loaded] == [False, False, False]
+    assert sum("settings are invalid" in line for line in lines) == 1
+
+
+def test_upload_answers_are_never_cached(client, extraction):
+    saved = upload(client)
+    assert saved.status_code == 200
+    assert saved.headers["cache-control"] == "no-store"
+    refused = client.post(
+        DOCUMENTS,
+        content=b"plain",
+        headers={**bearer(ALICE), "Content-Type": "application/zip"},
+    )
+    assert refused.status_code == 415
+    assert refused.headers["cache-control"] == "no-store"
 
 
 def test_upload_size_is_bounded_before_extraction(client, extraction):
@@ -258,14 +295,28 @@ def test_source_reopen_failure_and_explicit_recovery(client, extraction):
     assert draft.json()["source_available"] is True
     source = client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE))
     assert source.status_code == 200
+    assert source.content.startswith(b"\xff\xd8")
+    service = documents_service()
+    owner = service.store.owner(connection_id=connection)
+    sealed = service.store.source(user_id=owner, connection_id=connection)
+    assert sealed.startswith(b"\x89PNG") and sealed != source.content
+    assert client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE)).content == source.content
+    assert source.headers["content-type"] == "image/jpeg"
     assert source.headers["cache-control"] == "no-store"
     assert source.headers["x-content-type-options"] == "nosniff"
-    assert (
-        source.content
-        == (
-            Path(__file__).parents[1] / "document_extraction_fixtures/receipt-dop.png"
-        ).read_bytes()
-    )
+    from unittest.mock import patch
+
+    from argus.domain.ingestion.documents.objects import SourceStorageUnavailable
+
+    with patch.object(
+        service.store, "download_source", side_effect=SourceStorageUnavailable("unavailable")
+    ):
+        unavailable = client.get(
+            f"{DOCUMENTS}/{connection}/source", headers=bearer(ALICE)
+        )
+    assert unavailable.status_code == 503
+    assert unavailable.json()["code"] == "document_storage_unavailable"
+
     assert (
         client.get(f"{DOCUMENTS}/{connection}/source", headers=bearer(BOB)).status_code
         == 404
@@ -311,3 +362,21 @@ def test_capture_keeps_destination_before_preparation(client, extraction):
     assert draft["proposal"]["requested_plan"] == proposal["requested_plan"]
     assert draft["proposal"]["participant_ids"] == proposal["participant_ids"]
     extraction.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [
+        (quote("Ñame recibo.png"), "Ñame recibo.png"),
+        ("Ñame recibo.png".encode(), "Ñame recibo.png"),
+        ("Ñ 50%20off.pdf".encode(), "Ñ 50%20off.pdf"),
+    ],
+    ids=["percent-encoded", "raw utf-8", "raw utf-8 keeps its percent"],
+)
+def test_the_filename_header_is_utf8(client, extraction, header, expected):
+    saved = upload(client, **{"X-Document-Filename": header})
+    assert saved.status_code == 200, saved.text
+    draft = client.get(
+        f"{DOCUMENTS}/{saved.json()['connection_id']}", headers=bearer(ALICE)
+    ).json()
+    assert draft["filename"] == expected

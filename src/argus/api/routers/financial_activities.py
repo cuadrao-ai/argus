@@ -11,6 +11,7 @@ from argus.api.financial_accounts import (
     require_financial_accounts_context,
 )
 from argus.api.routers.financial_loop import _key
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.loop_schemas import CATEGORY_IDS
 from argus.domain.recording.money_responses import (
     MoneyActivityResponse,
@@ -52,7 +53,9 @@ def options(
         lambda: {
             "accounts": [
                 account_response(s)
-                for s in context.service.list_accounts(user_id=context.user_id)
+                for s in context.service.list_accounts(
+                    user_id=context.user_id, scope=PERSONAL
+                )
             ],
             "eligibility": ELIGIBILITY,
             "destination_eligibility": DESTINATION_ELIGIBILITY,
@@ -71,7 +74,7 @@ def purchases(
     return _call(
         request,
         lambda: MoneyService(context.service).purchases(
-            user_id=context.user_id, currency=currency
+            user_id=context.user_id, currency=currency, scope=PERSONAL
         ),
     )
 
@@ -85,7 +88,7 @@ def preview(
     return _call(
         request,
         lambda: MoneyService(context.service).preview(
-            user_id=context.user_id, request=body
+            user_id=context.user_id, request=body, scope=PERSONAL
         ),
     )
 
@@ -103,6 +106,7 @@ def create(
             user_id=context.user_id,
             request=body,
             idempotency_key=_key(request, idempotency_key),
+            scope=PERSONAL,
         ),
     )
 
@@ -116,7 +120,7 @@ def detail(
     return _call(
         request,
         lambda: MoneyService(context.service).detail(
-            user_id=context.user_id, activity_id=activity_id
+            user_id=context.user_id, activity_id=activity_id, scope=PERSONAL
         ),
     )
 
@@ -130,7 +134,7 @@ def history(
     return _call(
         request,
         lambda: MoneyService(context.service).history(
-            user_id=context.user_id, activity_id=activity_id
+            user_id=context.user_id, activity_id=activity_id, scope=PERSONAL
         ),
     )
 
@@ -145,7 +149,7 @@ def correction_preview(
     return _call(
         request,
         lambda: MoneyService(context.service).preview(
-            user_id=context.user_id, request=body, activity_id=activity_id
+            user_id=context.user_id, request=body, activity_id=activity_id, scope=PERSONAL
         ),
     )
 
@@ -165,5 +169,6 @@ def correct(
             request=body,
             activity_id=activity_id,
             idempotency_key=_key(request, idempotency_key),
+            scope=PERSONAL,
         ),
     )

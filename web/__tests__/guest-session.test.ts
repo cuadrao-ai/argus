@@ -29,13 +29,11 @@ describe("guest session entry contract", () => {
     expect(guestAccessEnabledFromEnv("invalid")).toBe(false);
   });
 
-  test("keeps the auth landing as rollback and makes guest entry dynamic", () => {
+  test("keeps the auth landing and does not mount guest entry", () => {
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
-    const guestEntryPath = join(root, "components/guest/GuestEntry.tsx");
 
-    expect(existsSync(guestEntryPath)).toBe(true);
-    expect(page).toContain("<GuestEntry");
-    expect(page).toContain("guestAccessEnabled");
+    expect(existsSync(join(root, "components/guest/GuestEntry.tsx"))).toBe(false);
+    expect(page).not.toContain("<GuestEntry");
     expect(page).toContain("loginWithEmail");
     expect(page).toContain("signupWithEmail");
   });
@@ -141,6 +139,23 @@ describe("guest session entry contract", () => {
     ).toBe("argus-local-browser-qa");
   });
 
+  test.each([
+    [" cuadrao-key ", "argus-key", "cuadrao-key"],
+    [undefined, "argus-key", "argus-key"],
+    ["   ", "argus-key", "argus-key"],
+    ["cuadrao-key", undefined, "cuadrao-key"],
+    [undefined, undefined, undefined],
+    [" ", " ", undefined],
+  ])("resolves canonical and legacy site keys (%s, %s)", (canonical, legacy, expected) => {
+    expect(guestCaptchaPlanForEnvironment({
+      nodeEnv: "production",
+      apiUrl: "https://api.argus.example/api/v1",
+      localQaToken: undefined,
+      cuadraoTurnstileSiteKey: canonical,
+      turnstileSiteKey: legacy,
+    })).toEqual(expected ? { kind: "turnstile", siteKey: expected } : { kind: "unavailable" });
+  });
+
   test("acquires a production Turnstile challenge instead of failing guest entry", () => {
     expect(
       guestCaptchaPlanForEnvironment({
@@ -196,17 +211,13 @@ describe("guest session entry contract", () => {
     expect(api).toContain("if (error)");
   });
 
-  test("routes guest presentation to chat without owning session bootstrap", () => {
-    const entry = readFileSync(
-      join(root, "components/guest/GuestEntry.tsx"),
-      "utf-8",
-    );
+  test("guest presentation no longer owns a chat route", () => {
+    const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
 
-    expect(entry).toContain("router.replace(currentChatPath())");
-    expect(entry).not.toContain("router.refresh()");
-    expect(entry).not.toContain("@/lib/guest-session");
-    expect(entry).not.toContain("startGuestSession");
-    expect(entry).not.toContain("retryGuestSession");
+    expect(existsSync(join(root, "components/guest/GuestEntry.tsx"))).toBe(false);
+    expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
+    expect(page).not.toContain("currentChatPath()");
+    expect(page).not.toContain("startGuestSession");
   });
 
   test("registers an active guest through a prepared signup handoff", () => {

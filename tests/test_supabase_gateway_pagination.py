@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from argus.api.schemas import Message
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.supabase_gateway import ConversationCursorError, SupabaseGateway
 
 from supabase import create_client
@@ -152,7 +153,7 @@ def test_gateway_fetches_all_conversations_in_batches_when_limit_is_none() -> No
 
     ordered.range.side_effect = _range_side_effect
 
-    rows = gateway.list_conversations(user_id="user-1", limit=None)
+    rows = gateway.list_conversations(scope=PERSONAL, user_id="user-1", limit=None)
 
     assert len(rows) == 750
     ordered.range.assert_any_call(0, 499)
@@ -164,7 +165,7 @@ def test_conversation_page_fetches_only_limit_plus_one() -> None:
     client = _RecordingClient([_conversation_row(idx) for idx in range(3)])
     gateway = SupabaseGateway(client=client)  # type: ignore[arg-type]
 
-    rows = gateway.list_conversations(user_id="user-1", limit=2)
+    rows = gateway.list_conversations(scope=PERSONAL, user_id="user-1", limit=2)
 
     assert [row.id for row in rows] == [
         _conversation_id(0),
@@ -187,6 +188,7 @@ def test_conversation_page_delegates_to_injected_postgres_keyset_reader() -> Non
     gateway = SupabaseGateway(client=client, keyset_reader=reader)
 
     rows = gateway.list_conversations(
+        scope=PERSONAL,
         user_id="30000000-0000-0000-0000-000000000001",
         limit=2,
         archived=False,
@@ -199,6 +201,7 @@ def test_conversation_page_delegates_to_injected_postgres_keyset_reader() -> Non
         _conversation_id(2),
     ]
     reader.list_conversation_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="30000000-0000-0000-0000-000000000001",
         limit=2,
         archived=False,
@@ -213,7 +216,7 @@ def test_conversation_page_uses_pinned_updated_at_id_desc() -> None:
     client = _RecordingClient([])
     gateway = SupabaseGateway(client=client)  # type: ignore[arg-type]
 
-    gateway.list_conversations(user_id="user-1", limit=20)
+    gateway.list_conversations(scope=PERSONAL, user_id="user-1", limit=20)
 
     orders = [
         operation for operation in client.queries[0].operations if operation[0] == "order"
@@ -236,6 +239,7 @@ def test_conversation_equal_timestamps_are_stable() -> None:
     gateway = SupabaseGateway(client=client)  # type: ignore[arg-type]
 
     rows = gateway.list_conversations(
+        scope=PERSONAL,
         user_id="user-1",
         limit=2,
         cursor_updated_at=timestamp,
@@ -266,6 +270,7 @@ def test_conversation_soft_deleted_pivot_does_not_skip_or_duplicate() -> None:
     gateway = SupabaseGateway(client=client)  # type: ignore[arg-type]
 
     rows = gateway.list_conversations(
+        scope=PERSONAL,
         user_id="user-1",
         limit=2,
         cursor_updated_at=timestamp,
@@ -299,6 +304,7 @@ def test_conversation_foreign_or_missing_pivot_fails_closed(
 
     with pytest.raises(ValueError, match="conversation cursor"):
         gateway.list_conversations(
+            scope=PERSONAL,
             user_id="user-1",
             limit=2,
             cursor_updated_at=datetime(2026, 4, 27, tzinfo=timezone.utc),
@@ -313,6 +319,7 @@ def test_conversation_malformed_cursor_id_fails_before_postgrest() -> None:
 
     with pytest.raises(ConversationCursorError, match="conversation cursor"):
         gateway.list_conversations(
+            scope=PERSONAL,
             user_id="user-1",
             limit=2,
             cursor_updated_at=datetime(2026, 4, 27, tzinfo=timezone.utc),
@@ -326,6 +333,7 @@ def test_conversation_owner_scope_is_present_in_every_query() -> None:
     gateway = SupabaseGateway(client=client)  # type: ignore[arg-type]
 
     gateway.list_conversations(
+        scope=PERSONAL,
         user_id="user-1",
         limit=2,
         cursor_updated_at=datetime(2026, 4, 27, tzinfo=timezone.utc),
@@ -693,14 +701,10 @@ def test_message_page_context_artifact_filters_exclude_empty_values() -> None:
 
     assert [message.id for message in later_work] == [_message_id(3)]
     reload_filter = next(
-        args[0]
-        for name, args in client.queries[1].operations
-        if name == "or_"
+        args[0] for name, args in client.queries[1].operations if name == "or_"
     )
     lifecycle_filter = next(
-        args[0]
-        for name, args in client.queries[2].operations
-        if name == "or_"
+        args[0] for name, args in client.queries[2].operations if name == "or_"
     )
     assert "metadata->>confirmation_payload.neq." in reload_filter
     assert "metadata->confirmation_payload.neq.{}" in reload_filter
@@ -757,7 +761,9 @@ def test_conversation_soft_deleted_pivot_is_stable_in_real_postgres() -> None:
             ]
         ).execute()
 
-        first_candidates = gateway.list_conversations(user_id=user_id, limit=2)
+        first_candidates = gateway.list_conversations(
+            scope=PERSONAL, user_id=user_id, limit=2
+        )
         first_page = first_candidates[:2]
         assert [item.id for item in first_candidates] == [
             conversation_ids[5],
@@ -771,6 +777,7 @@ def test_conversation_soft_deleted_pivot_is_stable_in_real_postgres() -> None:
             conversation_id=pivot.id,
         )
         second_candidates = gateway.list_conversations(
+            scope=PERSONAL,
             user_id=user_id,
             limit=2,
             cursor_updated_at=timestamp,
@@ -919,9 +926,7 @@ def test_message_page_is_stable_and_filters_markers_in_real_postgres() -> None:
                 "conversation_id": conversation_id,
                 "role": "assistant",
                 "content": "Broader reload artifact",
-                "metadata": {
-                    "confirmation_payload": {"strategy": {"symbols": ["AAPL"]}}
-                },
+                "metadata": {"confirmation_payload": {"strategy": {"symbols": ["AAPL"]}}},
                 "created_at": timestamp.replace(microsecond=2).isoformat(),
             },
             {

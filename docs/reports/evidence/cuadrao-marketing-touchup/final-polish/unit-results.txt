@@ -1,0 +1,250 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/forms-inquiry.test.ts:
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry delivery > accepts after the provider accepts and sends one message to the configured mailbox [9.54ms]
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry delivery > a retry of the same submission carries the same idempotency key [0.24ms]
+{"event":"inquiry_provider_rejected","status":403}
+(pass) inquiry delivery > a provider rejection is reported as unavailable, never as accepted [0.21ms]
+{"event":"inquiry_provider_failed","reason":"TimeoutError"}
+(pass) inquiry delivery > a provider timeout is reported as unavailable [0.77ms]
+{"event":"inquiry_unavailable","reason":"not_configured"}
+(pass) inquiry delivery > with no recipient configured the form is unavailable and sends nothing [0.05ms]
+{"event":"inquiry_unavailable","reason":"not_configured"}
+(pass) inquiry delivery > missing provider configuration is unavailable and calls nothing [0.04ms]
+(pass) inquiry input handling > invalid fields return 400 with field names only and call nothing [0.16ms]
+(pass) inquiry input handling > a filled honeypot looks accepted but sends nothing [0.17ms]
+(pass) inquiry input handling > rejects a body that is not JSON [0.02ms]
+(pass) inquiry input handling > rejects malformed JSON [0.24ms]
+(pass) inquiry input handling > rejects an oversized body without reading it all [0.78ms]
+(pass) inquiry input handling > rejects a request from another origin [0.21ms]
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry input handling > accepts the page's own origin [0.06ms]
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry limits > a client is limited after five attempts and told when to retry [0.16ms]
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry limits > one address is limited to three messages an hour across clients [1.32ms]
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry client identity > a spoofed leftmost X-Forwarded-For does not get a fresh allowance [0.12ms]
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+{"event":"inquiry_accepted","locale":"es"}
+(pass) inquiry client identity > a configured trusted header names the client instead [1.78ms]
+(pass) inquiry logging > never writes the visitor's name, address or message [0.13ms]
+
+__tests__/business-owner-example.test.ts:
+(pass) Business illustrative money > keeps currencies separate and derives balances from movements [0.37ms]
+(pass) Business illustrative money > a personally paid business expense does not reduce business cash [0.02ms]
+(pass) Business illustrative money > owner money changes cash without becoming sales or operating expenses [0.03ms]
+(pass) Business illustrative money > budgets report recorded expenses and reserves do not spend cash [0.27ms]
+(pass) Business illustrative money > a delayed collection changes only the projection, not actual balances [0.04ms]
+
+__tests__/sample-money.test.ts:
+(pass) illustrative business money > keeps receivables separate from cash received [0.02ms]
+(pass) illustrative business money > shows the original Dominican currency in es [1.94ms]
+(pass) illustrative business money > shows the original Dominican currency in en [0.04ms]
+
+__tests__/rate-limit.test.ts:
+(pass) window limiter > allows up to the limit, then reports the seconds until the oldest hit expires [0.11ms]
+(pass) window limiter > forgets hits once the window has passed [0.01ms]
+(pass) window limiter > keeps keys independent
+(pass) window limiter > a refused attempt does not extend the wait
+(pass) window limiter > a timer drops a key's stored value after its window, with no further submission [121.61ms]
+
+__tests__/ops-signups.test.ts:
+(pass) removal > erases the address of an active signup and keeps its digest [0.48ms]
+(pass) removal > an address that never registered is recorded as suppressed [0.21ms]
+(pass) removal > a database error is raised, not reported as done [0.26ms]
+(pass) notice planning > a full send reaches every pending signup and stamps them [0.02ms]
+(pass) notice planning > --only reaches only the named pending addresses and never stamps [0.19ms]
+(pass) notice template > accepts a template that tells readers how to leave [0.05ms]
+(pass) notice template > rejects a notice without the opt-out address or a language [0.02ms]
+(pass) notice sending > claims a row, then sends it in its language under a per-recipient key [1.24ms]
+(pass) notice sending > an address removed after the list was read is skipped and never mailed [0.09ms]
+(pass) notice sending > an address already notified is skipped [0.06ms]
+(pass) notice sending > a database that refuses the claim stops the run before anything is sent, naming that row [0.14ms]
+(pass) notice sending > a claim saved but unanswered is named, because that row is claimed and was never mailed [0.08ms]
+(pass) notice sending > a plain provider refusal releases the claim so a rerun can try again [0.41ms]
+(pass) notice sending > a refusal whose claim cannot be released stays claimed and is named as refused, not unknown [0.07ms]
+(pass) notice sending > the first send with no usable answer stops the run, so an outage cannot claim every row [0.07ms]
+(pass) notice sending > a test send also stops at the first unknown result and claims nothing [0.06ms]
+(pass) notice sending > a 409 may have been processed, so the row stays claimed and is named [0.06ms]
+(pass) notice sending > a 500 may have been processed, so the row stays claimed and is named [0.01ms]
+(pass) notice sending > a 503 may have been processed, so the row stays claimed and is named [0.01ms]
+(pass) notice sending > a lost response is retried once under the same key and delivers exactly one message [0.08ms]
+(pass) notice sending > a 422 after a lost first attempt does not prove nothing was sent, so the claim stays [0.05ms]
+(pass) notice sending > a 429 after a lost first attempt does not prove nothing was sent, so the claim stays [0.02ms]
+(pass) notice sending > no answer after the retry leaves the row claimed, named, and not mailed again by a rerun [0.07ms]
+(pass) notice sending > a test send claims nothing and uses its own key [0.04ms]
+
+__tests__/forms-config.test.ts:
+(pass) forms configuration > reads the inquiry recipient from CUADRAO_INQUIRY_TO and has no default [0.04ms]
+(pass) forms configuration > an invalid recipient reads as not configured
+
+__tests__/site-routes.test.ts:
+(pass) public URL map > Spanish is unprefixed and English lives under /en [0.01ms]
+(pass) public URL map > every route is canonical on the public origin [0.01ms]
+(pass) public URL map > slugs resolve back to their page in es [0.04ms]
+(pass) public URL map > slugs resolve back to their page in en
+(pass) public URL map > does not claim an unknown slug "private"
+(pass) public URL map > does not claim an unknown slug "demo"
+(pass) public URL map > does not claim an unknown slug "personal"
+(pass) public URL map > does not claim an unknown slug "es"
+(pass) public URL map > the English contact slug is not a Spanish page [0.01ms]
+(pass) case handling > /EN redirects to /en [0.01ms]
+(pass) case handling > /en/Personal redirects to /en/personal
+(pass) case handling > /En/PRIVACY redirects to /en/privacy
+(pass) case handling > /Contacto redirects to /contacto
+(pass) case handling > an already lowercase path is left alone
+(pass) alternates > home links both languages and defaults to Spanish [0.04ms]
+(pass) alternates > personal links both languages and defaults to Spanish
+(pass) alternates > contact links both languages and defaults to Spanish
+(pass) alternates > privacy links both languages and defaults to Spanish
+(pass) redirects and rewrites > old marketing path /business permanently redirects to /
+(pass) redirects and rewrites > old marketing path /business/personal permanently redirects to /personal
+(pass) redirects and rewrites > old marketing path /business/demo permanently redirects to /contacto
+(pass) redirects and rewrites > old marketing path /business/en permanently redirects to /en
+(pass) redirects and rewrites > old marketing path /business/en/personal permanently redirects to /en/personal
+(pass) redirects and rewrites > old marketing path /business/en/demo permanently redirects to /en/contact
+(pass) redirects and rewrites > the internal Spanish tree is never public [0.02ms]
+(pass) redirects and rewrites > every Spanish public path rewrites to the internal tree
+(pass) redirects and rewrites > no redirect source is also a public route [0.02ms]
+
+__tests__/forms-validation.test.ts:
+(pass) inquiry validation > normalizes the address and trims the text [0.06ms]
+(pass) inquiry validation > an empty description is allowed [0.01ms]
+(pass) inquiry validation > rejects {"name":""} [0.02ms]
+(pass) inquiry validation > rejects {"name":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+(pass) inquiry validation > rejects {"name":"Ana\r\nBcc: someone@example.invalid"}
+(pass) inquiry validation > rejects {"email":"no-at-sign"}
+(pass) inquiry validation > rejects {"email":"a b@example.invalid"}
+(pass) inquiry validation > rejects {"email":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@example.invalid"}
+(pass) inquiry validation > rejects {"description":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+(pass) inquiry validation > rejects {"submissionId":"not-a-uuid"}
+(pass) inquiry validation > rejects {"locale":"fr"}
+(pass) inquiry validation > rejects a non-object body null
+(pass) inquiry validation > rejects a non-object body "text"
+(pass) inquiry validation > rejects a non-object body 4
+(pass) inquiry validation > rejects a non-object body "a"
+(pass) inquiry validation > keeps newlines in the description but drops other control characters [0.02ms]
+(pass) signup validation > accepts an address and a language [0.03ms]
+(pass) signup validation > rejects {"email":"","locale":"es"}
+(pass) signup validation > rejects {"email":"ana@example.invalid","locale":"xx"}
+(pass) signup validation > rejects {"email":"ana","locale":"xx"}
+(pass) address digest > is the same for every spelling of one address [0.01ms]
+(pass) address digest > is a 64 character lowercase hex string that does not contain the address [0.03ms]
+(pass) honeypot > {"website":"https://spam.example.invalid"} is true
+(pass) honeypot > {"website":"   "} is false
+(pass) honeypot > {"website":""} is false
+(pass) honeypot > {} is false
+(pass) honeypot > null is false
+(pass) configured mailbox > accepts one bare address and normalizes it
+(pass) configured mailbox > refuses undefined so it can never become several recipients
+(pass) configured mailbox > refuses "" so it can never become several recipients
+(pass) configured mailbox > refuses "   " so it can never become several recipients
+(pass) configured mailbox > refuses "a@example.invalid, b@example.invalid" so it can never become several recipients
+(pass) configured mailbox > refuses "Founder <founder@example.invalid>" so it can never become several recipients
+(pass) configured mailbox > refuses "founder@example.invalid\nBcc: x@example.invalid" so it can never become several recipients
+(pass) configured mailbox > refuses "no-at-sign" so it can never become several recipients
+
+__tests__/brand-mark.test.ts:
+(pass) light-background mark > draws the same three shapes as the tiled icon [0.09ms]
+(pass) light-background mark > keeps the lean transform and omits the tile
+(pass) dark-background mark > is the tiled icon's own shapes, transform and colours without the tile [0.07ms]
+(pass) lockups > cuadrao-lockup-light.svg embeds the shapes of cuadrao-mark-light.svg [0.10ms]
+(pass) lockups > cuadrao-lockup-dark.svg embeds the shapes of cuadrao-mark-dark.svg [0.08ms]
+(pass) lockups > the wordmark paths are the same letters in both colours [0.12ms]
+(pass) wordmark specification > states the styling the website's .wordmark rule uses [0.09ms]
+(pass) intrinsic size > cuadrao-lockup-light.svg declares a width and height in the aspect of its viewBox [0.07ms]
+(pass) intrinsic size > cuadrao-lockup-dark.svg declares a width and height in the aspect of its viewBox [0.02ms]
+(pass) intrinsic size > cuadrao-wordmark.svg declares a width and height in the aspect of its viewBox [0.02ms]
+(pass) intrinsic size > cuadrao-wordmark-dark.svg declares a width and height in the aspect of its viewBox [0.02ms]
+(pass) whole mark group > is identical, with its opacity, in the icon, the dark mark and the dark lockup [0.06ms]
+(pass) whole mark group > is identical in the light mark and the light lockup [0.03ms]
+(pass) whole mark group > the dark lockup carries the same wordmark path in the paper colour [0.08ms]
+(pass) whole mark group > the icon tile is the site's ink
+
+__tests__/privacy-copy.test.ts:
+(pass) privacy text (es) > names Render once, in the providers section [0.03ms]
+(pass) privacy text (es) > names Resend once, in the providers section
+(pass) privacy text (es) > names Apple once, in the providers section
+(pass) privacy text (es) > names Supabase once, in the providers section
+(pass) privacy text (es) > names Cloudflare once, in the providers section
+(pass) privacy text (es) > mentions iCloud Mail once, beside the public address [0.03ms]
+(pass) privacy text (es) > does not publish an operator before it is confirmed [0.02ms]
+(pass) privacy text (es) > does not claim data is received only in certain cases [0.39ms]
+(pass) privacy text (es) > keeps the hosting IP-address disclosure [0.02ms]
+(pass) privacy text (es) > does not describe the mailbox vaguely [0.01ms]
+(pass) privacy text (es) > tells the visitor the site briefly keeps their address and email to limit submissions [0.02ms]
+(pass) privacy text (es) > does not claim the contact details are used only to reply [0.01ms]
+(pass) privacy text (en) > names Render once, in the providers section
+(pass) privacy text (en) > names Resend once, in the providers section
+(pass) privacy text (en) > names Apple once, in the providers section
+(pass) privacy text (en) > names Supabase once, in the providers section
+(pass) privacy text (en) > names Cloudflare once, in the providers section
+(pass) privacy text (en) > mentions iCloud Mail once, beside the public address
+(pass) privacy text (en) > does not publish an operator before it is confirmed
+(pass) privacy text (en) > does not claim data is received only in certain cases
+(pass) privacy text (en) > keeps the hosting IP-address disclosure
+(pass) privacy text (en) > does not describe the mailbox vaguely
+(pass) privacy text (en) > tells the visitor the site briefly keeps their address and email to limit submissions
+(pass) privacy text (en) > does not claim the contact details are used only to reply
+(pass) contact form privacy line (es) > does not claim the details are used only to reply
+(pass) contact form privacy line (en) > does not claim the details are used only to reply
+
+__tests__/forms-signup.test.ts:
+{"event":"signup_stored","locale":"es"}
+(pass) signup storage > registers only after the database accepts the row [0.52ms]
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+(pass) signup storage > a new, a repeated and a removed address get the same answer [0.14ms]
+{"event":"signup_store_rejected","status":500}
+(pass) signup storage > a database error is unavailable, never registered [0.05ms]
+{"event":"signup_store_failed","reason":"TypeError"}
+(pass) signup storage > a network failure is unavailable [0.09ms]
+{"event":"signup_unavailable","reason":"not_configured"}
+(pass) signup storage > missing configuration is unavailable and calls nothing [0.04ms]
+{"event":"signup_stored","locale":"es"}
+(pass) signup storage > the credential never appears in a response [0.05ms]
+(pass) signup input handling > invalid input returns 400 and calls nothing [0.06ms]
+(pass) signup input handling > a filled honeypot looks registered but stores nothing [0.04ms]
+(pass) signup input handling > rejects another origin [0.03ms]
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+{"event":"signup_stored","locale":"es"}
+(pass) signup input handling > limits a client after eight attempts [0.53ms]
+{"event":"signup_stored","locale":"es"}
+(pass) signup shared allowance > invalid and honeypot requests do not spend the shared allowance [1.15ms]
+(pass) signup logging > never writes the address [0.18ms]
+
+__tests__/business-priorities.test.ts:
+(pass) illustrative business priorities > connects collections to the same invoice shown in the replay [0.05ms]
+(pass) illustrative business priorities > keeps payable and document priorities distinct from receivables [0.04ms]
+(pass) illustrative business priorities > attaches the receipt to the existing expense instead of creating a second expense [0.03ms]
+(pass) illustrative business priorities > has a display name for every es priority [0.01ms]
+(pass) illustrative business priorities > has a display name for every en priority
+
+ 177 pass
+ 0 fail
+ 365 expect() calls
+Ran 177 tests across 12 files. [179.00ms]

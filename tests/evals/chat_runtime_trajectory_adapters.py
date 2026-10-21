@@ -24,6 +24,7 @@ from argus.domain import backtest_admission
 from argus.domain.backtest_finalization import MemoryBacktestFinalizationGateway
 from argus.domain.store import utcnow
 from argus.llm.openrouter import (
+    _SCHEMA_IN_PROMPT_INSTRUCTION,
     clear_openrouter_route_receipts,
     invoke_openrouter_json_schema,
 )
@@ -627,10 +628,30 @@ class ConcreteTrajectoryRuntime:
         if not isinstance(content, str):
             raise AssertionError("trajectory provider received no typed content")
         response_format = payload.get("response_format")
-        if (
+        native_schema = (
             isinstance(response_format, dict)
             and response_format.get("type") == "json_schema"
+        )
+        first = messages[0]
+        schema_content = first.get("content") if first.get("role") == "system" else None
+        if (
+            isinstance(schema_content, list)
+            and len(schema_content) == 1
+            and isinstance(schema_content[0], dict)
+            and schema_content[0].get("type") == "text"
         ):
+            schema_content = schema_content[0].get("text")
+        prompt_schema = None
+        if isinstance(schema_content, str) and schema_content.startswith(
+            _SCHEMA_IN_PROMPT_INSTRUCTION
+        ):
+            try:
+                prompt_schema = json.loads(
+                    schema_content[len(_SCHEMA_IN_PROMPT_INSTRUCTION) :]
+                )
+            except json.JSONDecodeError:
+                pass
+        if native_schema or prompt_schema == StructuredInterpretation.model_json_schema():
             StructuredInterpretation.model_validate_json(content)
         else:
             content = (

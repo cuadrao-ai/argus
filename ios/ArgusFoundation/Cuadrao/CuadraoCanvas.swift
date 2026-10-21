@@ -60,19 +60,8 @@ struct CuadraoCanvas: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 0) {
-                    CuadraoBrand()
-                    .padding(.top, 28)
-
                     Spacer(minLength: 32)
-
-                    VStack(spacing: 32) {
-                        WelcomeSquares()
-                        Text(spanish ? "Tus finanzas,\nen orden." : "Your finances,\nin order.")
-                            .font(CuadraoTypography.screen)
-                            .lineSpacing(2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.center)
-                    }
+                    CuadraoWelcomeLockup()
 
                     Spacer(minLength: 40)
 
@@ -82,6 +71,8 @@ struct CuadraoCanvas: View {
                         } label: {
                             Text(spanish ? "Crear cuenta" : "Create account")
                                 .font(.system(.body, weight: .semibold))
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, 14)
                                 .frame(maxWidth: .infinity, minHeight: 56)
                                 .foregroundStyle(WelcomePalette.onAccent)
                                 .background(WelcomePalette.pine, in: RoundedRectangle(cornerRadius: 16))
@@ -92,6 +83,8 @@ struct CuadraoCanvas: View {
                         } label: {
                             Text(spanish ? "Iniciar sesión" : "Sign in")
                                 .font(.system(.body, weight: .semibold))
+                                .multilineTextAlignment(.center)
+                                .padding(.vertical, 14)
                                 .frame(maxWidth: .infinity, minHeight: 56)
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 16)
@@ -105,31 +98,22 @@ struct CuadraoCanvas: View {
                 .frame(minHeight: geometry.size.height, alignment: .topLeading)
             }.scrollIndicators(.hidden)
         }
-        .background(WelcomePalette.background.ignoresSafeArea())
+        .background(WelcomePalette.brandPaper.ignoresSafeArea())
         .foregroundStyle(WelcomePalette.ink)
 
     }
 }
 
-/// The overlapping forms echo the provisional mark without fixing the final logo.
+/// The large decorative mark on the invitation pages: the approved Cuadrao mark (tile-less; light-surface colours on
+/// light, Marketing's dark-surface mark on dark), in the 208 pt frame the provisional squares used.
 struct WelcomeSquares: View {
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 22)
-                .fill(WelcomePalette.pine)
-                .frame(width: 116, height: 116)
-                .offset(x: 36, y: -36)
-            RoundedRectangle(cornerRadius: 22)
-                .fill(WelcomePalette.sage)
-                .frame(width: 116, height: 116)
-                .offset(x: -36, y: 36)
-            RoundedRectangle(cornerRadius: 5)
-                .fill(WelcomePalette.overlap)
-                .frame(width: 44, height: 44)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 208)
-        .accessibilityHidden(true)
+        Image("CuadraoMark")
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: .infinity)
+            .frame(height: 208)
+            .accessibilityHidden(true)
     }
 }
 

@@ -1,0 +1,10 @@
+{
+ "iterations": 181,
+ "outcomes": {
+  "replay_K1:args=10:ok": 64,
+  "create_new:args=10:ok": 64,
+  "replay_K1:args=11:ok": 117,
+  "create_new:args=11:ok": 117
+ },
+ "prepared_statements_on_pool_connection": 1
+}

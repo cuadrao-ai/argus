@@ -2,10 +2,7 @@ import SwiftUI
 import Observation
 
 // Navigation artwork and destination names have one owner across the canvas.
-enum CuadraoTab: Int, CaseIterable, Identifiable {
-    case home, plan, assistant, search, profile
-    var id: Self { self }
-
+extension CuadraoTab {
     func title(spanish: Bool) -> String {
         switch self {
         case .home: spanish ? "Inicio" : "Home"
@@ -53,42 +50,127 @@ struct CuadraoNavigationBar: View {
     let spanish: Bool
     var avatar: CuadraoAvatarSelection = .none
     var profileName: String = ""
+    var addOpen = false
+    var hasAssistant: Bool = CuadraoFirstRelease.hasAssistant
+    let add: () -> Void
+    @GestureState private var scrubbing: CuadraoNavigationSlot?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private let padding: CGFloat = 4
+    private let slotHeight: CGFloat = 48
+
+    private var slots: [CuadraoNavigationSlot] { CuadraoNavigationSlot.slots(hasAssistant: hasAssistant) }
+    /// With an add slot, a collapsed bar folds into the + alone at the right; otherwise it only narrows.
+    private var collapsesToAdd: Bool { compact && slots.contains(.add) }
+
+    /// One bar whose slots change width, so collapsing is a resize and never a swap of views.
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(CuadraoTab.allCases) { tab in
-                Button { selection = tab } label: {
-                    Group {
-                        if tab == .profile, avatar != .none {
-                            CuadraoIdentityAvatar(selection: avatar, name: profileName, size: 28, presentation: .navigation)
-                        } else {
-                            tab.image(selected: selection == tab)
-                        }
-                    }
-                        .environment(\.symbolVariants, .none)
-                        .font(.system(size: 25, weight: .regular))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .foregroundStyle(selection == tab ? WelcomePalette.pine : Color.secondary)
-                        .background {
-                            if selection == tab {
-                                Capsule().fill(WelcomePalette.pine.opacity(0.09))
-                            }
-                        }
-                        .contentShape(Capsule())
+        GeometryReader { proxy in
+            let full = proxy.size.width
+            let barWidth = collapsesToAdd ? slotHeight + padding * 2 : (compact ? min(full, 270) : full)
+            let inner = max(0, barWidth - padding * 2)
+            let slotWidth = collapsesToAdd ? slotHeight : inner / CGFloat(max(slots.count, 1))
+            HStack(spacing: 0) {
+                ForEach(slots) { slot in
+                    let folded = collapsesToAdd && slot != .add
+                    slotView(slot)
+                        .frame(width: folded ? 0 : slotWidth, height: slotHeight)
+                        .opacity(folded ? 0 : 1)
+                        .clipped()
+                        .accessibilityHidden(folded)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.title(spanish: spanish))
-                // Tip-compatible ids keep UITests working; Cuadrao ordinal remains for design evidence.
-                .accessibilityIdentifier(tab.tipAccessibilityID)
-                .accessibilityAddTraits(selection == tab ? .isSelected : [])
             }
+            .frame(width: inner, height: slotHeight)
+            .gesture(slide(width: inner))
+            .padding(padding)
+            .modifier(CuadraoNavigationMaterial())
+            .frame(width: full, height: slotHeight + padding * 2, alignment: collapsesToAdd ? .trailing : .center)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: compact)
+        }.frame(height: slotHeight + padding * 2)
+    }
+
+    /// Sliding a finger across the bar follows it and chooses the slot it lifts on; a tap is a slide of no distance.
+    private func slide(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .updating($scrubbing) { value, state, _ in state = slot(at: value.location, width: width) }
+            .onEnded { value in
+                if let chosen = slot(at: value.location, width: width) { activate(chosen) }
+            }
+    }
+
+    private func slot(at location: CGPoint, width: CGFloat) -> CuadraoNavigationSlot? {
+        guard location.y > -40, location.y < 96, location.x > -40, location.x < width + 40, !slots.isEmpty else { return nil }
+        if collapsesToAdd { return .add }
+        return slots[CuadraoNavigationSlot.index(forX: location.x, width: width, count: slots.count)]
+    }
+
+    private func activate(_ slot: CuadraoNavigationSlot) {
+        switch slot {
+        case .tab(let tab): selection = tab
+        case .add: add()
         }
-        .padding(4)
-        .frame(maxWidth: compact ? 270 : .infinity)
-        .modifier(CuadraoNavigationMaterial())
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: compact)
+    }
+
+    private var addLabel: String {
+        addOpen ? (spanish ? "Cerrar" : "Close") : (spanish ? "Añadir" : "Add")
+    }
+
+    private var addGlyph: some View {
+        Image(systemName: addOpen ? "xmark" : "plus")
+            .font(.system(size: 25, weight: .regular))
+            .foregroundStyle(WelcomePalette.pine)
+    }
+
+    @ViewBuilder private func slotView(_ slot: CuadraoNavigationSlot) -> some View {
+        switch slot {
+        case .tab(let tab):
+            let highlighted = (scrubbing ?? .tab(selection)) == .tab(tab)
+            Group {
+                if tab == .profile, avatar != .none {
+                    CuadraoIdentityAvatar(selection: avatar, name: profileName, size: 28, presentation: .navigation)
+                } else {
+                    tab.image(selected: highlighted)
+                }
+            }
+                .environment(\.symbolVariants, .none)
+                .font(.system(size: 25, weight: .regular))
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .foregroundStyle(highlighted ? WelcomePalette.pine : Color.secondary)
+                .background {
+                    if highlighted { Capsule().fill(WelcomePalette.pine.opacity(0.09)) }
+                }
+                .contentShape(Capsule())
+                // Tip-compatible ids keep UITests working; Cuadrao ordinal remains for design evidence.
+                .modifier(SlotAccessibility(label: tab.title(spanish: spanish), identifier: tab.tipAccessibilityID,
+                                            selected: selection == tab) { activate(slot) })
+        case .add:
+            addGlyph
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background {
+                    if scrubbing == .add { Capsule().fill(WelcomePalette.pine.opacity(0.09)) }
+                }
+                .contentShape(Capsule())
+                .modifier(SlotAccessibility(label: addLabel, identifier: "nav.add", selected: false) { activate(slot) })
+        }
+    }
+}
+
+/// One accessible button per slot. Touches belong to the bar's slide gesture, so the action is also exposed here.
+private struct SlotAccessibility: ViewModifier {
+    let label: String
+    let identifier: String
+    let selected: Bool
+    let activate: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityIdentifier(identifier)
+            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction { activate() }
     }
 }
 

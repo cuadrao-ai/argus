@@ -11,7 +11,10 @@ struct CanvasAccountEntry: Equatable {
     var sharingCustom = false
 
     var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    var sharePercent: Int { sharingCustom ? (Int(customShare) ?? 100) : share }
+    var sharePercent: Int {
+        guard sharingCustom, case .success(let value?) = PercentInput.parse(customShare, .wholeShare) else { return share }
+        return NSDecimalNumber(decimal: value).intValue
+    }
 }
 
 /// The canvas keeps its own identifiers; the connected app keeps the ones its UI tests drive.
@@ -70,6 +73,10 @@ struct CuadraoAccountEntryForm: View {
     /// Inputs freeze while a save is in flight or a create waits for its exact retry.
     var locked = false
     var busy = false
+    /// A host that keeps the currency or the type fixed once a balance is recorded says so here.
+    var currencySelectable = true
+    var kindLocked = false
+    var lockNote: String? = nil
     let cancel: () -> Void
     let save: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -77,9 +84,10 @@ struct CuadraoAccountEntryForm: View {
     @State private var assetsExpanded = false
     @State private var error = ""
     @FocusState private var nameFocused: Bool
+    private static let amountAnchor = "account-entry-amount"
 
     private var hint: String? {
-        if entry.kind?.isAsset == true && entry.sharingCustom && !(1...100).contains(Int(entry.customShare) ?? 0) {
+        if entry.kind?.isAsset == true && entry.sharingCustom && PercentInput.problem(entry.customShare, .wholeShare) != nil {
             return spanish ? "Introduce tu parte, de 1 a 100%." : "Enter your share, from 1 to 100%."
         }
         if entry.kind == nil { return spanish ? "Elige un tipo de cuenta" : "Choose an account type" }
@@ -91,6 +99,7 @@ struct CuadraoAccountEntryForm: View {
     private var message: String? { hint ?? status }
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     Text(spaceTitle).font(.subheadline).foregroundStyle(.secondary)
@@ -110,8 +119,11 @@ struct CuadraoAccountEntryForm: View {
                             : (spanish ? "Balance actual" : "Current balance"))
                         CuadraoAmountField(raw: $entry.amount, currency: $entry.currency, error: $error,
                             spanish: spanish, allowNegative: entry.kind?.isDebt != true && entry.kind?.isAsset != true,
-                            identifier: ids.amount, currencyIdentifier: ids.currency)
-                    }
+                            currencySelectable: currencySelectable, identifier: ids.amount, currencyIdentifier: ids.currency)
+                        if let lockNote {
+                            Text(lockNote).font(.footnote).foregroundStyle(.secondary).accessibilityIdentifier("account-lock-note")
+                        }
+                    }.id(Self.amountAnchor)
                     if entry.kind?.isAsset == true {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
@@ -127,21 +139,25 @@ struct CuadraoAccountEntryForm: View {
                                 }.accessibilityIdentifier(ids.share)
                             }
                             if entry.sharingCustom {
-                                TextField(spanish ? "Porcentaje" : "Percentage", text: $entry.customShare)
-                                    .keyboardType(.numberPad).modifier(RegistrationField())
+                                PercentField(title: spanish ? "Porcentaje" : "Percentage", text: $entry.customShare, bounds: .wholeShare,
+                                             spanish: spanish, identifier: ids.share + ".percent")
                             }
                         }
                     }
                 }.padding(24).disabled(locked)
             }
             .scrollDismissesKeyboard(.interactively)
+            // The sheet's button rides above the keyboard, so the balance under Name would sit behind it.
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                guard nameFocused else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo(Self.amountAnchor, anchor: .bottom) }
+            }
+            }
             .background(WelcomePalette.background)
             .navigationTitle(editing ? (spanish ? "Editar cuenta" : "Edit account") : (spanish ? "Añadir cuenta" : "Add account"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(spanish ? "Cancelar" : "Cancel", action: cancel).disabled(busy).accessibilityIdentifier(ids.cancel)
-                }
+                CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", disabled: busy, identifier: ids.cancel, action: cancel)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 0) {
@@ -182,9 +198,10 @@ struct CuadraoAccountEntryForm: View {
                         CanvasAccountIcon(kind: kind)
                         Text(kind.title(spanish)).foregroundStyle(.primary)
                         Spacer()
-                        Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary)
+                        if !kindLocked { Image(systemName: "chevron.down").font(.caption).foregroundStyle(.secondary) }
                     }.padding(18).background(WelcomePalette.sage.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
-                }.buttonStyle(.plain).accessibilityLabel(spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))")
+                }.buttonStyle(.plain).disabled(kindLocked).accessibilityLabel(kindLocked ? (spanish ? "Tipo fijo, \(kind.title(spanish))" : "Fixed type, \(kind.title(spanish))")
+                        : (spanish ? "Cambiar tipo, \(kind.title(spanish))" : "Change type, \(kind.title(spanish))"))
                     .accessibilityIdentifier(ids.typeChange)
             } else {
                 typeGrid(CanvasAccountKind.allCases.filter { !$0.isAsset })

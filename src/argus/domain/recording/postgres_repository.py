@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 from psycopg import sql
 from psycopg_pool import ConnectionPool
 
+from argus.domain.owner_scope import OwnerScope, space_id, sql_predicate
 from argus.domain.recording.accounts import AccountFacts
 from argus.domain.recording.asset_schemas import AssetDetailsRequest
 from argus.domain.recording.errors import (
@@ -57,11 +58,12 @@ class PostgresFinancialAccountRepository:
         identity_hash: str,
         account: NewAccount,
         opening: OpeningWrite | None,
+        scope: OwnerScope,
     ) -> CreateResult:
         with self._pool.connection() as connection:
             row = connection.execute(
                 "select public.create_financial_account("
-                "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     user_id,
                     idempotency_key,
@@ -73,6 +75,7 @@ class PostgresFinancialAccountRepository:
                     opening.amount_minor if opening else None,
                     opening.as_of if opening else None,
                     opening.time_zone if opening else None,
+                    space_id(scope),
                 ),
             ).fetchone()
             outcome: dict[str, Any] = row[0]
@@ -81,18 +84,31 @@ class PostgresFinancialAccountRepository:
                 raise IdempotencyConflict()
             if decision == "registered_required":
                 raise RegisteredAccountRequired()
-            stored = self._load(connection, user_id, str(outcome["account_id"]))
+            if decision == "created" and opening is not None and opening.blank:
+                from psycopg.types.json import Jsonb
+
+                marked = connection.execute(
+                    "update public.financial_record_revisions v set details=details || %s where v.record_id=(select id from public.financial_records where account_id=%s and user_id=%s and record_kind='opening_balance') and v.revision=1",
+                    (Jsonb({"blank": True}), outcome["account_id"], user_id),
+                )
+                if marked.rowcount != 1:
+                    # Raising inside the connection block rolls the new account back too.
+                    raise RuntimeError("blank opening was not marked on the new account")
+            stored = self._load(
+                connection, user_id, str(outcome["account_id"]), scope=scope
+            )
             if stored is None:  # pragma: no cover - the function just wrote it
                 raise AccountNotFound()
             return CreateResult(stored, created=decision == "created")
 
-    def list_accounts(self, *, user_id: str) -> list[StoredAccount]:
+    def list_accounts(self, *, user_id: str, scope: OwnerScope) -> list[StoredAccount]:
+        in_scope, params = sql_predicate(scope, "owner_space_id")
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
             rows = connection.execute(
                 f"select {_ACCOUNT_COLUMNS} from public.financial_accounts"
-                " where user_id = %s order by created_at asc, id asc",
-                (user_id,),
+                f" where user_id = %s and {in_scope} order by created_at asc, id asc",
+                (user_id, *params),
             ).fetchall()
             openings = self._openings(connection, user_id, [str(row[0]) for row in rows])
             records = [
@@ -101,12 +117,16 @@ class PostgresFinancialAccountRepository:
             ]
             from .canonical_groups import VisibleAccounts, load
 
-            return VisibleAccounts(records, load(self, connection, {user_id}))
+            return VisibleAccounts(
+                records, load(self, connection, {user_id}, scope=scope)
+            )
 
-    def get_account(self, *, user_id: str, account_id: str) -> StoredAccount | None:
+    def get_account(
+        self, *, user_id: str, account_id: str, scope: OwnerScope
+    ) -> StoredAccount | None:
         with self._pool.connection() as connection:
             connection.execute("set transaction isolation level repeatable read")
-            return self._load(connection, user_id, account_id)
+            return self._load(connection, user_id, account_id, scope=scope)
 
     def get_any_account(self, *, account_id: str) -> StoredAccount | None:
         """Load by id after household authorization; not a client route."""
@@ -131,6 +151,7 @@ class PostgresFinancialAccountRepository:
         account_id: str,
         expected_version: int,
         changes: dict[str, object],
+        scope: OwnerScope,
     ) -> StoredAccount:
         unknown = set(changes) - _EDITABLE_COLUMNS
         if unknown:
@@ -150,7 +171,7 @@ class PostgresFinancialAccountRepository:
                 from argus.domain.recording.asset_storage import validate_type_change
 
                 lock_owner(connection, user_id)
-                current = self._load(connection, user_id, account_id)
+                current = self._load(connection, user_id, account_id, scope=scope)
                 if current is None:
                     raise AccountNotFound()
                 linked = (
@@ -170,7 +191,7 @@ class PostgresFinancialAccountRepository:
                         (account_id, user_id),
                     ).fetchone()
                     raise StaleVersion() if exists else AccountNotFound()
-                stored = self._load(connection, user_id, account_id)
+                stored = self._load(connection, user_id, account_id, scope=scope)
         if stored is None:  # pragma: no cover - the row was just updated
             raise AccountNotFound()
         return stored
@@ -183,8 +204,12 @@ class PostgresFinancialAccountRepository:
         expected_revision: int | None,
         expected_version: int,
         write: OpeningWrite,
+        scope: OwnerScope,
     ) -> StoredAccount:
         with self._pool.connection() as connection:
+            # An account never changes space, so checking it first is enough.
+            if self._load(connection, user_id, account_id, scope=scope) is None:
+                raise AccountNotFound()
             row = connection.execute(
                 "select public.write_financial_opening(%s, %s, %s, %s, %s, %s, %s, %s)",
                 (
@@ -217,7 +242,7 @@ class PostgresFinancialAccountRepository:
                         (expected_revision or 0) + 1,
                     ),
                 )
-            stored = self._load(connection, user_id, account_id)
+            stored = self._load(connection, user_id, account_id, scope=scope)
         if stored is None:  # pragma: no cover - the function just wrote it
             raise AccountNotFound()
         return stored
@@ -231,6 +256,7 @@ class PostgresFinancialAccountRepository:
         identity_hash: str,
         expected_version: int,
         planner: Planner,
+        scope: OwnerScope,
     ) -> OperationResult:
         return mutate(
             self,
@@ -240,6 +266,7 @@ class PostgresFinancialAccountRepository:
             identity_hash=identity_hash,
             expected_version=expected_version,
             planner=planner,
+            scope=scope,
         )
 
     def write_asset_details(
@@ -250,6 +277,7 @@ class PostgresFinancialAccountRepository:
         request: AssetDetailsRequest,
         idempotency_key: str,
         identity_hash: str,
+        scope: OwnerScope,
     ) -> AssetDetailsResult:
         from argus.domain.recording.asset_postgres import write_details
 
@@ -260,13 +288,22 @@ class PostgresFinancialAccountRepository:
             request=request,
             idempotency_key=idempotency_key,
             identity_hash=identity_hash,
+            scope=scope,
         )
 
-    def _load(self, connection, user_id: str, account_id: str) -> StoredAccount | None:  # noqa: ANN001
+    def _load(
+        self,
+        connection,  # noqa: ANN001
+        user_id: str,
+        account_id: str,
+        *,
+        scope: OwnerScope,
+    ) -> StoredAccount | None:
+        in_scope, params = sql_predicate(scope, "owner_space_id")
         row = connection.execute(
             f"select {_ACCOUNT_COLUMNS} from public.financial_accounts"
-            " where id = %s and user_id = %s",
-            (account_id, user_id),
+            f" where id = %s and user_id = %s and {in_scope}",
+            (account_id, user_id, *params),
         ).fetchone()
         if row is None:
             return None
@@ -316,6 +353,7 @@ class PostgresFinancialAccountRepository:
                     recorded_by=str(by) if by is not None else None,
                     recorded_at=at,
                     estimate_basis=details.get("estimate_basis"),
+                    blank=bool(details.get("blank", False)),
                 )
             )
         return {

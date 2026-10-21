@@ -5,6 +5,7 @@ import json
 import pytest
 from argus.domain.household import planning_schemas as wire
 from argus.domain.household.errors import HouseholdNotFound
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import storage
 from argus.domain.planning.budgets import BudgetService
 from argus.domain.planning.goal_schemas import AllocationWrite, GoalCreate, GoalEdit
@@ -69,14 +70,14 @@ def test_cross_owner_original_is_canonical_and_personal_destination_hides_fundin
     assert contribution["can_correct"]
     original = MoneyService(planners(s, s["a"]).accounts)
     aid = contribution["original"]["activity_id"]
-    destination = original.detail(user_id=s["a"], activity_id=aid)
+    destination = original.detail(user_id=s["a"], activity_id=aid, scope=PERSONAL)
     assert destination["amount_minor"] is None
     assert destination["principal_minor"] is None
     assert [leg["account_id"] for leg in destination["legs"]] == [dest]
     encoded = json.dumps(
         [
             destination,
-            original.history(user_id=s["a"], activity_id=aid),
+            original.history(user_id=s["a"], activity_id=aid, scope=PERSONAL),
             planners(s, s["a"]).read(s["a"]),
         ],
         default=str,
@@ -112,7 +113,7 @@ def test_cross_owner_original_is_canonical_and_personal_destination_hides_fundin
         assert s["ba"] not in raw_encoded and marker not in raw_encoded
     # Personal writers retain their same-owner boundary.
     with pytest.raises((AccountNotFound, HouseholdNotFound)):
-        original.preview(user_id=s["a"], request=body)
+        original.preview(user_id=s["a"], request=body, scope=PERSONAL)
     # Source-only Personal spending keeps the full loan cost, never destination principal.
     for actor, expected in [
         (s["a"], "0"),
@@ -209,7 +210,11 @@ def test_one_pool_foreign_residuals_claims_private_write_included_and_unknown(la
         ),
         key(),
     )["goal"]["goal"]
-    version = s["records"].get_account(user_id=s["b"], account_id=s["bd"]).account.version
+    version = (
+        s["records"]
+        .get_account(user_id=s["b"], account_id=s["bd"], scope=PERSONAL)
+        .account.version
+    )
     goals.allocate(
         s["b"],
         AllocationWrite(

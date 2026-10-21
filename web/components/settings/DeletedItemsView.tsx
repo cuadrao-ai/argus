@@ -8,6 +8,7 @@ import {
   RotateCcw,
   } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useConversationSurface } from "@/components/chat/ChatWorkspace";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
@@ -31,12 +32,13 @@ export default function DeletedItemsView({ onClose, onBack, backLabel, onRestore
   const { t } = useTranslation();
   const [deletedItems, setDeletedItems] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const surface = useConversationSurface();
 
   useEffect(() => {
-    listHistory({ deleted: true })
+    listHistory({ deleted: true, surface })
       .then(({ items }) => setDeletedItems(items.filter(isDeletedItemVisible)))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [surface]);
 
   const handleRestore = async (item: HistoryItem) => {
     try {

@@ -1,0 +1,99 @@
+{
+ "counts": {
+  "auth_users": 1,
+  "spaces": 1,
+  "financial_records": 2,
+  "financial_document_extractions": 4,
+  "financial_import_observations": 1,
+  "whatsapp_link_codes": 1,
+  "whatsapp_sender_links": 1,
+  "whatsapp_inbound_messages_to_owner": 2,
+  "storage_objects": 4,
+  "financial_accounts.personal": 1,
+  "financial_accounts.business": 1,
+  "financial_source_connections.personal": 1,
+  "financial_source_connections.business": 3,
+  "financial_import_events.personal": 0,
+  "financial_import_events.business": 1,
+  "conversations.personal": 1,
+  "conversations.business": 0,
+  "whatsapp_inbound_messages_from_owner_links": 2
+ },
+ "db_links": {
+  "events": [
+   [
+    "bf47ba3b-9cb9-4b3d-8789-72f79581b548",
+    "accepted",
+    "6363e120-dac8-4500-aa0b-b209935db6e4",
+    "review_ready"
+   ]
+  ],
+  "receipts": [
+   [
+    "1f82c8e8-b138-4ec1-871c-600c20b787d8",
+    "active",
+    "saved",
+    "ee9859b368d4ee8f44e4f125b1eb0b92905d6d46cbfd1815f0396e67a42737ff"
+   ],
+   [
+    "2b91a6ad-c4cc-4735-a794-45b27ff6c8ae",
+    "active",
+    "saved",
+    "8a0b9f7d5be84a740af2cbd5f68b94662130eef5ad4c9cc9fc2b6104a242ce64"
+   ],
+   [
+    "bf47ba3b-9cb9-4b3d-8789-72f79581b548",
+    "active",
+    "review_ready",
+    "7df4cbcfc82d1b67451e52d9ab260cae7e2ed51d0d7ef1abf1c78f414988f57f"
+   ]
+  ]
+ },
+ "db_links_fingerprint": "f70030d25256ae8c",
+ "api": {
+  "status": {
+   "expenses": "200",
+   "receipts": "200",
+   "inbox": "200",
+   "overview": "200",
+   "link": "200"
+  },
+  "expense_receipt_links": [
+   [
+    "6363e120-dac8-4500-aa0b-b209935db6e4",
+    "bf47ba3b-9cb9-4b3d-8789-72f79581b548",
+    "1850.00",
+    "66d9a061-fef1-403c-9358-837a05a655a4"
+   ]
+  ],
+  "receipts": [
+   [
+    "1f82c8e8-b138-4ec1-871c-600c20b787d8",
+    "saved",
+    "whatsapp"
+   ],
+   [
+    "2b91a6ad-c4cc-4735-a794-45b27ff6c8ae",
+    "saved",
+    "web"
+   ],
+   [
+    "bf47ba3b-9cb9-4b3d-8789-72f79581b548",
+    "confirmed",
+    "web"
+   ]
+  ],
+  "inbox": [
+   "1f82c8e8-b138-4ec1-871c-600c20b787d8",
+   "2b91a6ad-c4cc-4735-a794-45b27ff6c8ae"
+  ],
+  "totals": [
+   {
+    "currency": "DOP",
+    "amount": "1850.00",
+    "count": 1
+   }
+  ],
+  "link_active": true
+ }
+}

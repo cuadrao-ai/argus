@@ -1,0 +1,39 @@
+{
+  "synthetic_fixture": true,
+  "budget": {
+    "id": "2287e0c0-8357-4262-8242-b6a7667cbff3",
+    "name": "Food E6886",
+    "limit": "160.00",
+    "limit_minor": 16000,
+    "currency": "DOP",
+    "version": 2
+  },
+  "spent_minor": "15500",
+  "remaining_minor": "500",
+  "contributors": [
+    {
+      "activity_id": "72e28f52-bdd9-45a4-9e5f-06f75165b1b6",
+      "revision": 1,
+      "amount": "25.00",
+      "amount_minor": 2500,
+      "note": "Budget refund E6886",
+      "reason": null
+    },
+    {
+      "activity_id": "cad0836b-518d-46a5-ae6f-43bf413a5fb3",
+      "revision": 2,
+      "amount": "60.00",
+      "amount_minor": 6000,
+      "note": "Card groceries E6886",
+      "reason": "Correct the grocery receipt"
+    },
+    {
+      "activity_id": "899a46f0-73f4-4228-b0f1-6a3af68d875d",
+      "revision": 1,
+      "amount": "120.00",
+      "amount_minor": 12000,
+      "note": "Budget groceries E6886",
+      "reason": null
+    }
+  ]
+}

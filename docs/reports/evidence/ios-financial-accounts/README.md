@@ -15,7 +15,7 @@ rejection or authorize restarting the lane.
 - Preserved worktree: `/Users/garces/.codex/worktrees/8be2/private-alpha-next`.
 - Original integration/product base: `296195e86c972e846c251d256b3cc211975bfd57`.
 - Spec-first commit: `a0424297e5559af641bfc4b8181fced662d428e2`.
-- Scope: [bounded lane spec](../../../superpowers/specs/2026-09-29-ios-financial-accounts.md).
+- Scope: [bounded lane spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-29-ios-financial-accounts.md).
 - Shared execution manifest: `docs/specs/argus-execution-board.md`, owned by
   the delivery lead in [PR #743](https://github.com/lagarcess/argus/pull/743).
   Its iOS recovery row points to this branch and checkpoint. Do not copy the

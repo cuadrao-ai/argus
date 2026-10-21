@@ -61,9 +61,7 @@ struct CuadraoPasswordRecovery: View {
         .background(WelcomePalette.background.ignoresSafeArea()).foregroundStyle(WelcomePalette.ink)
         .navigationTitle("").navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(spanish ? "Cerrar" : "Close") { dismiss() }
-            }
+            CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
         }
         .onChange(of: focused) { old, _ in if old { edited = true } }
         .onAppear {

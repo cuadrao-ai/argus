@@ -8,6 +8,7 @@ from argus.api import state as api_state
 from argus.api.ingestion import ingestion_hub
 from argus.api.main import app
 from argus.api.shortcuts import shortcuts_connector
+from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 from loguru import logger
 
@@ -68,7 +69,7 @@ def test_enrollment_returns_token_once_and_stores_only_a_digest(client, logs, id
     assert connection["source"] == "shortcuts" and connection["label"] == "iPhone de Ana"
     hub = ingestion_hub()
     row = hub.connections.get(
-        user_id=identities[ALICE]["id"], connection_id=connection["id"]
+        user_id=identities[ALICE]["id"], connection_id=connection["id"], scope=PERSONAL
     )
     assert row.secret is None and token.split(".")[1] == row.external_ref
     stored = shortcuts_connector().store.get(connection_id=row.id)
@@ -123,12 +124,12 @@ def test_intake_records_unsettled_evidence_for_the_device_owner(client, sink, id
         "wallet:e:"
     )
     [(key, candidate)] = sink.evidence.items()
-    connection = ingestion_hub().list(user_id=identities[ALICE]["id"])[0]
+    connection = ingestion_hub().list(user_id=identities[ALICE]["id"], scope=PERSONAL)[0]
     assert key == ("shortcuts", connection.id, receipt["external_id"])
     assert (candidate.status, candidate.direction) == ("unknown", "unknown")
     assert (candidate.amount, candidate.currency) == ("1250", "DOP")
     assert connection.last_success_at is not None
-    assert ingestion_hub().list(user_id=identities[BOB]["id"]) == []
+    assert ingestion_hub().list(user_id=identities[BOB]["id"], scope=PERSONAL) == []
 
 
 def test_repeated_delivery_returns_the_same_receipt(client, sink):
@@ -194,7 +195,7 @@ def test_without_a_sink_nothing_is_saved_and_the_answer_is_retryable(client, ide
     assert body["code"] == "shortcuts_intake_unavailable"
     assert body["context"] == {"retryable": True}
     assert "Retry-After" in response.headers
-    [connection] = ingestion_hub().list(user_id=identities[ALICE]["id"])
+    [connection] = ingestion_hub().list(user_id=identities[ALICE]["id"], scope=PERSONAL)
     assert connection.last_success_at is None
 
 

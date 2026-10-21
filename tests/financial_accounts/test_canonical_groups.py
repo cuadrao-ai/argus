@@ -7,6 +7,7 @@ import pytest
 from argus.domain.household.access import AccountAccess, HouseholdFinancialScope
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.projection import activity
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording import canonical_groups
 from argus.domain.recording.errors import AccountNotFound
 from argus.domain.recording.money_reads import render_activity
@@ -64,7 +65,10 @@ def correct(scene, original, **changes):
         reason=fake.sentence(),
     ).model_copy(update=changes)
     preview = money.preview(
-        user_id=scene[1], request=request, activity_id=original["activity_id"]
+        user_id=scene[1],
+        request=request,
+        activity_id=original["activity_id"],
+        scope=PERSONAL,
     )
     return money.write(
         user_id=scene[1],
@@ -73,6 +77,7 @@ def correct(scene, original, **changes):
         ),
         activity_id=original["activity_id"],
         idempotency_key=str(uuid4()),
+        scope=PERSONAL,
     )["activity"]
 
 
@@ -81,7 +86,7 @@ def test_current_group_revision_controls_amount_instead_of_latest_visible_histor
     first = save(scene, kind="expense", account_id=source, amount="25")["activity"]
     second = correct(scene, first, amount="15")
     aid = first["activity_id"]
-    records = scene[0].list_accounts(user_id=scene[1])
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     headers, memberships = catalog(scene[1], [first, second], {aid: 1})
     resolved = canonical_groups.resolve(records, headers, memberships)
 
@@ -95,7 +100,7 @@ def test_current_group_revision_controls_amount_instead_of_latest_visible_histor
 def test_group_without_authoritative_header_cannot_replay_visible_record_history(scene):
     source = account(scene)
     original = save(scene, kind="expense", account_id=source, amount="25")["activity"]
-    records = scene[0].list_accounts(user_id=scene[1])
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     _, memberships = catalog(scene[1], [original], {})
     resolved = canonical_groups.resolve(records, [], memberships)
 
@@ -111,7 +116,7 @@ def test_corrected_away_account_cannot_select_its_obsolete_activity_revision(sce
     first = save(scene, kind="expense", account_id=old, amount="25")["activity"]
     second = correct(scene, first, account_id=destination, amount="15")
     aid = first["activity_id"]
-    records = scene[0].list_accounts(user_id=scene[1])
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     headers, memberships = catalog(scene[1], [first, second], {aid: 2})
     resolved = canonical_groups.resolve(records, headers, memberships)
 
@@ -138,7 +143,7 @@ def test_full_loan_group_is_resolved_before_household_visibility(scene, visible_
         fees="2",
         note=fake.sentence(),
     )["activity"]
-    records = scene[0].list_accounts(user_id=scene[1])
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     aid = original["activity_id"]
     headers, memberships = catalog(scene[1], [original], {aid: 1})
     resolved = canonical_groups.resolve(records, headers, memberships)
@@ -176,7 +181,7 @@ def test_incomplete_or_mismatched_exact_membership_cannot_be_rendered(scene, fau
         destination_account_id=destination,
         amount="25",
     )["activity"]
-    records = scene[0].list_accounts(user_id=scene[1])
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     headers, memberships = catalog(
         scene[1], [original], {original["activity_id"]: original["revision"]}
     )

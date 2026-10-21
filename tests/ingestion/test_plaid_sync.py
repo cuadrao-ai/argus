@@ -6,6 +6,7 @@ from threading import Barrier
 import httpx
 from argus.domain.ingestion.plaid.config import PlaidConfig
 from argus.domain.ingestion.plaid.connector import PlaidConnector
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.plaid_fakes import (
     PUBLIC_TOKEN,
@@ -30,7 +31,9 @@ def connected(fake: FakePlaid, sink: RecordingSink | None = None, **kwargs):
 
 
 def stored(connector: PlaidConnector, connection):
-    return connector.hub.connections.get(user_id=USER, connection_id=connection.id)
+    return connector.hub.connections.get(
+        user_id=USER, connection_id=connection.id, scope=PERSONAL
+    )
 
 
 def test_pages_until_has_more_is_false_then_advances_once():

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from argus.domain.ingestion.contract import ImportCandidate
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 
 from tests.ingestion.conftest import ALICE, bearer
 
@@ -26,7 +27,9 @@ class RecordingSink:
         user_id: str,
         connection_id: str,
         candidates: Sequence[ImportCandidate],
+        scope: OwnerScope,
     ) -> SubmitResult:
+        assert scope == PERSONAL
         self.calls += 1
         recorded = unchanged = 0
         for candidate in candidates:
@@ -39,7 +42,10 @@ class RecordingSink:
             recorded += 1
         return SubmitResult(recorded=recorded, unchanged=unchanged, withdrawn=0)
 
-    def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+    def forget_connection(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> int:
+        assert scope == PERSONAL
         doomed = [k for k in self.evidence if k[1] == connection_id]
         for key in doomed:
             del self.evidence[key]

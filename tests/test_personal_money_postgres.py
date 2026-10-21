@@ -6,6 +6,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import (
     AccountNotFound,
     RecordingInputError,
@@ -33,7 +34,7 @@ def scene(repository, users):
 
 
 def confirmed(money, user, body, aid=None):
-    preview = money.preview(user_id=user, request=body, activity_id=aid)
+    preview = money.preview(user_id=user, request=body, activity_id=aid, scope=PERSONAL)
     assert preview["ready"]
     return MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
         update={"preview_token": preview["preview_token"]}
@@ -53,7 +54,10 @@ def test_concurrent_response_loss_retries_keep_one_pair_and_receipt(scene, repos
         receipts = list(
             pool.map(
                 lambda _: money.write(
-                    user_id=scene[1], request=body, idempotency_key="lost-response"
+                    user_id=scene[1],
+                    request=body,
+                    idempotency_key="lost-response",
+                    scope=PERSONAL,
                 ),
                 range(6),
             )
@@ -96,7 +100,10 @@ def test_opposing_transfers_lock_sorted_accounts_and_stale_loser_writes_nothing(
         money, body = item
         try:
             return money.write(
-                user_id=scene[1], request=body, idempotency_key=str(uuid4())
+                user_id=scene[1],
+                request=body,
+                idempotency_key=str(uuid4()),
+                scope=PERSONAL,
             )
         except StaleVersion:
             return None
@@ -114,7 +121,7 @@ def test_opposing_transfers_lock_sorted_accounts_and_stale_loser_writes_nothing(
         )
     balances = [
         account_response(
-            scene[0].get(user_id=scene[1], account_id=aid)
+            scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
         ).balance.amount_minor
         for aid in (first, second)
     ]
@@ -149,9 +156,11 @@ def test_second_leg_database_failure_rolls_back_every_record_and_receipt(
 
     monkeypatch.setattr(money_postgres, "persist", invalid_second)
     with pytest.raises(shared.psycopg.errors.ForeignKeyViolation):
-        money.write(user_id=scene[1], request=body, idempotency_key="rollback")
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="rollback", scope=PERSONAL
+        )
     for aid in (first, second):
-        current = scene[0].get(user_id=scene[1], account_id=aid)
+        current = scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
         assert current.account.version == 1 and not current.expenses
     with repository._pool.connection() as c:
         for table in (
@@ -187,7 +196,10 @@ def test_competing_refunds_cannot_exceed_purchase(scene):
         money, body = item
         try:
             return money.write(
-                user_id=scene[1], request=body, idempotency_key=str(uuid4())
+                user_id=scene[1],
+                request=body,
+                idempotency_key=str(uuid4()),
+                scope=PERSONAL,
             )
         except (StaleVersion, RecordingInputError):
             return None
@@ -196,7 +208,9 @@ def test_competing_refunds_cannot_exceed_purchase(scene):
         results = list(pool.map(submit, commands))
     assert sum(r is not None for r in results) == 1
     assert (
-        MoneyService(scene[0]).purchases(user_id=scene[1])["items"][0]["refunded_minor"]
+        MoneyService(scene[0]).purchases(user_id=scene[1], scope=PERSONAL)["items"][0][
+            "refunded_minor"
+        ]
         == 3000
     )
 
@@ -233,6 +247,7 @@ def test_purchase_reduction_racing_refund_keeps_cap(scene):
                 request=body,
                 activity_id=activity_id,
                 idempotency_key=str(uuid4()),
+                scope=PERSONAL,
             )
         except (StaleVersion, RecordingInputError):
             return None
@@ -242,7 +257,7 @@ def test_purchase_reduction_racing_refund_keeps_cap(scene):
             pool.map(submit, [(refund, None), (reduced, purchase["activity_id"])])
         )
     assert sum(r is not None for r in results) == 1
-    current = money.purchases(user_id=scene[1])["items"][0]
+    current = money.purchases(user_id=scene[1], scope=PERSONAL)["items"][0]
     assert current["refunded_minor"] <= current["amount_minor"]
 
 
@@ -276,15 +291,20 @@ def test_refund_relink_reviews_old_and_new_purchase_dependencies(scene):
         request=reviewed,
         activity_id=refund["activity_id"],
         idempotency_key="relink",
+        scope=PERSONAL,
     )
     assert result["activity"]["purchase_activity_id"] == new_purchase["activity_id"]
     totals = {
         a["activity_id"]: a["refunded_minor"]
-        for a in money.purchases(user_id=scene[1])["items"]
+        for a in money.purchases(user_id=scene[1], scope=PERSONAL)["items"]
     }
     assert totals == {old_purchase["activity_id"]: 0, new_purchase["activity_id"]: 3000}
     assert (
-        len(money.history(user_id=scene[1], activity_id=refund["activity_id"])["items"])
+        len(
+            money.history(
+                user_id=scene[1], activity_id=refund["activity_id"], scope=PERSONAL
+            )["items"]
+        )
         == 2
     )
 
@@ -294,7 +314,9 @@ def test_activity_rls_and_composite_membership_owner_keys(scene, repository, use
     created = save(scene, kind="income", account_id=aid, amount="25")["activity"]
     money = MoneyService(scene[0])
     with pytest.raises(AccountNotFound):
-        money.detail(user_id=users["other"], activity_id=created["activity_id"])
+        money.detail(
+            user_id=users["other"], activity_id=created["activity_id"], scope=PERSONAL
+        )
     with repository._pool.connection() as c:
         for identity, is_guest, expected in (
             (users["owner"], False, 1),
@@ -363,7 +385,7 @@ def test_purchase_provenance_rejects_cross_owner_and_missing_revision(
                 )
     assert (
         MoneyService(scene[0]).detail(
-            user_id=scene[1], activity_id=refund["activity_id"]
+            user_id=scene[1], activity_id=refund["activity_id"], scope=PERSONAL
         )["purchase_revision"]
         == 1
     )
@@ -379,7 +401,7 @@ def test_legacy_backfill_preserves_ids_coverage_hash_and_response_loss_receipt(
     from argus.domain.recording.loop_service import token
 
     aid = account(scene)
-    stored = scene[0].get(user_id=scene[1], account_id=aid)
+    stored = scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
     rid = str(uuid4())
     request = ActivityRequest(
         expected_version=1,
@@ -452,7 +474,9 @@ def test_legacy_backfill_preserves_ids_coverage_hash_and_response_loss_receipt(
         idempotency_key="old-response-loss",
     )
     assert replay.replayed and replay.record_id == rid and replay.revision == 1
-    canonical = MoneyService(scene[0]).detail(user_id=scene[1], activity_id=rid)
+    canonical = MoneyService(scene[0]).detail(
+        user_id=scene[1], activity_id=rid, scope=PERSONAL
+    )
     assert canonical["activity_id"] == rid and canonical["category_id"] == "shopping"
     assert canonical["legs"][0]["coverage"] == [
         {"observation_id": stored.opening.id, "included": True}

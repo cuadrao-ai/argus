@@ -6,6 +6,28 @@
 
 **Related documentation:** [#813](https://github.com/lagarcess/argus/pull/813) (execution board Oct 4 roadmap lock) and [#808](https://github.com/lagarcess/argus/pull/808) (profile hidden rows backend; touches the decision log, MVEE, board, handoff, FK census, `DATA_MODEL.md` and `API_CONTRACT.md`). This plan doesn't edit the execution board.
 
+## October 7 update: approved offline fiscal development
+
+The [connected Business specification](cuadrao-business-connected-flow-spec.md)
+and [E0 implementation plan](cuadrao-business-e0-implementation-plan.md) now own
+the approved connected-flow design and bounded offline engine work. The
+[decision log](argus-decision-log.md#october-7-2026-business-connected-flow-and-offline-e0-plan)
+records Lucas's approval and documentation-only merge grant.
+
+Cuadrao owns the engine, with replaceable signing and transport. E0 prepares
+synthetic unsigned artifacts and local evidence. Its P0 source/profile gate
+remains open. It neither persists business records nor signs or submits invoices.
+The broader Business workflow remains capture, money, customers, invoices,
+collections, source evidence and accountant handoff.
+
+The October 4 partner-first passages below retain live-route history. Their
+"first fiscal work", "lower priority" and paperwork dependencies do not govern
+E0. Supplier discussions remain open; this approval neither cancels a vendor
+nor authorizes a direct live route, certificate custody or issuer eligibility.
+Lucas will coordinate the existing Business agent. Consumer keeps its release
+and shared migration sequence; Marketing keeps its separate launch. No other
+lane priority changes.
+
 ## How to read this plan
 
 - **Labels.** **[fact]** comes from the repo, GitHub or a cited source. **[proposed]** is a recommendation that still needs a lock. **[estimate]** is a rough size, not a commitment. "For Lucas to lock" marks a proposal waiting on the founder. "Unverified" marks a claim nobody re-checked, including the PSFE requirements and e-CF signing details taken from the Blueprint.
@@ -22,7 +44,7 @@ Lucas set the launch shape in the room on October 4 at 12:30 PM CT. The [decisio
 3. **cuadrao.ai** promotes the whole suite and carries the waitlists.
 4. **Stack:** stays on Resend, Render and Supabase.
 
-**Fiscal route correction (Lucas, Oct 4, 12:39 PM CT, recorded in Yelena's engineering notes):** partner first. Connecting to a DGII-certified provider (PSFE) is the fastest route to a full business service and to live invoicing through Cuadrao. Cuadrao's own DGII backend is the parallel track while Lucas handles the DGII paperwork. The pilot starts by tracking the invoices owners already issue, then issues through Cuadrao once the provider connection is live. Choosing the provider is part of Lucas's partner track. The Blueprint names Alanube and Alegra as references; no provider is chosen.
+**Historical live-route correction (Lucas, Oct 4, 12:39 PM CT, recorded in Yelena's engineering notes; see the [October 7 offline update](#october-7-update-approved-offline-fiscal-development)):** partner first. Connecting to a DGII-certified provider (PSFE) is the fastest route to a full business service and to live invoicing through Cuadrao. Cuadrao's own DGII backend is the parallel track while Lucas handles the DGII paperwork. The pilot starts by tracking the invoices owners already issue, then issues through Cuadrao once the provider connection is live. Choosing the provider is part of Lucas's partner track. The Blueprint names Alanube and Alegra as references; no provider is chosen.
 
 **Lucas's further Oct 4 calls (about 12:44 PM CT, relayed by Iris):**
 
@@ -59,8 +81,8 @@ This summary combines both halves. Sizes are Yelena's estimates (§B6). Order in
 | **Consumer TestFlight** (personal + household, iOS) | The connected candidate from #813 in invite-only TestFlight, then public | The must-do issues in §B7 and the minimum in §A4 | Apple team and bundle id (§B3.2), cuadrao.ai DNS, email and AASA |
 | **Shared foundation** | Space and membership model (§B2), entitlement service (§B5), scoped storage (#778), audit and approvals | Space model steps 1-2 (§B2.3) for personal and household, landing before TestFlight (Lucas's lock) | Lucas's lock on the model itself (§B9 question 1) |
 | **Business ledger** (web first, thin app space for pilots) | Web shell, roles, money and ops, Inbox and Vault, customers, non-fiscal invoices, external e-CF tracking, matching, accountant export | Space model step 4, then the web shell | Roles matrix lock; about 12-18 eng-weeks [estimate] |
-| **Fiscal: certified-provider bridge** (partner first) | Live e-invoicing through Cuadrao via a PSFE | Adapter against the provider's sandbox, behind the shared fiscal-backend interface | A PSFE agreement (Lucas's partner track); about 3-5 eng-weeks [estimate], the first fiscal work |
-| **Fiscal: own backend** (parallel, lower priority) | Offline e-CF XML builder, validator, sequencing, submission state machine, evidence store, Cuadrao DGII MCP | Offline build against DGII's published specs | Lucas's DGII paperwork; about 6-10 eng-weeks [estimate] |
+| **Fiscal: certified-provider bridge** (partner first) | Live e-invoicing through Cuadrao via a PSFE | Adapter against the provider's sandbox, behind the shared fiscal-backend interface | A PSFE agreement for the historical live route; the October 4 estimate does not sequence E0 |
+| **Fiscal: owned offline E0** | Synthetic unsigned preparation and local validation/evidence under the [approved spec](cuadrao-business-connected-flow-spec.md) | [E0 plan](cuadrao-business-e0-implementation-plan.md), with P0 before Type 31 rules | Lucas coordinates execution; official sources/profile must pass P0. No supplier or issuer paperwork dependency for E0. |
 | **Brand and domain** | `ai.cuadrao.app`, cuadrao.ai web, API host, AASA, email domain, redirects | Entity and Apple team choice (§B3.2 step 0) | F3 |
 | **Founder tracks** | Entity, Apple enrollment, PSFE partner, Plaid production access, pilot recruitment, DGII answer | See §A5 | Lucas |
 
@@ -74,8 +96,8 @@ Each row gives Iris's current position (her Oct 4 corrections included), Yelena'
 
 | # | Topic | Iris's position | Yelena's position (Part B) | Status |
 | --- | --- | --- | --- | --- |
-| 1 | **e-CF route** | Partner first. A DGII-certified provider is the path to a full business service; our own DGII backend and certified-provider status run in parallel while Lucas does the DGII paperwork. Pilots record invoices issued elsewhere, then issue through Cuadrao (§A7 contradiction 1). | Same, per Lucas's 12:39 PM CT correction (fiscal route line, §B6). | **Converged** (Lucas's correction). |
-| 2 | **Fiscal order** | New pillar 7, certified-provider integration built against the provider's sandbox; own fiscal tooling (pillar 8) is a parallel track behind it. Yelena sets the exact sequence against capture. F2 is which provider and when. | §B6: external e-CF tracking is the first pilot step; the provider bridge (3-5 eng-weeks) is the first fiscal work; the own backend (6-10 eng-weeks) runs in parallel at lower priority. | **Converged** on order; the exact sequence against capture is Yelena's. F2 stays open for Lucas. |
+| 1 | **e-CF route** | Partner first. A DGII-certified provider is the path to a full business service; our own DGII backend and certified-provider status run in parallel while Lucas does the DGII paperwork. Pilots record invoices issued elsewhere, then issue through Cuadrao (§A7 contradiction 1). | Same, per Lucas's 12:39 PM CT correction (fiscal route line, §B6). | Historical October 4 live-route position. See the [October 7 offline update](#october-7-update-approved-offline-fiscal-development). |
+| 2 | **Fiscal order** | New pillar 7, certified-provider integration built against the provider's sandbox; own fiscal tooling (pillar 8) is a parallel track behind it. Yelena sets the exact sequence against capture. F2 is which provider and when. | §B6: external e-CF tracking is the first pilot step; the provider bridge (3-5 eng-weeks) is the first fiscal work; the own backend (6-10 eng-weeks) runs in parallel at lower priority. | Historical October 4 sequencing. The [approved E0 plan](cuadrao-business-e0-implementation-plan.md) now owns offline scope; Lucas coordinates execution. F2 remains a separate live-route question. |
 | 3 | **Keeping business out of the public build** | Yelena's Option C. The in-app business space stays thin; the full service is the web. | §B3.4: Option C, a compile-time `CUADRAO_BUSINESS` build plus server authorization. | **Converged** (Head of Engineering's decision under lock 2). |
 | 4 | **Business roles** | Yelena's 6 roles plus billing admin in the data model; Iris's 3 presets (owner, associate, accountant) in the pilot interface. | §B2.2: owner, admin, bookkeeper, approver, accountant, viewer, plus a billing admin flag. | **Converged.** Lucas still locks the matrix with the space model (§B9 question 1). |
 | 5 | **Space model before TestFlight** | Yes, because it's cheapest with no real data. | §B2.3: steps 1-3 are cheapest before external TestFlight; consumer TestFlight needs steps 1-2; the business kind (step 4) comes last, web first. | **Settled by Lucas's lock** (Oct 4, 2:21 PM CT): the space-model change lands before TestFlight. The exact steps are Yelena's sequencing. |
@@ -137,7 +159,7 @@ These run beside the main streams. Each item names an owner where one is known. 
 
 **Docs pass** (Maya; combines §A6 and §B8 where they agree)
 - [ ] Archive the Argus-era specs both halves list: `docs/specs/private-alpha-next-*` (roadmap, decision memo, p2.1 audit, refine-to-version, chat header title, conversational-edit contract), `docs/specs/wave-1/`, `graded-interpretation-routing.md`, `evidence-aware-idea-loop.md`, `conversation-sharing.md`, and the pointer stubs `argus-active-roadmap.md`, `argus-grounded-finance-roadmap.md`, `argus-pivot-strategy.md`, `argus-answers-that-stay-true-roadmap.md`. Check inbound links first. Proposed as a separate docs-cleanup PR.
-- [ ] Archive `docs/superpowers/` (agent working notes, 146 files) in the same cleanup PR, after checking inbound links.
+- [x] Remove the agent working notes in `docs/superpowers/` after checking inbound links. Done in the legacy agent-docs cleanup; one spec stays because a held design guide links it.
 - [ ] Pending F5: archive anything only about the Argus web, guest or chat (Iris's rule, conflict row 22). Not part of #815.
 - [ ] Hold until the guest flow and web chat retire: `docs/GUEST_PUBLIC_LAUNCH_SAFETY.md`, `docs/QA_CONVERSATIONAL_TRANSCRIPTS.md`, `docs/BREAKPOINTS.md`, `.agent/designs/argus/DESIGN.md`. Update domain references in `GUEST_PUBLIC_LAUNCH_SAFETY.md` during the domain move (conflict row 18).
 - [ ] Rewrite for Cuadrao after the canon locks: `DOCUMENTATION_AUTHORITY.md`, `PRODUCT.md`, MVEE "Financial spaces" and §1.6 (canon rows 1-5, 9).
@@ -245,7 +267,7 @@ There's no fixed order. Higher pillars unlock more of the ones below them. **No 
 | 5 | **Business admin without fiscal issuance** | No access | The blueprint (p.13) says business can launch before e-CF. It works for owners who already invoice through DGII's free invoicing tool or another provider | Customer → invoice draft → PDF → mark paid / match → accountant export |
 | 6 | **Ask Cuadrao (agentic)** | No access (needs AI consent and a model provider) | One interface across all contexts, using the same actions and permissions as the screens | Read-only answers over the user's own space, then a proposed draft record that needs confirmation |
 | 7 | **Certified-provider integration** | 1-away: an agreement with a DGII-certified provider (PSFE), picked in Lucas's partner track | It's the path to a full business service and to issuing e-CF through Cuadrao (partner first, Lucas, Oct 4) | Integration built against the provider's sandbox; pilots then issue through Cuadrao once the connection is live |
-| 8 | **Own fiscal tooling, prepared offline** (parallel track behind 7) | No access to build; live use is gated | Lets us detach from the provider later | e-CF XML builder and validator against DGII's published technical specs, with no live submission |
+| 8 | **Own fiscal tooling, prepared offline** ([E0 plan](cuadrao-business-e0-implementation-plan.md); no dependency on pillar 7) | No access to build; live use is gated | Lets us detach from the provider later | e-CF XML builder and validator against DGII's published technical specs, with no live submission |
 | 9 | **Revenue capture** | Gated by company entity and store agreements, not regulators | Both products can earn revenue | Paywall and entitlements in sandbox; no prices (§A5) |
 | 10 | **Live e-CF issuance** | Gated by each customer's DGII issuer certification, a compliant signing route (INDOTEL-authorized trust service), and the certified-provider connection (pillar 7) [3][4] | It's the regulatory way in | One pilot issuer issuing through the provider connection once it's live (§A7, F2) |
 | 11 | **Own PSFE status** | Gated by DGII: our own RNC with software activity, e-CF issuer status, three certified customer issuers, and a full dossier [3] | Independence from providers | After at least three pilot issuers |
@@ -277,7 +299,7 @@ There's no fixed order. Higher pillars unlock more of the ones below them. **No 
 
 ### A5. Founder tracks running in parallel
 
-**Institutional access.** (a) Each pilot customer's issuer certification and signing route [3][4]. (b) **Partner first:** an agreement with a DGII-certified provider (PSFE), which is the path to a full business service. Picking the provider and timing is F2. (c) The DGII answer on a foreign, non-certified software provider, which was still pending on Oct 4 per the blueprint. (d) Our own DGII backend and certified-provider (PSFE) status, in parallel while Lucas does the DGII paperwork. (e) Banks and aggregators for the long-term vision. (f) **Plaid production access:** Plaid's application and security review, next to the US entity. A light partner step, not a blocker.
+**Institutional access (historical October 4 live-route planning; not an E0 prerequisite).** (a) Each pilot customer's issuer certification and signing route [3][4]. (b) **Partner first:** an agreement with a DGII-certified provider (PSFE), which is the path to a full business service. Picking the provider and timing is F2. (c) The DGII answer on a foreign, non-certified software provider, which was still pending on Oct 4 per the blueprint. (d) Our own DGII backend and certified-provider (PSFE) status, in parallel while Lucas does the DGII paperwork. (e) Banks and aggregators for the long-term vision. (f) **Plaid production access:** Plaid's application and security review, next to the US entity. A light partner step, not a blocker.
 
 
 **Company entity: US vs DR.** For consumer, I agree with Yelena: the choice mostly changes which payment accounts we can open, not what we build. Plaid production access (founder track (f)) sits next to the US entity. For business it can change more, and Lucas should know:
@@ -347,7 +369,7 @@ There's no fixed order. Higher pillars unlock more of the ones below them. **No 
 - **New:** a business spec (or a business MVEE section), Yelena's ownership model, and this master plan.
 - **Shrink:** `argus-execution-board.md` is 3,107 lines. Keep the Oct 4 section current and move the dated pre-Oct sections to `docs/archive/`.
 - **Archive candidates in `docs/specs/`:** `private-alpha-next-*` (roadmap, decision memo, p2.1 audit, refine-to-version, chat header title, conversational-edit contract), `wave-1/`, `graded-interpretation-routing.md`, `evidence-aware-idea-loop.md`, `conversation-sharing.md`, and the pointer stubs (`argus-active-roadmap`, `argus-grounded-finance-roadmap`, `argus-pivot-strategy`, `argus-answers-that-stay-true-roadmap`).
-- **Agent working notes:** `docs/superpowers/` and `.superpowers/sdd/`.
+- **Agent working notes:** `docs/superpowers/` and the old subagent task reports (both removed in the legacy agent-docs cleanup, except one held spec).
 - **Update during the domain move:** `PRIVATE_LAUNCH_RUNBOOK.md`, `docs/release-manifests/` (Argus web history).
 - **Archive with the guest flow (pending F5):** `GUEST_PUBLIC_LAUNCH_SAFETY.md` and anything else only about the Argus web, guest or chat. Everything else follows Yelena's list (§B8).
 
@@ -382,7 +404,7 @@ PR #809 (pytest gate) isn't an issue but should land too.
 **Where the blueprint is:** two Oct 4 documents, *Cuadrao consumer and business go to market vision* and *Cuadrao Product and Business Architecture*. Neither was in the repo on Oct 4: no e-CF, DGII or Ley 32-23 text appeared on any recent branch, including #813. They are now recorded as the [GTM source](../research/2026-10-04-cuadrao-gtm-vision-source.md) and the [Blueprint source](../research/2026-10-04-cuadrao-product-business-architecture-source.md).
 
 **Contradictions, each with a proposed resolution:**
-1. **e-CF route.** My earlier advice was to connect to a certified provider first; the blueprint makes our **own fiscal backend and DGII MCP** the goal. *Resolution:* **partner first** (Lucas, Oct 4). A DGII-certified provider is the path to a full business service. Our own DGII backend and certified-provider status run in parallel while Lucas does the DGII paperwork. Pilots record invoices issued elsewhere, then issue through Cuadrao once the provider connection is live (F2).
+1. **e-CF route (October 4 live-route history; offline scope now follows the [E0 plan](cuadrao-business-e0-implementation-plan.md)).** My earlier advice was to connect to a certified provider first; the blueprint makes our **own fiscal backend and DGII MCP** the goal. *Resolution:* **partner first** (Lucas, Oct 4). A DGII-certified provider is the path to a full business service. Our own DGII backend and certified-provider status run in parallel while Lucas does the DGII paperwork. Pilots record invoices issued elsewhere, then issue through Cuadrao once the provider connection is live (F2).
 2. **The MVEE limits Business to a private manual space** ("no employees, payroll, invoicing or tax") while the blueprint calls for a premium business product. *Resolution:* the MVEE limit becomes the consumer release's scope. Business gets its own spec. Record it in the decision log.
 3. **"Web remake frozen"** (MVEE §1.6, DOCUMENTATION_AUTHORITY) vs the business web workspace. *Resolution:* the freeze covers the Argus consumer web. The business web workspace is a new, scoped surface, per Lucas's Oct 4 decision.
 4. **"Revenue deferred; don't assign free and paid features"** vs "both products can earn revenue". *Resolution:* the direction has changed. Still no prices. Billing can be built in sandbox, and TestFlight can't charge.
@@ -394,7 +416,7 @@ PR #809 (pytest gate) isn't an issue but should land too.
 
 **True founder calls (kept short):**
 - **F1. First business segment.** The blueprint lists independent service providers, small professional-service firms, or owners already collecting documents on WhatsApp. Who recruits the ~10 owners?
-- **F2. Which certified provider, and when?** The route is set (partner first). Lucas picks the provider in his partner track and the timing of the connection; pilots record invoices issued elsewhere until it's live.
+- **F2. Which live provider route, and when?** The October 4 decision was partner first. Supplier discussions remain open; no partner choice is required for offline E0. Lucas picks the provider in his partner track and the timing of the connection; pilots record invoices issued elsewhere until it's live.
 - **F3. Company entity:** US, DR, or both, and in what order. Is the Apple developer account enrolled as an organization? That's needed for 5.1.1(ix) safety.
 - **F4. Business premium route:** in-app purchase plus web on one entitlement (my recommendation) vs web-only under an exception. Prices stay open.
 - **F5. Argus web during the transition:** a redirect or holding page now (the security backlog becomes moot), or keep serving Argus (un-defer the four security issues).
@@ -435,7 +457,7 @@ Iris's proposal fits this and I've used it here: one codebase, with a thin busin
 
 **Aligned with Iris's product half** (Part A). Her half owns the vision, the product map, the leverage ranking, the tester paths, the revenue-tool options and the F1-F5 founder calls; this half doesn't repeat them. Two inputs shape the business sections here:
 - **Deadline:** the e-CF deadline for small, micro and unclassified taxpayers is **Nov 15, 2026**, after DGII's extension in Aviso 06-26 (Part A references [1][2]).
-- **Fiscal route (Lucas correction, Oct 4 12:39 PM CT):** partner first. Connecting to a DGII-certified provider (PSFE; the Blueprint names Alanube and Alegra as references) is the fastest route to a full business service. Our own DGII backend is the parallel track while Lucas handles the DGII paperwork. The pilot starts by tracking the invoices owners already issue, then issues through Cuadrao once the provider connection is live. Picking the provider is part of Lucas's partner track.
+- **Fiscal route (historical Lucas correction, Oct 4 12:39 PM CT; offline scope follows the [E0 plan](cuadrao-business-e0-implementation-plan.md)):** partner first. Connecting to a DGII-certified provider (PSFE; the Blueprint names Alanube and Alegra as references) is the fastest route to a full business service. Our own DGII backend is the parallel track while Lucas handles the DGII paperwork. The pilot starts by tracking the invoices owners already issue, then issues through Cuadrao once the provider connection is live. Picking the provider is part of Lucas's partner track.
 
 Labels: **[fact]** comes from the repo, GitHub or a cited source. **[proposed]** is my recommendation and needs a lock. **[estimate]** is a rough size, not a commitment.
 
@@ -863,29 +885,29 @@ Sizes [estimate]: S = 1 eng-week or less, M = 2-4, L = 5+. **Now** = buildable n
 | Payment links | 1-away: a payment provider eligible for DR merchants (unnamed) | M | |
 | External API/MCP over authorized actions | Now (internal), external after the permission model | M-L | Blueprint §06 |
 | **Tracking externally issued e-CF** (owners keep issuing via DGII's Facturador Gratuito or their current provider; Cuadrao records e-NCF, issuer RNC, status, PDF/XML and links payments) | Now | M | **First pilot step** (Iris F2: track). Needed before Nov 15, 2026 for owners in the Aviso 06-26 group. Issuance moves to the provider bridge once that's live. |
-| Own fiscal backend, offline: versioned e-CF XML builder, XSD/business-rule validator against DGII's published specs, sequencing, durable submission state machine, evidence store (canonical invoice, XML, hash, responses) | Now (no live submission) | L | Blueprint §14 and §16, Iris pillar 7. **Parallel track** behind Lucas's DGII paperwork; it eventually replaces the provider. It's designed so the issuer is the customer and private keys never enter the model or MCP payloads. |
+| Own fiscal backend, offline: versioned e-CF XML builder, XSD/business-rule validator against DGII's published specs, sequencing, durable submission state machine, evidence store (canonical invoice, XML, hash, responses) | Now (no live submission) | L | Blueprint §14 and §16, Iris pillar 7. Broader target. The approved [E0 plan](cuadrao-business-e0-implementation-plan.md) defines the first offline subset and does not wait on issuer paperwork or promise provider replacement. It's designed so the issuer is the customer and private keys never enter the model or MCP payloads. |
 | Cuadrao DGII MCP over that backend (schema retrieval, draft validation; submit and status later) | Now (read and validate tools) | M | Exposes only actions the permission layer already allows (Blueprint §06) |
 | DGII test-environment submission and certification walk for one pilot issuer | 1-away: a pilot taxpayer with an RNC, Virtual Office access, a tax digital certificate and FI-GDF-016 | M of engineering, plus weeks of DGII process | Blueprint §15. The DGII foreign-provider question was still unanswered as of Oct 4, 16:32 UTC. |
 | Signing adapter | 1-away: a trust service (Viafirma/AVANSI candidate, Blueprint §16) or customer-controlled signing. Custody legality is with counsel. | M-L | Pluggable, so a vendor swap keeps evidence and idempotency |
 | Live e-CF issuance through Cuadrao's backend | Gated: each customer's DGII issuer authorization, plus the signing route and operating-entity eligibility | S on top of the rows above once gates clear | Not in the first pilot |
-| **Certified-provider bridge (partner first)** | 1-away: a PSFE agreement (provider chosen in Lucas's partner track; Alanube and Alegra are the Blueprint references) | M | **The route to live e-invoicing through Cuadrao.** It sits behind the same fiscal-backend interface as our own backend, so we can switch later without touching the ledger. The interface and adapter can be built against the provider's sandbox before the contract is signed. |
+| **Certified-provider bridge (October 4 live-route plan)** | 1-away: a PSFE agreement (provider chosen in Lucas's partner track; Alanube and Alegra are the Blueprint references) | M | **The route to live e-invoicing through Cuadrao.** It sits behind the same fiscal-backend interface as our own backend, so we can switch later without touching the ledger. The interface and adapter can be built against the provider's sandbox before the contract is signed. |
 | Cuadrao PSFE status | Gated: our own RNC with software activity, e-CF issuer status, three certified customer issuers, dossier and DGII tests (Blueprint §15) | L (process) | After the pilot issuers |
 | Tax preparation (records readiness) | Now | M | Filing is gated (DGII Virtual Office, qualified professional) |
 | Business web billing | 1-away: entity plus Stripe or Lemon Squeezy | S-M | §B5 |
 
-**What can run in parallel:** three streams on top of the space model:
+**Broader integration streams from October 4:** persisted work uses the space model. The approved [offline E0 subset](cuadrao-business-e0-implementation-plan.md) is independent of those migrations:
 - (a) the consumer TestFlight path, which needs only steps 1-2;
 - (b) the business ledger: web shell, roles, money, Inbox, customers, invoice drafts, external e-CF tracking, matching and accountant export;
 - (c) the offline fiscal backend and DGII MCP.
 
-Stream (c) touches (b) only at the invoice record and its fiscal-state fields, so lock that schema first. Both clients share one entitlement and audit stream.
+Persisted integration between streams (b) and (c) needs a reviewed invoice/fiscal-state contract. E0 uses synthetic in-memory inputs and local evidence only; it does not implement that persistence, entitlement or audit integration.
 
 **Business-ledger sizing for the first pilot [estimate]:**
 - The pilot is the space model step 4, roles, Inbox, customers, non-fiscal invoices, external e-CF tracking, matching, export, and the thin app space.
 - That's roughly 12-18 eng-weeks of work, so 6-9 calendar weeks with two engineers in parallel on (b).
 - None of it waits on DGII.
-- The certified-provider bridge adds about 3-5 eng-weeks [estimate] and is the first fiscal work to start (adapter against the provider sandbox, then live once the agreement is signed).
-- The offline fiscal backend (c) adds about 6-10 eng-weeks and runs in parallel at lower priority, behind Lucas's DGII paperwork.
+- Historical October 4 estimate: the certified-provider bridge adds about 3-5 eng-weeks. This does not make it a prerequisite for [offline E0](cuadrao-business-e0-implementation-plan.md).
+- Historical October 4 estimate: the broad offline fiscal backend (c) adds about 6-10 eng-weeks. The [approved E0 plan](cuadrao-business-e0-implementation-plan.md) owns its bounded subset; no timing estimate, lower-priority assignment or paperwork wait is carried into E0.
 
 **Entity consequences for the fiscal track (engineering only; Lucas decides, Iris F3):**
 - **PSFE needs a DR RNC.** Our own PSFE requires an RNC with software activity and e-CF issuer status (Blueprint §15). If we're US-only, the backend must stay in the "customer is the issuer, Cuadrao is software" model, which depends on DGII's pending answer on foreign non-certified providers. Build that way anyway: it's the model every route needs first.

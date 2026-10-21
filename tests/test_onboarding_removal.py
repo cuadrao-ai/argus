@@ -21,6 +21,7 @@ from argus.api.main import app
 from argus.api.message_store import memory_conversation, memory_message
 from argus.api.schemas import OnboardingState
 from argus.domain.market_data.assets import ResolvedAsset
+from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -344,6 +345,7 @@ def test_legacy_marker_messages_stay_hidden_from_reads() -> None:
     client = _client()
     user_id = client.get("/api/v1/me").json()["user"]["id"]
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="Legacy",
         title_source="system_default",
         language="en",

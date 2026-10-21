@@ -6,12 +6,42 @@ experience and assigned-work ownership. Check current PRs and release evidence
 for landing/deployment status. The historical ledger below stops at August 2,
 2026; later bounded landings are recorded separately below.
 Date: 2026-06-10
-Last reconciled: 2026-10-06 (Cuadrao launch reconciliation; PR #773 landing register restored; PR #809/#790/#810/#812 code checkpoint; PR #808/#813/#814/#815 documentation landing; PR #766 + PR #764/#763 + PR #760 + PR #759 + PR #757 + PR #755 + PR #753 + PR #751 + PR #749 + PR #747 + PR #745 + PR #743 + PR #735 + PR #739 + PR #738 + PR #733 + PR #672 + PR #695 + PR #721 + PR #711 landing registers; historical ledger still
+Last reconciled: 2026-10-10 (PR #929 Marketing evidence landing; PR #937 Consumer keyboard landing; PR #919 and #921 Consumer iPhone landing; PR #905, #908, #909, #913, #914, #918, #920 Business landings; PR #904 + PR #901 Business pilot landing; Cuadrao launch reconciliation; PR #773 landing register restored; PR #809/#790/#810/#812 code checkpoint; PR #808/#813/#814/#815 documentation landing; PR #766 + PR #764/#763 + PR #760 + PR #759 + PR #757 + PR #755 + PR #753 + PR #751 + PR #749 + PR #747 + PR #745 + PR #743 + PR #735 + PR #739 + PR #738 + PR #733 + PR #672 + PR #695 + PR #721 + PR #711 landing registers; historical ledger still
 through 2026-08-02)
 Branch: `codex/private-alpha-next`
 Audience: Founder, Codex, external async agents, reviewers
 
 ## Later bounded landings
+
+- October 10, 2026: [PR #929](https://github.com/lagarcess/argus/pull/929) squash-merged as `4cb85949b4dea6855971c8268aac1bd1a0cacb01` from reviewed head `a8d1a5e80`, with identical trees. Historical privacy/contact evidence and main-specific rollback notes are preserved. The [landing record](../reports/2026-10-10-pr-929-reconciliation.md) owns verification. #939 follows only after this landing is verified and needs a separate merge slot. #927/main promotion, deployment and public forms remain held.
+- October 9, 2026: [PR #937](https://github.com/lagarcess/argus/pull/937) squash-merged as `43fac94de2` from accepted head `87d7a8ab6`, with identical trees and no intervening integration overlap. Lucas accepted the four committed simulator journeys and green CI; physical VoiceOver/Switch Control checks remain unverified and are removed from this PR's gate. Build 3455 installation and launch were verified, but it still uses the local backend. The [landing record](../reports/2026-10-09-pr-937-integration-landing.md) owns source identity, retained evidence and limits. Next: signed-in free manual money against the staging API only. #877 stays open. Guest, receipts, shared plans, transaction redesign and RevenueCat remain outside the active assignment. The merge itself authorized no hosted change. Lucas later approved the completed money-gate activation and same-code restart/deploy on pinned staging `cad1cbe1e`, with a synthetic login. No newer code, migrations, production changes or TestFlight upload.
+- October 9, 2026: Consumer iPhone landings under [#877](https://github.com/lagarcess/argus/issues/877) and one Business fix, each squash-merged on the founder's instruction after green exact-head CI and no open review comments. [PR #931](https://github.com/lagarcess/argus/pull/931) as `86f8e4f6e`: + then Transaction opens the editor on the primary-currency account instead of listing every account. [PR #934](https://github.com/lagarcess/argus/pull/934) as `e9d9fa4a1`: the bar folds into the + on Plan, Search and Profile as on Home. [PR #930](https://github.com/lagarcess/argus/pull/930) as `b8f1dc7c1` (Business lane, #928): funds a focused repair's field-fidelity approval from the repair pool; consumer-reviewed at `a1b5d9afa`. [PR #935](https://github.com/lagarcess/argus/pull/935) as `8a14aad25`: saved receipts client behind the receipts switch, off in Release; the stacked parent's squash conflicted once in the shell file and was reconciled before landing. Phone build 3453 (Release, from #934) is installed and accepted. Saved receipts have not run against a real server, and the hosted storage and deletion smoke test is a separate approval before receipts are enabled anywhere. No migration, deployment or feature activation.
+- October 8, 2026: Consumer iPhone landing under [#877](https://github.com/lagarcess/argus/issues/877), in this order, on the founder's instruction.
+  - [PR #919](https://github.com/lagarcess/argus/pull/919) as `31a73c501` (accepted head `c98676ea9`): the + menu as an anchored card with a nub on the open bar and labeled round buttons stacked from the folded +, the free-tier Search wording, and the home-screen name "Cuadrao". Review fixes: the menu scrolls at large text and in landscape, icons stay in their badges, empty-state copy follows the bar.
+  - [PR #921](https://github.com/lagarcess/argus/pull/921) as `826ace6d4` (accepted head `808c36ff7`): Marketing's approved "Lean, calm" mark as the app icon, the welcome screen as one lockup and two native actions on `#fafbf8` / `#172b26`, the shared lockup on the invitation card and chat empty state, and the brand identity in `.agent/designs/cuadrao/DESIGN.md`. Marketing's SVGs are pinned: lockups at `acf1b180a`, the rest at `73286f8ca`.
+  - Before merge: integration had changed no iOS files since #919's base; the two PRs' files are disjoint and identical in integration to their accepted heads; the combined menu, large-text, welcome and lockup checks passed on the local integration merge; exact-head CI and smoke on `826ace6d4` passed.
+  - Phone build 3452 is built from `826ace6d4`. No migration, deployment or feature activation.
+
+- October 8, 2026: [PR #920](https://github.com/lagarcess/argus/pull/920) merged as `f5a2007cd`.
+  - A switch now stops only new intake. With document extraction or ingestion off, saved Personal documents and Business receipts stay readable and deletable, with Storage erased first. WhatsApp unlink is always available to the signed-in owner.
+  - `ARGUS_BUSINESS_CHAT_ENABLED` (default off) keeps Business chat off until its tool restrictions and required tests pass.
+  - Before merge: exact-head CI green, clean, and an independent review that said ship.
+  - The founder approved the Business search and receipt-state copy on October 8. The "AI result unknown" text was replaced by the founder's wording in the PR that carries this note.
+  - No migration, deployment or activation.
+
+- October 8, 2026: after Consumer recorded the Build 2 candidate `64833f6d2` on [#833](https://github.com/lagarcess/argus/issues/833), the rest of the Business queue merged, in order. Each had green exact-head CI, contained integration and had no open review threads:
+  - [PR #908](https://github.com/lagarcess/argus/pull/908) as `56f50b2f6`: durable document preparation jobs, migration `20261008110000` (B2).
+  - [PR #909](https://github.com/lagarcess/argus/pull/909) as `fa5923529`: WhatsApp receipt intake, migration `20261008130000` (B3), with founder-approved reply copy.
+  - [PR #913](https://github.com/lagarcess/argus/pull/913) as `7ec48872e`: the Business API, with no migration.
+  - [PR #914](https://github.com/lagarcess/argus/pull/914) as `6022747cb`: separate Personal and Business spaces, migration `20261008140000` (B4), plus Business search, receipt next steps and the read-only scripts `business_spaces_precheck.sql` and `business_space_rows.sql`.
+
+  - [PR #918](https://github.com/lagarcess/argus/pull/918) as `20a88440c`: S4 chat separation without the model-facing tool catalog. Personal and Business chats keep separate Recents, history, search, delete-all and Compare lists. Artifact routes refuse Business chats, Business turns skip memory, and the /biz palette drops the investing filters. It has no migration and needs B4 before it deploys. Two independent reviews said ship.
+
+  All are outside Build 2 and default-off. B2 to B4 are not applied anywhere hosted. Any build that reads them needs B1 to B4 applied first. Once Business data exists in hosted, the build carrying #914 is the minimum compatible code version. Evidence on #914 covers local end-to-end runs, the compatibility rehearsal, flags-off and the live read-only check. No deployment, hosted migration or flag change.
+
+- October 8, 2026: [PR #905](https://github.com/lagarcess/argus/pull/905) squash-merged as `64833f6d2` from head `404825055` onto the Consumer Build 1 freeze `cad1cbe1e` ([#833](https://github.com/lagarcess/argus/issues/833)). It moves retained document sources to a private Supabase Storage bucket, with dual read of the legacy bytea and an account-deletion `storage` step. It adds migration `20261008100000_financial_document_source_objects.sql` (B1), not applied anywhere hosted. It is the only Business PR in Consumer Build 2; #908, #909, #913 and #914 wait for the recorded Build 2 candidate. The document surface stays off. The rehearsal on #914 shows that code older than this cannot read or delete Storage-backed documents: once documents are stored in hosted, this release is the minimum compatible code version. #778 stays open until B1 is applied and verified in hosted. No deployment, hosted migration or flag change.
+
+- October 7, 2026: Cuadrao Business owner pilot, first two landings under [#900](https://github.com/lagarcess/argus/pull/900). [PR #904](https://github.com/lagarcess/argus/pull/904) squash-merged as `ee4acd50e` from head `43ad4a70b`: one receipt review read from the draft, its evidence and its import event, with no migration. [PR #901](https://github.com/lagarcess/argus/pull/901) squash-merged as `d2d0c6d38` from head `72f7f07c8`: the Business screens inside the chat shell at `/biz`, behind `NEXT_PUBLIC_BUSINESS_PILOT_ENABLED` (default false, now in `web/.env.local.example`), plus the guarded money input. With the flag off, `/chat` matched integration byte for byte in en and es-419 on desktop and phone. Exact-head CI was green on both and neither had open review threads. No linked issue closes. Storage (#905), preparation jobs (#908) and WhatsApp intake (#909) carry migrations and stay unmerged until the consumer freeze is posted. No deployment, hosted migration, Business activation or paid provider call.
 
 - October 7, 2026: [PR #884](https://github.com/lagarcess/argus/pull/884) delivers the default-off Cuadrao Business and Personal marketing preview. The [website delivery record](../reports/2026-10-07-cuadrao-website-integration.md) links exact-head evidence and launch follow-ups #880–#882. No public activation, hosted persistence, financial-runtime or native-app change.
 
@@ -408,10 +438,10 @@ Claude review is a bounded review aid, not an always-on push hook.
   manual GitHub workflow, PR label, or review command after the lane is stable.
 - Do not run Claude review automatically on every push. WIP branches should not
   accumulate noisy automated review comments before a lane is ready.
-- Claude reviews must use the root `CLAUDE.md`, `AGENTS.md`, the canon docs,
-  the active roadmap or lane spec, and the correct parent branch for the diff.
-- Promotion-gate review focus is defined by the root `CLAUDE.md`. The
-  integration workflow especially depends on regression detection,
+- Reviews use `AGENTS.md` ("Commits, PRs and review"), the canon docs, the
+  active roadmap or lane spec, and the correct parent branch for the diff.
+- Promotion-gate review focus is defined by Yelena's ship playbooks (internal).
+  The integration workflow especially depends on regression detection,
   language-agnostic runtime-spine protection, modularity, API contract drift,
   frontend truth ownership, tests/browser-QA gaps, and release-gate discipline.
 

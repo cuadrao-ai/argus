@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
+from argus.domain.owner_scope import OwnerScope
 from argus.domain.recording.errors import IdempotencyConflict
 from argus.domain.recording.loop_storage import apply
 from argus.domain.recording.money_plan import MoneyPlan
@@ -22,15 +23,17 @@ def transact(
     planner: Callable[[list[StoredAccount]], MoneyPlan],
     now: datetime,
     legacy_account: str | None = None,
+    *,
+    scope: OwnerScope,
 ) -> tuple[list[StoredAccount], str, int, tuple[str, ...], bool]:
     if not isinstance(repository, InMemoryFinancialAccountRepository):
         from argus.domain.recording.money_postgres import transact_postgres
 
         return transact_postgres(
-            repository, user_id, key, identity, planner, now, legacy_account
+            repository, user_id, key, identity, planner, now, legacy_account, scope=scope
         )
     with repository._lock:
-        owned = [s for s in repository._accounts.values() if s.account.user_id == user_id]
+        owned = repository.held(user_id, scope)
         receipts = repository._money_receipts
         receipt = receipts.get((user_id, legacy_account, key))
         if receipt:

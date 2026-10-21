@@ -78,9 +78,9 @@ struct HouseholdPlanDefinitionEditor: View {
                 else if let error { Text(LocalizedStringKey(error)); Button("accounts.retry") { Task { await load() } } }
             }
             .navigationTitle(sharing ? "sharedPlan.share" : editing == nil ? "sharedPlan.create" : "sharedPlan.edit")
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() } }
-                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("accounts.keyboard.done") { focused = false } }
+                CuadraoCancelToolbar(title: "accounts.cancel") { dismiss() }
             }
             .task { await load() }
             .onChange(of: existingId) { _, _ in Task { await loadExistingScope() } }

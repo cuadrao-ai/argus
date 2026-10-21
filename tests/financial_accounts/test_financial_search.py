@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 from argus.domain.financial_search import InvalidCursor, StaleCursor, search
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.schemas import ExpectationCreate, ExpectationEdit, Schedule
 from argus.domain.planning.service import PlanService
 from argus.domain.recording.money_schemas import MoneyRequest
@@ -43,7 +44,10 @@ def test_logical_transfer_and_current_correction_only(scene):
         reason=fake.sentence(),
     )
     preview = money.preview(
-        user_id=owner, request=request, activity_id=original["activity_id"]
+        user_id=owner,
+        request=request,
+        activity_id=original["activity_id"],
+        scope=PERSONAL,
     )
     request = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
         update={"preview_token": preview["preview_token"]}
@@ -53,6 +57,7 @@ def test_logical_transfer_and_current_correction_only(scene):
         request=request,
         activity_id=original["activity_id"],
         idempotency_key=str(uuid4()),
+        scope=PERSONAL,
     )
     assert not search(service, owner, q="Old transfer").items
     current = search(service, owner, q="Nueva", kind="activity").items
@@ -70,6 +75,7 @@ def test_accent_and_literal_search_queries(scene, query):
         request=EditFinancialAccountRequest(
             expected_version=1, nickname="Café 100%_ ' " + chr(92), archived=True
         ),
+        scope=PERSONAL,
     )
     found = search(service, owner, q=query).items
     assert len(found) == 1 and found[0].account.id == aid
@@ -98,6 +104,7 @@ def test_snapshot_cursor_scope_staleness_and_stable_pages(scene):
         user_id=owner,
         account_id=aid,
         request=EditFinancialAccountRequest(expected_version=1, nickname=fake.word()),
+        scope=PERSONAL,
     )
     with pytest.raises(StaleCursor):
         search(service, owner, cursor=cursor)

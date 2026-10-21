@@ -32,6 +32,7 @@ from argus.domain.ingestion.shortcuts.events import (
     to_candidate,
 )
 from argus.domain.ingestion.shortcuts.store import DeviceTokenStore
+from argus.domain.owner_scope import PERSONAL
 
 MAX_LIVE_DEVICES = 5
 MAX_EVENT_AGE = timedelta(days=30)
@@ -96,7 +97,7 @@ class ShortcutsConnector:
     def enroll(self, *, user_id: str, device_name: str) -> Enrollment:
         live = [
             row
-            for row in self.hub.list(user_id=user_id)
+            for row in self.hub.list(user_id=user_id, scope=PERSONAL)
             if row.source == "shortcuts" and row.status in LIVE
         ]
         if len(live) >= MAX_LIVE_DEVICES:  # cheap early answer; the store decides
@@ -109,6 +110,7 @@ class ShortcutsConnector:
             external_ref=minted.device_id,
             label=inert_text(device_name, 80),
             now=now,
+            scope=PERSONAL,
         )
         try:
             stored = self.store.put_within_limit(
@@ -190,6 +192,7 @@ class ShortcutsConnector:
                 user_id=connection.user_id,
                 connection_id=connection.id,
                 candidates=[candidate],
+                scope=PERSONAL,
             )
         except Exception as exc:
             # Earlier events of a batch are kept; a retry is harmless because
@@ -206,7 +209,7 @@ class ShortcutsConnector:
             return Receipt(receipt, external, "unchanged")
         # Ignored, or not accounted for: never report it as saved.
         current = self.hub.connections.get(
-            user_id=connection.user_id, connection_id=connection.id
+            user_id=connection.user_id, connection_id=connection.id, scope=PERSONAL
         )
         if current.status not in LIVE:
             raise ConnectionEnded()

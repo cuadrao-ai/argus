@@ -2,6 +2,7 @@
 
 from argus.domain.household import planning_schemas as wire
 from argus.domain.household.planning import SharedPlanningService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.service import FinancialAccountService
@@ -152,7 +153,7 @@ def request(kind, source, amount="20", destination=None, **fields):
 
 def personal(s, actor, body):
     service = MoneyService(FinancialAccountService(s["records"], clock=lambda: NOW))
-    preview = service.preview(user_id=actor, request=body)
+    preview = service.preview(user_id=actor, request=body, scope=PERSONAL)
     assert preview["ready"]
     return service.write(
         user_id=actor,
@@ -160,6 +161,7 @@ def personal(s, actor, body):
             preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
         ),
         idempotency_key=key(),
+        scope=PERSONAL,
     )
 
 

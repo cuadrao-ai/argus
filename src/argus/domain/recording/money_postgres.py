@@ -7,6 +7,7 @@ from typing import Any
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from argus.domain.owner_scope import OwnerScope, sql_predicate
 from argus.domain.recording.errors import (
     AccountNotFound,
     IdempotencyConflict,
@@ -25,13 +26,15 @@ def owner_lock(connection: Connection, user_id: str) -> None:
 
 
 def load_owner(
-    repository: Any, connection: Connection, user_id: str
+    repository: Any, connection: Connection, user_id: str, *, scope: OwnerScope
 ) -> list[StoredAccount]:
+    in_scope, params = sql_predicate(scope, "owner_space_id")
     rows = connection.execute(
-        "select id from public.financial_accounts where user_id=%s order by id",
-        (user_id,),
+        "select id from public.financial_accounts"
+        f" where user_id=%s and {in_scope} order by id",
+        (user_id, *params),
     ).fetchall()
-    return [repository._load(connection, user_id, str(r[0])) for r in rows]
+    return [repository._load(connection, user_id, str(r[0]), scope=scope) for r in rows]
 
 
 def persist(
@@ -78,6 +81,8 @@ def persist(
                 "reversal_of_revision",
             )
         }
+        details["entered_on"] = r.entered_on.isoformat() if r.entered_on else None
+        details["coverage_skips"] = [list(skip) for skip in r.coverage_skips]
         reason = r.reason
         if record_owner != user_id and r.role == "destination":
             for field in ("note", "category_id", "source_id", "interest_minor"):
@@ -151,7 +156,10 @@ def transact_postgres(
     planner: Callable[[list[StoredAccount]], MoneyPlan],
     now: datetime,
     legacy_account: str | None,
+    *,
+    scope: OwnerScope,
 ) -> tuple[list[StoredAccount], str, int, tuple[str, ...], bool]:
+    in_scope, in_params = sql_predicate(scope, "owner_space_id")
     with repository._pool.connection() as connection:
         with connection.transaction():
             from .canonical_groups import VisibleAccounts, load, owner_closure
@@ -178,7 +186,7 @@ def transact_postgres(
                 if receipt[0] != identity:
                     raise IdempotencyConflict()
                 return (
-                    load_owner(repository, connection, user_id),
+                    load_owner(repository, connection, user_id, scope=scope),
                     str(receipt[1]),
                     receipt[2],
                     tuple(str(a) for a in receipt[3]),
@@ -186,20 +194,21 @@ def transact_postgres(
                 )
             initial = planner(
                 VisibleAccounts(
-                    load_owner(repository, connection, user_id),
-                    load(repository, connection, {user_id}),
+                    load_owner(repository, connection, user_id, scope=scope),
+                    load(repository, connection, {user_id}, scope=scope),
                 )
             )
             for aid in initial.affected:
                 if not connection.execute(
-                    "select id from public.financial_accounts where id=%s and user_id=%s for update",
-                    (aid, user_id),
+                    "select id from public.financial_accounts where id=%s and user_id=%s"
+                    f" and {in_scope} for update",
+                    (aid, user_id, *in_params),
                 ).fetchone():
                     raise AccountNotFound()
             result = planner(
                 VisibleAccounts(
-                    load_owner(repository, connection, user_id),
-                    load(repository, connection, {user_id}),
+                    load_owner(repository, connection, user_id, scope=scope),
+                    load(repository, connection, {user_id}, scope=scope),
                 )
             )
             if result.affected != initial.affected:
@@ -230,7 +239,7 @@ def transact_postgres(
                     ),
                 )
             return (
-                load_owner(repository, connection, user_id),
+                load_owner(repository, connection, user_id, scope=scope),
                 result.activity_id,
                 result.revision,
                 result.affected,

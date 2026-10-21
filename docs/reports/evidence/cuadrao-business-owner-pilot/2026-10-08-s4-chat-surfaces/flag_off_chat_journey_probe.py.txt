@@ -1,0 +1,119 @@
+"""S4 flag-off byte identity: one /chat journey on real Postgres, dumped canonically.
+
+The database already holds Personal conversations written the pre-S4 way (no
+space column named). The same file runs against the base commit and S4; the two
+dumps must be identical.
+"""
+
+import json
+import os
+import re
+from contextlib import suppress
+from pathlib import Path
+from unittest.mock import patch
+
+import psycopg
+from argus.api import state as api_state
+from argus.api.main import app
+from argus.api.routers import auth as auth_router
+from fastapi.testclient import TestClient
+
+from tests.local_supabase_support import local_supabase_gateway
+from tests.test_financial_accounts_api_postgres import ORIGIN, _login
+
+DSN = os.environ["ARGUS_DISPOSABLE_DATABASE_URL"]
+OUT = Path(os.environ["PROBE_OUT"])
+UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+STAMP = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?"
+
+
+def canonical(log):
+    # Rows soft-deleted in one statement share updated_at, so their id tie-break
+    # follows random ids: compare that page as a set.
+    for entry in log:
+        body = entry[3]
+        if entry[1] == "/conversations?deleted=true" and isinstance(body, dict):
+            body["items"].sort(key=lambda item: item["title"])
+    text = json.dumps(log, sort_keys=True, indent=1)
+    text = re.sub(r"fin-s4probe-[ab]-[0-9a-f]+@", "fin-s4probe-<who>@", text)
+    text = re.sub(r"cursor=[A-Za-z0-9=_-]+", "cursor=<cursor>", text)
+    seen = {}
+    text = re.sub(UUID, lambda m: seen.setdefault(m.group(0), f"<id{len(seen)}>"), text)
+    stamps = {}
+    text = re.sub(STAMP, lambda m: stamps.setdefault(m.group(0), f"<t{len(stamps)}>"), text)
+    return re.sub(r'"(cursor|next_cursor)": "[^"]+"', r'"\1": "<cursor>"', text)
+
+
+def seed(person):
+    with psycopg.connect(DSN) as connection:
+        for index, title in enumerate(("Rent ledger", "Groceries ledger", "Savings ledger")):
+            row = connection.execute(
+                "insert into public.conversations (user_id, title, title_source, language, "
+                "created_at, updated_at) values (%s, %s, 'system_default', 'en', "
+                "now() - make_interval(hours => %s), now() - make_interval(hours => %s)) returning id",
+                (person, title, 10 - index, 10 - index),
+            ).fetchone()
+            connection.execute(
+                "insert into public.messages (conversation_id, user_id, role, content, created_at) "
+                "values (%s, %s, 'user', %s, now() - make_interval(hours => %s))",
+                (row[0], person, f"How is my {title.lower()} doing?", 10 - index),
+            )
+
+
+def test_flag_off_chat_journey(monkeypatch):
+    auth_router.reset_auth_attempt_limiter_for_tests()
+    for name in ("NEXT_PUBLIC_MOCK_AUTH", "ARGUS_MOCK_AUTH", "ARGUS_DEV_MEMORY_FALLBACK"):
+        monkeypatch.setenv(name, "false")
+    monkeypatch.setenv("ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED", "true")
+    monkeypatch.delenv("ARGUS_BUSINESS_PILOT_ENABLED", raising=False)
+    monkeypatch.delenv("ARGUS_EVIDENCE_RECEIPT_SHARING_ENABLED", raising=False)
+    gateway = local_supabase_gateway()
+    created = []
+    log = []
+    try:
+        with (
+            patch.object(api_state, "supabase_gateway", gateway),
+            patch.object(api_state, "DATABASE_URL", DSN),
+            patch.object(api_state, "PERSISTENCE_MODE", "supabase"),
+            TestClient(app, base_url="http://localhost:3000") as client,
+        ):
+            alice = {**_login(client, gateway, "s4probe-a", created), **ORIGIN}
+            bob = {**_login(client, gateway, "s4probe-b", created), **ORIGIN}
+
+            def call(method, path, headers, **kwargs):
+                response = client.request(method, "/api/v1" + path, headers=headers, **kwargs)
+                body = response.json() if "json" in response.headers.get("content-type", "") else response.text
+                if isinstance(body, dict):
+                    body.pop("request_id", None)
+                log.append([method, path, response.status_code, body, response.headers.get("cache-control")])
+                return body
+
+            call("GET", "/me", alice)
+            call("GET", "/me", bob)
+            seed(created[0])
+            listed = call("GET", "/conversations?limit=2", alice)
+            call("GET", f"/conversations?limit=2&cursor={listed['next_cursor']}", alice)
+            call("GET", "/conversations", alice)
+            call("GET", "/search?q=ledger&limit=30&include_ledger_groups=true", alice)
+            call("GET", "/search?q=&limit=1&include_ledger_groups=true", alice)
+            call("GET", "/history?limit=50", alice)
+            first = listed["items"][0]["id"]
+            call("GET", f"/conversations/{first}/messages", alice)
+            call("PATCH", f"/conversations/{first}", alice, json={"pinned": True})
+            new = call("POST", "/conversations", alice, json={"title": None, "language": "en"})
+            call("POST", "/conversations", alice, json={"title": "Named"})
+            call("POST", f"/conversations/{first}/messages/{new['conversation']['id']}/decision", alice,
+                 json={"decision_state": "watching"})
+            call("GET", f"/conversations/{first}/public-excerpt-candidates", alice)
+            call("GET", "/conversations", bob)
+            call("GET", "/search?q=ledger", bob)
+            call("DELETE", f"/conversations/{first}", alice)
+            call("GET", "/history?deleted=true", alice)
+            call("DELETE", "/conversations", alice)
+            call("GET", "/conversations?deleted=true", alice)
+            call("GET", "/conversations", alice)
+    finally:
+        for user_id in created:
+            with suppress(Exception):
+                gateway.delete_auth_user(user_id)
+    OUT.write_text(canonical(log))

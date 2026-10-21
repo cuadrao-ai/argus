@@ -4,6 +4,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.debt_schemas import DebtCreate, DebtEdit, DebtLink, DebtRecord
 from argus.domain.planning.debts import DebtService
 from argus.domain.planning.service import PlanService
@@ -22,12 +23,16 @@ scene = shared.scene
 
 def save(scene, **values):
     money = MoneyService(scene[0])
-    preview = money.preview(user_id=scene[1], request=MoneyRequest(**values))
+    preview = money.preview(
+        user_id=scene[1], request=MoneyRequest(**values), scope=PERSONAL
+    )
     assert preview["ready"]
     request = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
         update={"preview_token": preview["preview_token"]}
     )
-    return money.write(user_id=scene[1], request=request, idempotency_key=str(uuid4()))
+    return money.write(
+        user_id=scene[1], request=request, idempotency_key=str(uuid4()), scope=PERSONAL
+    )
 
 
 def setup(scene, *, due=None, cadence="monthly"):
@@ -107,11 +112,11 @@ def test_partial_payments_costs_and_real_returns_reopen_current_debt(scene):
     current = debts.get(scene[1], progress["debt"]["id"])
     assert current["state"] == "active" and current["balance"]["amount_minor"] == -57000
     original = MoneyService(scene[0]).detail(
-        user_id=scene[1], activity_id=extra["activity"]["activity_id"]
+        user_id=scene[1], activity_id=extra["activity"]["activity_id"], scope=PERSONAL
     )
     assert original["amount_minor"] == 80000 and original["revision"] == 1
     actual = spending(
-        current_activities(scene[0].list_accounts(user_id=scene[1])),
+        current_activities(scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)),
         currency="DOP",
         start=NOW - timedelta(days=1),
         end=NOW + timedelta(days=1),
@@ -164,6 +169,7 @@ def test_return_components_capped_and_original_corrections_guard_returns(scene):
                 expected_revision=1,
                 reason="Correct original",
             ),
+            scope=PERSONAL,
         )
 
 
@@ -213,7 +219,8 @@ def test_lifecycle_replay_active_unique_and_link_changes_no_balance(scene):
         occurred_at=NOW,
     )["activity"]
     versions = {
-        s.account.id: s.account.version for s in scene[0].list_accounts(user_id=scene[1])
+        s.account.id: s.account.version
+        for s in scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     }
     body = DebtLink(
         expected_version=1,
@@ -271,6 +278,7 @@ def test_omitted_default_category_correction_survives_existing_returns(scene):
             expected_revision=1,
             reason="Fix note",
         ),
+        scope=PERSONAL,
     )
     assert (
         preview["ready"] and preview["reviewed_request"]["category_id"] == "interest_fees"
@@ -286,7 +294,7 @@ def test_explicit_monthly_model_uses_recorded_debt_without_clearing_it(
 
     debts, cash, loan, progress = setup(scene)
     balance = account_response(
-        scene[0].get(user_id=scene[1], account_id=loan)
+        scene[0].get(user_id=scene[1], account_id=loan, scope=PERSONAL)
     ).balance.model_copy(update={"as_of": NOW})
     item = {
         "currency": "DOP",
@@ -346,7 +354,7 @@ def test_actual_return_reverses_costs_only_in_its_recorded_month(scene, monkeypa
         reversal_of_activity_id=original["activity"]["activity_id"],
         occurred_at=returned_at,
     )
-    actual = current_activities(scene[0].list_accounts(user_id=scene[1]))
+    actual = current_activities(scene[0].list_accounts(user_id=scene[1], scope=PERSONAL))
     september = spending(
         actual, currency="DOP", start=NOW.replace(day=1, hour=0), end=returned_at
     )
@@ -359,7 +367,9 @@ def test_actual_return_reverses_costs_only_in_its_recorded_month(scene, monkeypa
     assert october.contributors[0]["counted_spending_minor"] == 2000
     assert (
         MoneyService(scene[0]).detail(
-            user_id=scene[1], activity_id=original["activity"]["activity_id"]
+            user_id=scene[1],
+            activity_id=original["activity"]["activity_id"],
+            scope=PERSONAL,
         )["revision"]
         == 1
     )
@@ -386,7 +396,10 @@ def test_corrected_funding_account_marks_original_occurrence_for_review(scene):
     )
     money = MoneyService(scene[0])
     preview = money.preview(
-        user_id=scene[1], request=request, activity_id=original["activity_id"]
+        user_id=scene[1],
+        request=request,
+        activity_id=original["activity_id"],
+        scope=PERSONAL,
     )
     assert preview["ready"]
     reviewed = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
@@ -397,6 +410,7 @@ def test_corrected_funding_account_marks_original_occurrence_for_review(scene):
         request=reviewed,
         activity_id=original["activity_id"],
         idempotency_key=str(uuid4()),
+        scope=PERSONAL,
     )
     current = debts.get(scene[1], progress["debt"]["id"])
     assert current["payments"][0]["status"] == "needs_review"
@@ -488,7 +502,7 @@ def test_uppercase_debt_preview_preserves_canonical_identity_without_writing(
     before = debts.get(scene[1], upper)
     accounts_before = {
         s.account.id: account_response(s).model_dump(mode="json")
-        for s in scene[0].list_accounts(user_id=scene[1])
+        for s in scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     }
     request = MoneyRequest(
         kind="debt_payment",
@@ -510,10 +524,12 @@ def test_uppercase_debt_preview_preserves_canonical_identity_without_writing(
     assert preview["money"]["ready"] is not requires_coverage
     assert debts.get(scene[1], upper) == before
     assert debts.candidates(scene[1], upper)["items"] == []
-    assert current_activities(scene[0].list_accounts(user_id=scene[1])) == []
+    assert (
+        current_activities(scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)) == []
+    )
     assert {
         s.account.id: account_response(s).model_dump(mode="json")
-        for s in scene[0].list_accounts(user_id=scene[1])
+        for s in scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     } == accounts_before
     if requires_coverage:
         answers = [

@@ -8,6 +8,7 @@ import pytest
 from argus.domain.household import planning_schemas as wire
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.financial import HouseholdFinancialService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning.budget_schemas import BudgetEdit
 from argus.domain.planning.budgets import BudgetService
 from argus.domain.planning.service import PlanService
@@ -127,7 +128,9 @@ def test_owner_departure_freezes_definition_history_actuals_and_denies_future_wr
             expected_revision=1,
             reason="Private later correction",
         )
-        preview = original.preview(user_id=s["a"], request=corrected, activity_id=aid)
+        preview = original.preview(
+            user_id=s["a"], request=corrected, activity_id=aid, scope=PERSONAL
+        )
         original.write(
             user_id=s["a"],
             activity_id=aid,
@@ -135,6 +138,7 @@ def test_owner_departure_freezes_definition_history_actuals_and_denies_future_wr
                 preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
             ),
             idempotency_key=key(),
+            scope=PERSONAL,
         )
         frozen = get(s, s["b"], p)
         assert frozen["definition"]["limit_minor"] == "10000"

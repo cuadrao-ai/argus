@@ -1,0 +1,66 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/business-approve-next.dom.test.tsx:
+(pass) Aprobar y siguiente on the receipt review page > the owner sees green Aprobar as the primary action, with Aprobar y siguiente beside it [876.84ms]
+(pass) Aprobar y siguiente on the receipt review page > approving opens the next receipt in Bandeja order, skipping the email's own document, and the count comes from the server [1047.47ms]
+(pass) Aprobar y siguiente on the receipt review page > the approve request is the one Aprobar sends: same record, same version, one key [3764.95ms]
+(pass) Aprobar y siguiente on the receipt review page > the next receipt is the row after the approved one, not the top of the Bandeja [829.10ms]
+(pass) Aprobar y siguiente on the receipt review page > approving the last row returns to the Bandeja, which lists the rows skipped before it [2944.91ms]
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode false) [801.43ms]
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode true) [802.96ms]
+(pass) Aprobar y siguiente on the receipt review page > an unavailable next receipt never hands focus to a later receipt [839.78ms]
+(pass) Aprobar y siguiente on the receipt review page > an unavailable next dossier never hands focus to a later receipt [825.72ms]
+(pass) Aprobar y siguiente on the receipt review page > leaving the next receipt while it loads never hands focus to a later page [2971.92ms]
+(pass) Aprobar y siguiente on the receipt review page > approving the last receipt waiting returns to the Bandeja and its empty state [1139.33ms]
+(pass) Aprobar y siguiente on the receipt review page > a refused approval stays on the receipt with the existing error [2923.03ms]
+(pass) Aprobar y siguiente on the receipt review page > an approval whose outcome is unknown stays on the receipt [2923.45ms]
+(pass) Aprobar y siguiente on the receipt review page > a 200 whose approval failed stays on the receipt and reads nothing more [2929.36ms]
+(pass) Aprobar y siguiente on the receipt review page > a 200 whose outcome is unknown stays on the receipt and reads nothing more [2966.99ms]
+(pass) Aprobar y siguiente on the receipt review page > when the Bandeja cannot be read after a recorded approval, the Bandeja opens [793.51ms]
+(pass) Aprobar y siguiente on the receipt review page > opening Gastos while the approval is pending keeps Gastos open when it records [2923.92ms]
+(pass) Aprobar y siguiente on the receipt review page > switching Business while the approval is pending opens no receipt when it records [2934.36ms]
+(pass) Aprobar y siguiente on the receipt review page > switching Business while the Bandeja read is pending opens no receipt from the old Business [2932.97ms]
+(pass) Aprobar y siguiente on the receipt review page > a person without approval permission never sees Aprobar y siguiente [791.30ms]
+
+__tests__/business-upload-controls.dom.test.tsx:
+(pass) recovery labels follow a language change without losing the receipt or its actions [249.03ms]
+
+__tests__/business-inbox-notes.test.tsx:
+(pass) notes awaiting review in the Inbox > one row per open draft, newest first, with its latest note and the count of earlier ones [0.06ms]
+(pass) notes awaiting review in the Inbox > rows show the note text, revision and earlier count in Spanish, and open the draft [3.19ms]
+(pass) notes awaiting review in the Inbox > a full page says it shows the latest notes [0.55ms]
+(pass) notes awaiting review in the Inbox > a notes outage says so and renders no invented rows; no notes renders nothing [0.20ms]
+(pass) the inbox count on the Overview card and the sidebar badge > is the server's pending review count, never the unread count and never a client recount [0.02ms]
+(pass) the inbox count on the Overview card and the sidebar badge > is unknown, not zero, until the server answers
+
+__tests__/business-approved-revision.dom.test.tsx:
+(pass) a recorded receipt names the revision that was approved > approving revision 2 then marking it Personal keeps revisión 2 and the approval date [93.44ms]
+
+__tests__/business-money-readback.test.ts:
+(pass) Business saved amount readback > reads the decimal string back exactly in the currency's precision [0.23ms]
+(pass) Business saved amount readback > never rounds through a float [0.03ms]
+(pass) Business saved amount readback > uses the reader's separators [0.05ms]
+(pass) Business saved amount readback > text that is not a decimal amount is shown as given
+
+__tests__/receipt-marks.dom.test.tsx:
+(pass) the chips > a read receipt without a fiscal number says so in grey text; a personal one says Personal; a receipt not yet read says nothing [0.73ms]
+(pass) the chips > the owner sees a dot on the Personal chip when someone else marked it, read as Marcado por <nombre>; the accountant does not [0.52ms]
+(pass) the Overview's two totals > Gastos reales and Con valor fiscal stand side by side with the 606 line under the second, from the server's numbers [1.34ms]
+(pass) the Personal control in the Bandeja > anyone the server lets prepare gets a row menu; a read-only grant gets the chip only [2.13ms]
+(pass) the Personal control in the Bandeja > the owner sees who marked the receipt and takes the mark back through its menu [1.04ms]
+(pass) the receipt page's marks card > the owner marks and unmarks; the 606 is read-only for the owner: pending, included or not [1.57ms]
+(pass) the receipt page's marks card > the owner sees who else marked it and undoes the accountant's mark in one tap [0.57ms]
+(pass) the receipt page's marks card > a read-only grant reads the mark and has no control [0.28ms]
+(pass) the receipt page's marks card > the accountant with prepare marks Personal too, and sees Sí and No, 44px each, only for a personal receipt with a fiscal number [0.91ms]
+(pass) the review page's fiscal details > a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado [3.50ms]
+(pass) the review page's fiscal details > in English it reads No fiscal receipt number; a record with an NCF shows its number [3.65ms]
+(pass) one owner for the marks > the Bandeja row and the record show the same server marks for a grantee's mark, the owner's mark and after an unmark [2.21ms]
+(pass) the server states what the browser used to guess > an unreadable receipt nobody read shows no fiscal chip; a read one without a number does [0.89ms]
+(pass) the server states what the browser used to guess > the 606 line names whoever answered, even when the owner edited the record afterwards [0.31ms]
+(pass) the server states what the browser used to guess > the history reads a 606 answer as Sí or No, never true or false [1.52ms]
+(pass) the Bandeja row menu > opening and dismissing the menu never opens or changes a receipt [1.22ms]
+
+ 48 pass
+ 0 fail
+ 9 expect() calls
+Ran 48 tests across 6 files. [39.44s]

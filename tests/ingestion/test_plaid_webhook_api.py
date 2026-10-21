@@ -7,6 +7,7 @@ import time
 import jwt
 import pytest
 from argus.api.ingestion import ingestion_hub
+from argus.domain.owner_scope import PERSONAL
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from tests.ingestion.conftest import ALICE, bearer
@@ -79,7 +80,7 @@ def item_event(code: str, error_code: str | None = None) -> dict:
 
 def stored(client, identities, connection_id):  # noqa: ANN001
     return ingestion_hub().connections.get(
-        user_id=identities[ALICE]["id"], connection_id=connection_id
+        user_id=identities[ALICE]["id"], connection_id=connection_id, scope=PERSONAL
     )
 
 

@@ -38,9 +38,7 @@ struct CuadraoAccountsCollection: View {
                 .background(WelcomePalette.background)
                 .navigationTitle(spanish ? "Cuentas" : "Accounts").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(spanish ? "Cerrar" : "Close") { dismiss() }
-                    }
+                    CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
                     ToolbarItem(placement: .primaryAction) {
                         Button(mode.isEditing ? (spanish ? "Listo" : "Done") : (spanish ? "Ordenar" : "Reorder")) {
                             withAnimation { mode = mode.isEditing ? .inactive : .active }

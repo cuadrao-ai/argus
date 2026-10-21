@@ -10,6 +10,7 @@ import pytest
 from argus.api import state as api_state
 from argus.api.chat import breakdown, research_jobs
 from argus.api.schemas import Message
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.research.contracts import ResearchSource, ResearchUsage
 from argus.domain.result_readout_research import RESULT_RESEARCH_MODEL
 from argus.domain.store import utcnow
@@ -225,7 +226,11 @@ async def test_disconnected_memory_turn_reloads_its_saved_terminal_envelope(monk
     monkeypatch.setattr(api_state, "store", AlphaStore())
     owner = api_state.store.get_or_create_dev_user().id
     conversation = memory_conversation(
-        user_id=owner, title="Reload proof", title_source="user_renamed", language="en"
+        scope=PERSONAL,
+        user_id=owner,
+        title="Reload proof",
+        title_source="user_renamed",
+        language="en",
     )
     request_id = str(uuid4())
     request = accept_chat_turn(

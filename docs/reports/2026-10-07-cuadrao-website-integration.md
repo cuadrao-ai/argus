@@ -31,3 +31,7 @@ After GitHub confirms the merge, fast-forward the clean canonical integration ch
 ## Footer follow-up
 
 [PR #886](https://github.com/lagarcess/argus/pull/886) applies the founder-selected hollow footer while retaining its lowered crop and original Space Grotesk + Inter typography. [Browser evidence](evidence/cuadrao-hollow-footer/README.md) covers Business and Personal in both languages. The terminal PR comment records the reviewed head, merge and integration checks. This presentation change does not complete or alter the remaining launch work above.
+
+## Launch extraction
+
+The public launch moves the site out of `web/` into the independent `marketing/` package and connects its forms. Record: [Cuadrao marketing launch](2026-10-07-cuadrao-marketing-launch.md). The statements above describe the #884 delivery; its default-off `CUADRAO_WEBSITE_PREVIEW` route and 503 signup endpoint no longer exist once the launch lands.

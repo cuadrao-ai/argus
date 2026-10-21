@@ -30,6 +30,7 @@ from argus.domain.computation_marker import (
     computation_from_tool_card,
     computation_from_tool_cards,
 )
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.tool_contracts import ToolResultCard
 from psycopg.types.json import Jsonb
 from test_search_postgres import (
@@ -192,17 +193,17 @@ def test_symbol_rows_are_the_owners_live_asset_answers_and_the_asset_row_counts_
         )
 
     gateway = _gateway()
-    rows = gateway.computed_answer_rows_for_symbols(user_id=str(owner_id))
+    rows = gateway.computed_answer_rows_for_symbols(scope=PERSONAL, user_id=str(owner_id))
     assert [row["id"] for row in rows] == [str(newest_answer), str(oldest_answer)]
     assert all(set(row) == MESSAGE_COLUMNS for row in rows)
     assert all(row["metadata"]["computation"]["symbols"] == ["AAPL"] for row in rows)
     scoped = gateway.computed_answer_rows_for_symbols(
-        user_id=str(owner_id), conversation_id=str(older)
+        scope=PERSONAL, user_id=str(owner_id), conversation_id=str(older)
     )
     assert [row["id"] for row in scoped] == [str(oldest_answer)]
     assert (
         gateway.computed_answer_rows_for_symbols(
-            user_id=str(owner_id), conversation_id=str(deleted)
+            scope=PERSONAL, user_id=str(owner_id), conversation_id=str(deleted)
         )
         == []
     ), "a soft-deleted conversation's answer is not an asset result"
@@ -210,7 +211,7 @@ def test_symbol_rows_are_the_owners_live_asset_answers_and_the_asset_row_counts_
     monkeypatch.setattr(api_state, "supabase_gateway", gateway)
     owner = _user(owner_id)
     rollup = with_computed_results(
-        None, user=owner, query="AAPL", guest_conversation_id=None
+        None, scope=PERSONAL, user=owner, query="AAPL", guest_conversation_id=None
     )
     assert rollup is not None
     assert rollup.model_dump() == {
@@ -227,7 +228,7 @@ def test_symbol_rows_are_the_owners_live_asset_answers_and_the_asset_row_counts_
         "last_touched_at": NOW - timedelta(minutes=30),
     }
     guest = with_computed_results(
-        None, user=owner, query="aapl", guest_conversation_id=str(older)
+        None, scope=PERSONAL, user=owner, query="aapl", guest_conversation_id=str(older)
     )
     assert guest is not None
     assert (guest.result_count, guest.decision_counts.watching) == (1, 0)
@@ -336,18 +337,18 @@ def test_answers_of_one_kind_are_the_owners_newest_in_live_conversations(
 
     gateway = _gateway()
     listed = gateway.computed_answers_of_kind(
-        user_id=str(owner_id), kind="price_multiple", limit=10
+        scope=PERSONAL, user_id=str(owner_id), kind="price_multiple", limit=10
     )
     assert [row["id"] for row in listed] == [str(newest), str(middle), str(oldest)]
     assert {row["metadata"]["computation"]["kind"] for row in listed} == {
         "price_multiple"
     }
     bounded = gateway.computed_answers_of_kind(
-        user_id=str(owner_id), kind="price_multiple", limit=2
+        scope=PERSONAL, user_id=str(owner_id), kind="price_multiple", limit=2
     )
     assert [row["id"] for row in bounded] == [str(newest), str(middle)]
     loans = gateway.computed_answers_of_kind(
-        user_id=str(owner_id), kind="time_value", limit=10
+        scope=PERSONAL, user_id=str(owner_id), kind="time_value", limit=10
     )
     assert [row["id"] for row in loans] == [str(loan_answer)]
 
@@ -408,11 +409,11 @@ def test_an_answer_weighing_options_reads_back_whole_and_is_not_one_kind(
     marker = DecisionComputation.model_validate(row["metadata"]["computation"])
     assert marker.kinds == ["price_multiple", "price_multiple"]
     symbol_rows = gateway.computed_answer_rows_for_symbols(
-        user_id=str(owner_id), conversation_id=str(weighed)
+        scope=PERSONAL, user_id=str(owner_id), conversation_id=str(weighed)
     )
     assert [symbol_row["id"] for symbol_row in symbol_rows] == [str(options_answer)]
     listed = gateway.computed_answers_of_kind(
-        user_id=str(owner_id), kind="price_multiple", limit=10
+        scope=PERSONAL, user_id=str(owner_id), kind="price_multiple", limit=10
     )
     assert [listed_row["id"] for listed_row in listed] == [
         str(single_answer)

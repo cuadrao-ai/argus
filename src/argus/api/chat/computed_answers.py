@@ -24,6 +24,10 @@ from argus.api.computation_contract import (
     ComputedAnswerRef,
     ComputedAnswerSummary,
 )
+from argus.api.conversation_surface import (
+    conversation_scope,
+    memory_conversation_in_scope,
+)
 from argus.api.decision_contract import DecisionComputation, DecisionRerun
 from argus.api.message_store import (
     create_message,
@@ -36,6 +40,7 @@ from argus.domain.answer_dossiers import computed_answer_cards
 from argus.domain.computation_compare import ComparisonKindMismatch, card_differences
 from argus.domain.computation_marker import computation_from_tool_cards
 from argus.domain.decision_attachment import computation_from_message_metadata
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 from argus.domain.research.contracts import ResearchPacket
 from argus.domain.run_dossiers import message_metadata, row_activity
 from argus.domain.tool_contracts import (
@@ -111,11 +116,16 @@ def owned_computed_answer(
 
 
 def computed_answers_of_kind(
-    *, user: User, kind: str, exclude_message_id: str | None = None
+    *,
+    user: User,
+    scope: OwnerScope,
+    kind: str,
+    exclude_message_id: str | None = None,
 ) -> list[ComputedAnswerSummary]:
-    """The owner's newest computed answers of one kind, for a comparison to pick."""
+    """The owner's newest computed answers of one kind on one side, for a comparison
+    to pick."""
     rows = sorted(
-        _owned_rows_of_kind(user, kind),
+        _owned_rows_of_kind(user, scope, kind),
         key=lambda row: (row_activity(row), str(row.get("id") or "")),
         reverse=True,
     )
@@ -144,14 +154,18 @@ def computed_answers_of_kind(
     return items
 
 
-def _owned_rows_of_kind(user: User, kind: str) -> list[Mapping[str, Any]]:
+def _owned_rows_of_kind(
+    user: User, scope: OwnerScope, kind: str
+) -> list[Mapping[str, Any]]:
     if api_state.supabase_gateway is not None:
         return api_state.supabase_gateway.computed_answers_of_kind(
-            user_id=user.id, kind=kind, limit=MAX_LISTED_ANSWERS + 1
+            user_id=user.id, scope=scope, kind=kind, limit=MAX_LISTED_ANSWERS + 1
         )
     rows: list[Mapping[str, Any]] = []
     for conversation_id, messages in api_state.store.messages.items():
-        if api_state.store.conversation_owners.get(conversation_id) != user.id:
+        if api_state.store.conversation_owners.get(
+            conversation_id
+        ) != user.id or not memory_conversation_in_scope(conversation_id, scope):
             continue
         conversation = api_state.store.conversations.get(conversation_id)
         if conversation is None or conversation.deleted_at is not None:
@@ -238,7 +252,8 @@ def continue_computed_answer(
         source.artifact_id: copied.artifact_id
         for source, copied in zip(answer.cards, cards, strict=True)
     }
-    conversation = _new_conversation(user)
+    source_scope = conversation_scope(user_id=user.id, conversation_id=conversation_id)
+    conversation = _new_conversation(user, source_scope or PERSONAL)
     message = create_message(
         user_id=user.id,
         conversation_id=conversation.id,
@@ -296,18 +311,21 @@ def _rebound_prose(metadata: dict[str, Any], renamed: dict[str, str]) -> dict[st
     return rebound
 
 
-def _new_conversation(user: User) -> Conversation:
+def _new_conversation(user: User, scope: OwnerScope) -> Conversation:
+    """A continuation joins its source's side."""
     if api_state.supabase_gateway is not None:
         return api_state.supabase_gateway.create_conversation(
             user_id=user.id,
             title=CONTINUED_TITLE,
             title_source="system_default",
             language=user.language,
+            scope=scope,
         )
     return memory_conversation(
         title=CONTINUED_TITLE,
         title_source="system_default",
         language=user.language,
+        scope=scope,
         user_id=user.id,
     )
 
@@ -388,9 +406,7 @@ async def refresh_computed_answer(
     )
     spend = grounded._TurnSpend()
     with research_attempt_admission_context(
-        lambda: claim_research_provider_attempt(
-            guest_visitor_key=guest_visitor_key
-        ),
+        lambda: claim_research_provider_attempt(guest_visitor_key=guest_visitor_key),
         release=lambda admission: release_research_provider_claim(
             admission, guest_visitor_key=guest_visitor_key
         ),

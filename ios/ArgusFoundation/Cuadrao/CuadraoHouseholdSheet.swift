@@ -71,7 +71,7 @@ struct CuadraoHouseholdSheet: View {
                 }.padding(24)
             }.background(WelcomePalette.background)
                 .navigationTitle(spanish ? "Personas" : "People").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(spanish ? "Listo" : "Done") { dismiss() } } }
+                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
                 .confirmationDialog(spanish ? "¿Cancelar esta invitación?" : "Cancel this invitation?",
                     isPresented: $cancelInvitation, titleVisibility: .visible) {
                     Button(spanish ? "Cancelar invitación" : "Cancel invitation", role: .destructive) { data.household = .alone }

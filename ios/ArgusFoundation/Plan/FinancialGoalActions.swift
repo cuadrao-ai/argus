@@ -55,8 +55,7 @@ struct FinancialGoalAllocationView: View {
             }.background(ArgusStyle.background).scrollDismissesKeyboard(.interactively)
                 .navigationTitle("goal.allocate").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() }.disabled(model.saving).accessibilityIdentifier("goal.action.cancel") }
-                    ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("accounts.keyboard.done") { focused = false } }
+                    CuadraoCancelToolbar(title: "accounts.cancel", disabled: model.saving, identifier: "goal.action.cancel") { dismiss() }
                 }.interactiveDismissDisabled(model.saving)
                 .onAppear { accountID = detail.goal.destinationAccountId ?? pools.first?.accountId; load() }
                 .onChange(of: accountID) { _, _ in load() }
@@ -135,7 +134,7 @@ struct FinancialGoalLinkView: View {
                     }
                 }.padding(24).font(ArgusStyle.body())
             }.background(ArgusStyle.background).navigationTitle("goal.link").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() }.disabled(model.saving).accessibilityIdentifier("goal.action.cancel") } }
+                .toolbar { CuadraoCancelToolbar(title: "accounts.cancel", disabled: model.saving, identifier: "goal.action.cancel") { dismiss() }}
                 .interactiveDismissDisabled(model.saving).onAppear { occurrenceID = model.navigation?.occurrenceID }
         }
     }

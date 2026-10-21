@@ -12,7 +12,7 @@ final class CuadraoConsistencyUITests: XCTestCase {
         XCTAssertFalse(app.buttons["plan-save"].isEnabled)
         target.tap(); target.typeText("1250.5")
         XCTAssertEqual(target.value as? String, "1,250.5")
-        app.toolbars.buttons["Listo"].tap()
+        app.dismissKeyboard()
         XCTAssertEqual(target.value as? String, "1,250.50")
         replace(target, "12.345")
         XCTAssertTrue(app.staticTexts["plan-target-error"].exists)
@@ -26,10 +26,10 @@ final class CuadraoConsistencyUITests: XCTestCase {
         replace(target, "10000000")
         XCTAssertTrue(app.staticTexts["plan-target-error"].exists)
         replace(target, "2500")
-        app.toolbars.buttons["Listo"].tap()
+        app.dismissKeyboard()
         let monthly = app.textFields["plan-monthly"]
         monthly.tap(); monthly.typeText("500")
-        app.toolbars.buttons["Listo"].tap()
+        app.dismissKeyboard()
         XCTAssertEqual(monthly.value as? String, "500.00")
         XCTAssertTrue(app.buttons["plan-save"].isEnabled)
         shot(app, "money-valid-plan-es")
@@ -48,11 +48,11 @@ final class CuadraoConsistencyUITests: XCTestCase {
         let account = app.textFields["cuadrao-amount"]
         reveal(app, account); account.tap(); account.typeText("1250.5")
         XCTAssertEqual(account.value as? String, "1,250.5")
-        app.toolbars.buttons["Done"].tap()
+        app.dismissKeyboard()
         XCTAssertEqual(account.value as? String, "1,250.50")
         let plan = app.textFields["gallery-plan-amount"]
         reveal(app, plan); plan.tap(); plan.typeText("1250.5")
-        app.toolbars.buttons["Done"].tap()
+        app.dismissKeyboard()
         XCTAssertEqual(plan.value as? String, account.value as? String)
         shot(app, "gallery-money-dark-en")
         for _ in 0..<4 { app.swipeDown() }

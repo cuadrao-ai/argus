@@ -378,12 +378,12 @@ def test_access_welcome_sender_preserves_smtp_and_multipart_contract(
     assert smtp.login_args == ("resend", "re_test_password")
     assert smtp.context.verify_mode == ssl.CERT_REQUIRED
     assert smtp.context.check_hostname is True
-    assert smtp.mail_from == "noreply@get-argus.com"
+    assert smtp.mail_from == "no-responder@mail.cuadrao.ai"
     assert smtp.recipient == "person@example.com"
     assert smtp.message is not None
 
     message = message_from_string(smtp.message)
-    assert message["From"] == "Argus <noreply@get-argus.com>"
+    assert message["From"] == "Cuadrao <no-responder@mail.cuadrao.ai>"
     assert message["To"] == "person@example.com"
     assert str(message["Subject"]) == subject
     assert message["Resend-Idempotency-Key"].startswith("sha256:")

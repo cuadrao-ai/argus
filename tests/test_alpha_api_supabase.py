@@ -30,6 +30,7 @@ from argus.domain.chat_turn_lifecycle import TransitionResult
 from argus.domain.conversation_activity import Boundary, encode_attention_cursor
 from argus.domain.guest_workspaces import GuestWorkspace
 from argus.domain.market_data.assets import ResolvedAsset
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.postgres_history_reader import (
     HistoryCursorError,
     PostgresHistoryReader,
@@ -220,16 +221,12 @@ def test_gateway_auth_flows_use_separate_auth_client():
         email="alpha@example.com",
         password="password",
         captcha_token="captcha-proof",
-    ) == {
-        "user": {"id": "auth-user"}
-    }
+    ) == {"user": {"id": "auth-user"}}
     assert gateway.login(
         email="alpha@example.com",
         password="password",
         captcha_token="captcha-proof",
-    ) == {
-        "session": {"access_token": "token"}
-    }
+    ) == {"session": {"access_token": "token"}}
 
     auth_client.sign_up.assert_called_once_with(
         {
@@ -1157,7 +1154,7 @@ def test_delete_all_conversations_supabase_delegates_with_user_ownership(
     assert response.status_code == 200
     assert response.json() == {"success": True, "deleted_count": 3}
     mock_gateway.soft_delete_all_conversations.assert_called_once_with(
-        user_id="00000000-0000-0000-0000-000000000001"
+        scope=PERSONAL, user_id="00000000-0000-0000-0000-000000000001"
     )
 
 
@@ -1206,9 +1203,7 @@ def test_supabase_activity_get_and_patch_use_verified_source_identity(
     assert current.status_code == 200
     assert current.json()["attention"]["status"] == "new_activity"
     cursor = current.json()["attention"]["cursor"]
-    assert cursor == encode_attention_cursor(
-        Boundary("chat_turn", source_id, now)
-    )
+    assert cursor == encode_attention_cursor(Boundary("chat_turn", source_id, now))
 
     mock_gateway.mutate_conversation_activity_read_state.return_value = {
         "outcome": "applied",
@@ -1315,9 +1310,7 @@ def test_run_backtest_supabase_persists_normalized_snapshot_and_assumptions(
         "fee_bps": 0.0,
         "slippage_bps": 0.0,
     }
-    assert mock_gateway.admit_backtest_job.call_args.kwargs[
-        "execution_metadata"
-    ] == {
+    assert mock_gateway.admit_backtest_job.call_args.kwargs["execution_metadata"] == {
         "source": "api_direct",
         "openrouter_traffic_class": "registered",
     }
@@ -1378,9 +1371,7 @@ def test_guest_run_backtest_supabase_persists_guest_traffic_class(
     )
 
     assert response.status_code == 200, response.text
-    assert mock_gateway.admit_backtest_job.call_args.kwargs[
-        "execution_metadata"
-    ] == {
+    assert mock_gateway.admit_backtest_job.call_args.kwargs["execution_metadata"] == {
         "source": "api_direct",
         "openrouter_traffic_class": "guest",
     }
@@ -2210,6 +2201,7 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "beta@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2226,8 +2218,6 @@ def test_signup_allows_email_on_private_alpha_allowlist(mock_gateway, monkeypatc
         call[0] for call in mock_gateway.method_calls
     ]
     assert response.cookies.get("sb-auth-token") == "access-token-123"
-
-
 
 
 def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
@@ -2261,6 +2251,7 @@ def test_signup_duplicate_obfuscated_user_does_not_emit_product_event(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "existing@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2303,14 +2294,17 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
         duplicate_provider_response,
     ]
     profile_rows: set[str] = set()
-    mock_gateway.get_or_create_profile_for_auth_user.side_effect = (
-        lambda auth_user: profile_rows.add(str(auth_user["id"]))
-    )
+    def create_profile(auth_user):
+        profile_rows.add(str(auth_user["id"]))
+        return _mock_profile().model_copy(update={"id": str(auth_user["id"])})
+
+    mock_gateway.get_or_create_profile_for_auth_user.side_effect = create_profile
     headers = {"CF-Connecting-IP": "203.0.113.92"}
 
     fresh = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "fresh@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2320,6 +2314,7 @@ def test_signup_keeps_obfuscated_duplicate_indistinguishable_without_profile(
     duplicate = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "existing@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2388,6 +2383,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
         first = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2398,6 +2394,7 @@ def test_signup_retry_does_not_reveal_profile_creation_through_username(
         retry = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2434,6 +2431,7 @@ def test_signup_normalizes_taken_username_before_creating_auth_user_or_profile(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "fresh@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2462,6 +2460,7 @@ def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2471,6 +2470,7 @@ def test_signup_passes_selected_language_to_gateway(mock_gateway, monkeypatch):
 
     assert response.status_code == 200
     mock_gateway.signup.assert_called_once_with(
+        age_confirmed_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         email="alpha@example.com",
         password="password123",
         display_name=None,
@@ -2490,6 +2490,7 @@ def test_signup_rejects_unsupported_language_before_provider_signup(
     response = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2560,6 +2561,7 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
     allowlist_denied = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2578,6 +2580,7 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
     provider_failed = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "alpha@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2591,14 +2594,18 @@ def test_public_signup_allowlist_denial_matches_provider_failure(
         == provider_failed.headers["X-Request-Id"]
         == headers["X-Request-Id"]
     )
-    assert allowlist_denied.json() == provider_failed.json() == {
-        "type": "https://api.argus.app/problems/auth-signup-failed",
-        "title": "Signup Failed",
-        "status": 400,
-        "detail": "Signup failed. Please try again.",
-        "code": "auth_signup_failed",
-        "request_id": "signup-enumeration-regression",
-    }
+    assert (
+        allowlist_denied.json()
+        == provider_failed.json()
+        == {
+            "type": "https://api.argus.app/problems/auth-signup-failed",
+            "title": "Signup Failed",
+            "status": 400,
+            "detail": "Signup failed. Please try again.",
+            "code": "auth_signup_failed",
+            "request_id": "signup-enumeration-regression",
+        }
+    )
     assert "provider rejected captcha" not in provider_failed.text
 
 
@@ -2617,6 +2624,7 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
     allowlist_denied = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -2639,6 +2647,7 @@ def test_public_signup_allowlist_denial_matches_taken_username_precheck(
         username_taken = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "alpha@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2763,6 +2772,7 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
         response = client.post(
             "/api/v1/auth/signup",
             json={
+                "age_confirmed_at": "2026-01-01T00:00:00Z",
                 "email": "stranger@example.com",
                 "password": "password123",
                 "captcha_token": "captcha-proof",
@@ -2775,6 +2785,7 @@ def test_signup_rate_limit_blocks_extra_attempt_before_allowlist_check(
     blocked = client.post(
         "/api/v1/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": "stranger@example.com",
             "password": "password123",
             "captcha_token": "captcha-proof",
@@ -3087,6 +3098,7 @@ def test_search_supabase_pushes_bounded_cursor_and_filter_to_gateway(
 
     assert response.status_code == 200
     mock_gateway.search_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         query="needle",
         source_limit=3,
@@ -3137,6 +3149,7 @@ def test_search_supabase_pushes_visible_conversation_ids_to_bounded_reader(
 
     assert response.status_code == 200
     mock_gateway.search_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         query="",
         source_limit=2,
@@ -3693,6 +3706,7 @@ def test_history_supabase_requests_non_archived_rows_by_default(mock_gateway):
 
     assert response.status_code == 200
     mock_gateway.list_history_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=21,
         cursor_activity_at=None,
@@ -3735,13 +3749,9 @@ def test_history_supabase_chat_items_carry_title_source(mock_gateway):
     )
 
     assert response.status_code == 200
-    chat_items = [
-        item for item in response.json()["items"] if item["type"] == "chat"
-    ]
+    chat_items = [item for item in response.json()["items"] if item["type"] == "chat"]
     assert [item["title_source"] for item in chat_items] == ["ai_generated"]
-    non_chat_items = [
-        item for item in response.json()["items"] if item["type"] != "chat"
-    ]
+    non_chat_items = [item for item in response.json()["items"] if item["type"] != "chat"]
     assert non_chat_items
     assert all("title_source" not in item for item in non_chat_items)
     assert all("activity" not in item for item in non_chat_items)
@@ -3770,6 +3780,7 @@ def test_history_supabase_can_request_archived_rows(mock_gateway):
 
     assert response.status_code == 200
     mock_gateway.list_history_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=21,
         cursor_activity_at=None,
@@ -3816,6 +3827,7 @@ def test_history_supabase_middle_page_uses_cursor_pivot_outside_candidates(
         "11111111-1111-1111-1111-111111111111"
     ]
     mock_gateway.list_history_rows.assert_called_once_with(
+        scope=PERSONAL,
         user_id="00000000-0000-0000-0000-000000000001",
         limit=3,
         cursor_activity_at=pivot_at,
@@ -3886,6 +3898,7 @@ def test_history_supabase_cursor_retains_original_pivot_rank(mock_gateway):
     assert second_page.status_code == 200
     assert mock_gateway.list_history_rows.call_args_list[1].kwargs == {
         "user_id": "00000000-0000-0000-0000-000000000001",
+        "scope": PERSONAL,
         "limit": 3,
         "cursor_activity_at": pivot_at,
         "cursor_id": pivot_id,
@@ -4049,6 +4062,7 @@ def test_conversation_first_middle_final_and_empty_pages(mock_gateway):
     calls = mock_gateway.list_conversations.call_args_list
     assert calls[0].kwargs == {
         "user_id": "00000000-0000-0000-0000-000000000001",
+        "scope": PERSONAL,
         "limit": 2,
         "archived": None,
         "deleted": False,
@@ -4223,6 +4237,7 @@ def test_message_first_middle_final_and_empty_pages(mock_gateway):
     assert final_page.json() == {
         "items": [messages[4].model_dump(mode="json")],
         "next_cursor": None,
+        "surface": "personal",
     }
 
     empty_page = client.get(
@@ -4230,7 +4245,7 @@ def test_message_first_middle_final_and_empty_pages(mock_gateway):
         headers={"Authorization": "Bearer test-token"},
     )
     assert empty_page.status_code == 200
-    assert empty_page.json() == {"items": [], "next_cursor": None}
+    assert empty_page.json() == {"items": [], "next_cursor": None, "surface": "personal"}
 
     calls = mock_gateway.list_messages.call_args_list
     assert calls[0].kwargs == {
@@ -4266,10 +4281,7 @@ def test_message_malformed_pivot_uses_existing_invalid_cursor_problem(mock_gatew
     mock_gateway.get_conversation.return_value = conversation
 
     response = client.get(
-        (
-            f"/api/v1/conversations/{conversation.id}/messages"
-            f"?limit=2&cursor={cursor}"
-        ),
+        (f"/api/v1/conversations/{conversation.id}/messages" f"?limit=2&cursor={cursor}"),
         headers={"Authorization": "Bearer test-token"},
     )
 

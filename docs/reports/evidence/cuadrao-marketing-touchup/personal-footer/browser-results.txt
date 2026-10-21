@@ -1,0 +1,66 @@
+$ playwright test "e2e/personal-footer.spec.ts" "e2e/touchup.spec.ts"
+(node:22658) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:22659) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22660) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22662) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 42 tests using 1 worker
+
+(node:22670) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22670) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:22670) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/personal-footer.spec.ts:37:7 › /personal changes photos once while held, keeps the last photo through return, then starts fresh (2.3s)
+  ✓   2 [desktop] › e2e/personal-footer.spec.ts:63:7 › /personal responds to gentle wheel input without extending the page (1.1s)
+  ✓   3 [desktop] › e2e/personal-footer.spec.ts:79:7 › /personal keeps photos hidden with reduced motion and resets an active reveal (793ms)
+  ✓   4 [desktop] › e2e/personal-footer.spec.ts:37:7 › /en/personal changes photos once while held, keeps the last photo through return, then starts fresh (2.2s)
+  ✓   5 [desktop] › e2e/personal-footer.spec.ts:63:7 › /en/personal responds to gentle wheel input without extending the page (1.1s)
+  ✓   6 [desktop] › e2e/personal-footer.spec.ts:79:7 › /en/personal keeps photos hidden with reduced motion and resets an active reveal (777ms)
+  ✓   7 [desktop] › e2e/personal-footer.spec.ts:95:7 › / retains two side-by-side still photos (1.7s)
+  ✓   8 [desktop] › e2e/personal-footer.spec.ts:95:7 › /en retains two side-by-side still photos (1.7s)
+  ✓   9 [desktop] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (341ms)
+  ✓  10 [desktop] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (230ms)
+  ✓  11 [desktop] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (117ms)
+  ✓  12 [desktop] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (219ms)
+  ✓  13 [desktop] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (202ms)
+  ✓  14 [desktop] › e2e/touchup.spec.ts:87:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓  15 [desktop] › e2e/touchup.spec.ts:111:5 › footer accumulates gentle wheel input without losing it between paint frames (1.0s)
+  ✓  16 [desktop] › e2e/touchup.spec.ts:124:5 › footer preserves upward wheel and keyboard navigation (741ms)
+  ✓  17 [desktop] › e2e/touchup.spec.ts:140:5 › footer holds a dispatched touch drag open until release (1.7s)
+  ✓  18 [desktop] › e2e/touchup.spec.ts:156:5 › reduced motion keeps the crop fixed under extra scroll input (400ms)
+  ✓  19 [desktop] › e2e/touchup.spec.ts:166:5 › reduced motion is static and small screens do not overflow (301ms)
+  ✓  20 [desktop] › e2e/touchup.spec.ts:197:7 › / loads editorial photographs without the withdrawn product capture (128ms)
+  ✓  21 [desktop] › e2e/touchup.spec.ts:197:7 › /en loads editorial photographs without the withdrawn product capture (129ms)
+(node:22744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:22744) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:22744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  22 [mobile] › e2e/personal-footer.spec.ts:37:7 › /personal changes photos once while held, keeps the last photo through return, then starts fresh (2.0s)
+  ✓  23 [mobile] › e2e/personal-footer.spec.ts:63:7 › /personal responds to gentle wheel input without extending the page (1.1s)
+  ✓  24 [mobile] › e2e/personal-footer.spec.ts:79:7 › /personal keeps photos hidden with reduced motion and resets an active reveal (786ms)
+  ✓  25 [mobile] › e2e/personal-footer.spec.ts:37:7 › /en/personal changes photos once while held, keeps the last photo through return, then starts fresh (2.0s)
+  ✓  26 [mobile] › e2e/personal-footer.spec.ts:63:7 › /en/personal responds to gentle wheel input without extending the page (1.1s)
+  ✓  27 [mobile] › e2e/personal-footer.spec.ts:79:7 › /en/personal keeps photos hidden with reduced motion and resets an active reveal (769ms)
+  ✓  28 [mobile] › e2e/personal-footer.spec.ts:95:7 › / retains two side-by-side still photos (1.7s)
+  ✓  29 [mobile] › e2e/personal-footer.spec.ts:95:7 › /en retains two side-by-side still photos (1.2s)
+  ✓  30 [mobile] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (225ms)
+  ✓  31 [mobile] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (222ms)
+  ✓  32 [mobile] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (106ms)
+  ✓  33 [mobile] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (234ms)
+  ✓  34 [mobile] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (235ms)
+  ✓  35 [mobile] › e2e/touchup.spec.ts:87:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.1s)
+  ✓  36 [mobile] › e2e/touchup.spec.ts:111:5 › footer accumulates gentle wheel input without losing it between paint frames (1.0s)
+  ✓  37 [mobile] › e2e/touchup.spec.ts:124:5 › footer preserves upward wheel and keyboard navigation (747ms)
+  ✓  38 [mobile] › e2e/touchup.spec.ts:140:5 › footer holds a dispatched touch drag open until release (1.2s)
+  ✓  39 [mobile] › e2e/touchup.spec.ts:156:5 › reduced motion keeps the crop fixed under extra scroll input (405ms)
+  ✓  40 [mobile] › e2e/touchup.spec.ts:166:5 › reduced motion is static and small screens do not overflow (296ms)
+  ✓  41 [mobile] › e2e/touchup.spec.ts:197:7 › / loads editorial photographs without the withdrawn product capture (138ms)
+  ✓  42 [mobile] › e2e/touchup.spec.ts:197:7 › /en loads editorial photographs without the withdrawn product capture (122ms)
+
+  42 passed (36.6s)

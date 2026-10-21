@@ -2,6 +2,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import RecordingInputError, StaleVersion
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
@@ -22,8 +23,9 @@ def account(scene, kind="cash", currency="DOP", amount="100"):
             type=kind,
             currency=currency,
             amount=amount,
-            as_of=NOW - timedelta(days=10) if amount else None,
+            as_of=NOW - timedelta(days=10),
         ),
+        scope=PERSONAL,
     ).stored.account.id
 
 
@@ -31,7 +33,7 @@ def command(scene, **values):
     service, user, _ = scene
     money = MoneyService(service)
     request = MoneyRequest(occurred_at=NOW - timedelta(days=2), **values)
-    preview = money.preview(user_id=user, request=request)
+    preview = money.preview(user_id=user, request=request, scope=PERSONAL)
     assert preview["ready"]
     reviewed = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
         update={"preview_token": preview["preview_token"]}
@@ -41,10 +43,13 @@ def command(scene, **values):
 
 def save(scene, **values):
     money, request = command(scene, **values)
-    return money.write(user_id=scene[1], request=request, idempotency_key=str(uuid4()))
+    return money.write(
+        user_id=scene[1], request=request, idempotency_key=str(uuid4()), scope=PERSONAL
+    )
 
 
 @pytest.mark.parametrize("kind", ["income", "refund"])
+@pytest.mark.usefixtures("legacy_blank_accounts")
 def test_incoming_preserves_unknown_and_credits_card(scene, kind):
     aid = account(scene, "cash", amount=None)
     receipt = save(scene, kind=kind, account_id=aid, amount="25")
@@ -62,10 +67,14 @@ def test_pair_is_one_activity_with_two_opposing_movements_and_replays(scene):
         destination_account_id=second,
         amount="25",
     )
-    result = money.write(user_id=scene[1], request=request, idempotency_key="pair")
+    result = money.write(
+        user_id=scene[1], request=request, idempotency_key="pair", scope=PERSONAL
+    )
     assert sorted(a.balance.amount_minor for a in result["accounts"]) == [7500, 12500]
     assert len(result["activity"]["legs"]) == 2
-    replay = money.write(user_id=scene[1], request=request, idempotency_key="pair")
+    replay = money.write(
+        user_id=scene[1], request=request, idempotency_key="pair", scope=PERSONAL
+    )
     assert replay["replayed"] and replay["activity"] == result["activity"]
 
 
@@ -101,7 +110,10 @@ def test_refunds_cap_and_wrong_account_correction(scene):
         reason="Wrong account",
     )
     preview = money.preview(
-        user_id=scene[1], request=request, activity_id=purchase["activity_id"]
+        user_id=scene[1],
+        request=request,
+        activity_id=purchase["activity_id"],
+        scope=PERSONAL,
     )
     assert set(preview["expected_versions"]) == {first, second}
     fixed = money.write(
@@ -111,11 +123,12 @@ def test_refunds_cap_and_wrong_account_correction(scene):
         ),
         activity_id=purchase["activity_id"],
         idempotency_key="fix",
+        scope=PERSONAL,
     )
     assert fixed["activity"]["legs"][0]["account_id"] == second
     assert (
         account_response(
-            scene[0].get(user_id=scene[1], account_id=first)
+            scene[0].get(user_id=scene[1], account_id=first, scope=PERSONAL)
         ).balance.amount_minor
         == 10000
     )
@@ -126,10 +139,15 @@ def test_month_received_refund_can_make_net_negative_and_card_credit(scene):
 
     aid = account(scene, "credit_card", amount="10")
     save(scene, kind="refund", account_id=aid, amount="25")
-    card = account_response(scene[0].get(user_id=scene[1], account_id=aid))
+    card = account_response(
+        scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
+    )
     assert card.balance.amount_minor == 1500 and card.balance.credit_minor == 1500
     home = home_response(
-        scene[0].list_accounts(user_id=scene[1]), "2026-09", "America/Santo_Domingo", NOW
+        scene[0].list_accounts(user_id=scene[1], scope=PERSONAL),
+        "2026-09",
+        "America/Santo_Domingo",
+        NOW,
     )
     dop = next(g for g in home["currencies"] if g["currency"] == "DOP")
     assert dop["refunds_minor"] == "2500" and dop["net_spending_minor"] == "-2500"
@@ -171,6 +189,7 @@ def test_linked_purchase_corrections_preserve_refund_truth(scene, field, value, 
             user_id=scene[1],
             request=MoneyRequest(**body),
             activity_id=purchase["activity_id"],
+            scope=PERSONAL,
         )
 
 
@@ -196,6 +215,7 @@ def test_linked_purchase_cannot_change_currency(scene):
                 expected_revision=1,
                 reason="Fix",
             ),
+            scope=PERSONAL,
         )
 
 
@@ -212,15 +232,23 @@ def test_stale_one_side_and_incomplete_version_set_do_not_write(scene):
     )
     incomplete = request.model_copy(update={"expected_versions": {first: 1}})
     with pytest.raises(StaleVersion):
-        money.write(user_id=scene[1], request=incomplete, idempotency_key="missing")
+        money.write(
+            user_id=scene[1],
+            request=incomplete,
+            idempotency_key="missing",
+            scope=PERSONAL,
+        )
     scene[0].edit(
         user_id=scene[1],
         account_id=second,
         request=EditFinancialAccountRequest(expected_version=1, nickname="Changed"),
+        scope=PERSONAL,
     )
     with pytest.raises(StaleVersion):
-        money.write(user_id=scene[1], request=request, idempotency_key="stale")
-    assert not scene[0].get(user_id=scene[1], account_id=first).expenses
+        money.write(
+            user_id=scene[1], request=request, idempotency_key="stale", scope=PERSONAL
+        )
+    assert not scene[0].get(user_id=scene[1], account_id=first, scope=PERSONAL).expenses
 
 
 def test_paired_coverage_answers_are_independent(scene):
@@ -234,7 +262,7 @@ def test_paired_coverage_answers_are_independent(scene):
         amount="20",
         occurred_at=NOW - timedelta(days=10),
     )
-    preview = money.preview(user_id=user, request=body)
+    preview = money.preview(user_id=user, request=body, scope=PERSONAL)
     assert not preview["ready"]
     answers = [
         {
@@ -257,6 +285,7 @@ def test_paired_coverage_answers_are_independent(scene):
                 ]
             }
         ),
+        scope=PERSONAL,
     )
     result = money.write(
         user_id=user,
@@ -264,6 +293,7 @@ def test_paired_coverage_answers_are_independent(scene):
             update={"preview_token": preview["preview_token"]}
         ),
         idempotency_key="covered-pair",
+        scope=PERSONAL,
     )
     balances = {a.id: a.balance.amount_minor for a in result["accounts"]}
     assert balances == {first: 10000, second: 12000}
@@ -295,12 +325,14 @@ def test_omitted_refund_link_preserves_cap_and_explicit_null_unlinks(scene):
             user_id=scene[1],
             request=MoneyRequest(**replacement),
             activity_id=refund["activity_id"],
+            scope=PERSONAL,
         )
     replacement["amount"] = "25"
     preview = money.preview(
         user_id=scene[1],
         request=MoneyRequest(**replacement),
         activity_id=refund["activity_id"],
+        scope=PERSONAL,
     )
     assert preview["reviewed_request"]["purchase_activity_id"] == purchase["activity_id"]
     assert preview["reviewed_request"]["category_id"] == "shopping"
@@ -309,6 +341,7 @@ def test_omitted_refund_link_preserves_cap_and_explicit_null_unlinks(scene):
         user_id=scene[1],
         request=MoneyRequest(**replacement),
         activity_id=refund["activity_id"],
+        scope=PERSONAL,
     )
     assert (
         preview["ready"] and preview["reviewed_request"]["purchase_activity_id"] is None
@@ -329,6 +362,7 @@ def test_each_pair_observation_keeps_its_own_source_zone(scene):
                 as_of=NOW - timedelta(days=10),
                 time_zone=zone,
             ),
+            scope=PERSONAL,
         ).stored
         ids.append(stored.account.id)
     preview = MoneyService(service).preview(
@@ -340,6 +374,7 @@ def test_each_pair_observation_keeps_its_own_source_zone(scene):
             amount="10",
             occurred_at=NOW - timedelta(days=11),
         ),
+        scope=PERSONAL,
     )
     zones = {
         effect["account_id"]: effect["observations"][0]["time_zone"]
@@ -372,7 +407,7 @@ def test_refund_preserve_link_and_explicit_unlink_have_distinct_receipt_identity
         reason="Correct amount",
     )
     preview = money.preview(
-        user_id=scene[1], request=body, activity_id=refund["activity_id"]
+        user_id=scene[1], request=body, activity_id=refund["activity_id"], scope=PERSONAL
     )
     omitted = body.model_copy(
         update={
@@ -385,6 +420,7 @@ def test_refund_preserve_link_and_explicit_unlink_have_distinct_receipt_identity
         request=omitted,
         activity_id=refund["activity_id"],
         idempotency_key="omitted-link",
+        scope=PERSONAL,
     )
     assert first["activity"]["purchase_activity_id"] == purchase["activity_id"]
     replay = money.write(
@@ -392,6 +428,7 @@ def test_refund_preserve_link_and_explicit_unlink_have_distinct_receipt_identity
         request=omitted,
         activity_id=refund["activity_id"],
         idempotency_key="omitted-link",
+        scope=PERSONAL,
     )
     assert replay["replayed"] and replay["activity"] == first["activity"]
     with pytest.raises(IdempotencyConflict):
@@ -400,4 +437,5 @@ def test_refund_preserve_link_and_explicit_unlink_have_distinct_receipt_identity
             request=omitted.model_copy(update={"purchase_activity_id": None}),
             activity_id=refund["activity_id"],
             idempotency_key="omitted-link",
+            scope=PERSONAL,
         )

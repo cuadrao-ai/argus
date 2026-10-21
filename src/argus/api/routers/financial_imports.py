@@ -35,6 +35,7 @@ from argus.domain.ingestion.reconcile.model import (
     StaleEvent,
 )
 from argus.domain.ingestion.reconcile.service import ReconciliationService
+from argus.domain.owner_scope import PERSONAL
 
 router = APIRouter(prefix="/financial-imports", tags=["financial-imports"])
 T = TypeVar("T")
@@ -109,7 +110,11 @@ def list_imports(
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> dict[str, Any]:
     service = _service(request, context)
-    return {"items": service.list(user_id=context.user_id, states=_STATES[state])}
+    return {
+        "items": service.list(
+            user_id=context.user_id, states=_STATES[state], scope=PERSONAL
+        )
+    }
 
 
 @router.post("/accept-batch", response_model=AcceptBatchResponse)
@@ -131,7 +136,7 @@ def accept_import_batch(
         request,
         lambda: {
             "items": service.accept_batch(
-                user_id=context.user_id, items=items, idempotency_key=key
+                user_id=context.user_id, items=items, idempotency_key=key, scope=PERSONAL
             )
         },
     )
@@ -145,7 +150,10 @@ def get_import(
 ) -> dict[str, Any]:
     service = _service(request, context)
     return _call(
-        request, lambda: service.detail(user_id=context.user_id, event_id=event_id)
+        request,
+        lambda: service.detail(
+            user_id=context.user_id, event_id=event_id, scope=PERSONAL
+        ),
     )
 
 
@@ -164,6 +172,7 @@ def resolve_import(
             event_id=event_id,
             version=body.version,
             changes=body.changes,
+            scope=PERSONAL,
         ),
     )
 
@@ -184,6 +193,7 @@ def merge_import(
             into_event_id=body.into_event_id,
             version=body.version,
             into_version=body.into_version,
+            scope=PERSONAL,
         ),
     )
 
@@ -203,6 +213,7 @@ def link_import(
             event_id=event_id,
             activity_id=body.activity_id,
             version=body.version,
+            scope=PERSONAL,
         ),
     )
 
@@ -218,7 +229,10 @@ def preview_import(
     return _call(
         request,
         lambda: service.preview(
-            user_id=context.user_id, event_id=event_id, overrides=body.overrides
+            user_id=context.user_id,
+            event_id=event_id,
+            overrides=body.overrides,
+            scope=PERSONAL,
         ),
     )
 
@@ -243,6 +257,7 @@ def accept_import(
             idempotency_key=key,
             version=body.version,
             request=body.request,
+            scope=PERSONAL,
         ),
     )
 
@@ -260,5 +275,10 @@ def change_import(
     method = getattr(service, action)
     return _call(
         request,
-        lambda: method(user_id=context.user_id, event_id=event_id, version=body.version),
+        lambda: method(
+            user_id=context.user_id,
+            event_id=event_id,
+            version=body.version,
+            scope=PERSONAL,
+        ),
     )

@@ -10,6 +10,7 @@ from argus.api.ingestion import ingestion_hub
 from argus.api.plaid import configure_plaid_connector, plaid_connector
 from argus.domain.ingestion.plaid.connector import PlaidConnector
 from argus.domain.ingestion.reconcile.service import ReconciliationService
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
 from tests.ingestion.plaid_fakes import PUBLIC_TOKEN, FakePlaid, page, txn
@@ -76,7 +77,12 @@ def test_plaid_import_is_reviewed_then_recorded_once(client, plaid):  # noqa: AN
         f"/api/v1/financial-accounts/{account}", headers=bearer(ALICE)
     ).json()
     assert before_draft["version"] == 1
-    assert ingestion_hub().sink.money.purchases(user_id=_user(client))["items"] == []
+    assert (
+        ingestion_hub().sink.money.purchases(user_id=_user(client), scope=PERSONAL)[
+            "items"
+        ]
+        == []
+    )
 
     resolved = client.patch(
         f"{IMPORTS}/{event['id']}",
@@ -122,7 +128,14 @@ def test_plaid_import_is_reviewed_then_recorded_once(client, plaid):  # noqa: AN
     assert detail.status_code == 200
     after = client.get(f"/api/v1/financial-accounts/{account}", headers=bearer(ALICE))
     assert after.json()["version"] == before_draft["version"] + 1
-    assert len(ingestion_hub().sink.money.purchases(user_id=_user(client))["items"]) == 1
+    assert (
+        len(
+            ingestion_hub().sink.money.purchases(user_id=_user(client), scope=PERSONAL)[
+                "items"
+            ]
+        )
+        == 1
+    )
     assert client.get(IMPORTS, headers=bearer(ALICE)).json()["items"] == []
     [done] = client.get(f"{IMPORTS}?state=accepted", headers=bearer(ALICE)).json()[
         "items"

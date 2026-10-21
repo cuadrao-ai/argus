@@ -5,6 +5,7 @@ import json
 import pytest
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.planning_schemas import ContributionLink, CreatePlan
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.service import FinancialAccountService
 
@@ -30,6 +31,7 @@ def post(records, owner, aid, amount):
     preview = money.preview(
         user_id=owner,
         request=expense(aid, amount).model_copy(update={"occurred_at": NOW}),
+        scope=PERSONAL,
     )
     return money.write(
         user_id=owner,
@@ -37,6 +39,7 @@ def post(records, owner, aid, amount):
             preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
         ),
         idempotency_key=key(),
+        scope=PERSONAL,
     )
 
 
@@ -104,6 +107,9 @@ def test_unequal_budget_responsibilities_are_not_actuals_and_private_source_stay
     assert sorted(c["applied_minor"] for c in view["contributions"]) == ["1000", "2000"]
     encoded = json.dumps(view, default=str)
     assert aa not in encoded
-    assert records.get_account(user_id=a, account_id=aa).account.nickname not in encoded
+    assert (
+        records.get_account(user_id=a, account_id=aa, scope=PERSONAL).account.nickname
+        not in encoded
+    )
     with pytest.raises(HouseholdNotFound):
         plans.get(denied, hid, "budget", identifier)

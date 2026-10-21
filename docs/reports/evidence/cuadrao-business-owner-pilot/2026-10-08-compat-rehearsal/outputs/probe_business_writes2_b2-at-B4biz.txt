@@ -1,0 +1,5 @@
+W_expense_into_business_account: {"ok": true, "value": "6e90bd08-f674-406d-8ba2-0658b323ea69"}
+W_accept_business_receipt_into_personal_account: {"ok": false, "error": "ReconcileError: import_unresolved: Complete: account_id"}
+W_records_by_account_space: [["1ccaca74-cb12-4d1b-b6f4-3392a01a971c", "expense", 2], ["personal", "expense", 1]]
+W_event_space_vs_account: [true, "open"]
+exit=0

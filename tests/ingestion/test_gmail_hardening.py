@@ -24,6 +24,7 @@ from argus.domain.ingestion.gmail.state import (
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.gmail_fakes import (
     FakeGoogle,
@@ -68,7 +69,9 @@ def test_one_bad_message_is_skipped_and_the_cursor_moves_past_it(reply, skip):
     )
     assert outcome.status == "synced" and outcome.skipped == {skip: 1}
     assert [c.source.external_id for c in sink.batches[0]] == ["a0701good"]
-    stored = connector.hub.connections.get(user_id=ALICE, connection_id=row.id)
+    stored = connector.hub.connections.get(
+        user_id=ALICE, connection_id=row.id, scope=PERSONAL
+    )
     assert stored.cursor == "1000" and stored.status == "active"
 
 
@@ -102,7 +105,9 @@ def test_auth_refusals_on_a_message_still_fail_the_whole_sync():
         },
     )
     assert (outcome.status, outcome.error_code) == ("failed", "gmail_scope_missing")
-    stored = connector.hub.connections.get(user_id=ALICE, connection_id=row.id)
+    stored = connector.hub.connections.get(
+        user_id=ALICE, connection_id=row.id, scope=PERSONAL
+    )
     assert stored.cursor is None and stored.lease_holder is None
 
 
@@ -118,7 +123,9 @@ def test_ignored_candidates_are_reported_not_counted_as_saved():
     outcome = connector.sync(row)
     assert (outcome.status, outcome.ignored) == ("sink_failed", 1)
     # Not recorded, so not skipped: the cursor and sender backfill stay put.
-    stored = connector.hub.connections.get(user_id=ALICE, connection_id=row.id)
+    stored = connector.hub.connections.get(
+        user_id=ALICE, connection_id=row.id, scope=PERSONAL
+    )
     assert stored.cursor is None
     rules = connector.senders.list(connection_id=row.id)
     assert rules and all(rule.backfilled_at is None for rule in rules)
@@ -160,7 +167,7 @@ def test_profile_failure_after_the_exchange_revokes_the_new_grant(failure):
     fake.fail["profile"] = [failure]
     with pytest.raises(GmailError):
         connect(connector, fake, ALICE)
-    assert connector.hub.connections.list(user_id=ALICE) == []
+    assert connector.hub.connections.list(user_id=ALICE, scope=PERSONAL) == []
     assert fake.count("/revoke") == 1
     assert set(fake.refresh_tokens) <= fake.revoked
 
@@ -189,7 +196,7 @@ def test_two_people_completing_the_callback_concurrently_cannot_share_a_mailbox(
     monkeypatch.setattr(repo, "find_live", lambda **_: [])
     with pytest.raises(MailboxOwnedElsewhere):
         connect(connector, fake, BOB)
-    assert repo.list(user_id=BOB) == []
+    assert repo.list(user_id=BOB, scope=PERSONAL) == []
     # The grant is shared with Alice's connection: never revoked here.
     assert fake.count("/revoke") == 0
     assert connector.hub.credential(alice) not in fake.revoked
@@ -197,9 +204,23 @@ def test_two_people_completing_the_callback_concurrently_cannot_share_a_mailbox(
 
 def test_the_repository_reports_another_persons_live_mailbox_as_elsewhere():
     repo = InMemoryConnectionRepository()
-    repo.create(user_id=ALICE, source="gmail", external_ref="gm_x", label=None, now=NOW)
+    repo.create(
+        user_id=ALICE,
+        source="gmail",
+        external_ref="gm_x",
+        label=None,
+        now=NOW,
+        scope=PERSONAL,
+    )
     with pytest.raises(DuplicateConnection) as duplicate:
-        repo.create(user_id=BOB, source="gmail", external_ref="gm_x", label=None, now=NOW)
+        repo.create(
+            user_id=BOB,
+            source="gmail",
+            external_ref="gm_x",
+            label=None,
+            now=NOW,
+            scope=PERSONAL,
+        )
     assert duplicate.value.elsewhere
 
 
@@ -228,12 +249,15 @@ def test_unconfigured_oauth_still_registers_a_revoke_only_adapter(monkeypatch):
         senders.replace(
             user_id=ALICE, connection_id=row.id, senders=("bank.test",), now=NOW
         )
-        outcome = hub.disconnect(user_id=ALICE, connection_id=row.id)
+        outcome = hub.disconnect(user_id=ALICE, connection_id=row.id, scope=PERSONAL)
     finally:
         gmail_api.stop_gmail()
     assert outcome.provider_revocation == "revoked" and refresh in fake.revoked
     assert senders.list(connection_id=row.id) == []
-    assert hub.connections.get(user_id=ALICE, connection_id=row.id).secret is None
+    assert (
+        hub.connections.get(user_id=ALICE, connection_id=row.id, scope=PERSONAL).secret
+        is None
+    )
 
 
 def test_without_a_sealing_key_disconnect_still_forgets_senders():
@@ -252,12 +276,15 @@ def test_without_a_sealing_key_disconnect_still_forgets_senders():
         senders.replace(
             user_id=ALICE, connection_id=row.id, senders=("bank.test",), now=NOW
         )
-        outcome = hub.disconnect(user_id=ALICE, connection_id=row.id)
+        outcome = hub.disconnect(user_id=ALICE, connection_id=row.id, scope=PERSONAL)
     finally:
         gmail_api.stop_gmail()
     assert outcome.provider_revocation == "failed" and not fake.revoked
     assert senders.list(connection_id=row.id) == []
-    assert hub.connections.get(user_id=ALICE, connection_id=row.id).secret is None
+    assert (
+        hub.connections.get(user_id=ALICE, connection_id=row.id, scope=PERSONAL).secret
+        is None
+    )
 
 
 def test_forget_runs_even_when_google_revocation_fails():
@@ -265,7 +292,9 @@ def test_forget_runs_even_when_google_revocation_fails():
     fake.fail["revoke"] = [(503, {"error": "backend"})]
     connector = make_connector(fake)
     row = connect(connector, fake, ALICE).connection
-    outcome = connector.hub.disconnect(user_id=ALICE, connection_id=row.id)
+    outcome = connector.hub.disconnect(
+        user_id=ALICE, connection_id=row.id, scope=PERSONAL
+    )
     assert outcome.provider_revocation == "failed"
     assert connector.senders.list(connection_id=row.id) == []
     assert isinstance(connector.senders, InMemorySenderRepository)

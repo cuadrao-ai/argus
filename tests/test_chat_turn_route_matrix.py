@@ -13,6 +13,7 @@ from argus.api.chat.turn_lifecycle_projection import (
 from argus.api.main import app
 from argus.api.message_store import memory_conversation, prepare_message
 from argus.domain.chat_turn_lifecycle import MemoryChatTurnLifecycleGateway
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from argus.llm.openrouter import (
     clear_openrouter_route_receipts,
@@ -207,6 +208,7 @@ def _assert_one_public_terminal(
 def _accepted_turn() -> tuple[MemoryChatTurnLifecycleGateway, object]:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="Lifecycle",
         title_source="system_default",
         language="en",
@@ -392,6 +394,7 @@ def test_linked_terminal_projection_belongs_to_assistant_only(
 def test_message_only_hooks_never_create_a_chat_turn_lifecycle() -> None:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="Run",
         title_source="system_default",
         language="en",
@@ -620,9 +623,7 @@ def test_owner_message_read_reconciles_stale_terminal_evidence(
         updated_at=stale_at,
     )
     failure_code = (
-        "agent_runtime_failure"
-        if evidence_status == "recoverable_failed"
-        else None
+        "agent_runtime_failure" if evidence_status == "recoverable_failed" else None
     )
     retryable = evidence_status == "recoverable_failed"
     assistant = prepare_message(
@@ -642,9 +643,7 @@ def test_owner_message_read_reconciles_stale_terminal_evidence(
     )
     api_state.store.messages[conversation["id"]].append(assistant)
 
-    response = client.get(
-        f"/api/v1/conversations/{conversation['id']}/messages"
-    )
+    response = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
 
     assert response.status_code == 200
     lifecycle = api_state.store.chat_turn_lifecycles[accepted.id]
@@ -774,9 +773,7 @@ def test_legacy_onboarding_marker_process_loss_never_updates_public_previews(
         )
         assert row["status"] == "abandoned"
 
-    public_messages = client.get(
-        f"/api/v1/conversations/{conversation['id']}/messages"
-    )
+    public_messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
     conversations = client.get("/api/v1/conversations")
     history = client.get("/api/v1/history")
     search = client.get("/api/v1/search", params={"q": "ONBOARDING"})
@@ -864,9 +861,7 @@ def test_valid_deterministic_controls_finish_without_workflow_initialization(
         evidence_gateway=evidence_gateway,
     )
     assert lifecycle["retryable"] is False
-    assert final["confirmation_cancelled"] == {
-        "confirmation_id": "confirmation-1"
-    }
+    assert final["confirmation_cancelled"] == {"confirmation_id": "confirmation-1"}
 
 
 def test_ordinary_message_reaches_workflow_initialization(
@@ -1050,6 +1045,7 @@ def test_unauthorized_conversation_does_not_reconcile_or_disclose_turn() -> None
     client = _client()
     foreign_user_id = "00000000-0000-0000-0000-000000000099"
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="Foreign lifecycle",
         title_source="system_default",
         language="en",
@@ -1193,9 +1189,7 @@ def test_invalid_non_run_confirmation_action_rejects_before_admission(
     )
 
     action_payload = (
-        {}
-        if invalid_state == "missing"
-        else {"confirmation_id": "confirmation-1"}
+        {} if invalid_state == "missing" else {"confirmation_id": "confirmation-1"}
     )
     response = client.post(
         "/api/v1/chat/stream",
@@ -1254,9 +1248,7 @@ def test_invalid_non_run_confirmation_rejects_even_when_workflow_init_fails(
         ),
     )
     action_payload = (
-        {}
-        if invalid_state == "missing"
-        else {"confirmation_id": "confirmation-1"}
+        {} if invalid_state == "missing" else {"confirmation_id": "confirmation-1"}
     )
     usage_before = dict(api_state.store.usage_counters)
 

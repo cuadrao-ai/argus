@@ -133,5 +133,69 @@
       "chars": 409,
       "sha256": "5e0bb9699040b6a9ce3c13bfc9885a2a84235535d35b7affb3c0e361adf8e15b"
     }
+  },
+  "scoped_measurements": {
+    "document_extraction": {
+      "owners": [
+        "src/argus/domain/ingestion/documents/extractor.py",
+        "src/argus/domain/ingestion/documents/models.py"
+      ],
+      "status": "MEASURED",
+      "surface": {
+        "src/argus/domain/ingestion/documents/extractor.py": {
+          "entries": 1,
+          "chars": 2483,
+          "sha256": "bc5b228a95f461ec0a30c5d0de024e1b10140f895f10c0e7d98a65f42316ad48"
+        },
+        "src/argus/domain/ingestion/documents/models.py": {
+          "entries": 6,
+          "chars": 1050,
+          "sha256": "fa58ab0410ff52f56cd1e3b895a674795599f1e160c4dfa2fbdce5866e59590a"
+        }
+      },
+      "last_measured": {
+        "commit": "d06b9c794bad02770b8b3f44e615f38042065be7",
+        "model": "google/gemini-3.8-flash",
+        "scorecard": "docs/reports/evidence/cuadrao-receipt-extraction-20261011/live-measurement.json"
+      }
+    },
+    "business": {
+      "owners": [
+        "src/argus/agent_runtime/business/interpretation.py",
+        "src/argus/domain/business/tools/declarations.py"
+      ],
+      "surface": {
+        "src/argus/agent_runtime/business/interpretation.py": {
+          "chars": 4610,
+          "entries": 6,
+          "sha256": "f8c5121a4acf1a9a486bcb62cc54f0aba2ee2058e8978e9920705baaafdeb666"
+        },
+        "src/argus/domain/business/tools/declarations.py": {
+          "chars": 428,
+          "entries": 7,
+          "sha256": "c3eab082a2014031d114c6a4398a4920c0280432b6160f4fad63bd7ad55327d3"
+        }
+      },
+      "last_measured": {
+        "measurement_kind": "invariant_measurement",
+        "commit": "434410e200cef9972849948defd14cfe1290eb1c",
+        "runtime_model": "anthropic/claude-haiku-5.5",
+        "judge_model": "anthropic/claude-sonnet-5.5",
+        "rubric_version": "cuadrao-business-reply-v2",
+        "calibration_fixture_sha256": "dc0850207a6e8d325e73bb2ec9452088da1f5a44773f10bffe2b81d7dfba33c6",
+        "frozen_fixture_sha256": "65e047e805dfa378e1d13484e3d858ee3e08c644c15a94adcb11b55e3a0767b0",
+        "variety_fixture_sha256": "7fcc3e1246b4289981131541ceb954ceed8b887fe7647f182709c5ce64224874",
+        "passed": 31,
+        "failed": 0,
+        "unavailable": 0,
+        "scorecard": "docs/reports/evidence/cuadrao-business-agent-20261012/business-invariants.json"
+      },
+      "recorded_history": [
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-acceptance-run1-3of7.json",
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-acceptance-run2-2of7-share-and-default-currency-sentences.json",
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-invariants-run1-28-of-31.json",
+        "docs/reports/evidence/cuadrao-business-agent-20261012/business-invariants-run2-28-of-31-ask-sentence.json"
+      ]
+    }
   }
 }

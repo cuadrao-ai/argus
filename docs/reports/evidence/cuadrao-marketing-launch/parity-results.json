@@ -1,0 +1,261 @@
+{
+ "claim": "The extracted package renders byte-identical full-page screenshots to the legacy /business pages",
+ "legacyCommit": "93571e593e1677561e1dd38f63b6475574942e2d",
+ "packageCommit": "ca97f5389 (extraction only, before forms, privacy link and copy changes)",
+ "engines": [
+  "chromium",
+  "webkit"
+ ],
+ "viewports": [
+  "1440x900",
+  "390x844"
+ ],
+ "colorSchemes": [
+  "light",
+  "dark"
+ ],
+ "captures": 48,
+ "identical": 48,
+ "results": [
+  {
+   "capture": "chromium-1440-light-es-home",
+   "identical": true,
+   "pngBytes": 1157363
+  },
+  {
+   "capture": "chromium-1440-light-es-personal",
+   "identical": true,
+   "pngBytes": 197855
+  },
+  {
+   "capture": "chromium-1440-light-es-contact",
+   "identical": true,
+   "pngBytes": 175025
+  },
+  {
+   "capture": "chromium-1440-light-en-home",
+   "identical": true,
+   "pngBytes": 1144228
+  },
+  {
+   "capture": "chromium-1440-light-en-personal",
+   "identical": true,
+   "pngBytes": 195807
+  },
+  {
+   "capture": "chromium-1440-light-en-contact",
+   "identical": true,
+   "pngBytes": 170805
+  },
+  {
+   "capture": "chromium-1440-dark-es-home",
+   "identical": true,
+   "pngBytes": 1157363
+  },
+  {
+   "capture": "chromium-1440-dark-es-personal",
+   "identical": true,
+   "pngBytes": 197855
+  },
+  {
+   "capture": "chromium-1440-dark-es-contact",
+   "identical": true,
+   "pngBytes": 175025
+  },
+  {
+   "capture": "chromium-1440-dark-en-home",
+   "identical": true,
+   "pngBytes": 1144228
+  },
+  {
+   "capture": "chromium-1440-dark-en-personal",
+   "identical": true,
+   "pngBytes": 195807
+  },
+  {
+   "capture": "chromium-1440-dark-en-contact",
+   "identical": true,
+   "pngBytes": 170805
+  },
+  {
+   "capture": "chromium-390-light-es-home",
+   "identical": true,
+   "pngBytes": 841347
+  },
+  {
+   "capture": "chromium-390-light-es-personal",
+   "identical": true,
+   "pngBytes": 126018
+  },
+  {
+   "capture": "chromium-390-light-es-contact",
+   "identical": true,
+   "pngBytes": 137336
+  },
+  {
+   "capture": "chromium-390-light-en-home",
+   "identical": true,
+   "pngBytes": 823832
+  },
+  {
+   "capture": "chromium-390-light-en-personal",
+   "identical": true,
+   "pngBytes": 125800
+  },
+  {
+   "capture": "chromium-390-light-en-contact",
+   "identical": true,
+   "pngBytes": 133438
+  },
+  {
+   "capture": "chromium-390-dark-es-home",
+   "identical": true,
+   "pngBytes": 841347
+  },
+  {
+   "capture": "chromium-390-dark-es-personal",
+   "identical": true,
+   "pngBytes": 126018
+  },
+  {
+   "capture": "chromium-390-dark-es-contact",
+   "identical": true,
+   "pngBytes": 137336
+  },
+  {
+   "capture": "chromium-390-dark-en-home",
+   "identical": true,
+   "pngBytes": 823832
+  },
+  {
+   "capture": "chromium-390-dark-en-personal",
+   "identical": true,
+   "pngBytes": 125800
+  },
+  {
+   "capture": "chromium-390-dark-en-contact",
+   "identical": true,
+   "pngBytes": 133438
+  },
+  {
+   "capture": "webkit-1440-light-es-home",
+   "identical": true,
+   "pngBytes": 1488527
+  },
+  {
+   "capture": "webkit-1440-light-es-personal",
+   "identical": true,
+   "pngBytes": 249229
+  },
+  {
+   "capture": "webkit-1440-light-es-contact",
+   "identical": true,
+   "pngBytes": 222857
+  },
+  {
+   "capture": "webkit-1440-light-en-home",
+   "identical": true,
+   "pngBytes": 1483635
+  },
+  {
+   "capture": "webkit-1440-light-en-personal",
+   "identical": true,
+   "pngBytes": 249923
+  },
+  {
+   "capture": "webkit-1440-light-en-contact",
+   "identical": true,
+   "pngBytes": 220448
+  },
+  {
+   "capture": "webkit-1440-dark-es-home",
+   "identical": true,
+   "pngBytes": 1488527
+  },
+  {
+   "capture": "webkit-1440-dark-es-personal",
+   "identical": true,
+   "pngBytes": 249229
+  },
+  {
+   "capture": "webkit-1440-dark-es-contact",
+   "identical": true,
+   "pngBytes": 222857
+  },
+  {
+   "capture": "webkit-1440-dark-en-home",
+   "identical": true,
+   "pngBytes": 1483635
+  },
+  {
+   "capture": "webkit-1440-dark-en-personal",
+   "identical": true,
+   "pngBytes": 249923
+  },
+  {
+   "capture": "webkit-1440-dark-en-contact",
+   "identical": true,
+   "pngBytes": 220448
+  },
+  {
+   "capture": "webkit-390-light-es-home",
+   "identical": true,
+   "pngBytes": 1038417
+  },
+  {
+   "capture": "webkit-390-light-es-personal",
+   "identical": true,
+   "pngBytes": 155159
+  },
+  {
+   "capture": "webkit-390-light-es-contact",
+   "identical": true,
+   "pngBytes": 160739
+  },
+  {
+   "capture": "webkit-390-light-en-home",
+   "identical": true,
+   "pngBytes": 1017161
+  },
+  {
+   "capture": "webkit-390-light-en-personal",
+   "identical": true,
+   "pngBytes": 154441
+  },
+  {
+   "capture": "webkit-390-light-en-contact",
+   "identical": true,
+   "pngBytes": 158602
+  },
+  {
+   "capture": "webkit-390-dark-es-home",
+   "identical": true,
+   "pngBytes": 1038417
+  },
+  {
+   "capture": "webkit-390-dark-es-personal",
+   "identical": true,
+   "pngBytes": 155159
+  },
+  {
+   "capture": "webkit-390-dark-es-contact",
+   "identical": true,
+   "pngBytes": 160739
+  },
+  {
+   "capture": "webkit-390-dark-en-home",
+   "identical": true,
+   "pngBytes": 1017161
+  },
+  {
+   "capture": "webkit-390-dark-en-personal",
+   "identical": true,
+   "pngBytes": 154441
+  },
+  {
+   "capture": "webkit-390-dark-en-contact",
+   "identical": true,
+   "pngBytes": 158602
+  }
+ ]
+}

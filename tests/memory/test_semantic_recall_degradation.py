@@ -432,11 +432,23 @@ def test_recall_runs_off_the_event_loop() -> None:
         updated_at=now,
     )
 
+    from argus.api.message_store import memory_conversation
+    from argus.domain.owner_scope import PERSONAL
+
+    conversation_id = memory_conversation(
+        title="ETH idea",
+        title_source="system_default",
+        language="en",
+        scope=PERSONAL,
+        user_id=OWNER_ID,
+    ).id
+
     async def _drive() -> tuple[int, object]:
         loop_thread = threading.get_ident()
         result = await memory_recalls_for_turn_async(
             user=user,
             account=registered_account_context(OWNER_ID),
+            conversation_id=conversation_id,
             user_message="what did I decide",
             memory_opt_out=False,
         )

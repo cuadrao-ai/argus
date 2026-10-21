@@ -1,28 +1,19 @@
 import SwiftUI
 
-/// One provisional brand lockup shared by welcome and Home.
+/// The one place the Cuadrao lockup is drawn: Marketing's mark-and-wordmark SVG, unchanged, light or dark from the
+/// asset catalog. Welcome, the invitation card and the chat empty state all use it and differ only in size.
+/// The lockup is 4.79 times as wide as it is tall, so the default width keeps the 32 pt height the old
+/// glyph-and-text lockup had and the layouts around it do not move.
 struct CuadraoBrand: View {
-    var body: some View {
-HStack(spacing: 14) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(WelcomePalette.pine)
-                                .frame(width: 20, height: 20)
-                                .offset(x: 6, y: -6)
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(WelcomePalette.sage)
-                                .frame(width: 20, height: 20)
-                                .offset(x: -6, y: 6)
-                            RoundedRectangle(cornerRadius: 1)
-                                .fill(WelcomePalette.overlap)
-                                .frame(width: 8, height: 8)
-                        }
-                        .frame(width: 32, height: 32)
-                        .accessibilityHidden(true)
+    static let compactWidth: CGFloat = 153
 
-                        Text("CUADRAO")
-                            .font(.system(.title3, weight: .medium))
-                            .tracking(4)
-                    }
+    var maxWidth: CGFloat = Self.compactWidth
+
+    var body: some View {
+        Image("CuadraoLockup")
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: maxWidth)
+            .accessibilityIdentifier("cuadrao.brand")
     }
 }

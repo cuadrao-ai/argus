@@ -82,7 +82,7 @@ struct HouseholdManagement: View {
             .tint(WelcomePalette.pine)
             .disabled(model.busy)
             .navigationTitle(model.household == nil ? "household.title" : "household.people")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("action.close") { dismiss() }.accessibilityIdentifier("household.management.done") } }
+            .toolbar { CuadraoDoneToolbar(title: "action.close", identifier: "household.management.done") { dismiss() }}
             .task { await accounts?.load(); await model.refresh() }
             .sheet(item: $sharing) { HouseholdShareSheet(model: model, account: $0) }
             .confirmationDialog(confirmation.map { LocalizedStringKey($0.title) } ?? "household.manage", isPresented: Binding(get: { confirmation != nil }, set: { if !$0 { confirmation = nil } }), titleVisibility: .visible) {
@@ -125,7 +125,7 @@ struct HouseholdShareSheet: View {
                 }
             }
             .navigationTitle("household.shareAccounts")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() } } }
+            .toolbar { CuadraoCancelToolbar(title: "accounts.cancel") { dismiss() } }
             .onAppear {
                 if let share = model.household?.shares.first(where: { $0.accountId == account.id }) {
                     selected = Set(share.recipients.map(\.membershipId)); editors = Set(share.recipients.filter { $0.permission == "edit" }.map(\.membershipId))

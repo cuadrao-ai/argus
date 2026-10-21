@@ -9,6 +9,7 @@ import json
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 
 from tests import test_financial_accounts_postgres as shared
 from tests.ingestion.reconcile_cases import *  # noqa: F403
@@ -143,13 +144,14 @@ def test_household_scope_is_shown_and_never_granted_by_importing(world, other_wo
             " owner_membership_id, recipient_membership_id) values (%s, %s, %s, %s, %s)",
             (household, shared_card, world.user, owner_member, other_member),
         )
-    [event] = world.recon.list(user_id=world.user, states=("open",))
+    [event] = world.recon.list(user_id=world.user, states=("open",), scope=PERSONAL)
     assert event["account_shared_with_household"] is None
     event = world.recon.resolve(
         user_id=world.user,
         event_id=event["id"],
         version=event["version"],
         changes={"account_id": private},
+        scope=PERSONAL,
     )
     assert event["account_shared_with_household"] is False
     event = world.recon.resolve(
@@ -157,6 +159,7 @@ def test_household_scope_is_shown_and_never_granted_by_importing(world, other_wo
         event_id=event["id"],
         version=event["version"],
         changes={"account_id": shared_card},
+        scope=PERSONAL,
     )
     assert event["account_shared_with_household"] is True
     with psycopg.connect(shared.DSN) as connection:
@@ -166,4 +169,7 @@ def test_household_scope_is_shown_and_never_granted_by_importing(world, other_wo
         ).fetchone()[0]
         connection.execute("delete from public.households where id = %s", (household,))
     assert grants == 1  # importing created no grant
-    assert other_world.recon.list(user_id=other_world.user, states=("open",)) == []
+    assert (
+        other_world.recon.list(user_id=other_world.user, states=("open",), scope=PERSONAL)
+        == []
+    )

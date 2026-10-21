@@ -33,6 +33,7 @@ from argus.domain.ingestion.gmail.senders import (
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 
 from tests.ingestion.gmail_mailbox import MAILBOX, NOW, Mail, b64
 
@@ -66,8 +67,14 @@ class RecordingSink:
         self.fail = False
 
     def submit(
-        self, *, user_id: str, connection_id: str, candidates: Sequence[ImportCandidate]
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        candidates: Sequence[ImportCandidate],
+        scope: OwnerScope,
     ) -> SubmitResult:
+        assert scope == PERSONAL
         if self.fail:
             raise RuntimeError("sink unavailable")
         assert all(c.source.connection_id == connection_id for c in candidates)
@@ -84,7 +91,10 @@ class RecordingSink:
         self.results.append(result)
         return result
 
-    def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+    def forget_connection(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> int:
+        assert scope == PERSONAL
         drop = [k for k in self.evidence if k[1] == connection_id]
         for key in drop:
             del self.evidence[key]

@@ -1,0 +1,10 @@
+2026-10-08 02:09:57.786 | INFO     | argus.api.app_setup:lifespan:65 - Using Supabase product persistence with memory LangGraph checkpointer
+2026-10-08 02:09:57.792 | INFO     | argus.api.shortcuts:start_shortcuts:90 - Shortcuts connector ready
+seed_upload_a: {"http": 200, "status": "saved", "replayed": false, "connection_id": "099d412d-35e6-44e2-8c90-95645aff2c46"}
+seed_row_a: {"source_bytes_len": 5910, "source_path": null}
+seed_upload_b: {"http": 200, "status": "saved", "replayed": false, "connection_id": "c233b2d7-de14-4a01-ab14-3367b13931af"}
+seed_row_b: {"source_bytes_len": 5910, "source_path": null}
+seed_upload_v: {"http": 200, "status": "saved", "replayed": false, "connection_id": "1e6a3d79-f777-490c-a623-e1c2ffb03613"}
+seed_objects_u: []
+seed_objects_v: []
+exit=0

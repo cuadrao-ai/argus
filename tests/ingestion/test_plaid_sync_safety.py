@@ -1,6 +1,7 @@
 """Sync safety under interleaving, bounds and malformed provider data."""
 
 from argus.domain.ingestion.plaid.connector import PlaidConnector
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.plaid_fakes import (
     CHECKING,
@@ -34,7 +35,9 @@ def connected(fake: FakePlaid, sink: RecordingSink | None = None):
 
 
 def stored(connector: PlaidConnector, row):  # noqa: ANN001
-    return connector.hub.connections.get(user_id=USER, connection_id=row.id)
+    return connector.hub.connections.get(
+        user_id=USER, connection_id=row.id, scope=PERSONAL
+    )
 
 
 def webhook_login_required(connector: PlaidConnector, row):  # noqa: ANN001

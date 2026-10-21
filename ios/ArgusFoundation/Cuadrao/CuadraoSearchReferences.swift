@@ -16,6 +16,15 @@ enum CanvasSearchKind: CaseIterable {
     }
 }
 
+extension CanvasSearchKind {
+    /// What the connected Search offers. With no assistant there are no AI chats, and no files or memory
+    /// either, so those chips (each an "unavailable" dead end) are not shown.
+    static func connected(hasAssistant: Bool) -> [CanvasSearchKind] {
+        let withoutAssistant: Set<CanvasSearchKind> = [.chats, .files, .memory]
+        return allCases.filter { hasAssistant ? $0 != .memory : !withoutAssistant.contains($0) }
+    }
+}
+
 struct CanvasSearchReference: Identifiable {
     let id: String
     let kind: CanvasSearchKind

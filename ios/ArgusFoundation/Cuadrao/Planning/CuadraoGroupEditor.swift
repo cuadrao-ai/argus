@@ -53,7 +53,7 @@ struct CuadraoGroupEditor: View {
             }.cuadraoFormKeyboard().background(WelcomePalette.background)
                 .navigationTitle(spanish ? "Un plan juntos" : "A plan together").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cancelar" : "Cancel") { discard = true } }
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { discard = true }
                 }
                 .confirmationDialog(spanish ? "¿Descartar cambios?" : "Discard changes?", isPresented: $discard, titleVisibility: .visible) {
                     Button(spanish ? "Descartar" : "Discard", role: .destructive) { dismiss() }

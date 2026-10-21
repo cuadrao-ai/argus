@@ -34,7 +34,8 @@ struct CuadraoIdentityAvatar: View {
         Group {
             switch selection {
             case .none:
-                if presentation == .profile {
+                // The camera invites a photo, so it shows only where avatar editing exists.
+                if presentation == .profile, CuadraoFirstRelease.editsAvatar {
                     Image(systemName: "camera.fill")
                         .font(.system(size: size * 0.32, weight: .medium))
                         .overlay(alignment: .topTrailing) {
@@ -106,7 +107,7 @@ struct CuadraoIdentityEditor: View {
                         }
                     }
                     if loading { ProgressView(spanish ? "Preparando foto" : "Preparing photo") }
-                    if failed { Text(spanish ? "No pudimos abrir esa foto. Prueba otra." : "We couldn’t open that photo. Try another.").foregroundStyle(.secondary) }
+                    if failed { Text(spanish ? "No pudimos abrir esa foto. Prueba otra." : "We couldn't open that photo. Try another.").foregroundStyle(.secondary) }
                 }
                 Section(spanish ? "Tu avatar" : "Your avatar") {
                     choice(.none, title: spanish ? "Icono de perfil" : "Profile icon", id: "none")
@@ -119,13 +120,8 @@ struct CuadraoIdentityEditor: View {
             .navigationTitle(spanish ? "Tu perfil" : "Your profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(spanish ? "Cancelar" : "Cancel") { dismiss() }.accessibilityIdentifier("release.avatar.cancel")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(spanish ? "Guardar" : "Save") { selection = draft; dismiss() }
-                        .disabled(loading).accessibilityIdentifier("release.avatar.save")
-                }
+                CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "release.avatar.cancel") { dismiss() }
+                CuadraoConfirmToolbar(title: spanish ? "Guardar" : "Save", disabled: loading, identifier: "release.avatar.save") { selection = draft; dismiss() }
             }
             .sheet(item: $crop) { request in
                 CanvasAvatarCropSheet(request: request, spanish: spanish) { draft = .photo($0) }

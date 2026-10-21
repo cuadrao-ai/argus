@@ -61,7 +61,7 @@ class AccountDeletionResponse(BaseModel):
     # done: everything is deleted and every third party settled.
     # in_progress (202): the run is open and the account is locked (signed
     # out, its tokens refused everywhere but here), but a step hasn't finished
-    # (``pending``: apple, gmail, plaid, analytics; empty when another request
+    # (``pending``: apple, gmail, plaid, analytics, storage; empty when another request
     # holds the run or the data step must be retried). A retry of this route
     # or the operator-run sweep resumes it.
     status: Literal["done", "in_progress"]

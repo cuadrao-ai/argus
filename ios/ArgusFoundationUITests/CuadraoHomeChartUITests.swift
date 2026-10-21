@@ -320,7 +320,7 @@ final class CuadraoHomeChartUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Añadir movimiento"].waitForExistence(timeout: 3))
         let amount = app.textFields["cuadrao-amount"]
         amount.tap(); amount.typeText("250")
-        app.toolbars.buttons["Listo"].tap()
+        app.dismissKeyboard()
         app.buttons["Revisar"].tap(); app.buttons["Guardar"].tap()
         XCTAssertTrue(app.staticTexts["home-spending-total"].waitForExistence(timeout: 3))
         XCTAssertEqual(app.staticTexts["home-spending-total"].label, "250.00")

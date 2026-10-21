@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from argus.domain.ingestion.contract import ImportCandidate
+from argus.domain.owner_scope import OwnerScope
 
 
 @dataclass(frozen=True)
@@ -35,16 +36,20 @@ class CandidateSink(Protocol):
         user_id: str,
         connection_id: str,
         candidates: Sequence[ImportCandidate],
+        scope: OwnerScope,
     ) -> SubmitResult:
         """Record evidence idempotently, keyed by ``ImportCandidate.key``.
 
         Must be safe to call again with the same batch (webhook retries, a
         sync replayed after a crash) and must refuse candidates whose
-        ``connection_id`` differs from the argument.
+        ``connection_id`` differs from the argument. ``scope`` is the
+        connection's own scope, which the events it creates inherit.
         """
         ...
 
-    def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+    def forget_connection(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> int:
         """Disconnect retention: drop unreviewed evidence from this connection.
 
         Confirmed canonical activity is the person's record and stays, with its

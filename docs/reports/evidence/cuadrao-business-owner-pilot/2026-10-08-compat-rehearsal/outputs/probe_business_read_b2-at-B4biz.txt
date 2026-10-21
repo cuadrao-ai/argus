@@ -1,0 +1,23 @@
+R_accounts_list: [["personal_account", "a personal"], ["business_account", "a business"]]
+R_storage_read_accounts: ["business_account", "personal_account"]
+R_canonical_activities: ["business_expense", "personal_expense"]
+R_search_hits: [["account", "business_account"], ["account", "personal_account"], ["activity", "business_expense"], ["activity", "personal_expense"]]
+R_home_currencies: [{"currency": "DOP", "currency_fraction_digits": 2, "assets_minor": "0", "cash_minor": "0", "other_assets_minor": "0", "debts_minor": "0", "net_worth_minor": "0", "known_accounts": 0, "unknown_accounts": 2, "recorded_spending_minor": "50100", "gross_income_minor": "0", "gross_purchases_minor": "50100", "refunds_minor": "0", "net_spending_minor": "50100", "as_of": null}]
+R_home_recent_activity_accounts: ["business_account", "personal_account"]
+R_connections: ["business_job_prepared", "business_receipt", "personal_job_prepared", "personal_job_queued", "personal_receipt", "whatsapp_receipt"]
+R_open_import_events: ["business_job_prepared", "business_receipt", "personal_job_prepared", "personal_receipt"]
+R_document_get_personal_receipt: {"ok": true, "value": "review_ready"}
+R_document_get_business_receipt: {"ok": true, "value": "review_ready"}
+R_document_get_whatsapp_receipt: {"ok": true, "value": "saved"}
+R_document_get_personal_job_prepared: {"ok": true, "value": "review_ready"}
+R_document_get_personal_job_queued: {"ok": true, "value": "queued"}
+R_document_get_business_job_prepared: {"ok": true, "value": "review_ready"}
+R_document_source_business_receipt: {"ok": true, "value": 5904}
+W_expense_into_business_account: {"ok": false, "error": "AttributeError: 'MoneyService' object has no attribute 'write_entered'"}
+W_resolve_business_receipt_event_to_personal_account: {"ok": true, "value": "open"}
+W_prepare_activation_queued_personal_job: {"ok": true, "value": ["queued", "review_ready"]}
+W_job_column_after_build2_prepare: ["review_ready", {"retry": false, "attempt": 1, "claimed": false, "attempt_id": "7568337d-e435-48cb-b69a-304c2f87fc19", "dispatched_at": "2026-10-08T08:01:12.744018Z", "draft_version": 1, "provider_call_started_at": null}]
+W_disconnect_whatsapp_business_receipt: {"ok": true, "value": "DisconnectOutcome"}
+whatsapp_inbound_after_disconnect: [["captured", true]]
+rows_sql_after_build2_writes: {"business_accounts": 1, "business_connections": 3, "business_import_events": 2, "business_conversations": 0, "spaces": 2}
+exit=0

@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 
 from tests.financial_accounts import test_loop_commands as shared
@@ -21,7 +22,9 @@ def test_pair_records_independent_actual_amounts(scene, monkeypatch):
         amount="10.25",
         destination_amount="615.75",
     )
-    receipt = money.write(user_id=scene[1], request=request, idempotency_key="paired")
+    receipt = money.write(
+        user_id=scene[1], request=request, idempotency_key="paired", scope=PERSONAL
+    )
     legs = {leg["role"]: leg for leg in receipt["activity"]["legs"]}
     assert (legs["source"]["amount_minor"], legs["source"]["currency"]) == (1025, "USD")
     assert (legs["destination"]["amount_minor"], legs["destination"]["currency"]) == (
@@ -31,9 +34,9 @@ def test_pair_records_independent_actual_amounts(scene, monkeypatch):
     assert legs["source"]["balance_movement_minor"] == -1025
     assert legs["destination"]["balance_movement_minor"] == 61575
     assert (
-        money.write(user_id=scene[1], request=request, idempotency_key="paired")[
-            "activity"
-        ]
+        money.write(
+            user_id=scene[1], request=request, idempotency_key="paired", scope=PERSONAL
+        )["activity"]
         == receipt["activity"]
     )
 
@@ -67,7 +70,7 @@ def test_account_precision_owns_each_amount(
     else:
         money, request = command(scene, **values)
         result = money.write(
-            user_id=scene[1], request=request, idempotency_key="precision"
+            user_id=scene[1], request=request, idempotency_key="precision", scope=PERSONAL
         )
         assert (
             next(
@@ -104,9 +107,11 @@ def test_refused_pair_has_no_account_effect(scene, monkeypatch, received, error)
         occurred_at=NOW - timedelta(days=2),
     )
     with pytest.raises(RecordingInputError, match=error):
-        money.write(user_id=scene[1], request=body, idempotency_key="refused")
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="refused", scope=PERSONAL
+        )
     for aid in (source, dest):
-        stored = scene[0].get(user_id=scene[1], account_id=aid)
+        stored = scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
         assert stored.account.version == 1 and not stored.expenses
 
 
@@ -134,9 +139,9 @@ def test_gate_blocks_new_mixed_pairs_but_not_same_currency(scene, monkeypatch):
         destination_amount="1.00",
     )
     assert (
-        money.write(user_id=scene[1], request=body, idempotency_key="same")["activity"][
-            "amount"
-        ]
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="same", scope=PERSONAL
+        )["activity"]["amount"]
         == "1.00"
     )
     with pytest.raises(RecordingInputError, match="transfer_amount_mismatch"):
@@ -191,8 +196,10 @@ def test_hidden_source_denomination_is_absent_in_both_projections(scene, monkeyp
         amount="100",
         destination_amount="0.70",
     )
-    saved = money.write(user_id=scene[1], request=body, idempotency_key="privacy")
-    records = scene[0].list_accounts(user_id=scene[1])
+    saved = money.write(
+        user_id=scene[1], request=body, idempotency_key="privacy", scope=PERSONAL
+    )
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     history = groups(records)
     aid = saved["activity"]["activity_id"]
     personal = visible_activity(render_activity(aid, history[aid]), {dest}, history)
@@ -259,12 +266,15 @@ def test_changed_destination_conflicts_and_correction_preserves_exact_history(
         amount="1",
         destination_amount="60",
     )
-    first = money.write(user_id=scene[1], request=body, idempotency_key="original")
+    first = money.write(
+        user_id=scene[1], request=body, idempotency_key="original", scope=PERSONAL
+    )
     with pytest.raises(IdempotencyConflict):
         money.write(
             user_id=scene[1],
             request=body.model_copy(update={"destination_amount": "61"}),
             idempotency_key="original",
+            scope=PERSONAL,
         )
     correction = body.model_copy(
         update={
@@ -277,22 +287,31 @@ def test_changed_destination_conflicts_and_correction_preserves_exact_history(
         }
     )
     aid = first["activity"]["activity_id"]
-    preview = money.preview(user_id=scene[1], request=correction, activity_id=aid)
+    preview = money.preview(
+        user_id=scene[1], request=correction, activity_id=aid, scope=PERSONAL
+    )
     reviewed = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
         update={"preview_token": preview["preview_token"]}
     )
     changed = money.write(
-        user_id=scene[1], request=reviewed, activity_id=aid, idempotency_key="corrected"
+        user_id=scene[1],
+        request=reviewed,
+        activity_id=aid,
+        idempotency_key="corrected",
+        scope=PERSONAL,
     )
     assert changed["activity"]["revision"] == 2
     assert [leg["amount_minor"] for leg in changed["activity"]["legs"]] == [200, 11900]
     assert (
-        money.write(user_id=scene[1], request=body, idempotency_key="original")[
-            "activity"
-        ]
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="original", scope=PERSONAL
+        )["activity"]
         == first["activity"]
     )
-    assert len(money.history(user_id=scene[1], activity_id=aid)["items"]) == 2
+    assert (
+        len(money.history(user_id=scene[1], activity_id=aid, scope=PERSONAL)["items"])
+        == 2
+    )
 
 
 def test_plan_matcher_never_credits_source_summary_for_mixed_pair(scene, monkeypatch):
@@ -309,9 +328,9 @@ def test_plan_matcher_never_credits_source_summary_for_mixed_pair(scene, monkeyp
         amount="1",
         destination_amount="60",
     )
-    actual = money.write(user_id=scene[1], request=body, idempotency_key="plan-denied")[
-        "activity"
-    ]
+    actual = money.write(
+        user_id=scene[1], request=body, idempotency_key="plan-denied", scope=PERSONAL
+    )["activity"]
     assert not transfer_matches(actual, source, dest, "USD")
     assert not transfer_matches(actual, source, dest, "DOP")
     accepted = dict(
@@ -359,7 +378,7 @@ def test_mixed_payment_pairs_remain_refused(scene, monkeypatch, kind):
             amount="1",
         )
     assert all(
-        not scene[0].get(user_id=scene[1], account_id=aid).expenses
+        not scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL).expenses
         for aid in [source, dest]
     )
 
@@ -378,7 +397,9 @@ def test_replacing_destination_retires_exact_old_leg_and_preserves_replays(
         amount="1",
         destination_amount="60",
     )
-    first = money.write(user_id=scene[1], request=body, idempotency_key="initial")
+    first = money.write(
+        user_id=scene[1], request=body, idempotency_key="initial", scope=PERSONAL
+    )
     aid = first["activity"]["activity_id"]
     for number, destination, amount in [(1, replacement, "1"), (2, original, "61")]:
         correction = body.model_copy(
@@ -391,7 +412,9 @@ def test_replacing_destination_retires_exact_old_leg_and_preserves_replays(
                 "preview_token": None,
             }
         )
-        preview = money.preview(user_id=scene[1], request=correction, activity_id=aid)
+        preview = money.preview(
+            user_id=scene[1], request=correction, activity_id=aid, scope=PERSONAL
+        )
         assert set(preview["expected_versions"]) == {source, original, replacement}
         reviewed = MoneyRequest.model_validate(preview["reviewed_request"]).model_copy(
             update={"preview_token": preview["preview_token"]}
@@ -401,18 +424,23 @@ def test_replacing_destination_retires_exact_old_leg_and_preserves_replays(
             request=reviewed,
             activity_id=aid,
             idempotency_key=f"revision-{number}",
+            scope=PERSONAL,
         )
         assert result["activity"]["revision"] == number + 1
         retired = original if destination == replacement else replacement
-        old_record = scene[0].get(user_id=scene[1], account_id=retired).expenses[0]
+        old_record = (
+            scene[0].get(user_id=scene[1], account_id=retired, scope=PERSONAL).expenses[0]
+        )
         assert not old_record.current.active and old_record.current.amount_minor == 0
     assert (
-        money.write(user_id=scene[1], request=body, idempotency_key="initial")["activity"]
+        money.write(
+            user_id=scene[1], request=body, idempotency_key="initial", scope=PERSONAL
+        )["activity"]
         == first["activity"]
     )
     assert [
         leg["amount_minor"]
-        for leg in money.detail(user_id=scene[1], activity_id=aid)["legs"]
+        for leg in money.detail(user_id=scene[1], activity_id=aid, scope=PERSONAL)["legs"]
     ] == [100, 6100]
 
 
@@ -435,9 +463,9 @@ def test_actual_goal_link_refuses_mixed_transfer_without_a_claim(scene, monkeypa
         amount="1",
         destination_amount="60",
     )
-    actual = money.write(user_id=scene[1], request=body, idempotency_key="mixed-goal")[
-        "activity"
-    ]
+    actual = money.write(
+        user_id=scene[1], request=body, idempotency_key="mixed-goal", scope=PERSONAL
+    )["activity"]
     before = planner.get(scene[1], goal["id"])
     with pytest.raises(RecordingInputError, match="goal_contribution_mismatch"):
         link(scene, planner, goal, actual)
@@ -483,9 +511,9 @@ def test_hidden_same_currency_source_never_matches_plan_currency(scene):
         destination_account_id=dest,
         amount="1",
     )
-    full = money.write(user_id=scene[1], request=body, idempotency_key="partial-pair")[
-        "activity"
-    ]
-    records = scene[0].list_accounts(user_id=scene[1])
+    full = money.write(
+        user_id=scene[1], request=body, idempotency_key="partial-pair", scope=PERSONAL
+    )["activity"]
+    records = scene[0].list_accounts(user_id=scene[1], scope=PERSONAL)
     partial = visible_activity(full, {dest}, groups(records))
     assert not activity_in_currency(partial, "USD")

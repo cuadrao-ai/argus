@@ -20,6 +20,8 @@ struct CuadraoPlanEditorHost {
     var spaces: [CuadraoPlanEditorSpace]
     var editing: Bool
     var kindLocked = false
+    /// The kinds the picker offers. A host that has no debts says so here.
+    var allowedKinds = CanvasPlanKind.allCases
     var currencyLocked = false
     var showsTarget = true
     var showsRecorded = true
@@ -29,6 +31,8 @@ struct CuadraoPlanEditorHost {
     var monthlyTitle: String? = nil
     var identifiers = CuadraoPlanEditorIdentifiers()
     var canSave: (CanvasPlan) -> Bool = { _ in true }
+    /// Why the host cannot save yet, named for the person; nil keeps the editor's own hint.
+    var missing: (CanvasPlan) -> String? = { _ in nil }
     var saving = false
     var dismissesOnSave = true
     var save: (CanvasPlan) -> Void

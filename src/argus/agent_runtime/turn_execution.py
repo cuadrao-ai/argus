@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 import time
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypeVar
 
 from loguru import logger
 
@@ -72,6 +73,7 @@ class TurnExecutionContext:
     research_recovery_reserved: bool = False
     last_resort_repair_calls_granted: int = 0
     last_resort_repair_grant_used: int = 0
+    repair_approval_grant_used: int = 0
     terminal: ProgressOutcome | None = None
     terminal_reason: str | None = None
     exit_fingerprint: str | None = None
@@ -97,18 +99,33 @@ _ACTIVE_TURN_EXECUTION: ContextVar[TurnExecutionContext | None] = ContextVar(
     default=None,
 )
 
-# The last-resort focused repair is the only rescue left once every
-# interpretation candidate has failed; the audit calls that preceded it must
-# not be able to starve it. The grant covers the repair's own model ladder
-# (primary plus fallback), activates only when the corridor is already
-# exhausted — so the extraction, the first in-scope call at that point, is
-# always the one it rescues — and both the activation and every granted call
-# land in the turn's records (a structured log line plus calls_reserved).
+# The repair pool: the calls a turn may make after its corridor is exhausted,
+# shared by repair work. A last-resort repair draws from it (the only rescue
+# once every interpretation candidate has failed), and so does the
+# field-fidelity audit that approves a focused repair: without that audit the
+# stated amount is dropped and re-asked (#928). The pool is drawn only after
+# the corridor is exhausted, and a focused repair starts only while the pool
+# can still fund its approval. Activation and every draw land in the turn's
+# records (a structured log line, calls_reserved, and the summary counters).
 _LAST_RESORT_REPAIR_SCOPE: ContextVar[bool] = ContextVar(
     "last_resort_repair_scope",
     default=False,
 )
+_FOCUSED_REPAIR_SCOPE: ContextVar[bool] = ContextVar(
+    "focused_repair_scope",
+    default=False,
+)
 LAST_RESORT_REPAIR_CALL_GRANT = 2
+
+# Every provider post a turn can make: the corridor, the research rail's
+# routing slot, the no-lookup research answer, and the repair pool. The turn
+# deadline also bounds it.
+TURN_PROVIDER_POST_CEILING = (
+    DEFAULT_TURN_CALL_ALLOWANCE + 1 + 1 + LAST_RESORT_REPAIR_CALL_GRANT
+)
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 # Retrieval failure still needs one answer attempt after interpretation has
 # used its corridor. Only the no-lookup answer enters this scope; the turn owns
@@ -134,6 +151,28 @@ def last_resort_repair_scope() -> Iterator[None]:
         yield
     finally:
         _LAST_RESORT_REPAIR_SCOPE.reset(token)
+
+
+def focused_repair(
+    repair: Callable[_P, Awaitable[_R]],
+) -> Callable[_P, Awaitable[_R]]:
+    @functools.wraps(repair)
+    async def funded_repair(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        token = _FOCUSED_REPAIR_SCOPE.set(True)
+        try:
+            return await repair(*args, **kwargs)
+        finally:
+            _FOCUSED_REPAIR_SCOPE.reset(token)
+
+    return funded_repair
+
+
+def _repair_pool_draw(task_name: str) -> Literal["repair", "approval"] | None:
+    if task_name == "interpretation_repair" and _LAST_RESORT_REPAIR_SCOPE.get():
+        return "repair"
+    if task_name == "field_fidelity" and _FOCUSED_REPAIR_SCOPE.get():
+        return "approval"
+    return None
 
 
 def active_turn_execution() -> TurnExecutionContext | None:
@@ -209,11 +248,8 @@ def reserve_provider_call(
             if task_timeout_seconds is not None:
                 timeout_seconds = min(timeout_seconds, float(task_timeout_seconds))
             return ProviderCallPermit(task=task_name, timeout_seconds=timeout_seconds)
-    if (
-        _LAST_RESORT_REPAIR_SCOPE.get()
-        and task_name == "interpretation_repair"
-        and execution.calls_reserved >= execution.call_allowance
-    ):
+    pool_draw = _repair_pool_draw(task_name)
+    if pool_draw is not None and execution.calls_reserved >= execution.call_allowance:
         if execution.last_resort_repair_calls_granted == 0:
             execution.last_resort_repair_calls_granted = LAST_RESORT_REPAIR_CALL_GRANT
             logger.bind(
@@ -222,16 +258,27 @@ def reserve_provider_call(
                 call_allowance=execution.call_allowance,
                 grant=LAST_RESORT_REPAIR_CALL_GRANT,
             ).info("Last-resort repair call grant activated")
-        if (
-            execution.last_resort_repair_grant_used
-            < execution.last_resort_repair_calls_granted
-        ):
+        pool_left = (
+            execution.last_resort_repair_calls_granted
+            - execution.last_resort_repair_grant_used
+        )
+        # A focused repair keeps one pool call back for its approval.
+        needed = 2 if pool_draw == "repair" and _FOCUSED_REPAIR_SCOPE.get() else 1
+        if pool_left >= needed:
             execution.last_resort_repair_grant_used += 1
             execution.calls_reserved += 1
+            if pool_draw == "approval":
+                execution.repair_approval_grant_used += 1
             timeout_seconds = remaining_seconds
             if task_timeout_seconds is not None:
                 timeout_seconds = min(timeout_seconds, float(task_timeout_seconds))
             return ProviderCallPermit(task=task_name, timeout_seconds=timeout_seconds)
+        if pool_left > 0:
+            logger.bind(
+                llm_task=task_name,
+                calls_reserved=execution.calls_reserved,
+                pool_left=pool_left,
+            ).info("Focused repair refused: its approval cannot be funded")
     if execution.calls_reserved >= execution.call_allowance:
         execution.call_allowance_exhausted = True
         execution.blocked_tasks.append(task_name)
@@ -393,6 +440,7 @@ def turn_execution_summary(
         "research_recovery_reserved": execution.research_recovery_reserved,
         "last_resort_repair_calls_granted": execution.last_resort_repair_calls_granted,
         "last_resort_repair_grant_used": execution.last_resort_repair_grant_used,
+        "repair_approval_grant_used": execution.repair_approval_grant_used,
         "deadline_seconds": execution.deadline_seconds,
         "elapsed_seconds": round(execution.elapsed_seconds(), 3),
         "deadline_exhausted": execution.deadline_exhausted,

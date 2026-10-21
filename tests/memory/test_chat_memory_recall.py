@@ -18,9 +18,11 @@ from argus.api.guest_access import (
     guest_account_context,
     registered_account_context,
 )
+from argus.api.message_store import memory_conversation
 from argus.api.personalization_memory import configure_memory_service
 from argus.api.schemas import OnboardingState, User
 from argus.domain.guest_workspaces import GuestWorkspace
+from argus.domain.owner_scope import PERSONAL
 from argus.memory.contracts import (
     MemoryCandidateDraft,
     MemoryCategory,
@@ -126,6 +128,16 @@ def _memory_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(api_state, "supabase_gateway", None)
 
 
+def _personal_conversation_id() -> str:
+    return memory_conversation(
+        title="ETH idea",
+        title_source="system_default",
+        language="en",
+        scope=PERSONAL,
+        user_id=REGISTERED_USER_ID,
+    ).id
+
+
 def test_flag_off_returns_none_without_touching_the_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -134,6 +146,7 @@ def test_flag_off_returns_none_without_touching_the_service(
 
     assert (
         memory_recalls_for_turn(
+            conversation_id=_personal_conversation_id(),
             user=_user(),
             account=registered_account_context(REGISTERED_USER_ID),
             user_message="what did I decide about ETH?",
@@ -152,6 +165,7 @@ def test_guest_account_returns_none_without_touching_the_service(
 
     assert (
         memory_recalls_for_turn(
+            conversation_id=_personal_conversation_id(),
             user=_user(),
             account=_guest_account(),
             user_message="what did I decide about ETH?",
@@ -170,6 +184,7 @@ def test_memory_opt_out_returns_none_without_touching_the_service(
 
     assert (
         memory_recalls_for_turn(
+            conversation_id=_personal_conversation_id(),
             user=_user(),
             account=registered_account_context(REGISTERED_USER_ID),
             user_message="what did I decide about ETH?",
@@ -185,6 +200,7 @@ def test_exposed_turn_gets_bounded_recalls(monkeypatch: pytest.MonkeyPatch) -> N
     configure_memory_service(_seeded_service())
 
     recalls = memory_recalls_for_turn(
+        conversation_id=_personal_conversation_id(),
         user=_user(),
         account=registered_account_context(REGISTERED_USER_ID),
         user_message="what did I decide about the ETH drawdown version?",
@@ -211,6 +227,32 @@ def test_recall_errors_degrade_to_no_annotation(
 
     assert (
         memory_recalls_for_turn(
+            conversation_id=_personal_conversation_id(),
+            user=_user(),
+            account=registered_account_context(REGISTERED_USER_ID),
+            user_message="what did I decide about ETH?",
+            memory_opt_out=False,
+        )
+        is None
+    )
+
+
+def test_a_failed_side_lookup_degrades_to_no_annotation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.api.chat import memory_recall
+
+    def _unreachable(**_: object) -> object:
+        raise ConnectionError("database unavailable")
+
+    _memory_mode(monkeypatch)
+    monkeypatch.setenv("ARGUS_ENABLE_PERSONALIZATION_MEMORY", "true")
+    monkeypatch.setattr(memory_recall, "conversation_scope", _unreachable)
+    configure_memory_service(_seeded_service())
+
+    assert (
+        memory_recalls_for_turn(
+            conversation_id=_personal_conversation_id(),
             user=_user(),
             account=registered_account_context(REGISTERED_USER_ID),
             user_message="what did I decide about ETH?",

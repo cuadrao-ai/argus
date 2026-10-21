@@ -13,6 +13,7 @@ from threading import Barrier
 
 import pytest
 from argus.domain.ingestion.connections import ConnectionNotFound
+from argus.domain.owner_scope import PERSONAL
 
 from tests import test_financial_accounts_postgres as shared
 from tests.ingestion.gmail_fakes import FakeGoogle, RecordingSink, connect, make_connector
@@ -58,32 +59,38 @@ def test_connect_sync_increment_reconnect_and_disconnect(pool, users):  # noqa: 
     row = connect(connector, fake, owner).connection
     # The sealing key's fingerprint round-trips through the table (Priya B1).
     key_id = connector.hub.box.key_id
-    assert repo.get(user_id=owner, connection_id=row.id).secret_key == key_id
+    assert (
+        repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL).secret_key == key_id
+    )
     assert [r.sender for r in senders.list(connection_id=row.id)] == [
         "alerts@card-example.test",
         "banco-ejemplo.test",
     ]
     assert connector.sync(row).candidates == 6
-    synced = repo.get(user_id=owner, connection_id=row.id)
+    synced = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert synced.cursor == "1000" and synced.lease_holder is None
     assert all(r.backfilled_at for r in senders.list(connection_id=row.id))
     fake.deliver(alert_es("a0600", days_ago=0))
     assert connector.sync(synced).mode == "incremental"
-    assert repo.get(user_id=owner, connection_id=row.id).cursor == "1001"
+    assert repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL).cursor == "1001"
 
     fake.revoked.update(fake.refresh_tokens)
     assert connector.sync(synced).error_code == "gmail_token_revoked"
-    failed = repo.get(user_id=owner, connection_id=row.id)
+    failed = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert failed.status == "needs_reauth" and failed.cursor == "1001"
     again = connect(connector, fake, owner, senders=None)
     assert not again.created and again.connection.id == row.id
     assert again.connection.status == "active" and again.connection.cursor == "1001"
-    assert repo.get(user_id=owner, connection_id=row.id).secret_key == key_id
-    assert len(repo.list(user_id=owner)) == 1
+    assert (
+        repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL).secret_key == key_id
+    )
+    assert len(repo.list(user_id=owner, scope=PERSONAL)) == 1
 
-    outcome = connector.hub.disconnect(user_id=owner, connection_id=row.id)
+    outcome = connector.hub.disconnect(
+        user_id=owner, connection_id=row.id, scope=PERSONAL
+    )
     assert outcome.provider_revocation == "revoked"
-    ended = repo.get(user_id=owner, connection_id=row.id)
+    ended = repo.get(user_id=owner, connection_id=row.id, scope=PERSONAL)
     assert ended.secret is None and ended.secret_key is None
     assert senders.list(connection_id=row.id) == []
     with pytest.raises(ConnectionNotFound):
@@ -103,7 +110,7 @@ def test_two_people_cannot_both_hold_a_live_mailbox(pool, users, monkeypatch):  
     monkeypatch.setattr(connector.hub.connections, "find_live", lambda **_: [])
     with pytest.raises(MailboxOwnedElsewhere):
         connect(connector, fake, users["other"])
-    assert connector.hub.connections.list(user_id=users["other"]) == []
+    assert connector.hub.connections.list(user_id=users["other"], scope=PERSONAL) == []
     assert connector.hub.credential(owner) not in fake.revoked
 
 
@@ -198,5 +205,7 @@ def test_concurrent_syncs_advance_the_cursor_once(pool, users):  # noqa: ANN001
         statuses = sorted(threads.map(guarded, [1, 2]))
     assert statuses == ["busy", "synced"]
     assert len(sink.batches) == 1
-    stored = connector.hub.connections.get(user_id=owner, connection_id=row.id)
+    stored = connector.hub.connections.get(
+        user_id=owner, connection_id=row.id, scope=PERSONAL
+    )
     assert stored.cursor == "1000" and stored.lease_holder is None

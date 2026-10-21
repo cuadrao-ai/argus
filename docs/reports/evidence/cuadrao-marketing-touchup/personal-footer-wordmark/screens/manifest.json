@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "2ab403d6df815ea1ff66d792d504564cab44109d",
+  "capturedAt": "2026-10-10T01:36:32.396Z",
+  "baseURL": "http://127.0.0.1:4512",
+  "browser": "Playwright Chromium desktop and narrow viewport; static page ending",
+  "forms": "No submissions or provider requests",
+  "captures": [
+    {
+      "file": "footer-es-1440-rest.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "rest"
+    },
+    {
+      "file": "footer-en-1440-rest.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "rest"
+    },
+    {
+      "file": "footer-es-390-rest.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "rest"
+    },
+    {
+      "file": "footer-en-390-rest.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "rest"
+    },
+    {
+      "file": "business-footer-unchanged.png",
+      "route": "/",
+      "width": 1440,
+      "height": 900,
+      "state": "rest"
+    }
+  ]
+}

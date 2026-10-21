@@ -30,11 +30,9 @@ struct AccountActivityView: View {
                     .disabled(page.loading).accessibilityIdentifier("accounts.activity.retry")
             }
             if page.activity.isEmpty, loop.accountReads[account.id] != nil, !page.loading, page.errorKey == nil {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(spanish ? "Aún no hay movimientos." : "No activity yet.").font(.body)
-                    Text(spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }.padding(.vertical, 18)
+                CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
+                                 detail: spanish ? "Añade el primero cuando lo necesites." : "Add the first when you need to.",
+                                 identifier: "accounts.activity.empty")
             }
             ForEach(page.activity, id: \.recordId) { activity in
                 Button { inspected = activity } label: {
@@ -85,7 +83,7 @@ struct AccountActivityView: View {
                     }.padding(24)
                 }.background(WelcomePalette.background)
                     .navigationTitle("loop.activity.title").navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("action.close") { inspected = nil } } }
+                    .toolbar { CuadraoCancelToolbar(title: "action.close") { inspected = nil } }
             }.tint(WelcomePalette.pine).foregroundStyle(WelcomePalette.ink)
         }
     }

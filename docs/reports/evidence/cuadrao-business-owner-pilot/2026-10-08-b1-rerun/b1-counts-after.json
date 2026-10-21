@@ -1,0 +1,46 @@
+{
+ "A": {
+  "personal": {
+   "accounts": 1,
+   "documents_live": 0,
+   "document_drafts": 0,
+   "import_events_open": 0,
+   "import_events_accepted": 0
+  },
+  "business": {
+   "accounts": 1,
+   "documents_live": 11,
+   "document_drafts": 11,
+   "import_events_open": 3,
+   "import_events_accepted": 8
+  },
+  "activities_by_receipt_scope": {
+   "canonical": 10
+  },
+  "spaces": 1,
+  "storage_objects": 11,
+  "whatsapp_messages_captured": 1,
+  "whatsapp_links_active": 1
+ },
+ "B": {
+  "personal": {
+   "accounts": 0,
+   "documents_live": 0,
+   "document_drafts": 0,
+   "import_events_open": 0,
+   "import_events_accepted": 0
+  },
+  "business": {
+   "accounts": 1,
+   "documents_live": 0,
+   "document_drafts": 0,
+   "import_events_open": 0,
+   "import_events_accepted": 0
+  },
+  "activities_by_receipt_scope": {},
+  "spaces": 1,
+  "storage_objects": 0,
+  "whatsapp_messages_captured": 0,
+  "whatsapp_links_active": 0
+ }
+}

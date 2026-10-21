@@ -1,0 +1,13 @@
+{
+  "integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "test_product": "PickerRepairs.xctestproducts",
+  "sources": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "0f19b7fe4d88e7dd9cbf6b56b5dd5b10a5c2e7d7d019d8f19bef99bc5db00401",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "625005a78f33ab1ebebc0d3489d6053a9591482c8bd32bd24a2cda7febcd2e4f",
+    "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift": "66299705be0a7d7d515277977d2733d235f2587141c40a8a5ecb7dd837f00f0d"
+  },
+  "app_source_tree": "0d9584a4489c5081a1856665e2fa2aba392b5ec2",
+  "source_commit": "f43dbad001a62163c1608498ae101df49098ee1c",
+  "app_source_unchanged": true,
+  "revalidated_after_commit": true
+}

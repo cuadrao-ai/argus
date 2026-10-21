@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import storage
 from argus.domain.planning.schemas import LinkWrite
 from argus.domain.recording.errors import RecordingInputError
@@ -121,7 +122,10 @@ def test_link_failure_rolls_back_actual_record_versions_and_receipt(
             ).fetchone()[0]
             == 0
         )
-    assert scene[0].get(user_id=scene[1], account_id=aid).account.version == 1
+    assert (
+        scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL).account.version
+        == 1
+    )
     monkeypatch.setattr(storage, "persist", original)
     assert not planner.fulfill(scene[1], occurrence["id"], body, "rollback")["replayed"]
 

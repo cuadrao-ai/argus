@@ -1,0 +1,46 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "900000000000001",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550009999",
+              "phone_number_id": "100000000000001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Synthetic Owner"
+                },
+                "wa_id": "15550101234"
+              }
+            ],
+            "messages": [
+              {
+                "context": {
+                  "forwarded": true
+                },
+                "from": "15550101234",
+                "id": "wamid.SYNTHETIC0103",
+                "timestamp": "1791370800",
+                "type": "document",
+                "document": {
+                  "caption": "Factura reenviada",
+                  "filename": "factura-reenviada.pdf",
+                  "mime_type": "application/pdf",
+                  "sha256": "c3ludGhldGlj",
+                  "id": "700000000000103"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

@@ -34,6 +34,82 @@ supersession rules. These decisions do not assert implementation completion.
 | 2026-10-04 | Lock the Cuadrao launch shape: consumer iPhone app with personal and household only, a short invite-only TestFlight then a public launch; Cuadrao for Business as a full web service with a thin in-app business space for the first business testers only; cuadrao.ai promoting the whole suite with waitlists; Resend, Render and Supabase kept. Also partner first for live e-invoicing, Plaid kept, market-data providers parked for the pilot, Dominicans in the US added as a consumer segment, and no currency conversion or blended totals. Detailed record: [October 4 Cuadrao launch shape](#october-4-2026-cuadrao-launch-shape). | Lucas |
 | 2026-10-04 | Lock the AI providers (2:20 PM CT): OpenRouter for the chat models (GPT and Grok) and vision extraction, Grok voice for the planned chat voice-call feature, and Perplexity for finance search. All three stay behind the server and never write saved balances. Detailed record: [October 4 AI providers](#ai-providers). | Lucas |
 | 2026-10-04 | Lock the space-model timing (2:21 PM CT): the space-model change lands before TestFlight. The model itself still needs its own lock. Detailed record: [October 4 space model timing](#space-model-timing). | Lucas |
+| 2026-10-07 | Approve the connected Business workflow and offline E0 plan with task-by-task independent review. Counsel may publish and land the docs-only PR; Lucas coordinates Business implementation. Detailed record: [Business connected flow and E0](#october-7-2026-business-connected-flow-and-offline-e0-plan). | Lucas |
+| 2026-10-10 | Approve the Business agent direction. One agent in the existing runtime talks only to the owner in WhatsApp and completes each record through Business tools. The accountant works in the web view. Reuse the runtime and services; no second loop, extractor, ledger or vendor. Contract first, then parallel streams; the "Pagué 850" journey is the first proof; evals gate merges. Cuadrao branches from `codex/private-alpha-next`. Detailed record: [Business agent direction](#october-10-2026-business-agent-direction). | Lucas |
+| 2026-10-10 | Clarify the first Business outcome as a working hosted internet system and an invite-only web beta. Authorize the bounded build, clean integration merges and staging only. Preserve varied natural-language flows and the existing runtime. Detailed record: [Hosted Business beta and build grant](#october-10-2026-hosted-business-beta-and-build-grant). | Lucas, relayed by the root coordinator |
+| 2026-10-12 | The Business live acceptance gate is the invariant measurement: the varied owner-wording corpus judged by saved state, and the frozen seven cases judged by invariants (no money recorded before human approval, no model approval, one money record per human approval, honest reply, foreign scope untouched, replays change nothing, at most one open owner question). The frozen exact-step runs stay as recorded history and are not required to pass. Reason: the frozen cases pinned exact steps from a scripted flow and do not match how real owners write. Detailed record: [October 12 Business invariant gate](#october-12-2026-business-invariant-gate). | Lucas |
+| 2026-10-18 | Lock Business income intake: a Venta arrives on the same channels as a Gasto and is classified by issuer RNC for the 607 or the 606; each item gets a WhatsApp reply with the month so far; José's first session is judged on two moments; and the build order follows Iris's briefs. A sale with no NCF counts in income, stays off the 607 and shows as its own **Ventas sin comprobante** totals line; Cuadrao issues no NCF or e-CF. Detailed record: [October 18 Business income](#october-18-2026-business-income-on-every-channel). | Lucas |
+
+
+## October 12, 2026 Business invariant gate
+
+Lucas decided in writing on October 12, 2026 that the Business scope's live
+acceptance gate is the invariant measurement, not the frozen exact-step run.
+
+- The varied corpus is judged by saved state: the facts the owner stated, no
+  invented fact, at most one open owner question.
+- The frozen seven cases run against a real model and are judged by invariants
+  only: no money recorded before human approval, no model approval, one money
+  record per human approval, an honest reply, the foreign scope untouched, and
+  replays that change nothing.
+- The earlier exact-step runs (3 of 7 and 2 of 7) and the frozen file stay as
+  recorded history. They are not edited, relabeled or required to pass.
+- If an invariant fails live, the case is reported and the prompt is not tuned
+  around it.
+
+Reason: the frozen cases pinned exact steps from a scripted flow. A free model
+that states a true fact one turn earlier fails them even when the reply and the
+saved state are honest, so they do not match how real owners write. The
+invariants keep every safeguard that protects the owner's money and records.
+
+A turn whose model answer is not a valid structure is one failure, not a case
+result. The existing call loop retries it. If it still fails, the owner gets one
+typed reply asking to send the message again. A measurement may rerun one such
+unavailable case once at the same commit. The scorecard keeps both attempts,
+and the rerun is the one counted.
+
+Wire rule set with the same change: delivering a sparse schema to OpenAI models
+in the prompt applies to the Business schemas only. Every other route keeps its
+native strict wire. Cuadrao adds no spend guard of its own: the OpenRouter key
+caps AI spend (locked decision L12).
+
+## October 7, 2026 Business connected flow and offline E0 plan
+
+Lucas approved the [connected-flow specification](cuadrao-business-connected-flow-spec.md)
+and [E0 implementation plan](cuadrao-business-e0-implementation-plan.md), including
+task-by-task independent review. The approval was relayed from the roadmap-alignment
+conversation with his exact instruction:
+
+> Yes i approved this plan and the counsel can open a docs pr and land it when it's clean then i ill coordinate a claude worker to pick it up. it willl be the business agent that we have been working on with.
+
+Counsel may publish and merge this documentation-only change when review and
+checks are clean. This is the explicit exception to the standing no-docs-only-PR
+rule. Lucas coordinates implementation with the existing Business agent.
+The grant does not dispatch an implementation agent or authorize credentials,
+provider calls, migrations, deployment or a lane-priority change.
+
+Cuadrao owns its engine with replaceable signing and transport. E0 is synthetic,
+offline and unsigned. It preserves input evidence, exact arithmetic and actual
+validation results. P0 requires official schema bytes, dependencies, hashes and
+profile rules before Type 31 implementation. The specification owns the detailed
+resolve-first, immutable-artifact and independent-state requirements.
+
+The October 4 partner-first record remains historical live-route context.
+It is not a prerequisite for approved offline E0 development. Supplier discussions
+stay open. No vendor is selected or cancelled, and no direct live issuance route,
+certificate-custody permission or issuer eligibility is established here.
+Consumer and Marketing retain their milestones. Business retains space isolation
+and the connected owner flow; Consumer coordinates shared migration order.
+
+The approved inputs were checked before import. Repository edits update approval
+status and navigation only; the substantive design and task criteria are retained.
+The source documents' October 8 research dates remain as supplied. Publication
+uses October 7 in America/Chicago and does not re-verify those research claims.
+
+| Approved source | Library provenance | SHA-256 before repository edits |
+| --- | --- | --- |
+| `cuadrao-business-connected-flow-spec.md` | `libfile_74ecaa0fb4348191828248df60a54cc4`, version 2 | `c447bfe2a985c915424cde23d1a45abd6afb1114e9db16aed592cdbbf1ed0bba` |
+| `cuadrao-business-e0-implementation-plan.md` | `libfile_e68336b17ce481919c7a797c806f4c28`, version 1 | `691dacd42e72199a49189c1e237e0555adf12f08b2a744e09519f63f03a3b8bd` |
 
 ## Superseded coordination instructions (historical only)
 
@@ -518,7 +594,7 @@ The [native design guide](../../.agent/designs/cuadrao/DESIGN.md#account-and-mov
 owns the revised account gestures and movement shortcuts.
 
 Implement these behaviors from Cuadrao's own requirements, contracts and tests.
-Midday is a research reference, not a source-rewrite assignment; rewording copied
+Outside products are research references, not source-rewrite assignments; rewording copied
 code is not independent implementation. Any proposed source reuse requires its
 own license review. Existing #818/#822/#823/#824 track the work. Pattern
 suggestions follow usable recurring setup; forecasting-library selection needs
@@ -567,3 +643,337 @@ release 1 (#818 and #826), and the consent scope and versioning policy (#828).
 This entry does not authorize implementation, a model-instruction change, a paid
 provider run, hosted activation or deployment. The #826 contract still precedes
 #827.
+
+## October 9, 2026: iPhone on-device guest book ("Probar sin cuenta")
+
+The founder defined a free guest tier for the iPhone app in chat on October 9:
+an on-device book with manual accounts, movements, budgets, goals, basic search
+and calculations, and the iPhone keyboard's dictation. No login, no AI, no server
+jobs, no uploads and no shared access. It is an additional entry that does not
+replace or change the connected app. The build plan, recorded by the build lane
+(`codex/cuadrao-guest-book`), amends two earlier statements and nothing else:
+
+1. **September 28, 2026 guest lock.** "No durable guest financial records are
+   authorized" ([MVEE guest access](argus-minimum-viable-ecosystem-experience.md#guest-access-and-registration))
+   now reads as: no durable guest financial record on the *server*. The iPhone
+   may keep a book on the device itself. Server enforcement, the web and Android
+   guest boundary and the existing guest-chat limits are unchanged.
+2. **Welcome screen.** "One main brand composition and the two native actions;
+   nothing else" ([DESIGN welcome screen](../../.agent/designs/cuadrao/DESIGN.md#welcome-screen))
+   gains a third, quiet text action, `Probar sin cuenta` / `Try without an
+   account`, under Sign in. It is hidden unless the guest door is open.
+
+What the plan fixes, so a later slice does not reopen it:
+
+- The book is an app mode above authentication, not an auth state. It creates no
+  Supabase anonymous session, makes no network call and takes no invite code.
+  Server "guest" means an anonymous workspace; code and data call this the
+  `DeviceBook`, and only the interface says "Probar sin cuenta".
+- Signing up or signing in leaves the on-device book separate and untouched.
+  Claiming a book into an account is a separate default-off flag (`guestClaim`)
+  and is not built. The interface says "Tu libro de este iPhone sigue aquí; no
+  se subió." / "Your book on this iPhone is still here; it was not uploaded."
+- Version 1 covers accounts, same-currency movements (expense, income, transfer),
+  budgets and goals, search, plan what-ifs and per-currency totals. It has no
+  debts, recurring bills, forecast, balance checks, refunds, households, groups,
+  invitations, receipts, files, assistant, voice, updates bell or avatar photos.
+  Dictation is the system keyboard only.
+- Money is whole minor units with the currency's digits fixed per account when
+  it is created; parsing never rounds. The currency set, digits, share rounding
+  and category ids are the server's, checked by shared test vectors.
+- Device backup stays on; there is no app-level encryption and no Keychain item.
+
+The door is closed: `CuadraoFirstRelease.guestBook` is false in Release and a
+development build opens it with `--cuadrao-guest-book`. Opening it for users,
+the physical-device checks and a privacy answer review are separate founder
+approvals. This entry authorizes no hosted service, deployment or release.
+
+## October 11, 2026: guest receipts stay on the iPhone
+
+The founder decided, relayed by the coordinator on October 11, that guest and
+signed-in Free are one tier and that the receipt journey is the same for Free and
+Full. For the on-device book this amends the October 9 entry's "no receipts,
+files" only for receipts: a guest captures, saves and attaches a receipt by hand
+on the iPhone. Nothing about a guest goes to the server and no model reads a
+guest receipt. Book data, including receipts, still does not move into an account
+at sign-in. This authorizes no hosted service, deployment or release.
+
+## October 12, 2026: blank opening balance = recorded zero
+
+From the founder's phone walk: adding an account without typing 0 must not show
+"Balance unknown". The coordinator decided that a Personal money account (cash,
+checking, savings, investment, credit card, other debt) saved without an opening
+amount starts at a recorded 0.00. The server records the opening; the client sends
+nothing and never invents it. Home and Plan totals read that zero. This replaces
+the "blank balance is unknown" rule for those accounts. Unknown stays for accounts
+that genuinely have no recorded balance: accounts saved before this rule, a blank
+property, vehicle or other asset value, and Business accounts.
+
+## October 10, 2026: Business agent direction
+
+The founder approved these points after two audits of the Business core flows:
+
+- The roadmap captured evidence and then stopped. A record was not complete. One agent now carries each conversation to a complete draft.
+- Version 1 talks only to the owner. The accountant answers in the web view.
+- The model reads the message. The tools enforce permissions, approval, exact money and record-once rules.
+- Reuse LangGraph, OpenRouter, the tool registry, WhatsApp intake, document jobs, money services and server flags. Jev and an MCP server are deferred.
+- `main` stays as the Argus tribute. Cuadrao work branches from `codex/private-alpha-next`.
+- "I paid with my own money" is recorded against an owner funds source. The accountant classifies it.
+- Approval is a permission, not a fixed role. The business admin holds it and can grant it to an associate. An accounting firm gets it for each client through that client's grant. An action ledger shows who did each action, through which grant and for whom.
+- The OpenRouter key caps AI spend. The founder names the models for each PR that makes model calls.
+- The default currency is DOP. The reviewer can change it before sign-off.
+- Build only what J1 to J3 need, then test with one real owner and one real accountant. Other work waits until real use asks for it.
+
+The [Business agent execution spec](lanes/cuadrao-business-agent-execution-spec.md) owns the contract, the work order and the defaults. No decision is open.
+
+## October 10, 2026 hosted Business beta and build grant
+
+At 21:39 UTC, Lucas clarified that the customer milestone is a real production
+system reachable over the internet, demonstrated behind the marketing demo.
+A laptop-only demonstration does not satisfy it. Provenance is
+`Sentinel_197f868cd67c8191806a86d8f425ea91`. At 21:41 UTC, he clarified an
+invite-only web beta using existing tools, separate from Apple TestFlight.
+Provenance is `Sentinel_3b97373fd34081918bde53aeecce4293`.
+
+At 22:13 UTC, Lucas authorized the bounded hosted Business build, clean merges
+to `codex/private-alpha-next` and staging only. Provenance is
+`Sentinel_fc5880c0d93c8191abd96767711ff688`. The root coordinator owns the sole
+merge slot and staging actions. This replaces the general implementation and
+hosted hold only within that assigned Business flow. It does not authorize
+main or production promotion, public signup, marketing or legal launch,
+Apple TestFlight, or unrelated Consumer work.
+
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+owns the current assignments, dependencies and pending action gates. The
+[execution spec](lanes/cuadrao-business-agent-execution-spec.md) still owns
+C0-first order and the larger J1 to J3 direction. The first customer proof
+must join real owner messages to one traceable record visible to an authorized
+accountant over the internet. It must preserve originals, visible unknown or
+unverified facts, correction history and grant-scoped human approval.
+
+"Pagué 850" is an illustrative J1 input, not a phrase to detect or the whole
+acceptance set. Use varied ordinary transactions, factual follow-ups, uncertainty
+and corrections through the typed interpreter and canonical tools. Judge saved
+state and user behavior. Do not substitute literal reply matching, word lists,
+regex intent gates or per-reply human wording approval for evaluations.
+
+Controlled WhatsApp test-recipient access differs from public onboarding.
+A hosted loop needs its permitted sender, verified callback and WABA subscription,
+authenticated sender-to-Business link, and grant-scoped readback. #941 still owns
+its remaining activation and policy prerequisites. A simulated transport or old
+tunnel does not prove that loop or authorize a callback cutover.
+
+At 22:22 UTC, Lucas approved the existing Cuadrao Render workspace
+`tea-d5rdkfk9c44c73e7a1ig`. Provenance is
+`Sentinel_6aaf381568a88191b21c0240807c0f52`. His runtime direction replaces
+the older configured mix. Favor `anthropic/claude-haiku-5.5`,
+`openai/gpt-6-luna-pro` and `deepseek/deepseek-v4.1-flash`. Use Grok only
+when needed. Prioritize the fastest reliable choice; he identified GPT Luna
+Pro as the slowest candidate. The coordinator verified all three exact IDs
+in OpenRouter's public catalog with structured-output and tool support.
+Catalog metadata does not prove runtime latency or authorize a paid call.
+
+A later continuation names Grok 4.3 as the first evaluation judge. Provenance is
+`Sentinel_70caa32aa180819187d0ffaaf50e6bd9`. Do not make Astra development
+runtime or judge API calls. A future paid-tier Astra option is hypothetical.
+Codex coding agents use a separate subscription; their model names do not
+select a runtime provider. The named runtime configuration remains replaceable.
+Do not turn model selection into a new model-platform build. Calibrate the
+judge with known-good and known-bad cases. Retain deterministic saved-state
+assertions, so same-model agreement is never the sole proof of correctness.
+
+At 22:26 UTC, Lucas approved a $5 total limit for this test run only.
+Provenance is `Sentinel_dadf8d7f1e70819182eb7974f221a5fd`. He requested
+identification of the development key before setting the overall development
+spending limit. At that checkpoint, the limit was awaited and the coordinator
+held live calls. The 22:32 UTC continuation below supersedes that run cap and
+spending hold.
+
+Grok 4.3 remains the first judge. Sonnet 5.5 is a possible stretch choice only
+when a demonstrated need and fresh confirmation justify it. It is not an
+automatic fallback. No Astra development runtime or judge API call is approved.
+
+The coordinator interprets the existing one-owner, one-authorized-accountant,
+one-Business-at-a-time milestone as a direct named-accountant grant for the
+first bounded flow. This is implementation sequencing under existing authority,
+not a new founder decision. Full firm-to-human delegation does not gate that
+first acceptance. Preserve L11's firm-delegation requirement for later work;
+it is not claimed complete. Do not invent a firm identity for the pilot.
+
+Synthetic grants in isolated tests are authorized. Creating a real persistent
+grant still requires the actual business's authorization and the named
+accountant's scoped setup. The agent never holds approval permission.
+
+At 22:32 UTC, Lucas authorized the existing development
+`OPENROUTER_API_KEY` until its allowance is exhausted or it expires.
+Provenance is `Sentinel_c52a9cf3b5308191b363e9c59f5993fa`. This supersedes
+the $5 test-run cap and the hold for an overall development spending limit.
+Use this existing development key only. Do not swap in a registered or guest
+key, rotate credentials or expand the authorization to another key.
+
+The coordinator's safe provider read reported total usage of $227.432355357.
+Subtracting that from the authorized $300 ceiling gives a conservative
+$72.567644643 remaining allowance before concurrent usage. The key expires at
+`2026-10-12T02:21:00Z`. This is an operational snapshot, not a new constant.
+The provider's larger monthly-remaining figure is not the authorized allowance.
+The root coordinator alone coordinates live calls, reservations, concurrency
+and token bounds. Refresh usage before calls and account for outstanding work.
+All calls, judges, fallbacks and retries consume the same allowance. Use only
+synthetic data. Stop when the conservative allowance is exhausted or the key
+expires. Do not infer unlimited spend or an automatic reset of authorization.
+
+Grok 4.3 and the earlier named runtime candidates retain their scope. No Astra
+runtime or judge API call is approved. Sonnet 5.5 still needs demonstrated need
+and fresh confirmation. No live call has occurred at this documentation
+checkpoint because C0, runtime and evaluation readiness are still incomplete.
+
+Tonight's target is online verification, contingent on the build, staging web
+setup and candidate acceptance. It is not a readiness promise. The existing
+staging-only deployment grant remains. New costs or access expansion need
+concrete scoped confirmation. No secret change, real customer-data transmission
+or persistent tester grant follows from this record. Named testers and real
+grants still need actual business authorization and scoped setup.
+
+
+### October 10, 2026 23:37 UTC owner handoff and approved-work accounting
+
+Lucas requires a small mandatory owner handoff that accounts for the latest
+approved work as LANDED, PENDING or SUPERSEDED, with exact commit/source,
+including unpublished work. Provenance is
+`Sentinel_78ca7fbafb948191a7a6bb2a2b25cb3c`. A PR alone does not complete the
+approved scope. Pending retained source work cannot be silently excluded.
+Actual rendered latest approved branding on affected web/sign-in/signup
+surfaces and relevant browser regressions are required before READY. Local
+synthetic UI evidence remains distinct from hosted customer acceptance.
+
+The [existing execution manifest](argus-execution-board.md#mandatory-owner-completion-handoff)
+owns current owner rows, dependencies and this completion gate. The
+[Business handoff](../handoffs/cuadrao-business-lane.md#approved-unpublished-branding-and-completion-gate)
+retains bounded branding source commits and turn provenance. Reuse the existing
+ownership verifier and explicit lane allowlists. This direction creates no
+second process, blanket approval of the remaining 105-item audit, product
+scope expansion, public signup or production action grant. Persisted AI-consent
+policy remains pending and defaults to deny at the affected boundary.
+
+
+### October 11, 2026 product-derived evaluation and replaceable model configuration
+
+Lucas approved fixed product-derived labels and rubric, independent of any
+particular model. Provenance is `Sentinel_ed9f3b917d5081919e00f16339503f7b`.
+Keep configuration lean and replaceable, with structured contracts and
+deterministic authority, saved-state and idempotency checks. Do not add a new
+framework, model-specific prompt workaround or labels tailored to a candidate.
+
+A model swap uses the same versioned suite plus held-out cases. Record the exact
+model/version, parameters and results so the swap can be compared against the
+same product acceptance. Existing live-quality and prompt-fingerprint gates
+remain. A failed calibration does not certify a judge or waive those gates.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+owns actual calibration results, current owner heads and pending decisions;
+this record authorizes no additional provider, secret, deployment or spend scope.
+
+
+### October 11, 2026 scoped Business acceptance and instrumented diagnostics
+
+Authorization was relayed through trusted Codex delegation from parent thread
+`01a11879-059d-7459-b082-41e5001210f8`, received approximately
+`2026-10-11T00:55Z`. No Sentinel identifier was supplied; this records the
+coordinator-relayed parent authorization without inventing one.
+
+The coordinator relayed explicit authorization to scope the first Business
+acceptance to a real production-message input, durable draft, authorized human
+approval and resulting Money state, exercised against a controlled synthetic
+database. The legacy equity/Alpaca global benchmark is NOT RUN and is not a
+prerequisite for this Business first flow. Request no investment credentials
+or investment-access expansion for that scope. Retain applicable Consumer
+regressions and deterministic authority, state and idempotency checks.
+
+The broad benchmark was initially selected because the existing blanket
+model-facing prompt freeze covers every eval-reachable prompt builder and
+schema description: shared text can regress other surfaces. This justified
+checking scope; it did not create a new investment-provider dependency for
+Business. The explicit Business scope above preserves the measured live
+scorecard/fingerprint obligation. T1 has bounded authorization to validate the
+Consumer/Business scope using the existing guards and fingerprint, preserving
+all 25 legacy entries and last_measured byte-for-byte. A Business placeholder
+stays unmeasured until accepted seven-case evidence; the gate is not claimed clear. Do not weaken the checker or disable a required check.
+
+Bounded instrumented latency/capability tests are authorized under the existing
+development allowance and approved model IDs. Keep fixed product targets,
+rubric, labels, structured contracts and held-outs. No blind retry, automatic
+Haiku judge selection or new provider/access scope follows. Subsequent instrumented
+capability observations and a failed Haiku first-flow validation are retained in
+the manifest as dated snapshots; next paid judge choice remains pending.
+The [execution manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+records timeout receipts, reservations and current owner proof separately from
+an accepted runtime or calibrated judge.
+
+
+### October 11, 2026 bounded semantic input and server binding
+
+The coordinator relayed parent-thread `01a11879-059d-7459-b082-41e5001210f8`
+authorization on October 11 for the bounded C0/T1 boundary fix. C0 owns durable
+contracts, reference resolution and their focused proof. T1 owns model semantic
+input, compilation and stages, plus the approved shared LLM capability change
+to omit parameters unsupported by metadata-verified bare/dated LunaPro across
+requests/tasks, preserving strict parameters, schema, reasoning and token bounds.
+No per-call capability lookup or new routing platform follows. Exact C0 seven,
+Actions one split-test and T1 four-path allocation follows author reports and
+root approval in the existing ownership manifest; this is not broad platform
+ownership.
+
+Preserve the existing [architecture action trust roots](../ARCHITECTURE.md#cuadrao-action-and-integration-principles):
+models propose semantic intent; server-verified targets and receipt-derived
+revisions bind execution. Domain services retain authorization and durable
+writes; approval remains bound to the reviewed revision/destination/action,
+permissions are rechecked and duplicate effects remain idempotent. This is a
+bounded repair under current decisions, not a V2 platform, new provider/key,
+access expansion or deployment grant. Implementation and actual quality proof
+remain PENDING in the [existing manifest](argus-execution-board.md#business-hosted-invite-only-build-october-10-2026).
+
+
+## October 15, 2026: account-deletion analytics step without PostHog events
+
+Lucas approved decision 1B. In a deployment whose API server has no
+`POSTHOG_PROJECT_TOKEN`, the server sends no PostHog events, so no event exists
+under a deleted person's distinct ID. There, with no PostHog deletion adapter
+configured, the account-deletion analytics step records `not_applicable` with
+the reason `posthog_not_configured` and no longer holds the run. It is never
+recorded as deleted. Where the token is set, the step is unchanged: it stays
+pending until the deletion adapter completes it or an operator forces it.
+A configured deletion adapter runs whether or not the token is set.
+
+This narrows decision 16 of the
+[MVEE five-lane handoff](lanes/mvee-five-lane-handoff.md) only for deployments
+that send no PostHog events. On October 15, 2026, a read-only check found no
+`POSTHOG_PROJECT_TOKEN` on the staging API service, no PostHog setting on the
+staging web service, and no client PostHog setup in the web or iOS code. The
+[API contract](../API_CONTRACT.md#post-accountdelete) owns the step's behavior.
+This decision does not turn on account deletion or schedule the resume sweep.
+
+## October 18, 2026: Business income on every channel
+
+Lucas locked these points on October 18, 2026. Iris owns the product content.
+
+1. Income arrives on every channel. A Venta arrives the same ways a Gasto
+   does: WhatsApp, email and upload. Cuadrao classifies each item
+   automatically. If the issuer RNC is the business's own RNC, the item is a
+   sale for the 607. Otherwise it is an expense for the 606. In review,
+   **Es una venta** or a WhatsApp reply of *gasto* or *venta* flips the type.
+2. Each item sent in gets a WhatsApp reply. The reply confirms the type and
+   shows the month so far, with sales and expenses. The reply shows no ITBIS
+   until the month close computes it.
+3. José's first session is judged on two moments: the first receipt comes back
+   DGII-verified with only **Aprobar** left, and the WhatsApp reply above.
+4. The build order follows Iris's briefs, in this order:
+   - (a) Income.
+   - (b) Tags and business categories.
+   - (d) The supplier fast path, and no review step for DGII-confirmed
+     suppliers. The RNC lookup runs alongside (a).
+   - (c) The business profile, with RNC autofill and moderated pictures.
+5. A sale with no NCF counts in the period's income totals and stays off
+   the 607. It shows as its own totals line, **Ventas sin comprobante**. The flag
+   clears when the owner attaches the NCF receipt they issued themselves, or
+   when the contador resolves it, and the owner gets one reminder before the
+   15th. Cuadrao does not issue NCFs or e-CF. (Confirmed by DR counsel prep,
+   Oct 18 2026.)

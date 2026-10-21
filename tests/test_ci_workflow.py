@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -20,7 +21,8 @@ DOCS_READING_TESTS_SCRIPT = ROOT / ".github" / "docs-reading-tests.sh"
 RUNBOOK_PATH = ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md"
 FAKE = Faker()
 
-_HEAVY_CI_JOBS = ("backend-checks", "frontend-checks")
+_HEAVY_CI_JOBS = ("backend-checks", "frontend-checks", "marketing-checks")
+MARKETING_RUNBOOK_PATH = ROOT / "docs" / "runbooks" / "cuadrao-marketing-launch.md"
 # A push or a ready pull request runs the full CI; the scheduled and manual
 # probe runs only the latest-CLI real-Postgres leg.
 _DRAFT_OR_PUSH = (
@@ -82,7 +84,11 @@ def test_ci_runs_on_main_codex_and_jules_without_deploying() -> None:
 
     assert not (ROOT / ".github" / "workflows" / "deploy.yml").exists()
     assert workflow["name"] == "CI"
-    assert workflow["on"]["push"]["branches"] == ["main", "codex/**", "jules/**"]
+    assert workflow["on"]["push"]["branches"] == [
+        "main",
+        "codex/private-alpha-next",
+        "codex/private-alpha-next-jules-intake",
+    ]
     assert workflow["on"]["pull_request"]["branches"] == [
         "main",
         "codex/private-alpha-next",
@@ -193,6 +199,50 @@ def test_ci_runs_guest_release_gates_with_disposable_local_supabase() -> None:
     assert "live_provider" not in joined_steps
 
 
+def test_marketing_checks_prove_the_runtime_and_tooling_render_will_use() -> None:
+    """CI and the Render service must agree on Node and Bun.
+
+    The runbook owns the Render settings; CI derives its pins from the same
+    values instead of keeping a second copy that can drift.
+    """
+    workflow = _workflow()
+    job = workflow["jobs"]["marketing-checks"]
+    steps = job["steps"]
+    runs = "\n".join(str(step.get("run", "")) for step in steps)
+    runbook = MARKETING_RUNBOOK_PATH.read_text(encoding="utf-8")
+
+    node_pin = re.search(r"\| `NODE_VERSION` \| `([0-9.]+)` \|", runbook)
+    assert node_pin, "the runbook must state the Render NODE_VERSION"
+    setup_node = next(
+        step for step in steps if step.get("uses") == "actions/setup-node@v4"
+    )
+    assert setup_node["with"]["node-version"] == node_pin.group(1)
+
+    bun_pin = re.search(r"npm install -g bun@([0-9.]+)", runbook)
+    assert bun_pin, "the runbook build command must pin Bun"
+    assert bun_pin.group(1) == workflow["env"]["ARGUS_CI_BUN_VERSION"]
+    setup_bun = next(step for step in steps if step.get("uses") == "oven-sh/setup-bun@v2")
+    assert setup_bun["with"]["bun-version"] == "${{ env.ARGUS_CI_BUN_VERSION }}"
+
+    # Each gate runs inside the independent package, in the order a deploy needs.
+    ordered = [
+        "cd marketing && bun install --frozen-lockfile",
+        "cd marketing && bun run lint",
+        "cd marketing && bun run typecheck",
+        "cd marketing && bun test",
+        "cd marketing && bun run build",
+        "cd marketing && bun run test:e2e",
+    ]
+    positions = [runs.index(command) for command in ordered]
+    assert positions == sorted(positions)
+    assert "cd web" not in runs
+
+    # The Render start command must be a script the package really defines.
+    scripts = json.loads((ROOT / "marketing" / "package.json").read_text())["scripts"]
+    start = re.search(r"\| Start command \| `npm run (\w+)", runbook)
+    assert start and start.group(1) in scripts
+
+
 def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     jobs = _workflow()["jobs"]
 
@@ -202,6 +252,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
         "docs-checks",
         "backend-checks",
         "frontend-checks",
+        "marketing-checks",
         "guest-release-gates",
     ]
     assert jobs["ci"]["if"] == f"always() && ({_DRAFT_OR_PUSH})"
@@ -216,6 +267,9 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert aggregator_env["DOCS_CHECKS"] == "${{ needs.docs-checks.result }}"
     assert aggregator_env["BACKEND_CHECKS"] == "${{ needs.backend-checks.result }}"
     assert aggregator_env["FRONTEND_CHECKS"] == "${{ needs.frontend-checks.result }}"
+    assert aggregator_env["MARKETING_CHECKS"] == (
+        "${{ needs.marketing-checks.result }}"
+    )
     assert aggregator_env["GUEST_RELEASE_GATES"] == (
         "${{ needs.guest-release-gates.result }}"
     )
@@ -225,6 +279,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert "require_success ownership-gate" in aggregator_run
     assert "require_success_or_skipped backend-checks" in aggregator_run
     assert "require_success_or_skipped frontend-checks" in aggregator_run
+    assert "require_success_or_skipped marketing-checks" in aggregator_run
     assert "require_success_or_skipped guest-release-gates" in aggregator_run
 
 
@@ -708,6 +763,23 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
     )
     assert _job_needs(jobs["ownership-gate"]) == []
     assert jobs["ownership-gate"]["if"] == _DRAFT_OR_PUSH
+    ownership_steps = jobs["ownership-gate"]["steps"]
+    checkout = next(step for step in ownership_steps if step.get("name") == "Checkout")
+    assert checkout["with"]["fetch-depth"] == 0
+    fetch_base = next(
+        step for step in ownership_steps if step.get("name") == "Fetch the pull request base"
+    )
+    assert fetch_base["if"] == "github.event_name == 'pull_request'"
+    assert 'git fetch --no-tags origin "${{ github.base_ref }}"' in fetch_base["run"]
+    assert 'git cat-file -e "${PR_BASE_SHA}^{commit}"' in fetch_base["run"]
+    evidence_step = next(
+        step for step in ownership_steps if step.get("name") == "Reject new evidence media"
+    )
+    assert evidence_step["run"] == "python scripts/ci/check_no_evidence_media.py"
+    assert evidence_step["env"]["PR_BASE_SHA"] == (
+        "${{ github.event.pull_request.base.sha }}"
+    )
+    assert "if" not in evidence_step
 
     heavy_if = (
         f"({_DRAFT_OR_PUSH}) && "

@@ -8,6 +8,7 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import goal_allocations
 from argus.domain.recording.errors import (
     IdempotencyConflict,
@@ -159,7 +160,10 @@ def load(connection: Any, user_id: str, repository: Any = None) -> dict[str, Any
 
         state["_shared_links"] = shared_links(connection, user_id)
         canonical = canonical_groups.load(
-            repository, connection, claim_owners(user_id, state["_shared_links"])
+            repository,
+            connection,
+            claim_owners(user_id, state["_shared_links"]),
+            scope=PERSONAL,
         )
         state["_canonical_groups"] = canonical
         state["_canonical_records"] = canonical.records
@@ -189,16 +193,14 @@ def read(repository: Any, user_id: str) -> tuple[dict[str, Any], list[StoredAcco
             state = deepcopy(
                 getattr(repository, "_plan_states", {}).get(user_id, empty())
             )
-            return state, [
-                s for s in repository._accounts.values() if s.account.user_id == user_id
-            ]
+            return state, repository.held(user_id, PERSONAL)
     with repository._pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read read only")
         from argus.domain.recording.canonical_groups import VisibleAccounts
 
         state = load(connection, user_id, repository)
         return state, VisibleAccounts(
-            load_owner(repository, connection, user_id),
+            load_owner(repository, connection, user_id, scope=PERSONAL),
             state["_canonical_groups"],
         )
 
@@ -255,9 +257,7 @@ def write(
                 if receipt[0] != identity:
                     raise IdempotencyConflict()
                 return deepcopy(receipt[1]) | {"replayed": True}
-            accounts = [
-                s for s in repository._accounts.values() if s.account.user_id == user_id
-            ]
+            accounts = repository.held(user_id, PERSONAL)
             result, money = action(state, accounts)
             if money:
                 for stored in projected(accounts, money, now):
@@ -302,7 +302,7 @@ def write(
         state = load(connection, user_id, repository)
         original_claims = set(state["links"])
         accounts = VisibleAccounts(
-            load_owner(repository, connection, user_id),
+            load_owner(repository, connection, user_id, scope=PERSONAL),
             state["_canonical_groups"],
         )
         result, money = action(state, accounts)

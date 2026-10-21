@@ -28,6 +28,7 @@ from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.plaid.client import PlaidClient, PlaidError
 from argus.domain.ingestion.plaid.failures import meaning
 from argus.domain.ingestion.secrets import SecretBoxUnavailable
+from argus.domain.owner_scope import PERSONAL
 
 LinkLanguage = Literal["en", "es"]
 
@@ -119,6 +120,7 @@ class PlaidLink:
                 secret=sealed,
                 connection_id=connection_id,
                 secret_key=box.key_id,
+                scope=PERSONAL,
             )
         except DuplicateConnection as duplicate:
             # A concurrent exchange of the same Item won the insert.
@@ -126,7 +128,7 @@ class PlaidLink:
             if duplicate.elsewhere:
                 raise PlaidItemOwnedElsewhere() from None
             existing = self.hub.connections.get(
-                user_id=user_id, connection_id=duplicate.existing_id
+                user_id=user_id, connection_id=duplicate.existing_id, scope=PERSONAL
             )
             return ExchangeResult(existing, created=False)
         return ExchangeResult(row, created=True)
@@ -196,7 +198,9 @@ class PlaidLink:
         return (name[:80].strip() or None) if name else None
 
     def _plaid_connection(self, user_id: str, connection_id: str) -> SourceConnection:
-        row = self.hub.connections.get(user_id=user_id, connection_id=connection_id)
+        row = self.hub.connections.get(
+            user_id=user_id, connection_id=connection_id, scope=PERSONAL
+        )
         if row.source != "plaid":
             raise ConnectionNotFound()
         if row.status == "disconnected":

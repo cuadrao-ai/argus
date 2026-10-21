@@ -24,6 +24,7 @@ try:
     from workflows.backtest_job import (
         run_backtest_job as run_backtest_job_workflow,
     )
+    from workflows.document_job import run_document_preparation
     from workflows.proof import PostgresProofJobGateway, run_workflow_proof
 except ModuleNotFoundError:  # pragma: no cover - supports `python workflows/main.py`
     from backtest_job import (
@@ -33,6 +34,7 @@ except ModuleNotFoundError:  # pragma: no cover - supports `python workflows/mai
     from backtest_job import (
         run_backtest_job as run_backtest_job_workflow,
     )
+    from document_job import run_document_preparation
     from proof import PostgresProofJobGateway, run_workflow_proof
 
 
@@ -82,6 +84,17 @@ def run_backtest_job(job_id: str, nonce: str | None = None) -> dict[str, object]
         if capacity_probe_should_raise(result):
             raise RuntimeError("Controlled public-alpha capacity probe failed.")
         return result
+
+
+# Attempts, retries and recovery belong to the API's reconciler; Render never
+# re-runs an attempt, so one task run is at most one provider call.
+@app.task(
+    name="prepare_document",
+    timeout_seconds=240,
+    retry=Retry(max_retries=0, wait_duration_ms=1000),
+)
+async def prepare_document(connection_id: str, attempt_id: str) -> dict[str, str]:
+    return await run_document_preparation(connection_id, attempt_id)
 
 
 if __name__ == "__main__":

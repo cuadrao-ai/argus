@@ -103,7 +103,7 @@ struct AssetDetailView: View {
                         AccountDetailView(account: model.accounts.first { $0.id == opened.id } ?? opened, model: model, loop: loop)
                     }.padding(24)
                 }.background(ArgusStyle.background)
-                    .toolbar { ToolbarItem(placement: .cancellationAction) { Button("assets.back") { debt = nil }.accessibilityIdentifier("assets.debt.back") } }
+                    .toolbar { CuadraoCancelToolbar(title: "assets.back", identifier: "assets.debt.back") { debt = nil }}
             }
         }
     }

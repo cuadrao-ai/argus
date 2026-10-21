@@ -8,6 +8,7 @@ from argus.domain.household import planning_schemas as wire
 from argus.domain.household import planning_store
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.financial import HouseholdFinancialService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
 
@@ -47,7 +48,9 @@ def depart(s, operation):
 
 def correct_private(s, aid, body):
     service = MoneyService(planners(s, s["b"]).accounts)
-    preview = service.preview(user_id=s["b"], request=body, activity_id=aid)
+    preview = service.preview(
+        user_id=s["b"], request=body, activity_id=aid, scope=PERSONAL
+    )
     return service.write(
         user_id=s["b"],
         activity_id=aid,
@@ -55,6 +58,7 @@ def correct_private(s, aid, body):
         request=MoneyRequest.model_validate(
             preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
         ),
+        scope=PERSONAL,
     )
 
 
@@ -159,7 +163,7 @@ def test_allocation_backing_stops_at_departure_and_rejoin_requires_fresh_consent
             amount="150",
             expected_account_versions={
                 s["bd"]: s["records"]
-                .get_account(user_id=s["b"], account_id=s["bd"])
+                .get_account(user_id=s["b"], account_id=s["bd"], scope=PERSONAL)
                 .account.version
             },
         ),
@@ -205,7 +209,7 @@ def test_allocation_backing_stops_at_departure_and_rejoin_requires_fresh_consent
             amount="100",
             expected_account_versions={
                 s["bd"]: s["records"]
-                .get_account(user_id=s["b"], account_id=s["bd"])
+                .get_account(user_id=s["b"], account_id=s["bd"], scope=PERSONAL)
                 .account.version
             },
         ),

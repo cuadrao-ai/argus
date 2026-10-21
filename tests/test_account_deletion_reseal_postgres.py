@@ -16,6 +16,7 @@ from argus.domain.apple_sign_in.credentials_postgres import (
 from argus.domain.household.postgres import PostgresHouseholdRepository
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.secrets import SecretBox, SecretUnreadable
+from argus.domain.owner_scope import PERSONAL
 from faker import Faker
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
@@ -67,6 +68,7 @@ def test_set_secret_replaces_the_old_fingerprint(credential_owner, source, finge
         connection_id=connection_id,
         secret=k1.seal("synthetic-old", source=source, connection_id=connection_id),
         secret_key=k1.key_id,
+        scope=PERSONAL,
     )
     sealed = k2.seal("synthetic-new", source=source, connection_id=connection_id)
     key_id = k2.key_id if fingerprint == "new_key" else None
@@ -77,7 +79,7 @@ def test_set_secret_replaces_the_old_fingerprint(credential_owner, source, finge
         now=now + timedelta(seconds=1),
         secret_key=key_id,
     )
-    stored = repository.get(user_id=user_id, connection_id=connection_id)
+    stored = repository.get(user_id=user_id, connection_id=connection_id, scope=PERSONAL)
     assert stored.secret == sealed
     assert stored.secret_key == key_id
     assert (

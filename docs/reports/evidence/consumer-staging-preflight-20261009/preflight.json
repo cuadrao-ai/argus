@@ -1,0 +1,69 @@
+{
+  "checked_at": "2026-10-10T02:36:07.870369+00:00",
+  "origin": "https://cuadrao-api-staging.onrender.com",
+  "authentication": "none; read-only feature-gate preflight, not signed-in acceptance",
+  "deployed_commit": "cad1cbe1ec27ff89c08eadbec31718a0e627383c",
+  "deploy_id": "dep-db4ofq142hec73edibig",
+  "render_readback": {
+    "autoDeploy": "no",
+    "ARGUS_FINANCIAL_ACCOUNTS_ENABLED": "absent; deployed source defaults off"
+  },
+  "results": [
+    {
+      "path": "/health",
+      "status": 200,
+      "body": {
+        "status": "healthy",
+        "version": "1.0.0-alpha"
+      }
+    },
+    {
+      "path": "/api/v1/financial-accounts",
+      "status": 404,
+      "body": {
+        "type": "https://api.argus.app/problems/financial-accounts-unavailable",
+        "title": "Not Found",
+        "status": 404,
+        "detail": "Financial accounts are not available.",
+        "code": "financial_accounts_unavailable",
+        "request_id": "d06447a5-a509-4f12-af8b-1d29e15cfd63"
+      }
+    },
+    {
+      "path": "/api/v1/financial-home",
+      "status": 404,
+      "body": {
+        "type": "https://api.argus.app/problems/financial-accounts-unavailable",
+        "title": "Not Found",
+        "status": 404,
+        "detail": "Financial accounts are not available.",
+        "code": "financial_accounts_unavailable",
+        "request_id": "1fff0cc2-5df5-4da5-a2f7-d31991d72946"
+      }
+    },
+    {
+      "path": "/api/v1/financial-plan",
+      "status": 404,
+      "body": {
+        "type": "https://api.argus.app/problems/financial-accounts-unavailable",
+        "title": "Not Found",
+        "status": 404,
+        "detail": "Financial accounts are not available.",
+        "code": "financial_accounts_unavailable",
+        "request_id": "10c3f381-1338-45eb-ac57-f57b14a3cc12"
+      }
+    },
+    {
+      "path": "/api/v1/financial-search?q=acceptance",
+      "status": 404,
+      "body": {
+        "type": "https://api.argus.app/problems/financial-accounts-unavailable",
+        "title": "Not Found",
+        "status": 404,
+        "detail": "Financial accounts are not available.",
+        "code": "financial_accounts_unavailable",
+        "request_id": "96b1b098-5f7d-45ee-bedf-bbf1c92c80f3"
+      }
+    }
+  ]
+}

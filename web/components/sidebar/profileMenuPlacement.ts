@@ -11,7 +11,7 @@
  * submenus upward at the parent's width instead.
  */
 
-export type ProfileMenuPlacement = "rail" | "drawer";
+export type ProfileMenuPlacement = "rail" | "drawer" | "header";
 
 /**
  * Inside a sheet a submenu is the sheet's whole body, so it needs no surface of
@@ -38,6 +38,13 @@ export function profileMenuClass(
       // Bounded so it cannot outgrow the screen, and scrollable so nothing in
       // it becomes unreachable when it does hit the bound.
       className: `absolute bottom-full left-0 right-0 z-30 mb-1.5 max-h-[70dvh] overflow-y-auto overscroll-contain ${TOUCH_TARGETS} ${MENU_SURFACE}`,
+      left: undefined,
+    };
+  }
+  if (placement === "header") {
+    // Opened from the top-right profile control on desktop workspaces.
+    return {
+      className: `fixed right-4 top-16 z-[60] min-w-[220px] tablet:right-8 ${MENU_SURFACE}`,
       left: undefined,
     };
   }
@@ -69,6 +76,9 @@ export function profileSubmenuClass(
 ): string {
   if (placement === "drawer") {
     return `absolute inset-0 overflow-y-auto overscroll-contain ${TOUCH_TARGETS} [&_a]:min-h-[44px] ${SUBMENU_SURFACE}`;
+  }
+  if (placement === "header") {
+    return `absolute right-full top-0 mr-1.5 ${railSizeClass} ${SUBMENU_SURFACE}`;
   }
   return `absolute bottom-0 left-full ml-1.5 ${railSizeClass} ${SUBMENU_SURFACE}`;
 }

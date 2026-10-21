@@ -1,0 +1,121 @@
+{
+  "sourceCommit": "7f0f1354d68ee0638ed2ebca36425b7c359af428",
+  "capturedAt": "2026-10-10T01:19:05.471Z",
+  "baseURL": "http://127.0.0.1:4512",
+  "browser": "Playwright Chromium desktop and narrow viewport; dispatched touch plus native wheel",
+  "forms": "No submissions or provider requests",
+  "captures": [
+    {
+      "file": "footer-es-1440-rest.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "rest"
+    },
+    {
+      "file": "footer-es-1440-first.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "first"
+    },
+    {
+      "file": "footer-es-1440-second.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "second"
+    },
+    {
+      "file": "footer-es-1440-settled.png",
+      "route": "/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "settled"
+    },
+    {
+      "file": "footer-en-1440-rest.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "rest"
+    },
+    {
+      "file": "footer-en-1440-first.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "first"
+    },
+    {
+      "file": "footer-en-1440-second.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "second"
+    },
+    {
+      "file": "footer-en-1440-settled.png",
+      "route": "/en/personal",
+      "width": 1440,
+      "height": 900,
+      "state": "settled"
+    },
+    {
+      "file": "footer-es-390-rest.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "rest"
+    },
+    {
+      "file": "footer-es-390-first.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "first"
+    },
+    {
+      "file": "footer-es-390-second.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "second"
+    },
+    {
+      "file": "footer-es-390-settled.png",
+      "route": "/personal",
+      "width": 390,
+      "height": 844,
+      "state": "settled"
+    },
+    {
+      "file": "footer-en-390-rest.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "rest"
+    },
+    {
+      "file": "footer-en-390-first.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "first"
+    },
+    {
+      "file": "footer-en-390-second.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "second"
+    },
+    {
+      "file": "footer-en-390-settled.png",
+      "route": "/en/personal",
+      "width": 390,
+      "height": 844,
+      "state": "settled"
+    }
+  ]
+}

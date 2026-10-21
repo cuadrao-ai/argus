@@ -11,6 +11,7 @@ from argus.domain.ingestion.contract import ImportCandidate
 from argus.domain.ingestion.shortcuts import connector as connector_module
 from argus.domain.ingestion.shortcuts.connector import DeviceLimitReached
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.conftest import ALICE, bearer
 from tests.ingestion.shortcuts_support import (
@@ -165,7 +166,7 @@ def test_freshness_moves_only_when_an_event_was_accepted(client, sink, identitie
         BATCH, json={"events": [tap(captured_at=stale)]}, headers=bearer(token)
     ).json()
     assert [r["outcome"] for r in body["receipts"]] == ["out_of_window"]
-    [connection] = ingestion_hub().list(user_id=identities[ALICE]["id"])
+    [connection] = ingestion_hub().list(user_id=identities[ALICE]["id"], scope=PERSONAL)
     assert connection.last_success_at is None
 
 
@@ -189,5 +190,9 @@ def test_concurrent_enrollment_cannot_exceed_the_device_limit(client, identities
     for thread in threads:
         thread.join()
     assert outcomes.count("ok") == 5 and outcomes.count("limit") == 7
-    live = [r for r in ingestion_hub().list(user_id=user_id) if r.status == "active"]
+    live = [
+        r
+        for r in ingestion_hub().list(user_id=user_id, scope=PERSONAL)
+        if r.status == "active"
+    ]
     assert len(live) == 5

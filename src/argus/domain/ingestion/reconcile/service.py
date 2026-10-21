@@ -13,6 +13,7 @@ from typing import Any, get_args
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from argus.domain.business.contracts.facts import BusinessResolution, legacy_projection
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -40,6 +41,7 @@ from argus.domain.ingestion.reconcile.recording import Recording
 from argus.domain.ingestion.reconcile.render import event_view, proposed_kind, unresolved
 from argus.domain.ingestion.reconcile.store import ImportStore, ImportTx
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import OwnerScope
 from argus.domain.recording.loop_schemas import CATEGORY_IDS
 from argus.domain.recording.money_reads import current_activities
 from argus.domain.recording.money_schemas import SOURCE_IDS, ActivityKind
@@ -62,13 +64,20 @@ class ReconciliationService(Recording):
 
     # --- CandidateSink -------------------------------------------------
     def submit(
-        self, *, user_id: str, connection_id: str, candidates: Sequence[ImportCandidate]
+        self,
+        *,
+        user_id: str,
+        connection_id: str,
+        candidates: Sequence[ImportCandidate],
+        scope: OwnerScope,
     ) -> SubmitResult:
         def is_live() -> bool:
             if self.connections is None:
                 return True
             try:
-                row = self.connections.get(user_id=user_id, connection_id=connection_id)
+                row = self.connections.get(
+                    user_id=user_id, connection_id=connection_id, scope=scope
+                )
             except ConnectionNotFound:
                 return False
             return row.status in LIVE
@@ -80,45 +89,63 @@ class ReconciliationService(Recording):
             connection_id=connection_id,
             candidates=candidates,
             is_live=is_live,
+            scope=scope,
         )
 
-    def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+    def forget_connection(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> int:
         return intake.forget(
-            self.store, self.clock(), user_id=user_id, connection_id=connection_id
+            self.store,
+            self.clock(),
+            user_id=user_id,
+            connection_id=connection_id,
+            scope=scope,
         )
 
     # --- Review --------------------------------------------------------
-    def list(self, *, user_id: str, states: tuple[str, ...]) -> list[dict[str, Any]]:
+    def list(
+        self, *, user_id: str, states: tuple[str, ...], scope: OwnerScope
+    ) -> list[dict[str, Any]]:
         activities = current_activities(
-            self.money.accounts.list_accounts(user_id=user_id)
+            self.money.accounts.list_accounts(user_id=user_id, scope=scope)
         )
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             context = _ViewContext(tx.links(), tx.activity_links(), activities)
             return [self._view(tx, e, context) for e in tx.events(states)]
 
-    def detail(self, *, user_id: str, event_id: str) -> dict[str, Any]:
+    def detail(self, *, user_id: str, event_id: str, scope: OwnerScope) -> dict[str, Any]:
         activities = current_activities(
-            self.money.accounts.list_accounts(user_id=user_id)
+            self.money.accounts.list_accounts(user_id=user_id, scope=scope)
         )
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             context = _ViewContext(tx.links(), tx.activity_links(), activities)
             return self._view(tx, tx.event(event_id), context)
 
     def resolve(
-        self, *, user_id: str, event_id: str, version: int, changes: dict[str, Any]
+        self,
+        *,
+        user_id: str,
+        event_id: str,
+        version: int,
+        changes: dict[str, Any],
+        scope: OwnerScope,
     ) -> dict[str, Any]:
         unknown = set(changes) - RESOLVABLE
         if unknown:
             raise ReconcileError("field_not_resolvable", ", ".join(sorted(unknown)))
         cleaned = _clean_resolution(changes)
-        owned = {s.account.id for s in self.money.accounts.list_accounts(user_id=user_id)}
+        owned = {
+            s.account.id
+            for s in self.money.accounts.list_accounts(user_id=user_id, scope=scope)
+        }
         for field in ("account_id", "source_account_id", "destination_account_id"):
             if cleaned.get(field) and cleaned[field] not in owned:
                 raise ReconcileError(
                     "financial_account_not_found", "Choose your own account."
                 )
         now = self.clock()
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = self._editable(tx, event_id, version)
             links = tx.links()
             matched_before = match_key(
@@ -140,7 +167,7 @@ class ReconciliationService(Recording):
                 event = _bump(intake.recheck(tx, event), now)
                 tx.put_event(event)
                 duplicates.mirror(tx, event, previous, now)
-        return self.detail(user_id=user_id, event_id=event_id)
+        return self.detail(user_id=user_id, event_id=event_id, scope=scope)
 
     def merge(
         self,
@@ -150,17 +177,20 @@ class ReconciliationService(Recording):
         into_event_id: str,
         version: int,
         into_version: int,
+        scope: OwnerScope,
     ) -> dict[str, Any]:
         """The person says two events are the same purchase."""
 
         if event_id == into_event_id:
             raise ReconcileError("import_merge_self", "Choose a different import.")
         now = self.clock()
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             source = tx.event(event_id)
+            self._require_legacy(source)
             if source.version != version:
                 raise StaleEvent()
             target = tx.event(into_event_id)
+            self._require_legacy(target)
             if target.version != into_version:
                 raise StaleEvent()
             if "dismissed" in (source.state, target.state):
@@ -216,11 +246,13 @@ class ReconciliationService(Recording):
             tx.put_event(survivor)
             duplicates.mirror(tx, survivor, previous, now)
             survivor_id = survivor.id
-        return self.detail(user_id=user_id, event_id=survivor_id)
+        return self.detail(user_id=user_id, event_id=survivor_id, scope=scope)
 
-    def dismiss(self, *, user_id: str, event_id: str, version: int) -> dict[str, Any]:
+    def dismiss(
+        self, *, user_id: str, event_id: str, version: int, scope: OwnerScope
+    ) -> dict[str, Any]:
         now = self.clock()
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = self._editable(tx, event_id, version)
             # A dismissed event is no longer anyone's possible duplicate.
             duplicates.forget(tx, event, now)
@@ -233,12 +265,15 @@ class ReconciliationService(Recording):
                 else event.attention,
             )
             tx.put_event(_bump(event, now))
-        return self.detail(user_id=user_id, event_id=event_id)
+        return self.detail(user_id=user_id, event_id=event_id, scope=scope)
 
-    def reopen(self, *, user_id: str, event_id: str, version: int) -> dict[str, Any]:
+    def reopen(
+        self, *, user_id: str, event_id: str, version: int, scope: OwnerScope
+    ) -> dict[str, Any]:
         now = self.clock()
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
             if event.version != version:
                 raise StaleEvent()
             if event.state != "dismissed":
@@ -248,15 +283,18 @@ class ReconciliationService(Recording):
             if not any(o.live for o in tx.observations(event_id)):
                 raise ReconcileError("import_source_removed", "The source withdrew this.")
             tx.put_event(_bump(replace(event, state="open", attention_detail=None), now))
-        return self.detail(user_id=user_id, event_id=event_id)
+        return self.detail(user_id=user_id, event_id=event_id, scope=scope)
 
-    def acknowledge(self, *, user_id: str, event_id: str, version: int) -> dict[str, Any]:
+    def acknowledge(
+        self, *, user_id: str, event_id: str, version: int, scope: OwnerScope
+    ) -> dict[str, Any]:
         """The person checked it: clear a source warning, or say a possible
         duplicate is a different purchase (cleared on both events)."""
 
         now = self.clock()
-        with self.store.transaction(user_id) as tx:
+        with self.store.transaction(user_id, scope=scope) as tx:
             event = tx.event(event_id)
+            self._require_legacy(event)
             if event.version != version:
                 raise StaleEvent()
             duplicates.forget(tx, event, now)
@@ -272,12 +310,17 @@ class ReconciliationService(Recording):
                     now,
                 )
             )
-        return self.detail(user_id=user_id, event_id=event_id)
+        return self.detail(user_id=user_id, event_id=event_id, scope=scope)
 
     # --- Internals -----------------------------------------------------
     def _view(
         self, tx: ImportTx, event: ImportEvent, context: _ViewContext
     ) -> dict[str, Any]:
+        if "business" in event.resolution:
+            facts = BusinessResolution.model_validate(event.resolution["business"]).facts
+            event = replace(
+                event, resolution={**event.resolution, **legacy_projection(facts)}
+            )
         observations = tx.observations(event.id)
         facts = event_facts(event, observations, context.links)
         unlinked: list[str] = []
@@ -299,8 +342,16 @@ class ReconciliationService(Recording):
             account_shared=shared,
         )
 
+    @staticmethod
+    def _require_legacy(event: ImportEvent) -> None:
+        if "business" in event.resolution:
+            raise ReconcileError(
+                "business_action_required", "Use the Business draft review."
+            )
+
     def _editable(self, tx: ImportTx, event_id: str, version: int) -> ImportEvent:
         event = tx.event(event_id)
+        self._require_legacy(event)
         if event.version != version:
             raise StaleEvent()
         if event.state != "open":

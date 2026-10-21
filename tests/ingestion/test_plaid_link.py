@@ -11,6 +11,7 @@ from argus.domain.ingestion.plaid.link import (
     PlaidItemOwnedElsewhere,
     client_user_id,
 )
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.plaid_fakes import (
     ACCESS_TOKEN,
@@ -59,7 +60,7 @@ def test_exchange_seals_the_token_and_is_idempotent():
     # Plaid answers a repeated exchange with the same Item: same connection.
     again = connector.link.exchange(user_id=USER, public_token=PUBLIC_TOKEN)
     assert not again.created and again.connection.id == first.connection.id
-    assert len(connector.hub.list(user_id=USER)) == 1
+    assert len(connector.hub.list(user_id=USER, scope=PERSONAL)) == 1
 
 
 def test_exchange_race_resolves_to_the_winner():
@@ -131,7 +132,9 @@ def needs_reauth(fake: FakePlaid):
     connector.sync(row)
     fake.item_error = "ITEM_LOGIN_REQUIRED"
     connector.sync(row)
-    row = connector.hub.connections.get(user_id=USER, connection_id=row.id)
+    row = connector.hub.connections.get(
+        user_id=USER, connection_id=row.id, scope=PERSONAL
+    )
     assert row.status == "needs_reauth"
     return connector, row
 
@@ -178,7 +181,7 @@ def test_disconnect_removes_the_item_at_plaid_and_deletes_the_credential():
     sink = RecordingSink()
     connector = make_connector(fake, sink=sink)
     row = connector.link.exchange(user_id=USER, public_token=PUBLIC_TOKEN).connection
-    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id)
+    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id, scope=PERSONAL)
     assert outcome.provider_revocation == "revoked"
     remove = [b for p, b, _ in fake.calls if p == "/item/remove"]
     assert remove == [{"access_token": ACCESS_TOKEN}]
@@ -196,7 +199,9 @@ def test_revoke_of_an_item_plaid_no_longer_knows_counts_as_revoked():
     row = connector.link.exchange(user_id=USER, public_token=PUBLIC_TOKEN).connection
     fake.removed_items.add(ITEM_ID)
     assert (
-        connector.hub.disconnect(user_id=USER, connection_id=row.id).provider_revocation
+        connector.hub.disconnect(
+            user_id=USER, connection_id=row.id, scope=PERSONAL
+        ).provider_revocation
         == "revoked"
     )
 
@@ -217,7 +222,7 @@ def test_revoke_failure_is_reported_and_local_credential_still_deleted():
     )
     connector = make_connector(fake)
     row = connector.link.exchange(user_id=USER, public_token=PUBLIC_TOKEN).connection
-    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id)
+    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id, scope=PERSONAL)
     assert outcome.provider_revocation == "failed" and outcome.connection.secret is None
 
 

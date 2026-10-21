@@ -50,6 +50,23 @@ final class ReleaseUIJourneyTests: XCTestCase {
         capture(release, "profile-release-gates-en")
     }
 
+    func testReleaseBarReplacesTheAssistantWithAddAndKeepsItCentered() {
+        let debug = launch(spanish: false)
+        XCTAssertTrue(debug.buttons["tab.argus"].waitForExistence(timeout: 4), "DEBUG keeps the assistant tab")
+        XCTAssertFalse(debug.buttons["nav.add"].exists)
+        debug.terminate()
+        let release = launch(spanish: false, extra: ["--cuadrao-release-gates"])
+        XCTAssertTrue(release.buttons["nav.add"].waitForExistence(timeout: 4))
+        XCTAssertFalse(release.buttons["tab.argus"].exists, "Release has no assistant tab")
+        let order = ["tab.home", "tab.plan", "nav.add", "tab.search", "header.profile"].map { release.buttons[$0] }
+        for item in order { XCTAssertTrue(item.exists, item.identifier) }
+        let centers = order.map(\.frame.midX)
+        XCTAssertEqual(centers, centers.sorted(), "Home, Plan, +, Search, Profile run left to right")
+        XCTAssertEqual(release.buttons["nav.add"].frame.midX, release.frame.midX, accuracy: 2, "the + sits at the center")
+        XCTAssertEqual(release.buttons["nav.add"].label, "Add")
+        capture(release, "release-bar-add-en")
+    }
+
     func testDeletionSharedConsequencesEnglish() {
         let app = launch(spanish: false)
         app.buttons["release.review.identity"].tap()

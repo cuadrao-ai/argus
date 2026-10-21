@@ -4,6 +4,7 @@ from datetime import timedelta
 import pytest
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.financial import HouseholdFinancialService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 from argus.domain.recording.money_service import MoneyService
 from argus.domain.recording.service import FinancialAccountService
@@ -81,7 +82,10 @@ def test_household_pair_retry_and_revoked_source_are_currency_safe(lane, monkeyp
     )
     with pytest.raises(HouseholdNotFound):
         money(service, b, hid, denied, aid=aid)
-    assert records.get_account(user_id=a, account_id=dest).account.version == 2
+    assert (
+        records.get_account(user_id=a, account_id=dest, scope=PERSONAL).account.version
+        == 2
+    )
 
 
 @pytest.mark.parametrize(
@@ -116,17 +120,24 @@ def test_shared_goal_corrected_private_pair_discloses_only_plan_denomination(
         reason="Correct original source and actual amounts",
         note=marker,
     )
-    preview = service.preview(user_id=s["b"], request=body, activity_id=activity_id)
+    preview = service.preview(
+        user_id=s["b"], request=body, activity_id=activity_id, scope=PERSONAL
+    )
     assert preview["ready"]
     reviewed = MoneyRequest.model_validate(
         preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
     )
     corrected = service.write(
-        user_id=s["b"], activity_id=activity_id, idempotency_key=key(), request=reviewed
+        user_id=s["b"],
+        activity_id=activity_id,
+        idempotency_key=key(),
+        request=reviewed,
+        scope=PERSONAL,
     )
     assert corrected["activity"]["revision"] == 2
     before = {
-        actor: s["records"].list_accounts(user_id=actor) for actor in (s["a"], s["b"])
+        actor: s["records"].list_accounts(user_id=actor, scope=PERSONAL)
+        for actor in (s["a"], s["b"])
     }
     with s["records"]._pool.connection() as c:
         receipts_before = c.execute(
@@ -155,12 +166,15 @@ def test_shared_goal_corrected_private_pair_discloses_only_plan_denomination(
             activity_id=activity_id,
             idempotency_key=key(),
             request=reviewed,
+            scope=PERSONAL,
         )
     assert {
-        actor: s["records"].list_accounts(user_id=actor) for actor in before
+        actor: s["records"].list_accounts(user_id=actor, scope=PERSONAL)
+        for actor in before
     } == before
     assert (
-        service.detail(user_id=s["b"], activity_id=activity_id) == corrected["activity"]
+        service.detail(user_id=s["b"], activity_id=activity_id, scope=PERSONAL)
+        == corrected["activity"]
     )
     with s["records"]._pool.connection() as c:
         assert (

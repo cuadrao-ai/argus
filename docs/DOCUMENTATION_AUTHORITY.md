@@ -1,20 +1,46 @@
 # Argus documentation authority
 
-**Updated:** September 29, 2026. Private iPhone direction and financial-loop landing.
-**Business design pointer added:** October 6, 2026. See the working guide below.
+**Updated:** October 13, 2026. WhatsApp receipts-only scope, legal drafts and the server-owned inclusion rule. Earlier: September 29, 2026 private iPhone direction and financial-loop landing.
+**Business assignment reconciled:** October 10, 2026. See the hosted Business
+decision and assignment below. The September mobile lock retains its scope.
 Current delivered work, remaining scope and action authority live in the
 [execution manifest](specs/argus-execution-board.md), not in this ownership guide.
 **Purpose:** Help an agent distinguish approved product direction, existing technical contracts, historical rationale, and authorized implementation work.
 
 ## Start here
 
-1. Read [AGENTS.md](../AGENTS.md) for repository, safety, review, and delivery rules.
+1. Read [AGENTS.md](../AGENTS.md) for codebase facts and safety rules.
 2. Read [PRODUCT.md](PRODUCT.md) for the product overview and the boundary between the existing Alpha and the approved pivot.
 3. Read the [minimum viable ecosystem experience (MVEE)](specs/argus-minimum-viable-ecosystem-experience.md) for the approved audience, surfaces, ingestion, loop, household collaboration, and open decisions.
 4. Read [ARCHITECTURE.md](ARCHITECTURE.md), [API_CONTRACT.md](API_CONTRACT.md), [DATA_MODEL.md](DATA_MODEL.md), and [DESIGN.md](../.agent/designs/argus/DESIGN.md) before relevant technical or UI work. Their existing contracts are not replaced by experience prose.
 5. Read the [private iPhone execution manifest](specs/argus-execution-board.md) for
    current landed work, authorized actions, dependencies, ownership and acceptance.
 6. Read the explicitly assigned package or slice. For a Wave 1 assignment, start with [its README](specs/wave-1/README.md) and the package's existing gates. A roadmap or brainstorm does not assign work by itself.
+
+For Business work, read the [hosted beta and build grant](specs/argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant)
+and the [current assignment](specs/argus-execution-board.md#business-hosted-invite-only-build-october-10-2026)
+before interpreting a dated hold. That assignment is a bounded exception for
+Business integration and staging. It does not restart Consumer mobile work,
+authorize Apple TestFlight or change public signup or marketing publication.
+
+## Settled scope notes (October 13, 2026)
+
+- **WhatsApp is receipts-only.** There is no AI chat in WhatsApp, because of Meta's
+  AI-first policy for business messaging. A receipt is read. Any other text gets one
+  fixed reply with the web link. The agent conversation for the owner and the
+  accountant lives on the web. The [Business agent execution spec](specs/lanes/cuadrao-business-agent-execution-spec.md)
+  owns the contract; the [execution manifest](specs/argus-execution-board.md) owns status.
+- **Legal drafts.** [docs/legal](legal/OPEN_QUESTIONS.md) holds draft privacy, terms and
+  data-use documents. They use placeholders, the company is not formed, and a lawyer
+  must review them before any publication. They are not published policy.
+- **Month close.** Request and response shapes, error codes, the settlement grain, the open items read, the sin comprobante rule, and the Bandeja Venta type are in [the month-close contract](contracts/business-month-close.md). `API_CONTRACT.md` points there. The migration is the schema.
+- **"Already included" is server-owned.** The API decides whether to ask if a movement
+  was already counted in a balance. It asks only when a movement is backdated to a date
+  on or before a balance check made after it. A skipped question is recorded with a
+  reason on the revision. The rule is in PR #1056 on the Mobile lane branch
+  (`codex/consumer-free-tier-completion`) and is not on integration yet; until it lands,
+  [API_CONTRACT](API_CONTRACT.md) on integration still describes the earlier same-day rule.
+  Clients render the server's questions and never decide inclusion.
 
 ## One owner per kind of decision
 
@@ -25,10 +51,14 @@ Current delivered work, remaining scope and action authority live in the
 | Which founder decisions changed, and when? | [Decision log](specs/argus-decision-log.md) | Decision provenance and links; detailed requirements remain with their owner |
 | What architecture, payloads, and persistence contracts apply? | Architecture, API contract, and data model docs above | Existing system contracts/technical intent and the [locked interface stacks](ARCHITECTURE.md#approved-platform-direction); some statements describe targets, not proof of implementation |
 | What visual and interaction conventions apply? | [Argus web guide](../.agent/designs/argus/DESIGN.md) and [Cuadrao native guide](../.agent/designs/cuadrao/DESIGN.md) | Each owns its named platform. Cuadrao rules cover preview and connected native adoption; they do not claim implementation. MVEE owns product behavior, while the execution manifest owns status and remaining work. |
-| What brand and design direction applies to the new business website? | [Cuadrao for business working guide](../.agent/designs/cuadrao-business/DESIGN.md) | Owns the approved Business and Personal marketing presentation, founder note, and illustrative examples. The [website delivery record](reports/2026-10-07-cuadrao-website-integration.md) owns integration evidence and remaining launch work. It does not establish Business application or consumer-app availability. |
+| What brand and design direction applies to the new business website? | [Cuadrao for business working guide](../.agent/designs/cuadrao-business/DESIGN.md) | Owns the approved Business and Personal marketing presentation, founder note, and illustrative examples. The [website delivery record](reports/2026-10-07-cuadrao-website-integration.md) owns integration evidence; the [launch record](reports/2026-10-07-cuadrao-marketing-launch.md) owns launch status. The independent `marketing/` package's [forms contract](specs/cuadrao-marketing-forms-contract.md) and [launch runbook](runbooks/cuadrao-marketing-launch.md) own its endpoints, data, release settings and rollback. It does not establish Business application or consumer-app availability. |
+| What visual and interaction rules apply to the signed-in Business web app? | [Cuadrao Business web app guide](../.agent/designs/cuadrao-business-app/DESIGN.md) | Founder-locked foundations, edge-case rules and core-path screens (October 18, 2026). The native guide owns the locked colours. Product adds per-screen behavior rules. It claims no built behavior. |
+| What is the Business agent build order, from WhatsApp conversation to accountant package? | [Business agent execution spec](specs/lanes/cuadrao-business-agent-execution-spec.md) | Founder-approved direction (October 10, 2026). Owns the agent contract, the work streams, the gap register and the journey acceptance for Business core flows 1 to 7 (tracker [#942](https://github.com/lagarcess/argus/issues/942)). The connected flow spec keeps its product scope. `API_CONTRACT.md` and `DATA_MODEL.md` keep endpoint and persistence truth. It claims no built behavior. |
+| What is the connected Business workflow and first offline fiscal-engine plan? | [Connected Business flow](specs/cuadrao-business-connected-flow-spec.md) and [E0 implementation plan](specs/cuadrao-business-e0-implementation-plan.md) | Founder-approved design and task-by-task review plan. Business owns implementation when Lucas coordinates it. Consumer retains shared migration and release ownership; Marketing retains its separate launch. P0 source verification remains open. Publication proves no runtime capability or live fiscal authorization. |
+| Which core flows exist for both apps, and when was each last walked? | [Core flows](CORE_FLOWS.md) | Owns the flow list, labels and last-walked evidence. It is the founder's test checklist and claims no more than a row's walk date. Other documents link here and do not repeat the list. |
 | What is an agent authorized to build now? | Explicit assignment and its scoped package/spec | MVEE approval does not assign every feature, unlock stages, or authorize provider integrations |
 | What is next, who owns it, and what counts as done? | [Private iPhone execution manifest](specs/argus-execution-board.md) | One execution map; states and evidence links do not authorize a restart, merge or deployment |
-| How is work reviewed and released? | AGENTS.md, [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force |
+| How is work reviewed and released? | Yelena's ship playbooks (internal), [CI/CD discipline](specs/private-alpha-ci-cd-sota.md), [launch runbook](PRIVATE_LAUNCH_RUNBOOK.md), [manifest template](release-manifests/TEMPLATE.md) | Existing evaluation, privacy, branch, merge, and deployment gates remain in force. The ordered staging-to-production checklist is the runbook's [Cuadrao production promotion](PRIVATE_LAUNCH_RUNBOOK.md#cuadrao-production-promotion). |
 | What evidence or thinking informed a direction? | Linked research and historical strategy docs | Inputs and provenance, not independent scope authority |
 
 ## Constitution source material
@@ -43,7 +73,7 @@ This package does not assign implementation or add launch gates.
 
 The MVEE is the single detailed owner of the approved ecosystem. Its section 1.1 locks the audience and near-term financial emphasis; section 12 includes partner invitations and personal/household views. Sections 3–5 define surfaces and information ingestion. Sections 8–9 distinguish boundaries and open decisions. Section 11 defines pain-point coverage and the reinforcing loop.
 
-The product remains one connected Argus experience that carries forward existing chat, calculations, research, and historical comparisons. These capabilities are not gated behind debt repayment. The design direction retains the Argus visual identity. Native iOS/Android plus web and their [interface stacks](ARCHITECTURE.md#approved-platform-direction) are approved. The latest [MVEE delivery lock](specs/argus-minimum-viable-ecosystem-experience.md#12-private-iphone-delivery-the-immediate-finish-line) prioritizes the physical iPhone over the internet, preserves the existing web, freezes the web remake, and records the deferred agentic runtime. The [execution manifest](specs/argus-execution-board.md) owns the proposed sequence and unassigned work. Detailed contracts still need their scoped implementation assignments.
+The product remains one connected Argus experience that carries forward existing chat, calculations, research, and historical comparisons. These capabilities are not gated behind debt repayment. The design direction retains the Argus visual identity. Native iOS/Android plus web and their [interface stacks](ARCHITECTURE.md#approved-platform-direction) are approved. The September [MVEE delivery lock](specs/argus-minimum-viable-ecosystem-experience.md#12-private-iphone-delivery-the-immediate-finish-line) prioritizes the physical iPhone over the internet, preserves the existing web, freezes the general web remake, and records the deferred consumer agentic runtime. The later [hosted Business decision](specs/argus-decision-log.md#october-10-2026-hosted-business-beta-and-build-grant) and its bounded assignment govern that Business flow. The [execution manifest](specs/argus-execution-board.md) owns the proposed sequence and unassigned work. Detailed contracts still need their scoped implementation assignments.
 
 “Locked” means founder-approved direction. It does not mean implemented, validated market demand, a final schema, a model instruction change, or permission to deploy.
 
@@ -97,7 +127,7 @@ Retired strategy narratives now live in `docs/archive/`, with compatibility poin
 
 ## Wave 1 reconciliation boundary
 
-The private iPhone execution manifest supplies the current delivery map and records explicit assignments and landed work. It does not itself restart Wave 1 or any stopped lane. Applicable technical and release gates still apply when a package is explicitly assigned; historical package sequencing does not override current founder authority or the iPhone priority.
+The private iPhone execution manifest supplies the current delivery map and records explicit assignments and landed work. It does not itself restart Wave 1 or any stopped lane. Applicable technical and release gates still apply when a package is explicitly assigned; historical package sequencing does not override current founder authority or the named lane's priority.
 
 In particular, Wave 1's two-audience landing, limited navigation, hidden account/upload/budget surfaces, and earlier onboarding assumptions are package-era choices, not permanent limits on the ecosystem. A temporary shipping subset may still be appropriate, but the assigned spec must say so explicitly. Before implementing a conflicting experience requirement, reconcile that package with the founder-approved MVEE and record what is retained, revised, or deferred. Do not expose unfinished surfaces just because they are approved in the vision.
 

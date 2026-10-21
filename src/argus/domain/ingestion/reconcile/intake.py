@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from argus.domain.business.transactions_legacy import legacy_transaction
 from argus.domain.ingestion.contract import ImportCandidate
 from argus.domain.ingestion.reconcile import duplicates
 from argus.domain.ingestion.reconcile.matching import (
@@ -40,6 +41,7 @@ from argus.domain.ingestion.reconcile.model import (
 )
 from argus.domain.ingestion.reconcile.store import ImportStore, ImportTx
 from argus.domain.ingestion.sink import SubmitResult
+from argus.domain.owner_scope import OwnerScope
 
 _MONEY_FACTS = ("amount", "currency", "occurred_on")
 # Kept after disconnect for accepted events: enough to explain the record.
@@ -53,13 +55,14 @@ def submit(
     user_id: str,
     connection_id: str,
     candidates: Sequence[ImportCandidate],
+    scope: OwnerScope,
     is_live: Callable[[], bool] = lambda: True,
 ) -> SubmitResult:
     for candidate in candidates:
         if candidate.source.connection_id != connection_id:
             raise ValueError("candidate belongs to another connection")
     tally = SubmitTally()
-    with store.transaction(user_id) as tx:
+    with legacy_transaction(store, user_id, scope=scope) as tx:
         # Checked under the person's lock: a disconnect's cleanup takes the
         # same lock after the connection is marked ended.
         if not is_live():
@@ -69,11 +72,18 @@ def submit(
     return SubmitResult(tally.recorded, tally.unchanged, tally.withdrawn)
 
 
-def forget(store: ImportStore, now: datetime, *, user_id: str, connection_id: str) -> int:
+def forget(
+    store: ImportStore,
+    now: datetime,
+    *,
+    user_id: str,
+    connection_id: str,
+    scope: OwnerScope,
+) -> int:
     """Disconnect retention: unreviewed evidence goes; accepted keeps provenance."""
 
     removed = 0
-    with store.transaction(user_id) as tx:
+    with legacy_transaction(store, user_id, scope=scope) as tx:
         for observation in tx.connection_observations(connection_id):
             event = tx.event(observation.event_id)
             if event.state in ("accepted", "accepting"):

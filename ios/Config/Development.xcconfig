@@ -5,7 +5,8 @@ CUADRAO_DESIGN_PREVIEW = false
 // Local ad-hoc simulator signature supplies Keychain identity; no account/team.
 CODE_SIGNING_ALLOWED = YES
 CODE_SIGN_IDENTITY = -
-CODE_SIGN_ENTITLEMENTS = Config/Simulator.entitlements
+CODE_SIGN_ENTITLEMENTS = Config/DeclaredAgeRange.entitlements
+CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*] = Config/Simulator.entitlements
 CODE_SIGNING_REQUIRED = NO
 DEVELOPMENT_TEAM =
 SDKROOT = iphoneos
@@ -16,6 +17,8 @@ SUPPORTS_MACCATALYST = NO
 SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO
 SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO
 SWIFT_VERSION = 5.0
+// The home-screen icon: Marketing's approved "Lean, calm" mark, rendered full-bleed (see Cuadrao/Brand.xcassets).
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 ONLY_ACTIVE_ARCH = YES
 CLANG_ENABLE_MODULES = YES
 ENABLE_USER_SCRIPT_SANDBOXING = YES
@@ -23,6 +26,10 @@ MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
 // Session continuation is opt-in. Public configuration only; no passwords or service keys.
 ARGUS_AUTH_ENABLED = false
+// Legal links remain hidden pending approval of app-policy URLs.
+ARGUS_CUADRAO_LEGAL_LINKS_ENABLED = false
+ARGUS_CUADRAO_TERMS_URL = https:/$()/cuadrao.ai/terminos
+ARGUS_CUADRAO_PRIVACY_URL = https:/$()/cuadrao.ai/privacidad
 ARGUS_API_URL =
 ARGUS_SUPABASE_URL =
 ARGUS_SUPABASE_ANON_KEY =

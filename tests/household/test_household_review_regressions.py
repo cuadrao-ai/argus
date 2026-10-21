@@ -3,6 +3,7 @@
 import pytest
 from argus.domain.household.errors import HouseholdNotFound
 from argus.domain.household.financial import HouseholdFinancialService
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import StaleVersion
 from argus.domain.recording.schemas import EditFinancialAccountRequest
 from argus.domain.recording.service import FinancialAccountService
@@ -94,7 +95,7 @@ def test_committed_retry_ignores_unrelated_generation_but_requires_live_incarnat
             share(service, owner, hid, aid, new.membership_id, "edit")
     with pytest.raises(HouseholdNotFound):
         post()
-    stored = records.get_account(user_id=owner, account_id=aid)
+    stored = records.get_account(user_id=owner, account_id=aid, scope=PERSONAL)
     assert len(stored.expenses) == 1
     assert stored.expenses[0].current.recorded_by == recipient
 
@@ -128,13 +129,14 @@ def test_archived_granted_cash_debt_and_unknown_keep_positions_on_restore(lane):
     accounts = FinancialAccountService(records)
     for archived in [True, False]:
         for aid in ids:
-            current = records.get_account(user_id=owner, account_id=aid)
+            current = records.get_account(user_id=owner, account_id=aid, scope=PERSONAL)
             accounts.edit(
                 user_id=owner,
                 account_id=aid,
                 request=EditFinancialAccountRequest(
                     expected_version=current.account.version, archived=archived
                 ),
+                scope=PERSONAL,
             )
         snapshot = financial.snapshot(recipient, hid)
         assert snapshot["positions"] == expected
@@ -197,7 +199,7 @@ def test_recipient_auth_deletion_removes_grants_and_preserves_owner_financial_hi
             ).fetchone()[0]
             == 0
         )
-    stored = records.get_account(user_id=owner, account_id=aid)
+    stored = records.get_account(user_id=owner, account_id=aid, scope=PERSONAL)
     assert stored.account.user_id == owner
     assert stored.opening.current.amount_minor == 100000
     assert len(stored.expenses) == 1

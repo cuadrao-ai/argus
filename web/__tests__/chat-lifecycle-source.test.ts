@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
@@ -49,7 +49,7 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(chat).toContain('role="region"');
     expect(chat).toContain('aria-label={t("common.conversation", "Conversation")}');
     expect(chat).toContain(
-      "aria-busy={isHydratingConversation || guestSubmissionPending}",
+      "aria-busy={isHydratingConversation}",
     );
     expect(announcement).toContain(
       'data-testid="conversation-retrieval-announcement"',
@@ -89,7 +89,7 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(chat).toContain('"message_send"');
     expect(chat).toContain('"retry"');
     expect(lifecycle).toContain("onConversationRemoved");
-    expect(lifecycle).toContain("onAllConversationsDeleted");
+    expect(lifecycle).not.toContain("onAllConversationsDeleted");
     expect(chat).toContain('"conversation_delete"');
     expect(polling).toContain("onDurableCompletion");
     expect(chat).toContain('"durable_job_completion"');
@@ -129,7 +129,7 @@ describe("chat archive/delete lifecycle source contract", () => {
     );
     const removedStart = lifecycle.indexOf("const handleConversationRemoved");
     const removedEnd = lifecycle.indexOf(
-      "const handleAllConversationsDeleted",
+      "return {",
       removedStart,
     );
     const removedBlock = lifecycle.slice(removedStart, removedEnd);
@@ -221,7 +221,8 @@ describe("chat archive/delete lifecycle source contract", () => {
       "utf-8",
     );
 
-    expect(chat).toContain('import { ConfirmDialog } from "@/components/ui/ConfirmDialog";');
+    const dialog = readFileSync(join(root, "components/chat/ConversationDeleteDialog.tsx"), "utf-8");
+    expect(dialog).toContain('import { ConfirmDialog } from "@/components/ui/ConfirmDialog";');
     expect(chat).toContain('import type { KeyboardDeleteRequest } from "@/lib/keyboard-shortcuts";');
     expect(chat).toContain("useState<KeyboardDeleteRequest | null>(null)");
     expect(shortcuts).toContain("export type KeyboardDeleteRequest = {");
@@ -232,9 +233,10 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(chat).toContain("setPendingHeaderDelete({ conversationId, showKeyboardHints: fromKeyboardShortcut });");
     expect(chat).toContain("deleteConversation(pendingHeaderDelete.conversationId)");
     expect(chat).toContain("handleConversationRemoved(pendingHeaderDelete.conversationId);");
-    expect(chat).toContain("isOpen={Boolean(pendingHeaderDelete)}");
-    expect(chat).toContain("showKeyboardHints={pendingHeaderDelete?.showKeyboardHints}");
-    expect(chat).toContain(') : currentView === "chat" &&');
+    expect(chat).toContain("pending={pendingHeaderDelete}");
+    expect(dialog).toContain("isOpen={Boolean(pending)}");
+    expect(dialog).toContain("showKeyboardHints={pending?.showKeyboardHints}");
+    expect(chat).toContain('currentView === "chat" &&');
     expect(chat).toContain("conversationId &&");
     expect(chat).toContain("canManageConversation ? (");
     expect(chat).toContain("isDeleting={isDeletingHeaderChat}");
@@ -267,17 +269,16 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(es.chat.disclaimer).toBe("Argus puede equivocarse. Solo con fines educativos. No es asesoría financiera.");
   });
 
-  test("guest expiry stays composer-owned across empty and active chat layouts", () => {
+  test("guest expiry copy is gone and the registered disclaimer stays on both layouts", () => {
     const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
     const emptyChat = readFileSync(join(root, "components/chat/EmptyChatSurface.tsx"), "utf-8");
     const legal = readFileSync(join(root, "components/chat/ChatLegalNotice.tsx"), "utf-8");
-    const footer = readFileSync(join(root, "components/guest/GuestLegalFooter.tsx"), "utf-8");
     const sidebar = readFileSync(join(root, "components/sidebar/ChatSidebar.tsx"), "utf-8");
 
+    expect(existsSync(join(root, "components/guest/GuestLegalFooter.tsx"))).toBe(false);
     expect(`${chat}\n${emptyChat}`.match(/<ChatLegalNotice/g)?.length).toBe(2);
     expect(`${chat}\n${emptyChat}`).not.toContain("temporaryExpiresAt=");
-    expect(legal).toContain("<GuestLegalFooter");
-    expect(footer.match(/data-testid="guest-temporary-notice"/g)?.length).toBe(1);
+    expect(legal).not.toContain("GuestLegalFooter");
     expect(sidebar).not.toContain("guest-sidebar-expiry");
     expect(sidebar).not.toContain("temporaryExpiresAt");
   });

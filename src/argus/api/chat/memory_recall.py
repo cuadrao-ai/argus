@@ -3,7 +3,8 @@
 S10 boundary: this runs only after interpretation, routing, and any
 simulation have fully completed, and it only annotates the final assistant
 message. Memory never reaches the interpreter's input, a routing decision, or
-a simulation parameter. Recall failures never break the turn.
+a simulation parameter. Recall failures never break the turn. Only a Personal
+conversation recalls: memory is Personal and a Business chat never reads it.
 """
 
 from __future__ import annotations
@@ -13,12 +14,14 @@ from typing import Any
 
 from loguru import logger
 
+from argus.api.conversation_surface import conversation_scope
 from argus.api.guest_access import AccountContext
 from argus.api.personalization_memory import (
     memory_service,
     personalization_memory_exposed,
 )
 from argus.api.schemas import User
+from argus.domain.owner_scope import PERSONAL
 from argus.memory.contracts import MemoryUsePurpose
 from argus.memory.subject import (
     MemoryAccountKind,
@@ -33,6 +36,7 @@ def memory_recalls_for_turn(
     *,
     user: User,
     account: AccountContext,
+    conversation_id: str,
     user_message: str | None,
     memory_opt_out: bool,
 ) -> list[dict[str, Any]] | None:
@@ -53,6 +57,11 @@ def memory_recalls_for_turn(
         kind=MemoryAccountKind.REGISTERED,
     )
     try:
+        scope = conversation_scope(
+            user_id=account.user_id, conversation_id=conversation_id
+        )
+        if scope != PERSONAL:
+            return None
         retrieved = service.retrieve(
             subject,
             query,
@@ -84,6 +93,7 @@ async def memory_recalls_for_turn_async(
     *,
     user: User,
     account: AccountContext,
+    conversation_id: str,
     user_message: str | None,
     memory_opt_out: bool,
 ) -> list[dict[str, Any]] | None:
@@ -96,6 +106,29 @@ async def memory_recalls_for_turn_async(
         memory_recalls_for_turn,
         user=user,
         account=account,
+        conversation_id=conversation_id,
         user_message=user_message,
         memory_opt_out=memory_opt_out,
     )
+
+
+async def annotate_memory_recalls(
+    *targets: dict[str, Any],
+    user: User,
+    account: AccountContext,
+    conversation_id: str,
+    user_message: str | None,
+    memory_opt_out: bool,
+) -> None:
+    """Write the turn's recalls, when there are any, into each target payload."""
+
+    recalls = await memory_recalls_for_turn_async(
+        user=user,
+        account=account,
+        conversation_id=conversation_id,
+        user_message=user_message,
+        memory_opt_out=memory_opt_out,
+    )
+    if recalls:
+        for target in targets:
+            target["memory_recalls"] = recalls

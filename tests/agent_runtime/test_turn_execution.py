@@ -731,3 +731,185 @@ def test_research_recovery_cannot_reserve_after_the_turn_deadline(
             assert turn_execution.reserve_provider_call("knowledge_voicing") is None
         assert execution.deadline_exhausted
         assert not execution.research_recovery_reserved
+
+
+def test_a_turn_without_a_focused_repair_keeps_exactly_seven_ordinary_permits() -> None:
+    from argus.agent_runtime import turn_execution
+
+    with turn_execution.turn_execution_scope(entry_state={}) as execution:
+        granted = [
+            turn_execution.reserve_provider_call(task)
+            for task in (
+                "asset_mention_preflight",
+                "interpretation",
+                "interpretation",
+                "interpretation",
+                "interpretation_repair",
+                "interpretation_repair",
+                "field_fidelity",
+            )
+        ]
+        assert turn_execution.reserve_provider_call("field_fidelity") is None
+        assert turn_execution.reserve_provider_call("interpretation_repair") is None
+        assert turn_execution.reserve_provider_call("clarification") is None
+        summary = turn_execution.turn_execution_summary(())
+
+    assert all(permit is not None for permit in granted)
+    assert execution.blocked_tasks == [
+        "field_fidelity",
+        "interpretation_repair",
+        "clarification",
+    ]
+    assert summary["calls_reserved"] == 7
+    assert summary["repair_approval_grant_used"] == 0
+    assert summary["call_allowance_exhausted"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_focused_repair_on_the_last_ordinary_permit_funds_its_approval() -> None:
+    from argus.agent_runtime import turn_execution
+
+    @turn_execution.focused_repair
+    async def repair_then_approve() -> list[str]:
+        return [
+            task
+            for task in ("interpretation_repair", "field_fidelity", "clarification")
+            if turn_execution.reserve_provider_call(task) is not None
+        ]
+
+    with turn_execution.turn_execution_scope(entry_state={}) as execution:
+        for _ in range(execution.call_allowance - 1):
+            assert turn_execution.reserve_provider_call("interpretation") is not None
+        granted = await repair_then_approve()
+        # Outside the repair the corridor is still spent.
+        assert turn_execution.reserve_provider_call("field_fidelity") is None
+        summary = turn_execution.turn_execution_summary(())
+
+    assert granted == ["interpretation_repair", "field_fidelity"]
+    assert summary["calls_reserved"] == 8
+    assert summary["repair_approval_grant_used"] == 1
+    assert execution.blocked_tasks == ["clarification", "field_fidelity"]
+
+
+@pytest.mark.asyncio
+async def test_an_exhausted_allowance_does_not_start_a_repair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.agent_runtime import turn_execution
+    from argus.llm import openrouter
+
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.setenv("ARGUS_STRUCTURED_MODEL", "primary/model")
+    monkeypatch.setenv("ARGUS_STRUCTURED_FALLBACK_MODEL", "fallback/model")
+    posts: list[str] = []
+
+    async def post(*, retry_attempt: Any, **_: Any) -> Any:
+        posts.append(retry_attempt[4])
+        raise AssertionError("an unfundable repair must not reach the provider")
+
+    monkeypatch.setattr(openrouter, "_post_openrouter_json_schema", post)
+
+    @turn_execution.focused_repair
+    async def approve_then_retry_repair() -> Any:
+        assert turn_execution.reserve_provider_call("field_fidelity") is not None
+        with turn_execution.last_resort_repair_scope():
+            return await openrouter.invoke_openrouter_json_schema(
+                task="interpretation_repair",
+                messages=[{"role": "user", "content": "200 al mes"}],
+                schema_model=_Schema,
+                schema_name="FocusedStrategyExtraction",
+            )
+
+    with turn_execution.turn_execution_scope(entry_state={}) as execution:
+        for _ in range(execution.call_allowance):
+            assert turn_execution.reserve_provider_call("interpretation") is not None
+        receipt_token = openrouter.begin_openrouter_route_receipt_capture()
+        try:
+            result = await approve_then_retry_repair()
+        finally:
+            receipts = openrouter.end_openrouter_route_receipt_capture(receipt_token)
+        summary = turn_execution.turn_execution_summary(receipts)
+
+    # One pool call is left, but a repair needs a second one for its approval.
+    assert result is None
+    assert posts == []
+    assert [
+        (receipt.task, receipt.schema_name, receipt.outcome, receipt.failure_mode)
+        for receipt in receipts
+    ] == [
+        (
+            "interpretation_repair",
+            "FocusedStrategyExtraction",
+            "skipped",
+            "turn_call_allowance_exhausted",
+        )
+    ]
+    assert execution.blocked_tasks == ["interpretation_repair"]
+    assert summary["last_resort_repair_calls_granted"] == 2
+    assert summary["last_resort_repair_grant_used"] == 1
+    assert summary["repair_approval_grant_used"] == 1
+    assert summary["calls_reserved"] == 8
+
+
+@pytest.mark.asyncio
+async def test_a_last_resort_repair_and_its_approval_share_the_pool() -> None:
+    from argus.agent_runtime import turn_execution
+
+    @turn_execution.focused_repair
+    async def last_resort_repair_then_approve() -> list[str]:
+        with turn_execution.last_resort_repair_scope():
+            return [
+                task
+                for task in (
+                    "interpretation_repair",
+                    "interpretation_repair",
+                    "field_fidelity",
+                    "field_fidelity",
+                )
+                if turn_execution.reserve_provider_call(task) is not None
+            ]
+
+    with turn_execution.turn_execution_scope(entry_state={}) as execution:
+        for _ in range(execution.call_allowance):
+            assert turn_execution.reserve_provider_call("interpretation") is not None
+        granted = await last_resort_repair_then_approve()
+        summary = turn_execution.turn_execution_summary(())
+
+    assert granted == ["interpretation_repair", "field_fidelity"]
+    assert execution.blocked_tasks == ["interpretation_repair", "field_fidelity"]
+    assert summary["calls_reserved"] == 9
+    assert summary["last_resort_repair_grant_used"] == 2
+    assert summary["repair_approval_grant_used"] == 1
+
+
+@pytest.mark.asyncio
+async def test_every_reservation_source_together_stays_within_the_stated_ceiling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from argus.agent_runtime import turn_execution
+
+    monkeypatch.setenv("ARGUS_RESEARCH_RAIL_ENABLED", "true")
+    attempts = 4 * turn_execution.TURN_PROVIDER_POST_CEILING
+
+    def grants(task: str) -> int:
+        return sum(
+            turn_execution.reserve_provider_call(task) is not None
+            for _ in range(attempts)
+        )
+
+    @turn_execution.focused_repair
+    async def focused_repair_calls() -> int:
+        with turn_execution.last_resort_repair_scope():
+            return grants("interpretation_repair") + grants("field_fidelity")
+
+    with turn_execution.turn_execution_scope(entry_state={}):
+        granted = grants("interpretation") + grants("knowledge_route")
+        with turn_execution.research_recovery_scope():
+            granted += grants("knowledge_voicing")
+        granted += await focused_repair_calls()
+        granted += await focused_repair_calls()
+        with turn_execution.last_resort_repair_scope():
+            granted += grants("interpretation_repair")
+
+    assert turn_execution.TURN_PROVIDER_POST_CEILING == 11
+    assert granted == 11

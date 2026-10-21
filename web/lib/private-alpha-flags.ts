@@ -22,3 +22,57 @@ export const guestAccessEnabled = guestAccessEnabledFromEnv(
 // separate founder decision from merging it.
 export const evidenceReceiptSharingEnabled =
   process.env.NEXT_PUBLIC_EVIDENCE_RECEIPT_SHARING_ENABLED === "true";
+
+// Cuadrao Business owner pilot: overview, receipt inbox, review and expenses
+// inside the chat shell on /biz. Default off until the connected pilot passes.
+export function businessPilotEnabledFromEnv(
+  value: string | undefined = process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED,
+): boolean {
+  return value === "true";
+}
+
+export const businessPilotEnabled = businessPilotEnabledFromEnv();
+
+// Business is the only web app. Unset is on. The string "false" restores the
+// consumer web (root, guest chat, and /chat).
+export function businessOnlyWebFromEnv(value: string | undefined): boolean {
+  return value !== "false";
+}
+
+export const businessOnlyWebEnabled = businessOnlyWebFromEnv(
+  process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB,
+);
+
+// Business Preferencias WhatsApp number. Default off. The row stays hidden
+// until intake is connected. Personal preferences do not read this flag.
+export function businessWhatsappPreferencesEnabledFromEnv(
+  value: string | undefined = process.env.NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED,
+): boolean {
+  return value === "true";
+}
+
+export const businessWhatsappPreferencesEnabled =
+  businessWhatsappPreferencesEnabledFromEnv();
+
+// Business Buscar and its Ctrl/Cmd+K shortcut. Default off, and separate from
+// the WhatsApp preferences flag so search can return on its own.
+export function businessSearchEnabledFromEnv(
+  value: string | undefined = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED,
+): boolean {
+  return value === "true";
+}
+
+export const businessSearchEnabled = businessSearchEnabledFromEnv();
+
+export function businessSearchEntryEnabled(workspaceId: string | undefined): boolean {
+  return workspaceId !== "business" || businessSearchEnabledFromEnv();
+}
+
+// Statement match cards. Default off, and nested under the Business pilot.
+// CUADRAO wins when both names are set.
+export const businessBankMatchingEnabled = (() => {
+  const cuadrao = process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED;
+  const legacy = process.env.NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED;
+  const value = (cuadrao ?? legacy ?? "").trim().toLowerCase();
+  return businessPilotEnabled && ["1", "true", "yes", "on"].includes(value);
+})();

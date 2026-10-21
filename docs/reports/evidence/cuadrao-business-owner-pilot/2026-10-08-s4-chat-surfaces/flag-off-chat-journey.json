@@ -1,0 +1,983 @@
+[
+ [
+  "GET",
+  "/me",
+  200,
+  {
+   "account_kind": "registered",
+   "apple_identity": null,
+   "capabilities": {
+    "can_create_additional_conversation": true,
+    "can_manage_account": true,
+    "can_manage_conversation": true,
+    "can_save_decision": true,
+    "can_search_current_workspace": true,
+    "can_submit_feedback": true,
+    "can_use_grounded_discovery": true,
+    "can_use_omnisearch": true
+   },
+   "guest": null,
+   "public_account_access_enabled": true,
+   "user": {
+    "avatar_theme": "ocean",
+    "country": null,
+    "created_at": "<t0>",
+    "currency": null,
+    "currency_override": null,
+    "display_name": null,
+    "email": "fin-s4probe-<who>@example.test",
+    "id": "<id0>",
+    "is_admin": false,
+    "language": "en",
+    "locale": "en-US",
+    "onboarding": {
+     "completed": false,
+     "language_confirmed": false,
+     "primary_goal": null,
+     "stage": "language_selection"
+    },
+    "preferred_name": null,
+    "updated_at": "<t0>",
+    "username": null
+   }
+  },
+  null
+ ],
+ [
+  "GET",
+  "/me",
+  200,
+  {
+   "account_kind": "registered",
+   "apple_identity": null,
+   "capabilities": {
+    "can_create_additional_conversation": true,
+    "can_manage_account": true,
+    "can_manage_conversation": true,
+    "can_save_decision": true,
+    "can_search_current_workspace": true,
+    "can_submit_feedback": true,
+    "can_use_grounded_discovery": true,
+    "can_use_omnisearch": true
+   },
+   "guest": null,
+   "public_account_access_enabled": true,
+   "user": {
+    "avatar_theme": "ocean",
+    "country": null,
+    "created_at": "<t1>",
+    "currency": null,
+    "currency_override": null,
+    "display_name": null,
+    "email": "fin-s4probe-<who>@example.test",
+    "id": "<id1>",
+    "is_admin": false,
+    "language": "en",
+    "locale": "en-US",
+    "onboarding": {
+     "completed": false,
+     "language_confirmed": false,
+     "primary_goal": null,
+     "stage": "language_selection"
+    },
+    "preferred_name": null,
+    "updated_at": "<t1>",
+    "username": null
+   }
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations?limit=2",
+  200,
+  {
+   "items": [
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id2>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t2>",
+     "deleted_at": null,
+     "id": "<id3>",
+     "language": "en",
+     "last_message_preview": "How is my savings ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Savings ledger",
+     "title_source": "system_default",
+     "updated_at": "<t2>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id4>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t3>",
+     "deleted_at": null,
+     "id": "<id5>",
+     "language": "en",
+     "last_message_preview": "How is my groceries ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my groceries ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Groceries ledger",
+     "title_source": "system_default",
+     "updated_at": "<t3>"
+    }
+   ],
+   "next_cursor": "<cursor>"
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations?limit=2&cursor=<cursor>",
+  200,
+  {
+   "items": [
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id6>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t4>",
+     "deleted_at": null,
+     "id": "<id7>",
+     "language": "en",
+     "last_message_preview": "How is my rent ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my rent ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Rent ledger",
+     "title_source": "system_default",
+     "updated_at": "<t4>"
+    }
+   ],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations",
+  200,
+  {
+   "items": [
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id2>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t2>",
+     "deleted_at": null,
+     "id": "<id3>",
+     "language": "en",
+     "last_message_preview": "How is my savings ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Savings ledger",
+     "title_source": "system_default",
+     "updated_at": "<t2>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id4>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t3>",
+     "deleted_at": null,
+     "id": "<id5>",
+     "language": "en",
+     "last_message_preview": "How is my groceries ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my groceries ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Groceries ledger",
+     "title_source": "system_default",
+     "updated_at": "<t3>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id6>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t4>",
+     "deleted_at": null,
+     "id": "<id7>",
+     "language": "en",
+     "last_message_preview": "How is my rent ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my rent ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Rent ledger",
+     "title_source": "system_default",
+     "updated_at": "<t4>"
+    }
+   ],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "GET",
+  "/search?q=ledger&limit=30&include_ledger_groups=true",
+  200,
+  {
+   "items": [
+    {
+     "answer_dossier": null,
+     "archived": false,
+     "conversation_id": "<id3>",
+     "decided_runs": 0,
+     "decision_states": [],
+     "dossier": null,
+     "id": "<id3>",
+     "match": {
+      "count": 1,
+      "fragment": "How is my savings ledger doing?",
+      "layer": "message",
+      "message_id": "<id2>"
+     },
+     "matched_text": "How is my savings ledger doing?",
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "title": "Savings ledger",
+     "total_runs": 0,
+     "type": "conversation",
+     "updated_at": "<t2>"
+    },
+    {
+     "answer_dossier": null,
+     "archived": false,
+     "conversation_id": "<id5>",
+     "decided_runs": 0,
+     "decision_states": [],
+     "dossier": null,
+     "id": "<id5>",
+     "match": {
+      "count": 1,
+      "fragment": "How is my groceries ledger doing?",
+      "layer": "message",
+      "message_id": "<id4>"
+     },
+     "matched_text": "How is my groceries ledger doing?",
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my groceries ledger doing?"
+     },
+     "title": "Groceries ledger",
+     "total_runs": 0,
+     "type": "conversation",
+     "updated_at": "<t3>"
+    },
+    {
+     "answer_dossier": null,
+     "archived": false,
+     "conversation_id": "<id7>",
+     "decided_runs": 0,
+     "decision_states": [],
+     "dossier": null,
+     "id": "<id7>",
+     "match": {
+      "count": 1,
+      "fragment": "How is my rent ledger doing?",
+      "layer": "message",
+      "message_id": "<id6>"
+     },
+     "matched_text": "How is my rent ledger doing?",
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my rent ledger doing?"
+     },
+     "title": "Rent ledger",
+     "total_runs": 0,
+     "type": "conversation",
+     "updated_at": "<t4>"
+    }
+   ],
+   "ledger_groups": [
+    {
+     "count": 0,
+     "decision_state": "promising"
+    },
+    {
+     "count": 0,
+     "decision_state": "watching"
+    },
+    {
+     "count": 0,
+     "decision_state": "rejected"
+    },
+    {
+     "count": 0,
+     "decision_state": "revisit_later"
+    }
+   ],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "GET",
+  "/search?q=&limit=1&include_ledger_groups=true",
+  200,
+  {
+   "items": [
+    {
+     "answer_dossier": null,
+     "archived": false,
+     "conversation_id": "<id3>",
+     "decided_runs": 0,
+     "decision_states": [],
+     "dossier": null,
+     "id": "<id3>",
+     "match": {
+      "count": 1,
+      "fragment": "",
+      "layer": "conversation"
+     },
+     "matched_text": "",
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "title": "Savings ledger",
+     "total_runs": 0,
+     "type": "conversation",
+     "updated_at": "<t2>"
+    }
+   ],
+   "ledger_groups": [
+    {
+     "count": 0,
+     "decision_state": "promising"
+    },
+    {
+     "count": 0,
+     "decision_state": "watching"
+    },
+    {
+     "count": 0,
+     "decision_state": "rejected"
+    },
+    {
+     "count": 0,
+     "decision_state": "revisit_later"
+    }
+   ],
+   "next_cursor": "<cursor>"
+  },
+  null
+ ],
+ [
+  "GET",
+  "/history?limit=50",
+  200,
+  {
+   "items": [
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id2>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "conversation_id": null,
+     "created_at": "<t2>",
+     "expires_at": null,
+     "id": "<id3>",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "subtitle": "How is my savings ledger doing?",
+     "title": "Savings ledger",
+     "title_source": "system_default",
+     "type": "chat"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id4>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "conversation_id": null,
+     "created_at": "<t3>",
+     "expires_at": null,
+     "id": "<id5>",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my groceries ledger doing?"
+     },
+     "subtitle": "How is my groceries ledger doing?",
+     "title": "Groceries ledger",
+     "title_source": "system_default",
+     "type": "chat"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id6>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "conversation_id": null,
+     "created_at": "<t4>",
+     "expires_at": null,
+     "id": "<id7>",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my rent ledger doing?"
+     },
+     "subtitle": "How is my rent ledger doing?",
+     "title": "Rent ledger",
+     "title_source": "system_default",
+     "type": "chat"
+    }
+   ],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations/<id3>/messages",
+  200,
+  {
+   "items": [
+    {
+     "content": "How is my savings ledger doing?",
+     "conversation_id": "<id3>",
+     "created_at": "<t2>",
+     "id": "<id2>",
+     "metadata": {},
+     "role": "user"
+    }
+   ],
+   "next_cursor": null,
+   "surface": "personal"
+  },
+  null
+ ],
+ [
+  "PATCH",
+  "/conversations/<id3>",
+  200,
+  {
+   "conversation": {
+    "activity": {
+     "attention": {
+      "cursor": null,
+      "status": "none"
+     },
+     "latest_message_id": "<id2>",
+     "operation": {
+      "kind": null,
+      "status": "idle",
+      "updated_at": null
+     }
+    },
+    "archived": false,
+    "created_at": "<t2>",
+    "deleted_at": null,
+    "id": "<id3>",
+    "language": "en",
+    "last_message_preview": "How is my savings ledger doing?",
+    "pinned": true,
+    "preview": {
+     "kind": "text",
+     "symbols": [],
+     "template": null,
+     "text": "How is my savings ledger doing?"
+    },
+    "surface": "personal",
+    "title": "Savings ledger",
+    "title_source": "system_default",
+    "updated_at": "<t5>"
+   }
+  },
+  null
+ ],
+ [
+  "POST",
+  "/conversations",
+  200,
+  {
+   "conversation": {
+    "activity": {
+     "attention": {
+      "cursor": null,
+      "status": "none"
+     },
+     "latest_message_id": null,
+     "operation": {
+      "kind": null,
+      "status": "idle",
+      "updated_at": null
+     }
+    },
+    "archived": false,
+    "created_at": "<t6>",
+    "deleted_at": null,
+    "id": "<id8>",
+    "language": "en",
+    "last_message_preview": null,
+    "pinned": false,
+    "preview": {
+     "kind": "empty",
+     "symbols": [],
+     "template": null,
+     "text": null
+    },
+    "surface": "personal",
+    "title": "New idea",
+    "title_source": "system_default",
+    "updated_at": "<t6>"
+   }
+  },
+  null
+ ],
+ [
+  "POST",
+  "/conversations",
+  200,
+  {
+   "conversation": {
+    "activity": {
+     "attention": {
+      "cursor": null,
+      "status": "none"
+     },
+     "latest_message_id": null,
+     "operation": {
+      "kind": null,
+      "status": "idle",
+      "updated_at": null
+     }
+    },
+    "archived": false,
+    "created_at": "<t7>",
+    "deleted_at": null,
+    "id": "<id9>",
+    "language": "en",
+    "last_message_preview": null,
+    "pinned": false,
+    "preview": {
+     "kind": "empty",
+     "symbols": [],
+     "template": null,
+     "text": null
+    },
+    "surface": "personal",
+    "title": "Named",
+    "title_source": "user_renamed",
+    "updated_at": "<t7>"
+   }
+  },
+  null
+ ],
+ [
+  "POST",
+  "/conversations/<id3>/messages/<id8>/decision",
+  404,
+  {
+   "code": "not_found",
+   "detail": "Message not found or not owned by user.",
+   "status": 404,
+   "title": "Not Found",
+   "type": "https://api.argus.app/problems/not-found"
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations/<id3>/public-excerpt-candidates",
+  404,
+  {
+   "detail": "Not Found"
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations",
+  200,
+  {
+   "items": [],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "GET",
+  "/search?q=ledger",
+  200,
+  {
+   "items": [],
+   "ledger_groups": null,
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "DELETE",
+  "/conversations/<id3>",
+  200,
+  {
+   "success": true
+  },
+  null
+ ],
+ [
+  "GET",
+  "/history?deleted=true",
+  200,
+  {
+   "items": [
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id2>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "conversation_id": null,
+     "created_at": "<t8>",
+     "expires_at": null,
+     "id": "<id3>",
+     "pinned": true,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "subtitle": "How is my savings ledger doing?",
+     "title": "Savings ledger",
+     "title_source": "system_default",
+     "type": "chat"
+    }
+   ],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "DELETE",
+  "/conversations",
+  200,
+  {
+   "deleted_count": 4,
+   "success": true
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations?deleted=true",
+  200,
+  {
+   "items": [
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id4>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t3>",
+     "deleted_at": "<t9>",
+     "id": "<id5>",
+     "language": "en",
+     "last_message_preview": "How is my groceries ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my groceries ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Groceries ledger",
+     "title_source": "system_default",
+     "updated_at": "<t9>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": null,
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t7>",
+     "deleted_at": "<t9>",
+     "id": "<id9>",
+     "language": "en",
+     "last_message_preview": null,
+     "pinned": false,
+     "preview": {
+      "kind": "empty",
+      "symbols": [],
+      "template": null,
+      "text": null
+     },
+     "surface": "personal",
+     "title": "Named",
+     "title_source": "user_renamed",
+     "updated_at": "<t9>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": null,
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t6>",
+     "deleted_at": "<t9>",
+     "id": "<id8>",
+     "language": "en",
+     "last_message_preview": null,
+     "pinned": false,
+     "preview": {
+      "kind": "empty",
+      "symbols": [],
+      "template": null,
+      "text": null
+     },
+     "surface": "personal",
+     "title": "New idea",
+     "title_source": "system_default",
+     "updated_at": "<t9>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id6>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t4>",
+     "deleted_at": "<t9>",
+     "id": "<id7>",
+     "language": "en",
+     "last_message_preview": "How is my rent ledger doing?",
+     "pinned": false,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my rent ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Rent ledger",
+     "title_source": "system_default",
+     "updated_at": "<t9>"
+    },
+    {
+     "activity": {
+      "attention": {
+       "cursor": null,
+       "status": "none"
+      },
+      "latest_message_id": "<id2>",
+      "operation": {
+       "kind": null,
+       "status": "idle",
+       "updated_at": null
+      }
+     },
+     "archived": false,
+     "created_at": "<t2>",
+     "deleted_at": "<t8>",
+     "id": "<id3>",
+     "language": "en",
+     "last_message_preview": "How is my savings ledger doing?",
+     "pinned": true,
+     "preview": {
+      "kind": "text",
+      "symbols": [],
+      "template": null,
+      "text": "How is my savings ledger doing?"
+     },
+     "surface": "personal",
+     "title": "Savings ledger",
+     "title_source": "system_default",
+     "updated_at": "<t8>"
+    }
+   ],
+   "next_cursor": null
+  },
+  null
+ ],
+ [
+  "GET",
+  "/conversations",
+  200,
+  {
+   "items": [],
+   "next_cursor": null
+  },
+  null
+ ]
+]

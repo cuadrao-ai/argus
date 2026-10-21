@@ -32,6 +32,7 @@ from argus.domain.conversation_recall import (
     project_asset_rollup,
     valid_next_experiments_metadata,
 )
+from argus.domain.owner_scope import OwnerScope, holds
 from argus.domain.search_text import (
     normalize_search_symbol,
     normalize_search_text,
@@ -123,7 +124,7 @@ class _MemorySearchIndexCacheEntry:
 
 _INDEX_CACHE_MAX_ENTRIES = 8
 _INDEX_CACHE: OrderedDict[
-    tuple[int, str],
+    tuple[int, str, OwnerScope],
     _MemorySearchIndexCacheEntry,
 ] = OrderedDict()
 _INDEX_CACHE_LOCK = RLock()
@@ -133,6 +134,7 @@ def bounded_memory_search_snapshot(
     *,
     store: AlphaStore,
     user: User,
+    scope: OwnerScope,
     query: str,
     source_limit: int,
     include_conversation_rows: bool,
@@ -144,7 +146,7 @@ def bounded_memory_search_snapshot(
     conversation_ids: Iterable[str] | None = None,
 ) -> MemorySearchSnapshot:
     """Read a bounded query page from a revision-keyed, non-durable index."""
-    with _memory_search_index(store=store, user=user) as index:
+    with _memory_search_index(store=store, user=user, scope=scope) as index:
         return _bounded_memory_search_snapshot_for_index(
             index=index,
             query=query,
@@ -330,8 +332,9 @@ def _memory_search_index(
     *,
     store: AlphaStore,
     user: User,
+    scope: OwnerScope,
 ) -> Iterator[_MemorySearchIndex]:
-    cache_key = (id(store), user.id)
+    cache_key = (id(store), user.id, scope)
     with _INDEX_CACHE_LOCK:
         entry = _INDEX_CACHE.get(cache_key)
         if entry is not None and entry.index.revision == store.search_revision:
@@ -341,7 +344,7 @@ def _memory_search_index(
             if stale_entry is not None:
                 _retire_memory_search_index(stale_entry)
             entry = _MemorySearchIndexCacheEntry(
-                index=_build_memory_search_index(store=store, user=user),
+                index=_build_memory_search_index(store=store, user=user, scope=scope),
             )
             _INDEX_CACHE[cache_key] = entry
             while len(_INDEX_CACHE) > _INDEX_CACHE_MAX_ENTRIES:
@@ -367,6 +370,7 @@ def _build_memory_search_index(
     *,
     store: AlphaStore,
     user: User,
+    scope: OwnerScope,
 ) -> _MemorySearchIndex:
     """Rebuild only when canonical memory changes, never for each keystroke."""
     revision = store.search_revision
@@ -379,6 +383,7 @@ def _build_memory_search_index(
                 object_id=conversation.id,
                 user_id=user.id,
             )
+            and holds(scope, store.conversation_spaces.get(conversation.id))
             and conversation.deleted_at is None
         ]
         visible_conversation_ids = {

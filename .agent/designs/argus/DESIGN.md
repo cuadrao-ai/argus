@@ -551,7 +551,8 @@ input behavior from one money-entry owner per client and a common contract.
   labels; reject malformed grouping, mismatched currency, excess precision and
   exponent notation with an inline explanation. Do not guess an ambiguous
   decimal separator or silently round a pasted amount.
-- Blank optional amounts mean unknown, independently of zero. Required goals
+- Blank optional amounts mean unknown, independently of zero, except a new
+  money account's starting balance, which the server records as 0.00. Required goals
   and positive-only amounts retain their own constraints. Allow negative bank
   balances where the account supports being overdrawn.
 - A currency change revalidates the same amount; it does not perform FX

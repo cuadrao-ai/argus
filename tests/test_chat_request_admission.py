@@ -5,6 +5,7 @@ from argus.api import state as api_state
 from argus.api.chat.request_admission import prepare_chat_request_admission
 from argus.api.message_store import memory_conversation
 from argus.api.schemas import ChatActionPayload, ChatStreamRequest
+from argus.domain.owner_scope import PERSONAL
 from fastapi import Request
 
 
@@ -64,6 +65,7 @@ def test_prepared_response_option_request_sanitizes_persisted_action() -> None:
 def test_prepared_request_persists_exactly_once() -> None:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="New conversation",
         title_source="system_default",
         language="en",
@@ -96,6 +98,7 @@ def test_prepared_request_persists_exactly_once() -> None:
 def test_ordinary_turn_accepts_message_and_lifecycle_atomically() -> None:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="New conversation",
         title_source="system_default",
         language="en",
@@ -134,6 +137,7 @@ def test_ordinary_turn_accepts_message_and_lifecycle_atomically() -> None:
 def test_message_only_admission_appends_without_chat_turn_lifecycle() -> None:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="New conversation",
         title_source="system_default",
         language="en",
@@ -199,6 +203,7 @@ def _run_admission(
 def test_run_action_replay_reuses_one_server_owned_message_identity() -> None:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="New conversation",
         title_source="system_default",
         language="en",
@@ -248,12 +253,14 @@ def test_run_action_replay_reuses_one_server_owned_message_identity() -> None:
 def test_run_action_identity_collision_across_conversations_fails_closed() -> None:
     api_state.store.reset()
     first_conversation = memory_conversation(
+        scope=PERSONAL,
         title="First",
         title_source="system_default",
         language="en",
         user_id="user-1",
     )
     foreign_conversation = memory_conversation(
+        scope=PERSONAL,
         title="Foreign",
         title_source="system_default",
         language="en",
@@ -282,6 +289,7 @@ def test_run_action_identity_collision_across_conversations_fails_closed() -> No
 def test_run_action_identity_collision_with_mismatched_action_fails_closed() -> None:
     api_state.store.reset()
     conversation = memory_conversation(
+        scope=PERSONAL,
         title="New conversation",
         title_source="system_default",
         language="en",

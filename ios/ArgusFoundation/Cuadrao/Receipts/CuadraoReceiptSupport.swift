@@ -23,12 +23,10 @@ struct ReceiptLineEditor: View {
                 if existing { Button(spanish ? "Quitar artículo" : "Remove item", role: .destructive) { save(nil); dismiss() } }
             }.cuadraoFormKeyboard().navigationTitle(spanish ? "Artículo" : "Item").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cancelar" : "Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(spanish ? "Guardar" : "Save") { save(line); dismiss() }
-                            .disabled(!error.isEmpty || line.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .accessibilityIdentifier("receipt-item-save")
-                    }
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
+                    CuadraoConfirmToolbar(title: spanish ? "Guardar" : "Save",
+                                          disabled: !error.isEmpty || line.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                          identifier: "receipt-item-save") { save(line); dismiss() }
                 }
         }
     }
@@ -55,7 +53,7 @@ struct ReceiptSourceViewer: View {
                     }
                 }.padding(24)
             }.navigationTitle(spanish ? "Recibo original" : "Original receipt").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(spanish ? "Listo" : "Done") { dismiss() } } }
+                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
         }
     }
 }

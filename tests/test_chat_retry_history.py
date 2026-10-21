@@ -10,6 +10,7 @@ import pytest
 from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.routers import agent as agent_router
+from argus.domain.owner_scope import PERSONAL
 from faker import Faker
 from fastapi.testclient import TestClient
 
@@ -180,6 +181,7 @@ def test_invalid_retry_target_keeps_current_and_later_history_whole(chat, target
         from argus.api.message_store import memory_conversation, memory_message
 
         foreign = memory_conversation(
+            scope=PERSONAL,
             title=fake.sentence(),
             title_source="user_renamed",
             language="en",

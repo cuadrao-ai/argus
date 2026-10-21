@@ -1,6 +1,6 @@
 """Exposure gate and process wiring for connected-source ingestion.
 
-Default-off behind ``ARGUS_INGESTION_ENABLED`` and nested inside the financial
+Default-off behind ``CUADRAO_INGESTION_ENABLED`` (or the older ``ARGUS_`` name) and nested inside the financial
 accounts surface: imports only ever feed that canonical ledger, so ingestion
 cannot be on while it is off. Durable mode reuses the financial accounts pool
 rather than opening a second one. Connector packages register their adapters
@@ -9,7 +9,6 @@ with the hub at startup; reconciliation provides the candidate sink.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -30,14 +29,15 @@ from argus.domain.ingestion.connections import (
 )
 from argus.domain.ingestion.hub import IngestionHub
 from argus.domain.ingestion.secrets import SecretBox, SecretBoxUnavailable
+from argus.settings_names import setting_value
 
-FLAG = "ARGUS_INGESTION_ENABLED"
+FLAG = "CUADRAO_INGESTION_ENABLED"
 
 _hub: IngestionHub | None = None
 
 
 def ingestion_enabled() -> bool:
-    return os.getenv(FLAG, "").strip().lower() in TRUE_VALUES
+    return (setting_value("INGESTION_ENABLED") or "").strip().lower() in TRUE_VALUES
 
 
 def ingestion_hub() -> IngestionHub | None:
@@ -54,10 +54,17 @@ def _clock() -> datetime:
 
 
 def start_ingestion(app) -> None:  # noqa: ANN001
-    """Build the hub after financial accounts; any missing piece keeps it off."""
+    """Build the hub after financial accounts; any missing piece keeps it off.
 
-    if not ingestion_enabled() or financial_accounts_service() is None:
-        configure_ingestion_hub(None)
+    With the flag off, saved documents still get a hub of their own that no
+    connector or intake route reaches, so their owner can read and remove them.
+    """
+
+    configure_ingestion_hub(None)
+    if financial_accounts_service() is None:
+        return
+    if not ingestion_enabled():
+        _start_saved_documents(app)
         return
     try:
         box: SecretBox | None
@@ -67,44 +74,64 @@ def start_ingestion(app) -> None:  # noqa: ANN001
             # Connectors that store provider credentials refuse to start
             # without a key; credential-free surfaces still list/disconnect.
             box = None
-        pool = getattr(app.state, "financial_accounts_pool", None)
-        if api_state.PERSISTENCE_MODE == "supabase":
-            if pool is None:
-                configure_ingestion_hub(None)
-                return
-            from argus.domain.ingestion.connections_postgres import (
-                PostgresConnectionRepository,
-            )
-
-            connections = PostgresConnectionRepository(pool)
-        else:
-            connections = InMemoryConnectionRepository()
-        configure_ingestion_hub(
-            IngestionHub(
-                connections,
-                box=box,
-                sink=_reconciliation(pool, connections),
-                clock=_clock,
-            )
-        )
+        hub = _build_hub(app, box)
+        if hub is None:
+            return
+        configure_ingestion_hub(hub)
         from argus.api.plaid import start_plaid
 
         start_plaid(ingestion_hub())
         from argus.api.gmail import start_gmail
 
-        start_gmail(ingestion_hub(), pool)
+        start_gmail(ingestion_hub(), getattr(app.state, "financial_accounts_pool", None))
         from argus.api.shortcuts import start_shortcuts
 
         start_shortcuts(app, ingestion_hub())
         from argus.api.documents import start_documents
 
         start_documents(app, ingestion_hub())
+        from argus.api.business_spaces import start_business_spaces
+
+        start_business_spaces(app)
+        from argus.api.whatsapp import start_whatsapp
+
+        start_whatsapp(app)
     except Exception as exc:
         logger.warning(
             "Ingestion hub construction failed; surface stays off",
             failure_mode=type(exc).__name__,
         )
         configure_ingestion_hub(None)
+
+
+def _build_hub(app, box: SecretBox | None) -> IngestionHub | None:  # noqa: ANN001
+    pool = getattr(app.state, "financial_accounts_pool", None)
+    if api_state.PERSISTENCE_MODE == "supabase":
+        if pool is None:
+            return None
+        from argus.domain.ingestion.connections_postgres import (
+            PostgresConnectionRepository,
+        )
+
+        connections = PostgresConnectionRepository(pool)
+    else:
+        connections = InMemoryConnectionRepository()
+    return IngestionHub(
+        connections, box=box, sink=_reconciliation(pool, connections), clock=_clock
+    )
+
+
+def _start_saved_documents(app) -> None:  # noqa: ANN001
+    from argus.api.documents import configure_documents, start_saved_documents
+
+    try:
+        start_saved_documents(app, _build_hub(app, None))
+    except Exception as exc:
+        logger.warning(
+            "Saved documents failed to start; they stay unreachable",
+            failure_mode=type(exc).__name__,
+        )
+        configure_documents(None)
 
 
 def _reconciliation(pool, connections):  # noqa: ANN001, ANN202
@@ -138,6 +165,16 @@ def stop_ingestion(app) -> None:  # noqa: ANN001
     from argus.api.shortcuts import stop_shortcuts
 
     stop_shortcuts()
+    from argus.api.whatsapp import configure_whatsapp
+
+    configure_whatsapp(None)
+    from argus.api.business_spaces import (
+        configure_business_access,
+        configure_business_spaces,
+    )
+
+    configure_business_spaces(None)
+    configure_business_access(None)
     from argus.api.documents import configure_documents
 
     configure_documents(None)
@@ -173,6 +210,8 @@ def unavailable_problem(request: Request) -> HTTPException:
         code="financial_connections_unavailable",
         title="Not Found",
         detail="Financial connections are not available.",
+        # The answer changes with a flag, so no cache may keep it.
+        headers={"Cache-Control": "no-store"},
     )
 
 

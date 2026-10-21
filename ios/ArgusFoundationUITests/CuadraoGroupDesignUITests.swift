@@ -31,7 +31,7 @@ final class CuadraoGroupDesignUITests: XCTestCase {
         app.buttons["group-add-expense"].tap()
         app.textFields["group-expense-name"].tap(); app.textFields["group-expense-name"].typeText("Cena del viernes\n")
         replace(app.textFields["group-expense-amount"], with: "2000")
-        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        app.dismissKeyboard()
         reveal(app, app.buttons["group-expense-draft"])
         shot(app, "plan-split-editor-es")
         app.buttons["group-expense-draft"].tap()
@@ -43,7 +43,7 @@ final class CuadraoGroupDesignUITests: XCTestCase {
         app.buttons.matching(identifier: "group-entry-recorded").element(boundBy: 0).tap()
         replace(app.textFields["Parte de Tú"], with: "500")
         replace(app.textFields["Parte de Ana"], with: "300")
-        if app.toolbars.buttons["Listo"].exists { app.toolbars.buttons["Listo"].tap() }
+        app.dismissKeyboard()
         reveal(app, app.buttons["group-expense-save"])
         XCTAssertTrue(app.buttons["group-expense-save"].wait(for: \.isEnabled, toEqual: true, timeout: 2), "A split that adds up can be saved")
         shot(app, "plan-unequal-split-es")
@@ -122,7 +122,7 @@ final class CuadraoGroupDesignUITests: XCTestCase {
         app.textFields["group-name"].tap(); app.textFields["group-name"].typeText("Our summer\n")
         app.segmentedControls.buttons["Save together"].tap()
         replace(app.textFields["group-estimate"], with: "48000")
-        app.toolbars.buttons["Done"].tap()
+        app.dismissKeyboard()
         reveal(app, app.buttons["group-save"])
         shot(app, "plan-group-create-en")
         app.buttons["group-save"].tap()
@@ -130,7 +130,7 @@ final class CuadraoGroupDesignUITests: XCTestCase {
         reveal(app, app.buttons["group-add-expense"]); app.buttons["group-add-expense"].tap()
         app.textFields["group-expense-name"].tap(); app.textFields["group-expense-name"].typeText("First step\n")
         replace(app.textFields["group-expense-amount"], with: "250")
-        if app.toolbars.buttons["Done"].exists { app.toolbars.buttons["Done"].tap() }
+        app.dismissKeyboard()
         reveal(app, app.buttons["group-expense-save"]); app.buttons["group-expense-save"].tap()
         app.swipeDown(); app.swipeDown()
         XCTAssertTrue(app.staticTexts["DOP 250"].exists)

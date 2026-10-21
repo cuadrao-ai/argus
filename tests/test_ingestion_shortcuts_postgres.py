@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timezone
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 
 from tests import test_financial_accounts_postgres as shared
 from tests.ingestion.shortcuts_support import RecordingSink
@@ -69,11 +70,11 @@ def test_enroll_intake_and_disconnect_on_real_postgres(connector, users):
     assert first[0].receipt_id == again[0].receipt_id
     assert [r.outcome for r in first + again] == ["recorded", "unchanged"]
     refreshed = connector.hub.connections.get(
-        user_id=users["owner"], connection_id=connection.id
+        user_id=users["owner"], connection_id=connection.id, scope=PERSONAL
     )
     assert refreshed.last_success_at is not None and refreshed.lease_holder is None
     outcome = connector.hub.disconnect(
-        user_id=users["owner"], connection_id=connection.id
+        user_id=users["owner"], connection_id=connection.id, scope=PERSONAL
     )
     assert outcome.provider_revocation == "revoked"
     assert connector.store.get(connection_id=connection.id) is None
@@ -144,7 +145,7 @@ def test_concurrent_enrollment_holds_the_device_limit(connector, users):
     assert outcomes.count("limit") == 10 - MAX_LIVE_DEVICES
     live = [
         row
-        for row in connector.hub.list(user_id=users["owner"])
+        for row in connector.hub.list(user_id=users["owner"], scope=PERSONAL)
         if row.status != "disconnected"
     ]
     assert len(live) == MAX_LIVE_DEVICES

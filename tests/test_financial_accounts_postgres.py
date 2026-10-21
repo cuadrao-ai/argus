@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import (
     AccountNotFound,
     IdempotencyConflict,
@@ -157,6 +158,7 @@ def test_create_reopen_replay_and_conflict(repository, users) -> None:  # noqa: 
         identity_hash="sha256:a",
         account=CHECKING,
         opening=_opening(1_250_000),
+        scope=PERSONAL,
     )
     assert first.created is True
     assert first.stored.account.version == 1
@@ -165,7 +167,9 @@ def test_create_reopen_replay_and_conflict(repository, users) -> None:  # noqa: 
     assert first.stored.opening.current.as_of == NOW
     assert first.stored.opening.current.recorded_by == owner
 
-    reopened = repository.get_account(user_id=owner, account_id=first.stored.account.id)
+    reopened = repository.get_account(
+        user_id=owner, account_id=first.stored.account.id, scope=PERSONAL
+    )
     assert reopened == first.stored
 
     again = repository.create(
@@ -174,6 +178,7 @@ def test_create_reopen_replay_and_conflict(repository, users) -> None:  # noqa: 
         identity_hash="sha256:a",
         account=CHECKING,
         opening=_opening(1_250_000),
+        scope=PERSONAL,
     )
     assert again.created is False
     assert again.stored == first.stored
@@ -185,10 +190,12 @@ def test_create_reopen_replay_and_conflict(repository, users) -> None:  # noqa: 
             identity_hash="sha256:b",
             account=CHECKING,
             opening=_opening(2_000_000),
+            scope=PERSONAL,
         )
-    assert [item.account.id for item in repository.list_accounts(user_id=owner)] == [
-        first.stored.account.id
-    ]
+    assert [
+        item.account.id
+        for item in repository.list_accounts(user_id=owner, scope=PERSONAL)
+    ] == [first.stored.account.id]
 
     unknown = repository.create(
         user_id=owner,
@@ -196,9 +203,10 @@ def test_create_reopen_replay_and_conflict(repository, users) -> None:  # noqa: 
         identity_hash="sha256:c",
         account=NewAccount("cash", "USD", None, 10_000),
         opening=None,
+        scope=PERSONAL,
     )
     assert unknown.stored.opening is None
-    assert len(repository.list_accounts(user_id=owner)) == 2
+    assert len(repository.list_accounts(user_id=owner, scope=PERSONAL)) == 2
 
 
 def test_concurrent_duplicate_creates_make_one_account(repository, users) -> None:  # noqa: ANN001
@@ -211,13 +219,14 @@ def test_concurrent_duplicate_creates_make_one_account(repository, users) -> Non
             identity_hash="sha256:race",
             account=CHECKING,
             opening=_opening(100),
+            scope=PERSONAL,
         )
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         results = list(pool.map(attempt, range(8)))
     assert sum(result.created for result in results) == 1
     assert len({result.stored.account.id for result in results}) == 1
-    assert len(repository.list_accounts(user_id=owner)) == 1
+    assert len(repository.list_accounts(user_id=owner, scope=PERSONAL)) == 1
     with psycopg.connect(DSN) as connection:
         count = connection.execute(
             "select count(*) from public.financial_accounts where user_id = %s", (owner,)
@@ -236,6 +245,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
         identity_hash="sha256:cas",
         account=CHECKING,
         opening=_opening(1_250_000),
+        scope=PERSONAL,
     ).stored
     account_id = created.account.id
 
@@ -244,6 +254,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
         account_id=account_id,
         expected_version=1,
         changes={"nickname": "Otra"},
+        scope=PERSONAL,
     )
     assert (edited.account.nickname, edited.account.version) == ("Otra", 2)
     with pytest.raises(StaleVersion):
@@ -252,8 +263,12 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
             account_id=account_id,
             expected_version=1,
             changes={"nickname": "x"},
+            scope=PERSONAL,
         )
-    assert repository.get_account(user_id=owner, account_id=account_id) == edited
+    assert (
+        repository.get_account(user_id=owner, account_id=account_id, scope=PERSONAL)
+        == edited
+    )
 
     corrected = repository.write_opening(
         user_id=owner,
@@ -261,6 +276,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
         expected_revision=1,
         expected_version=2,
         write=OpeningWrite(1_200_000, NOW, "America/Santo_Domingo", "typo"),
+        scope=PERSONAL,
     )
     assert corrected.account.version == 3
     assert [
@@ -276,6 +292,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
             expected_revision=1,
             expected_version=3,
             write=OpeningWrite(1, NOW, "America/Santo_Domingo", "late"),
+            scope=PERSONAL,
         )
     with pytest.raises(StaleVersion):
         repository.write_opening(
@@ -284,8 +301,12 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
             expected_revision=None,
             expected_version=3,
             write=OpeningWrite(1, NOW, "America/Santo_Domingo", None),
+            scope=PERSONAL,
         )
-    assert repository.get_account(user_id=owner, account_id=account_id) == corrected
+    assert (
+        repository.get_account(user_id=owner, account_id=account_id, scope=PERSONAL)
+        == corrected
+    )
 
     unknown = repository.create(
         user_id=owner,
@@ -293,6 +314,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
         identity_hash="sha256:u",
         account=NewAccount("cash", "DOP", None, 10_000),
         opening=None,
+        scope=PERSONAL,
     ).stored
     with pytest.raises(StaleVersion):
         repository.write_opening(
@@ -301,6 +323,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
             expected_revision=1,
             expected_version=1,
             write=OpeningWrite(5, NOW, "America/Santo_Domingo", "r"),
+            scope=PERSONAL,
         )
     first_opening = repository.write_opening(
         user_id=owner,
@@ -308,6 +331,7 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
         expected_revision=None,
         expected_version=1,
         write=OpeningWrite(525, NOW, "America/Santo_Domingo", None),
+        scope=PERSONAL,
     )
     assert first_opening.opening.current.revision == 1
     assert first_opening.account.version == 2
@@ -321,12 +345,14 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
         identity_hash="sha256:m",
         account=NewAccount("cash", "USD", None, 10_000),
         opening=None,
+        scope=PERSONAL,
     ).stored
     repository.update_account(
         user_id=owner,
         account_id=moved.account.id,
         expected_version=1,
         changes={"currency": "JPY"},
+        scope=PERSONAL,
     )
     with pytest.raises(StaleVersion):
         repository.write_opening(
@@ -335,9 +361,13 @@ def test_edit_and_opening_compare_and_set_write_nothing_when_stale(
             expected_revision=None,
             expected_version=1,
             write=OpeningWrite(123, NOW, "America/Santo_Domingo", None),
+            scope=PERSONAL,
         )
     assert (
-        repository.get_account(user_id=owner, account_id=moved.account.id).opening is None
+        repository.get_account(
+            user_id=owner, account_id=moved.account.id, scope=PERSONAL
+        ).opening
+        is None
     )
 
 
@@ -352,15 +382,20 @@ def test_another_user_cannot_reach_the_account_through_the_repository(
         identity_hash="sha256:iso",
         account=CHECKING,
         opening=_opening(100),
+        scope=PERSONAL,
     ).stored.account.id
-    assert repository.get_account(user_id=other, account_id=account_id) is None
-    assert repository.list_accounts(user_id=other) == []
+    assert (
+        repository.get_account(user_id=other, account_id=account_id, scope=PERSONAL)
+        is None
+    )
+    assert repository.list_accounts(user_id=other, scope=PERSONAL) == []
     with pytest.raises(AccountNotFound):
         repository.update_account(
             user_id=other,
             account_id=account_id,
             expected_version=1,
             changes={"nickname": "x"},
+            scope=PERSONAL,
         )
     with pytest.raises(AccountNotFound):
         repository.write_opening(
@@ -369,9 +404,13 @@ def test_another_user_cannot_reach_the_account_through_the_repository(
             expected_revision=1,
             expected_version=1,
             write=OpeningWrite(0, NOW, "America/Santo_Domingo", "drain"),
+            scope=PERSONAL,
         )
     assert (
-        repository.get_account(user_id=owner, account_id=account_id).account.version == 1
+        repository.get_account(
+            user_id=owner, account_id=account_id, scope=PERSONAL
+        ).account.version
+        == 1
     )
 
 
@@ -384,8 +423,9 @@ def test_storage_refuses_an_anonymous_owner(repository, users) -> None:  # noqa:
             identity_hash="sha256:g",
             account=CHECKING,
             opening=None,
+            scope=PERSONAL,
         )
-    assert repository.list_accounts(user_id=guest) == []
+    assert repository.list_accounts(user_id=guest, scope=PERSONAL) == []
 
 
 def test_rls_reads_are_owner_only_and_registered_only_and_writes_have_no_client_path(
@@ -399,6 +439,7 @@ def test_rls_reads_are_owner_only_and_registered_only_and_writes_have_no_client_
         identity_hash="sha256:rls",
         account=CHECKING,
         opening=_opening(100),
+        scope=PERSONAL,
     ).stored.account.id
     layers = (
         "select count(*) from public.financial_accounts where user_id = %s",
@@ -454,7 +495,9 @@ def test_rls_reads_are_owner_only_and_registered_only_and_writes_have_no_client_
                     _set_authenticated_claims(cursor, user_id=owner, is_anonymous=False)
                     cursor.execute(statement, params)
 
-    unchanged = repository.get_account(user_id=owner, account_id=account_id)
+    unchanged = repository.get_account(
+        user_id=owner, account_id=account_id, scope=PERSONAL
+    )
     assert unchanged.account.nickname == "Nomina"
     assert unchanged.account.version == 1
     assert unchanged.opening.current.revision == 1

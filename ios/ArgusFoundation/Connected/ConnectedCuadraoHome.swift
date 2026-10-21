@@ -9,14 +9,13 @@ struct ConnectedCuadraoHome: View {
     @Binding var tab: CuadraoTab
     @Binding var homePath: [ConnectedHomeRoute]
     let navigationScroll: CuadraoNavigationScroll
-    let showUpdates: () -> Void
+    let showUpdates: (() -> Void)?
 
     @AppStorage("cuadrao.design.home-section-order") private var homeOrder = CuadraoHomeSection.defaultOrder
     @EnvironmentObject private var auth: ProfileAuthModel
     @State private var householdDestination: AppDestination = .home
     @Environment(\.locale) private var locale
     @State private var sheet: HomeSheet?
-    @State private var choosingAccount = false
     @State private var moreAccount: FinancialAccount?
     @State private var archivedID: UUID?
     @State private var accountOrder: [UUID] = []
@@ -41,7 +40,7 @@ struct ConnectedCuadraoHome: View {
     }
 
     init(loop: FinancialLoopModel, accounts: AccountsModel, tab: Binding<CuadraoTab>,
-         homePath: Binding<[ConnectedHomeRoute]>, navigationScroll: CuadraoNavigationScroll, showUpdates: @escaping () -> Void) {
+         homePath: Binding<[ConnectedHomeRoute]>, navigationScroll: CuadraoNavigationScroll, showUpdates: (() -> Void)?) {
         self.loop = loop
         self.accounts = accounts
         self.plan = loop.plan
@@ -123,13 +122,6 @@ struct ConnectedCuadraoHome: View {
             accountOrder = auth.profile.map { ConnectedAccountOrder.load(for: $0.id) } ?? []
         }
         .refreshable { await accounts.load(); await loop.refresh() }
-        .confirmationDialog("loop.chooseAccount", isPresented: $choosingAccount, titleVisibility: .visible) {
-            ForEach(activeAccounts) { account in
-                Button(account.nickname ?? NSLocalizedString("accounts.type." + account.type, comment: "")) {
-                    loop.record(account)
-                }
-            }
-        }
         .confirmationDialog(Text(verbatim: moreAccount.map(accountName) ?? ""), isPresented: Binding(get: { moreAccount != nil }, set: { if !$0 { moreAccount = nil } }),
                             titleVisibility: .visible, presenting: moreAccount) { account in
             if !account.isOptionalAsset {
@@ -141,7 +133,9 @@ struct ConnectedCuadraoHome: View {
         .sheet(item: $sheet) { item in modal(item) }
         .overlay(alignment: .bottom) {
             if let archivedID, homePath.isEmpty, accounts.accounts.first(where: { $0.id == archivedID })?.archived == true {
-                CuadraoArchivedAccountToast(spanish: spanish, undo: { restore(archivedID) }, close: { self.archivedID = nil })
+                CuadraoToast(text: spanish ? "Cuenta archivada" : "Account archived", actionTitle: spanish ? "Deshacer" : "Undo",
+                    actionIdentifier: "accounts.archived.undo", action: { restore(archivedID) }, spanish: spanish,
+                    token: archivedID, close: { self.archivedID = nil })
             }
         }
         .onChange(of: accounts.identity?.revision) { _, _ in archivedID = nil }
@@ -201,6 +195,7 @@ struct ConnectedCuadraoHome: View {
                 }.padding(24)
             }
             .accessibilityIdentifier("screen.accounts")
+            .refreshable { await accounts.refresh(account.id); await loop.open(account) }
             .background(WelcomePalette.background)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
@@ -217,7 +212,7 @@ struct ConnectedCuadraoHome: View {
         HStack {
             CuadraoHomeGreeting(name: auth.profile?.preferredName ?? "", spanish: spanish)
             Spacer()
-            CuadraoUpdatesButton(spanish: spanish, action: showUpdates)
+            if let showUpdates { CuadraoUpdatesButton(spanish: spanish, action: showUpdates) }
         }
     }
 
@@ -349,10 +344,10 @@ struct ConnectedCuadraoHome: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 CuadraoSectionAddButton(title: spanish ? "Añadir movimiento" : "Add activity") {
-                    if activeAccounts.count == 1, let account = activeAccounts.first {
-                        loop.record(account)
-                    } else {
-                        choosingAccount = true
+                    switch ConnectedAddMovement.target(for: activeAccounts, loaded: accounts.hasLoaded, preferredCurrency: auth.profile?.currency) {
+                    case .record(let account): loop.record(account)
+                    case .loadAccounts: Task { await accounts.load() }
+                    case .createAccount: break
                     }
                 }
                 .disabled(activeAccounts.isEmpty || loop.pendingConfirmation != nil)
@@ -441,9 +436,6 @@ private struct ConnectedArchivedAccounts: View {
                             Label("accounts.back", systemImage: "chevron.left")
                         }
                         .accessibilityIdentifier("accounts.manage.back")
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button(spanish ? "Listo" : "Done") { dismiss() }
                     }
                 }
         }.tint(WelcomePalette.pine)

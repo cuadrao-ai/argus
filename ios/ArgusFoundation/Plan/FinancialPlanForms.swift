@@ -28,7 +28,7 @@ struct FinancialExpectationForm: View {
                     field("plan.name", identifier: "plan.expectation.name", text: $draft.title)
                     if draft.existing == nil {
                         Picker("accounts.currency", selection: $draft.currency) {
-                            ForEach(Array(Set(["DOP", "USD"] + (model.projection?.accounts.map(\.currency) ?? []))).sorted(), id: \.self) {
+                            ForEach(PlanCurrency.supported, id: \.self) {
                                 Text(verbatim: $0).tag($0)
                             }
                         }.accessibilityIdentifier("plan.expectation.currency")
@@ -90,8 +90,7 @@ struct FinancialExpectationForm: View {
                 .navigationTitle(draft.existing == nil ? "plan.add.title" : "plan.editExpectation.title")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() }.disabled(model.saving) }
-                    ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("accounts.keyboard.done") { focused = false } }
+                    CuadraoCancelToolbar(title: "accounts.cancel", disabled: model.saving) { dismiss() }
                 }
                 .interactiveDismissDisabled(model.saving)
                 .onChange(of: draft.currency) { _, _ in draft.accountId = nil }
@@ -164,7 +163,7 @@ struct FinancialPlanSelectionView: View {
                 }.padding(24)
             }.background(WelcomePalette.background).foregroundStyle(WelcomePalette.ink).tint(WelcomePalette.pine)
                 .navigationTitle("plan.includedAccounts").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("accounts.cancel") { dismiss() }.disabled(model.saving) } }
+                .toolbar { CuadraoCancelToolbar(title: "accounts.cancel", disabled: model.saving) { dismiss() }}
                 .interactiveDismissDisabled(model.saving)
         }
     }
@@ -229,7 +228,7 @@ struct FinancialOccurrenceView: View {
                 }.padding(24)
             }.background(WelcomePalette.background).foregroundStyle(WelcomePalette.ink).tint(WelcomePalette.pine)
                 .navigationTitle(occurrence.title).navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("action.close") { model.selectedOccurrence = nil }.disabled(model.saving) } }
+                .toolbar { CuadraoCancelToolbar(title: "action.close", disabled: model.saving) { model.selectedOccurrence = nil }}
                 .interactiveDismissDisabled(model.saving)
         }
     }

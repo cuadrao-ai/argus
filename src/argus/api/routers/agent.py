@@ -66,7 +66,7 @@ from argus.api.chat.guest_compute_ceiling import (
 from argus.api.chat.measurement_events import (
     schedule_runtime_measurement_events_after_stream,
 )
-from argus.api.chat.memory_recall import memory_recalls_for_turn_async
+from argus.api.chat.memory_recall import annotate_memory_recalls
 from argus.api.chat.recovery import (
     RuntimeFallbackContext,
     checkpoint_has_pending_confirmation,
@@ -121,6 +121,7 @@ from argus.api.chat.tool_results import (
 )
 from argus.api.chat.turn_metering import settle_metered_turn
 from argus.api.chat.visible_reply import ReplyRewrites, rewrite_visible_reply
+from argus.api.conversation_surface import conversation_not_found, refuse_closed_chat
 from argus.api.dependencies import current_user, dev_memory_fallback_enabled, problem
 from argus.api.guest_access import account_context, client_identity
 from argus.api.message_store import (
@@ -269,6 +270,9 @@ async def chat_stream(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     user: User = Depends(current_user),  # noqa: B008
 ) -> StreamingResponse:
+    from argus.api.conversation_surface import refuse_business_under_grant as refuse
+
+    refuse(request, user_id=user.id, conversation_id=payload.conversation_id)
     bind_refusal_request(request, payload=payload, user_id=user.id)
     turn_account = account_context(request)
     # One turn, one subject: allowance read, job row and settlement agree.
@@ -339,13 +343,8 @@ async def chat_stream(
         and memory_owner_id is not None
         and memory_owner_id != user.id
     ):
-        raise problem(
-            request,
-            status_code=404,
-            code="not_found",
-            title="Not Found",
-            detail="Conversation not found.",
-        )
+        raise conversation_not_found(request)
+    refuse_closed_chat(request, conversation.surface)
     reconcile_stale_chat_turns(
         user_id=user.id,
         conversation_id=conversation.id,
@@ -409,7 +408,8 @@ async def chat_stream(
     if is_retest_action(payload):
         retest_turn = await asyncio.to_thread(
             prepare_retest_turn,
-            payload=payload, request=request,
+            payload=payload,
+            request=request,
             user_id=user.id,
             conversation_id=conversation.id,
             language=language,
@@ -1232,15 +1232,15 @@ async def chat_stream(
                         if live_retry is not None:
                             runtime_result["retry_last_turn"] = live_retry
                     else:
-                        memory_recalls = await memory_recalls_for_turn_async(
+                        await annotate_memory_recalls(
+                            metadata,
+                            runtime_result,
                             user=user,
                             account=turn_account,
+                            conversation_id=conversation.id,
                             user_message=display_message,
                             memory_opt_out=payload.memory_opt_out,
                         )
-                        if memory_recalls:
-                            metadata["memory_recalls"] = memory_recalls
-                            runtime_result["memory_recalls"] = memory_recalls
                         assistant_message = lifecycle_hooks.complete(
                             content=persisted_text or "",
                             metadata=metadata,

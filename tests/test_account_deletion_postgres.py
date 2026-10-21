@@ -24,6 +24,7 @@ from argus.domain.account_deletion.service import (
 from argus.domain.household.planning import SharedPlanningService
 from argus.domain.household.schemas import CreateHouseholdRequest
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
+from argus.domain.owner_scope import PERSONAL
 from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
 from argus.observability.product_events import actor_hash_for_user
 from psycopg_pool import ConnectionPool
@@ -171,6 +172,7 @@ def _service(  # noqa: ANN201
     box=None,  # noqa: ANN001
     allow_fake=True,  # noqa: ANN001
     clock=None,  # noqa: ANN001
+    source_objects=None,  # noqa: ANN001
 ):
     return AccountDeletionService(
         households=lane[0]._repository,
@@ -181,6 +183,7 @@ def _service(  # noqa: ANN201
         secret_box=box,
         # Tests are where the recording fake is explicitly the adapter.
         allow_fake_analytics=allow_fake,
+        source_objects=source_objects,
         clock=clock or (lambda: NOW),
     )
 
@@ -293,6 +296,7 @@ def _extras(lane, world):  # noqa: ANN001, F811
         label="Gmail",
         now=NOW,
         secret=b"g",
+        scope=PERSONAL,
     )
     return dict(solo=solo, pair=pair, departed=departed, h3=h3, gmail=gmail.id)
 

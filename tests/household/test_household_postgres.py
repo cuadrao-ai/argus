@@ -10,6 +10,7 @@ from argus.domain.household.errors import (
 )
 from argus.domain.household.financial import HouseholdFinancialService
 from argus.domain.household.schemas import CreateHouseholdRequest, Recipient
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
 
 from tests.household.financial_fixtures import (
@@ -88,9 +89,9 @@ def test_departure_replay_and_rejoin_require_fresh_consent(lane, ending):
     ).replayed
     original = s.accept(user_id=b, token=token)
     assert original.membership_id == mid and original.state == "departed"
-    assert records.get_account(user_id=a, account_id=aid) and records.get_account(
-        user_id=b, account_id=bid
-    )
+    assert records.get_account(
+        user_id=a, account_id=aid, scope=PERSONAL
+    ) and records.get_account(user_id=b, account_id=bid, scope=PERSONAL)
     if ending != "close":
         inv = command(
             s, a, "invite", lambda: s.invite(user_id=a, household_id=hid), hid
@@ -115,7 +116,9 @@ def test_shared_edit_owner_actor_correction_and_revoked_replay(lane):
     activity_id = first["activity"]["activity"]["activity_id"]
     assert money(s, b, hid, body, k=k)["replayed"]
     assert (
-        records.get_account(user_id=a, account_id=aid).expenses[0].current.recorded_by
+        records.get_account(user_id=a, account_id=aid, scope=PERSONAL)
+        .expenses[0]
+        .current.recorded_by
         == b
     )
     corrected = reviewed(s, b, hid, expense(aid, "20", 1), activity_id)

@@ -1,0 +1,25 @@
+{
+  "synthetic_fixture": true,
+  "budget_name": "Food 4DE49",
+  "budget_id": "27fbe971-ee3f-42c8-b74c-f8ddcfde1471",
+  "spent_minor": "18000",
+  "remaining_minor": "-3000",
+  "contributors": [
+    {
+      "activity_id": "c044e42e-c9a8-43fa-b303-bc947f0c5d50",
+      "revision": 2,
+      "amount": "60.00",
+      "amount_minor": 6000,
+      "note": "Card groceries 4DE49",
+      "reason": "Correct the grocery receipt"
+    },
+    {
+      "activity_id": "cec94683-608d-4a55-bb4c-712087b57cdd",
+      "revision": 1,
+      "amount": "120.00",
+      "amount_minor": 12000,
+      "note": "Budget groceries 4DE49",
+      "reason": null
+    }
+  ]
+}

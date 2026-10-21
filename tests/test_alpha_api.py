@@ -23,6 +23,7 @@ from argus.api.schemas import (
 )
 from argus.domain.market_data.assets import ResolvedAsset
 from argus.domain.market_data.new_york_clock import new_york_today
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.store import utcnow
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -294,7 +295,7 @@ def test_conversation_messages_and_patch_follow_contract() -> None:
 
     messages = client.get(f"/api/v1/conversations/{conversation['id']}/messages")
     assert messages.status_code == 200
-    assert messages.json() == {"items": [], "next_cursor": None}
+    assert messages.json() == {"items": [], "next_cursor": None, "surface": "personal"}
 
     patched = client.patch(
         f"/api/v1/conversations/{conversation['id']}",
@@ -692,6 +693,7 @@ def test_delete_all_conversations_memory_fallback_skips_other_users_chats() -> N
         "conversation"
     ]
     other = memory_conversation(
+        scope=PERSONAL,
         title="Not mine",
         title_source="system_default",
         language="en",
@@ -2090,6 +2092,7 @@ def test_search_sends_no_recall_usage_event(monkeypatch) -> None:
     client = _client()
     user_id = api_state.store.get_or_create_dev_user().id
     memory_conversation(
+        scope=PERSONAL,
         title="Tesla recall source",
         title_source="user_renamed",
         language="en",
@@ -2665,6 +2668,7 @@ def test_search_memory_mode_excludes_other_users_owned_objects() -> None:
     other_user_id = "00000000-0000-0000-0000-000000000099"
     now = utcnow()
     memory_conversation(
+        scope=PERSONAL,
         title="Leaky Tesla alpha chat",
         title_source="user_renamed",
         language="en",

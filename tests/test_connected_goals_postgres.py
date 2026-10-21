@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import storage
 from argus.domain.planning.goal_schemas import (
     AllocationWrite,
@@ -127,7 +128,7 @@ def test_recording_and_allocation_share_owner_serialization(scene, first):
         ("90000", "80000") if isinstance(outcomes["allocate"], dict) else ("0", "0")
     )
     assert (actual["assigned_minor"], actual["supported_minor"]) == expected
-    stored = scene[0].get(user_id=scene[1], account_id=aid)
+    stored = scene[0].get(user_id=scene[1], account_id=aid, scope=PERSONAL)
     assert account_response(stored).balance.amount_minor == 80000
     assert len(stored.expenses) == 1 and stored.expenses[0].current.amount_minor == 20000
 

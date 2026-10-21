@@ -48,7 +48,7 @@ struct CuadraoGroupInvitation: View {
                     .navigationTitle(guest ? (spanish ? "Te invitaron" : "You're invited") : (spanish ? "Así empieza el plan" : "It starts with an invitation"))
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cerrar" : "Close") { dismiss() } }
+                        CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
                         if guest { ToolbarItem(placement: .topBarTrailing) { Button(spanish ? "Editar" : "Edit") { guest = false } } }
                     }
                     .sheet(isPresented: $code) { CuadraoGroupCodeCard(group: group, look: look, cover: cover, spanish: spanish) }

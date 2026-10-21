@@ -23,7 +23,7 @@ struct CuadraoGroupMemberReview: View {
                         .accessibilityIdentifier("group-remove-confirm")
                     Spacer(minLength: 0)
                 }.padding(24).toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button(spanish ? "Cancelar" : "Cancel") { dismiss() } }
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
                 }
             }
         }.presentationDetents([.medium, .large])

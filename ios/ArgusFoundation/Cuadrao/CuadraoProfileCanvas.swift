@@ -45,7 +45,7 @@ enum CanvasProfileRoute: Hashable {
         case .usage: es ? "Uso" : "Usage"
         case .help: es ? "Ayuda y comentarios" : "Help and feedback"
         case .memory: es ? "Memoria" : "Memory"
-        case .files: es ? "Archivos" : "Files"
+        case .files: CuadraoFirstRelease.savedReceipts ? SavedReceiptCopy(spanish: es).title : (es ? "Archivos" : "Files")
         case .conversations: es ? "Conversaciones" : "Conversations"
         case .shared: es ? "Conversaciones compartidas" : "Shared conversations"
         case .removed: es ? "Movimientos eliminados" : "Removed activity"
@@ -82,10 +82,20 @@ enum CanvasProfileRoute: Hashable {
 /// them unless launched with `--cuadrao-release-gates`, which previews the release set.
 enum CuadraoFirstRelease {
     static let unfinishedProfileRoutes: Set<CanvasProfileRoute> = [
-        .personalization, .security, .shared, .removed, .memory, .usage, .advanced
+        .personalization, .security, .shared, .removed, .memory, .usage, .advanced,
+        // The free tier has no AI chats and no stored files yet, so these pages would only say "Nothing saved".
+        .files, .conversations,
+        // Notificaciones toggles request no permission and send nothing; Comentarios only keeps a draft on the iPhone.
+        .notifications, .feedback
     ]
+    #if CUADRAO_FOUNDER_PHONE
+    /// The founder's phone build: the release layout with receipts and the guest door on, without launch arguments.
+    static let founderPhone = true
+    #else
+    static let founderPhone = false
+    #endif
     #if DEBUG
-    static let hidesUnfinished = ProcessInfo.processInfo.arguments.contains("--cuadrao-release-gates")
+    static let hidesUnfinished = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-release-gates")
     #else
     static let hidesUnfinished = true
     #endif
@@ -94,8 +104,24 @@ enum CuadraoFirstRelease {
     static var showsConversationBulkActions: Bool { !hidesUnfinished }
     /// Business and custom spaces are designed but have no backend, so Release hides them.
     static var showsExtraSpaces: Bool { !hidesUnfinished }
+    /// The assistant answers from sample data until it is connected, so Release has no assistant tab
+    /// and its third navigation slot is the add-movement action. The design Preview keeps its assistant.
+    static var hasAssistant: Bool { !hidesUnfinished || CuadraoDesignPreview.isActive }
+    /// The Updates bell and receipt capture are designed, but nothing feeds them yet.
+    static var showsUpdates: Bool { !hidesUnfinished || CuadraoDesignPreview.isActive }
+    static var showsReceiptCapture: Bool { !hidesUnfinished || CuadraoDesignPreview.isActive }
+    /// Saved receipts are built and tested but stay off until receipt access is enabled (a separate founder approval).
+    #if DEBUG
+    static let savedReceipts = founderPhone || ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts") || savedReceiptsSample
+    /// Sample data and no system pickers, so the screens can be driven without a server.
+    static let savedReceiptsSample = ProcessInfo.processInfo.arguments.contains("--cuadrao-saved-receipts-sample")
+    #else
+    static let savedReceipts = false
+    #endif
+
     static func shows(_ route: CanvasProfileRoute) -> Bool {
         if route == .voice { return CuadraoDesignPreview.voiceSelection }
+        if route == .files, savedReceipts { return true }
         return !(hidesUnfinished && unfinishedProfileRoutes.contains(route))
     }
 }
@@ -295,7 +321,7 @@ struct CuadraoProfileEditor: View {
                     .textContentType(.nickname).disabled(saving)
             } footer: {
                 Text(spanish ? "Usaremos tu nombre preferido al conversar contigo."
-                     : "We’ll use your preferred name when we talk with you.")
+                     : "We'll use your preferred name when we talk with you.")
             }.listRowBackground(CanvasSettingsStyle.surface)
             if let emailAddress {
                 Section {
@@ -312,7 +338,7 @@ struct CuadraoProfileEditor: View {
             }
             if saveFailed {
                 Text(spanish ? "No pudimos guardar tu nombre. Inténtalo de nuevo."
-                     : "We couldn’t save your name. Try again.")
+                     : "We couldn't save your name. Try again.")
                     .font(.footnote).foregroundStyle(.secondary).listRowBackground(Color.clear)
                     .accessibilityIdentifier("cuadrao.profile.save.error")
             }
@@ -322,13 +348,9 @@ struct CuadraoProfileEditor: View {
             }
             .navigationTitle(spanish ? "Editar perfil" : "Edit profile").navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(spanish ? "Cancelar" : "Cancel") { dismiss() }.accessibilityIdentifier("cuadrao.profile.cancel")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(spanish ? "Guardar" : "Save", action: save)
-                        .disabled(!valid || !changed || photoLoading || saving).accessibilityIdentifier("cuadrao.profile.save")
-                }
+                CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "cuadrao.profile.cancel") { dismiss() }
+                CuadraoConfirmToolbar(title: spanish ? "Guardar" : "Save", disabled: !valid || !changed || photoLoading || saving,
+                                      identifier: "cuadrao.profile.save", action: save)
             }
     }
     private func save() {

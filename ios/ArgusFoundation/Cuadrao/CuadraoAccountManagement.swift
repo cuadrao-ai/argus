@@ -17,24 +17,6 @@ struct CuadraoArchiveAccountReview: View {
     }
 }
 
-struct CuadraoArchivedAccountToast: View {
-    let spanish: Bool
-    let undo: () -> Void
-    let close: () -> Void
-    var body: some View {
-        HStack {
-            Text(spanish ? "Cuenta archivada" : "Account archived")
-            Spacer()
-            Button(spanish ? "Deshacer" : "Undo", action: undo).accessibilityIdentifier("accounts.archived.undo")
-            Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                .accessibilityLabel(spanish ? "Cerrar" : "Close")
-                .accessibilityIdentifier("accounts.archived.close")
-        }.font(.subheadline).padding(.leading, 20).padding(.trailing, 6)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
-            .padding(.horizontal, 20).padding(.bottom, 90)
-    }
-}
-
 struct CuadraoArchivedAccounts: View {
     let data: CuadraoAccountsPreview
     let spanish: Bool
@@ -61,7 +43,7 @@ struct CuadraoArchivedAccounts: View {
             }.background(WelcomePalette.background)
                 .navigationTitle(spanish ? "Cuentas archivadas" : "Archived accounts")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button(spanish ? "Listo" : "Done") { dismiss() } } }
+                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
         }.tint(WelcomePalette.pine)
     }
 }
@@ -116,9 +98,7 @@ struct CuadraoRenameAccountForm: View {
             }.padding(24).background(WelcomePalette.background)
                 .navigationTitle(spanish ? "Cambiar nombre" : "Rename account").navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(spanish ? "Cancelar" : "Cancel", action: cancel).disabled(busy).accessibilityIdentifier(cancelIdentifier)
-                    }
+                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", disabled: busy, identifier: cancelIdentifier, action: cancel)
                 }
         }.tint(WelcomePalette.pine).presentationDetents([.medium, .large])
     }

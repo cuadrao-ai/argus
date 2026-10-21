@@ -1,0 +1,9 @@
+Before owned cleanup
+Filesystem   1024-blocks      Used Available Capacity  iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 840787348 102784068    90% 10184983 1027840680    1%   /System/Volumes/Data
+1055276	/private/tmp/pr1170-reconcile-derived
+2836612	/Users/garces/Library/Developer/CoreSimulator/Devices/15027D5D-9314-4490-9BB8-0AF5289FA986
+Removed only owned simulator and PR1170 DerivedData. Config, results, worktree and evidence retained.
+After owned cleanup
+Filesystem   1024-blocks      Used Available Capacity  iused      ifree %iused  Mounted on
+/dev/disk3s5   971298980 839153464 104417952    89% 10154915 1044179520    1%   /System/Volumes/Data

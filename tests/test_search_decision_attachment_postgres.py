@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from argus.api.decision_contract import DecisionComputation
+from argus.domain.owner_scope import PERSONAL
 from faker import Faker
 from psycopg.types.json import Jsonb
 from test_search_postgres import (
@@ -115,6 +116,7 @@ def test_search_finds_a_computed_answer_decision_through_its_attachment(
 
     reader, _pool = _reader()
     result = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query=query,
         source_limit=4,
@@ -158,18 +160,21 @@ def test_decision_state_filter_and_recall_carry_a_computed_answer_decision(
 
     reader, _pool = _reader()
     kept = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="tablet",
         source_limit=4,
         decision_state="watching",
     )
     dropped = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="tablet",
         source_limit=4,
         decision_state="rejected",
     )
     recalled = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="",
         source_limit=4,
@@ -205,6 +210,7 @@ def test_one_decision_over_every_option_an_answer_weighed_is_found_and_recalled(
 
     reader, _pool = _reader()
     found = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="savings plan",
         source_limit=4,
@@ -214,6 +220,7 @@ def test_one_decision_over_every_option_an_answer_weighed_is_found_and_recalled(
         str(conversation_id)
     ]
     recalled = reader.search_rows(
+        scope=PERSONAL,
         user_id=str(owner_id),
         query="",
         source_limit=4,

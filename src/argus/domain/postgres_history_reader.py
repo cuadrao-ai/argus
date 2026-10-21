@@ -10,6 +10,15 @@ from uuid import UUID
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from argus.domain.owner_scope import (
+    PERSONAL,
+    SCOPE_PARAMETER,
+    BusinessSpace,
+    OwnerScope,
+    space_id,
+    sql_named_predicate,
+)
+
 _HISTORY_CONNECT_TIMEOUT_SECONDS = 2
 _HISTORY_ACQUIRE_TIMEOUT_SECONDS = 2.0
 _HISTORY_STATEMENT_TIMEOUT_MS = 2_000
@@ -207,7 +216,7 @@ def _variable_source_sql(
 """
 
 
-@lru_cache(maxsize=40)
+@lru_cache(maxsize=80)
 def _candidate_sql(
     *,
     archived: bool,
@@ -215,9 +224,15 @@ def _candidate_sql(
     has_cursor: bool,
     pivot_pinned: bool,
     pivot_type_rank: int,
+    business: bool,
 ) -> str:
     if has_cursor and pivot_type_rank not in _SOURCE_RANKS.values():
         raise HistoryCursorError("History cursor pivot rank is invalid.")
+
+    # The text names the space parameter, never a space, so one entry per side.
+    scope: OwnerScope = BusinessSpace("") if business else PERSONAL
+    # Runs without a conversation, strategies and collections store no space.
+    spaceless_row_in_scope = sql_named_predicate(scope, "null::uuid")
 
     archive_state = "true" if archived else "false"
     deleted_state = "is not null" if deleted else "is null"
@@ -226,11 +241,12 @@ def _candidate_sql(
     run_parent_filter = f"""coalesce((
         select parent.archived is {archive_state}
            and parent.deleted_at {deleted_state}
+           and {sql_named_predicate(scope, "parent.owner_space_id")}
         from public.conversations as parent
         where parent.id = run.conversation_id
           and parent.user_id = %(user_id)s
         offset 0
-    ), {missing_parent_default})"""
+    ), {missing_parent_default} and {spaceless_row_in_scope})"""
     run_filters: tuple[str, ...] = (
         "run.user_id = %(user_id)s",
         run_parent_filter,
@@ -283,6 +299,7 @@ def _candidate_sql(
         from_sql="public.conversations as chat",
         base_filters=(
             "chat.user_id = %(user_id)s",
+            sql_named_predicate(scope, "chat.owner_space_id"),
             f"chat.archived is {archive_state}",
             f"chat.deleted_at {deleted_state}",
             """exists (
@@ -320,6 +337,7 @@ def _candidate_sql(
         from_sql="public.strategies as strategy",
         base_filters=(
             "strategy.user_id = %(user_id)s",
+            spaceless_row_in_scope,
             f"strategy.deleted_at {deleted_state}",
         ),
         order_sql=("strategy.pinned desc, strategy.updated_at desc, strategy.id desc"),
@@ -343,6 +361,7 @@ def _candidate_sql(
         from_sql="public.collections as collection",
         base_filters=(
             "collection.user_id = %(user_id)s",
+            spaceless_row_in_scope,
             f"collection.deleted_at {deleted_state}",
         ),
         order_sql=(
@@ -416,6 +435,7 @@ class PostgresHistoryReader:
         self,
         *,
         user_id: str,
+        scope: OwnerScope,
         limit: int,
         archived: bool,
         deleted: bool,
@@ -495,6 +515,7 @@ class PostgresHistoryReader:
 
                 candidate_params = {
                     "user_id": owner_id,
+                    SCOPE_PARAMETER: space_id(scope),
                     "cursor_activity_at": cursor_activity_at,
                     "cursor_id": pivot_id,
                     "source_limit": limit,
@@ -506,6 +527,7 @@ class PostgresHistoryReader:
                         has_cursor=has_cursor,
                         pivot_pinned=pivot_pinned,
                         pivot_type_rank=pivot_type_rank,
+                        business=isinstance(scope, BusinessSpace),
                     ),
                     candidate_params,
                 )

@@ -14,6 +14,17 @@ from argus.api.financial_accounts import (
     domain_problem,
     require_financial_accounts_context,
 )
+from argus.api.routers.business import router as business_router
+from argus.api.routers.business_drafts import router as business_drafts_router
+from argus.api.routers.business_export import router as business_export_router
+from argus.api.routers.business_fiscal import router as business_fiscal_router
+from argus.api.routers.business_manual import router as business_manual_router
+from argus.api.routers.business_month_close import (
+    open_items_router as business_open_items_router,
+)
+from argus.api.routers.business_month_close import router as business_month_close_router
+from argus.api.routers.email_intake import router as business_email_router
+from argus.api.routers.email_intake import webhook_router as resend_webhook_router
 from argus.api.routers.financial_activities import router as money_router
 from argus.api.routers.financial_assets import router as asset_router
 from argus.api.routers.financial_connections import router as connections_router
@@ -26,7 +37,10 @@ from argus.api.routers.financial_search import router as search_router
 from argus.api.routers.ingestion_shortcuts import (
     intake_router as shortcuts_intake_router,
 )
+from argus.api.routers.whatsapp import link_router as whatsapp_link_router
+from argus.api.routers.whatsapp import webhook_router as whatsapp_webhook_router
 from argus.domain import backtest_admission
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.loop_schemas import LoopOpeningRequest
 from argus.domain.recording.schemas import (
     CreateFinancialAccountRequest,
@@ -55,7 +69,7 @@ def create_financial_account(
     key = _required_idempotency_key(request, idempotency_key)
     try:
         result = context.service.create(
-            user_id=context.user_id, idempotency_key=key, request=body
+            user_id=context.user_id, idempotency_key=key, request=body, scope=PERSONAL
         )
     except Exception as error:
         raise domain_problem(request, error) from None
@@ -67,7 +81,7 @@ def create_financial_account(
 def list_financial_accounts(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ) -> FinancialAccountListResponse:
-    accounts = context.service.list_accounts(user_id=context.user_id)
+    accounts = context.service.list_accounts(user_id=context.user_id, scope=PERSONAL)
     return FinancialAccountListResponse(
         accounts=[account_response(item) for item in accounts]
     )
@@ -80,7 +94,9 @@ def get_financial_account(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ) -> FinancialAccountResponse:
     try:
-        stored = context.service.get(user_id=context.user_id, account_id=account_id)
+        stored = context.service.get(
+            user_id=context.user_id, account_id=account_id, scope=PERSONAL
+        )
     except Exception as error:
         raise domain_problem(request, error) from None
     return account_response(stored)
@@ -95,7 +111,7 @@ def edit_financial_account(
 ) -> FinancialAccountResponse:
     try:
         stored = context.service.edit(
-            user_id=context.user_id, account_id=account_id, request=body
+            user_id=context.user_id, account_id=account_id, request=body, scope=PERSONAL
         )
     except Exception as error:
         raise domain_problem(request, error) from None
@@ -113,7 +129,9 @@ def write_financial_opening(
     context: FinancialAccountsContext = Depends(require_financial_accounts_context),  # noqa: B008
 ) -> FinancialAccountResponse:
     try:
-        current = context.service.get(user_id=context.user_id, account_id=account_id)
+        current = context.service.get(
+            user_id=context.user_id, account_id=account_id, scope=PERSONAL
+        )
         if current.expenses or current.checks or body.preview_token:
             key = _required_idempotency_key(request, idempotency_key)
             result = context.service.loop.write_opening(
@@ -125,7 +143,10 @@ def write_financial_opening(
             stored = result.stored
         else:
             stored = context.service.write_opening(
-                user_id=context.user_id, account_id=account_id, request=body
+                user_id=context.user_id,
+                account_id=account_id,
+                request=body,
+                scope=PERSONAL,
             )
     except Exception as error:
         raise domain_problem(request, error) from None
@@ -168,3 +189,15 @@ router.include_router(imports_router)
 router.include_router(documents_router)
 
 router.include_router(shortcuts_intake_router)
+router.include_router(whatsapp_webhook_router)
+router.include_router(whatsapp_link_router)
+router.include_router(business_router)
+router.include_router(business_drafts_router)
+router.include_router(business_manual_router)
+router.include_router(resend_webhook_router)
+router.include_router(business_email_router)
+
+router.include_router(business_export_router)
+router.include_router(business_month_close_router)
+router.include_router(business_open_items_router)
+router.include_router(business_fiscal_router)

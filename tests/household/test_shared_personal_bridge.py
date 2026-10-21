@@ -4,6 +4,7 @@ import json
 
 import pytest
 from argus.domain.financial_search import search
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.planning import storage
 from argus.domain.planning.budgets import BudgetService
 from argus.domain.planning.schemas import SelectionWrite
@@ -154,7 +155,9 @@ def test_departure_drops_live_personal_claim_owner_seed_and_retains_shared_revis
     correction = request(
         "expense", s["ba"], "90", expected_revision=1, reason="Private later correction"
     )
-    preview = original.preview(user_id=s["b"], request=correction, activity_id=aid)
+    preview = original.preview(
+        user_id=s["b"], request=correction, activity_id=aid, scope=PERSONAL
+    )
     original.write(
         user_id=s["b"],
         activity_id=aid,
@@ -162,6 +165,7 @@ def test_departure_drops_live_personal_claim_owner_seed_and_retains_shared_revis
         request=MoneyRequest.model_validate(
             preview["reviewed_request"] | {"preview_token": preview["preview_token"]}
         ),
+        scope=PERSONAL,
     )
     assert get(s, s["b"], p)["occurrences"][0]["remaining_minor"] == "7000"
 

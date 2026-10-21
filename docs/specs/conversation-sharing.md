@@ -2,7 +2,7 @@
 
 Active founder decision, 2026-09-14. This adapts the existing evidence receipt
 feature after the #604 promotion walk. It supersedes section 7.5 of
-[the original receipt spec](../superpowers/specs/2026-08-07-sharing-evidence-receipts.md#75-what-is-shareable--superseded-2026-09-14)
+[the original receipt spec](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-08-07-sharing-evidence-receipts.md#75-what-is-shareable--superseded-2026-09-14)
 and the earlier eligibility restrictions in this document.
 
 ## 0. The answer
@@ -204,7 +204,7 @@ The founder merges and promotes.
 ## 10. Delivery record
 
 The current lane contract is
-[2026-09-14-conversation-sharing-604.md](../superpowers/specs/2026-09-14-conversation-sharing-604.md).
+[2026-09-14-conversation-sharing-604.md](https://github.com/lagarcess/argus/blob/651870a54be4e5506dbb38f3902fef1a97eef8df/docs/superpowers/specs/2026-09-14-conversation-sharing-604.md).
 Issue [#604](https://github.com/lagarcess/argus/issues/604) holds the reproduced
 promotion failure. The original receipt spec remains history for earlier design
 decisions; this document owns the current sharing boundary.

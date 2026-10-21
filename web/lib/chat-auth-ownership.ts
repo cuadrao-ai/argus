@@ -1,3 +1,5 @@
+import { synchronizeBusinessAccount } from "./business-grant";
+import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { getSupabaseClient } from "./supabase-client";
 
 export class ChatAccountChangedError extends Error {
@@ -16,9 +18,12 @@ export async function authenticatedRequestHeaders(expectedUserId?: string): Prom
   if (process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return {};
   const client = getSupabaseClient();
   if (!client) throw new Error("Supabase auth client is unavailable in non-mock mode.");
+  const generation = browserAuthGeneration();
   const { data, error } = await client.auth.getSession();
+  requireBrowserAuthGeneration(generation);
   if (error) throw error;
   const session = data.session;
+  synchronizeBusinessAccount(session?.user.id ?? null);
   if (expectedUserId !== undefined) return { Authorization: `Bearer ${requireChatIdentity(session, expectedUserId)}` };
   return session ? { Authorization: `Bearer ${session.access_token}` } : {};
 }

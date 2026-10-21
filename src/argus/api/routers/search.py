@@ -12,11 +12,13 @@ from argus.api.client_capabilities import (
     dossier_decision_action_availability,
 )
 from argus.api.conversation_previews import conversation_previews
+from argus.api.conversation_surface import surface_scope
 from argus.api.dependencies import current_user, problem
 from argus.api.guest_access import account_context
 from argus.api.memory_ledger_index import MemoryLedgerWorkLimitExceeded
 from argus.api.pagination import decode_cursor, encode_cursor, invalid_cursor_problem
 from argus.api.schemas import (
+    ConversationSurface,
     DecisionState,
     PaginatedSearch,
     SearchAssetRollup,
@@ -64,8 +66,10 @@ def search(
         min_length=1,
         max_length=50,
     ),
+    surface: ConversationSurface = Query("personal"),  # noqa: B008
     user: User = Depends(current_user),  # noqa: B008
 ) -> PaginatedSearch:
+    scope = surface_scope(request, user_id=user.id, surface=surface)
     context = account_context(request)
     decision_action_availability = dossier_decision_action_availability(
         can_save_decision=context.capabilities.can_save_decision,
@@ -145,6 +149,7 @@ def search(
         try:
             read_kwargs: dict[str, Any] = {
                 "user_id": user.id,
+                "scope": scope,
                 "query": query,
                 "source_limit": (
                     len(requested_conversation_ids) if id_scoped_recall else limit + 1
@@ -183,6 +188,7 @@ def search(
         try:
             memory_read = memory_search_read(
                 user=user,
+                scope=scope,
                 query=query,
                 source_limit=(
                     len(requested_conversation_ids) if id_scoped_recall else limit + 1
@@ -325,6 +331,7 @@ def search(
     asset_rollup = with_computed_results(
         asset_rollup,
         user=user,
+        scope=scope,
         query=query,
         guest_conversation_id=workspace_conversation_id,
     )

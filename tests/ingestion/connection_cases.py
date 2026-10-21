@@ -12,6 +12,7 @@ from argus.domain.ingestion.connections import (
     ConnectionNotFound,
     DuplicateConnection,
 )
+from argus.domain.owner_scope import PERSONAL
 
 NOW = datetime(2026, 10, 1, 13, 0, tzinfo=timezone.utc)
 
@@ -24,6 +25,7 @@ def make(repo, user, ref="item-1", source="plaid", secret=b"sealed"):
         label="Chase",
         now=NOW,
         secret=secret,
+        scope=PERSONAL,
     )
 
 
@@ -43,15 +45,18 @@ def test_one_live_connection_per_reference_and_reconnect_after_disconnect(repo, 
 
 def test_reads_are_owner_scoped(repo, users):
     row = make(repo, users["owner"])
-    assert [c.id for c in repo.list(user_id=users["owner"])] == [row.id]
-    assert repo.list(user_id=users["other"]) == []
+    assert [c.id for c in repo.list(user_id=users["owner"], scope=PERSONAL)] == [row.id]
+    assert repo.list(user_id=users["other"], scope=PERSONAL) == []
     with pytest.raises(ConnectionNotFound):
-        repo.get(user_id=users["other"], connection_id=row.id)
+        repo.get(user_id=users["other"], connection_id=row.id, scope=PERSONAL)
     with pytest.raises(ConnectionNotFound):
-        repo.get(user_id=users["owner"], connection_id="not-a-uuid")
+        repo.get(user_id=users["owner"], connection_id="not-a-uuid", scope=PERSONAL)
     with pytest.raises(ConnectionNotFound):
         repo.disconnect(user_id=users["other"], connection_id=row.id, now=NOW)
-    assert repo.get(user_id=users["owner"], connection_id=row.id).status == "active"
+    assert (
+        repo.get(user_id=users["owner"], connection_id=row.id, scope=PERSONAL).status
+        == "active"
+    )
 
 
 def test_webhook_lookup_finds_only_live_connections(repo, users):
@@ -102,7 +107,7 @@ def test_cursor_advances_only_by_compare_and_set_under_the_lease(repo, users):
     assert not repo.record_success(
         connection_id=row.id, holder="a", expected_cursor=None, cursor="c0", now=NOW
     )
-    current = repo.get(user_id=users["owner"], connection_id=row.id)
+    current = repo.get(user_id=users["owner"], connection_id=row.id, scope=PERSONAL)
     assert current.cursor == "c1" and current.last_success_at == NOW
 
 
@@ -158,7 +163,7 @@ def test_attention_survives_successful_syncs_until_reauthorization(repo, users):
     assert repo.record_success(
         connection_id=row.id, holder="a", expected_cursor=None, cursor="c1", now=NOW
     )
-    synced = repo.get(user_id=users["owner"], connection_id=row.id)
+    synced = repo.get(user_id=users["owner"], connection_id=row.id, scope=PERSONAL)
     assert synced.status == "active"
     assert synced.attention_code == "plaid_pending_expiration"
     renewed = repo.set_secret(connection_id=row.id, secret=b"n", status="active", now=NOW)
@@ -185,7 +190,7 @@ def test_failure_reported_during_a_sync_wins_over_that_sync_finishing(repo, user
     assert not repo.record_success(
         connection_id=row.id, holder="sync", expected_cursor=None, cursor="c1", now=NOW
     )
-    current = repo.get(user_id=users["owner"], connection_id=row.id)
+    current = repo.get(user_id=users["owner"], connection_id=row.id, scope=PERSONAL)
     assert current.status == "needs_reauth" and current.cursor is None
     assert current.last_error_code == "plaid_item_login_required"
 
@@ -198,7 +203,12 @@ def test_renew_extends_only_a_lease_still_held(repo, users):
     # A failure releases the lease; renewing must not take it back.
     repo.record_failure(connection_id=row.id, code="x", status="needs_reauth", now=NOW)
     assert not repo.renew(connection_id=row.id, holder="sync", now=NOW)
-    assert repo.get(user_id=users["owner"], connection_id=row.id).lease_holder is None
+    assert (
+        repo.get(
+            user_id=users["owner"], connection_id=row.id, scope=PERSONAL
+        ).lease_holder
+        is None
+    )
     assert repo.lease(connection_id=row.id, holder="other", now=NOW)
     assert not repo.renew(connection_id=row.id, holder="sync", now=NOW)
 
@@ -242,13 +252,20 @@ def test_stale_sync_failure_cannot_overwrite_a_newer_sync(repo, users):
 def test_both_repositories_refuse_values_storage_cannot_hold(repo, users, field, value):
     values = {"external_ref": "item-1"} | {field: value}
     with pytest.raises(ValueError):
-        repo.create(user_id=users["owner"], source="plaid", label=None, now=NOW, **values)
+        repo.create(
+            user_id=users["owner"],
+            source="plaid",
+            label=None,
+            now=NOW,
+            **values,
+            scope=PERSONAL,
+        )
 
 
 def test_labels_are_normalized_identically_and_codes_and_cursors_checked(repo, users):
     row = repo.create(
         user_id=users["owner"], source="plaid", external_ref="item-l",
-        label="Banco‮ " + "x" * 200, now=NOW,
+        label="Banco‮ " + "x" * 200, now=NOW, scope=PERSONAL,
     )  # fmt: skip
     assert len(row.label) <= 80 and "‮" not in row.label
     with pytest.raises(ValueError):

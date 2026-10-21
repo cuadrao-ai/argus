@@ -42,7 +42,7 @@ struct ReleaseUIReview: View {
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .bottom) {
                 if path.isEmpty {
-                    CuadraoNavigationBar(selection: $tab, compact: false, spanish: spanish, avatar: avatar, profileName: "Alex")
+                    CuadraoNavigationBar(selection: $tab, compact: false, spanish: spanish, avatar: avatar, profileName: "Alex", add: {})
                         .padding(.horizontal, 20).padding(.bottom, 8)
                 }
             }
@@ -51,7 +51,7 @@ struct ReleaseUIReview: View {
                 case .identity: ReleaseIdentityGallery()
                 case .invites: ReleaseInvitationsGallery()
                 case .updates: ReleaseUpdatesGallery(spanish: spanish)
-                case .legal: CuadraoLegalLinks(webURL: nil)
+                case .legal: CuadraoLegalLinks()
                 }
             }
             .sheet(isPresented: $editing) { CuadraoIdentityEditor(name: "Alex", selection: $avatar) }

@@ -1,0 +1,80 @@
+bun test v1.4.2 (744846f84)
+
+__tests__/business-approve-next.dom.test.tsx:
+(pass) Aprobar y siguiente on the receipt review page > the owner sees green Aprobar as the primary action, with Aprobar y siguiente beside it [894.57ms]
+(pass) Aprobar y siguiente on the receipt review page > approving opens the next receipt in Bandeja order, skipping the email's own document, and the count comes from the server [1049.27ms]
+(pass) Aprobar y siguiente on the receipt review page > the approve request is the one Aprobar sends: same record, same version, one key [3739.55ms]
+(pass) Aprobar y siguiente on the receipt review page > the next receipt is the row after the approved one, not the top of the Bandeja [792.93ms]
+(pass) Aprobar y siguiente on the receipt review page > approving the last row returns to the Bandeja, which lists the rows skipped before it [2959.14ms]
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode false) [803.69ms]
+(pass) Aprobar y siguiente on the receipt review page > after advancing, keyboard focus is on the next receipt heading (Strict Mode true) [806.43ms]
+(pass) Aprobar y siguiente on the receipt review page > an unavailable next receipt never hands focus to a later receipt [854.48ms]
+(pass) Aprobar y siguiente on the receipt review page > an unavailable next dossier never hands focus to a later receipt [843.99ms]
+(pass) Aprobar y siguiente on the receipt review page > leaving the next receipt while it loads never hands focus to a later page [2986.83ms]
+(pass) Aprobar y siguiente on the receipt review page > approving the last receipt waiting returns to the Bandeja and its empty state [1147.23ms]
+(pass) Aprobar y siguiente on the receipt review page > a refused approval stays on the receipt with the existing error [2926.46ms]
+(pass) Aprobar y siguiente on the receipt review page > an approval whose outcome is unknown stays on the receipt [2931.38ms]
+(pass) Aprobar y siguiente on the receipt review page > a 200 whose approval failed stays on the receipt and reads nothing more [2933.03ms]
+(pass) Aprobar y siguiente on the receipt review page > a 200 whose outcome is unknown stays on the receipt and reads nothing more [2938.71ms]
+(pass) Aprobar y siguiente on the receipt review page > when the Bandeja cannot be read after a recorded approval, the Bandeja opens [797.47ms]
+(pass) Aprobar y siguiente on the receipt review page > opening Gastos while the approval is pending keeps Gastos open when it records [2938.69ms]
+(pass) Aprobar y siguiente on the receipt review page > switching Business while the approval is pending opens no receipt when it records [2918.90ms]
+(pass) Aprobar y siguiente on the receipt review page > switching Business while the Bandeja read is pending opens no receipt from the old Business [2952.35ms]
+(pass) Aprobar y siguiente on the receipt review page > a person without approval permission never sees Aprobar y siguiente [793.78ms]
+
+__tests__/workspace-keyboard-shortcuts.test.ts:
+(pass) workspace shortcut boundaries > matches physical keys only with exactly the platform chord [0.07ms]
+(pass) workspace shortcut boundaries > jump numbers reuse the registry and show only the selected platform [0.08ms]
+(pass) workspace shortcut boundaries > composition, typing, handled keys, and repeats never reach an action [0.03ms]
+(pass) shortcut search accepts the label and typed modifier names [0.10ms]
+(pass) navigation clears abandoned title focus but retains the intended receipt [0.02ms]
+
+__tests__/keyboard-shortcuts-overlay-render.test.tsx:
+(pass) KeyboardShortcutsOverlay presentation > keeps complete fallback labels when a locale response is stale [3.79ms]
+(pass) KeyboardShortcutsOverlay presentation > orders chat management safely with Delete last [0.85ms]
+(pass) KeyboardShortcutsOverlay presentation > uses two desktop columns and lets Quick Jump span both [0.61ms]
+
+__tests__/keyboard-shortcuts.test.ts:
+(pass) keyboard shortcut registry > defines the searchable actions once for handlers and the overlay [0.04ms]
+(pass) keyboard shortcut registry > matches Command or Control without matching a bare modifier [0.05ms]
+(pass) keyboard shortcut registry > formats the shared bindings for Mac and Windows/Linux [0.07ms]
+(pass) keyboard shortcut registry > reveals shortcut hints while the platform primary modifier is held [0.02ms]
+(pass) keyboard shortcut registry > matches punctuation positions and finalized action bindings [0.04ms]
+(pass) keyboard shortcut registry > matches mnemonic letters by the logical key on non-US layouts [0.02ms]
+(pass) keyboard shortcut registry > owns the intuitive Omnisearch row actions in the shared registry [0.09ms]
+(pass) keyboard shortcut registry > matches quick-jump digits by code across shifted layouts [0.20ms]
+(pass) keyboard shortcut registry > ignores auto-repeat for actions and quick-jump digits [0.01ms]
+
+__tests__/business-switcher.dom.test.tsx:
+(pass) the Business switcher at the top left > the English default is Spanish in the collapsed label and open options [3.18ms]
+(pass) the Business switcher at the top left > with only the own Business it is a plain label naming it; nothing opens [0.50ms]
+(pass) the Business switcher at the top left > with a client Business it is a button that names the active one and opens a listbox the keyboard drives [4.87ms]
+(pass) the Business switcher at the top left > a click on a client row chooses its grant; collapsed, the name stays readable to assistive tech [1.45ms]
+(pass) inside a client's Business every screen says so > the client cue and the one-time line show on first landing; Entendido records it once and it never returns; the owner sees neither [1.07ms]
+(pass) inside a client's Business every screen says so > the client cue and access banner localize the saved English default [0.42ms]
+(pass) inside a client's Business every screen says so > a grant that died mid-session says so once, in the own Business [0.26ms]
+(pass) the chosen grant rides on every API call > the header is present only while a grant is chosen, and the memory survives a re-read [0.30ms]
+
+__tests__/chat-keyboard-shortcut-policy.test.ts:
+(pass) chat keyboard shortcut policy > keeps conversation mutations on the visible chat view [0.03ms]
+(pass) chat keyboard shortcut policy > does not stack shortcut help above another keyboard surface [0.02ms]
+(pass) chat keyboard shortcut policy > the shortcut can always close the overlay it opened
+
+__tests__/keyboard-shortcuts-overlay.test.ts:
+(pass) keyboard shortcuts overlay > uses the central registry for the overlay, handler, and Help entry [0.29ms]
+(pass) keyboard shortcuts overlay > localizes every overlay label in English and Spanish [0.76ms]
+(pass) keyboard shortcuts overlay > shares numbered quick-jump behavior between Recents and Settings [0.39ms]
+(pass) keyboard shortcuts overlay > routes every real action through the central registry [0.20ms]
+
+__tests__/locales.test.ts:
+(pass) Omnisearch dossier-history locales > provides the locked English and natural es-419 copy [0.10ms]
+(pass) Omnisearch dossier-history locales > keeps interpolation variables equivalent across supported locales [0.14ms]
+(pass) conversation activity locales > provides exact English and product-reviewed es-419 activity copy [0.04ms]
+(pass) conversation activity locales > keeps activity announcement interpolation equivalent [0.03ms]
+(pass) daily question limit copy > uses Iris's exact copy with no vague wait or em dash [0.02ms]
+(pass) daily question limit copy > uses Iris's exact copy with no vague wait or em dash
+
+ 58 pass
+ 0 fail
+ 390 expect() calls
+Ran 58 tests across 8 files. [39.14s]

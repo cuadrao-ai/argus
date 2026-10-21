@@ -89,9 +89,7 @@ struct CuadraoReceiptFlow: View {
         NavigationStack {
             CuadraoReceiptReview(id: id, workspace: workspace, spanish: spanish)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(closeTitle) { dismiss() }.accessibilityIdentifier("receipt-later")
-                    }
+                    CuadraoCancelToolbar(title: closeTitle, identifier: "receipt-later") { dismiss() }
                 }
         }.tint(WelcomePalette.pine).presentationDragIndicator(.visible)
     }
@@ -168,10 +166,7 @@ struct CuadraoReceiptCapture: View {
                         .navigationTitle(spanish ? "Un recibo" : "A receipt")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button(spanish ? "Cancelar" : "Cancel", action: cancel)
-                                    .accessibilityIdentifier("receipt-later")
-                            }
+                            CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", identifier: "receipt-later", action: cancel)
                         }
                 }
             }

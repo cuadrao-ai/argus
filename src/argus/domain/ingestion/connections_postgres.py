@@ -27,12 +27,14 @@ from argus.domain.ingestion.connections import (
     checked_ref,
 )
 from argus.domain.ingestion.contract import SourceKind
+from argus.domain.owner_scope import OwnerScope, scope_of, space_id, sql_predicate
 
 _COLUMNS = (
     "id::text, user_id::text, source, status, label, external_ref, sync_cursor, "
     "secret_ciphertext, secret_key_fingerprint, last_success_at, last_attempt_at, last_error_code, "
     "attention_code, attention_at, "
-    "lease_holder, lease_until, created_at, updated_at, disconnected_at, version"
+    "lease_holder, lease_until, created_at, updated_at, disconnected_at, version, "
+    "owner_space_id::text"
 )
 _LIVE = "status <> 'disconnected'"
 
@@ -52,14 +54,16 @@ class PostgresConnectionRepository:
         secret: bytes | None = None,
         connection_id: str | None = None,
         secret_key: str | None = None,
+        scope: OwnerScope,
     ) -> SourceConnection:
         external_ref, label = checked_ref(external_ref), checked_label(label)
         try:
             row = self._one(
                 f"""insert into public.financial_source_connections
                     (id, user_id, source, external_ref, label, secret_ciphertext,
-                     secret_key_fingerprint, created_at, updated_at)
-                values (coalesce(%s::uuid, gen_random_uuid()), %s, %s, %s, %s, %s, %s, %s, %s)
+                     secret_key_fingerprint, created_at, updated_at, owner_space_id)
+                values (coalesce(%s::uuid, gen_random_uuid()),
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 returning {_COLUMNS}""",
                 (
                     connection_id,
@@ -71,13 +75,16 @@ class PostgresConnectionRepository:
                     secret_key if secret is not None else None,
                     now,
                     now,
+                    space_id(scope),
                 ),
             )
         except errors.UniqueViolation:
+            in_scope, params = sql_predicate(scope, "owner_space_id")
             existing = self._one(
                 f"""select {_COLUMNS} from public.financial_source_connections
-                where user_id = %s and source = %s and external_ref = %s and {_LIVE}""",
-                (user_id, source, external_ref),
+                where user_id = %s and source = %s and external_ref = %s and {_LIVE}
+                and {in_scope}""",
+                (user_id, source, external_ref, *params),
             )
             if existing is None:
                 raise DuplicateConnection("", elsewhere=True) from None
@@ -85,7 +92,20 @@ class PostgresConnectionRepository:
         assert row is not None
         return _row(row)
 
-    def get(self, *, user_id: str, connection_id: str) -> SourceConnection:
+    def get(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> SourceConnection:
+        in_scope, params = sql_predicate(scope, "owner_space_id")
+        row = self._one(
+            f"""select {_COLUMNS} from public.financial_source_connections
+            where id = %s::uuid and user_id = %s and {in_scope}""",
+            (_uuid(connection_id), user_id, *params),
+        )
+        if row is None:
+            raise ConnectionNotFound()
+        return _row(row)
+
+    def get_any_scope(self, *, user_id: str, connection_id: str) -> SourceConnection:
         row = self._one(
             f"""select {_COLUMNS} from public.financial_source_connections
             where id = %s::uuid and user_id = %s""",
@@ -95,13 +115,14 @@ class PostgresConnectionRepository:
             raise ConnectionNotFound()
         return _row(row)
 
-    def list(self, *, user_id: str) -> list[SourceConnection]:
+    def list(self, *, user_id: str, scope: OwnerScope) -> list[SourceConnection]:
+        in_scope, params = sql_predicate(scope, "owner_space_id")
         return [
             _row(r)
             for r in self._all(
                 f"""select {_COLUMNS} from public.financial_source_connections
-                where user_id = %s order by created_at, id""",
-                (user_id,),
+                where user_id = %s and {in_scope} order by created_at, id""",
+                (user_id, *params),
             )
         ]
 
@@ -270,7 +291,7 @@ class PostgresConnectionRepository:
             (now, now, _uuid(connection_id), user_id),
         )
         if row is None:
-            return self.get(user_id=user_id, connection_id=connection_id)
+            return self.get_any_scope(user_id=user_id, connection_id=connection_id)
         return _row(row)
 
     def _one(self, statement: str, params: tuple[Any, ...]) -> dict[str, Any] | None:
@@ -316,4 +337,5 @@ def _row(row: dict[str, Any]) -> SourceConnection:
         disconnected_at=row["disconnected_at"],
         version=row["version"],
         secret_key=row["secret_key_fingerprint"],
+        scope=scope_of(row["owner_space_id"]),
     )

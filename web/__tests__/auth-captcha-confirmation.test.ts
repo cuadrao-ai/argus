@@ -11,6 +11,7 @@ const originalFetch = globalThis.fetch;
 const originalNodeEnv = process.env.NODE_ENV;
 const originalLocalToken =
   process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
+const originalCuadraoSiteKey = process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
 const originalTurnstileSiteKey =
   process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -27,6 +28,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
   delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
+  delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
 });
 
 afterEach(() => {
@@ -36,6 +38,11 @@ afterEach(() => {
     delete process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN;
   } else {
     process.env.NEXT_PUBLIC_ARGUS_LOCAL_QA_CAPTCHA_TOKEN = originalLocalToken;
+  }
+  if (originalCuadraoSiteKey === undefined) {
+    delete process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY;
+  } else {
+    process.env.NEXT_PUBLIC_CUADRAO_TURNSTILE_SITE_KEY = originalCuadraoSiteKey;
   }
   if (originalTurnstileSiteKey === undefined) {
     delete process.env.NEXT_PUBLIC_ARGUS_TURNSTILE_SITE_KEY;
@@ -70,6 +77,40 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     });
     expect(result.response.session).toBeNull();
     expect(result.needsEmailConfirmation).toBe(true);
+  });
+
+  test("a login request that never returns ends as a browser-check failure", async () => {
+    globalThis.fetch = (() => new Promise(() => undefined)) as typeof fetch;
+
+    const result = await Promise.race([
+      loginWithEmail(
+        { email: "alpha@example.com", password: "password123" },
+        { requestTimeoutMs: 30 },
+      ).then(() => "resolved", (error: unknown) => error),
+      new Promise<string>((resolve) => setTimeout(() => resolve("hung"), 200)),
+    ]);
+
+    expect(result).toMatchObject({ code: "captcha_unavailable" });
+    expect(result).not.toMatchObject({ code: "unauthorized" });
+  });
+
+  test("a captcha rejection from login stays a browser-check failure", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          code: "captcha_unavailable",
+          detail: "The browser check did not complete. Try again.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const error = await loginWithEmail({
+      email: "alpha@example.com",
+      password: "password123",
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: "captcha_unavailable" });
+    expect(error).not.toMatchObject({ code: "unauthorized" });
   });
 
   test("signup with a returned session preserves the authenticated outcome", async () => {
@@ -266,17 +307,17 @@ describe("password auth CAPTCHA and confirmation contract", () => {
     expect(submitHandler).not.toContain("navigator.webdriver");
     expect(submitHandler).toContain("allowMockSignupNetwork");
     expect(submitHandler.indexOf("needsEmailConfirmation")).toBeLessThan(
-      submitHandler.lastIndexOf("router.replace(currentChatPath())"),
+      submitHandler.lastIndexOf("router.replace(postAuthPath())"),
     );
     expect(form).toContain('data-testid="auth-check-email"');
     expect(form).toContain("captcha_unavailable");
     expect(en.auth.signup.confirmation_title).toBe("Check your email");
     expect(en.auth.errors.captcha_unavailable).toBe(
-      "This browser didn’t pass the security check. Open Argus in a regular browser, or reload the page.",
+      "This browser didn’t pass the security check. Open Cuadrao in a regular browser, or reload the page.",
     );
     expect(es.auth.signup.confirmation_title).toBe("Revisa tu correo");
     expect(es.auth.errors.captcha_unavailable).toBe(
-      "Este navegador no pasó la verificación de seguridad. Abre Argus en un navegador normal, o actualiza la página.",
+      "Este navegador no pasó la verificación de seguridad. Abre Cuadrao en un navegador normal, o actualiza la página.",
     );
     expect(en.auth.errors.captcha_unavailable).not.toMatch(/try again/i);
     expect(es.auth.errors.captcha_unavailable).not.toMatch(/int[eé]ntalo de nuevo/i);

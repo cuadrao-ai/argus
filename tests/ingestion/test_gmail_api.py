@@ -9,6 +9,7 @@ from argus.api.ingestion import ingestion_hub
 from argus.api.main import app
 from argus.domain.ingestion.gmail.config import SCOPE
 from argus.domain.ingestion.gmail.state import InMemoryStateLedger
+from argus.domain.owner_scope import PERSONAL
 from fastapi.testclient import TestClient
 
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
@@ -151,7 +152,7 @@ def test_failed_revocation_still_deletes_credential(client, google, identities):
     ended = client.post(f"{ROOT}/{connection_id}/disconnect", headers=bearer(ALICE))
     assert ended.json()["provider_revocation"] == "failed"
     stored = ingestion_hub().connections.get(
-        user_id=identities[ALICE]["id"], connection_id=connection_id
+        user_id=identities[ALICE]["id"], connection_id=connection_id, scope=PERSONAL
     )
     assert stored.secret is None and stored.status == "disconnected"
     # The forget hook still deletes the sender allowlist.

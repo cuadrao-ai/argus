@@ -1,0 +1,399 @@
+{
+ "head": "380e38570c7364f671dd36622133f020a665df48",
+ "results": [
+  {
+   "scenario": "1",
+   "name": "search \"Ferretería\" after reload finds the Business expense only; opening it shows its receipt; the original downloads with a matching sha256",
+   "ok": true,
+   "detail": "{\"query\":\"Ferretería\",\"ui_expense_rows\":1,\"ui_receipt_rows\":0,\"ui_shows_business_merchant\":true,\"ui_shows_personal_amount\":false,\"opened_receipt_is_expected\":true,\"download_sha256_matches\":true,\"download_sha256\":\"b3b675045581\",\"api_status\":200,\"api_expense_ids\":[\"<web expense>\"],\"api_receipt_ids\":[],\"api_personal_hit\":false}"
+  },
+  {
+   "scenario": "1",
+   "name": "search \"Colmado\" after reload finds the Business expense only; opening it shows its receipt; the original downloads with a matching sha256",
+   "ok": true,
+   "detail": "{\"query\":\"Colmado\",\"ui_expense_rows\":1,\"ui_receipt_rows\":0,\"ui_shows_business_merchant\":true,\"ui_shows_personal_amount\":false,\"opened_receipt_is_expected\":true,\"download_sha256_matches\":true,\"download_sha256\":\"0cde8fde9397\",\"api_status\":200,\"api_expense_ids\":[\"<WhatsApp expense>\"],\"api_receipt_ids\":[],\"api_personal_hit\":false}"
+  },
+  {
+   "scenario": "1",
+   "name": "the Personal expense with the same merchant is in neither the omnisearch rows nor GET /business/search",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "scenario": "2a",
+   "name": "message \"Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself.\" with no retry, fields open for entry",
+   "ok": false,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"no_financial_observations\",\"attention\":\"several_purchases\",\"preparable\":false,\"enterable\":true,\"version\":0,\"evidence\":{\"merchant\":\"PAPELERIA CENTRAL\",\"occurred_on\":\"2026-10-07\",\"total\":\"845.00\",\"currency\":\"DOP\",\"tax\":\"128.90\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Resma carta x2\",\"amount\":\"716.10\"}]}},\"screen\":{\"attention_text\":\"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\",\"retry_button\":0,\"retry_consent_line\":0,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":1,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2a",
+   "name": "filled in by hand and confirmed: exactly one expense; double-click sent one review and one confirm",
+   "ok": true,
+   "detail": "{\"confirmed\":{\"status\":\"confirmed\",\"merchant\":\"Papelería Central\",\"amount\":\"845.00\",\"evidence_after\":{\"merchant\":\"PAPELERIA CENTRAL\",\"occurred_on\":\"2026-10-07\",\"total\":\"845.00\",\"currency\":\"DOP\",\"tax\":\"128.90\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Resma carta x2\",\"amount\":\"716.10\"}]},\"expense\":\"<2a expense>\"},\"accepted\":[2,3],\"ui\":{\"review_patches\":1,\"confirm_posts\":1}}"
+  },
+  {
+   "scenario": "2a",
+   "name": "the AI reading stays stored and visible as evidence after the hand entry",
+   "ok": true,
+   "detail": "{\"evidence_before\":{\"merchant\":\"PAPELERIA CENTRAL\",\"occurred_on\":\"2026-10-07\",\"total\":\"845.00\",\"currency\":\"DOP\",\"tax\":\"128.90\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Resma carta x2\",\"amount\":\"716.10\"}]},\"evidence_after\":{\"merchant\":\"PAPELERIA CENTRAL\",\"occurred_on\":\"2026-10-07\",\"total\":\"845.00\",\"currency\":\"DOP\",\"tax\":\"128.90\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Resma carta x2\",\"amount\":\"716.10\"}]},\"shown\":1,\"read_batch_stored\":true}"
+  },
+  {
+   "scenario": "2a",
+   "name": "the read's purchase events are dismissed and kept, not deleted; the owner's entry is the one accepted expense",
+   "ok": true,
+   "detail": "{\"reads_before\":[],\"reads_after\":[],\"owner_entries\":[\"accepted+expense\"],\"ok\":true}"
+  },
+  {
+   "scenario": "2a",
+   "name": "same-key confirm burst returns the one expense; replaying the version-0 entry is refused",
+   "ok": true,
+   "detail": "{\"burst\":[[200,\"<2a expense>\"],[200,\"<2a expense>\"]],\"stale_entry_replay\":[409,\"stale_version\"]}"
+  },
+  {
+   "scenario": "2a2",
+   "name": "message \"Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself.\" with no retry, fields open for entry",
+   "ok": true,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"no_purchase_found\",\"attention\":\"no_purchase_found\",\"preparable\":false,\"enterable\":true,\"version\":0,\"evidence\":null},\"screen\":{\"attention_text\":\"Cuadrao read this receipt but didn't find a purchase to save. Enter the details yourself.\",\"retry_button\":0,\"retry_consent_line\":0,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":0,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2a2",
+   "name": "filled in by hand and confirmed: exactly one expense; double-click sent one review and one confirm",
+   "ok": true,
+   "detail": "{\"confirmed\":{\"status\":\"confirmed\",\"merchant\":\"Claro Internet\",\"amount\":\"1890.00\",\"evidence_after\":null,\"expense\":\"<2a2 expense>\"},\"accepted\":[3,4],\"ui\":{\"review_patches\":1,\"confirm_posts\":1}}"
+  },
+  {
+   "scenario": "2a2",
+   "name": "the read stays stored; it had no receipt details, so evidence is null before and after",
+   "ok": true,
+   "detail": "{\"evidence_before\":null,\"evidence_after\":null,\"shown\":0,\"read_batch_stored\":true}"
+  },
+  {
+   "scenario": "2a2",
+   "name": "the read's purchase events are dismissed and kept, not deleted; the owner's entry is the one accepted expense",
+   "ok": true,
+   "detail": "{\"reads_before\":[\"open\"],\"reads_after\":[\"dismissed\"],\"owner_entries\":[\"accepted+expense\"],\"ok\":true}"
+  },
+  {
+   "scenario": "2a2",
+   "name": "same-key confirm burst returns the one expense; replaying the version-0 entry is refused",
+   "ok": true,
+   "detail": "{\"burst\":[[200,\"<2a2 expense>\"],[200,\"<2a2 expense>\"]],\"stale_entry_replay\":[409,\"stale_version\"]}"
+  },
+  {
+   "scenario": "2b",
+   "name": "message \"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\" with no retry, fields open for entry",
+   "ok": true,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"several_purchases_found\",\"attention\":\"several_purchases\",\"preparable\":false,\"enterable\":true,\"version\":0,\"evidence\":{\"merchant\":\"SUPERMERCADO BRAVO\",\"occurred_on\":\"2026-10-07\",\"total\":\"2100.00\",\"currency\":\"DOP\",\"tax\":\"320.34\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Compra semanal\",\"amount\":\"1779.66\"}]}},\"screen\":{\"attention_text\":\"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\",\"retry_button\":0,\"retry_consent_line\":0,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":1,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2b",
+   "name": "filled in by hand and confirmed: exactly one expense; double-click sent one review and one confirm",
+   "ok": true,
+   "detail": "{\"confirmed\":{\"status\":\"confirmed\",\"merchant\":\"Supermercado Bravo\",\"amount\":\"2100.00\",\"evidence_after\":{\"merchant\":\"SUPERMERCADO BRAVO\",\"occurred_on\":\"2026-10-07\",\"total\":\"2100.00\",\"currency\":\"DOP\",\"tax\":\"320.34\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Compra semanal\",\"amount\":\"1779.66\"}]},\"expense\":\"<2b expense>\"},\"accepted\":[4,5],\"ui\":{\"review_patches\":1,\"confirm_posts\":1}}"
+  },
+  {
+   "scenario": "2b",
+   "name": "the AI reading stays stored and visible as evidence after the hand entry",
+   "ok": true,
+   "detail": "{\"evidence_before\":{\"merchant\":\"SUPERMERCADO BRAVO\",\"occurred_on\":\"2026-10-07\",\"total\":\"2100.00\",\"currency\":\"DOP\",\"tax\":\"320.34\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Compra semanal\",\"amount\":\"1779.66\"}]},\"evidence_after\":{\"merchant\":\"SUPERMERCADO BRAVO\",\"occurred_on\":\"2026-10-07\",\"total\":\"2100.00\",\"currency\":\"DOP\",\"tax\":\"320.34\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Compra semanal\",\"amount\":\"1779.66\"}]},\"shown\":1,\"read_batch_stored\":true}"
+  },
+  {
+   "scenario": "2b",
+   "name": "the read's purchase events are dismissed and kept, not deleted; the owner's entry is the one accepted expense",
+   "ok": true,
+   "detail": "{\"reads_before\":[\"open\",\"open\"],\"reads_after\":[\"dismissed\",\"dismissed\"],\"owner_entries\":[\"accepted+expense\"],\"ok\":true}"
+  },
+  {
+   "scenario": "2b",
+   "name": "same-key confirm burst returns the one expense; replaying the version-0 entry is refused",
+   "ok": true,
+   "detail": "{\"burst\":[[200,\"<2b expense>\"],[200,\"<2b expense>\"]],\"stale_entry_replay\":[409,\"stale_version\"]}"
+  },
+  {
+   "scenario": "2c",
+   "name": "message \"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\" with no retry, fields open for entry",
+   "ok": true,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"receipt_purchase_ambiguous\",\"attention\":\"several_purchases\",\"preparable\":false,\"enterable\":true,\"version\":0,\"evidence\":{\"merchant\":\"PANADERIA DONA ANA\",\"occurred_on\":\"2026-10-07\",\"total\":\"1250.00\",\"currency\":\"DOP\",\"tax\":\"190.68\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Pan sobao x10\",\"amount\":\"1059.32\"}]}},\"screen\":{\"attention_text\":\"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\",\"retry_button\":0,\"retry_consent_line\":0,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":1,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2c",
+   "name": "filled in by hand and confirmed: exactly one expense; double-click sent one review and one confirm",
+   "ok": true,
+   "detail": "{\"confirmed\":{\"status\":\"confirmed\",\"merchant\":\"Panadería Doña Ana\",\"amount\":\"1250.00\",\"evidence_after\":{\"merchant\":\"PANADERIA DONA ANA\",\"occurred_on\":\"2026-10-07\",\"total\":\"1250.00\",\"currency\":\"DOP\",\"tax\":\"190.68\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Pan sobao x10\",\"amount\":\"1059.32\"}]},\"expense\":\"<2c expense>\"},\"accepted\":[5,6],\"ui\":{\"review_patches\":1,\"confirm_posts\":1}}"
+  },
+  {
+   "scenario": "2c",
+   "name": "the AI reading stays stored and visible as evidence after the hand entry",
+   "ok": true,
+   "detail": "{\"evidence_before\":{\"merchant\":\"PANADERIA DONA ANA\",\"occurred_on\":\"2026-10-07\",\"total\":\"1250.00\",\"currency\":\"DOP\",\"tax\":\"190.68\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Pan sobao x10\",\"amount\":\"1059.32\"}]},\"evidence_after\":{\"merchant\":\"PANADERIA DONA ANA\",\"occurred_on\":\"2026-10-07\",\"total\":\"1250.00\",\"currency\":\"DOP\",\"tax\":\"190.68\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Pan sobao x10\",\"amount\":\"1059.32\"}]},\"shown\":1,\"read_batch_stored\":true}"
+  },
+  {
+   "scenario": "2c",
+   "name": "the read's purchase events are dismissed and kept, not deleted; the owner's entry is the one accepted expense",
+   "ok": true,
+   "detail": "{\"reads_before\":[],\"reads_after\":[],\"owner_entries\":[\"accepted+expense\"],\"ok\":true}"
+  },
+  {
+   "scenario": "2c",
+   "name": "same-key confirm burst returns the one expense; replaying the version-0 entry is refused",
+   "ok": true,
+   "detail": "{\"burst\":[[200,\"<2c expense>\"],[200,\"<2c expense>\"]],\"stale_entry_replay\":[409,\"stale_version\"]}"
+  },
+  {
+   "scenario": "2d",
+   "name": "message \"AI preparation isn't available right now. Your receipt is saved. Try again later or enter the details yourself.\" with Try again with AI and its consent line, fields open for entry",
+   "ok": true,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"extraction_provider_failed\",\"attention\":\"ai_unavailable\",\"preparable\":true,\"enterable\":true,\"version\":0,\"evidence\":null},\"screen\":{\"attention_text\":\"AI preparation isn't available right now. Your receipt is saved. Try again later or enter the details yourself.\",\"retry_button\":1,\"retry_consent_line\":1,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":0,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2d",
+   "name": "no retry without the click; Try again with AI sends the consent header and makes exactly one new stub call",
+   "ok": true,
+   "detail": "{\"no_click\":{\"stub_calls_after_15s_and_list_reads\":0,\"prepare_without_consent\":[422,\"document_extraction_consent_required\"],\"stub_calls_after_refusal\":0},\"retry\":{\"prepare_requests\":[{\"consent_header\":\"true\"}],\"new_stub_calls\":1,\"after\":{\"status\":\"needs_attention\",\"attention\":\"ai_unavailable\",\"preparable\":true,\"enterable\":true,\"evidence\":false}}}"
+  },
+  {
+   "scenario": "2d",
+   "name": "after the retry: message \"AI preparation isn't available right now. Your receipt is saved. Try again later or enter the details yourself.\", still enterable",
+   "ok": true,
+   "detail": "{\"after\":{\"status\":\"needs_attention\",\"attention\":\"ai_unavailable\",\"preparable\":true,\"enterable\":true,\"evidence\":false},\"screen\":{\"attention_text\":\"AI preparation isn't available right now. Your receipt is saved. Try again later or enter the details yourself.\",\"retry_button\":1,\"retry_consent_line\":1,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":0,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2d",
+   "name": "filled in by hand and confirmed: exactly one expense; double-click sent one review and one confirm",
+   "ok": true,
+   "detail": "{\"confirmed\":{\"status\":\"confirmed\",\"merchant\":\"Taller Mecánico Ramírez\",\"amount\":\"3800.00\",\"evidence_after\":null,\"expense\":\"<2d expense>\"},\"accepted\":[6,7],\"ui\":{\"review_patches\":1,\"confirm_posts\":1}}"
+  },
+  {
+   "scenario": "2d",
+   "name": "no reading exists (provider failed); no batch stored and evidence stays null",
+   "ok": false,
+   "detail": "{\"evidence_before\":null,\"evidence_after\":null,\"shown\":0,\"read_batch_stored\":true}"
+  },
+  {
+   "scenario": "2d",
+   "name": "the read's purchase events are dismissed and kept, not deleted; the owner's entry is the one accepted expense",
+   "ok": true,
+   "detail": "{\"reads_before\":[],\"reads_after\":[],\"owner_entries\":[\"accepted+expense\"],\"ok\":true}"
+  },
+  {
+   "scenario": "2d",
+   "name": "same-key confirm burst returns the one expense; replaying the version-0 entry is refused",
+   "ok": true,
+   "detail": "{\"burst\":[[200,\"<2d expense>\"],[200,\"<2d expense>\"]],\"stale_entry_replay\":[409,\"stale_version\"]}"
+  },
+  {
+   "scenario": "2d",
+   "name": "provider failure ends needs_attention with no batch stored",
+   "ok": true,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"extraction_provider_failed\",\"attention\":\"ai_unavailable\",\"preparable\":true,\"enterable\":true,\"version\":0,\"evidence\":null},\"rows\":{\"events\":[],\"read_batch_stored\":false,\"draft_status\":\"needs_attention\",\"draft_error_code\":\"extraction_provider_failed\"}}"
+  },
+  {
+   "scenario": "2e",
+   "name": "message \"We don't know if the AI finished reading this receipt, and nothing was saved from it. Try again or enter the details yourself.\" with Try again with AI and its consent line, fields open for entry",
+   "ok": true,
+   "detail": "{\"api\":{\"status\":\"needs_attention\",\"error_code\":\"document_preparation_outcome_unknown\",\"attention\":\"outcome_unknown\",\"preparable\":true,\"enterable\":true,\"version\":0,\"evidence\":null},\"screen\":{\"attention_text\":\"We don't know if the AI finished reading this receipt, and nothing was saved from it. Try again or enter the details yourself.\",\"retry_button\":1,\"retry_consent_line\":1,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":0,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2e",
+   "name": "no retry without the click; Try again with AI sends the consent header and makes exactly one new stub call",
+   "ok": true,
+   "detail": "{\"no_click\":{\"stub_calls_after_15s_and_list_reads\":0,\"prepare_without_consent\":[422,\"document_extraction_consent_required\"],\"stub_calls_after_refusal\":0},\"retry\":{\"prepare_requests\":[{\"consent_header\":\"true\"}],\"new_stub_calls\":1,\"after\":{\"status\":\"needs_attention\",\"attention\":\"several_purchases\",\"preparable\":false,\"enterable\":true,\"evidence\":true}}}"
+  },
+  {
+   "scenario": "2e",
+   "name": "after the retry: message \"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\", still enterable",
+   "ok": true,
+   "detail": "{\"after\":{\"status\":\"needs_attention\",\"attention\":\"several_purchases\",\"preparable\":false,\"enterable\":true,\"evidence\":true},\"screen\":{\"attention_text\":\"Cuadrao couldn't match this receipt to one purchase. Enter the details yourself to save one expense.\",\"retry_button\":0,\"retry_consent_line\":0,\"prepare_button\":0,\"merchant_editable\":true,\"evidence_shown\":1,\"confirm_button\":1}}"
+  },
+  {
+   "scenario": "2e",
+   "name": "filled in by hand and confirmed: exactly one expense; double-click sent one review and one confirm",
+   "ok": true,
+   "detail": "{\"confirmed\":{\"status\":\"confirmed\",\"merchant\":\"Gasolinera La Autopista\",\"amount\":\"2000.00\",\"evidence_after\":{\"merchant\":\"GASOLINERA LA AUTOPISTA\",\"occurred_on\":\"2026-10-07\",\"total\":\"2000.00\",\"currency\":\"DOP\",\"tax\":\"305.08\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Gasolina premium\",\"amount\":\"1694.92\"}]},\"expense\":\"<2e expense>\"},\"accepted\":[7,8],\"ui\":{\"review_patches\":1,\"confirm_posts\":1}}"
+  },
+  {
+   "scenario": "2e",
+   "name": "the AI reading stays stored and visible as evidence after the hand entry",
+   "ok": true,
+   "detail": "{\"evidence_before\":{\"merchant\":\"GASOLINERA LA AUTOPISTA\",\"occurred_on\":\"2026-10-07\",\"total\":\"2000.00\",\"currency\":\"DOP\",\"tax\":\"305.08\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Gasolina premium\",\"amount\":\"1694.92\"}]},\"evidence_after\":{\"merchant\":\"GASOLINERA LA AUTOPISTA\",\"occurred_on\":\"2026-10-07\",\"total\":\"2000.00\",\"currency\":\"DOP\",\"tax\":\"305.08\",\"tip\":null,\"service\":null,\"lines\":[{\"description\":\"Gasolina premium\",\"amount\":\"1694.92\"}]},\"shown\":1,\"read_batch_stored\":true}"
+  },
+  {
+   "scenario": "2e",
+   "name": "the read's purchase events are dismissed and kept, not deleted; the owner's entry is the one accepted expense",
+   "ok": true,
+   "detail": "{\"reads_before\":[\"open\",\"open\"],\"reads_after\":[\"dismissed\",\"dismissed\"],\"owner_entries\":[\"accepted+expense\"],\"ok\":true}"
+  },
+  {
+   "scenario": "2e",
+   "name": "same-key confirm burst returns the one expense; replaying the version-0 entry is refused",
+   "ok": true,
+   "detail": "{\"burst\":[[200,\"<2e expense>\"],[200,\"<2e expense>\"]],\"stale_entry_replay\":[409,\"stale_version\"]}"
+  },
+  {
+   "scenario": "2e",
+   "name": "the sweep settled the killed preparation to needs_attention outcome_unknown with one stub call",
+   "ok": true,
+   "detail": "{\"status\":\"needs_attention\",\"attention\":\"outcome_unknown\",\"error_code\":\"document_preparation_outcome_unknown\"}"
+  },
+  {
+   "scenario": "2",
+   "name": "an API restart and a same-key replay of every scenario 2 confirm leave one expense each",
+   "ok": true,
+   "detail": "{\"replays\":{\"a\":[200,true],\"a2\":[200,true],\"b\":[200,true],\"c\":[200,true],\"d\":[200,true],\"e\":[200,true]},\"accepted\":[8,8]}"
+  },
+  {
+   "scenario": "3",
+   "name": "Personal and another owner's account ids in review return 404 financial_account_not_found; the receipt and its rows are unchanged",
+   "ok": true,
+   "detail": "{\"s3-saved with A's Personal account\":{\"status_before\":\"saved\",\"response\":[404,\"financial_account_not_found\"],\"detail_unchanged\":true,\"rows_unchanged\":true,\"version\":[0,0]},\"s3-saved with B's Business account\":{\"status_before\":\"saved\",\"response\":[404,\"financial_account_not_found\"],\"detail_unchanged\":true,\"rows_unchanged\":true,\"version\":[0,0]},\"s3-ready with A's Personal account\":{\"status_before\":\"review_ready\",\"response\":[404,\"financial_account_not_found\"],\"detail_unchanged\":true,\"rows_unchanged\":true,\"version\":[1,1]},\"s3-ready with B's Business account\":{\"status_before\":\"review_ready\",\"response\":[404,\"financial_account_not_found\"],\"detail_unchanged\":true,\"rows_unchanged\":true,\"version\":[1,1]},\"s3-several with A's Personal account\":{\"status_before\":\"needs_attention\",\"response\":[404,\"financial_account_not_found\"],\"detail_unchanged\":true,\"rows_unchanged\":true,\"version\":[0,0]},\"s3-several with B's Business account\":{\"status_before\":\"needs_attention\",\"response\":[404,\"financial_account_not_found\"],\"detail_unchanged\":true,\"rows_unchanged\":true,\"version\":[0,0]}}"
+  },
+  {
+   "scenario": "1",
+   "name": "owner B's search finds nothing of A's (API and omnisearch)",
+   "ok": true,
+   "detail": "{\"bSearch\":{\"3450\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"Ferretería\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"Ferreter\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"Colmado\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"706.10\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"ferreteria-oct\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"Cuenta operativa\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"Papelería\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"Gasolinera\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]},\"a\":{\"status\":200,\"expenses\":0,\"receipts\":0,\"accounts\":[]}},\"bLeaks\":[],\"bUi\":{\"business_rows\":0,\"no_results\":1}}"
+  }
+ ],
+ "cuts": [
+  {
+   "label": "upload rate-limit pacing",
+   "from": 1.937,
+   "to": 1.937
+  },
+  {
+   "label": "API restart after kill -9",
+   "from": 4.487,
+   "to": 6.548
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 6.661,
+   "to": 6.661
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 11.537,
+   "to": 11.537
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 23.213,
+   "to": 23.213
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 68.76,
+   "to": 68.76
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 74.464,
+   "to": 74.464
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 80.71,
+   "to": 85.181
+  },
+  {
+   "label": "2(d) 15 s no-click observation window",
+   "from": 87.39,
+   "to": 102.392
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 102.494,
+   "to": 125.251
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 125.28,
+   "to": 130.722
+  },
+  {
+   "label": "lease wait for the sweep to settle 2(e)",
+   "from": 138.802,
+   "to": 310.346
+  },
+  {
+   "label": "2(e) 15 s no-click observation window",
+   "from": 311.806,
+   "to": 326.807
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 326.922,
+   "to": 326.922
+  },
+  {
+   "label": "upload rate-limit pacing",
+   "from": 326.949,
+   "to": 326.949
+  },
+  {
+   "label": "API restart for the replay check",
+   "from": 336.002,
+   "to": 338.047
+  }
+ ],
+ "marks": [
+  {
+   "label": "2(e) upload with AI, then kill -9",
+   "at": 2
+  },
+  {
+   "label": "1. web receipt",
+   "at": 7
+  },
+  {
+   "label": "1. WhatsApp receipt",
+   "at": 10
+  },
+  {
+   "label": "1. full reload, omnisearch",
+   "at": 15
+  },
+  {
+   "label": "2(a)",
+   "at": 23
+  },
+  {
+   "label": "2(a2)",
+   "at": 29
+  },
+  {
+   "label": "2(b)",
+   "at": 69
+  },
+  {
+   "label": "2(c)",
+   "at": 74
+  },
+  {
+   "label": "2(d)",
+   "at": 81
+  },
+  {
+   "label": "2(e) waiting for the sweep (cut)",
+   "at": 138
+  },
+  {
+   "label": "2(e) settled",
+   "at": 310
+  },
+  {
+   "label": "2(e)",
+   "at": 310
+  },
+  {
+   "label": "3. foreign accounts in review",
+   "at": 339
+  },
+  {
+   "label": "1. owner B search",
+   "at": 389
+  }
+ ],
+ "stub_calls": 12,
+ "console_errors": 1
+}

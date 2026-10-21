@@ -1,0 +1,444 @@
+{
+ "state": "ON",
+ "checks": [
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-accounts shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-home shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-activities/purchases shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-activities/options shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-documents shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-connections shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-imports shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-imports?state=accepted shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-plan shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /conversations shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-accounts/19cd1084-be19-4605-a322-9759a2f9656c/activity shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-search?q=FERRETERIA shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-search?q=COLMADO shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-search?q=FARMACIA shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-search?q=Operativa shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-search?q=Supermercado shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /financial-search?q=1850 shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.1",
+   "name": "A Personal read /search?q=FERRETERIA shows no Business row and nothing of B or D",
+   "pass": true,
+   "detail": {
+    "status": 200,
+    "expected": 200,
+    "hits": []
+   }
+  },
+  {
+   "id": "1.2",
+   "name": "A Personal home totals are Personal only (1,200.00 DOP purchases; Business 1,850.00 excluded)",
+   "pass": true,
+   "detail": {
+    "gross_purchases_minor": "120000",
+    "net_spending_minor": "120000",
+    "known_accounts": 0,
+    "unknown_accounts": 1
+   }
+  },
+  {
+   "id": "1.3",
+   "name": "positive control: A's own Personal rows are visible on the same reads",
+   "pass": true,
+   "detail": {
+    "accounts list has Personal account": true,
+    "purchases has Personal expense": true,
+    "search finds Personal expense": true,
+    "conversations has Personal chat": true,
+    "documents list has Personal document": true
+   }
+  },
+  {
+   "id": "1.4",
+   "name": "Personal routes answer 404 for A's Business account, expense, receipts and their originals",
+   "pass": true,
+   "detail": {
+    "GET /financial-accounts/{Business account}": "404 financial_account_not_found",
+    "GET /financial-accounts/{Business account}/activity": "404 financial_account_not_found",
+    "GET /financial-activities/{Business expense}": "404 financial_account_not_found",
+    "GET /financial-activities/{Business expense}/history": "404 financial_account_not_found",
+    "GET /financial-documents/{confirmed receipt}": "404 financial_document_not_found",
+    "GET /financial-documents/{confirmed receipt}/source": "404 financial_document_not_found",
+    "GET /financial-documents/{Inbox receipt}/source": "404 financial_document_not_found",
+    "GET /financial-documents/{WhatsApp receipt}/source": "404 financial_document_not_found",
+    "GET /financial-imports/{Business event}": "404 financial_import_not_found",
+    "POST /financial-activities/preview on the Business account": "404 financial_account_not_found"
+   }
+  },
+  {
+   "id": "1.5",
+   "name": "positive control (flags on): A's Business and WhatsApp GET routes answer 200",
+   "pass": true,
+   "detail": {
+    "A: GET /business/space": "200",
+    "A: GET /business/workspace": "200",
+    "A: GET /business/receipts": "200",
+    "A: GET /business/receipts/bf47ba3b-9cb9-4b3d-8789-72f79581b548": "200",
+    "A: GET /business/receipts/bf47ba3b-9cb9-4b3d-8789-72f79581b548/source": "200",
+    "A: GET /business/receipts/1f82c8e8-b138-4ec1-871c-600c20b787d8/source": "200",
+    "A: GET /business/expenses": "200",
+    "A: GET /business/search": "200",
+    "A: GET /business/overview": "200",
+    "A: GET /business/updates": "200"
+   }
+  },
+  {
+   "id": "1.7",
+   "name": "owner B sees nothing of A's (or D's) on B's Personal reads, and A's ids answer 404 to B",
+   "pass": true,
+   "detail": {
+    "reads_hits": {},
+    "direct": {
+     "personal account": "404 financial_account_not_found",
+     "personal expense": "404 financial_account_not_found",
+     "personal document source": "404 financial_document_not_found",
+     "conversation messages": "404 not_found",
+     "Business receipt source (Business route)": "404 receipt_not_found",
+     "Business account (Personal route)": "404 financial_account_not_found"
+    }
+   }
+  },
+  {
+   "id": "2.1",
+   "name": "A can read the Personal document and download its original (sha256 matches)",
+   "pass": true,
+   "detail": {
+    "read": "200",
+    "download": "200",
+    "download_sha_matches": true
+   }
+  },
+  {
+   "id": "2.2",
+   "name": "positive control (flags on): each Business original downloads with a matching sha256",
+   "pass": true,
+   "detail": {
+    "receipt_confirmed": "200",
+    "receipt_inbox": "200",
+    "receipt_whatsapp": "200"
+   }
+  }
+ ],
+ "observations": {
+  "personal_reads_A": {
+   "/financial-accounts": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-home": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-activities/purchases": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-activities/options": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-documents": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-connections": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-imports": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-imports?state=accepted": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-plan": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/conversations": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-accounts/19cd1084-be19-4605-a322-9759a2f9656c/activity": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-search?q=FERRETERIA": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-search?q=COLMADO": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-search?q=FARMACIA": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-search?q=Operativa": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-search?q=Supermercado": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/financial-search?q=1850": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   },
+   "/search?q=FERRETERIA": {
+    "status": 200,
+    "business_or_foreign_hits": []
+   }
+  },
+  "direct_personal_routes_on_business_ids": {
+   "GET /financial-accounts/{Business account}": "404 financial_account_not_found",
+   "GET /financial-accounts/{Business account}/activity": "404 financial_account_not_found",
+   "GET /financial-activities/{Business expense}": "404 financial_account_not_found",
+   "GET /financial-activities/{Business expense}/history": "404 financial_account_not_found",
+   "GET /financial-documents/{confirmed receipt}": "404 financial_document_not_found",
+   "GET /financial-documents/{confirmed receipt}/source": "404 financial_document_not_found",
+   "GET /financial-documents/{Inbox receipt}/source": "404 financial_document_not_found",
+   "GET /financial-documents/{WhatsApp receipt}/source": "404 financial_document_not_found",
+   "GET /financial-imports/{Business event}": "404 financial_import_not_found",
+   "POST /financial-activities/preview on the Business account": "404 financial_account_not_found"
+  },
+  "business_and_whatsapp_routes": {
+   "A: GET /business/space": "200",
+   "A: GET /business/workspace": "200",
+   "A: GET /business/receipts": "200",
+   "A: GET /business/receipts/bf47ba3b-9cb9-4b3d-8789-72f79581b548": "200",
+   "A: GET /business/receipts/bf47ba3b-9cb9-4b3d-8789-72f79581b548/source": "200",
+   "A: GET /business/receipts/1f82c8e8-b138-4ec1-871c-600c20b787d8/source": "200",
+   "A: GET /business/expenses": "200",
+   "A: GET /business/search": "200",
+   "A: GET /business/overview": "200",
+   "A: GET /business/updates": "200",
+   "A: GET /whatsapp/link": "200",
+   "signed out: GET /business/space": "401 unauthorized",
+   "signed out: GET /business/workspace": "401 unauthorized",
+   "signed out: GET /business/receipts": "401 unauthorized",
+   "signed out: GET /business/receipts/bf47ba3b-9cb9-4b3d-8789-72f79581b548": "401 unauthorized",
+   "signed out: GET /business/receipts/bf47ba3b-9cb9-4b3d-8789-72f79581b548/source": "401 unauthorized",
+   "signed out: GET /business/receipts/1f82c8e8-b138-4ec1-871c-600c20b787d8/source": "401 unauthorized",
+   "signed out: GET /business/expenses": "401 unauthorized",
+   "signed out: GET /business/search": "401 unauthorized",
+   "signed out: GET /business/overview": "401 unauthorized",
+   "signed out: GET /business/updates": "401 unauthorized",
+   "signed out: GET /whatsapp/link": "401 unauthorized"
+  },
+  "owner_B": {
+   "reads_hits": {},
+   "direct": {
+    "personal account": "404 financial_account_not_found",
+    "personal expense": "404 financial_account_not_found",
+    "personal document source": "404 financial_document_not_found",
+    "conversation messages": "404 not_found",
+    "Business receipt source (Business route)": "404 receipt_not_found",
+    "Business account (Personal route)": "404 financial_account_not_found"
+   }
+  },
+  "matrix_A": {
+   "Personal account": {
+    "read": "200"
+   },
+   "Personal expense": {
+    "read": "200"
+   },
+   "Personal document": {
+    "read": "200",
+    "download": "200",
+    "download_sha_matches": true
+   },
+   "Personal conversation": {
+    "read": "200"
+   },
+   "Business account": {
+    "personal_route": "404 financial_account_not_found",
+    "business_route": "200"
+   },
+   "Business expense (from receipt)": {
+    "personal_route": "404 financial_account_not_found",
+    "business_route": "200"
+   },
+   "Business receipt, confirmed": {
+    "personal_route_download": "404 financial_document_not_found",
+    "business_route_download": "200",
+    "download_sha_matches": true
+   },
+   "Business receipt, Inbox": {
+    "personal_route_download": "404 financial_document_not_found",
+    "business_route_download": "200",
+    "download_sha_matches": true
+   },
+   "Business receipt, WhatsApp": {
+    "personal_route_download": "404 financial_document_not_found",
+    "business_route_download": "200",
+    "download_sha_matches": true
+   },
+   "WhatsApp link": {
+    "read": "200",
+    "revoke": "not called with flags on"
+   }
+  }
+ }
+}

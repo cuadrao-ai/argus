@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { WEB_APP_DESCRIPTION, WEB_APP_NAME } from "@/lib/app-brand";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { THEME_STORAGE_KEY } from "@/lib/browser-storage";
 import { I18nProvider } from "@/components/I18nProvider";
+import { AuthLinkErrorGate } from "@/components/status/AuthLinkErrorGate";
+import { documentLanguage } from "@/lib/language-features";
+import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import localFont from "next/font/local";
 
 const inter = localFont({
@@ -18,8 +22,8 @@ const spaceGrotesk = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Argus",
-  description: "Next Generation Platform",
+  title: WEB_APP_NAME,
+  description: WEB_APP_DESCRIPTION,
   manifest: "/manifest.json",
   // iOS ignores manifest icons, so the home-screen icon comes from this link.
   icons: {
@@ -27,15 +31,15 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Argus",
+    title: WEB_APP_NAME,
     statusBarStyle: "default",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#191c1f" },
+    { media: "(prefers-color-scheme: light)", color: "#fafbf8" },
+    { media: "(prefers-color-scheme: dark)", color: "#172b26" },
   ],
 };
 
@@ -45,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="antialiased h-full">
+    <html lang={documentLanguage(undefined, businessPilotEnabled)} suppressHydrationWarning className="antialiased h-full">
       <body className={`${spaceGrotesk.variable} ${inter.variable} min-h-full flex flex-col font-sans transition-colors duration-200`}>
         <ThemeProvider
           attribute="class"
@@ -55,7 +59,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <I18nProvider>
-            {children}
+            <AuthLinkErrorGate>{children}</AuthLinkErrorGate>
           </I18nProvider>
         </ThemeProvider>
       </body>

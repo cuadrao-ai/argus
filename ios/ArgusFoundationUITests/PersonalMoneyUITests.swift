@@ -6,6 +6,28 @@ extension FinancialLoopUITests {
         let id: String
     }
 
+    enum RecordedSpending: Equatable {
+        case currencyAbsent
+        case noData
+        case recorded(Decimal)
+    }
+
+    func testMoneyReplacementHandlesEmptyGroupedAndZeroAmounts() throws {
+        try signIn()
+        openPersonalAccounts()
+        tapVisible(app.buttons["nav.add"])
+        tapVisible(app.buttons["add.tray.transaction"])
+        let amount = app.textFields["loop.amount"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 10))
+        for (input, expected) in [("200", "200"), ("1100", "1,100"), ("0.00", "0.00"), ("250", "250")] {
+            replaceMoneyField("loop.amount", with: input)
+            XCTAssertEqual(amount.value as? String, expected)
+        }
+        dismissMoneyKeyboard()
+        cancelEditor()
+        XCTAssertTrue(amount.waitForNonExistence(timeout: 5))
+    }
+
     func testRetainedHomeSurvivesReopening() throws {
         try signIn()
         let before = homeValue()
@@ -29,7 +51,7 @@ extension FinancialLoopUITests {
     func testIncomeSpendingRefundAndCorrections() throws {
         try signIn()
         let baseline = homeValue()
-        let reporting = homeMoneyTotals()
+        let reporting = try homeRecordedSpending()
         let stamp = String(UUID().uuidString.prefix(5))
         let checking = createMoneyAccount("Daily money " + stamp, type: "checking", amount: "1000")
         recordMoney(kind: "income", amount: "1000", note: "Salary " + stamp)
@@ -38,7 +60,7 @@ extension FinancialLoopUITests {
         assertText("DOP 1,750.00")
         recordMoney(kind: "refund", amount: "50", note: "Returned groceries " + stamp, purchase: "Groceries " + stamp)
         assertText("DOP 1,800.00")
-        assertMoneyTotals(reporting, income: 1000, purchases: 250, refunds: 50)
+        try assertRecordedSpending(reporting, purchases: 250)
         openMoneyAccount(checking)
         for (note, amount, reason) in [("Salary ", "1100", "Include received commission"), ("Groceries ", "275", "Receipt correction"), ("Returned groceries ", "75", "Actual refund received")] {
             inspectMoney(note + stamp)
@@ -53,7 +75,7 @@ extension FinancialLoopUITests {
         capture("linked-refund-correction-history")
         closeMoneyDetail()
         assertHome(baseline + 1900)
-        assertMoneyTotals(reporting, income: 1100, purchases: 275, refunds: 75)
+        try assertRecordedSpending(reporting, purchases: 275)
         capture("income-spending-refund-home")
         app.terminate(); app.launch()
         openMoneyAccount(checking); assertText("DOP 1,900.00")
@@ -63,7 +85,7 @@ extension FinancialLoopUITests {
     func testTransferAndWrongAccountCorrection() throws {
         try signIn()
         let baseline = homeValue()
-        let reporting = homeMoneyTotals()
+        let reporting = try homeRecordedSpending()
         let stamp = String(UUID().uuidString.prefix(5))
         let checking = createMoneyAccount("Transfer bank " + stamp, type: "checking", amount: "1000")
         let cash = createMoneyAccount("Transfer cash " + stamp, type: "cash", amount: "100")
@@ -71,7 +93,7 @@ extension FinancialLoopUITests {
         recordMoney(kind: "expense", amount: "100", note: "Cash groceries " + stamp)
         recordMoney(kind: "transfer", amount: "200", note: "Cash withdrawal " + stamp, destination: cash)
         assertText("DOP 700.00")
-        assertMoneyTotals(reporting, purchases: 100)
+        try assertRecordedSpending(reporting, purchases: 100)
         openMoneyAccount(cash); assertText("DOP 300.00")
         inspectMoney("Cash withdrawal " + stamp)
         assertText(checking.name); assertText(cash.name)
@@ -93,7 +115,7 @@ extension FinancialLoopUITests {
         capture("wrong-account-correction-history")
         openMoneyAccount(cash); assertText("DOP 225.00")
         assertHome(baseline + 975)
-        assertMoneyTotals(reporting, purchases: 125)
+        try assertRecordedSpending(reporting, purchases: 125)
         app.terminate(); app.launch()
         openMoneyAccount(checking); assertText("DOP 750.00")
         openMoneyAccount(cash); assertText("DOP 225.00")
@@ -106,7 +128,7 @@ extension FinancialLoopUITests {
     func testCardPaymentRefundAndCreditBalance() throws {
         try signIn()
         let baseline = homeValue()
-        let reporting = homeMoneyTotals()
+        let reporting = try homeRecordedSpending()
         let stamp = String(UUID().uuidString.prefix(5))
         let checking = createMoneyAccount("Card funding " + stamp, type: "checking", amount: "1000")
         let card = createMoneyAccount("Everyday card " + stamp, type: "credit_card", amount: "300")
@@ -114,7 +136,7 @@ extension FinancialLoopUITests {
         assertText("DOP -420.00")
         recordMoney(kind: "card_payment", amount: "200", note: "Card payment " + stamp, source: checking, destination: card)
         assertText("DOP -220.00")
-        assertMoneyTotals(reporting, purchases: 120)
+        try assertRecordedSpending(reporting, purchases: 120)
         openMoneyAccount(checking); assertText("DOP 800.00")
         recordMoney(kind: "refund", amount: "50", note: "Returned card purchase " + stamp, purchase: "Card purchase " + stamp)
         assertText("DOP 850.00")
@@ -133,7 +155,7 @@ extension FinancialLoopUITests {
         assertText("Purchase not linked")
         closeMoneyDetail()
         assertHome(baseline + 830)
-        assertMoneyTotals(reporting, purchases: 120, refunds: 250)
+        try assertRecordedSpending(reporting, purchases: 120)
         capture("card-payment-excluded-refund-net-delta")
         app.terminate(); app.launch()
         openMoneyAccount(card); assertText("DOP 30.00")
@@ -162,28 +184,27 @@ extension FinancialLoopUITests {
         openMoneyAccount(wallet)
         assertText("DOP 560.00")
         assertHome(baseline + 1500)
-        let dollarsBefore = homeMoneyTotals(currency: "USD")
-        let unknown = createMoneyAccount("Unknown dollars " + stamp, type: "checking", currency: "USD")
-        assertText("Balance unknown")
+        let dollarsBefore = try homeRecordedSpending(currency: "USD")
+        let dollarBalance = app.staticTexts["home.netWorth.USD"]
+        let dollarBalanceBefore = dollarBalance.exists ? dollarBalance.label : nil
+        let dollars = createMoneyAccount("Blank dollars " + stamp, type: "checking", currency: "USD")
+        assertText("USD 0.00")
         recordMoney(kind: "income", amount: "100", note: "Dollar income " + stamp)
-        assertText("Balance unknown")
+        assertText("USD 100.00")
         recordMoney(kind: "refund", amount: "25", note: "Foreign return " + stamp)
-        assertText("Balance unknown")
+        assertText("USD 125.00")
         inspectMoney("Foreign return " + stamp)
         assertText("Purchase not linked")
         closeMoneyDetail()
         assertHome(baseline + 1500)
-        assertText("USD")
-        XCTAssertFalse(app.staticTexts["home.netWorth.USD"].exists)
-        let dollarsAfter = homeMoneyTotals(currency: "USD")
-        XCTAssertEqual(dollarsAfter["Income received"], dollarsBefore["Income received"].map { $0 + 100 })
-        XCTAssertEqual(dollarsAfter["Refunds received"], dollarsBefore["Refunds received"].map { $0 + 25 })
-        XCTAssertEqual(dollarsAfter["Net spending"], dollarsBefore["Net spending"].map { $0 - 25 })
-        XCTAssertLessThan(dollarsAfter["Net spending"] ?? 0, 0)
-        app.swipeUp()
-        capture("separate-currency-unknown-negative-net")
+        let dollarsAfter = try homeRecordedSpending(currency: "USD")
+        XCTAssertEqual(dollarsAfter, dollarsBefore == .currencyAbsent ? .noData : dollarsBefore)
+        XCTAssertTrue(dollarBalance.waitForExistence(timeout: 10))
+        XCTAssertNotEqual(dollarBalance.label, dollarBalanceBefore ?? "—",
+                          "A blank dollar account starts at a recorded 0.00, so its income counts in USD only")
+        capture("separate-currency-zero-start-balance")
         app.terminate(); app.launch()
-        openMoneyAccount(unknown); assertText("Balance unknown")
+        openMoneyAccount(dollars); assertText("USD 125.00")
         openMoneyAccount(bank); assertText("DOP 940.00")
         app.terminate()
         app.launchArguments = ["-AppleLanguages", "(es-419)", "-AppleLocale", "es_DO", "-appearancePreference", "light"]
@@ -319,30 +340,58 @@ extension FinancialLoopUITests {
         return try XCTUnwrap(dropped)
     }
 
-    func homeMoneyTotals(currency: String = "DOP") -> [String: Decimal] {
-        app.buttons["tab.home"].tap()
-        let screen = app.scrollViews["screen.home"]
-        var values = [String: Decimal]()
-        for title in ["Income received", "Gross purchases", "Refunds received", "Net spending"] {
-            let labels = screen.staticTexts.matching(identifier: title)
-            XCTAssertTrue(labels.firstMatch.waitForExistence(timeout: 10))
-            let amounts = screen.staticTexts.allElementsBoundByIndex.filter { $0.label.hasPrefix(currency + " ") }
-            let value = labels.allElementsBoundByIndex.compactMap { label in
-                amounts.first { abs($0.frame.midY - label.frame.midY) < 4 }
-            }.first
-            let exact = value?.label.replacingOccurrences(of: currency, with: "").replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces) ?? ""
-            guard let parsed = Decimal(string: exact, locale: Locale(identifier: "en_US_POSIX")) else {
-                XCTFail("Home should show the recorded " + currency + " total for " + title); return [:]
-            }
-            values[title] = parsed
+    func selectHomeMoneyCurrency(_ currency: String) -> Bool {
+        let balance = app.staticTexts["home.netWorth." + currency]
+        if balance.exists { return true }
+        let picker = app.buttons["home-chart-currency"]
+        guard picker.exists else { return false }
+        let current = app.scrollViews["screen.home"].staticTexts
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'home.netWorth.'")).firstMatch
+        let currentCurrency = String(current.identifier.dropFirst("home.netWorth.".count))
+        tapVisible(picker)
+        let option = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'home-chart-currency'", currency)).firstMatch
+        if !option.waitForExistence(timeout: 3) {
+            let selected = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'home-chart-currency'", currentCurrency)).firstMatch
+            XCTAssertTrue(selected.waitForExistence(timeout: 3))
+            selected.tap()
+            return false
         }
-        return values
+        option.tap()
+        XCTAssertTrue(balance.waitForExistence(timeout: 10))
+        return true
     }
 
-    func assertMoneyTotals(_ baseline: [String: Decimal], income: Decimal = 0, purchases: Decimal = 0, refunds: Decimal = 0) {
-        let actual = homeMoneyTotals()
-        for (title, change) in [("Income received", income), ("Gross purchases", purchases), ("Refunds received", refunds), ("Net spending", purchases - refunds)] {
-            XCTAssertEqual(actual[title], baseline[title].map { $0 + change }, title)
+    func homeRecordedSpending(currency: String = "DOP") throws -> RecordedSpending {
+        openPersonalAccounts()
+        app.openHomeSurface()
+        guard selectHomeMoneyCurrency(currency) else { return .currencyAbsent }
+        tapVisible(app.buttons["home-history-expand"])
+        tapVisible(app.buttons["home-insight-metric"])
+        let activity = app.buttons["Activity"]
+        XCTAssertTrue(activity.waitForExistence(timeout: 5))
+        activity.tap()
+        let amount = app.staticTexts["home-spending-total"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 10))
+        let label = amount.label
+        tapVisible(app.buttons["home-history-done"])
+        XCTAssertTrue(app.buttons["home-history-expand"].waitForExistence(timeout: 5))
+        if label == "No data" { return .noData }
+        let exact = label.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces)
+        return .recorded(try XCTUnwrap(Decimal(string: exact, locale: Locale(identifier: "en_US_POSIX")),
+            "Home should show recorded spending or No data for " + currency))
+    }
+
+    func assertRecordedSpending(_ baseline: RecordedSpending, purchases: Decimal) throws {
+        let actual = try homeRecordedSpending()
+        switch baseline {
+        case .recorded(let amount):
+            XCTAssertEqual(actual, .recorded(amount + purchases))
+        case .currencyAbsent, .noData:
+            guard case .recorded(let amount) = actual else {
+                XCTFail("Home should show the purchases recorded during this test")
+                return
+            }
+            XCTAssertEqual(amount, purchases)
         }
     }
 
@@ -353,6 +402,7 @@ extension FinancialLoopUITests {
         tapVisible(app.buttons["accounts.type." + type])
         fillMoneyField("accounts.nickname", with: name)
         if currency != "DOP" {
+            dismissMoneyKeyboard()
             tapVisible(app.buttons["accounts.currency"])
             // The currency list shows each code with its name.
             let option = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", currency)).firstMatch
@@ -443,7 +493,21 @@ extension FinancialLoopUITests {
         let field = moneyField(identifier)
         tapVisible(field)
         let old = field.value as? String ?? ""
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + value)
+        if !old.isEmpty {
+            field.press(forDuration: 1.1)
+            let selectAll = app.menuItems["Select All"]
+            if selectAll.waitForExistence(timeout: 3) {
+                selectAll.tap()
+            } else {
+                guard old == field.placeholderValue else {
+                    XCTFail("The field must offer Select All before replacing its text")
+                    return
+                }
+                field.tap()
+            }
+            XCTAssertTrue(app.keyboards.firstMatch.exists)
+        }
+        field.typeText(value)
     }
 
     func moneyField(_ identifier: String) -> XCUIElement {
@@ -455,8 +519,7 @@ extension FinancialLoopUITests {
     }
 
     func dismissMoneyKeyboard() {
-        if app.buttons["Done"].exists { app.buttons["Done"].tap() }
-        else if app.buttons["Listo"].exists { app.buttons["Listo"].tap() }
+        app.dismissKeyboard()
     }
 
     func reviewMoney(answersByAccount: [String: [Bool]] = [:]) {
@@ -467,15 +530,24 @@ extension FinancialLoopUITests {
             if app.buttons["loop.confirm"].waitForExistence(timeout: 1) { break }
             let choices = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'loop.coverage.no.'")).allElementsBoundByIndex
             guard let choice = choices.first(where: { !answered.contains($0.identifier) }) else { continue }
-            let pieces = choice.identifier.split(separator: ".")
+            let questionID = choice.identifier
+            let pieces = questionID.split(separator: ".")
             let account = pieces.count >= 5 ? String(pieces[3]).lowercased() : ""
             let index = accountAnswers[account, default: 0]
             let answers = answersByAccount[account] ?? []
             let include = index < answers.count && answers[index]
+            let identifier = include ? questionID.replacingOccurrences(of: ".no.", with: ".yes.") : questionID
+            let target = app.buttons[identifier]
+            tapVisible(target)
+            let selected = NSPredicate { [app] _, _ in
+                app.buttons["loop.confirm"].exists || (target.exists && target.isSelected)
+            }
+            guard XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: selected, object: nil)], timeout: 10) == .completed else {
+                XCTFail("The coverage answer was not selected: " + identifier)
+                return
+            }
+            answered.insert(questionID)
             accountAnswers[account] = index + 1
-            let identifier = include ? choice.identifier.replacingOccurrences(of: ".no.", with: ".yes.") : choice.identifier
-            answered.insert(choice.identifier)
-            tapVisible(app.buttons[identifier])
         }
         XCTAssertTrue(app.buttons["loop.confirm"].waitForExistence(timeout: 10))
         capture("personal-money-review")

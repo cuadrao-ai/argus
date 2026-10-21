@@ -14,7 +14,7 @@ extension XCUIApplication {
     /// Connected hides `CuadraoNavigationBar` while Home owns a pushed account detail.
     func revealConnectedTabBar() {
         for _ in 0..<6 {
-            if buttons["tab.home"].exists { return }
+            if buttons["tab.home"].exists && buttons["tab.home"].isHittable { return }
             let nativeBack = navigationBars.buttons.matching(identifier: "BackButton").firstMatch
             if nativeBack.waitForExistence(timeout: 1) {
                 nativeBack.tap()
@@ -40,8 +40,26 @@ extension XCUIApplication {
                 buttons["sheet.close"].tap()
                 continue
             }
+            if buttons["nav.add"].exists && buttons["nav.add"].isHittable,
+               let visibleScroll = scrollViews.allElementsBoundByIndex.first(where: { $0.isHittable }) {
+                visibleScroll.swipeDown()
+                continue
+            }
             break
         }
+    }
+
+    func openHomeSurface() {
+        let home = scrollViews["screen.home"]
+        if home.exists && home.isHittable { return }
+        revealConnectedTabBar()
+        if home.exists && home.isHittable { return }
+        let homeTab = buttons["tab.home"]
+        guard homeTab.waitForExistence(timeout: 10), homeTab.isHittable else {
+            XCTFail("Home tab must be visible before opening Home")
+            return
+        }
+        homeTab.tap()
     }
 
     func openPlanSurface() {
@@ -71,14 +89,25 @@ extension XCUIApplication {
 
     func returnFromDetail(_ legacyIdentifier: String) {
         let nativeBack = navigationBars.buttons.matching(identifier: "BackButton").firstMatch
-        if nativeBack.waitForExistence(timeout: 2) { nativeBack.tap() }
-        else {
-            XCTAssertTrue(buttons[legacyIdentifier].waitForExistence(timeout: 5))
-            buttons[legacyIdentifier].tap()
+        let back = nativeBack.waitForExistence(timeout: 2) ? nativeBack : buttons[legacyIdentifier]
+        guard waitForHittableBack(back) else { return }
+        back.tap()
+    }
+
+    private func waitForHittableBack(_ back: XCUIElement) -> Bool {
+        let ready = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in back.exists && back.isHittable }, object: nil
+        )
+        guard XCTWaiter.wait(for: [ready], timeout: 10) == .completed else {
+            XCTFail("Back must be hittable before leaving the detail")
+            return false
         }
+        return true
     }
 
     func swipeBack(cancel: Bool = false) {
+        let back = navigationBars.buttons.matching(identifier: "BackButton").firstMatch
+        guard waitForHittableBack(back) else { return }
         coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5)).press(
             forDuration: 0.05,
             thenDragTo: coordinate(withNormalizedOffset: CGVector(dx: cancel ? 0.15 : 0.9, dy: 0.5)),
@@ -89,12 +118,11 @@ extension XCUIApplication {
 
     /// Accounts live on Home in Connected; tip keeps a dedicated Accounts tab.
     func openAccountsList() {
-        revealConnectedTabBar()
         if buttons["tab.accounts"].waitForExistence(timeout: 2) {
+            revealConnectedTabBar()
             buttons["tab.accounts"].tap()
         } else {
-            XCTAssertTrue(buttons["tab.home"].waitForExistence(timeout: 10))
-            buttons["tab.home"].tap()
+            openHomeSurface()
         }
         if buttons["accounts.back"].waitForExistence(timeout: 1) {
             buttons["accounts.back"].tap()
@@ -151,5 +179,6 @@ extension FinancialLoopUITests {
         let personal = app.buttons["household.personal"]
         if personal.waitForExistence(timeout: 2) { tapVisible(personal) }
         XCTAssertTrue(app.buttons["accounts.add"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["home-chart-loading"].firstMatch.waitForNonExistence(timeout: 45))
     }
 }

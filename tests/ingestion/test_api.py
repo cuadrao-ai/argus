@@ -7,6 +7,7 @@ import pytest
 from argus.api import state as api_state
 from argus.api.ingestion import ingestion_hub
 from argus.api.main import app
+from argus.domain.owner_scope import PERSONAL, OwnerScope
 from fastapi.testclient import TestClient
 
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
@@ -22,7 +23,10 @@ class FakeSink:
     def submit(self, **_kwargs):  # pragma: no cover - not used here
         raise AssertionError
 
-    def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+    def forget_connection(
+        self, *, user_id: str, connection_id: str, scope: OwnerScope
+    ) -> int:
+        assert scope == PERSONAL
         self.forgotten.append((user_id, connection_id))
         return 3
 
@@ -52,6 +56,7 @@ def connect(identities, token: str, ref: str = "item-1"):  # noqa: ANN001
         label="Chase",
         now=NOW,
         secret=b"sealed",
+        scope=PERSONAL,
     )
 
 
@@ -114,7 +119,9 @@ def test_disconnect_always_deletes_local_credential_and_unreviewed_evidence(
     assert body["provider_revocation"] == ("failed" if fail else "revoked")
     assert body["unreviewed_removed"] == 3
     assert body["connection"]["status"] == "disconnected"
-    stored = hub.connections.get(user_id=identities[ALICE]["id"], connection_id=row.id)
+    stored = hub.connections.get(
+        user_id=identities[ALICE]["id"], connection_id=row.id, scope=PERSONAL
+    )
     assert stored.secret is None
     assert sink.forgotten == [(identities[ALICE]["id"], row.id)]
     # Connector-owned local state is cleaned up after the connection ended.
@@ -133,7 +140,9 @@ def test_disconnect_is_owner_only(client, identities):
     assert client.post(f"{URL}/nope/disconnect", headers=bearer(ALICE)).status_code == 404
     assert (
         ingestion_hub()
-        .connections.get(user_id=identities[ALICE]["id"], connection_id=row.id)
+        .connections.get(
+            user_id=identities[ALICE]["id"], connection_id=row.id, scope=PERSONAL
+        )
         .status
         == "active"
     )
@@ -160,11 +169,15 @@ def test_retrying_a_disconnect_finishes_cleanup_that_failed(client, identities):
             super().__init__()
             self.calls = 0
 
-        def forget_connection(self, *, user_id: str, connection_id: str) -> int:
+        def forget_connection(
+            self, *, user_id: str, connection_id: str, scope: OwnerScope
+        ) -> int:
             self.calls += 1
             if self.calls == 1:
                 raise RuntimeError("database hiccup")
-            return super().forget_connection(user_id=user_id, connection_id=connection_id)
+            return super().forget_connection(
+                user_id=user_id, connection_id=connection_id, scope=scope
+            )
 
     sink = FlakySink()
     hub.sink = sink

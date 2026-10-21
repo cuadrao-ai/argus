@@ -14,6 +14,7 @@ from argus.domain.ingestion.plaid.link import PlaidLink
 from argus.domain.ingestion.plaid.sync import PlaidSync, SyncOutcome
 from argus.domain.ingestion.plaid.verification import WebhookVerifier
 from argus.domain.ingestion.plaid.webhooks import PlaidWebhooks, WebhookPlan
+from argus.domain.owner_scope import PERSONAL
 
 
 class PlaidConnector:
@@ -39,7 +40,9 @@ class PlaidConnector:
         self.client.close()
 
     def connection(self, *, user_id: str, connection_id: str) -> SourceConnection:
-        row = self.hub.connections.get(user_id=user_id, connection_id=connection_id)
+        row = self.hub.connections.get(
+            user_id=user_id, connection_id=connection_id, scope=PERSONAL
+        )
         if row.source != "plaid":
             raise ConnectionNotFound()
         return row

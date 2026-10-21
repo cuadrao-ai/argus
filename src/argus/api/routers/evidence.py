@@ -7,13 +7,18 @@ from argus.api.chat.evidence import (
     EvidenceDecisionCaptureError,
     create_decision_for_evidence_artifact,
 )
+from argus.api.conversation_surface import require_personal_evidence_artifact
 from argus.api.dependencies import current_user, problem, require_account_capability
 from argus.api.schemas import DecisionNoteCreate, DecisionNoteResponse, User
 
 router = APIRouter(prefix="/api/v1/evidence-artifacts", tags=["evidence"])
 
 
-@router.post("/{artifact_id}/decision", response_model=DecisionNoteResponse)
+@router.post(
+    "/{artifact_id}/decision",
+    response_model=DecisionNoteResponse,
+    dependencies=[Depends(require_personal_evidence_artifact)],
+)
 def create_decision(
     artifact_id: str,
     payload: DecisionNoteCreate,

@@ -4,6 +4,7 @@ import pytest
 from argus.domain.ingestion.connections import DuplicateConnection
 from argus.domain.ingestion.plaid.adapter import PlaidAdapter
 from argus.domain.ingestion.plaid.link import PlaidItemOwnedElsewhere
+from argus.domain.owner_scope import PERSONAL
 
 from tests.ingestion.plaid_fakes import (
     ACCESS_TOKEN,
@@ -38,14 +39,14 @@ def connected(fake: FakePlaid):
 def test_transient_revoke_failures_are_retried_then_succeed():
     fake = FakePlaid(errors={"/item/remove": [SERVER_ERROR, RATE_LIMITED, OK]})
     connector, row = connected(fake)
-    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id)
+    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id, scope=PERSONAL)
     assert outcome.provider_revocation == "revoked" and removes(fake) == 3
 
 
 def test_revoke_retries_are_bounded():
     fake = FakePlaid(errors={"/item/remove": [SERVER_ERROR]})
     connector, row = connected(fake)
-    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id)
+    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id, scope=PERSONAL)
     assert outcome.provider_revocation == "failed" and removes(fake) == 3
     assert outcome.connection.secret is None
 
@@ -57,7 +58,7 @@ def test_permanent_revoke_errors_are_not_retried():
     }
     fake = FakePlaid(errors={"/item/remove": [invalid]})
     connector, row = connected(fake)
-    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id)
+    outcome = connector.hub.disconnect(user_id=USER, connection_id=row.id, scope=PERSONAL)
     assert outcome.provider_revocation == "failed" and removes(fake) == 1
 
 

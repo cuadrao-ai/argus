@@ -1,0 +1,34 @@
+{
+  "journey": "currencies",
+  "passed": true,
+  "deltas": {
+    "DOP": {
+      "assets_minor": 150000,
+      "cash_minor": 150000,
+      "other_assets_minor": 0,
+      "debts_minor": 0,
+      "net_worth_minor": 150000,
+      "recorded_spending_minor": 0,
+      "gross_income_minor": 0,
+      "gross_purchases_minor": 0,
+      "refunds_minor": 0,
+      "net_spending_minor": 0,
+      "known_accounts": 2,
+      "unknown_accounts": 0
+    },
+    "USD": {
+      "assets_minor": 0,
+      "cash_minor": 0,
+      "other_assets_minor": 0,
+      "debts_minor": 0,
+      "net_worth_minor": 0,
+      "recorded_spending_minor": 0,
+      "gross_income_minor": 10000,
+      "gross_purchases_minor": 0,
+      "refunds_minor": 2500,
+      "net_spending_minor": -2500,
+      "known_accounts": 0,
+      "unknown_accounts": 1
+    }
+  }
+}

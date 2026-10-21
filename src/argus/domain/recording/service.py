@@ -9,11 +9,14 @@ changed body conflicts.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timezone
 from uuid import UUID
 
 from argus.domain.backtest_admission import canonical_hash
+from argus.domain.owner_scope import OwnerScope, Personal
 from argus.domain.recording.accounts import (
+    OPTIONAL_ASSET_TYPES,
     UNSET,
     AccountEdit,
     normalize_nickname,
@@ -45,6 +48,13 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def blank_opening(scope: OwnerScope, account_type: str) -> str | None:
+    """A Personal money account saved without a starting amount starts at a recorded 0."""
+    if isinstance(scope, Personal) and account_type not in OPTIONAL_ASSET_TYPES:
+        return "0"
+    return None
+
+
 class FinancialAccountService:
     def __init__(
         self,
@@ -63,6 +73,7 @@ class FinancialAccountService:
         user_id: str,
         idempotency_key: str,
         request: CreateFinancialAccountRequest,
+        scope: OwnerScope,
     ) -> CreateResult:
         account = NewAccount(
             type=validate_type(request.type),
@@ -70,26 +81,32 @@ class FinancialAccountService:
             nickname=normalize_nickname(request.nickname),
             ownership_share_bps=validate_share(request.ownership_share_bps),
         )
+        typed = (request.amount or "").strip() or None
+        amount = typed or blank_opening(scope, account.type)
         opening = None
-        if request.amount is not None and request.amount.strip():
+        if amount is not None:
             opening = plan_opening_write(
                 account_type=account.type,
                 currency=account.currency,
-                amount=request.amount,
+                amount=amount,
                 as_of=request.as_of,
                 time_zone=request.time_zone,
                 reason=None,
                 current=None,
                 now=self._clock(),
             )
+            if typed is None:
+                opening = replace(opening, blank=True)
         identity = canonical_hash(
             {
                 "type": account.type,
                 "currency": account.currency,
                 "nickname": account.nickname,
                 "ownership_share_bps": account.ownership_share_bps,
+                # A blank stays blank in the identity, so a retry of a blank create
+                # sent before the recorded-zero rule replays instead of conflicting.
                 "opening": None
-                if opening is None
+                if typed is None or opening is None
                 else {
                     "amount_minor": opening.amount_minor,
                     # The default balance date is the creation instant, which a
@@ -107,19 +124,22 @@ class FinancialAccountService:
             identity_hash=identity,
             account=account,
             opening=opening,
+            scope=scope,
         )
 
-    def list_accounts(self, *, user_id: str) -> list[StoredAccount]:
-        return self._repository.list_accounts(user_id=user_id)
+    def list_accounts(self, *, user_id: str, scope: OwnerScope) -> list[StoredAccount]:
+        return self._repository.list_accounts(user_id=user_id, scope=scope)
 
-    def get(self, *, user_id: str, account_id: str) -> StoredAccount:
+    def get(self, *, user_id: str, account_id: str, scope: OwnerScope) -> StoredAccount:
         try:
             # A malformed id names nothing the caller can own; same answer as
             # another user's account, so probes learn nothing from the shape.
             account_id = str(UUID(account_id))
         except ValueError:
             raise AccountNotFound() from None
-        stored = self._repository.get_account(user_id=user_id, account_id=account_id)
+        stored = self._repository.get_account(
+            user_id=user_id, account_id=account_id, scope=scope
+        )
         if stored is None:
             raise AccountNotFound()
         return stored
@@ -130,8 +150,9 @@ class FinancialAccountService:
         user_id: str,
         account_id: str,
         request: EditFinancialAccountRequest,
+        scope: OwnerScope,
     ) -> StoredAccount:
-        stored = self.get(user_id=user_id, account_id=account_id)
+        stored = self.get(user_id=user_id, account_id=account_id, scope=scope)
         if request.expected_version != stored.account.version:
             raise StaleVersion()
         edit = AccountEdit(
@@ -154,6 +175,7 @@ class FinancialAccountService:
             account_id=stored.account.id,
             expected_version=request.expected_version,
             changes=changes,
+            scope=scope,
         )
 
     def write_opening(
@@ -162,8 +184,9 @@ class FinancialAccountService:
         user_id: str,
         account_id: str,
         request: WriteOpeningRequest,
+        scope: OwnerScope,
     ) -> StoredAccount:
-        stored = self.get(user_id=user_id, account_id=account_id)
+        stored = self.get(user_id=user_id, account_id=account_id, scope=scope)
         if stored.expenses or stored.checks:
             raise RecordingInputError(
                 "preview_required",
@@ -195,4 +218,5 @@ class FinancialAccountService:
             # metadata that version names; storage refuses if the account moved.
             expected_version=request.expected_version,
             write=write,
+            scope=scope,
         )

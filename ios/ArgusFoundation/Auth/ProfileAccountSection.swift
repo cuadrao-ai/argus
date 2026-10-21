@@ -88,6 +88,11 @@ private struct AuthFormView: View {
     private struct Challenge: Identifiable { let id = UUID(); let url: URL }
 
     var body: some View {
+        if signup { AgeRangeObservationView(observation: model.ageRangeObservation) { form } }
+        else { form }
+    }
+
+    private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             if model.confirmationRequired {
                 Text("auth.confirmation.title").font(ArgusStyle.display(24, relativeTo: .title2))
@@ -137,13 +142,18 @@ private struct AuthFormView: View {
                     Text("auth.recovery.detail").font(ArgusStyle.body(14, relativeTo: .subheadline))
                         .accessibilityIdentifier("auth.recovery.notice")
                 }
-                if let web = model.configuration?.webURL {
+                let legal = CuadraoLegalURLs.current
+                if legal.hasPages {
                     HStack(spacing: 18) {
-                        Link(destination: web.appendingPathComponent("terms")) {
-                            Text("auth.terms").frame(minWidth: 44, minHeight: 48).contentShape(Rectangle())
+                        if let terms = legal.terms {
+                            Link(destination: terms) {
+                                Text("auth.terms").frame(minWidth: 44, minHeight: 48).contentShape(Rectangle())
+                            }
                         }
-                        Link(destination: web.appendingPathComponent("privacy")) {
-                            Text("auth.privacy").frame(minWidth: 44, minHeight: 48).contentShape(Rectangle())
+                        if let privacy = legal.privacy {
+                            Link(destination: privacy) {
+                                Text("auth.privacy").frame(minWidth: 44, minHeight: 48).contentShape(Rectangle())
+                            }
                         }
                     }
                     .font(ArgusStyle.body(12, relativeTo: .caption)).frame(minHeight: 48)

@@ -1,5 +1,5 @@
 /* REWORD when group cards are a real feature: "sample group card" is preview-only copy. */
 "NSPhotoLibraryAddUsageDescription" = "Guarda una tarjeta de grupo de muestra en Fotos cuando elijas Guardar imagen.";
 
-"NSCameraUsageDescription" = "Escanea un recibo cuando elijas Escanear recibo.";
+"NSCameraUsageDescription" = "Cuadrao usa la cámara para escanear tus recibos. Solo se guarda lo que tú elijas.";
 "NSLocationWhenInUseUsageDescription" = "Añade tu ubicación actual a un recibo solo cuando lo elijas.";

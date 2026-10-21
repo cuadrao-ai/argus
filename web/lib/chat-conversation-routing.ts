@@ -9,6 +9,8 @@ export type ActiveConversationRouteState = {
 };
 
 const ACTIVE_CONVERSATION_QUERY_KEY = "conversation";
+/** Every route that hosts the chat shell, Argus chat and workspaces alike. */
+export const CHAT_SHELL_PATHS: ReadonlySet<string> = new Set(["/chat", "/biz", "/dev/business-preview"]);
 const ACTIVE_MESSAGE_QUERY_KEY = "message";
 
 export function activeConversationRouteStateFromUrl(
@@ -20,7 +22,7 @@ export function activeConversationRouteStateFromUrl(
     const url = new URL(href);
     const conversationId = url.searchParams.get(queryKey)?.trim() || null;
     const messageId = url.searchParams.get(messageQueryKey)?.trim() || null;
-    const isChatRoute = url.pathname === "/chat";
+    const isChatRoute = CHAT_SHELL_PATHS.has(url.pathname);
     return {
       conversationId: isChatRoute ? conversationId : null,
       messageId: isChatRoute && conversationId ? messageId : null,
@@ -51,7 +53,7 @@ export function rememberActiveConversationId(
   if (typeof window === "undefined") return;
   try {
     const url = new URL(window.location.href);
-    if (url.pathname !== "/chat") return;
+    if (!CHAT_SHELL_PATHS.has(url.pathname)) return;
     if (
       url.searchParams.get(ACTIVE_CONVERSATION_QUERY_KEY) === conversationId &&
       (url.searchParams.get(ACTIVE_MESSAGE_QUERY_KEY) ?? undefined) === messageId
@@ -84,7 +86,7 @@ export function clearActiveConversationPointer(): string | null {
   if (typeof window === "undefined") return null;
   try {
     const url = new URL(window.location.href);
-    if (url.pathname !== "/chat") return null;
+    if (!CHAT_SHELL_PATHS.has(url.pathname)) return null;
     if (!url.searchParams.has(ACTIVE_CONVERSATION_QUERY_KEY)) return null;
     url.searchParams.delete(ACTIVE_CONVERSATION_QUERY_KEY);
     url.searchParams.delete(ACTIVE_MESSAGE_QUERY_KEY);

@@ -9,6 +9,7 @@ from argus.domain.household.access import (
 )
 from argus.domain.household.errors import HouseholdNotFound as HouseholdUnavailable
 from argus.domain.household.projection import activity
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.money_schemas import MoneyRequest
 
 from tests.financial_accounts.test_loop_commands import NOW
@@ -33,7 +34,7 @@ def test_canonical_history_is_redacted_after_rendering(scene, visible_role):  # 
     )
     aid = result["activity"]["activity_id"]
     visible = source if visible_role == "source" else destination
-    records = service.list_accounts(user_id=owner)
+    records = service.list_accounts(user_id=owner, scope=PERSONAL)
     scope = HouseholdFinancialScope(
         str(uuid4()),
         str(uuid4()),

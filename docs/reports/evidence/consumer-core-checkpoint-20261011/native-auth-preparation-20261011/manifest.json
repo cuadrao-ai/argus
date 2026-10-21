@@ -1,0 +1,10 @@
+{
+  "sha256": {
+    "README.md": "453bd8febc5080d867dda0362fe56998d76c6f6ced8c0744cb9fcffffc44ba10",
+    "candidate-readback.json": "2049ff49825fc11dece3b6a379dac545f92bd477794726e0a10d9dd9d81142fb",
+    "integration-preflight.json": "dfb536aa8395addcba3f66a47f7c3bcbc4d53f7ff9369a1bdd15bb9197cf3f7a",
+    "local-handoff-inventory.json": "50881c19cbc10dd65aff287f494af3e85ed816aa64a204cefeb2374417efac6d",
+    "offline-adapter-check.json": "51f80be077ead5df48b8d49dda26174ae2b82d83f375a0916dadad17612976b4",
+    "public-route-readback.json": "7630f99c20308697b40171cd5762faec4b0f3648bcfcad3633d2661f224ebe2d"
+  }
+}

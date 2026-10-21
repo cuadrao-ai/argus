@@ -36,14 +36,26 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
     var refresh: (@MainActor () async -> Void)?
     /// Scroll restoration measures every row's frame, so the connected host builds rows eagerly.
     var eagerRows = false
+    /// Shown instead of the results while nothing is typed, no filter is on and the filter is All.
+    var start: CuadraoSearchStart?
+    /// Whose recent searches these are; a different key never sees them.
+    var recentsKey = "preview"
     @ViewBuilder let results: () -> Results
     @ViewBuilder let filters: () -> Filters
     @State private var showingFilters = false
+    @ObservedObject private var recents = CuadraoSearchRecents.shared
+
+    private var showsStart: Bool {
+        guard let start, query.isEmpty, kind == .all, filterCount == 0 else { return false }
+        return !start.suggestions.isEmpty || !recents.items(for: recentsKey).isEmpty
+    }
 
     var body: some View {
         ScrollView {
             Group {
-                if eagerRows {
+                if showsStart, let start {
+                    CuadraoSearchStartView(start: start, spanish: spanish, prefix: accessibility.prefix, recentsKey: recentsKey) { query = $0 }
+                } else if eagerRows {
                     VStack(alignment: .leading, spacing: 0, content: results)
                 } else {
                     LazyVStack(alignment: .leading, spacing: 0, content: results)
@@ -53,6 +65,7 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
             .modifier(CuadraoSearchRefresh(action: refresh))
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier(accessibility.prefix + ".results")
+            .onDisappear { recents.remember(query, key: recentsKey) }
             .overlay(alignment: .top) {
                 if loading {
                     ProgressView("accounts.loading").padding(.vertical, 12)
@@ -100,10 +113,7 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
                         .navigationTitle(spanish ? "Filtros" : "Filters")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button(spanish ? "Listo" : "Done") { showingFilters = false }
-                                    .accessibilityIdentifier(accessibility.prefix + ".filters.done")
-                            }
+                            CuadraoDoneToolbar(title: spanish ? "Listo" : "Done", identifier: accessibility.prefix + ".filters.done") { showingFilters = false }
                         }
                 }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
             }
@@ -114,10 +124,10 @@ struct CuadraoSearchContent<Results: View, Filters: View>: View {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
             TextField(spanish ? "Buscar" : "Search", text: $query)
                 .focused(focused).autocorrectionDisabled().textInputAutocapitalization(.never)
-                .submitLabel(.search).onSubmit { focused.wrappedValue = false }
+                .submitLabel(.search).onSubmit { recents.remember(query, key: recentsKey); focused.wrappedValue = false }
                 .accessibilityIdentifier(accessibility.prefix + ".query")
             if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44) }
+                Button { recents.remember(query, key: recentsKey); query = "" } label: { Image(systemName: "xmark.circle.fill").frame(width: 44, height: 44) }
                     .foregroundStyle(.secondary).accessibilityLabel(spanish ? "Borrar búsqueda" : "Clear search")
                     .accessibilityIdentifier(accessibility.clearQuery)
             }
@@ -154,29 +164,21 @@ struct CuadraoSearchEmptyState: View {
 
     private var browsing: Bool { query.isEmpty && filterCount == 0 }
     var body: some View {
-        ContentUnavailableView {
-            Label {
-                Text(title ?? (browsing ? emptyTitle : (spanish ? "Sin resultados" : "No results")))
-                    .accessibilityIdentifier(accessibility.prefix + ".empty")
-            } icon: {
-                Image(systemName: "magnifyingglass")
-            }
-        } description: {
-            Text(detail ?? (browsing ? emptyDetail : (spanish ? "Prueba otro nombre o cambia los filtros." : "Try another name or change the filters.")))
-        } actions: {
-            if !query.isEmpty {
-                Button(spanish ? "Borrar búsqueda" : "Clear search") { query = "" }
-                    .accessibilityIdentifier(accessibility.clearEmptyQuery)
-            }
-            if filterCount > 0 {
-                Button(spanish ? "Restablecer filtros" : "Reset filters", action: clearFilters)
-                    .accessibilityIdentifier(accessibility.prefix + ".reset")
-            }
-            if kind != .all {
-                Button(spanish ? "Buscar en todo" : "Search everything") { kind = .all }
-                    .accessibilityIdentifier(accessibility.prefix + ".everything")
-            }
+        CuadraoEmptyView(
+            title: title ?? (browsing ? emptyTitle : (spanish ? "Sin resultados" : "No results")),
+            detail: detail ?? (browsing ? emptyDetail : (spanish ? "Prueba otro nombre o cambia los filtros." : "Try another name or change the filters.")),
+            actionTitle: action?.title, action: action?.run, identifier: accessibility.prefix + ".empty",
+            actionIdentifier: action?.identifier)
+    }
+
+    /// One action, the most useful first: undo the filters that hide results, then clear the words, then widen the kind.
+    private var action: (title: String, run: () -> Void, identifier: String)? {
+        if filterCount > 0 {
+            return (spanish ? "Restablecer filtros" : "Reset filters", { clearFilters(); kind = .all }, accessibility.prefix + ".reset")
         }
+        if !query.isEmpty { return (spanish ? "Borrar búsqueda" : "Clear search", { query = "" }, accessibility.clearEmptyQuery) }
+        if kind != .all { return (spanish ? "Buscar en todo" : "Search everything", { kind = .all }, accessibility.prefix + ".everything") }
+        return nil
     }
 
     private var emptyTitle: String {
@@ -192,10 +194,25 @@ struct CuadraoSearchEmptyState: View {
     }
     private var emptyDetail: String {
         switch kind {
-        case .all: spanish ? "Busca cuentas, movimientos, planes y conversaciones." : "Search accounts, activity, plans and conversations."
-        case .accounts: spanish ? "Añade una cuenta desde Inicio para encontrarla aquí." : "Add an account from Home to find it here."
+        case .all:
+            if CuadraoFirstRelease.hasAssistant {
+                spanish ? "Busca cuentas, movimientos, planes y conversaciones." : "Search accounts, activity, plans and conversations."
+            } else {
+                spanish ? "Busca cuentas, movimientos y planes." : "Search accounts, activity and plans."
+            }
+        case .accounts:
+            if CuadraoFirstRelease.hasAssistant {
+                spanish ? "Añade una cuenta desde Inicio para encontrarla aquí." : "Add an account from Home to find it here."
+            } else {
+                spanish ? "Añade una cuenta con el botón + para encontrarla aquí." : "Add an account with the + button to find it here."
+            }
         case .activity: spanish ? "Los movimientos que registres en tus cuentas aparecerán aquí." : "Activity recorded in your accounts will appear here."
-        case .plans: spanish ? "Crea una meta, un presupuesto o un plan de deuda en Plan." : "Create a goal, budget or debt plan in Plan."
+        case .plans:
+            if CuadraoFirstRelease.hasAssistant {
+                spanish ? "Crea una meta, un presupuesto o un plan de deuda en Plan." : "Create a goal, budget or debt plan in Plan."
+            } else {
+                spanish ? "Crea una meta, un presupuesto o un plan de deuda con el botón +." : "Create a goal, budget or debt plan with the + button."
+            }
         case .chats: spanish ? "Tus conversaciones guardadas aparecerán aquí." : "Your saved conversations will appear here."
         case .files: spanish ? "Los archivos disponibles aparecerán aquí." : "Available files will appear here."
         case .memory: spanish ? "El contexto que confirmes aparecerá aquí." : "Context you confirm will appear here."

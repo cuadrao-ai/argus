@@ -3,18 +3,17 @@ import SwiftUI
 public struct ReleaseSocialSignInView: View {
     public let state: ReleaseSocialSignInState
     public let pendingInvite: ReleasePendingInvite?
-    public let webURL: URL?
     public let onSignIn: (ReleaseSocialProvider, ReleasePendingInvite?) -> Void
     public let onSaveName: (String, ReleasePendingInvite?) -> Void
     public let onContinue: (ReleasePendingInvite?) -> Void
     @Environment(\.locale) private var locale
     @State private var name = ""
 
-    public init(state: ReleaseSocialSignInState, pendingInvite: ReleasePendingInvite? = nil, webURL: URL? = nil,
+    public init(state: ReleaseSocialSignInState, pendingInvite: ReleasePendingInvite? = nil,
                 onSignIn: @escaping (ReleaseSocialProvider, ReleasePendingInvite?) -> Void,
                 onSaveName: @escaping (String, ReleasePendingInvite?) -> Void,
                 onContinue: @escaping (ReleasePendingInvite?) -> Void) {
-        self.state = state; self.pendingInvite = pendingInvite; self.webURL = webURL
+        self.state = state; self.pendingInvite = pendingInvite
         self.onSignIn = onSignIn; self.onSaveName = onSaveName; self.onContinue = onContinue
     }
 
@@ -47,8 +46,8 @@ public struct ReleaseSocialSignInView: View {
                     providerButtons
                     status
                 }
-                if let webURL {
-                    ReleaseIdentityLegalLinks(webURL: webURL)
+                if CuadraoLegalURLs.current.hasPages {
+                    ReleaseIdentityLegalLinks()
                 }
             }.padding(24).frame(maxWidth: 560, alignment: .leading).frame(maxWidth: .infinity)
         }
@@ -122,12 +121,12 @@ public struct ReleaseSocialSignInView: View {
     }
 }
 
-public struct ReleaseIdentityLegalLinks: View {
-    public let webURL: URL
+struct ReleaseIdentityLegalLinks: View {
+    let legal: CuadraoLegalURLs
     @Environment(\.locale) private var locale
-    public init(webURL: URL) { self.webURL = webURL }
+    init(legal: CuadraoLegalURLs = .current) { self.legal = legal }
 
-    public var body: some View {
+    var body: some View {
         let spanish = locale.language.languageCode?.identifier == "es"
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 24) { links(spanish) }
@@ -136,9 +135,13 @@ public struct ReleaseIdentityLegalLinks: View {
     }
 
     @ViewBuilder private func links(_ spanish: Bool) -> some View {
-        Link(spanish ? "Términos" : "Terms", destination: webURL.appendingPathComponent("terms"))
-            .frame(minHeight: 44).accessibilityIdentifier("identity.legal.terms")
-        Link(spanish ? "Privacidad" : "Privacy", destination: webURL.appendingPathComponent("privacy"))
-            .frame(minHeight: 44).accessibilityIdentifier("identity.legal.privacy")
+        if let terms = legal.terms {
+            Link(spanish ? "Términos" : "Terms", destination: terms)
+                .frame(minHeight: 44).accessibilityIdentifier("identity.legal.terms")
+        }
+        if let privacy = legal.privacy {
+            Link(spanish ? "Privacidad" : "Privacy", destination: privacy)
+                .frame(minHeight: 44).accessibilityIdentifier("identity.legal.privacy")
+        }
     }
 }

@@ -47,6 +47,7 @@ from argus.domain.household.schemas import (
     Recipient,
     SharedAccountView,
 )
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.recording.errors import IdempotencyConflict, StaleVersion
 
 INVITE_TTL = timedelta(days=7)
@@ -730,7 +731,9 @@ class FinancialAccountLookup:
         self._repository = repository
 
     def owned_account(self, *, user_id: str, account_id: str) -> OwnedAccountRef | None:
-        stored = self._repository.get_account(user_id=user_id, account_id=account_id)
+        stored = self._repository.get_account(
+            user_id=user_id, account_id=account_id, scope=PERSONAL
+        )
         if stored is None:
             return None
         return _ref_from_stored(stored)

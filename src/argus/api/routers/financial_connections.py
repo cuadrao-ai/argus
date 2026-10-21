@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
 
+from argus.api.documents import require_connection_removal
 from argus.api.ingestion import (
     IngestionContext,
     connection_problem,
@@ -19,6 +20,7 @@ from argus.api.routers.financial_connections_schemas import (
     FinancialConnectionListResponse,
     connection_response,
 )
+from argus.domain.owner_scope import PERSONAL
 
 router = APIRouter(prefix="/financial-connections", tags=["financial-connections"])
 
@@ -27,7 +29,7 @@ router = APIRouter(prefix="/financial-connections", tags=["financial-connections
 def list_financial_connections(
     context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
 ) -> FinancialConnectionListResponse:
-    rows = context.hub.list(user_id=context.user_id)
+    rows = context.hub.list(user_id=context.user_id, scope=PERSONAL)
     return FinancialConnectionListResponse(items=[connection_response(r) for r in rows])
 
 
@@ -35,13 +37,15 @@ def list_financial_connections(
 def disconnect_financial_connection(
     request: Request,
     connection_id: str,
-    context: IngestionContext = Depends(require_ingestion_context),  # noqa: B008
+    context: IngestionContext = Depends(require_connection_removal),  # noqa: B008
 ) -> DisconnectResponse:
-    """Idempotent: disconnecting an ended connection returns it unchanged."""
+    """Idempotent: disconnecting an ended connection returns it unchanged.
+
+    With ingestion off only a saved document can be disconnected."""
 
     try:
         outcome = context.hub.disconnect(
-            user_id=context.user_id, connection_id=connection_id
+            user_id=context.user_id, connection_id=connection_id, scope=PERSONAL
         )
     except Exception as error:
         raise connection_problem(request, error) from None

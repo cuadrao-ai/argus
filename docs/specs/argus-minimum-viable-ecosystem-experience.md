@@ -114,6 +114,9 @@ behavior; do not maintain another competing feature definition or use this table
 as a claim of implementation. A package must identify what it completes and what
 remains outstanding. Explicit later/experimental items stay distinguished below.
 
+The status and the flow list live in [Core flows](../CORE_FLOWS.md). This table is the
+scope index only and carries no status.
+
 | Area | Required coverage | Detailed owner |
 | --- | --- | --- |
 | Access | Existing identity; sign-in, registration, confirmation/resend, recovery/reset, secure session refresh and relaunch, logout/account switching, browser-to-app transitions, guest chat and registration with return to action | [Guest boundary](#guest-access-and-registration); existing API/auth contracts |
@@ -604,8 +607,10 @@ does not grant permission to use it. Creating a financial account, recording
 activity, importing documents, managing plans or participating in a household
 must lead to sign-up or sign-in before the operation. The same boundary applies
 on iPhone, Android and web, and to actions requested through chat. No durable
-guest financial records are authorized. Existing guest-chat behavior and limits
-are preserved; this decision does not expand guest compute or research access.
+guest financial records are authorized on the server. Existing guest-chat behavior
+and limits are preserved; this decision does not expand guest compute or research
+access. The iPhone's on-device guest book ([October 9 entry](argus-decision-log.md#october-9-2026-iphone-on-device-guest-book-probar-sin-cuenta))
+keeps its data on the device only and amends this boundary for that case alone.
 
 Registration is the gate, not payment. The exact registration/return-to-action
 journey and server enforcement need implementation contracts. This publication

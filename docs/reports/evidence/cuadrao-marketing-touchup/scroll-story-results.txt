@@ -1,0 +1,66 @@
+$ playwright test "e2e/capture-story.spec.ts" "e2e/touchup.spec.ts"
+(node:80887) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:80888) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80889) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:80890) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 42 tests using 1 worker
+
+(node:80891) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80891) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:80891) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/capture-story.spec.ts:14:7 › / scroll advances and reverses the receipt chapters before releasing the page (330ms)
+  ✓   2 [desktop] › e2e/capture-story.spec.ts:14:7 › /en scroll advances and reverses the receipt chapters before releasing the page (288ms)
+  ✓   3 [desktop] › e2e/capture-story.spec.ts:39:5 › scroll chapters retain click and keyboard shortcuts without moving passive-scroll focus (253ms)
+  ✓   4 [desktop] › e2e/capture-story.spec.ts:56:7 › reduced motion keeps an ordinary manual rail with no added scroll distance (139ms)
+  ✓   5 [desktop] › e2e/capture-story.spec.ts:56:7 › short landscape keeps an ordinary manual rail with no added scroll distance (137ms)
+  ✓   6 [desktop] › e2e/capture-story.spec.ts:75:5 › 320px viewport keeps the rail and every receipt readable (373ms)
+  ✓   7 [desktop] › e2e/capture-story.spec.ts:88:5 › native wheel input advances and reverses a pinned chapter (353ms)
+  ✓   8 [desktop] › e2e/capture-story.spec.ts:106:5 › phone introduction scrolls away before the complete rail and card stay in view (256ms)
+  ✓   9 [desktop] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (110ms)
+  ✓  10 [desktop] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (326ms)
+  ✓  11 [desktop] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (108ms)
+  ✓  12 [desktop] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (191ms)
+  ✓  13 [desktop] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (188ms)
+  ✓  14 [desktop] › e2e/touchup.spec.ts:87:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓  15 [desktop] › e2e/touchup.spec.ts:111:5 › footer accumulates gentle wheel input without losing it between paint frames (1.0s)
+  ✓  16 [desktop] › e2e/touchup.spec.ts:124:5 › footer preserves upward wheel and keyboard navigation (758ms)
+  ✓  17 [desktop] › e2e/touchup.spec.ts:140:5 › footer holds a dispatched touch drag open until release (1.7s)
+  ✓  18 [desktop] › e2e/touchup.spec.ts:156:5 › reduced motion keeps the crop fixed under extra scroll input (408ms)
+  ✓  19 [desktop] › e2e/touchup.spec.ts:166:5 › reduced motion is static and small screens do not overflow (342ms)
+  ✓  20 [desktop] › e2e/touchup.spec.ts:197:7 › / loads editorial photographs without the withdrawn product capture (160ms)
+  ✓  21 [desktop] › e2e/touchup.spec.ts:197:7 › /en loads editorial photographs without the withdrawn product capture (149ms)
+(node:80953) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:80953) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:80953) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  22 [mobile] › e2e/capture-story.spec.ts:14:7 › / scroll advances and reverses the receipt chapters before releasing the page (326ms)
+  ✓  23 [mobile] › e2e/capture-story.spec.ts:14:7 › /en scroll advances and reverses the receipt chapters before releasing the page (301ms)
+  ✓  24 [mobile] › e2e/capture-story.spec.ts:39:5 › scroll chapters retain click and keyboard shortcuts without moving passive-scroll focus (266ms)
+  ✓  25 [mobile] › e2e/capture-story.spec.ts:56:7 › reduced motion keeps an ordinary manual rail with no added scroll distance (157ms)
+  ✓  26 [mobile] › e2e/capture-story.spec.ts:56:7 › short landscape keeps an ordinary manual rail with no added scroll distance (163ms)
+  ✓  27 [mobile] › e2e/capture-story.spec.ts:75:5 › 320px viewport keeps the rail and every receipt readable (398ms)
+  ✓  28 [mobile] › e2e/capture-story.spec.ts:88:5 › native wheel input advances and reverses a pinned chapter (353ms)
+  ✓  29 [mobile] › e2e/capture-story.spec.ts:106:5 › phone introduction scrolls away before the complete rail and card stay in view (189ms)
+  ✓  30 [mobile] › e2e/touchup.spec.ts:4:7 › / preserves the capture story and accessible progress rail (214ms)
+  ✓  31 [mobile] › e2e/touchup.spec.ts:4:7 › /en preserves the capture story and accessible progress rail (213ms)
+  ✓  32 [mobile] › e2e/touchup.spec.ts:24:5 › header blends at the top and becomes a pill after scrolling (103ms)
+  ✓  33 [mobile] › e2e/touchup.spec.ts:42:7 › es header separates language controls and links to how it works (264ms)
+  ✓  34 [mobile] › e2e/touchup.spec.ts:42:7 › en header separates language controls and links to how it works (266ms)
+  ✓  35 [mobile] › e2e/touchup.spec.ts:87:5 › footer rests at the crop, peeks on extra wheel input and settles without added height (1.0s)
+  ✓  36 [mobile] › e2e/touchup.spec.ts:111:5 › footer accumulates gentle wheel input without losing it between paint frames (996ms)
+  ✓  37 [mobile] › e2e/touchup.spec.ts:124:5 › footer preserves upward wheel and keyboard navigation (757ms)
+  ✓  38 [mobile] › e2e/touchup.spec.ts:140:5 › footer holds a dispatched touch drag open until release (1.7s)
+  ✓  39 [mobile] › e2e/touchup.spec.ts:156:5 › reduced motion keeps the crop fixed under extra scroll input (409ms)
+  ✓  40 [mobile] › e2e/touchup.spec.ts:166:5 › reduced motion is static and small screens do not overflow (289ms)
+  ✓  41 [mobile] › e2e/touchup.spec.ts:197:7 › / loads editorial photographs without the withdrawn product capture (129ms)
+  ✓  42 [mobile] › e2e/touchup.spec.ts:197:7 › /en loads editorial photographs without the withdrawn product capture (131ms)
+
+  42 passed (19.0s)

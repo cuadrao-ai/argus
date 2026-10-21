@@ -1,5 +1,5 @@
 /* REWORD when group cards are a real feature: "sample group card" is preview-only copy. */
 "NSPhotoLibraryAddUsageDescription" = "Save a sample group card to Photos when you choose Save Image.";
 
-"NSCameraUsageDescription" = "Scan a receipt when you choose Scan Receipt.";
+"NSCameraUsageDescription" = "Cuadrao uses the camera to scan your receipts. Only what you choose is saved.";
 "NSLocationWhenInUseUsageDescription" = "Add your current location to a receipt only when you choose to.";

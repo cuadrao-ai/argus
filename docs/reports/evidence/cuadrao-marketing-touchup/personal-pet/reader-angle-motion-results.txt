@@ -1,0 +1,39 @@
+$ playwright test "e2e/personal-motion.spec.ts"
+(node:8139) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[WebServer] (node:8140) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8141) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8142) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 14 tests using 1 worker
+
+(node:8143) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8143) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:8143) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/personal-motion.spec.ts:13:5 › waits for confirmed registration, then delivers once while confirmation receives focus (2.1s)
+  ✓   2 [desktop] › e2e/personal-motion.spec.ts:36:5 › failed and unexpected responses preserve the email without a flight, then allow retry (1.9s)
+  ✓   3 [desktop] › e2e/personal-motion.spec.ts:56:5 › fine-pointer eyes follow and reset without changing form focus (119ms)
+  ✓   4 [desktop] › e2e/personal-motion.spec.ts:69:5 › reduced motion confirms directly with a still pet (217ms)
+  ✓   5 [desktop] › e2e/personal-motion.spec.ts:82:7 › narrow 320px form confirms without scrolling toward the offscreen phone (234ms)
+  ✓   6 [desktop] › e2e/personal-motion.spec.ts:82:7 › narrow 390px form confirms without scrolling toward the offscreen phone (242ms)
+  ✓   7 [desktop] › e2e/personal-motion.spec.ts:98:5 › scrolling during delivery removes the flight and keeps the true confirmation (232ms)
+(node:8163) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8163) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:8163) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   8 [mobile] › e2e/personal-motion.spec.ts:13:5 › waits for confirmed registration, then delivers once while confirmation receives focus (2.1s)
+  ✓   9 [mobile] › e2e/personal-motion.spec.ts:36:5 › failed and unexpected responses preserve the email without a flight, then allow retry (1.9s)
+  -  10 [mobile] › e2e/personal-motion.spec.ts:56:5 › fine-pointer eyes follow and reset without changing form focus
+  ✓  11 [mobile] › e2e/personal-motion.spec.ts:69:5 › reduced motion confirms directly with a still pet (218ms)
+  ✓  12 [mobile] › e2e/personal-motion.spec.ts:82:7 › narrow 320px form confirms without scrolling toward the offscreen phone (227ms)
+  ✓  13 [mobile] › e2e/personal-motion.spec.ts:82:7 › narrow 390px form confirms without scrolling toward the offscreen phone (234ms)
+  ✓  14 [mobile] › e2e/personal-motion.spec.ts:98:5 › scrolling during delivery removes the flight and keeps the true confirmation (224ms)
+
+  1 skipped
+  13 passed (11.7s)

@@ -77,7 +77,7 @@ struct CuadraoChatCanvas: View {
                             savedReceipts = false
                         },
                         open: { id in savedReceipts = false; pendingReceipt = .review(id) }), groupID: store.current.focus?.groupID, spanish: es)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button(es ? "Listo" : "Done") { savedReceipts = false } } }
+                    .toolbar { CuadraoDoneToolbar(title: es ? "Listo" : "Done") { savedReceipts = false } }
                 }
             }
         }

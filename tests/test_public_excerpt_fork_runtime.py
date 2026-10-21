@@ -24,6 +24,7 @@ from argus.api.public_excerpt_schemas import (
     PublicExcerptResearchTurn,
     PublicExcerptTurnsPayload,
 )
+from argus.domain.owner_scope import PERSONAL
 from argus.domain.public_excerpt_forks import carried_messages
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -44,7 +45,11 @@ def imported(monkeypatch):
     api_state.store.reset()
     user = api_state.store.get_or_create_dev_user()
     conversation = memory_conversation(
-        title="New idea", title_source="system_default", language="en", user_id=user.id
+        scope=PERSONAL,
+        title="New idea",
+        title_source="system_default",
+        language="en",
+        user_id=user.id,
     )
     payload = PublicExcerptTurnsPayload(
         turns=[

@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from argus.domain.owner_scope import OwnerScope
 from argus.domain.recording.accounts import LIABILITY_TYPES, OPTIONAL_ASSET_TYPES
 from argus.domain.recording.asset_model import AssetChange
 from argus.domain.recording.asset_schemas import AssetDetailsRequest
@@ -63,9 +64,10 @@ def memory_write(
     request: AssetDetailsRequest,
     idempotency_key: str,
     identity_hash: str,
+    scope: OwnerScope,
 ) -> AssetDetailsResult:
     with repository._lock:
-        stored = repository._owned(user_id, account_id)
+        stored = repository._owned(user_id, account_id, scope)
         previous = next(
             (c for c in stored.asset_changes if c.idempotency_key == idempotency_key),
             None,
@@ -79,7 +81,7 @@ def memory_write(
         require_asset(stored)
         target = debt_id(request)
         if target is not None:
-            validate_debt(repository._owned(user_id, target))
+            validate_debt(repository._owned(user_id, target, scope))
         now = repository._clock()
         change = AssetChange(
             stored.account.version + 1,

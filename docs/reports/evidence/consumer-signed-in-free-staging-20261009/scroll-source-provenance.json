@@ -1,0 +1,15 @@
+{
+  "integration_base": "cd14c9883f180876d27c121f0787b25a73529492",
+  "test_product": "ScrollRepairs.xctestproducts",
+  "sources": {
+    "ios/ArgusFoundationUITests/ConnectedChrome.swift": "0f19b7fe4d88e7dd9cbf6b56b5dd5b10a5c2e7d7d019d8f19bef99bc5db00401",
+    "ios/ArgusFoundationUITests/FinancialLoopUITests.swift": "ac64565e35f314bdc708ed9348a6417d6e9e7b53ac6e04fc6342d9fc77a6f0b7",
+    "ios/ArgusFoundationUITests/PersonalMoneyUITests.swift": "66299705be0a7d7d515277977d2733d235f2587141c40a8a5ecb7dd837f00f0d",
+    "ios/ArgusFoundationUITests/ConnectedPlanUITests.swift": "1052cfe7e8aa14f4dcaafa607412a0e94550a0934a0defaf46e2c0901c8d7556",
+    "ios/ArgusFoundationUITests/ConnectedReleaseSurfaceUITests.swift": "8e95bdb555eb3279c1174642775379f415e562de61aa4ff55a6cf86f9d59ded5"
+  },
+  "app_source_tree": "0d9584a4489c5081a1856665e2fa2aba392b5ec2",
+  "source_commit": "daaf417dc98dbcdd31f285994890e0abed96126d",
+  "app_source_unchanged": true,
+  "revalidated_after_commit": true
+}
