@@ -89,7 +89,6 @@ from argus.api.business_schemas import (
 from argus.api.business_spaces import (
     accept_business_invites,
     business_access,
-    business_identity,
     business_spaces,
     space_missing_problem,
 )
@@ -111,6 +110,7 @@ from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
+from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
@@ -238,6 +238,10 @@ def _problem(request: Request, error: Exception) -> HTTPException:
     if isinstance(error, (DocumentServiceError, DocumentExtractionError)):
         return document_problem(request, error)
     return domain_problem(request, error)
+
+
+def _identity(scope: BusinessScope) -> dict[str, str]:
+    return {"country": scope.country, "currency": scope.currency}
 
 
 def _space(space: Space) -> dict[str, Any]:
@@ -596,7 +600,6 @@ def rename_space(
 
 @router.get("/workspace", response_model=BusinessWorkspace)
 def get_workspace(
-    request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
     # An old own space without the owner's grant gets it here, once, with one
@@ -608,8 +611,7 @@ def get_workspace(
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
         workspace = {**workspace, "chat_available": False}
-    identity = business_identity(request, context.scope.owner.space_id)
-    return {**workspace, **identity}
+    return {**workspace, **_identity(context.scope)}
 
 
 @router.post("/accounts", response_model=BusinessAccount, status_code=201)
@@ -1092,9 +1094,8 @@ def get_overview(
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     _period(request, start, end)
-    identity = business_identity(request, context.scope.owner.space_id)
     try:
-        return {**overview_with_drafts(context, start, end), **identity}
+        return {**overview_with_drafts(context, start, end), **_identity(context.scope)}
     except Exception as error:
         raise _problem(request, error) from None
 

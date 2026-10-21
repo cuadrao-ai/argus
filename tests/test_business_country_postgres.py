@@ -19,7 +19,14 @@ from fastapi.testclient import TestClient
 
 from tests import test_financial_accounts_postgres as shared
 from tests.local_supabase_support import local_supabase_gateway
-from tests.test_business_scope_switch_routes_postgres import API, ENV, PERIOD, _person
+from tests.test_business_scope_switch_routes_postgres import (
+    API,
+    ENV,
+    PERIOD,
+    _as,
+    _grant,
+    _person,
+)
 from tests.test_business_scope_switch_routes_postgres import (
     pytestmark as _local_supabase,
 )
@@ -212,3 +219,27 @@ def test_a_canadian_business_is_stored_and_served_in_dollars(web) -> None:  # no
             "select country, currency from public.spaces where id = %s",
             (started.json()["id"],),
         ).fetchone() == ("CA", "CAD")
+
+
+def test_a_grant_reads_the_owners_country_not_the_readers(web) -> None:  # noqa: ANN001
+    started = web.client.post(
+        f"{API}/business/space",
+        json={"name": "Ferretería Prueba", "country": "US"},
+        headers=web.alice.headers,
+    )
+    assert started.status_code == 201, started.text
+    web.alice.space_id = started.json()["id"]
+    own = web.client.post(
+        f"{API}/business/space", json={"country": "CA"}, headers=web.bob.headers
+    )
+    assert own.status_code == 201, own.text
+    grant = _grant(web, web.alice, web.bob)
+    as_client = web.client.get(f"{API}/business/workspace", headers=_as(web.bob, grant))
+    assert _identity(as_client) == ("US", "USD")
+    overview = web.client.get(
+        f"{API}/business/overview", params=PERIOD, headers=_as(web.bob, grant)
+    )
+    assert _identity(overview) == ("US", "USD")
+    assert _identity(
+        web.client.get(f"{API}/business/workspace", headers=web.bob.headers)
+    ) == ("CA", "CAD")
