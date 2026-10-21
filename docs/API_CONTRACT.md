@@ -3353,6 +3353,10 @@ Update profile preferences. Partial update semantics are supported.
 - Clients may send only the fields that changed.
 - Null values are allowed where fields are unknown.
 - Unsupported `language` or `locale` returns 422.
+- Saving `language` sets `onboarding.language_confirmed` to `true`. It is the
+  only onboarding field the server still writes, and clients cannot send it.
+  The Business web shows an account language only once it is confirmed; until
+  then it shows Spanish, or the language this device last showed.
 - `preferred_name` is bounded at 40 characters; longer values return 422. An
   empty or whitespace-only value clears it rather than storing a blank name.
   Omitting it leaves it untouched, so editing another preference cannot wipe it.

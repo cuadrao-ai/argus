@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/lib/i18n';
-import { documentLanguage } from '@/lib/language-features';
+import { documentLanguage, rememberShownLanguage, resolveLanguage } from '@/lib/language-features';
 import { businessPilotEnabled } from '@/lib/private-alpha-flags';
 import { PUBLIC_RECEIPT_PATH_PREFIX } from '@/lib/public-receipt-contract';
 
@@ -22,10 +22,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncDocumentLanguage = (language?: string) => {
-      document.documentElement.lang = documentLanguage(
-        language ?? i18n.resolvedLanguage ?? i18n.language,
-        businessPilotEnabled,
-      );
+      const shown = resolveLanguage({ device: language ?? i18n.resolvedLanguage ?? i18n.language });
+      document.documentElement.lang = documentLanguage(shown, businessPilotEnabled);
+      rememberShownLanguage(shown);
     };
 
     const handleInitialized = () => {
