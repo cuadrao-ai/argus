@@ -111,7 +111,9 @@ from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
+from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
@@ -242,8 +244,17 @@ def _problem(request: Request, error: Exception) -> HTTPException:
     return domain_problem(request, error)
 
 
+def _identity(scope: BusinessScope) -> dict[str, str]:
+    return {"country": scope.country, "currency": scope.currency}
+
+
 def _space(space: Space) -> dict[str, Any]:
-    return {"id": space.id, "name": space.name}
+    return {
+        "id": space.id,
+        "name": space.name,
+        "country": space.country,
+        "currency": space.currency,
+    }
 
 
 @router.get("/space", response_model=BusinessSpaceInfo)
@@ -399,7 +410,9 @@ def start_space(
     it here, once."""
 
     space, created = person.spaces.create(
-        person.person_id, body.name or default_space_name(body.language)
+        person.person_id,
+        body.name or default_space_name(body.language),
+        body.country or DEFAULT_COUNTRY,
     )
     _access_store(request).ensure_owner_grant(space.id, person.person_id)
     response.status_code = 201 if created else 200
@@ -617,7 +630,7 @@ def get_workspace(
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
         workspace = {**workspace, "chat_available": False}
-    return workspace
+    return {**workspace, **_identity(context.scope)}
 
 
 @router.post("/accounts", response_model=BusinessAccount, status_code=201)
@@ -1033,11 +1046,15 @@ def list_expenses(
     request: Request,
     start: date = Query(alias="from"),  # noqa: B008
     end: date | None = Query(default=None, alias="to"),  # noqa: B008
+    kind: Literal["expense", "income"] = "expense",
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    """The period's saved records of one kind: expenses, or ventas as `income`.
+    A venta's `merchant` is its client. Each item keeps its own currency."""
+
     _period(request, start, end)
     try:
-        return {"items": expenses_with_receipts(context, start, end)}
+        return {"items": expenses_with_receipts(context, start, end, kind=kind)}
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -1105,7 +1122,7 @@ def get_overview(
 ) -> dict[str, Any]:
     _period(request, start, end)
     try:
-        return overview_with_drafts(context, start, end)
+        return {**overview_with_drafts(context, start, end), **_identity(context.scope)}
     except Exception as error:
         raise _problem(request, error) from None
 

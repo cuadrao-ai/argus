@@ -284,6 +284,9 @@ export type BusinessAccount = {
 };
 
 export type BusinessWorkspaceInfo = {
+  /** The Business's own country and currency. Absent in older payloads. */
+  country?: BusinessCountry;
+  currency?: CurrencyCode;
   accounts: BusinessAccount[];
   currencies: CurrencyCode[];
   /** Whether Business conversations can answer questions about saved expenses. */
@@ -349,6 +352,9 @@ export type BusinessOverview = {
   to: string;
   /** The server's day in the Business time zone: the one clock for "today". */
   today: string;
+  /** The Business's own country and currency. Absent in older payloads. */
+  country?: BusinessCountry;
+  currency?: CurrencyCode;
   /** "Gastos reales": every approved expense of the period that is not personal. */
   totals: { currency: CurrencyCode; amount: DecimalString; count: number }[];
   /** "Con valor fiscal": those that carry an NCF or an e-CF. Absent in older payloads. */
@@ -404,8 +410,16 @@ export async function listBusinessCaptures(query = "", limit = 20, view: "inbox"
 }
 
 
+export type BusinessCountry = "DO" | "US" | "CA";
+
 /** The owner's one Business space. Business records live only inside it. */
-export type BusinessSpace = { id: string; name: string };
+export type BusinessSpace = {
+  id: string;
+  name: string;
+  /** Absent in older payloads. */
+  country?: BusinessCountry;
+  currency?: CurrencyCode;
+};
 
 /**
  * Reads the owner's Business space and creates it only when the server

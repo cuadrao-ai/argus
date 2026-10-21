@@ -49,6 +49,16 @@ def reportable_607(value: str | None) -> bool:
     return number is not None and not number.startswith("E")
 
 
+DECLARABLE_CURRENCY = "DOP"
+
+
+def declarable(currency: str) -> bool:
+    """A 606 or 607 line is stated in pesos. A document in any other currency
+    needs a conversion the forms do not carry, so it is on neither form."""
+
+    return currency == DECLARABLE_CURRENCY
+
+
 def fact_value(record: FiscalRecord, name: str) -> str | None:
     fact = getattr(record.facts.fiscal, name, None)
     return fact.value if isinstance(fact, Known) else None
@@ -76,7 +86,7 @@ def record_issues(
     if declaration is None:
         issue("fiscal_declaration_missing", "declaration")
         return issues
-    if record.currency != "DOP":
+    if not declarable(record.currency):
         issue("fiscal_conversion_required", "currency")
     if record.approved_revision < 1 or not record.source_ids:
         issue("fiscal_approval_evidence_missing", "approved_revision")

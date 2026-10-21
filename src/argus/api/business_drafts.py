@@ -284,6 +284,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             actor_id=user_id,
             grant_id=str(context.grant_id),
             role="owner" if str(context.owner_id) == str(user_id) else "accountant",
+            **({"country": scope.country, "currency": scope.currency} if scope else {}),
         ),
         BusinessService(scoped_documents, imports, _captured),
         record,
@@ -625,10 +626,18 @@ def _with_records(context: BusinessContext, expenses: list[dict]) -> list[dict]:
     ]
 
 
-def expenses_with_receipts(context: BusinessContext, start, end) -> list[dict]:  # noqa: ANN001
-    """The saved expenses of a period, each with the receipt that opens its record."""
+def expenses_with_receipts(
+    context: BusinessContext,
+    start,  # noqa: ANN001
+    end,  # noqa: ANN001
+    kind: str = "expense",
+) -> list[dict]:
+    """The saved expenses (or ventas, as ``income``) of a period, each with the
+    receipt that opens its record."""
 
-    return _with_records(context, context.service.expenses(context.scope, start, end))
+    return _with_records(
+        context, context.service.expenses(context.scope, start, end, kind=kind)
+    )
 
 
 def expense_detail(context: BusinessContext, expense_id: str) -> dict:

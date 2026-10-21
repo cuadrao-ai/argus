@@ -65,7 +65,26 @@ class CurrencyBlock(_Wire):
     cuentas_por_cobrar: str
     cuentas_por_pagar_minor: int
     cuentas_por_pagar: str
+    # ITBIS charged on the sales already marked cobrado.
+    itbis_cobrado_minor: int
+    itbis_cobrado: str
     by_status: StatusTotals
+    # False while a document in this currency is still pendiente.
+    net_result_final: bool
+
+
+FormStatus = Literal[
+    "no_aplica", "needs_review", "summary_only", "no_operations", "prepared_candidate"
+]
+
+
+class DgiiForms(_Wire):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    # The export packet's own status word per form, from the same summary
+    # that decides whether the TXT file is written.
+    form_606: FormStatus = Field(alias="606")
+    form_607: FormStatus = Field(alias="607")
 
 
 class CloseReason(_Wire):
@@ -101,10 +120,16 @@ class MonthClose(_Wire):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     month: str
+    # The server's day in the recording time zone: the one clock for "today".
+    today: date
     starts: date = Field(alias="from")
     to: date
     closed: bool
     reasons: list[CloseReason]
+    # The first month with a document this close would show; null while none.
+    earliest_month: str | None
+    payment_methods: list[str]
+    dgii_forms: DgiiForms
     currencies: list[CurrencyBlock]
     missing_rnc: list[DocumentLine]
     missing_ncf: list[DocumentLine]
@@ -118,12 +143,20 @@ class OpenTotal(_Wire):
     total: str
 
 
+class OpenOverdue(_Wire):
+    count: int
+    totals: list[OpenTotal]
+
+
 class OpenList(_Wire):
     count: int
     totals: list[OpenTotal]
+    # Pending past its due date as of ``today``, over every item, not only the page.
+    overdue: OpenOverdue
     items: list[DocumentLine]
 
 
 class OpenItems(_Wire):
+    today: date
     cuentas_por_cobrar: OpenList
     cuentas_por_pagar: OpenList

@@ -17,6 +17,11 @@ from typing import Protocol
 from psycopg_pool import ConnectionPool
 
 from argus.domain.business.access import ensure_owner_grant
+from argus.domain.business.country import (
+    COUNTRIES,
+    DEFAULT_COUNTRY,
+    business_country,
+)
 
 # Founder-approved October 8: the name a space starts with until renamed.
 DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
@@ -28,6 +33,8 @@ class Space:
     id: str
     name: str
     name_prompt_seen: bool = False
+    country: str = DEFAULT_COUNTRY
+    currency: str = COUNTRIES[DEFAULT_COUNTRY].currency
 
     @property
     def name_required(self) -> bool:
@@ -47,8 +54,11 @@ class SpaceStore(Protocol):
         """An open Business space by id, for a grant that names it."""
         ...
 
-    def create(self, person_id: str, name: str) -> tuple[Space, bool]:
-        """The person's open space, created with ``name`` when there is none.
+    def create(
+        self, person_id: str, name: str, country: str = DEFAULT_COUNTRY
+    ) -> tuple[Space, bool]:
+        """The person's open space, created with ``name`` and ``country`` when
+        there is none.
 
         Returns ``(space, created)``. Concurrent calls converge on one space.
         """
@@ -77,7 +87,8 @@ class PostgresSpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name, business_name_prompt_seen_at is not null from public.spaces"
+                "select id::text, name, business_name_prompt_seen_at is not null, country, currency"
+                " from public.spaces"
                 " where id = public.business_space_of(%s)",
                 (person_id,),
             ).fetchone()
@@ -86,20 +97,24 @@ class PostgresSpaceStore:
     def get(self, space_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name, business_name_prompt_seen_at is not null from public.spaces"
+                "select id::text, name, business_name_prompt_seen_at is not null, country, currency"
+                " from public.spaces"
                 " where id = %s and kind = 'business' and closed_at is null",
                 (space_id,),
             ).fetchone()
         return Space(*row) if row else None
 
-    def create(self, person_id: str, name: str) -> tuple[Space, bool]:
+    def create(
+        self, person_id: str, name: str, country: str = DEFAULT_COUNTRY
+    ) -> tuple[Space, bool]:
         with self._pool.connection() as connection, connection.transaction():
             created = connection.execute(
-                "insert into public.spaces (kind, name, created_by)"
-                " values ('business', %s, %s)"
+                "insert into public.spaces (kind, name, created_by, country, currency)"
+                " values ('business', %s, %s, %s, %s)"
                 " on conflict (created_by) where kind = 'business' and closed_at is null"
-                " do nothing returning id::text, name, business_name_prompt_seen_at is not null",
-                (name, person_id),
+                " do nothing returning id::text, name, business_name_prompt_seen_at is not null,"
+                " country, currency",
+                (name, person_id, country, business_country(country).currency),
             ).fetchone()
             if created is not None:
                 # The owner's grant is born with the space, in the same transaction.
@@ -129,7 +144,8 @@ class PostgresSpaceStore:
             row = connection.execute(
                 "update public.spaces set name = %s"
                 " where id = public.business_space_of(%s) and (%s::uuid is null or id = %s::uuid)"
-                " returning id::text, name, business_name_prompt_seen_at is not null",
+                " returning id::text, name, business_name_prompt_seen_at is not null,"
+                " country, currency",
                 (name, person_id, space_id, space_id),
             ).fetchone()
         return Space(*row) if row else None
@@ -178,12 +194,19 @@ class InMemorySpaceStore:
         with self._lock:
             return next((s for s in self._spaces.values() if s.id == space_id), None)
 
-    def create(self, person_id: str, name: str) -> tuple[Space, bool]:
+    def create(
+        self, person_id: str, name: str, country: str = DEFAULT_COUNTRY
+    ) -> tuple[Space, bool]:
         with self._lock:
             existing = self._spaces.get(person_id)
             if existing is not None:
                 return existing, False
-            space = Space(str(uuid.uuid4()), name)
+            space = Space(
+                str(uuid.uuid4()),
+                name,
+                country=country,
+                currency=business_country(country).currency,
+            )
             self._spaces[person_id] = space
             return space, True
 

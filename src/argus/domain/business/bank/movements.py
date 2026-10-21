@@ -364,22 +364,23 @@ def reasons(line: BankLine, offer: Offer) -> list[dict[str, object]]:
     return found
 
 
+COUNT_KEYS = (
+    "movimientos",
+    "igualadas",
+    "no_lleva_comprobante",
+    "sugerencias",
+    "falta_comprobante",
+    "sin_movimiento",
+    "por_igualar",
+)
+
+
 @dataclass
 class _CurrencyTotals:
     entradas: int = 0
     salidas: int = 0
     por_igualar: int = 0
-    counts: dict[str, int] = field(
-        default_factory=lambda: {
-            "movimientos": 0,
-            "igualadas": 0,
-            "no_lleva_comprobante": 0,
-            "sugerencias": 0,
-            "falta_comprobante": 0,
-            "sin_movimiento": 0,
-            "por_igualar": 0,
-        }
-    )
+    counts: dict[str, int] = field(default_factory=lambda: dict.fromkeys(COUNT_KEYS, 0))
 
 
 _COUNT_KEY = {
@@ -397,10 +398,9 @@ def totals(items: Iterable[Item]) -> list[dict]:
 
     blocks: dict[str, _CurrencyTotals] = {}
     for item in items:
+        block = blocks.setdefault(_currency_of(item), _CurrencyTotals())
         if isinstance(item, Movement):
-            currency = item.line.currency
             minor = item.amount_minor
-            block = blocks.setdefault(currency, _CurrencyTotals())
             block.counts["movimientos"] += 1
             if minor > 0:
                 block.entradas += minor
@@ -408,8 +408,6 @@ def totals(items: Iterable[Item]) -> list[dict]:
                 block.salidas -= minor
             magnitude = abs(minor)
         else:
-            currency = item.document.currency
-            block = blocks.setdefault(currency, _CurrencyTotals())
             magnitude = item.document.total_minor
         block.counts[_COUNT_KEY[item.state]] += 1
         if item.state in POR_IGUALAR:
@@ -430,10 +428,54 @@ def totals(items: Iterable[Item]) -> list[dict]:
     ]
 
 
+def period_counts(blocks: Iterable[dict]) -> dict[str, int]:
+    """The period's counts across every currency, added from the per-currency
+    blocks. Counts are not money, so adding them across currencies is sound."""
+
+    found = dict.fromkeys(COUNT_KEYS, 0)
+    for block in blocks:
+        for key in COUNT_KEYS:
+            found[key] += block["counts"][key]
+    return found
+
+
 def _sense_of(item: Item) -> str:
     if isinstance(item, Movement):
         return item.line.sense
     return "charge" if item.document.kind == "receipt" else "deposit"
+
+
+def _currency_of(item: Item) -> str:
+    if isinstance(item, Movement):
+        return item.line.currency
+    return item.document.currency
+
+
+def _chosen(items: Iterable[Item], segment: Segment, sense: str | None) -> list[Item]:
+    """The rows the segment and sense select, in every currency."""
+
+    states = _SEGMENT_STATES[segment]
+    return [
+        item
+        for item in items
+        if item.state in states and (sense is None or _sense_of(item) == sense)
+    ]
+
+
+def other_currencies(
+    items: Iterable[Item], *, segment: Segment, sense: str | None, currency: str | None
+) -> list[dict]:
+    """How many of the segment's rows the chosen currency leaves out, per
+    other currency, sorted by code. Nothing is left out while no currency is chosen."""
+
+    if currency is None:
+        return []
+    counts: dict[str, int] = {}
+    for item in _chosen(items, segment, sense):
+        found = _currency_of(item)
+        if found != currency:
+            counts[found] = counts.get(found, 0) + 1
+    return [{"currency": code, "count": count} for code, count in sorted(counts.items())]
 
 
 def _sort_key(item: Item, segment: Segment) -> tuple[int, int, int, str]:
@@ -476,16 +518,17 @@ def page(
     sense: str | None,
     limit: int,
     cursor: str | None,
+    currency: str | None = None,
 ) -> tuple[list[Item], str | None]:
-    """One page of a segment. Por igualar groups Sugerencias (best offer
-    first), Falta comprobante, then Comprobantes sin movimiento; each group
-    and every other segment runs newest first."""
+    """One page of a segment, in the chosen currency when one is given. Por
+    igualar groups Sugerencias (best offer first), Falta comprobante, then
+    Comprobantes sin movimiento; each group and every other segment runs
+    newest first."""
 
-    states = _SEGMENT_STATES[segment]
     chosen = [
         item
-        for item in items
-        if item.state in states and (sense is None or _sense_of(item) == sense)
+        for item in _chosen(items, segment, sense)
+        if currency is None or _currency_of(item) == currency
     ]
     keyed = sorted(
         ((_sort_key(item, segment), item) for item in chosen), key=lambda pair: pair[0]

@@ -964,6 +964,18 @@ paths:
           - type: string
             maxLength: 512
           - type: 'null'
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z]{3}$
+          - type: 'null'
+          description: ISO 4217 code. Items and totals hold only this currency; `other_currencies`
+            counts the rows left out.
+        description: ISO 4217 code. Items and totals hold only this currency; `other_currencies`
+          counts the rows left out.
       - name: X-Business-Grant
         in: header
         required: false
@@ -2741,6 +2753,15 @@ paths:
           - type: string
             format: date
           - type: 'null'
+      - name: kind
+        in: query
+        required: false
+        schema:
+          enum:
+          - expense
+          - income
+          type: string
+          default: expense
       - name: X-Business-Grant
         in: header
         required: false
@@ -15458,6 +15479,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         name_required:
           type: boolean
         name_prompt_seen:
@@ -15469,6 +15494,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
       - name_required
       - name_prompt_seen
       - show_prompt
@@ -15487,6 +15514,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         name_required:
           type: boolean
         name_prompt_seen:
@@ -15496,6 +15527,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
       - name_required
       - name_prompt_seen
     BusinessOverview:
@@ -15509,6 +15542,10 @@ components:
         today:
           type: string
           format: date
+        country:
+          type: string
+        currency:
+          type: string
         totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
@@ -15555,6 +15592,8 @@ components:
       - from
       - to
       - today
+      - country
+      - currency
       - totals
       - awaiting_review
       - needs_attention
@@ -15606,11 +15645,17 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
       additionalProperties: false
       type: object
       required:
       - id
       - name
+      - country
+      - currency
     BusinessSpaces:
       properties:
         spaces:
@@ -15679,6 +15724,10 @@ components:
       - label
     BusinessWorkspace:
       properties:
+        country:
+          type: string
+        currency:
+          type: string
         accounts:
           items:
             $ref: '#/components/schemas/BusinessAccount'
@@ -15696,6 +15745,8 @@ components:
       additionalProperties: false
       type: object
       required:
+      - country
+      - currency
       - accounts
       - currencies
       - assistant_available
@@ -17019,8 +17070,14 @@ components:
           type: integer
         cuentas_por_pagar:
           type: string
+        itbis_cobrado_minor:
+          type: integer
+        itbis_cobrado:
+          type: string
         by_status:
           $ref: '#/components/schemas/StatusTotals'
+        net_result_final:
+          type: boolean
       additionalProperties: false
       type: object
       required:
@@ -17041,7 +17098,10 @@ components:
       - cuentas_por_cobrar
       - cuentas_por_pagar_minor
       - cuentas_por_pagar
+      - itbis_cobrado_minor
+      - itbis_cobrado
       - by_status
+      - net_result_final
     CurrencySummaryResponse:
       properties:
         currency:
@@ -17807,6 +17867,29 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiForms:
+      properties:
+        '606':
+          type: string
+          enum:
+          - no_aplica
+          - needs_review
+          - summary_only
+          - no_operations
+          - prepared_candidate
+        '607':
+          type: string
+          enum:
+          - no_aplica
+          - needs_review
+          - summary_only
+          - no_operations
+          - prepared_candidate
+      additionalProperties: false
+      type: object
+      required:
+      - '606'
+      - '607'
     DgiiQr:
       properties:
         url:
@@ -22948,6 +23031,9 @@ components:
       properties:
         month:
           type: string
+        today:
+          type: string
+          format: date
         from:
           type: string
           format: date
@@ -22960,6 +23046,16 @@ components:
           items:
             $ref: '#/components/schemas/CloseReason'
           type: array
+        earliest_month:
+          anyOf:
+          - type: string
+          - type: 'null'
+        payment_methods:
+          items:
+            type: string
+          type: array
+        dgii_forms:
+          $ref: '#/components/schemas/DgiiForms'
         currencies:
           items:
             $ref: '#/components/schemas/CurrencyBlock'
@@ -22984,10 +23080,14 @@ components:
       type: object
       required:
       - month
+      - today
       - from
       - to
       - closed
       - reasons
+      - earliest_month
+      - payment_methods
+      - dgii_forms
       - currencies
       - missing_rnc
       - missing_ncf
@@ -23191,6 +23291,12 @@ components:
             - charge
             - deposit
           - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The chosen currency. Items and totals hold only that currency while
+            set.
         accounts:
           items:
             $ref: '#/components/schemas/AccountCoverage'
@@ -23199,6 +23305,16 @@ components:
           items:
             $ref: '#/components/schemas/MovementTotals'
           type: array
+        counts:
+          $ref: '#/components/schemas/MovementCounts'
+          description: The period's counts across every currency, whatever the segment,
+            sense, currency or page.
+        other_currencies:
+          items:
+            $ref: '#/components/schemas/OtherCurrencyCount'
+          type: array
+          description: Rows of the segment and sense that the chosen currency leaves out,
+            per other currency. Empty while no currency is chosen.
         items:
           items:
             $ref: '#/components/schemas/MovementItem'
@@ -23215,6 +23331,7 @@ components:
       - sense
       - accounts
       - totals
+      - counts
       - items
       - next_cursor
     NetworkNumbers:
@@ -23410,6 +23527,9 @@ components:
         deployed clients may still read the `/me` shape.'
     OpenItems:
       properties:
+        today:
+          type: string
+          format: date
         cuentas_por_cobrar:
           $ref: '#/components/schemas/OpenList'
         cuentas_por_pagar:
@@ -23417,6 +23537,7 @@ components:
       additionalProperties: false
       type: object
       required:
+      - today
       - cuentas_por_cobrar
       - cuentas_por_pagar
     OpenList:
@@ -23427,6 +23548,8 @@ components:
           items:
             $ref: '#/components/schemas/OpenTotal'
           type: array
+        overdue:
+          $ref: '#/components/schemas/OpenOverdue'
         items:
           items:
             $ref: '#/components/schemas/DocumentLine'
@@ -23436,7 +23559,21 @@ components:
       required:
       - count
       - totals
+      - overdue
       - items
+    OpenOverdue:
+      properties:
+        count:
+          type: integer
+        totals:
+          items:
+            $ref: '#/components/schemas/OpenTotal'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - count
+      - totals
     OpenSearchResult:
       properties:
         kind:
@@ -23608,6 +23745,16 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OtherCurrencyCount:
+      properties:
+        currency:
+          type: string
+        count:
+          type: integer
+      type: object
+      required:
+      - currency
+      - count
     OutcomeHistoryEntry:
       properties:
         id:
@@ -28418,6 +28565,14 @@ components:
             enum:
             - en
             - es-419
+          - type: 'null'
+        country:
+          anyOf:
+          - type: string
+            enum:
+            - DO
+            - US
+            - CA
           - type: 'null'
       additionalProperties: false
       type: object

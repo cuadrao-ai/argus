@@ -3537,7 +3537,7 @@ open items read the date from the resolution, not from the revision.
 | `business_bank_accounts` | One bank account per Business space. `space_id` is unique. `account_id` references `financial_accounts`. Keep 10 years. No delete API. |
 | `business_bank_imports` | One accepted statement upload. Unique `(space_id, imported_by, idempotency_key)`. `source_sha256` is the file bytes. Keep 10 years. No delete API. |
 | `business_bank_lines` | Immutable raw statement lines. Unique `(bank_account_id, occurred_on, amount, normalized_description, line_hash)`. `raw_line` is the source cells. Updates are refused. Re-import returns the existing row. Keep 10 years. No delete API. |
-| `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only. Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |
+| `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only, with select, insert and update and no delete or truncate (`20261021060000_business_bank_line_outcomes_no_delete.sql`, as the other bank tables). Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |
 | `business_bank_suggestions` | One offer per line and target. `target_id` is the recorded activity id of the receipt (expense) or venta (income). Status is `pending` or `declined`; a suggestion reads `confirmed` while its line holds a live match to its target. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. Import and the movements read store new pending offers. The movement state (`igualada`, `sugerencia`, `falta_comprobante`, `no_lleva_comprobante`) and the bank coverage date (the newest line date per account) are derived on read, not stored. Keep 10 years. |
 | `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only: migration `20261014110000_business_grant_approve_owner_only.sql` makes the database refuse `approve` on any grant whose grantee is not the space's `created_by`, on insert and on update, whoever writes the row. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
 | `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (7 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
@@ -3584,6 +3584,18 @@ retain immutable typed declaration snapshots alongside the existing facts,
 actual actor, grant, source IDs and version. Current additional tax fields live
 only in `financial_import_events.resolution.business.dgii`; canonical fiscal
 identity and ITBIS remain in `BusinessFacts.fiscal`.
+
+Migration `20261021020000_business_country.sql` adds `spaces.country` (`DO`,
+`US` or `CA`, default `DO`) and `spaces.currency` (ISO 4217, three upper-case
+letters, default `DOP`). The check constraints and the
+`business_country_immutable` trigger, which refuses an update that changes
+`country`, apply to `kind = 'business'` rows only, so a later Personal or
+Household space row carries no fiscal country. The server sets `currency` from the country when
+the space starts. Existing rows are `DO` and `DOP`. The registry
+`argus.domain.business.country` is the one owner of what each country implies,
+and a test keeps the `business_country_known` check equal to its codes. The
+person's profile `home_country` never decides a Business. See the
+[Business country plan](specs/business-country.md).
 
 The existing human `ReviewCommand` carries the tax input. It updates the current
 open resolution and appends one source-linked revision atomically. Every later
@@ -3760,7 +3772,11 @@ None of these rows is a financial record or affects balances.
   anchor date, the accepting idempotency key and, once accepted, the recorded
   `activity_id`. A check ties `state='accepted'` to a non-null `activity_id`;
   a unique index allows one event per `(user_id, activity_id)`, so one purchase
-  cannot be recorded or linked twice.
+  cannot be recorded or linked twice. A partial unique index
+  (`financial_import_events_sale_ncf_idx`, migration
+  `20261021050000_business_sale_ncf_once.sql`) allows one accepting or accepted
+  sale (`facts.kind` income) per `owner_space_id` and normalized NCF or e-CF, so
+  two approvals of the same sale comprobante cannot both land.
 - `financial_import_account_links`: person-confirmed mapping from
   `(connection_id, account_key)` to an owned `financial_accounts` row
   (owner-qualified foreign key); deleted on disconnect.

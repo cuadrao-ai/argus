@@ -9128,7 +9128,7 @@ The web discovers arrivals every 15 seconds while Inbox is visible and polls eve
 
 ### Business bank matching (default-off)
 
-Statement import, suggested matches, the unmatched charge count, the Transacciones movements read (`GET /business/bank/movements`: every line of a period with a server-owned state, the documents with no movement, and totals per currency), and the decisions on a line (igualar, which also writes the document's cobrado or pagado; desigualar, which restores it; decline; no lleva comprobante) for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
+Statement import, suggested matches, the unmatched charge count, the Transacciones movements read (`GET /business/bank/movements`: every line of a period with a server-owned state, the documents with no movement, totals per currency, the period's counts across currencies, and an optional `currency` filter that reports how many rows the other currencies hold), and the decisions on a line (igualar, which also writes the document's cobrado or pagado; desigualar, which restores it; decline; no lleva comprobante) for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
 
 ### Business pilot (default-off)
 
@@ -9292,6 +9292,22 @@ as the other facts. `BusinessDossier.due_on`, `ReceiptDetail.due_on` and every
 month-close and open-items line carry the date as `YYYY-MM-DD`, or `null` while
 it is unknown. Open items list the soonest due date first (see the
 [month-close contract](contracts/business-month-close.md)).
+
+`GET /business/month-close` and `GET /business/open-items` both carry `today`,
+the server's day in the recording time zone, so no client reads its own clock
+for overdue or for a default `settled_on`. Month close adds `earliest_month`
+(`YYYY-MM` or `null`), `payment_methods` (the PATCH's accepted methods, in
+order) and `dgii_forms` (`{"606": status, "607": status}`, the export packet's
+own status words for that calendar month: `no_aplica`, `needs_review`,
+`summary_only`, `no_operations` or `prepared_candidate`; only the last means
+the ZIP carries the TXT). Each currency block adds `itbis_cobrado_minor` and
+`itbis_cobrado` (ITBIS charged on the sales marked `cobrado`) and
+`net_result_final` (true while no document of that currency in the month is
+`pendiente`). Each open-items list adds `overdue: {count, totals}` over every
+pending document in it, not only the page: pending with `due_on` before
+`today`; no due date is never overdue. Every document counts in its own
+currency's block; only the DGII files and `dgii_forms` are DOP-only. All
+additive; nothing renamed.
 
 The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union
@@ -9512,12 +9528,16 @@ person starts their space, every route below except POST `/space` answers 404
 `business_space_missing`
 ([slice plan, PR #910](https://github.com/lagarcess/argus/pull/910)).
 
-- POST `/api/v1/business/space` takes `{name?, language?}` and answers 201
-  `{id, name}` with a new space, or 200 with the existing one unchanged.
+- POST `/api/v1/business/space` takes `{name?, language?, country?}` and
+  answers 201 `{id, name, country, currency}` with a new space, or 200 with the
+  existing one unchanged.
   Without `name` the space is named "Mi negocio", or "My business" when
   `language` is `en`. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
-- GET `/api/v1/business/space` returns `{id, name}`, or 404
+  `country` is `DO`, `US` or `CA`, default `DO`, else 422. It is set once: a
+  later call with another country returns the existing space unchanged. The
+  space's `currency` follows its country (`DOP`, `USD`, `CAD`).
+- GET `/api/v1/business/space` returns `{id, name, country, currency}`, or 404
   `business_space_missing` before the space is started. The web bootstrap reads
   this endpoint before creation. It sends POST only after that exact 404, and
   propagates other failures without creating a space. Existing concurrent-call
@@ -9525,8 +9545,8 @@ person starts their space, every route below except POST `/space` answers 404
 - PATCH `/api/v1/business/space` takes `{name}` and returns the renamed space,
   or 404 `business_space_missing` before the space is started.
 - Business naming is owner-only and uses the currently open Business.
-  GET `/api/v1/business/space/name` returns `{id, name, name_required,
-  name_prompt_seen}`. `name_required` means the persisted name is a default.
+  GET `/api/v1/business/space/name` returns `{id, name, country, currency,
+  name_required, name_prompt_seen}`. `name_required` means the persisted name is a default.
   POST `/api/v1/business/space/name-prompt` takes `{space_id}` and returns the
   same state plus `show_prompt`. Its atomic server claim allows one first-visit
   prompt per Business. A different or closed Business returns 404.
@@ -9724,9 +9744,10 @@ connection id). Its review is the import event its purchase created, composed
 by `receipt_review`. Its expense is the canonical activity that the import
 accept path recorded.
 
-- GET `/api/v1/business/workspace` returns `{accounts, currencies,
-  assistant_available: false, chat_available, receipt_limits: {max_bytes,
-  media_types}}`. `accounts` lists unarchived cash, checking, savings and credit
+- GET `/api/v1/business/workspace` returns `{country, currency, accounts,
+  currencies, assistant_available: false, chat_available, receipt_limits:
+  {max_bytes, media_types}}`. `country` and `currency` are the Business's own,
+  the same values `GET /business/space` returns. `accounts` lists unarchived cash, checking, savings and credit
   card accounts. `currencies` lists their currencies. The limits come from the
   document settings. `chat_available` is true only while
   `ARGUS_BUSINESS_CHAT_ENABLED` is on; while it is false `/biz` shows no
@@ -10107,11 +10128,14 @@ accept path recorded.
   second key or a concurrent confirm returns the same confirmed receipt with
   the same `expense_id`. An acceptance that another key claimed but did not
   finish is finished first, and one expense is recorded.
-- GET `/api/v1/business/expenses?from&to` returns `{items: BusinessExpense[]}`.
+- GET `/api/v1/business/expenses?from&to&kind` returns `{items: BusinessExpense[]}`.
   These are expense activities whose local date falls in `[from, to]`, newest
   first. `receipt_id` names the receipt when the expense came from exactly one;
   `draft_id` names the bridge draft that recorded it, so an expense whose
   draft is linked to several receipts or to none still opens its record.
+  Optional `kind` is `expense` (default) or `income`: `income` lists the
+  period's ventas in the same shape, `merchant` being the client, each item in
+  its own currency. Any other value is 422.
 - GET `/api/v1/business/expenses/{expense_id}` returns that expense with
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand
@@ -10124,7 +10148,9 @@ accept path recorded.
   body, or a key whose recorded activity is not an expense, is 409
   `idempotency_conflict`.
 - GET `/api/v1/business/overview?from&to` returns per-currency `totals`
-  `{currency, amount, count}`, with no conversion. It also returns
+  `{currency, amount, count}`, with no conversion. Beside the totals it returns
+  the Business `country` and `currency`; the Business currency does not filter
+  or convert the totals. It also returns
   `awaiting_review`, `needs_attention`, `ready_to_review_count`,
   `last_received_at` and `last_confirmed_at`. `awaiting_review` plus `needs_attention` equals the
   Bandeja's `pending_review_count` (see receipt activity): an email original is

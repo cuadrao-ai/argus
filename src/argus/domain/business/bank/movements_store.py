@@ -36,7 +36,9 @@ from argus.domain.business.bank.movements import (
     coverage_payload,
     documents_from,
     item_payload,
+    other_currencies,
     page,
+    period_counts,
     taken_documents,
     totals,
     unmoved_documents,
@@ -100,6 +102,7 @@ def read_movements(
     sense: str | None,
     limit: int,
     cursor: str | None,
+    currency: str | None = None,
 ) -> dict:
     with bank_session(pool, context, "read") as connection:
         documents, _activities = load_documents(pool, connection, context)
@@ -115,15 +118,23 @@ def read_movements(
     )
     items = [*movements, *unmoved]
     shown, following = page(
-        items, segment=segment, sense=sense, limit=limit, cursor=cursor
+        items, segment=segment, sense=sense, limit=limit, cursor=cursor, currency=currency
     )
+    blocks = totals(items)
     return {
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
         "segment": segment,
         "sense": sense,
+        "currency": currency,
         "accounts": [coverage_payload(account) for account in accounts.values()],
-        "totals": totals(items),
+        "totals": [
+            block for block in blocks if currency is None or block["currency"] == currency
+        ],
+        "counts": period_counts(blocks),
+        "other_currencies": other_currencies(
+            items, segment=segment, sense=sense, currency=currency
+        ),
         "items": [item_payload(item) for item in shown],
         "next_cursor": following,
     }
