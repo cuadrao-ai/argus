@@ -1,4 +1,5 @@
 import { apiFetch } from "./argus-api-transport";
+import { currencyDigits } from "./money-entry";
 
 /**
  * Cuadrar el mes. `monthCloseClient` is the live client `/biz` uses.
@@ -17,9 +18,10 @@ import { apiFetch } from "./argus-api-transport";
  *   Every invoice and receipt still pending, from any month, for Por cobrar
  *   and Por pagar. The oldest 100 per list; `count` includes the rest.
  *
- * Each amount is decimal text with at most two fraction digits, never a float.
- * A line keeps its currency. DOP totals leave other currencies out, and use
- * the DOP block when the response includes one.
+ * Each amount is read from its integer `_minor` field and kept as decimal text
+ * in its own currency's digits, never a float. A line keeps its currency, and
+ * a line without one is unknown, never DOP. The month's figures are one block
+ * per currency, as the server sends them; currencies are never added together.
  * `amount` is the document total. `itbis` is the ITBIS printed on it, or null
  * when the document does not state one. The web does not invent ITBIS from a
  * rate. Net before ITBIS is invoice bases minus receipt bases, where the base
@@ -37,9 +39,10 @@ import { apiFetch } from "./argus-api-transport";
  * does not block the close. The Exportar "Listo para 606/607" checklist
  * imports this same pair; do not fork a second check.
  *
- * While any document in the window is still pending, `monthCloseNetDisplay`
- * returns `pending` and no money string. The net result is a number only
- * once nothing is pending. Income, expenses, and ITBIS stay numeric.
+ * While any document in a currency is still pending, `monthCloseNetDisplay`
+ * returns `pending` and no money string for that currency's net. A pending
+ * document in another currency does not hold it back. Income, expenses, and
+ * ITBIS stay numeric.
  *
  * `due_on` is optional. A pending document whose due day is before today is
  * overdue for display. Overdue does not change the stored status and does
@@ -48,20 +51,20 @@ import { apiFetch } from "./argus-api-transport";
 
 export type MonthCloseKind = "invoice" | "receipt";
 export type MonthCloseStatus = "pendiente" | "cobrado" | "pagado";
-export type MonthCloseCurrency = "DOP";
 
 export type MonthCloseDocument = {
   id: string;
   kind: MonthCloseKind;
-  counterparty: string;
+  /** Null when the record does not name one; the screen names the document by its kind. */
+  counterparty: string | null;
   /** Calendar day, `YYYY-MM-DD`. */
   occurred_on: string;
   /** Day the document is due, `YYYY-MM-DD`. Null when the document has none. */
   due_on: string | null;
-  /** ISO currency of this document. DOP when the record does not name one. */
-  currency: string;
-  /** Document total, decimal text in `currency`. */
-  amount: string;
+  /** ISO currency of this document. Null when the line does not name one: unknown, never DOP. */
+  currency: string | null;
+  /** Document total, decimal text in `currency`'s digits. Null when the currency is unknown. */
+  amount: string | null;
   /** Stated ITBIS. Null when the document does not print one. */
   itbis: string | null;
   /** Counterparty RNC as printed. Null when absent. */
@@ -91,7 +94,6 @@ export type MonthCloseSnapshot = {
   month: string | null;
   from: string;
   to: string;
-  currency: MonthCloseCurrency;
   closed_at: string | null;
   /** First month with data, when the response includes it. Null when it does not. */
   earliest_month: string | null;
@@ -100,52 +102,21 @@ export type MonthCloseSnapshot = {
   closed?: boolean;
   /** Present means these blockers, including none. Absent means derive them from the documents. */
   blockers?: MonthCloseBlocker[];
-  /** A null figure is unknown. Absent means the cards compute the figure from the documents. */
-  figures?: MonthCloseFigures;
+  /** One block per currency the month holds, in the server's order. A month with no documents has none. */
+  figures: MonthCloseFigures[];
 };
 
-export type MonthCloseStatusCell = {
-  count: number;
-  before_itbis_minor: number;
-};
-
-export type MonthCloseByStatus = {
-  invoices: { pendiente: MonthCloseStatusCell; cobrado: MonthCloseStatusCell };
-  receipts: { pendiente: MonthCloseStatusCell; pagado: MonthCloseStatusCell };
-};
-
+/** One currency's month. A null figure is unknown. */
 export type MonthCloseFigures = {
-  income_before_itbis: string | null;
-  expense_before_itbis: string | null;
-  net_before_itbis: string | null;
-  itbis_owed: string | null;
-  by_status?: MonthCloseByStatus;
-};
-
-export function monthCloseStatusView(byStatus: MonthCloseByStatus): {
-  settled_count: number;
-  settled_before_itbis: string;
-  any_documents: boolean;
-} {
-  const cells = [byStatus.invoices.pendiente, byStatus.invoices.cobrado, byStatus.receipts.pendiente, byStatus.receipts.pagado];
-  const settledMinor = BigInt(byStatus.invoices.cobrado.before_itbis_minor) + BigInt(byStatus.receipts.pagado.before_itbis_minor);
-  return {
-    settled_count: byStatus.invoices.cobrado.count + byStatus.receipts.pagado.count,
-    settled_before_itbis: formatDopCents(settledMinor),
-    any_documents: cells.some((cell) => cell.count > 0),
-  };
-}
-
-export type MonthCloseSummary = {
-  currency: MonthCloseCurrency;
+  currency: string;
   /** Invoice bases. ITBIS is not part of this figure. */
-  income_before_itbis: string;
+  income_before_itbis: string | null;
   /** Receipt bases. ITBIS is not part of this figure. */
-  expense_before_itbis: string;
+  expense_before_itbis: string | null;
   /** Invoice bases minus receipt bases. ITBIS is not part of this figure. */
-  net_before_itbis: string;
+  net_before_itbis: string | null;
   /** Invoice ITBIS minus receipt ITBIS. */
-  itbis_owed: string;
+  itbis_owed: string | null;
 };
 
 /**
@@ -229,38 +200,36 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH = /^\d{4}-\d{2}$/;
 const PAPER_NCF = /^B\d{10}$/;
 const ELECTRONIC_NCF = /^E\d{12}$/;
-const AMOUNT = /^-?\d+(\.\d{1,2})?$/;
+const DECIMAL = /^-?\d+(\.\d+)?$/;
 const ZERO = BigInt(0);
-const HUNDRED = BigInt(100);
 
-export function parseDopCents(amount: string): bigint {
+/** Decimal text in `currency`'s own digits as integer minor units. More digits than the currency has is refused, never rounded. */
+function toMinor(amount: string, currency: string): bigint {
   const trimmed = amount.trim();
-  if (!AMOUNT.test(trimmed)) throw new MonthCloseError("unavailable", "DOP amounts use at most two decimal places");
-  const negative = trimmed.startsWith("-");
-  const [whole, fraction = ""] = trimmed.slice(negative ? 1 : 0).split(".");
-  const cents = BigInt(whole) * HUNDRED + BigInt(fraction.padEnd(2, "0"));
-  return negative ? -cents : cents;
+  const digits = currencyDigits(currency);
+  const [whole, fraction = ""] = trimmed.replace(/^-/, "").split(".");
+  if (!DECIMAL.test(trimmed) || fraction.length > digits) throw new MonthCloseError("unavailable", "month close amount has more digits than its currency");
+  const minor = BigInt(`${whole}${fraction.padEnd(digits, "0")}`);
+  return trimmed.startsWith("-") ? -minor : minor;
 }
 
-export function formatDopCents(cents: bigint): string {
-  const negative = cents < ZERO;
-  const absolute = negative ? -cents : cents;
-  const fraction = (absolute % HUNDRED).toString().padStart(2, "0");
-  return `${negative ? "-" : ""}${absolute / HUNDRED}.${fraction}`;
+/** Integer minor units as decimal text in `currency`'s own digits: 1500 yen is "1500", 1050 fils is "1.050". */
+function fromMinor(minor: bigint, currency: string): string {
+  const digits = currencyDigits(currency);
+  const negative = minor < ZERO;
+  const text = (negative ? -minor : minor).toString().padStart(digits + 1, "0");
+  return `${negative ? "-" : ""}${digits > 0 ? `${text.slice(0, -digits)}.${text.slice(-digits)}` : text}`;
 }
 
 export type ItbisBalanceDisplay =
   | { kind: "payable"; amount: string }
   | { kind: "credit"; amount: string };
 
+/** A balance below zero is in the Business's favor, shown without its sign. */
 export function itbisBalanceDisplay(amount: string): ItbisBalanceDisplay {
-  const cents = parseDopCents(amount);
-  if (cents < ZERO) return { kind: "credit", amount: formatDopCents(-cents) };
+  const trimmed = amount.trim();
+  if (trimmed.startsWith("-") && /[1-9]/.test(trimmed)) return { kind: "credit", amount: trimmed.slice(1) };
   return { kind: "payable", amount };
-}
-
-function addCents(left: bigint, right: string | null): bigint {
-  return left + parseDopCents(right ?? "0");
 }
 
 /** An RNC with no nonzero digit is no RNC. */
@@ -281,43 +250,48 @@ export function fiscalNumberPresent(document: Pick<MonthCloseDocument, "ncf" | "
   return Boolean(paperNcf(document.ncf) || electronicNcf(document.ecf));
 }
 
-export function documentBaseCents(document: Pick<MonthCloseDocument, "amount" | "itbis">): bigint {
-  return parseDopCents(document.amount) - parseDopCents(document.itbis ?? "0");
-}
-
-export function monthCloseSummary(documents: readonly MonthCloseDocument[]): MonthCloseSummary {
-  let invoiceBase = ZERO;
-  let receiptBase = ZERO;
-  let invoiceItbis = ZERO;
-  let receiptItbis = ZERO;
+/**
+ * The sample books' stand-in for the server's `currencies[]`: one block per
+ * currency, alphabetical as the server sends them, each from its own documents.
+ * Base is the total minus a stated ITBIS (a missing ITBIS counts as zero).
+ */
+export function monthCloseFiguresFrom(documents: readonly MonthCloseDocument[]): MonthCloseFigures[] {
+  const books = new Map<string, { invoiceBase: bigint; receiptBase: bigint; invoiceItbis: bigint; receiptItbis: bigint }>();
   for (const document of documents) {
-    if (document.currency !== "DOP") continue;
-    const base = documentBaseCents(document);
-    const itbis = parseDopCents(document.itbis ?? "0");
+    if (document.currency === null || document.amount === null) continue;
+    const book = books.get(document.currency) ?? { invoiceBase: ZERO, receiptBase: ZERO, invoiceItbis: ZERO, receiptItbis: ZERO };
+    const itbis = toMinor(document.itbis ?? "0", document.currency);
+    const base = toMinor(document.amount, document.currency) - itbis;
     if (document.kind === "invoice") {
-      invoiceBase += base;
-      invoiceItbis += itbis;
+      book.invoiceBase += base;
+      book.invoiceItbis += itbis;
     } else {
-      receiptBase += base;
-      receiptItbis += itbis;
+      book.receiptBase += base;
+      book.receiptItbis += itbis;
     }
+    books.set(document.currency, book);
   }
-  return {
-    currency: "DOP",
-    income_before_itbis: formatDopCents(invoiceBase),
-    expense_before_itbis: formatDopCents(receiptBase),
-    net_before_itbis: formatDopCents(invoiceBase - receiptBase),
-    itbis_owed: formatDopCents(invoiceItbis - receiptItbis),
-  };
+  return [...books].sort(([left], [right]) => left.localeCompare(right)).map(([currency, book]) => ({
+    currency,
+    income_before_itbis: fromMinor(book.invoiceBase, currency),
+    expense_before_itbis: fromMinor(book.receiptBase, currency),
+    net_before_itbis: fromMinor(book.invoiceBase - book.receiptBase, currency),
+    itbis_owed: fromMinor(book.invoiceItbis - book.receiptItbis, currency),
+  }));
 }
 
-/** Net result for the card. Pending documents, unmatched charges, or an unknown figure withhold the number. */
+/**
+ * Net result for one currency's card. A pending document in that currency,
+ * unmatched charges, or an unknown figure withhold the number. A pending
+ * document with no currency could be in any, so it withholds every net.
+ */
 export function monthCloseNetDisplay(
   documents: readonly MonthCloseDocument[],
-  blockers: readonly MonthCloseBlocker[] = [],
-  net: string | null = monthCloseSummary(documents).net_before_itbis,
+  blockers: readonly MonthCloseBlocker[],
+  net: string | null,
+  currency: string,
 ): MonthCloseNetDisplay {
-  const pendingCount = documents.reduce((count, document) => count + (document.status === "pendiente" ? 1 : 0), 0);
+  const pendingCount = documents.filter((document) => document.status === "pendiente" && (document.currency === null || document.currency === currency)).length;
   if (pendingCount > 0) return { state: "pending", pending_count: pendingCount, reason: "documents" };
   if (blockers.some((blocker) => blocker.kind === "unmatched_charges")) return { state: "pending", pending_count: 0, reason: "unmatched" };
   if (net === null) return { state: "pending", pending_count: 0, reason: "unknown" };
@@ -325,18 +299,31 @@ export function monthCloseNetDisplay(
 }
 
 /**
- * The currency a Por cobrar or Por pagar header names: DOP when the list holds
- * any, otherwise its first. A row or total in it shows the number alone.
+ * The currency a Por cobrar or Por pagar header names: the Business currency
+ * when the list holds it, else DOP when the list holds any, otherwise its
+ * first. A row or total in it shows the number alone.
  */
-export function openItemsHeaderCurrency(list: OpenItemsList): string | null {
-  const currencies = [...list.totals.map((total) => total.currency), ...list.items.map((item) => item.currency)];
+export function openItemsHeaderCurrency(list: OpenItemsList, businessCurrency: string | null = null): string | null {
+  const currencies = [...list.totals.map((total) => total.currency), ...list.items.map((item) => item.currency)].filter((currency): currency is string => currency !== null);
+  if (businessCurrency && currencies.includes(businessCurrency)) return businessCurrency;
   return currencies.includes("DOP") ? "DOP" : currencies[0] ?? null;
 }
 
 /** One total per currency, the header's first. */
-export function openItemsTotalsInOrder(list: OpenItemsList): OpenItemsTotal[] {
-  const header = openItemsHeaderCurrency(list);
+export function openItemsTotalsInOrder(list: OpenItemsList, businessCurrency: string | null = null): OpenItemsTotal[] {
+  const header = openItemsHeaderCurrency(list, businessCurrency);
   return [...list.totals].sort((left, right) => Number(right.currency === header) - Number(left.currency === header));
+}
+
+/** The month's currencies with the Business currency first, then the server's order. */
+export function currenciesInOrder(currencies: readonly string[], businessCurrency: string | null): string[] {
+  return businessCurrency && currencies.includes(businessCurrency) ? [businessCurrency, ...currencies.filter((currency) => currency !== businessCurrency)] : [...currencies];
+}
+
+/** Which currency the figures show: the person's choice when the month has it, else the Business currency, else the first the server sends. */
+export function currencyShown(currencies: readonly string[], businessCurrency: string | null, chosen: string | null): string | null {
+  if (chosen && currencies.includes(chosen)) return chosen;
+  return currenciesInOrder(currencies, businessCurrency)[0] ?? null;
 }
 
 function utcDayNumber(day: string): number {
@@ -356,17 +343,23 @@ export function openItemsInDueOrder(items: readonly MonthCloseDocument[]): Month
   });
 }
 
-/** How many of these items are overdue and what they add up to, exactly, one total per currency in the order of `openItemsTotalsInOrder`. */
-export function openItemsOverdue(list: OpenItemsList, today: string): { count: number; totals: OpenItemsTotal[] } {
+/**
+ * How many of these items are overdue and what they add up to, exactly, one
+ * total per currency in the order of `openItemsTotalsInOrder`. An item with no
+ * currency counts but adds to no total. The server's overdue totals replace
+ * this sum once `GET /business/open-items` sends them.
+ */
+export function openItemsOverdue(list: OpenItemsList, today: string, businessCurrency: string | null = null): { count: number; totals: OpenItemsTotal[] } {
   const sums = new Map<string, bigint>();
   let count = 0;
   for (const item of list.items) {
     if (!documentOverdue(item, today)) continue;
     count += 1;
-    sums.set(item.currency, addCents(sums.get(item.currency) ?? ZERO, item.amount));
+    if (item.currency === null || item.amount === null) continue;
+    sums.set(item.currency, (sums.get(item.currency) ?? ZERO) + toMinor(item.amount, item.currency));
   }
-  const header = openItemsHeaderCurrency(list);
-  const totals = [...sums].map(([currency, cents]) => ({ currency, total: formatDopCents(cents) }));
+  const header = openItemsHeaderCurrency(list, businessCurrency);
+  const totals = [...sums].map(([currency, minor]) => ({ currency, total: fromMinor(minor, currency) }));
   return { count, totals: totals.sort((left, right) => Number(right.currency === header) - Number(left.currency === header)) };
 }
 
@@ -386,21 +379,6 @@ export function documentOverdue(document: Pick<MonthCloseDocument, "status" | "d
 
 export function calendarDay(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-export function statusTotals(documents: readonly MonthCloseDocument[]): Record<MonthCloseStatus, { count: number; amount: string }> {
-  const totals: Record<MonthCloseStatus, bigint> = { pendiente: ZERO, cobrado: ZERO, pagado: ZERO };
-  const counts: Record<MonthCloseStatus, number> = { pendiente: 0, cobrado: 0, pagado: 0 };
-  for (const document of documents) {
-    if (document.currency !== "DOP") continue;
-    counts[document.status] += 1;
-    totals[document.status] = addCents(totals[document.status], document.amount);
-  }
-  return {
-    pendiente: { count: counts.pendiente, amount: formatDopCents(totals.pendiente) },
-    cobrado: { count: counts.cobrado, amount: formatDopCents(totals.cobrado) },
-    pagado: { count: counts.pagado, amount: formatDopCents(totals.pagado) },
-  };
 }
 
 /** Documents that cannot go into 606/607 yet: missing RNC, or missing both NCF and e-CF. */
@@ -515,7 +493,7 @@ export const closeGate = canCloseMonth;
 export function sortDocuments(documents: readonly MonthCloseDocument[], order: "newest" | "oldest"): MonthCloseDocument[] {
   return [...documents].sort((left, right) => {
     const byDate = order === "newest" ? right.occurred_on.localeCompare(left.occurred_on) : left.occurred_on.localeCompare(right.occurred_on);
-    return byDate || left.counterparty.localeCompare(right.counterparty, "es");
+    return byDate || (left.counterparty ?? "").localeCompare(right.counterparty ?? "", "es");
   });
 }
 
@@ -525,11 +503,6 @@ export function filterDocuments(documents: readonly MonthCloseDocument[], status
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
-}
-
-function readAmount(value: unknown): string {
-  if (typeof value !== "string" || !AMOUNT.test(value.trim())) throw new MonthCloseError("unavailable", "month close amount was not DOP text");
-  return formatDopCents(parseDopCents(value));
 }
 
 function readNullableText(value: unknown): string | null {
@@ -543,56 +516,10 @@ function statusFits(kind: MonthCloseKind, status: string): status is MonthCloseS
   return status === "pendiente" || (kind === "invoice" ? status === "cobrado" : status === "pagado");
 }
 
-export function readMonthCloseDocument(value: unknown): MonthCloseDocument {
-  if (!isRecord(value)) throw new MonthCloseError("unavailable", "month close document was not an object");
-  if (typeof value.id !== "string" || value.id.length === 0) throw new MonthCloseError("unavailable", "month close document has no id");
-  if (value.kind !== "invoice" && value.kind !== "receipt") throw new MonthCloseError("unavailable", "month close document kind is unknown");
-  if (typeof value.counterparty !== "string" || value.counterparty.trim().length === 0) throw new MonthCloseError("unavailable", "month close document has no counterparty");
-  if (typeof value.occurred_on !== "string" || !DAY.test(value.occurred_on)) throw new MonthCloseError("unavailable", "month close document date is unknown");
-  if (typeof value.status !== "string" || !statusFits(value.kind, value.status)) throw new MonthCloseError("unavailable", "month close status does not fit the document");
-  return {
-    id: value.id,
-    kind: value.kind,
-    counterparty: value.counterparty.trim(),
-    occurred_on: value.occurred_on,
-    currency: lineCurrency(value.currency),
-    amount: readAmount(value.amount),
-    itbis: value.itbis === null || value.itbis === undefined ? null : readAmount(value.itbis),
-    rnc: readNullableText(value.rnc),
-    ncf: readNullableText(value.ncf),
-    ecf: readNullableText(value.ecf),
-    status: value.status,
-    due_on: readDueOn(value.due_on),
-  };
-}
-
 function readDueOn(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value !== "string" || !DAY.test(value)) throw new MonthCloseError("unavailable", "month close due day is unknown");
   return value;
-}
-
-export function readMonthCloseSnapshot(value: unknown): MonthCloseSnapshot {
-  if (!isRecord(value)) throw new MonthCloseError("unavailable", "month close response was not an object");
-  if (value.currency !== "DOP") throw new MonthCloseError("unavailable", "month close is DOP only");
-  if (typeof value.from !== "string" || !DAY.test(value.from) || typeof value.to !== "string" || !DAY.test(value.to)) {
-    throw new MonthCloseError("unavailable", "month close window is unknown");
-  }
-  if (!(value.month === null || (typeof value.month === "string" && MONTH.test(value.month)))) {
-    throw new MonthCloseError("unavailable", "month close month is unknown");
-  }
-  if (!(value.closed_at === null || typeof value.closed_at === "string")) throw new MonthCloseError("unavailable", "month close timestamp is unknown");
-  if (!Array.isArray(value.documents)) throw new MonthCloseError("unavailable", "month close documents are missing");
-  const earliest = typeof value.earliest_month === "string" && MONTH.test(value.earliest_month) ? value.earliest_month : null;
-  return {
-    month: value.month,
-    from: value.from,
-    to: value.to,
-    currency: "DOP",
-    closed_at: value.closed_at,
-    earliest_month: earliest,
-    documents: value.documents.map(readMonthCloseDocument),
-  };
 }
 
 function shiftMonth(date: Date, offset: number): Date {
@@ -603,23 +530,23 @@ function dayInMonth(monthStart: Date, day: number): string {
   return `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null };
+type SampleInput = Omit<MonthCloseDocument, "occurred_on" | "due_on" | "currency"> & { day: number; dueDay: number | null; currency?: string };
 
 function sample(monthStart: Date, input: SampleInput, now: Date): MonthCloseDocument {
-  const { day, dueDay, ...document } = input;
+  const { day, dueDay, currency = "DOP", ...document } = input;
   const currentMonth = monthStart.getFullYear() === now.getFullYear() && monthStart.getMonth() === now.getMonth();
   // The open month runs through today, so a fixture day after today moves onto today.
   const used = currentMonth ? Math.min(day, now.getDate()) : day;
   return {
     ...document,
-    currency: "DOP",
+    currency,
     occurred_on: dayInMonth(monthStart, used),
     due_on: dueDay === null ? null : dayInMonth(monthStart, dueDay),
   };
 }
 
-/** Realistic Dominican fixtures for the open month and the month before it. */
-export function monthCloseSampleDocuments(now = new Date()): MonthCloseDocument[] {
+/** Realistic Dominican fixtures for the open month and the month before it. With `dollars`, the open month also holds a settled dollar sale and dollar expense. */
+export function monthCloseSampleDocuments(now = new Date(), dollars = false): MonthCloseDocument[] {
   const current = shiftMonth(now, 0);
   const previous = shiftMonth(now, -1);
   const row = (monthStart: Date, input: SampleInput) => sample(monthStart, input, now);
@@ -636,6 +563,10 @@ export function monthCloseSampleDocuments(now = new Date()): MonthCloseDocument[
     row(previous, { id: "inv-luna", kind: "invoice", day: 11, dueDay: 20, counterparty: "Panadería Luna", amount: "5900.00", itbis: "900.00", rnc: "131-22233-4", ncf: "B0100000202", ecf: null, status: "pendiente" }),
     row(previous, { id: "rcpt-isla", kind: "receipt", day: 7, dueDay: 7, counterparty: "Combustible Isla", amount: "2360.00", itbis: "360.00", rnc: "101-33322-1", ncf: "B1500000044", ecf: null, status: "pagado" }),
     row(previous, { id: "rcpt-rosa", kind: "receipt", day: 13, dueDay: 25, counterparty: "Limpieza Rosa", amount: "944.00", itbis: "144.00", rnc: "131-44455-6", ncf: "B0100000203", ecf: null, status: "pendiente" }),
+    ...(dollars ? [
+      row(current, { id: "inv-playa", kind: "invoice", currency: "USD", day: 9, dueDay: 16, counterparty: "Hotel Playa Norte", amount: "1416.00", itbis: "216.00", rnc: "130-55667-2", ncf: "B0100000043", ecf: null, status: "cobrado" }),
+      row(current, { id: "rcpt-dominio", kind: "receipt", currency: "USD", day: 12, dueDay: 12, counterparty: "Dominio y correo", amount: "24.00", itbis: null, rnc: "131-77001-9", ncf: "B1100000051", ecf: null, status: "pagado" }),
+    ] : []),
   ];
 }
 
@@ -666,10 +597,10 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
     month,
     from: window.from,
     to,
-    currency: "DOP",
     closed_at: month ? closedAt.get(month) ?? null : null,
     earliest_month: earliestMonthOf(documents),
     documents: documentsInWindow(documents, window.from, to),
+    figures: monthCloseFiguresFrom(documentsInWindow(documents, window.from, to)),
   };
 }
 
@@ -680,10 +611,13 @@ export function openItemsFrom(documents: readonly MonthCloseDocument[]): OpenIte
       .filter((document) => document.kind === kind && document.status === "pendiente")
       .sort((left, right) => left.occurred_on.localeCompare(right.occurred_on) || left.id.localeCompare(right.id));
     const sums = new Map<string, bigint>();
-    for (const document of pending) sums.set(document.currency, addCents(sums.get(document.currency) ?? ZERO, document.amount));
+    for (const document of pending) {
+      if (document.currency === null || document.amount === null) continue;
+      sums.set(document.currency, (sums.get(document.currency) ?? ZERO) + toMinor(document.amount, document.currency));
+    }
     return {
       count: pending.length,
-      totals: [...sums].map(([currency, cents]) => ({ currency, total: formatDopCents(cents) })),
+      totals: [...sums].map(([currency, minor]) => ({ currency, total: fromMinor(minor, currency) })),
       items: pending.slice(0, OPEN_ITEMS_CAP),
     };
   };
@@ -692,6 +626,8 @@ export function openItemsFrom(documents: readonly MonthCloseDocument[]): OpenIte
 
 export type MockMonthCloseOptions = {
   now?: Date;
+  /** The open month also holds settled dollar documents, so the figures have two currencies. */
+  dollars?: boolean;
   /** Mark calls for these ids fail, so the view can roll the optimistic row back. */
   failIds?: readonly string[];
 };
@@ -705,7 +641,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
   function book(scope = "default") {
     const existing = books.get(scope);
     if (existing) return existing;
-    const created = { documents: monthCloseSampleDocuments(now), closedAt: new Map<string, string>() };
+    const created = { documents: monthCloseSampleDocuments(now, options.dollars), closedAt: new Map<string, string>() };
     books.set(scope, created);
     return created;
   }
@@ -808,9 +744,10 @@ export function monthCloseReopenRequest(activityId: string): MonthCloseRequest {
   };
 }
 
-function minorToAmount(minor: number): string {
+/** Minor units in the line's currency. A line with no currency has no amount anyone can read. */
+function minorToAmount(minor: number, currency: string | null): string | null {
   if (!Number.isInteger(minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-  return formatDopCents(BigInt(minor));
+  return currency === null ? null : fromMinor(BigInt(minor), currency);
 }
 
 type WireLine = {
@@ -820,7 +757,7 @@ type WireLine = {
   total_minor: number;
   itbis_minor: number | null;
   status: string;
-  currency?: string;
+  currency: string | null;
   counterparty: string | null;
   due_on: string | null;
   /** Present when the server sends the document's fiscal facts; older servers omit them. */
@@ -829,8 +766,8 @@ type WireLine = {
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
 
-function lineCurrency(value: unknown): string {
-  if (value === undefined || value === null || value === "") return "DOP";
+function lineCurrency(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
   if (typeof value !== "string" || !CURRENCY_CODE.test(value)) throw new MonthCloseError("unavailable", "month close currency is unknown");
   return value;
 }
@@ -863,12 +800,12 @@ function wireDocument(line: WireLine): MonthCloseDocument {
   return {
     id: line.activity_id,
     kind: line.document_kind,
-    counterparty: line.counterparty ?? (line.document_kind === "invoice" ? "Factura" : "Gasto"),
+    counterparty: line.counterparty,
     occurred_on: line.occurred_on,
     due_on: line.due_on,
-    currency: line.currency ?? "DOP",
-    amount: minorToAmount(line.total_minor),
-    itbis: line.itbis_minor === null ? null : minorToAmount(line.itbis_minor),
+    currency: line.currency,
+    amount: minorToAmount(line.total_minor, line.currency),
+    itbis: line.itbis_minor === null ? null : minorToAmount(line.itbis_minor, line.currency),
     rnc: line.fiscal?.rnc ?? null,
     ncf: line.fiscal?.ncf ?? null,
     ecf: line.fiscal?.ecf ?? null,
@@ -878,41 +815,26 @@ function wireDocument(line: WireLine): MonthCloseDocument {
   };
 }
 
-function readStatusCell(value: unknown): MonthCloseStatusCell | null {
-  if (!isRecord(value)) return null;
-  if (typeof value.count !== "number" || !Number.isInteger(value.count) || value.count < 0) return null;
-  if (typeof value.before_itbis_minor !== "number" || !Number.isInteger(value.before_itbis_minor)) return null;
-  return { count: value.count, before_itbis_minor: value.before_itbis_minor };
-}
-
-function readByStatus(value: unknown): MonthCloseByStatus | undefined {
-  if (!isRecord(value) || !isRecord(value.invoices) || !isRecord(value.receipts)) return undefined;
-  const pendiente = readStatusCell(value.invoices.pendiente);
-  const cobrado = readStatusCell(value.invoices.cobrado);
-  const receiptPending = readStatusCell(value.receipts.pendiente);
-  const pagado = readStatusCell(value.receipts.pagado);
-  if (!pendiente || !cobrado || !receiptPending || !pagado) return undefined;
-  return { invoices: { pendiente, cobrado }, receipts: { pendiente: receiptPending, pagado } };
-}
-
-function readFigures(value: unknown): MonthCloseFigures | undefined {
+/** Every block the server sends, in its order. A figure the block does not send is unknown. */
+function readFigures(value: unknown): MonthCloseFigures[] {
   if (!Array.isArray(value)) throw new MonthCloseError("unavailable", "month close currencies are missing");
-  const dop = value.find((item) => isRecord(item) && item.currency === "DOP");
-  if (!dop || !isRecord(dop)) return {
-    income_before_itbis: null,
-    expense_before_itbis: null,
-    net_before_itbis: null,
-    itbis_owed: null,
-  };
-  const text = (field: string) => (typeof dop[field] === "string" ? readAmount(dop[field]) : null);
-  const byStatus = readByStatus(dop.by_status);
-  return {
-    income_before_itbis: text("income_before_itbis"),
-    expense_before_itbis: text("expense_before_itbis"),
-    net_before_itbis: text("net_result"),
-    itbis_owed: text("itbis_owed"),
-    ...(byStatus ? { by_status: byStatus } : {}),
-  };
+  return value.map((block) => {
+    if (!isRecord(block) || typeof block.currency !== "string" || !CURRENCY_CODE.test(block.currency)) throw new MonthCloseError("unavailable", "month close currency is unknown");
+    const currency = block.currency;
+    const figure = (field: string): string | null => {
+      const minor = block[`${field}_minor`];
+      if (minor === undefined || minor === null) return null;
+      if (typeof minor !== "number" || !Number.isInteger(minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
+      return fromMinor(BigInt(minor), currency);
+    };
+    return {
+      currency,
+      income_before_itbis: figure("income_before_itbis"),
+      expense_before_itbis: figure("expense_before_itbis"),
+      net_before_itbis: figure("net_result"),
+      itbis_owed: figure("itbis_owed"),
+    };
+  });
 }
 
 /** The month-close GET body: derived `closed`, currency figures, and the four document lists. */
@@ -946,7 +868,6 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
     month: value.month,
     from: value.from,
     to: value.to,
-    currency: "DOP",
     closed_at: null,
     closed: value.closed,
     earliest_month: null,
@@ -962,8 +883,8 @@ function readOpenItemsList(value: unknown, kind: MonthCloseKind): OpenItemsList 
   if (!Array.isArray(value.totals) || !Array.isArray(value.items)) throw new MonthCloseError("unavailable", "open items lists are missing");
   const totals = value.totals.map((total) => {
     if (!isRecord(total) || typeof total.currency !== "string" || !CURRENCY_CODE.test(total.currency)) throw new MonthCloseError("unavailable", "open items currency is unknown");
-    if (typeof total.total_minor !== "number") throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
-    return { currency: total.currency, total: minorToAmount(total.total_minor) };
+    if (typeof total.total_minor !== "number" || !Number.isInteger(total.total_minor)) throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
+    return { currency: total.currency, total: fromMinor(BigInt(total.total_minor), total.currency) };
   });
   const items = value.items.map((item) => {
     const line = readWireLine(item);
@@ -1028,14 +949,14 @@ export function createHttpMonthCloseClient(transport: MonthCloseTransport = (pat
       const request = monthCloseSettlementRequest(documentId, "cobrado", settledOn);
       const saved = await readTransport(transport, request);
       if (!isRecord(saved) || saved.status !== "cobrado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado", counterparty: null, due_on: null });
+      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado", currency: null, counterparty: null, due_on: null });
     },
     async markPagado(documentId, _scope, settledOn) {
       if (!settledOn) throw new MonthCloseError("unavailable", "settlement date is unknown");
       const request = monthCloseSettlementRequest(documentId, "pagado", settledOn);
       const saved = await readTransport(transport, request);
       if (!isRecord(saved) || saved.status !== "pagado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado", counterparty: null, due_on: null });
+      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado", currency: null, counterparty: null, due_on: null });
     },
     async markPendiente(documentId) {
       const saved = await readTransport(transport, monthCloseReopenRequest(documentId));

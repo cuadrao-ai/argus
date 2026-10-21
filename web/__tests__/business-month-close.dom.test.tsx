@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, openItemsFrom, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
+import { createHttpMonthCloseClient, createMockMonthCloseClient, MonthCloseError, monthCloseFiguresFrom, openItemsFrom, statementMissingBlocker, unmatchedCharges, type MonthCloseClient, type MonthCloseDocument, type MonthCloseSnapshot } from "../lib/business-month-close";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -30,13 +30,6 @@ function delayingFailure(inner: MonthCloseClient): MonthCloseClient {
 
 function statusCell(count: number, beforeItbisMinor: number) {
   return { count, before_itbis_minor: beforeItbisMinor };
-}
-
-function openByStatus() {
-  return {
-    invoices: { pendiente: statusCell(1, 100000), cobrado: statusCell(0, 0) },
-    receipts: { pendiente: statusCell(0, 0), pagado: statusCell(0, 0) },
-  };
 }
 
 function settledByStatus() {
@@ -316,7 +309,7 @@ describe("month close layouts", () => {
     const client: MonthCloseClient = {
       mode: "mock",
       async load(month) {
-        return { month, from: `${month}-01`, to: `${month}-31`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] };
+        return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, documents: [], figures: [] };
       },
       openItems: noOpenItems,
       markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
@@ -392,10 +385,10 @@ describe("month close layouts", () => {
       month: "2026-10",
       from: "2026-10-01",
       to: "2026-10-31",
-      currency: "DOP",
       closed_at: null,
       earliest_month: null,
       documents: [invoice("a", 20), invoice("b", 21), invoice("c", 22), invoice("d", 23), invoice("e", 24)],
+      figures: [],
     };
     const client: MonthCloseClient = {
       mode: "mock",
@@ -432,11 +425,10 @@ describe("month close layouts", () => {
       month: "2026-10",
       from: "2026-10-01",
       to: "2026-10-31",
-      currency: "DOP",
       closed_at: null,
       earliest_month: null,
       documents: [],
-      figures: { income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null, by_status: openByStatus() },
+      figures: [{ currency: "DOP", income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null }],
       blockers: [statementMissingBlocker, unmatchedCharges(2)],
     };
     const client: MonthCloseClient = {
@@ -557,11 +549,11 @@ describe("fiscal complete months stay editable", () => {
         reasons: [],
         currencies: [{
           currency: "DOP",
-          income_before_itbis: "4000.00",
-          expense_before_itbis: "500.00",
-          net_result: "3500.00",
-          itbis_charged: "720.00",
-          itbis_owed: "180.00",
+          income_before_itbis_minor: 400000, income_before_itbis: "4000.00",
+          expense_before_itbis_minor: 50000, expense_before_itbis: "500.00",
+          net_result_minor: 350000, net_result: "3500.00",
+          itbis_charged_minor: 72000, itbis_charged: "720.00",
+          itbis_owed_minor: 18000, itbis_owed: "180.00",
           by_status: {
             invoices: { pendiente: statusCell(1, 100000), cobrado: statusCell(0, 0) },
             receipts: { pendiente: statusCell(1, 50000), pagado: statusCell(0, 0) },
@@ -639,11 +631,11 @@ describe("fiscal complete months stay editable", () => {
       month: "2026-10",
       from: "2026-10-01",
       to: "2026-10-31",
-      currency: "DOP",
       closed_at: "2026-10-18T15:00:00",
       closed: true,
       earliest_month: null,
       documents: [invoice, receipt],
+      figures: monthCloseFiguresFrom([invoice, receipt]),
     };
     const client: MonthCloseClient = {
       mode: "mock",
@@ -685,11 +677,11 @@ describe("fiscal complete months stay editable", () => {
       month: "2026-10",
       from: "2026-10-01",
       to: "2026-10-31",
-      currency: "DOP",
       closed_at: "2026-10-18T15:00:00",
       closed: true,
       earliest_month: null,
       documents: [{ ...september, id: "inv-october", occurred_on: "2026-10-04", status: "cobrado" }],
+      figures: [],
     };
     const client: MonthCloseClient = {
       mode: "mock",
@@ -726,17 +718,16 @@ describe("Inicio ITBIS balance", () => {
       month: "2026-10",
       from: "2026-10-01",
       to: "2026-10-31",
-      currency: "DOP",
       closed_at: null,
       earliest_month: null,
       documents: [],
-      figures: {
+      figures: [{
+        currency: "DOP",
         income_before_itbis: "1000.00",
         expense_before_itbis: "2000.00",
         net_before_itbis: "-1000.00",
         itbis_owed: itbisOwed,
-        by_status: settledByStatus(),
-      },
+      }],
     };
   }
 
@@ -806,11 +797,11 @@ describe("a fully settled month", () => {
       reasons: [],
       currencies: [{
         currency: "DOP",
-        income_before_itbis: "4000.00",
-        expense_before_itbis: "1000.00",
-        net_result: "3000.00",
-        itbis_charged: "720.00",
-        itbis_owed: "180.00",
+        income_before_itbis_minor: 400000, income_before_itbis: "4000.00",
+        expense_before_itbis_minor: 100000, expense_before_itbis: "1000.00",
+        net_result_minor: 300000, net_result: "3000.00",
+        itbis_charged_minor: 72000, itbis_charged: "720.00",
+        itbis_owed_minor: 18000, itbis_owed: "180.00",
         by_status: {
           invoices: { pendiente: statusCell(0, 0), cobrado: statusCell(2, 200000) },
           receipts: { pendiente: statusCell(0, 0), pagado: statusCell(1, 100000) },
@@ -871,10 +862,10 @@ describe("foreign currency lines", () => {
       reasons: [],
       currencies: [{
         currency: "DOP",
-        income_before_itbis: "1000.00",
-        expense_before_itbis: "0.00",
-        net_result: "1000.00",
-        itbis_owed: "18.00",
+        income_before_itbis_minor: 100000, income_before_itbis: "1000.00",
+        expense_before_itbis_minor: 0, expense_before_itbis: "0.00",
+        net_result_minor: 100000, net_result: "1000.00",
+        itbis_owed_minor: 1800, itbis_owed: "18.00",
       }],
       missing_rnc: [],
       missing_ncf: [],
@@ -924,7 +915,7 @@ describe("open items across months", () => {
       to: "2026-10-31",
       closed: true,
       reasons: [],
-      currencies: [{ currency: "DOP", income_before_itbis: "0.00", expense_before_itbis: "0.00", net_result: "0.00", itbis_owed: "0.00", by_status: settledByStatus() }],
+      currencies: [{ currency: "DOP", income_before_itbis_minor: 0, income_before_itbis: "0.00", expense_before_itbis_minor: 0, expense_before_itbis: "0.00", net_result_minor: 0, net_result: "0.00", itbis_owed_minor: 0, itbis_owed: "0.00", by_status: settledByStatus() }],
       missing_rnc: [],
       missing_ncf: [],
       cuentas_por_cobrar: [],
@@ -961,7 +952,7 @@ describe("open items across months", () => {
     };
     const client: MonthCloseClient = {
       mode: "mock",
-      async load(month) { return { month, from: `${month}-01`, to: `${month}-31`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] }; },
+      async load(month) { return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, documents: [], figures: [] }; },
       async openItems() { return openItemsFrom([pending]); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },

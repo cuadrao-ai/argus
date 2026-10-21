@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { currentMonthKey, formatMonthLabel, monthCloseSampleDocuments, monthCloseSummary, shiftMonthKey } from "../lib/business-month-close";
+import { currentMonthKey, formatMonthLabel, monthCloseFiguresFrom, monthCloseSampleDocuments, shiftMonthKey, type MonthCloseFigures } from "../lib/business-month-close";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
@@ -8,11 +8,17 @@ function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function summaryFor(offset: number) {
+/** The sample month's peso block, the one the cards show by default. The sample books know every figure. */
+function summaryFor(offset: number): Record<Exclude<keyof MonthCloseFigures, "currency">, string> {
   const now = new Date();
   const month = new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const key = monthKey(month);
-  return monthCloseSummary(monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith(key)));
+  const pesos = monthCloseFiguresFrom(monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith(key))).find((figures) => figures.currency === "DOP");
+  const known = (value: string | null | undefined) => {
+    if (value === null || value === undefined) throw new Error("the sample month has no peso figures");
+    return value;
+  };
+  return { income_before_itbis: known(pesos?.income_before_itbis), expense_before_itbis: known(pesos?.expense_before_itbis), net_before_itbis: known(pesos?.net_before_itbis), itbis_owed: known(pesos?.itbis_owed) };
 }
 
 async function shot(page: Page, name: string, target?: Locator) {

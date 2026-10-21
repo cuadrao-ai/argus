@@ -23,7 +23,7 @@ export function monthCloseWire(month: string) {
     missing_ncf: [],
     cuentas_por_cobrar: [{ ...PENDING_INVOICE, occurred_on: `${month}-05` }],
     cuentas_por_pagar: [],
-    currencies: [{ currency: "DOP", income_before_itbis: "48500.00", expense_before_itbis: "12300.00", net_result: "36200.00", itbis_owed: "6516.00" }],
+    currencies: [{ currency: "DOP", income_before_itbis_minor: 4850000, income_before_itbis: "48500.00", expense_before_itbis_minor: 1230000, expense_before_itbis: "12300.00", net_result_minor: 3620000, net_result: "36200.00", itbis_owed_minor: 651600, itbis_owed: "6516.00" }],
   };
 }
 
