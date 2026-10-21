@@ -12,6 +12,8 @@ import { useAccessBanner } from "./useAccessBanner";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import BusinessExpensesPanel from "./BusinessExpensesPanel";
+import TransaccionesPanel from "./transacciones/TransaccionesPanel";
+import { useTransaccionesEnabled } from "./transacciones/transacciones-gate";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
@@ -111,6 +113,7 @@ function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: Record
 export default function BusinessPanel() {
   const { panel, lostAccess, records, reload } = useBusiness();
   const { isBelowDesktop } = useResponsiveLayout();
+  const transacciones = useTransaccionesEnabled();
   const listRef = useRef<HTMLDivElement>(null);
   if (records.closed) {
     return (
@@ -130,15 +133,19 @@ export default function BusinessPanel() {
   const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email" ? panel : null;
   // On a desktop a record opens in a tray beside its list; below it the record is the whole page.
   const tray = record && !isBelowDesktop ? recordList(record) : null;
-  const shown = tray ?? panel.kind;
+  // With the flag off a Transacciones link lands on Gastos, as today.
+  const shown = tray ?? (panel.kind === "transactions" && !transacciones ? "expenses" : panel.kind);
+  // A ledger needs the canvas: Transacciones is the one list that is not held to the reading column.
+  const wide = shown === "transactions" || (record && !tray && (record.kind === "receipt" || record.kind === "draft"));
   return (
-    <div ref={listRef} tabIndex={-1} className={`mx-auto w-full outline-none ${record && !tray && (record.kind === "receipt" || record.kind === "draft") ? "" : "max-w-3xl pb-6"}`}>
+    <div ref={listRef} tabIndex={-1} className={`mx-auto w-full outline-none ${wide ? "" : "max-w-3xl pb-6"}`}>
       <BusinessContextCue />
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "expenses" ? <BusinessExpensesPanel /> : null}
+        {shown === "transactions" ? <TransaccionesPanel /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>

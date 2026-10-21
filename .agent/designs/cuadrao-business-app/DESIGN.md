@@ -228,6 +228,10 @@ a 44px target.
   the nearest of the four.
 - A sheet's X is its only way to leave. Do not add Listo or Hecho to a sheet
   just to close it. A footer button names the next step (Guardar, Aprobar).
+- The top bar's Agregar is the primary of every screen with no main action of
+  its own. A screen whose main action is its own (Transacciones: Igualar
+  sugerencias) claims the primary while that action shows, and Agregar steps
+  down to secondary until it ends. Owner: `screen-primary.ts`.
 - `components/business-app/business-ui.tsx` owns the classes
   (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
   `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
@@ -365,6 +369,31 @@ Rules for any list that grows past one screen, Bandeja first:
 - Row height stays stable as rows load. Focus stays where it was.
 - Hide the control when there are no more rows.
 
+### Dense tables
+
+Lucas set these on October 21, 2026, for working surfaces such as
+Transacciones. They win over the 16px body and the golden spacing inside the
+table only.
+
+- Text sits left, numbers right, in tabular figures. Nothing is centred.
+- No stripes. One hairline between rows. Hover lights the row's surface in
+  80ms; every transition stays under 150ms, with no bounce.
+- The header pins on vertical scroll. The first column pins on horizontal
+  scroll, and a column that is the point of the screen may pin right.
+- An empty cell is "—" when missing (read as "sin dato"), a real 0.00 only
+  when zero is known, and a skeleton only while loading.
+- Long text truncates to one line with a tooltip. Numbers never truncate.
+- Row actions appear on hover and on keyboard focus, each with its key, over
+  text columns and never over a number. Touch gets a kebab. Every action is
+  also in the tray and the keyboard.
+- A sort arrow shows only on the sorted column.
+- Density: Compacto 40px, Normal 48px (the default), Amplio 56px. Type stays
+  14px in every mode; inputs stay 16px. The choice sits in a quiet view
+  options button and is kept per person (in the browser until the profile
+  keeps it; owner `table-density.ts`). Phones ignore it: rows become two-line
+  list items of at least 64px.
+- Single-letter keys work only while focus is in the table and not in a field.
+
 ## 4. Accessibility
 
 - Every control shows a visible focus ring, `0 0 0 0.125rem`.
@@ -471,6 +500,34 @@ green action pinned at the bottom. A finished download closes the sheet and
 says so in a toast.
 
 **Behavior rules (pending from Product).**
+
+### Transacciones
+
+Transacciones answers "does every peso that moved have its proof?" It takes
+Gastos's place and shortcut behind `businessBankMatchingEnabled` (default off;
+with it off, Gastos stays as it is). Lucas decided these on October 21, 2026:
+
+- The screen is **Transacciones**, the verb **Igualar**, the segments **Por
+  igualar**, **Igualadas** and **Todas**. Por igualar groups Sugerencias,
+  Falta comprobante and Comprobantes sin movimiento.
+- Version one is one movement to one document, plus "no lleva comprobante"
+  with a reason (Cargo del banco, Entre mis cuentas, Compra informal,
+  Personal). Splits, abonos and partial matches come later.
+- Igualar also marks the document pagado or cobrado. The server writes it;
+  the screen reads the state again after each decision and never moves a row
+  itself.
+- A row's state is a gray shape icon, its word on hover and for screen
+  readers; the tray shows the full word. Red is for errors only.
+- The table follows [Dense tables](#dense-tables). The last column is the
+  igualar slot: "¿Este?" on a suggestion, the proof's icon once igualada, a
+  round "+" when proof is missing.
+- Igualar sugerencias is the screen's primary and walks the suggestions in the
+  tray, most confident first. Igualadas in a row share one toast with one
+  Deshacer, offered only when the server can take a decision back. A failed
+  decision says so in the tray with Reintentar and its reference.
+- The totals (Entradas, Salidas, Por igualar, Igualadas) are the server's,
+  exact, one per currency. A total the server does not serve reads "—".
+- The ledger uses the wide canvas, and the top bar lines up with it.
 
 ## 7. Voice
 

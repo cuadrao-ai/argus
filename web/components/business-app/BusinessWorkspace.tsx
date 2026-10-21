@@ -68,6 +68,8 @@ export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
   | { kind: "expenses"; expenseId?: string }
+  // Transacciones takes the third screen behind `businessBankMatchingEnabled`; its rows open in its own tray.
+  | { kind: "transactions" }
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
@@ -140,7 +142,7 @@ export function useBusiness(): BusinessContextValue {
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "transactions"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -157,7 +159,7 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" };
+    return { kind: view as "overview" | "inbox" | "expenses" | "transactions" };
   }
   if (view === "business") {
     const tab = params.get("tab");

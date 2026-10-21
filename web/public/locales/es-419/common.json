@@ -2311,6 +2311,44 @@
       "crashed": "Esta parte no se pudo mostrar. Tus recibos están guardados.",
       "retry": "Intentar de nuevo"
     },
+    "transactions": {
+      "title": "Transacciones",
+      "coverage": "Banco al día hasta el {{day}}.",
+      "run": "Igualar sugerencias",
+      "run_short": "Igualar",
+      "unknown": "sin dato",
+      "undo": "Deshacer",
+      "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
+      "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
+      "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "igualada_en_parte": "Igualada en parte", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "monto": "Monto {{currency}}", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of": "de {{count}}" },
+      "sign": { "in": "Entrada de", "out": "Salida de" },
+      "detail": {
+        "igualada": "Igualada con su comprobante",
+        "igualada_recibo": "Recibo {{ncf}}",
+        "igualada_venta": "Venta {{ncf}}",
+        "igualada_recibo_sin_ncf": "Recibo sin NCF",
+        "igualada_venta_sin_ncf": "Venta sin NCF",
+        "suggested_recibo": "Sugerimos el recibo del {{day}}",
+        "suggested_venta": "Sugerimos la venta del {{day}}",
+        "suggested_recibo_unknown": "Sugerimos un recibo de este monto",
+        "suggested_venta_unknown": "Sugerimos una venta de este monto",
+        "falta_charge": "No encontramos un recibo de este monto cerca de esa fecha",
+        "falta_deposit": "¿De qué venta es este depósito?",
+        "en_parte": "Faltan {{amount}}",
+        "sin_movimiento": "Lo marcaste pagado y no aparece en el banco",
+        "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "personal": "Personal, no lleva comprobante" }
+      },
+      "reasons": { "title": "¿Por qué no lleva comprobante?", "cargo_banco": "Cargo del banco", "entre_cuentas": "Entre mis cuentas", "compra_informal": "Compra informal", "personal": "Personal" },
+      "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_near": "Las fechas están cerca", "name": "El nombre se parece al del banco" },
+      "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
+      "tray": { "title": "Movimiento", "step": "Sugerencia {{index}} de {{count}}", "movement": "Movimiento del banco", "suggested": "Comprobante que sugerimos", "matched": "Comprobante", "date": "Fecha", "account": "Cuenta", "bank_text": "Dice el banco", "recibo": "Compra", "venta": "Venta", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "moverte", "close": "cerrar", "back": "Volver" },
+      "toast": { "igualada": "Igualada: {{name}}, {{amount}}", "igualadas": "{{count}} igualadas", "rechazada": "Quitamos esa sugerencia", "sin_comprobante": "Marcada: {{reason}}", "desigualada": "Desigualada: {{name}}" },
+      "error": { "load_title": "No pudimos cargar tus movimientos", "load_body": "Lo que ya igualaste sigue guardado.", "decision": "No pudimos guardar este cambio. Lo demás sigue igual.", "reference": "Ref. {{reference}}" },
+      "empty": { "first_run_title": "Importa tu estado de cuenta", "first_run_body": "Importa tu estado de cuenta para igualar cada movimiento con su comprobante.", "done_title": "Todo igualado", "done_body": "{{count}} movimientos, cada uno con su comprobante.", "segment": "No hay movimientos en esta vista." },
+      "density": { "options": "Opciones de vista", "label": "Altura de las filas", "compacto": "Compacto", "normal": "Normal", "amplio": "Amplio", "note": "Se guarda en este navegador." }
+    },
     "tray": {
       "title": "Detalle"
     },
@@ -2845,6 +2883,7 @@
       "inbox": "Bandeja",
       "label": "Negocio",
       "overview": "Inicio",
+      "transactions": "Transacciones",
       "business": "Negocio"
     },
     "month_close": {

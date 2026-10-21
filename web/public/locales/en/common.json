@@ -2311,6 +2311,44 @@
       "crashed": "This part couldn't be shown. Your receipts are saved.",
       "retry": "Try again"
     },
+    "transactions": {
+      "title": "Transactions",
+      "coverage": "Bank up to date through {{day}}.",
+      "run": "Match suggestions",
+      "run_short": "Match",
+      "unknown": "unknown",
+      "undo": "Undo",
+      "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
+      "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
+      "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "igualada_en_parte": "Partly matched", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "monto": "Amount {{currency}}", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of": "of {{count}}" },
+      "sign": { "in": "Money in", "out": "Money out" },
+      "detail": {
+        "igualada": "Matched with its proof",
+        "igualada_recibo": "Receipt {{ncf}}",
+        "igualada_venta": "Sale {{ncf}}",
+        "igualada_recibo_sin_ncf": "Receipt with no NCF",
+        "igualada_venta_sin_ncf": "Sale with no NCF",
+        "suggested_recibo": "We suggest the receipt from {{day}}",
+        "suggested_venta": "We suggest the sale from {{day}}",
+        "suggested_recibo_unknown": "We suggest a receipt for this amount",
+        "suggested_venta_unknown": "We suggest a sale for this amount",
+        "falta_charge": "We found no receipt for this amount near that date",
+        "falta_deposit": "Which sale is this deposit for?",
+        "en_parte": "{{amount}} missing",
+        "sin_movimiento": "You marked it paid and it is not in the bank",
+        "no_lleva": { "cargo_banco": "Bank charge, needs no proof", "entre_cuentas": "Between your accounts, needs no proof", "compra_informal": "Informal purchase, no proof", "personal": "Personal, needs no proof" }
+      },
+      "reasons": { "title": "Why does it need no proof?", "cargo_banco": "Bank charge", "entre_cuentas": "Between my accounts", "compra_informal": "Informal purchase", "personal": "Personal" },
+      "why": { "title": "Why we suggest it", "amount": "The amount is exact", "date_same": "It is from the same day", "date_one": "The document is from one day before", "date_many": "The document is from {{count}} days before", "date_near": "The dates are close", "name": "The name looks like the bank's" },
+      "actions": { "igualar": "Match", "rechazar": "Not this one", "sin_comprobante": "No proof", "desigualar": "Unmatch", "agregar": "Add proof", "more": "More actions for {{name}}", "add_for": "Add proof for {{name}}", "open_for": "Open {{name}}" },
+      "tray": { "title": "Movement", "step": "Suggestion {{index}} of {{count}}", "movement": "Bank movement", "suggested": "Suggested document", "matched": "Document", "date": "Date", "account": "Account", "bank_text": "Bank text", "recibo": "Purchase", "venta": "Sale", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "move", "close": "close", "back": "Back" },
+      "toast": { "igualada": "Matched: {{name}}, {{amount}}", "igualadas": "{{count}} matched", "rechazada": "Suggestion removed", "sin_comprobante": "Marked: {{reason}}", "desigualada": "Unmatched: {{name}}" },
+      "error": { "load_title": "We couldn't load your movements", "load_body": "What you already matched is still saved.", "decision": "We couldn't save this change. Nothing else changed.", "reference": "Ref. {{reference}}" },
+      "empty": { "first_run_title": "Import your bank statement", "first_run_body": "Import your bank statement to match each movement with its proof.", "done_title": "All matched", "done_body": "{{count}} movements, each with its proof.", "segment": "No movements in this view." },
+      "density": { "options": "View options", "label": "Row height", "compacto": "Compact", "normal": "Normal", "amplio": "Roomy", "note": "Kept in this browser." }
+    },
     "tray": {
       "title": "Details"
     },
@@ -2656,6 +2694,7 @@
       "overview": "Home",
       "inbox": "Inbox",
       "expenses": "Expenses",
+      "transactions": "Transactions",
       "business": "Business"
     },
     "month_close": {

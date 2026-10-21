@@ -2170,8 +2170,8 @@ export default function ChatInterface() {
           <div data-testid="header-fade" className={`pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
         ) : null}
         {currentView !== "settings" && (
-          // A workspace with a search field in its bar lines the bar up with its centred content column (48rem), so search and avatar sit on the column's edges.
-          <header className={`absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-48rem)/2))]" : "tablet:px-8"}`}>
+          // A workspace with a search field in its bar lines the bar up with its centred content column (48rem, or a wide screen's own), so search and avatar sit on the column's edges.
+          <header className={`absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-var(--cuadrao-canvas-column,48rem))/2))]" : "tablet:px-8"}`}>
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger

@@ -38,6 +38,8 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_sidebar_mode": "layout",
   // Whether money amounts show blurred, for sharing a screen or working in public.
   "cuadrao:hide_amounts": "layout",
+  // The row height of dense tables (Compacto, Normal or Amplio) until the profile keeps it.
+  "cuadrao:table_density": "layout",
   "argus:command_palette_layout": "layout",
   "argus:guest-hint:confirmation:v1": "tips",
   "argus:guest-hint:result:v1": "tips",

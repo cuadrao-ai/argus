@@ -131,7 +131,7 @@ export function WorkspaceMain({
     return accepted;
   };
   return (
-    <div className="relative mx-auto flex h-[100dvh] w-full max-w-5xl flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
+    <div className="relative mx-auto flex h-[100dvh] w-full max-w-[var(--cuadrao-canvas-max,64rem)] flex-col" style={workspace.bottomNavigation && bridge.isBelowTablet ? { height: "calc(100dvh - 64px - env(safe-area-inset-bottom))" } : undefined}>
       <div
         data-testid="workspace-panel-region"
         className="argus-scrollbar flex-1 overflow-y-auto px-4 pt-[calc(6rem+var(--cuadrao-banner-space,0px))] tablet:px-8 tablet:pt-[calc(7rem+var(--cuadrao-banner-space,0px))]"
