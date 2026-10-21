@@ -104,6 +104,7 @@ import {
 import CommandPaletteLoadMoreControl from "./CommandPaletteLoadMoreControl";
 import { useChatAvailable, useChatWorkspace, useConversationSurface } from "@/components/chat/ChatWorkspace";
 import { moveWorkspaceFocus, useRecentSearches, useWorkspaceSearch, WorkspaceSearchHome, WorkspaceSearchNoMatch, WorkspaceSearchResults } from "./command-palette/WorkspaceSearchResults";
+import { primaryButtonClass, quietButtonClass } from "@/components/business-app/business-ui";
 
 type ChatCommandPaletteProps = {
   onClose: () => void;
@@ -543,7 +544,7 @@ function ChatCommandPaletteSurface({
   const openSelectedWorkspaceHit = selectedWorkspaceHit?.open;
   const workspaceDossier = selectedWorkspaceHit?.preview ? <div data-dossier-pane="true" className="flex h-full flex-col gap-4">
     <div className="min-h-0 flex-1 overflow-y-auto">{selectedWorkspaceHit.preview}</div>
-    {openSelectedWorkspaceHit ? <button type="button" className="min-h-11 shrink-0 rounded-full bg-black px-4 text-sm text-white dark:bg-white dark:text-black" onClick={() => { onClose(); openSelectedWorkspaceHit(); }}>{t("business.search.open_record", "Open record")}</button> : null}
+    {openSelectedWorkspaceHit ? <button type="button" className={`${primaryButtonClass} shrink-0`} onClick={() => { onClose(); openSelectedWorkspaceHit(); }}>{t("business.search.open_record", "Open record")}</button> : null}
   </div> : null;
   const isFiltering = query.trim().length > 0;
   const isWaitingForIndexableQuery =
@@ -1446,7 +1447,7 @@ function ChatCommandPaletteSurface({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 shrink-0 rounded-full px-3 text-[15px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+              className={`${quietButtonClass} shrink-0 px-3`}
             >
               {workspaceSearch.copy.close}
             </button>

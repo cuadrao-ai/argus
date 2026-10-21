@@ -80,20 +80,28 @@ describe("status is an icon, a word, and a color", () => {
 });
 
 describe("toasts", () => {
-  test("info and success leave after 4 seconds, warning after 7, an action after 8, and an error stays", async () => {
+  test("info and success leave after 4 seconds, and an action after 8", async () => {
     const { toastDuration } = await import("@/components/business-app/foundation/toasts");
     assert.equal(toastDuration({ kind: "info", text: "x" }), 4000);
     assert.equal(toastDuration({ kind: "success", text: "x" }), 4000);
-    assert.equal(toastDuration({ kind: "warning", text: "x" }), 7000);
     assert.equal(toastDuration({ kind: "success", text: "x", action: { label: "Deshacer", run: () => undefined } }), 8000);
-    assert.equal(toastDuration({ kind: "error", text: "x" }), null);
-    assert.equal(toastDuration({ kind: "error", text: "x", action: { label: "Reintentar", run: () => undefined } }), null);
+  });
+
+  test("toasts only confirm: the type has no error or warning kind, so the compiler refuses one", async () => {
+    const { showToast, clearToasts } = await import("@/components/business-app/foundation/toasts");
+    // @ts-expect-error an error is shown where the work is, never in a toast
+    const refused = () => showToast({ kind: "error", text: "x" });
+    // @ts-expect-error a condition of the whole app docks in the banner, never in a toast
+    const alsoRefused = () => showToast({ kind: "warning", text: "x" });
+    assert.equal(typeof refused, "function");
+    assert.equal(typeof alsoRefused, "function");
+    clearToasts();
   });
 
   test("one toast at a time: the newest replaces the one on screen, and its Deshacer leaves with it", async () => {
     const { clearToasts, showToast, useToasts } = await import("@/components/business-app/foundation/toasts");
     clearToasts();
-    showToast({ kind: "error", text: "error uno" });
+    showToast({ kind: "info", text: "aviso uno" });
     showToast({ kind: "success", text: "guardado uno", action: { label: "Deshacer", run: () => undefined } });
     showToast({ kind: "info", text: "aviso" });
     let seen: string[] = [];
@@ -107,15 +115,15 @@ describe("toasts", () => {
     clearToasts();
   });
 
-  test("each toast shows its kind's icon and border, closes on its button, and an error is an alert", async () => {
+  test("each toast shows its kind's icon and border, closes on its button, and is announced politely", async () => {
     const { clearToasts, showToast } = await import("@/components/business-app/foundation/toasts");
     const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
     clearToasts();
     const page = await render(<ToastViewport />);
-    await page.act(async () => { showToast({ kind: "error", text: "No pudimos guardar." }); });
+    await page.act(async () => { showToast({ kind: "success", text: "Guardado." }); });
     const toast = page.host.querySelector('[data-testid="toast"]') as HTMLElement;
-    assert.equal(toast.getAttribute("data-kind"), "error");
-    assert.equal(toast.getAttribute("role"), "alert");
+    assert.equal(toast.getAttribute("data-kind"), "success");
+    assert.equal(toast.getAttribute("role"), "status");
     assert.ok(toast.querySelector("svg"), "an icon, not colour alone");
     assert.ok(toast.style.borderLeftColor, "a left border colour per kind");
     const close = toast.querySelector('button[aria-label="Cerrar"]') as HTMLButtonElement;

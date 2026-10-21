@@ -115,6 +115,29 @@ test("screens and actions match the query without accents or case, and open wher
   } finally { await view.unmount(); }
 });
 
+test("a forwarding address the browser will not copy opens Correo de recibos, and a copy that works stays where it is", async () => {
+  const view = await mount();
+  try {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("refused"); } } });
+    document.execCommand = () => false;
+    await view.openSearch();
+    await type(view.input(), "dirección");
+    await act(async () => (group("Acciones")!.querySelector("button") as HTMLButtonElement).click());
+    await settle(50);
+    assert.deepEqual(view.opened.at(-1), { kind: "business", tab: "correo" });
+
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+    const before = view.opened.length;
+    await view.openSearch();
+    await type(view.input(), "dirección");
+    await act(async () => (group("Acciones")!.querySelector("button") as HTMLButtonElement).click());
+    await settle(50);
+    assert.equal(copied.length, 1);
+    assert.equal(view.opened.length, before, "a copy that works opens nothing");
+  } finally { await view.unmount(); }
+});
+
 test("record hits carry their kind, a receipt opens beside the Bandeja, and accounts show without a way to open", async () => {
   const view = await mount();
   try {

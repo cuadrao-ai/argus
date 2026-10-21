@@ -2,25 +2,29 @@
 
 import { useSyncExternalStore } from "react";
 
-export type ToastKind = "info" | "success" | "warning" | "error";
+/**
+ * Toasts only confirm (Lucas, October 21, 2026). A problem that spans the app
+ * docks in ConnectionBanner; a failed piece of work says so inline where the
+ * work is, with Reintentar. The type has no error or warning kind, so a
+ * caller that wants one does not compile.
+ */
+export type ToastKind = "info" | "success";
 export type ToastAction = { label: string; run: () => void };
 export type ToastInput = { kind: ToastKind; text: string; action?: ToastAction };
 export type Toast = ToastInput & { id: number };
 
-/** How long each kind stays; null waits until the owner closes it. */
-export const TOAST_MS: Record<ToastKind, number | null> = { info: 4000, success: 4000, warning: 7000, error: null };
+/** How long each kind stays. */
+export const TOAST_MS: Record<ToastKind, number> = { info: 4000, success: 4000 };
 /** A toast with an action (Deshacer) stays long enough to reach it. */
 export const ACTION_TOAST_MS = 8000;
 
-export function toastDuration(toast: ToastInput): number | null {
-  if (toast.kind === "error") return null;
+export function toastDuration(toast: ToastInput): number {
   return toast.action ? ACTION_TOAST_MS : TOAST_MS[toast.kind];
 }
 
 /**
  * One presenter shows one toast at a time. The newest replaces the one on
  * screen, Deshacer included, so an old undo never lands after newer work.
- * Errors that must not be missed live where the work is, not only in a toast.
  */
 let toasts: readonly Toast[] = [];
 let nextId = 0;

@@ -12,10 +12,9 @@ import { useRecordTray } from "./record-tray";
 import { savedUnread, savedUnreadLine } from "./ReceiptReadNotice";
 import { formatRelativeTime } from "./business-format";
 import { Settle } from "./business-skeletons";
-import { cardClass } from "./business-ui";
+import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from "./foundation/surfaces";
 
 export type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
@@ -39,8 +38,6 @@ function StateWord({ tone, children, testId }: { tone: Tone; children: string; t
   );
 }
 
-const quietLink = "inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]";
-
 /** The Business's own receiving address: copy it, or turn it on. A failed load always offers a retry. */
 export function EmailReceivingAddress({ intake, onActivate }: { intake: BusinessEmailIntake; onActivate: () => Promise<void> }) {
   const { t } = useTranslation();
@@ -51,7 +48,7 @@ export function EmailReceivingAddress({ intake, onActivate }: { intake: Business
     return (
       <div className="space-y-2" data-testid="email-address">
         <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.email.no_address", "This business has no receiving address yet.")}</p>
-        <button type="button" className={PRIMARY_BUTTON} disabled={activation === "working"} onClick={async () => {
+        <button type="button" className={primaryButtonClass} disabled={activation === "working"} onClick={async () => {
           setActivation("working");
           try { await onActivate(); setActivation("idle"); } catch { setActivation("failed"); }
         }}>{t("business.email.activate", "Get a receiving address")}</button>
@@ -64,7 +61,7 @@ export function EmailReceivingAddress({ intake, onActivate }: { intake: Business
       <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.forward_to", "Forward receipts to this address:")}</p>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <p className="min-w-0 break-words text-[15px] font-medium text-[#172b26] dark:text-white"><WrappingAddress address={address} /></p>
-        <CopyButton value={address} label={t("business.email.copy", "Copy address")} {...labels} testId="email-copy-address" className={`${SECONDARY_BUTTON} shrink-0`}>
+        <CopyButton value={address} label={t("business.email.copy", "Copy address")} {...labels} testId="email-copy-address" className={`${secondaryButtonClass} shrink-0`}>
           {t("business.email.copy", "Copy address")}
         </CopyButton>
       </div>
@@ -83,7 +80,7 @@ export function EmailAddressSection({ intake, onRetry, onActivated }: { intake: 
       {intake.status === "error" ? (
         <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
           {t("business.email.address_failed", "Could not load the receiving address.")}
-          <button type="button" className={quietLink} onClick={onRetry}>{t("common.retry", "Retry")}</button>
+          <button type="button" className={quietButtonClass} onClick={onRetry}>{t("common.retry", "Retry")}</button>
         </p>
       ) : null}
       {intake.status === "ready" ? <EmailReceivingAddress intake={intake.data} onActivate={async () => onActivated(await source.createEmailAddress())} /> : null}
@@ -189,7 +186,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
           {body.status === "error" ? (
             <p role="alert" className="flex flex-wrap items-center gap-2 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
               {t("business.email.body_failed", "Could not load the message.")}
-              <button type="button" className={quietLink} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
+              <button type="button" className={quietButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("common.retry", "Retry")}</button>
             </p>
           ) : null}
           {body.status === "ready" ? <blockquote className="whitespace-pre-wrap break-words border-l-2 border-[#DCE0DA] pl-3 text-[14px] leading-relaxed text-[#56635e] dark:border-white/15 dark:text-white/75">{body.data.text_body || t("business.email.no_body", "No message text.")}</blockquote> : null}
@@ -214,7 +211,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
                   </span>
                 </span>
                 {part.state === "captured" && part.document_id ? (
-                  <button type="button" className={quietLink} onClick={() => openReceipt(part.document_id!)}>
+                  <button type="button" className={quietButtonClass} onClick={() => openReceipt(part.document_id!)}>
                     {t("business.email.open_receipt", "Open receipt")}<ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </button>
                 ) : null}
@@ -226,11 +223,11 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
 
       {delivery.original_document_id || (!waiting && delivery.retryable) ? (
         <div className="flex flex-wrap gap-2">
-          {!waiting && delivery.retryable ? <button type="button" className={PRIMARY_BUTTON} disabled={retry === "sending" || retry === "accepted"} onClick={async () => {
+          {!waiting && delivery.retryable ? <button type="button" className={primaryButtonClass} disabled={retry === "sending" || retry === "accepted"} onClick={async () => {
             setRetry("sending");
             try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
           }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}
-          {delivery.original_document_id ? <button type="button" className={SECONDARY_BUTTON} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
+          {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
         </div>
       ) : null}
       {retry === "accepted" ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.retry_accepted", "Retry requested. The status updates after processing.")}</p> : null}

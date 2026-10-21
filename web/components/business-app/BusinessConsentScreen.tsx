@@ -7,9 +7,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { noticeParagraphs, privacyNoticePublished, type PrivacyNoticeLocale } from "@/lib/business-privacy-notice";
 import { BusinessSkeleton } from "./business-skeletons";
-import { pillButtonClass } from "./business-ui";
-
-const continueClass = `${pillButtonClass} w-full bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)] tablet:w-auto`;
+import { primaryButtonClass, quietButtonClass } from "./business-ui";
 
 export function BusinessConsentScreen({
   failed,
@@ -51,7 +49,7 @@ export function BusinessConsentScreen({
           <span>{t("business.consent.opt_in")}</span>
         </label>
         {failed ? (
-          <p id={errorId} role="alert" className="mt-3 text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">
+          <p id={errorId} role="alert" className="mt-3 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
             {t("settings.data.personalization.errors.edit")}
           </p>
         ) : null}
@@ -59,7 +57,7 @@ export function BusinessConsentScreen({
           <button
             type="button"
             data-testid="business-consent-continue"
-            className={continueClass}
+            className={`${primaryButtonClass} w-full tablet:w-auto`}
             disabled={!optedIn}
             aria-describedby={failed ? errorId : undefined}
             onClick={onContinue}
@@ -71,7 +69,7 @@ export function BusinessConsentScreen({
               ref={privacyRef}
               type="button"
               data-testid="business-consent-privacy"
-              className="inline-flex min-h-11 items-center text-[16px] font-medium text-black underline underline-offset-4 dark:text-white"
+              className={quietButtonClass}
               onClick={() => setNoticeOpen(true)}
             >
               {t("business.consent.privacy_link")}

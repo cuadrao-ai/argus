@@ -309,6 +309,24 @@ describe("emails in the Bandeja", () => {
     assert.equal(page.api().panel.kind, "inbox", "Reintentar does not open the email");
   });
 
+  test("a retry the server refuses says so on that email row, with Reintentar still there, and shows no toast", async () => {
+    let attempts = 0;
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ retryEmailDelivery: async (id: string) => { attempts += 1; if (attempts === 1) throw new Error("refused"); return { id }; } }) });
+    await inboxReady(page);
+    await page.choose("problem");
+    await page.settle(() => emailRow(page, "facturas@farmaciacarol.example") !== undefined, "the farmacia row");
+    const row = () => emailRow(page, "facturas@farmaciacarol.example")!;
+    const retry = () => [...row().querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!;
+    await page.act(async () => retry().click());
+    await page.settle(() => row().querySelector('[role="alert"]') !== null, "the inline failure");
+    assert.equal(row().querySelector('[role="alert"]')!.textContent, "No se pudo solicitar el reintento. Los adjuntos guardados no cambian.");
+    assert.equal(document.querySelector('[data-testid="toast"]'), null, "the failure is on the row, not in a toast");
+    assert.ok(retry(), "Reintentar is still on the row");
+    await page.act(async () => retry().click());
+    await page.settle(() => attempts === 2, "the second request");
+    assert.equal(row().querySelector('[role="alert"]'), null, "asking again clears the failure");
+  });
+
   test("a receipt that arrived by email says Llegó por correo · Ver correo, and Ver correo opens that email beside the list", async () => {
     const page = await mount({ width: 1280, panel: { kind: "inbox" } });
     await inboxReady(page);

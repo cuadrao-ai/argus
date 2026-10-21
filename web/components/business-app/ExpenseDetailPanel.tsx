@@ -68,7 +68,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
       {state.status === "loading" ? <Settle pending layout="rows" /> : null}
       {state.status === "failed" ? (
         <div role="alert" className="space-y-3">
-          <p className="text-[14px] text-[#a8434c] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p>
+          <p className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.expenses.detail_error", "We couldn't open this expense. Try again.")}</p>
           <button type="button" data-testid="expense-detail-retry" className={secondaryButtonClass} onClick={() => setAttempt((value) => value + 1)}>{t("business.expenses.retry", "Try again")}</button>
         </div>
       ) : null}

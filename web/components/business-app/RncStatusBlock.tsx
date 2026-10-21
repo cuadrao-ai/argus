@@ -3,6 +3,7 @@
 import { useTranslation } from "react-i18next";
 import type { BusinessFact } from "@/lib/business-dossier";
 import { formatRnc, rncStatus } from "@/lib/rnc-status";
+import { quietButtonClass } from "./business-ui";
 
 const TONES = {
   missing: { color: "#9e2f39", backgroundColor: "#f6dfe0" },
@@ -23,6 +24,6 @@ export default function RncStatusBlock({ fact, onEditRnc }: {
       <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{label}
     </span>
     <p className="mt-1 text-[14px] leading-5 text-black/55 dark:text-white/55">{t(`business.dgii.rnc_check.${status}.reason`)}</p>
-    {onEditRnc && status !== "unverified" ? <button type="button" onClick={onEditRnc} className="mt-1 min-h-11 min-w-11 rounded-lg text-[14px] underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]">{t(`business.dgii.rnc_check.${status}.action`)}</button> : null}
+    {onEditRnc && status !== "unverified" ? <button type="button" onClick={onEditRnc} className={`${quietButtonClass} mt-1 min-w-11`}>{t(`business.dgii.rnc_check.${status}.action`)}</button> : null}
   </div>;
 }

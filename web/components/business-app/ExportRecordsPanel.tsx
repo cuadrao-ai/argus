@@ -12,9 +12,9 @@ import BusinessFiscalProfile from "./BusinessFiscalProfile";
 import type { MonthCloseSource } from "./BusinessMonthClosePanel";
 import { formatBusinessName } from "./business-format";
 import { RangeCalendar } from "./foundation/RangeCalendar";
-import { PRIMARY_BUTTON } from "./foundation/surfaces";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { showToast } from "./foundation/toasts";
+import { primaryButtonClass, quietButtonClass } from "./business-ui";
 
 export function finishPeriodExportRequest(request: { current: AbortController | null }, controller: AbortController, setBusy: (busy: boolean) => void) {
   if (request.current !== controller) return;
@@ -169,7 +169,7 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
     <div className="space-y-2">
       {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}
       {!available ? <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.export.preview", "Downloads are available in the connected Business view.")}</p> : null}
-      <button type="button" data-testid="export-download" disabled={busy || !available || !valid} onClick={() => void download()} className={`${PRIMARY_BUTTON} w-full`}>
+      <button type="button" data-testid="export-download" disabled={busy || !available || !valid} onClick={() => void download()} className={`${primaryButtonClass} w-full`}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
         {busy ? t("business.export.preparing", "Preparing your file…") : t("business.export.action", "Export")}
       </button>
@@ -209,7 +209,7 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
                   : t("business.export.range_invalid", "Choose between 1 and 366 days.")}
               </p>
               {choice.kind === "custom" ? null : (
-                <button type="button" data-testid="export-other-dates" onClick={() => choose({ kind: "custom", ...range })} className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
+                <button type="button" data-testid="export-other-dates" onClick={() => choose({ kind: "custom", ...range })} className={quietButtonClass}>
                   <CalendarDays className="h-4 w-4" aria-hidden="true" />
                   {t("business.export.other_dates", "Other dates")}
                 </button>

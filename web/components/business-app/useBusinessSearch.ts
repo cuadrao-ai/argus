@@ -61,9 +61,8 @@ export function useBusinessSearch({
     const add = owner ? actions.create.find((item) => item.id === "upload_receipt") : undefined;
     const copyAddress = owner && forwardAddress ? async () => {
       const copied = await copyText(forwardAddress);
-      showToast(copied
-        ? { kind: "success", text: t("business.email.copied", "Address copied.") }
-        : { kind: "error", text: t("business.overview.copy_forward_failed", { address: forwardAddress, defaultValue: "Could not copy. Your forwarding address is {{address}}" }) });
+      if (copied) showToast({ kind: "success", text: t("business.email.copied", "Address copied.") });
+      else openPanel({ kind: "business", tab: "correo" });
     } : null;
     const shortcuts: WorkspaceSearchGroup[] = [
       {

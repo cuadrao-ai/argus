@@ -4,11 +4,10 @@ import { ChevronDown, Copy, Download, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ActionMenu from "./ActionMenu";
 import { useBusiness } from "./BusinessWorkspace";
+import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { useForwardAddress } from "./useForwardAddress";
 import { copyText } from "./foundation/CopyButton";
 import { showToast } from "./foundation/toasts";
-
-const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]";
 
 /**
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
@@ -18,15 +17,14 @@ const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:o
  */
 export default function BusinessAddMenu({ placement }: { placement: "header" | "page" }) {
   const { t } = useTranslation();
-  const { actions, chosen, openExport } = useBusiness();
+  const { actions, chosen, openExport, openPanel } = useBusiness();
   const forwardAddress = useForwardAddress();
   const owner = chosen?.role !== "accountant";
   const add = owner ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   const copyForward = async (address: string) => {
     const copied = await copyText(address);
-    showToast(copied
-      ? { kind: "info", text: t("business.email.copied", "Address copied.") }
-      : { kind: "error", text: t("business.overview.copy_forward_failed", { address, defaultValue: "Could not copy. Your forwarding address is {{address}}" }) });
+    if (copied) showToast({ kind: "info", text: t("business.email.copied", "Address copied.") });
+    else openPanel({ kind: "business", tab: "correo" });
   };
   const more = [
     ...(chosen?.capabilities.includes("read") ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: openExport }] : []),
@@ -42,7 +40,7 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
           data-testid="business-primary-upload"
           data-primary="true"
           onClick={add.run}
-          className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-l-full bg-[#2f5a49] pl-4 pr-3 text-[15px] font-medium text-[#FFFEFA] hover:bg-[#1d4236] ${page ? "flex-1" : ""} ${focusRing}`}
+          className={`${primaryButtonClass} rounded-r-none pl-4 pr-3 ${page ? "flex-1" : ""}`}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           {add.label}
@@ -64,8 +62,8 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
             aria-controls={open ? menuId : undefined}
             onClick={toggle}
             className={add
-              ? `inline-flex min-h-11 min-w-11 items-center justify-center rounded-r-full border-l border-[#FFFEFA]/25 bg-[#2f5a49] px-3 text-[#FFFEFA] hover:bg-[#1d4236] ${focusRing}`
-              : `inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#7d8a84] bg-[#FFFEFA] px-4 text-[15px] font-medium text-[#172b26] dark:bg-[#1f2225] dark:text-white ${page ? "w-full" : ""} ${focusRing}`}
+              ? `${primaryButtonClass} min-w-11 rounded-l-none border-l border-[var(--cuadrao-cream)]/25 px-3`
+              : `${secondaryButtonClass} ${page ? "w-full" : ""}`}
           >
             {add ? null : moreLabel}
             <ChevronDown className="h-4 w-4" aria-hidden="true" />

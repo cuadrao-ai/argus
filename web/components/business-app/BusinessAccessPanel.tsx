@@ -8,8 +8,7 @@ import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { EmptyState } from "./foundation/EmptyState";
-import { cardClass, dangerButtonClass, PanelHeading, secondaryButtonClass } from "./business-ui";
-import { PRIMARY_BUTTON } from "./foundation/surfaces";
+import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
 
@@ -222,7 +221,7 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
               />
             </label>
             {giveError ? <p role="alert" className="mt-2 text-[13px] text-black/70 dark:text-white/70">{giveError}</p> : null}
-            <button type="submit" className={`${PRIMARY_BUTTON} mt-3`} disabled={giving}>
+            <button type="submit" className={`${primaryButtonClass} mt-3`} disabled={giving}>
               {giving ? t("business_access.giving", "Giving access...") : t("business_access.give", "Give access")}
             </button>
           </form>

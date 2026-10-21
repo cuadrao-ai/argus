@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
-import { RecordMarks, recordFiscalMark } from "./business-ui";
+import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { showToast } from "./foundation/toasts";
 import { Switch } from "@/components/ui/Switch";
@@ -67,7 +67,6 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
       throw error;
     }
   };
-  const answer = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40";
 
   return (
     <div className={SURFACE_CARD} data-testid="receipt-marks-card">
@@ -89,8 +88,8 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
             <>
               <p className="text-[14px] font-medium text-black dark:text-white">{t("business.marks.question_606", "Include in the 606?")}</p>
               <div className="mt-3 flex gap-2">
-                <button type="button" data-testid="receipt-606-yes" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, true, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={`${answer} border-[#2f5a49] bg-[#2f5a49] text-[#FFFEFA] hover:bg-[#1d4236]`}>{t("business.marks.yes", "Yes")}</button>
-                <button type="button" data-testid="receipt-606-no" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, false, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={`${answer} border-[#7d8a84] bg-[#FFFEFA] text-[#172b26] dark:bg-[#1f2225] dark:text-white`}>{t("business.marks.no", "No")}</button>
+                <button type="button" data-testid="receipt-606-yes" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, true, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={primaryButtonClass}>{t("business.marks.yes", "Yes")}</button>
+                <button type="button" data-testid="receipt-606-no" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, false, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={secondaryButtonClass}>{t("business.marks.no", "No")}</button>
               </div>
             </>
           ) : (
@@ -107,7 +106,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
       {problem ? (
         <p role="alert" data-testid="receipt-marks-problem" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
           {problem}
-          {retry ? <button type="button" disabled={disabled} onClick={retry} className="inline-flex min-h-11 items-center rounded-full font-medium text-[var(--cuadrao-green)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-50">{t("common.retry", "Retry")}</button> : null}
+          {retry ? <button type="button" disabled={disabled} onClick={retry} className={quietButtonClass}>{t("common.retry", "Retry")}</button> : null}
         </p>
       ) : null}
     </div>

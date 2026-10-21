@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { CircleAlert, CircleCheck, Info, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { CircleCheck, Info, X, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import { quietButtonClass } from "../business-ui";
 import { dismissToast, springEasing, toastDuration, useToasts, type Toast, type ToastKind } from "./toasts";
 
 const SPRING = springEasing(180, 20);
@@ -15,8 +16,6 @@ const SWIPE_FLICK = 0.5;
 const TONE: Record<ToastKind, { icon: LucideIcon; border: string; ink: string }> = {
   info: { icon: Info, border: "#56635e", ink: "text-[#56635e] dark:text-white/70" },
   success: { icon: CircleCheck, border: "#2f5a49", ink: "text-[#2f5a49] dark:text-[#8fcbb0]" },
-  warning: { icon: TriangleAlert, border: "#735c14", ink: "text-[#735c14] dark:text-[#f6e7c1]" },
-  error: { icon: CircleAlert, border: "#9e2f39", ink: "text-[#9e2f39] dark:text-[#ec9aa0]" },
 };
 
 /**
@@ -55,7 +54,7 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const duration = toastDuration(toast);
-  const remaining = useRef(duration ?? 0);
+  const remaining = useRef(duration);
   const swipe = useRef<{ x: number; at: number } | null>(null);
   const [entered, setEntered] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -82,7 +81,7 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
 
   // Hover or focus pauses the clock; the time left resumes where it stopped.
   useEffect(() => {
-    if (duration === null || paused) return undefined;
+    if (paused) return undefined;
     const started = Date.now();
     const timer = window.setTimeout(() => dismissToast(toast.id), remaining.current);
     return () => {
@@ -114,8 +113,8 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
   return (
     <div
       ref={ref}
-      role={toast.kind === "error" || toast.kind === "warning" ? "alert" : "status"}
-      aria-live={toast.kind === "error" || toast.kind === "warning" ? "assertive" : "polite"}
+      role="status"
+      aria-live="polite"
       data-testid="toast"
       data-kind={toast.kind}
       onMouseEnter={() => setPaused(true)}
@@ -140,7 +139,7 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
         <button
           type="button"
           onClick={() => { toast.action?.run(); dismissToast(toast.id); }}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+          className={`${quietButtonClass} shrink-0 px-3`}
         >
           {toast.action.label}
         </button>

@@ -14,7 +14,7 @@ import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
 import { isStillReading, needsAttention, porRevisar } from "@/lib/business-review-count";
 import { bandejaEmails, inboxCount, openNotesByDraft, problemCount, type BandejaEmail, type OpenNote } from "./inbox-count";
 import { formatMoney, formatRelativeTime } from "./business-format";
-import { cardClass, PanelHeading, recordFiscalMark } from "./business-ui";
+import { cardClass, PanelHeading, primaryButtonClass, quietButtonClass, recordFiscalMark } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import BusinessAddMenu from "./BusinessAddMenu";
 import { EmptyState } from "./foundation/EmptyState";
@@ -135,23 +135,25 @@ function EmailRow({ email, open, onOpen }: { email: BandejaEmail; open: boolean;
   const { source, emailRefresh } = useBusiness();
   const words = useEmailWords();
   const [retrying, setRetrying] = useState(false);
+  const [retryFailed, setRetryFailed] = useState(false);
   const { delivery, standing } = email;
   const reading = standing === "reading";
   const state = reading ? (delivery.waiting ? t("business.email.waiting_label", "Waiting until tomorrow") : t("business.inbox.row_reading", "Reading…")) : words.noReceipt(delivery);
   const retry = async () => {
     setRetrying(true);
+    setRetryFailed(false);
     try {
       await source.retryEmailDelivery(delivery.id);
       showToast({ kind: "info", text: t("business.email.retry_accepted", "Retry requested. The status updates after processing.") });
       emailRefresh.refresh();
     } catch {
-      showToast({ kind: "error", text: t("business.email.retry_failed", "Could not request a retry. Saved attachments are unchanged.") });
+      setRetryFailed(true);
     } finally {
       setRetrying(false);
     }
   };
   return (
-    <li aria-current={open ? "true" : undefined} data-testid="bandeja-email" data-standing={standing} className={`flex items-center gap-1 rounded-[12px] ${OPEN_ROW_CLASS}`}>
+    <li aria-current={open ? "true" : undefined} data-testid="bandeja-email" data-standing={standing} className={`flex flex-wrap items-center gap-1 rounded-[12px] ${OPEN_ROW_CLASS}`}>
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
         <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]">
           {reading && !delivery.waiting ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[8px] border-2 border-[#2f5a49]/50 border-t-transparent motion-safe:animate-spin" /> : null}
@@ -167,10 +169,11 @@ function EmailRow({ email, open, onOpen }: { email: BandejaEmail; open: boolean;
         {reading || !delivery.retryable ? <ChevronRight className="h-4 w-4 shrink-0 text-black/30 dark:text-white/30" aria-hidden="true" /> : null}
       </button>
       {!reading && delivery.retryable ? (
-        <button type="button" disabled={retrying} onClick={() => void retry()} className="mr-2 inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
+        <button type="button" disabled={retrying} onClick={() => void retry()} className={`${quietButtonClass} mr-2 shrink-0 px-3`}>
           {retrying ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}
         </button>
       ) : null}
+      {retryFailed ? <p role="alert" data-testid="bandeja-email-retry-error" className="w-full px-3 pb-2 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.email.retry_failed", "Could not request a retry. Saved attachments are unchanged.")}</p> : null}
     </li>
   );
 }
@@ -250,7 +253,7 @@ export default function BusinessInboxPanel() {
         title={t("business.inbox.title", "Inbox")}
         action={
           chosen?.role === "accountant" ? (
-            <button type="button" data-testid="business-primary-review" onClick={openReview} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--cuadrao-green)] px-5 text-[16px] font-medium text-[#fffefa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]">
+            <button type="button" data-testid="business-primary-review" onClick={openReview} className={primaryButtonClass}>
               {t("business.inbox.review_receipts", "Revisar recibos")}
             </button>
           ) : null

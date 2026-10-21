@@ -10,7 +10,7 @@ import {
 } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
 import { BusinessContext } from "./BusinessWorkspace";
-import { secondaryButtonClass } from "./business-ui";
+import { quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 
 const LENGTH = { rnc: 9, cedula: 11 } as const;
@@ -161,7 +161,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
       {loadFailed ? (
         <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
           {t("business.dgii.profile_load_failed", "We couldn't load the name and RNC.")}
-          <button type="button" onClick={() => setAttempt((value) => value + 1)} className="inline-flex min-h-11 items-center rounded-full px-3 text-[14px] font-medium text-[#2f5a49] hover:bg-[#2f5a49]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
+          <button type="button" onClick={() => setAttempt((value) => value + 1)} className={quietButtonClass}>
             {t("common.retry", "Retry")}
           </button>
         </p>

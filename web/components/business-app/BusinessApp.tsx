@@ -14,6 +14,7 @@ import { MOCK_AUTH_CONSENT_USER_ID } from "@/lib/business-privacy-notice";
 import { BusinessWorkspaceProvider } from "./BusinessWorkspace";
 import { liveBusinessDataSource, type BusinessDataSource } from "./business-data";
 import { createFixtureBusinessDataSource, type FixtureOptions } from "./fixture-data";
+import { primaryButtonClass } from "./business-ui";
 
 export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   const { t } = useTranslation();
@@ -46,7 +47,7 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
     if (owner === undefined || (owner === null && isLeavingSession())) return null;
     if (owner === null) return <main className="flex h-[100dvh] flex-col items-center justify-center gap-4 p-6 text-center">
       <p role="alert">{t("chat.account_changed")}</p>
-      <button type="button" className="min-h-11 rounded-full px-6 py-3" onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
+      <button type="button" className={primaryButtonClass} onClick={() => window.location.assign("/?auth=login")}>{t("chat.account_changed_reload")}</button>
     </main>;
   }
   const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;

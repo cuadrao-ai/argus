@@ -41,7 +41,7 @@ import {
   type OpenItemsList,
 } from "@/lib/business-month-close";
 import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, type Lateness } from "./business-format";
-import { cardClass, pillButtonClass, secondaryButtonClass } from "./business-ui";
+import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
@@ -247,7 +247,7 @@ const CHIP_TONE: Record<MonthCloseStatus, string> = {
 
 function StatusChip({ status, label, overdue = false }: { status: MonthCloseStatus; label: string; overdue?: boolean }) {
   const Icon = overdue ? AlertCircle : status === "pendiente" ? Clock : status === "cobrado" ? BadgeCheck : CircleCheck;
-  const tone = overdue ? "bg-[#d66d75]/15 text-[#a8434c] dark:text-[#ec9aa0]" : CHIP_TONE[status];
+  const tone = overdue ? "bg-[#d66d75]/15 text-[#9e2f39] dark:text-[#ec9aa0]" : CHIP_TONE[status];
   return (
     <span data-testid="month-close-status" data-status={overdue ? "vencida" : status} className={`inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[12px] font-medium ${tone}`}>
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -699,7 +699,7 @@ export function BusinessMonthCloseView({
             type="button"
             aria-expanded={open}
             data-testid={`${testId}-reveal`}
-            className="mt-1 inline-flex min-h-11 items-center self-start rounded-full text-[14px] font-medium text-[var(--cuadrao-green)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]"
+            className={`${quietButtonClass} mt-1 self-start`}
             onClick={() => setExpanded((current) => {
               const next = new Set(current);
               if (next.has(testId)) next.delete(testId);
@@ -729,7 +729,7 @@ export function BusinessMonthCloseView({
         {workProblem ? (
           <p role="alert" data-testid="month-close-work-problem" className="mt-2 flex flex-wrap items-center gap-x-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
             {workProblem.text}
-            <button type="button" onClick={() => { const again = workProblem.retry; setWorkProblem(null); again(); }} className="inline-flex min-h-11 items-center font-medium text-[var(--cuadrao-green)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]">{t("common.retry", "Retry")}</button>
+            <button type="button" onClick={() => { const again = workProblem.retry; setWorkProblem(null); again(); }} className={quietButtonClass}>{t("common.retry", "Retry")}</button>
           </p>
         ) : null}
         <div className="mt-3">{moneyBody()}</div>
@@ -911,14 +911,14 @@ export function BusinessMonthCloseView({
                             type="button"
                             aria-expanded={fiscalOpen}
                             aria-controls="month-close-blockers"
-                            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-[14px] font-medium text-[var(--cuadrao-green)] hover:bg-[var(--cuadrao-green)]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]"
+                            className={`${quietButtonClass} shrink-0 px-3`}
                             onClick={() => setFiscalOpen((value) => !value)}
                           >
                             {fiscalOpen ? t("business.month_close.action_hide", "Hide") : t("business.month_close.action_which", "Which ones")}
                             <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none ${fiscalOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                           </button>
                         ) : task.action ? (
-                          <button type="button" className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-[14px] font-medium text-[var(--cuadrao-green)] hover:bg-[var(--cuadrao-green)]/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]" onClick={task.action.run}>
+                          <button type="button" className={`${quietButtonClass} shrink-0 px-3`} onClick={task.action.run}>
                             {task.action.label}
                             <ChevronRight className="h-4 w-4" aria-hidden="true" />
                           </button>
@@ -951,7 +951,7 @@ export function BusinessMonthCloseView({
                 <button
                   type="button"
                   data-testid="month-close-close"
-                  className={gate.ok && canMutate ? `${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]` : `${secondaryButtonClass} min-w-11`}
+                  className={gate.ok && canMutate ? primaryButtonClass : `${secondaryButtonClass} min-w-11`}
                   disabled={!canMutate || !gate.ok}
                   aria-describedby={reason ? "month-close-reason" : !gate.ok && fiscalDocuments.length > 0 ? "month-close-fiscal-required" : undefined}
                   onClick={() => setConfirming(true)}

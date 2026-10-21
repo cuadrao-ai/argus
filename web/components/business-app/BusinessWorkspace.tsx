@@ -62,6 +62,7 @@ import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
+import { quietButtonClass } from "./business-ui";
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -521,7 +522,7 @@ function BusinessWorkspaceContent({
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
       headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} /> : null,
       headerActions: (shell) => <>
-        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-[16px] text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
+        {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}

@@ -1,14 +1,13 @@
 "use client";
 
 import { ToastViewport } from "@/components/business-app/foundation/ToastViewport";
+import { secondaryButtonClass } from "@/components/business-app/business-ui";
 import { showToast, type ToastInput } from "@/components/business-app/foundation/toasts";
 
 // Neutral sample text: this page demonstrates the presenter, not product copy.
 const SAMPLES: { id: string; label: string; toast: ToastInput }[] = [
   { id: "info", label: "Info, 4 s", toast: { kind: "info", text: "Dirección copiada." } },
   { id: "success", label: "Success with Deshacer, 8 s", toast: { kind: "success", text: "Marcado como personal. No cuenta en los totales del negocio.", action: { label: "Deshacer", run: () => undefined } } },
-  { id: "warning", label: "Warning, 7 s", toast: { kind: "warning", text: "El RNC no coincide con el registro. Revísalo antes de exportar." } },
-  { id: "error", label: "Error, stays", toast: { kind: "error", text: "No pudimos guardar ese cambio. El estado volvió a como estaba." } },
 ];
 
 export default function ToastPreview() {
@@ -22,7 +21,7 @@ export default function ToastPreview() {
             type="button"
             data-testid={`toast-${sample.id}`}
             onClick={() => showToast(sample.toast)}
-            className="min-h-11 rounded-full border border-[#7d8a84] bg-white px-5 text-left text-[15px] font-medium dark:bg-[#1f2225]"
+            className={`${secondaryButtonClass} w-full justify-start`}
           >
             {sample.label}
           </button>

@@ -212,6 +212,29 @@ top right is who you are.
 - **Negocio** is a page, not a sheet: Datos (name and RNC), Equipo y accesos,
   Correo de recibos. Nothing about the business lives in the account menu.
 
+### Buttons
+
+Four levels, never a fifth (Lucas, October 21, 2026). All are fully round with
+a 44px target.
+
+| Level | Look | Use |
+| --- | --- | --- |
+| **Primary** | Cuadrao green fill | The screen's one main action: Agregar, Aprobar, Descargar. One per screen or sheet. |
+| **Secondary** | Outlined | An alternative next to the primary: Volver, Revisar después, No es este. |
+| **Quiet** | Green text, no fill | An action inside content: Reintentar, Ver correo, Mostrar más. |
+| **Danger** | `#9e2f39` | Only the confirm of a delete, inside its alert. The outlined form opens that alert. |
+
+- Black fills, ad-hoc green pills and one-off outlines are not a level. Pick
+  the nearest of the four.
+- A sheet's X is its only way to leave. Do not add Listo or Hecho to a sheet
+  just to close it. A footer button names the next step (Guardar, Aprobar).
+- `components/business-app/business-ui.tsx` owns the classes
+  (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
+  `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
+  onto one; never copy its colours.
+- Tabs, the segmented control, icon-only round buttons, rows and menu items are
+  their own components, not button levels.
+
 ### Segmented control
 
 One control picks one of a few periods or views. A tinted track holds the
@@ -253,7 +276,8 @@ Deshacer for all of them. An alert never stacks.
 - Never insert a banner mid-page that shifts the content. Field errors stay beside their field.
 - A failed save never shows as success. Keep the owner's input and offer one
   honest retry.
-- Announce confirmations politely and errors assertively to screen readers.
+- Announce confirmations politely. An inline error is `role="alert"`. The
+  toast type has no error or warning kind, so the compiler refuses one.
 
 ### Errors
 
@@ -266,6 +290,10 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 | Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
 | Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
 
+- When the surface that failed has closed, send the owner to where the work
+  lives. A copy of the forwarding address that fails from the Agregar menu or
+  from search opens Negocio, Correo de recibos, where the address shows with
+  its own copy button.
 - Every error has a way out: Reintentar, Actualizar or "Escríbenos a
   hola@cuadrao.ai". A dead end is never shipped.
 - Never "Ocurrió un error". Say what broke and what happens next.
@@ -311,7 +339,8 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 - Space toggles it, focus shows the ring, and `role="switch"` with
   `aria-checked` announces the new state.
 - Optimistic: it flips first, shows a spinner in the knob while the server
-  answers, and rolls back with a toast if the server says no.
+  answers, and rolls back if the server says no, saying so beside the switch
+  with Reintentar. Never a toast.
 
 ### Empty, zero and loading
 

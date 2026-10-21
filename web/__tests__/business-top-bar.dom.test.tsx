@@ -136,6 +136,19 @@ describe("the Business top bar on a desktop", () => {
     await page.settle(() => (document.body.textContent ?? "").includes("Elegir archivos"), "the upload sheet");
   });
 
+  test("a copy the browser refuses opens Negocio, Correo de recibos, where the address is, and shows no toast", async () => {
+    const page = await mount();
+    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
+    await page.ready();
+    await page.openMenu(menu);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("refused"); } } });
+    document.execCommand = () => false;
+    await page.act(async () => page.menuItems()[1].click());
+    await page.settle(() => (page.api().panel as { tab?: string }).tab === "correo", "Correo de recibos");
+    assert.deepEqual(page.api().panel, { kind: "business", tab: "correo" });
+    assert.equal(document.querySelector('[data-testid="toast"]'), null, "a failed copy is not a toast");
+  });
+
   test("an owner without a forwarding address gets no Copiar dirección", async () => {
     const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
     await page.ready();

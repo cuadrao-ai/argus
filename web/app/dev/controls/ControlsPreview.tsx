@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Switch } from "@/components/ui/Switch";
-import { ToastViewport } from "@/components/business-app/foundation/ToastViewport";
-import { showToast } from "@/components/business-app/foundation/toasts";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -33,11 +31,10 @@ export default function ControlsPreview() {
           <Row label="Simple"><Switch label="Simple" checked={plain} onChange={setPlain} /></Row>
           <Row label="Con palabras"><Switch label="Con palabras" checked={labelled} onChange={setLabelled} stateLabels={{ on: "Sí", off: "No" }} /></Row>
           <Row label="El servidor responde en 1 segundo"><Switch label="El servidor responde en 1 segundo" checked={saved} onChange={async (next) => { await wait(1000); setSaved(next); }} /></Row>
-          <Row label="El servidor dice que no"><Switch label="El servidor dice que no" checked={refused} onChange={async () => { await wait(1000); showToast({ kind: "error", text: "No se pudo guardar. El interruptor volvió a como estaba." }); throw new Error("refused"); }} /></Row>
+          <Row label="El servidor dice que no"><Switch label="El servidor dice que no" checked={refused} onChange={async () => { await wait(1000); throw new Error("refused"); }} /></Row>
           <Row label="Desactivado"><Switch label="Desactivado" checked disabled onChange={() => undefined} /></Row>
         </section>
       </div>
-      <ToastViewport />
     </main>
   );
 }
