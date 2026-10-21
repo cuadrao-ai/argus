@@ -50,7 +50,7 @@ describe("the electronic invoice verification card", () => {
     assert.ok(html.includes("Aceptación por la DGII no consultada. Código de seguridad esperado: AbC123."));
     assert.ok(html.includes("comprobado hace 3 minutos"));
     assert.ok(!html.includes("Comprobado</span>") && !html.includes("Sin comprobar</span>"));
-    assert.ok(html.includes("text-[var(--rui-color-teal)]") && html.includes("text-[var(--rui-color-danger)]"));
+    assert.ok(html.includes("text-[#2f5a49]") && html.includes("text-[#9e2f39]"), "a verified row reads in the approved green, a failed one in the error red");
     const states = [...html.matchAll(/data-row="([a-z]+)" data-state="([a-z_]+)"/g)].map((m) => [m[1], m[2]]);
     assert.deepEqual(states, [["signature", "verified"], ["totals", "verified"], ["read", "failed"], ["certificate", "verified"], ["dgii", "not_checked"], ["qr", "verified"]]);
     assert.ok(html.includes("El código QR coincide con lo leído"));

@@ -15,6 +15,7 @@ mock.module("@/components/business-app/BusinessWorkspace", () => ({
   useBusiness: () => { throw new Error("workspace is replaced in this boundary test"); },
   BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
 }));
+mock.module("@/components/business-app/BusinessNamingProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));
@@ -28,18 +29,8 @@ test("account changes discard the old workspace, and late initial session cannot
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
-  const { rememberPrivacyNoticeAcceptance } = await import("@/lib/business-privacy-notice-client");
-  const { BUSINESS_PRIVACY_NOTICE_VERSION, currentNoticeHashes } = await import("@/lib/business-privacy-notice");
-  const textSha256 = (await currentNoticeHashes()).en;
-  for (const userId of ["old", "new"]) {
-    rememberPrivacyNoticeAcceptance({
-      userId,
-      acceptedAt: "2026-10-18T12:00:00.000Z",
-      noticeVersion: BUSINESS_PRIVACY_NOTICE_VERSION,
-      locale: "en",
-      textSha256,
-    });
-  }
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  Object.assign(liveBusinessDataSource, { consent: async (version: string) => ({ version, accepted_at: "2026-10-18T12:00:00.000Z" }) });
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
   await act(async () => root.render(<BusinessApp />));

@@ -25,6 +25,7 @@ from fastapi import (
 from fastapi.concurrency import run_in_threadpool
 from loguru import logger
 
+from argus.api import business_search
 from argus.api.business import (
     BusinessContext,
     BusinessPerson,
@@ -35,6 +36,7 @@ from argus.api.business import (
     require_business_person,
     require_business_surface,
     require_business_workspace,
+    working_scope,
 )
 from argus.api.business_drafts import (
     action_problem,
@@ -45,21 +47,27 @@ from argus.api.business_drafts import (
     receipt_summaries,
     receipt_summary,
     require_legacy_receipt_write,
-    search_with_drafts,
     unread_backlog,
     updates_with_drafts,
     upload_recorder,
 )
+from argus.api.business_naming import require_business_name
 from argus.api.business_schemas import (
+    AcceptBusinessConsent,
     BusinessAccess,
     BusinessAccount,
+    BusinessConsent,
     BusinessExpense,
+    BusinessNamePrompt,
+    BusinessNameTarget,
+    BusinessNamingState,
     BusinessOverview,
     BusinessSearch,
     BusinessSpaceInfo,
     BusinessSpaces,
     BusinessWorkspace,
     ConfirmBody,
+    ConsentVersion,
     CreateBusinessAccount,
     ExpenseDetail,
     ExpenseInput,
@@ -74,12 +82,14 @@ from argus.api.business_schemas import (
     ReceiptReviewBody,
     ReceiptSummary,
     RenameBusinessSpace,
+    SaveBusinessName,
     StartBusinessSpace,
     UpdatePage,
 )
 from argus.api.business_spaces import (
     accept_business_invites,
     business_access,
+    business_spaces,
     space_missing_problem,
 )
 from argus.api.dependencies import problem
@@ -94,12 +104,16 @@ from argus.api.email_intake import arrived_by_email, email_receipt_flags
 from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
 from argus.api.routers.business_bank import router as business_bank_router
+from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.document_type import parse_document_type
+from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
 from argus.domain.business.transactions import GrantImportStore
+from argus.domain.financial_search import InvalidCursor, StaleCursor
 from argus.domain.ingestion.connections import ConnectionNotFound
 from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
 from argus.domain.ingestion.documents.models import DocumentExtractionError
@@ -134,6 +148,7 @@ router = APIRouter(
     },
 )
 router.include_router(business_bank_router)
+router.include_router(business_search_router)
 _CONFLICTS = frozenset(
     {
         "receipt_not_prepared",
@@ -240,6 +255,55 @@ def get_space(
     return _space(space)
 
 
+def _naming(space: Space) -> dict[str, Any]:
+    return {
+        **_space(space),
+        "name_required": space.name_required,
+        "name_prompt_seen": space.name_prompt_seen,
+    }
+
+
+@router.get("/space/name", response_model=BusinessNamingState)
+def get_business_name(
+    request: Request, person: Annotated[BusinessPerson, Depends(require_business_person)]
+) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
+    space = person.spaces.open_space(person.person_id)
+    if space is None:
+        raise space_missing_problem(request)
+    return _naming(space)
+
+
+@router.post("/space/name-prompt", response_model=BusinessNamePrompt)
+def claim_business_name_prompt(
+    request: Request,
+    body: BusinessNameTarget,
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
+    space = person.spaces.open_space(person.person_id)
+    if space is None or space.id != str(body.space_id):
+        raise space_missing_problem(request)
+    show = person.spaces.claim_naming_visit(person.person_id, str(body.space_id))
+    current = person.spaces.open_space(person.person_id)
+    if current is None or current.id != str(body.space_id):
+        raise space_missing_problem(request)
+    return {**_naming(current), "show_prompt": show and current.name_required}
+
+
+@router.patch("/space/name", response_model=BusinessNamingState)
+def save_business_name(
+    request: Request,
+    body: SaveBusinessName,
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+) -> dict[str, Any]:
+    own_business_only(request, person.person_id)
+    space = person.spaces.rename(person.person_id, body.name, str(body.space_id))
+    if space is None:
+        raise space_missing_problem(request)
+    return _naming(space)
+
+
 @router.get("/spaces", response_model=BusinessSpaces)
 def list_spaces(
     request: Request,
@@ -283,6 +347,39 @@ def mark_space_seen(
 
     _access_store(request).mark_seen(person.person_id, grant_id)
     return Response(status_code=204, headers=NO_STORE)
+
+
+@router.get("/consent", response_model=BusinessConsent)
+def get_consent(
+    version: Annotated[ConsentVersion, Query()],
+    person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+) -> dict[str, Any]:
+    """Whether the caller accepted this wording of the consent screen. It is
+    the person's, so a chosen client grant does not change the answer."""
+
+    return {
+        "version": version,
+        "accepted_at": person.spaces.consent_accepted_at(person.person_id, version),
+    }
+
+
+@router.post("/consent", response_model=BusinessConsent)
+def accept_consent(
+    request: Request,
+    body: AcceptBusinessConsent,
+    person: BusinessPerson = Depends(require_business_person),  # noqa: B008
+) -> dict[str, Any]:
+    """Idempotent: one acceptance per person and wording, naming the Business
+    they work in (the chosen grant's, else their own), answered with the first
+    acceptance time. No Business yet is a 404."""
+
+    scope = working_scope(request, person.spaces, person.person_id)
+    if scope is None:
+        raise space_missing_problem(request)
+    accepted_at = person.spaces.accept_consent(
+        person.person_id, scope.owner.space_id, body.version
+    )
+    return {"version": body.version, "accepted_at": accepted_at}
 
 
 @router.post("/space", response_model=BusinessSpaceInfo, status_code=201)
@@ -376,6 +473,10 @@ def give_access(
     response.headers.update(NO_STORE)
     store = _access_store(request)
     space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
+    spaces = business_spaces()
+    if spaces is None:
+        raise space_missing_problem(request)
+    require_business_name(request, spaces, space_id)
     store.ensure_owner_grant(space_id, owner_id)
     try:
         created, found = store.give(space_id, owner_id, body.email)
@@ -541,6 +642,7 @@ async def upload_receipt(
     request: Request,
     background_tasks: BackgroundTasks,
     filename: str | None = Header(default=None, alias="X-Document-Filename"),
+    document_type: str | None = Header(default=None, alias="X-Document-Type"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
@@ -548,6 +650,17 @@ async def upload_receipt(
     The owner's stored receipt-reading setting decides whether it is read."""
 
     _required_idempotency_key(request, idempotency_key)
+    try:
+        chosen_type = parse_document_type(document_type)
+    except ValueError:
+        raise problem(
+            request,
+            status_code=422,
+            code="document_type_invalid",
+            title="Invalid document type",
+            detail="The document type is recibo or venta.",
+            headers=NO_STORE,
+        ) from None
     media_type, content = await read_document_upload(request)
     try:
         receipt = await context.service.upload(
@@ -557,6 +670,7 @@ async def upload_receipt(
             media_type=media_type,
             consent=False,
             on_capture=upload_recorder(context, request),
+            document_type=chosen_type,
         )
         if receipt.status == "queued":
             await dispatch_preparation(
@@ -938,20 +1052,25 @@ def search(
     request: Request,
     q: Annotated[str, Query(min_length=1, max_length=512)],
     limit: Annotated[int, Query(ge=1, le=20)] = 5,
+    kind: SearchKind | None = None,
+    cursor: Annotated[str | None, Query(max_length=2048)] = None,
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
     try:
-        found = search_with_drafts(context, q, limit)
+        return business_search.search(context, q, kind=kind, limit=limit, cursor=cursor)
+    except (InvalidCursor, StaleCursor) as error:
+        stale = isinstance(error, StaleCursor)
+        raise problem(
+            request,
+            status_code=409 if stale else 422,
+            code="business_search_stale_cursor"
+            if stale
+            else "business_search_invalid_cursor",
+            title="Search changed" if stale else "Invalid cursor",
+            detail="Search again from the first page.",
+        ) from None
     except Exception as error:
         raise _problem(request, error) from None
-    flags = email_receipt_flags(context.scope.owner.space_id)
-    for item in found["receipts"]:
-        if item["id"] in flags:
-            if arrived_by_email(item["received_at"], flags[item["id"]][2]):
-                item["channel"] = "email"
-            item["email_delivery_ids"] = list(flags[item["id"]][0])
-            item["email_original"] = flags[item["id"]][1]
-    return found
 
 
 @router.get("/overview", response_model=BusinessOverview)

@@ -85,7 +85,7 @@ function NotePreview({ note, source, accounts }: { note: BusinessCapture; source
     </div>
     <p className="text-sm text-black/55 dark:text-white/55">{t("business.dossier.revision", "Revision {{version}}", { version: dossier ? factsRevision(dossier) : note.revision })} · {t(`business.dossier.state.${note.review_state}`, note.review_state)}</p>
     {failed ? <p role="alert" className="text-sm">{t("business.search.record_unavailable", "This record isn't available.")}</p> : dossier ? <>
-      <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} />
+      <ReceiptRecordFacts dossier={dossier} accounts={[...accounts]} cards={false} />
       <ReceiptMessages sources={dossier.sources} />
     </> : <Settle pending layout="rows" rows={4} />}
   </section>;

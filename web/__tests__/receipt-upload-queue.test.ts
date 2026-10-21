@@ -173,6 +173,34 @@ test("closing forgets saved and rejected rows and keeps unfinished ones", async 
   expect(queue.unfinished).toBe(false);
 });
 
+test("a venta upload tells the server the document type", async () => {
+  const seen: Array<"recibo" | "venta"> = [];
+  const queue = new ReceiptUploadQueue(async (_file, _consent, _key, documentType) => {
+    seen.push(documentType);
+    return savedReceipt("venta");
+  }, () => undefined);
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
+  await queue.save("inbox", false, undefined, "venta");
+  expect(seen).toEqual(["venta"]);
+});
+
+test("a failed venta is retried as a venta whatever type the retry names", async () => {
+  const seen: Array<"recibo" | "venta"> = [];
+  let fail = true;
+  const queue = new ReceiptUploadQueue(async (_file, _consent, _key, documentType) => {
+    seen.push(documentType);
+    if (fail) throw new Error("connection lost");
+    return savedReceipt("venta");
+  }, () => undefined);
+  queue.add([file("factura.pdf", "application/pdf")], limits, "inbox");
+  await queue.save("inbox", false, undefined, "venta");
+  fail = false;
+  const [failed] = queue.snapshot();
+  await queue.save("inbox", false, failed.key, "recibo");
+  expect(seen).toEqual(["venta", "venta"]);
+  expect(queue.snapshot()[0].status).toBe("saved");
+});
+
 test("a server type rejection asks for another file rather than resending it", async () => {
   let calls = 0;
   const queue = new ReceiptUploadQueue(async () => {

@@ -125,12 +125,19 @@ describe("bottom sheet dismissal", () => {
   });
 });
 
+describe("bottom sheet required action", () => {
+  test("removes the close control when dismissal is disabled", () => {
+    expect(renderSheet({ dismissible: false })).not.toContain('aria-label="Close sheet"');
+    expect(renderSheet()).toContain('aria-label="Close sheet"');
+  });
+});
+
 describe("bottom sheet keyboard handling", () => {
   test("Escape is routed to it by the registry, not listened for", () => {
     // The sheet installs nothing. The registry offers Escape to the topmost
     // layer only, so a menu or confirmation above it answers first without the
     // sheet needing to know that anything is above it.
-    expect(source).toContain("onEscape: onClose,");
+    expect(source).toContain("onEscape: dismissible ? onClose : () => {},");
     expect(source).not.toContain('document.addEventListener("keydown"');
     expect(source).not.toContain("hasOverlayAbove");
   });

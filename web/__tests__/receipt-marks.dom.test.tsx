@@ -78,14 +78,12 @@ describe("the Overview's two totals", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: BusinessOverviewPanel } = await import("@/components/business-app/BusinessOverviewPanel");
     const overview: BusinessOverview = { from: "2026-10-01", to: "2026-10-31", today: "2026-10-13", totals: [{ currency: "DOP", amount: "5000.00", count: 3 }], fiscal_totals: [{ currency: "DOP", amount: "3500.00", count: 2 }], without_fiscal_totals: [{ currency: "DOP", amount: "1500.00", count: 1 }], needs_attention: 0, last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
-    const value = { records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [] }, chosen: null } as unknown as BusinessContextValue;
+    const value = { source: { mode: "fixture" }, records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [] }, chosen: null } as unknown as BusinessContextValue;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><BusinessOverviewPanel /></BusinessContext.Provider></env.I18nextProvider>); });
-    const real = env.host.querySelector('[data-testid="overview-real-expenses"]')!;
-    const fiscal = env.host.querySelector('[data-testid="overview-fiscal-expenses"]')!;
-    assert.ok(real.textContent?.includes("Gastos reales") && real.textContent?.includes("5,000.00"));
-    assert.ok(fiscal.textContent?.includes("Con valor fiscal") && fiscal.textContent?.includes("3,500.00"));
-    assert.ok(env.host.querySelector('[data-testid="overview-without-fiscal"]')?.textContent?.includes("Sin comprobante fiscal: RD$ 1,500.00 no entra al 606") || env.host.querySelector('[data-testid="overview-without-fiscal"]')?.textContent?.includes("no entra al 606"));
-    assert.equal(real.className, fiscal.className, "equal weight");
+    assert.equal(env.host.querySelector('[data-testid="overview-real-expenses"]'), null);
+    assert.equal(env.host.querySelector('[data-testid="overview-fiscal-expenses"]'), null);
+    assert.ok(env.host.querySelector('[data-testid="inicio-por-revisar"]'));
+    assert.equal(env.host.textContent?.includes("0 por revisar"), false);
     await env.act(async () => env.root.unmount());
   });
 });
@@ -267,7 +265,7 @@ describe("the review page's fiscal details", () => {
   test("a record without an NCF or an e-CF reads Sin comprobante fiscal in its fiscal row, never No registrado", async () => {
     for (const fiscal of [null, { rnc: unknown, ncf: unknown, ecf: unknown, itbis: unknown }]) {
       const env = await facts(fiscal);
-      const section = env.host.querySelector('[data-testid="receipt-fiscal-facts"]')!;
+      const section = env.host.querySelector('[data-testid="receipt-facts-fiscal"]')!;
       assert.ok(section, "the fiscal details are there");
       const row = section.querySelector('[data-fact="fiscal_number"]')!;
       assert.equal(row.querySelector("dt")?.textContent, "NCF / e-CF");
@@ -358,7 +356,7 @@ describe("the server states what the browser used to guess", () => {
     const text = env.host.textContent ?? "";
     assert.ok(text.includes("Sí"), text);
     assert.ok(!/\btrue\b|\bfalse\b/.test(text), text);
-    assert.equal(env.host.querySelector('[data-testid="history-606"] dd')?.textContent, "Pendiente del contador→Sí");
+    assert.equal(env.host.querySelector('[data-testid="history-606"] p')?.textContent, "Incluir en 606 cambiado de Pendiente del contador a Sí");
     // A read that creates the record leaves the 606 open: no 606 row, never "Sin registrar".
     const created = { ...revision, version: 1, before: null, after: { ...base, fiscal: fiscal(unknown) } };
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><ReceiptHistory history={[created] as never} accounts={[]} /></env.I18nextProvider>); });

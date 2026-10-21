@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { formatTimestamp } from "./business-format";
-import { cardClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
+import { secondaryButtonClass, useChannelLabel } from "./business-ui";
 import { DelayedSourceWell } from "./business-skeletons";
+import { SURFACE_CARD } from "./foundation/surfaces";
 
 export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
@@ -36,7 +37,7 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
   }, [detail.id, source, retry]);
 
   return (
-    <figure className={`${cardClass} p-3`} data-testid="receipt-original-source">
+    <figure className={SURFACE_CARD} data-testid="receipt-original-source">
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)} className="flex min-h-11 w-full items-center gap-3 rounded-lg text-left text-[14px] font-medium text-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)] dark:text-white/85 desktop:hidden">
         {!expanded && state.kind === "ready" && (detail.media_type.startsWith("image/") || source.mode === "fixture") ? <Image unoptimized src={state.url} width={64} height={80} alt="" className="h-20 w-16 rounded-md object-contain" /> : null}
         {expanded ? t("common.close", "Close") : t("business.review.source", "Original receipt")}

@@ -14,6 +14,10 @@ Read the month for the Business in scope. Scope is the caller's own Business, or
 
 Set that document's settlement. The caller needs the prepare capability. A repeat of the same status, date, and payment method changes nothing and appends no history row.
 
+`GET /api/v1/business/open-items`
+
+Read every invoice and receipt that is still `pendiente`, from any month. Scope and grants are the same as the month read. The caller needs the read capability, so the owner and an accountant can both call it.
+
 ## Authorization and errors
 
 A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live grant without the capability is `403` `business_permission_denied`. An activity that is not in this Business is `404` `business_record_not_found`. The body does not say whether the activity exists in another Business.
@@ -21,6 +25,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | HTTP | code | When |
 | --- | --- | --- |
 | 422 | `month_invalid` | `month` is not a real `YYYY-MM` |
+| 422 | `validation_error` | The month read got a query parameter other than one `month`, or the open items read got any query parameter |
 | 422 | `business_status_invalid` | Status is not allowed for that document |
 | 422 | `business_payment_method_invalid` | Method is outside the allowed set |
 | 422 | `business_settlement_incomplete` | A settled document lacks a date or method, or a pending document sends either |
@@ -29,7 +34,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | 403 | `business_permission_denied` | The grant cannot prepare, or cannot read |
 | 403 | `business_grant_not_live` | The grant header does not name a live grant |
 | 409 | `business_document_settlement_conflict` | Two first settlements of the same document collided again after one fresh retry |
-| 503 | `business_month_close_unavailable` | The authorized snapshot could not be read or written |
+| 503 | `business_month_close_unavailable` | The authorized snapshot could not be read or written. Open items use the same code. |
 
 The error body is the usual problem document. `code` is the field above.
 
@@ -87,25 +92,109 @@ The sample minors are illustrative. Each currency the month actually contains is
 
 | Field | Meaning |
 | --- | --- |
-| `closed` | True when every business document in the month has an RNC and a fiscal number (NCF or e-CF). |
+| `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes, or is sin comprobante. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
-| `income_before_itbis_minor` | Sales lines that would go on the 607. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
-| `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS. |
+| `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
+| `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
-| `itbis_charged_minor` | ITBIS on the 607 lines. A credit note subtracts. |
-| `itbis_paid_minor` | ITBIS on the 606 lines. |
+| `itbis_charged_minor` | ITBIS on the 607 lines, plus ITBIS stated on a sin comprobante sale. A credit note subtracts. |
+| `itbis_paid_minor` | ITBIS on the 606 lines. A sin comprobante purchase adds none. |
 | `itbis_owed_minor` | Charged minus paid. Negative when the business paid more ITBIS than it charged. |
-| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Those incomplete documents are not part of the net. |
+| `by_status` | Count and before-ITBIS total of every business document in the month, including one that is missing an RNC or a fiscal number. Invoice totals use the same signed Monto Facturado as income, so a credit note subtracts. Receipt totals are the activity total minus ITBIS, and the whole total for a sin comprobante receipt. Those incomplete documents are not part of the net. |
 | `cuentas_por_cobrar` | Invoices still `pendiente`. The list amount is the document total, the amount still to collect. |
 | `cuentas_por_pagar` | Receipts still `pendiente`. The list amount is the document total, the amount still to pay. |
 
-A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `before_itbis_minor`, `itbis_minor` (null when the document does not state ITBIS), and `status`.
+A list item is `activity_id`, `document_kind` (`invoice` or `receipt`), `currency`, `occurred_on`, `total_minor`, `total`, `before_itbis_minor`, `before_itbis`, `itbis_minor`, `itbis`, `counterparty`, `rnc`, `ncf`, `ecf`, `status`, `sin_comprobante`, and `due_on`. Each `_minor` field has a display string with the same name and no suffix, in the line's own currency. `before_itbis_minor` is the total minus ITBIS, and the whole total for a sin comprobante receipt, the same amount `by_status` and the expense total count. `itbis_minor` and `itbis` are null when the document does not state ITBIS. `counterparty`, `rnc`, `ncf`, and `ecf` come from the latest draft and are null when the draft does not know them. `sin_comprobante` is true when the document is sin comprobante, and false otherwise. `due_on` is the due date a person set in review, as `YYYY-MM-DD`, and null while it is unknown. Nothing reads it from the document or defaults it. The same item shape is used in every list in this contract.
 
-An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
+An invoice is a recorded income activity. A receipt is a recorded expense activity. The printed total on that activity already includes ITBIS when ITBIS is known. Before-ITBIS is that total minus the stored ITBIS, except on a sin comprobante receipt, where it is the whole total. Unknown ITBIS is treated as zero for the subtraction and does not by itself open the month. That assumption is an open question.
+
+## Sin comprobante
+
+A document is sin comprobante when a person states in review that it has no comprobante fiscal and the draft carries no NCF or e-CF. The statement is the draft fact `receipt_state` with the value `no_receipt` or `informal_receipt`. The owner sets it in chat or a prepare-holder sets it in review. It is editable while the draft is open, it is kept in the draft history, and it is locked when the draft is approved. A missing NCF alone never makes a document sin comprobante. A draft that carries an NCF or an e-CF has a comprobante, whatever `receipt_state` says.
+
+A sin comprobante document counts in `income_before_itbis` or `expense_before_itbis` and in `by_status`. It is not a 606 or 607 line, and the DGII export lists it as excluded with the reason `no_fiscal_number`. It never adds a `missing_rnc` or `missing_ncf` reason, so it never keeps the month open. A personal sin comprobante purchase stays out of the month like any personal purchase.
+
+A document that has a comprobante, or whose `receipt_state` is unknown, and has no RNC or fiscal number still keeps the month open.
+
+Two ITBIS rules are decisions, recorded on 2026-10-20 by the coordinator. Lucas can overrule them.
+
+- A sin comprobante purchase counts its whole total as expense, and none of its ITBIS is ITBIS paid. ITBIS paid without a valid comprobante cannot be credited, so it is part of the cost. Example: a 500.00 purchase that states 76.27 ITBIS adds 500.00 to `expense_before_itbis` and 0.00 to `itbis_paid`.
+- A sin comprobante sale counts its total minus the ITBIS it states as income, and that ITBIS stays in `itbis_charged`, so the tax owed is never understated. Example: a 300.00 sale that states 45.76 ITBIS adds 254.24 to `income_before_itbis` and 45.76 to `itbis_charged`.
+
+Receipt summaries and details, and expenses and their detail, carry the mark as `sin_comprobante` only when it is true. The draft dossier and every month-close and open-items line always carry it.
+
+This mark is not the bank matching state `sin_comprobante`. That state is an outgoing bank charge with no matched receipt. This mark is a recorded document that a person stated has no comprobante fiscal.
+
+## Venta
+
+A Venta is an invoice the business has already issued. In the Bandeja the person uploads or captures it the same way as a receipt and may name the document type at that moment. The type is `venta`. A purchase is `recibo`. The same bytes keep a named type from the first save. A later upload of those bytes that names the other type is `409` `document_type_conflict`; over an upload that named no type it returns the stored document. Any other value is `422` `document_type_invalid`. When the upload names no type, the read sets it: a document whose issuer RNC is the Business's own tax id from the fiscal profile is a `venta`, anything else a `recibo`, and the draft says the read chose it. A typed note (`POST /business/captures`) may name the type the same way; an unnamed note is a detected `recibo`. While the draft is open the owner or a preparer may change the type in review. Once approved it cannot change.
+
+The read is the same read a receipt gets. The reader prompt stays as it is. The capture type gives the printed fields their meaning on a Venta:
+
+| Printed field | Meaning on a Venta |
+| --- | --- |
+| RNC | The client's RNC or cédula. The Business's own number on the invoice is the issuer, so a Venta read that way leaves the RNC unknown. |
+| NCF or e-CF | The fiscal number the business already issued |
+| ITBIS | ITBIS charged |
+
+A Venta is prepared as an income activity, which this contract calls an invoice. It counts in income before ITBIS, in ITBIS charged, and in the 607 selection. While its status is `pendiente` it appears in Por cobrar. `cobrado` removes it from that list and leaves the amount in the month it was issued. A missing client RNC or a missing fiscal number keeps the month open.
+
+Recording a Venta uses the income approval, into a business account. The Bandeja shows the type. Approval of a Venta sends `record_income`.
+
+Creating an invoice, issuing an NCF, and running a numbering sequence are outside this contract.
+
+The RNC field holds one number. It does not record whether that number is an RNC, a cédula, or a passport. A passport with no nonzero digit cannot be stored there. That identification type is an open question for a future 607 file. The printed name stays the counterparty the read found.
 
 Personal expenses stay out of the month unless the accountant has answered yes to including them. Sales marked personal stay out. Transfers and other activity kinds stay out.
 
 Pending documents are the receivables and payables. They do not flip `closed` to false. The month still closes when every document in it has an RNC and a fiscal number. Paying one later does not move its amount into another month.
+
+## Open items
+
+The month lists show only what was issued in that month. Inicio shows what is still owed, so a September invoice that is still `pendiente` stays in Por cobrar when the person views October.
+
+```json
+{
+  "cuentas_por_cobrar": {
+    "count": 1,
+    "totals": [{"currency": "DOP", "total_minor": 5900, "total": "59.00"}],
+    "items": [
+      {
+        "activity_id": "…",
+        "document_kind": "invoice",
+        "currency": "DOP",
+        "occurred_on": "2026-09-12",
+        "total_minor": 5900,
+        "total": "59.00",
+        "before_itbis_minor": 5000,
+        "before_itbis": "50.00",
+        "itbis_minor": 900,
+        "itbis": "9.00",
+        "counterparty": "Cliente de práctica",
+        "rnc": "131000001",
+        "ncf": "B0100000001",
+        "ecf": null,
+        "status": "pendiente",
+        "sin_comprobante": false,
+        "due_on": "2026-10-12"
+      }
+    ]
+  },
+  "cuentas_por_pagar": {"count": 0, "totals": [], "items": []}
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `cuentas_por_cobrar` | Every invoice still `pendiente`. The same documents the month read lists in its `cuentas_por_cobrar`, from every month together. |
+| `cuentas_por_pagar` | Every receipt still `pendiente`, chosen the same way. |
+| `count` | How many pending documents the list has, including the ones past the cap. |
+| `totals` | The sum of `total_minor` for every pending document in the list, one entry per currency. Currencies are never added together or converted. A currency with no pending document has no entry. |
+| `items` | The first 100 pending documents. Documents with a `due_on` come first, soonest due date first. Documents without one follow, by `occurred_on`. Ties go by `occurred_on` and then `activity_id`. The item shape is the month-close list item. |
+
+Marking a document `cobrado` or `pagado` with the PATCH above removes it from this read. Setting it back to `pendiente` returns it. The month summary and the close checklist stay month-scoped.
+
+A person sets the due date in review (`PATCH /business/drafts/{draft_id}/review`) while the draft is open. It locks with the other facts once the document is approved. The month lists keep their `occurred_on` order.
 
 ## PATCH
 
@@ -150,6 +239,8 @@ Invoice statuses are `pendiente` and `cobrado`. Receipt statuses are `pendiente`
 
 **Idempotency.** The stored status, date, and method are compared with the request. Equality is a no-op.
 
+**Venta.** The Bandeja type lives on the capture draft and is copied onto the business resolution when that draft is prepared. Both are existing JSON documents. This change adds no column, no table, and no migration. A later revision keeps the type. A Venta's kind is income. Changing that kind is refused. The month-close query below is unchanged: a recorded Venta is an income activity in that read.
+
 **Query.** Activities come from the same scoped read the export uses (`current_activities` on the Business scope). Draft facts are this read.
 
 ```sql
@@ -176,4 +267,4 @@ where space_id = $space
   and owner_id = $owner
 ```
 
-The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the 607 billed amount when the draft declares one, the personal mark, and the inclusion answer. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.
+The latest draft for an activity supplies RNC, NCF, e-CF, ITBIS, the 607 billed amount when the draft declares one, the personal mark, the inclusion answer, and the receipt state. That draft is the current `resolution` on the import event. The 607 reads a different row: the approved revision at or before the approval receipt version, and it requires that receipt. The two agree until a personal mark or a 606 inclusion answer is written after approval, or until an accepted draft has no approval receipt. Month close keeps reading the current draft. This note records the gap and does not change the read. The settlement row supplies status. Totals are then summed in `summarize` from those parts and the activity's minor-unit total. `EXPLAIN` for both reads needs a disposable database with the migrations applied. This change did not have one, so no plan is attached. Staging and production were not migrated from here.

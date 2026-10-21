@@ -106,7 +106,7 @@ describe("one receipt review page", () => {
     ] as const) {
       await page.open(panel, () => page.frame().fields !== null);
       const review = page.host.querySelector('[data-testid="business-record-review"]');
-      assert.ok(review?.querySelector("header")?.textContent?.includes("Mi negocio"));
+      assert.ok(review?.querySelector('[data-testid="receipt-top-block"] [data-testid="status-pill"]'), "the top block is supplier, total and status");
       assert.ok(!review?.textContent?.includes("My business"));
       await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     }
@@ -144,7 +144,7 @@ describe("one receipt review page", () => {
     });
     await page.open({ kind: "inbox" }, () => page.frame().count === 0);
     await page.open({ kind: "draft", draftId: id }, () => page.frame().title === "Ferretería Prueba Revisada");
-    assert.match(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/);
+    assert.doesNotMatch(page.host.querySelector('[data-testid="business-record-review"] header')?.textContent ?? "", /Revisión \d+/, "the revision number is not part of the top block");
     const after = await page.source.dossier(id);
     assert.equal(after.version, before.version + 1);
     // Saving review details never approves: the record is still awaiting review.
@@ -199,16 +199,25 @@ describe("one receipt review page", () => {
     }));
     await page.open({ kind: "receipt", receiptId: "rcpt-blurry" }, () => page.host.textContent?.includes("Subir otro archivo") === true);
     const unreadable = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.ok(unreadable?.textContent?.includes("No pudimos leer este archivo"));
-    assert.ok(unreadable?.textContent?.includes("La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano."));
+    assert.equal(unreadable?.querySelector(".font-medium")?.textContent, "No pudimos leer este archivo");
+    assert.equal(
+      unreadable?.querySelector(".mt-1")?.textContent,
+      "La imagen o el PDF salió borroso, cortado o dañado. Sube una foto más clara del recibo completo, con buena luz, o escribe los datos a mano.",
+    );
     const unreadableLabels = [...unreadable!.querySelectorAll("button")].map((button) => button.textContent);
     assert.deepEqual(unreadableLabels, ["Subir otro archivo", "Escribir datos"]);
 
-    await page.open({ kind: "receipt", receiptId: "rcpt-unknown" }, () => page.host.textContent?.includes("Esto no parece un recibo") === true);
+    await page.open(
+      { kind: "receipt", receiptId: "rcpt-unknown" },
+      () => page.host.textContent?.includes("Esto no parece un recibo.") === true,
+    );
     const notice = page.host.querySelector('[data-testid="receipt-attention"]');
-    assert.ok(notice?.textContent?.includes("Leímos el archivo, pero no encontramos una compra con su total. Los estados de cuenta y los avisos de pago no van aquí. Si es una factura que tú emitiste, márcala como Venta."));
+    assert.equal(notice?.querySelector(".font-medium")?.textContent, "Esto no parece un recibo.");
+    assert.equal(notice?.querySelector(".mt-1")?.textContent, "Sube la foto o el PDF de un comprobante.");
+    assert.equal(notice?.textContent?.includes("No pudimos leer este archivo"), false);
+    assert.equal(notice?.textContent?.includes("borroso, cortado o dañado"), false);
     const noticeLabels = [...notice!.querySelectorAll("button")].map((button) => button.textContent);
-    assert.deepEqual(noticeLabels, ["Escribir datos"]);
+    assert.deepEqual(noticeLabels, ["Subir otro archivo", "Escribir datos"]);
     await page.act(async () => page.root.unmount());
   });
 

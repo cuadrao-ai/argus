@@ -29,12 +29,19 @@ class Declaration(BaseModel):
     legal_tip: Money | None
 
 
+ExpenseType = Literal["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"]
+PaymentForm = Literal["01", "02", "03", "04", "05", "06", "07"]
+IsrWithholding = Literal["01", "02", "03", "04", "05", "06", "07", "08", "09"]
+#: Servicios y suministros, alquiler, gastos financieros, seguros.
+SERVICE_EXPENSE_TYPES = frozenset({"02", "03", "07", "11"})
+
+
 class PurchaseDeclaration(Declaration):
     form: Literal["606"]
     id_type: Literal["1", "2"] | None
-    category: (
-        Literal["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"] | None
-    )
+    category: ExpenseType | None
+    #: A prefilled expense type the owner has not confirmed. Export treats it as missing.
+    category_suggested: bool = False
     paid_on: date | None
     services_amount: Money | None
     goods_amount: Money | None
@@ -42,14 +49,28 @@ class PurchaseDeclaration(Declaration):
     itbis_proportionality: Money | None
     itbis_cost: Money | None
     itbis_perceived: Money | None
-    income_withholding_type: (
-        Literal["01", "02", "03", "04", "05", "06", "07", "08", "09"] | None
-    )
+    income_withholding_type: IsrWithholding | None
     income_withheld: Money | None
     income_perceived: Money | None
-    payment_method: Literal["01", "02", "03", "04", "05", "06", "07"] | None
+    payment_method: PaymentForm | None
     actual_refund: bool = False
     purchase_activity_id: UUID | None = None
+
+
+class PurchaseReview(BaseModel):
+    """606 fields a person confirms on a draft. Absent fields stay as they were."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    category: ExpenseType | None = None
+    category_suggested: bool = False
+    payment_method: PaymentForm | None = None
+    paid_on: date | None = None
+    services_amount: Money | None = None
+    goods_amount: Money | None = None
+    itbis_withheld: Money | None = None
+    income_withholding_type: IsrWithholding | None = None
+    income_withheld: Money | None = None
 
 
 class SalesDeclaration(Declaration):
@@ -91,9 +112,16 @@ class FiscalReview(BaseModel):
     declaration: DgiiDeclaration
 
 
+class TaxId(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: Literal["rnc", "cedula"]
+    value: str
+
+
 class FiscalProfile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    rnc: str | None
+    name: str
+    tax_id: TaxId | None
     can_edit: bool
 
 

@@ -2,6 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 
+import BusinessNameSettings from "@/components/settings/BusinessNameSettings";
 import AppearanceModal from "@/components/settings/AppearanceModal";
 import LanguageModal from "@/components/settings/LanguageModal";
 import ArchivedChatsView from "@/components/settings/ArchivedChatsView";
@@ -42,6 +43,10 @@ type SettingsPanelEntry = {
 };
 
 const SETTINGS_PANELS = {
+  business_name: {
+    parent: "settings",
+    render: ({ onClose }) => <BusinessNameSettings onClose={onClose} />,
+  },
   whatsapp: {
     parent: "settings",
     render: ({ onClose, onBack, backLabel }) => (

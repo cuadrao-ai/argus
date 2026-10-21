@@ -191,7 +191,9 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
             _create(found, found.owner)
             _signed_in(found, found.owner)
             started = client.post(
-                f"{API}/business/space", json={}, headers=found.owner.headers
+                f"{API}/business/space",
+                json={"name": "Ferretería Prueba"},
+                headers=found.owner.headers,
             )
             assert started.status_code == 201, started.text
             found.space_id = started.json()["id"]
@@ -228,6 +230,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     signup = client.post(
         f"{API}/auth/signup",
         json={
+            "age_confirmed_at": "2026-01-01T00:00:00Z",
             "email": accountant.email,
             "password": accountant.password,
             "captcha_token": CAPTCHA,

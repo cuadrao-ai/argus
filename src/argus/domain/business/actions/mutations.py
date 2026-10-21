@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
+from loguru import logger
 from psycopg.types.json import Jsonb
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from argus.domain.business.actions import plans, sources
 from argus.domain.business.actions.facts import facts_of, patched_facts, validate_facts
@@ -22,12 +23,25 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
-from argus.domain.business.contracts.dgii import DgiiDeclaration, FiscalReview
+from argus.domain.business.contracts.dgii import (
+    DgiiDeclaration,
+    FiscalReview,
+    PurchaseDeclaration,
+    SalesDeclaration,
+)
 from argus.domain.business.contracts.facts import (
     BusinessFactPatch,
     BusinessFacts,
     BusinessResolution,
+    DueOnInput,
+    Known,
     ReadPurchase,
+)
+from argus.domain.business.document_type import (
+    DocumentType,
+    detected_document_type,
+    require_venta_kind,
+    typed_facts,
 )
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.documents.dgii_qr import fill_from_qr
@@ -84,7 +98,12 @@ def save_revision(
     read_total: str | None = None,
     ecf_checks: EcfVerification | None = None,
     dgii_qr: DgiiQr | None = None,
+    bill_mark: str | None = None,
     dgii: DgiiDeclaration | None = None,
+    clear_dgii: bool = False,
+    document_type: DocumentType | None = None,
+    document_type_detected: bool = False,
+    due_on: DueOnInput | None = None,
 ) -> Applied:
     validate_facts(tx, after)
     resolution = dict(event.resolution)
@@ -104,22 +123,38 @@ def save_revision(
     if dgii_qr is None:
         kept_qr = previous.get("dgii_qr")
         dgii_qr = DgiiQr.model_validate(kept_qr) if kept_qr else None
+    if bill_mark is None:
+        bill_mark = previous.get("bill_mark")
+    if document_type is None:
+        document_type = previous.get("document_type", "recibo")
+        document_type_detected = previous.get("document_type_detected", False)
+    if document_type == "venta":
+        # An issued invoice is never a bill the business owes.
+        bill_mark = None
+    kept_due_on = previous.get("due_on")
+    before_due_on = date.fromisoformat(kept_due_on) if kept_due_on else None
+    after_due_on = before_due_on if due_on is None else due_on.value
     resolution["business"] = BusinessResolution(
         facts=after,
         read_purchases=read_purchases,
         read_total=read_total,
         ecf_checks=ecf_checks,
         dgii_qr=dgii_qr,
+        bill_mark=bill_mark,
         remainder_settled=bool(previous.get("remainder_settled", False)),
-        dgii=dgii if dgii is not None else previous.get("dgii"),
+        dgii=None if clear_dgii else dgii if dgii is not None else previous.get("dgii"),
+        document_type=document_type,
+        document_type_detected=document_type_detected,
+        due_on=after_due_on,
     ).model_dump(mode="json")
     event = replace(event, resolution=resolution, anchor_on=after.occurred_on.value)
     tx.imports.put_event(event)
     sources.attach(tx, event.id, source_ids)
     tx.rows(
         "insert into public.business_draft_revisions"
-        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,before_dgii,after_dgii)"
-        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        " (space_id,draft_id,version,actor,before_facts,after_facts,source_ids,turn_key,"
+        "before_dgii,after_dgii,before_due_on,after_due_on)"
+        " values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             tx.context.actor.space_id,
             event.id,
@@ -133,6 +168,8 @@ def save_revision(
             Jsonb(resolution["business"].get("dgii"))
             if resolution["business"].get("dgii")
             else None,
+            before_due_on,
+            after_due_on,
         ),
     )
     return Applied(outcome="applied", draft_id=event.id, version=event.version)
@@ -148,6 +185,8 @@ def revise(
     turn_key: str | None = None,
     answer_id: UUID | None = None,
     fiscal_review: FiscalReview | None = None,
+    document_type: DocumentType | None = None,
+    due_on: DueOnInput | None = None,
 ) -> Applied:
     sources.require_sources(tx, source_ids)
     now = datetime.now(timezone.utc)
@@ -155,7 +194,9 @@ def revise(
         event = new_candidate(tx.context.owner_id, now)
         before = None
     else:
-        event = event_at(tx, ref)
+        event = (
+            _open_for_type(tx, ref) if document_type is not None else event_at(tx, ref)
+        )
         before = facts_of(event)
         event = replace(event, version=event.version + 1, updated_at=now)
     origin = {
@@ -163,11 +204,20 @@ def revise(
         "owner_via_agent": "owner_stated",
         "extractor": "extracted",
     }[actor.actor_kind]
+    previous_type = (event.resolution.get("business") or {}).get(
+        "document_type", "recibo"
+    )
+    retyped = document_type is not None and document_type != previous_type
+    base = (
+        typed_facts(before, document_type, source_ids, origin, _business_tax_id(tx))
+        if retyped and before is not None
+        else before
+    )
     try:
         after = (
-            patched_facts(before, patch, source_ids, origin=origin)
+            patched_facts(base, patch, source_ids, origin=origin)
             if patch is not None
-            else before
+            else base
         )
         if fiscal_review is not None:
             from argus.domain.business.actions.fiscal import reviewed_fiscal_facts
@@ -175,6 +225,7 @@ def revise(
             after = reviewed_fiscal_facts(after, fiscal_review, source_ids, origin)
     except ValidationError:
         raise ActionError("invalid_input", "business_fact_provenance_invalid") from None
+    require_venta_kind(document_type or previous_type, after)
     if answer_id is not None:
         answer_question(tx, event.id, answer_id, patch, source_ids[-1])
     elif actor.actor_kind == "member" and patch is not None:
@@ -186,6 +237,31 @@ def revise(
             value = getattr(patch, question["field"])
             if value is not None and value.state in {"known", "owner_does_not_know"}:
                 answer_question(tx, event.id, question["id"], patch, source_ids[-1])
+    declared = fiscal_review.declaration if fiscal_review else None
+    if patch is not None and patch.purchase is not None:
+        current = declared
+        if current is None and not retyped:
+            raw = (event.resolution.get("business") or {}).get("dgii")
+            current = TypeAdapter(DgiiDeclaration).validate_python(raw) if raw else None
+        kind = after.kind.value if isinstance(after.kind, Known) else None
+        if not isinstance(current, SalesDeclaration) and not (
+            current is None and kind == "income"
+        ):
+            from argus.domain.business.purchase_review import apply_purchase
+
+            amount = after.amount.value if isinstance(after.amount, Known) else None
+            fiscal = after.fiscal
+            itbis = (
+                fiscal.itbis.value
+                if fiscal is not None and isinstance(fiscal.itbis, Known)
+                else None
+            )
+            declared = apply_purchase(
+                current if isinstance(current, PurchaseDeclaration) else None,
+                patch.purchase,
+                amount,
+                itbis,
+            )
     return save_revision(
         tx,
         event,
@@ -194,8 +270,24 @@ def revise(
         source_ids,
         actor,
         turn_key,
-        dgii=fiscal_review.declaration if fiscal_review else None,
+        dgii=declared,
+        # A declaration filled under the other type no longer applies.
+        clear_dgii=retyped and declared is None,
+        document_type=document_type,
+        due_on=due_on,
     )
+
+
+def _open_for_type(tx: ActionTransaction, ref: ExistingDraft) -> ImportEvent:
+    """The draft whose document type a person sets: still open."""
+
+    try:
+        event = event_at(tx, ref)
+    except ActionError as error:
+        if error.code == "recorded_correction_unsupported":
+            raise ActionError("invalid_input", "document_type_locked") from None
+        raise
+    return event
 
 
 def answer_question(
@@ -327,6 +419,8 @@ def prepare_attachment(
     from argus.domain.ingestion.documents.extractor import (
         fiscal_facts_from_receipt,
         ncf_bill,
+        priced_amounts,
+        review_amount,
     )
 
     candidates = [
@@ -339,9 +433,16 @@ def prepare_attachment(
         candidate.source.connection_id != draft.connection_id for candidate in candidates
     ):
         raise ActionError("invalid_input", "business_preparation_source_changed")
+    bill = ncf_bill(batch)
     purchases = candidates or _observed_purchases(batch)
-    if not purchases and ncf_bill(batch) and batch.receipt is not None:
+    booked_from_bill = False
+    if not purchases and bill and batch.receipt is not None:
         purchases = [_bill_purchase(batch.receipt)]
+        booked_from_bill = True
+    priced = () if purchases else priced_amounts(batch)
+    chosen = review_amount(batch) if priced else None
+    if chosen is not None:
+        purchases = [_review_purchase(item) for item in priced]
     if not purchases and _notice_only(batch):
         raise ActionError("invalid_input", "not_a_receipt")
     # One clean purchase becomes the draft's facts. Several purchases, or an
@@ -366,7 +467,7 @@ def prepare_attachment(
         if ambiguous
         else ()
     )
-    read_total = batch.receipt.total if ambiguous else None
+    read_total = batch.receipt.total if ambiguous and batch.receipt is not None else None
     candidate = _consensus(purchases) if ambiguous else purchases[0]
     source_id = sources.record_source(
         tx,
@@ -395,6 +496,7 @@ def prepare_attachment(
         "kind": _kind(candidate.kind_hint),
     }
     uncertain = set(candidate.uncertain)
+    _fill_unknown_purchase(values, uncertain, batch)
     if "merchant" in uncertain:
         uncertain.add("counterparty")
     if "direction" in uncertain:
@@ -409,6 +511,8 @@ def prepare_attachment(
             "verified": False,
             "source_ids": [str(source_id)],
         }
+    if chosen is not None:
+        facts = _mark_unverified_review(facts, _review_purchase(chosen))
     facts["fiscal"] = fiscal_facts_from_receipt(
         batch.receipt, source_id=source_id
     ).model_dump(mode="json")
@@ -428,7 +532,20 @@ def prepare_attachment(
             for name, incoming in facts["fiscal"].items():
                 merged["fiscal"][name] = _retain_or_fill(merged["fiscal"][name], incoming)
         facts = merged
+    document_type, detected = _read_document_type(tx, event, draft, batch)
     after = BusinessFacts.model_validate(facts)
+    if document_type == "venta":
+        read_rnc = after.fiscal.rnc if after.fiscal is not None else None
+        after = typed_facts(
+            after,
+            "venta",
+            (source_id,),
+            "extracted" if detected else "owner_stated",
+            _business_tax_id(tx),
+        )
+        if isinstance(read_rnc, Known) and not isinstance(after.fiscal.rnc, Known):
+            logger.info("business_venta_issuer_rnc_cleared detected={}", detected)
+    require_venta_kind(document_type, after)
     return save_revision(
         tx,
         event,
@@ -441,26 +558,94 @@ def prepare_attachment(
         read_total,
         batch.ecf_checks,
         batch.dgii_qr,
+        _due_notice_mark(batch, bill=bill, booked_from_bill=booked_from_bill),
+        document_type=document_type,
+        document_type_detected=detected,
     )
 
 
+def _read_document_type(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    draft: DocumentDraft,
+    batch: ExtractionBatch,
+) -> tuple[DocumentType, bool]:
+    """The type the upload named wins. A later document on a draft keeps the
+    draft's type. Otherwise a document the business itself issued is a Venta:
+    the QR's issuer when there is one, else the RNC the read found."""
+
+    if draft.document_type is not None:
+        return draft.document_type, False
+    previous = event.resolution.get("business")
+    if previous is not None:
+        return previous.get("document_type", "recibo"), previous.get(
+            "document_type_detected", False
+        )
+    if batch.dgii_qr is not None:
+        issuer = batch.dgii_qr.rnc_emisor
+    else:
+        issuer = batch.receipt.rnc if batch.receipt is not None else None
+    detected = (
+        "recibo"
+        if issuer is None
+        else detected_document_type(issuer, _business_tax_id(tx))
+    )
+    logger.info(
+        "business_document_type_detected type={} issuer_from_qr={}",
+        detected,
+        batch.dgii_qr is not None,
+    )
+    return detected, True
+
+
+def _business_tax_id(tx: ActionTransaction) -> str | None:
+    [space] = tx.rows(
+        "select business_rnc from public.spaces where id=%s",
+        (tx.context.actor.space_id,),
+    )
+    return space["business_rnc"]
+
+
 KINDS = frozenset({"expense", "income", "transfer", "refund"})
+PAYABLE_BILL_MARK = "Factura por pagar"
+PAID_BILL_MARK = "Factura pagada"
+
+
+def _due_notice_mark(
+    batch: ExtractionBatch, *, bill: bool, booked_from_bill: bool
+) -> str | None:
+    """The mark on the one expense an NCF due notice books.
+
+    A normal paid purchase keeps its own merchant and gets no mark. Paying
+    the same due notice later replaces the payable mark on that record.
+    """
+
+    if not bill or batch.receipt is None:
+        return None
+    due = any(row.evidence == "due_notice" for row in batch.observations)
+    if not due and not booked_from_bill:
+        return None
+    if batch.receipt.payment_status == "paid":
+        return PAID_BILL_MARK
+    return PAYABLE_BILL_MARK
 
 
 def _read_refusal(batch: ExtractionBatch) -> str | None:
     """Why this read cannot become a draft, before its purchases are considered.
 
-    An unreadable file is terminal. A readable fiscal bill is not, even when
-    the read is incomplete or the rows are notices. No receipt object is not
-    a receipt. An incomplete receipt that is not a fiscal bill stays on the
-    retryable review.
+    An unreadable file is terminal. A readable fiscal bill is not. Any other
+    readable read with a positive amount and a currency is not: it becomes a
+    review draft and a person decides. A readable read with no such amount
+    and no receipt is not a receipt. An incomplete receipt that still has no
+    priced amount stays on the retryable review. A complete receipt still
+    reaches purchase handling.
     """
 
-    from argus.domain.ingestion.documents.extractor import ncf_bill
+    from argus.domain.ingestion.documents.extractor import ncf_bill, review_amount
 
     if batch.readable is not True:
         return "unreadable_document"
-    if ncf_bill(batch):
+    if ncf_bill(batch) or review_amount(batch) is not None:
         return None
     if batch.receipt is None:
         return "not_a_receipt"
@@ -475,6 +660,35 @@ def _notice_only(batch: ExtractionBatch) -> bool:
     if not batch.observations:
         return False
     return not any(row.evidence == "transaction" for row in batch.observations)
+
+
+def _review_purchase(priced) -> SimpleNamespace:  # noqa: ANN001
+    """One expense from a priced amount. The amount stays off the draft
+    until the review mark places it unverified."""
+
+    purchase = _bill_purchase(
+        ReceiptDetails(
+            merchant=priced.merchant,
+            occurred_on=priced.occurred_on,
+            currency=priced.currency,
+            total=priced.amount,
+        )
+    )
+    purchase.uncertain = frozenset(set(purchase.uncertain) | {"amount"})
+    return purchase
+
+
+def _mark_unverified_review(facts: dict, purchase: SimpleNamespace) -> dict:
+    """Publish the priced amount as a known value a person still has to review."""
+
+    amount = facts["amount"]
+    facts["amount"] = {
+        **amount,
+        "state": "known",
+        "value": purchase.amount,
+        "verified": False,
+    }
+    return facts
 
 
 def _bill_purchase(receipt: ReceiptDetails) -> SimpleNamespace:
@@ -557,6 +771,37 @@ def _consensus(purchases: list) -> SimpleNamespace:  # noqa: ANN001
         kind_hint=shared({_kind(c.kind_hint) for c in purchases}),
         uncertain=frozenset(uncertain),
     )
+
+
+def _fill_unknown_purchase(
+    values: dict, uncertain: set[str], batch: ExtractionBatch
+) -> None:
+    """A candidate that left the supplier or the currency unknown takes the receipt's.
+
+    The currency is the one every part of the read names, never a raw symbol.
+    A later merge still runs ``_retain_or_fill``, so a member or owner value stays.
+    """
+
+    from argus.domain.ingestion.documents.extractor import _agreed_currency
+
+    filled = []
+    merchant = batch.receipt.merchant if batch.receipt is not None else None
+    if (
+        values["counterparty"] is None
+        or "counterparty" in uncertain
+        or "merchant" in uncertain
+    ) and merchant:
+        values["counterparty"] = merchant
+        uncertain.discard("counterparty")
+        uncertain.discard("merchant")
+        filled.append("counterparty")
+    currency = _agreed_currency(batch) if batch.receipt is not None else None
+    if values["currency"] is None and currency:
+        values["currency"] = currency
+        uncertain.discard("currency")
+        filled.append("currency")
+    if filled:
+        logger.info("business.receipt_filled_purchase fields={}", filled)
 
 
 def _retain_or_fill(prior: dict, incoming: dict, *, currency: bool = False) -> dict:

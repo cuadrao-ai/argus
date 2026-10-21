@@ -29,19 +29,19 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
-import { getChosenGrant, grantNotLive, setChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
+import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
+import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
 import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
-import BusinessSidebarNav from "./BusinessSidebarNav";
+import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
 import BusinessSwitcher from "./BusinessSwitcher";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
 import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
 import BusinessBottomTabs from "./BusinessBottomTabs";
-import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
-import { Users } from "lucide-react";
+import { PhoneSearchButton } from "./foundation/BusinessPhoneHeader";
 import BusinessPanel from "./BusinessPanel";
 import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
@@ -75,6 +75,8 @@ type Records = {
   /** The captures list stops at the server's page size; older open notes are found through search. */
   notesTruncated: boolean;
   error: boolean;
+  closed?: boolean;
+  serverReference?: string | null;
 };
 
 export type BusinessContextValue = Readonly<{
@@ -89,6 +91,7 @@ export type BusinessContextValue = Readonly<{
   markAccessSeen: () => Promise<void>;
   /** The chosen grant stopped being live mid-session; the person is back in their own Business. */
   lostAccess: boolean;
+  clearLostAccess: () => void;
   revision: number;
   reload: () => void;
   period: Period;
@@ -140,6 +143,8 @@ const EMPTY_RECORDS: Records = {
   notesError: false,
   notesTruncated: false,
   error: false,
+  closed: false,
+  serverReference: null,
 };
 
 function shellViewFromSearch(params: URLSearchParams): ChatShellView {
@@ -209,6 +214,7 @@ function BusinessWorkspaceContent({
   const [spaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [accessRevision, setAccessRevision] = useState(0);
   const [lostAccess, setLostAccess] = useState(false);
+  const clearLostAccess = useCallback(() => setLostAccess(false), []);
   const chosen = useMemo(
     () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
     [spaces, chosenGrant],
@@ -224,6 +230,12 @@ function BusinessWorkspaceContent({
         if (grant && !listed.some((space) => space.grant_id === grant && space.role !== "owner")) {
           setChosenGrant(null);
           setLostAccess(true);
+        } else if (!grant) {
+          const sole = soleClientGrantId(listed);
+          if (sole) {
+            setChosenGrant(sole);
+            setRevision((value) => value + 1);
+          }
         }
       },
       () => { if (!cancelled) setSpaces((current) => current ?? []); },
@@ -276,7 +288,10 @@ function BusinessWorkspaceContent({
   }, [conversationId]);
 
   // One queue outlives the dialog: closing it never drops a running upload.
-  const [uploadQueue] = useState(() => new ReceiptUploadQueue(source.uploadReceipt, reload));
+  const [uploadQueue] = useState(() => new ReceiptUploadQueue(
+    (file, consent, key, documentType) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType)),
+    reload,
+  ));
   useLayoutEffect(() => {
     uploadQueue.setOnSaved((receipt, origin) => {
       reload();
@@ -301,24 +316,36 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     let cancelled = false;
     if (onRecord) return;
-    Promise.all([
+    runQuietRetries(() => Promise.all([
       source.workspace(),
       source.overview(period.from, period.to),
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
-    ])
+    ]))
       .then(([workspace, overview, page]) => {
-        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false }));
+        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        if (grantNotLive(error) && getChosenGrant()) {
-          // The grant stopped being live mid-session: back to the own Business, said so.
+        const kind = classifyFailure(error, { fetch: true });
+        if (kind === "removed" && getChosenGrant()) {
           setChosenGrant(null);
           setLostAccess(true);
           setRevision((value) => value + 1);
           return;
         }
-        setRecords((current) => ({ ...current, error: true }));
+        if (kind === "session_ended") {
+          window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
+          return;
+        }
+        if (kind === "closed") {
+          setRecords((current) => ({ ...current, error: false, closed: true, serverReference: null }));
+          return;
+        }
+        if (kind === "unavailable" || kind === "server") {
+          setRecords((current) => ({ ...current, error: false, closed: false, serverReference: referenceCode(error) }));
+          return;
+        }
+        setRecords((current) => ({ ...current, error: true, closed: false, serverReference: null }));
       });
     return () => {
       cancelled = true;
@@ -386,6 +413,7 @@ function BusinessWorkspaceContent({
       chooseBusiness,
       markAccessSeen,
       lostAccess,
+      clearLostAccess,
       revision,
       reload,
       period,
@@ -397,7 +425,7 @@ function BusinessWorkspaceContent({
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;
@@ -424,14 +452,15 @@ function BusinessWorkspaceContent({
       keyboardShortcuts,
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
-      sidebarHeader: (shell) => <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} />,
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarFooter: (shell) => <SidebarNavButton icon={Users} label={t("business_access.nav", "Access")} collapsed={shell.sidebarCollapsed} onClick={() => openPanel({ kind: "access" })} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
+      sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} /> : null,
       headerActions: (shell) => <>
-        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-sm text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
+        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-[16px] text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
-        {shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={false} onChoose={chooseBusiness} /> : null}
+        {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
       </>,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,

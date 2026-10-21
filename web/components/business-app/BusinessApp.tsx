@@ -6,6 +6,7 @@ import { isLeavingSession } from "@/lib/logout-flow";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ConversationShellGuard from "@/components/chat/ConversationShellGuard";
+import BusinessNamingProvider from "./BusinessNamingProvider";
 import ConversationUnavailableNotice from "./ConversationUnavailableNotice";
 import BusinessConsentGate from "./BusinessConsentGate";
 import { BusinessConsentTestProvider } from "./business-consent-context";
@@ -20,6 +21,12 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
     sample ? createFixtureBusinessDataSource(sample) : liveBusinessDataSource,
   );
   const [owner, setOwner] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.lang;
+    root.lang = "es";
+    return () => { root.lang = previous; };
+  }, []);
   useEffect(() => {
     if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
     const client = getSupabaseClient();
@@ -45,15 +52,17 @@ export default function BusinessApp({ sample }: { sample?: FixtureOptions }) {
   const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;
   const workspace = (
     <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
+      <BusinessNamingProvider>
       <ConversationShellGuard />
       <ConversationUnavailableNotice />
       <ChatInterface />
+      </BusinessNamingProvider>
     </BusinessWorkspaceProvider>
   );
   if (sample) return <BusinessConsentTestProvider accepted>{workspace}</BusinessConsentTestProvider>;
   if (!consentUserId) return workspace;
   return (
-    <BusinessConsentGate key={consentUserId} userId={consentUserId} source={source}>
+    <BusinessConsentGate key={consentUserId} source={source}>
       {workspace}
     </BusinessConsentGate>
   );

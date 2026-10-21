@@ -161,6 +161,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
     const target = button(name);
     assert.ok(target, `${name} is on the page`);
     await act(async () => target.click());
+    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((item) => item.textContent === name);
+    if (confirmation) await act(async () => confirmation.click());
     await settle(done);
   };
   return {
@@ -185,7 +187,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     assert.ok(next, "Aprobar y siguiente is shown");
     assert.ok(plain, "Aprobar stays");
     assert.ok(next.className.includes("border"), "Aprobar y siguiente is the secondary button");
-    assert.ok(plain.className.includes("bg-[var(--cuadrao-green)]"), "Aprobar is the green primary button");
+    assert.ok(plain.className.includes("bg-[#2f5a49]"), "Aprobar is the green primary button");
     await page.act(async () => page.root.unmount());
   });
 

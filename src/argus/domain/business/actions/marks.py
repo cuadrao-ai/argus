@@ -1,5 +1,6 @@
 """The marks a record carries, read one way for every view: Personal, who
-marked it when that was not the owner, the fiscal number and the 606 answer.
+marked it when that was not the owner, the fiscal number, the 606 answer and
+sin comprobante.
 Receipt lists, expense lists and the record itself all take them from here."""
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from argus.domain.business.contracts.facts import (
     fiscal_inclusion,
     fiscal_value,
     is_personal,
+    is_sin_comprobante,
 )
 
 # The people behind the latest revision that changed business_share (who
@@ -56,6 +58,7 @@ def record_marks(facts: BusinessFacts, row: dict[str, Any], owner_id: str) -> di
         "fiscal_value": fiscal_value(facts),
         "include_606": answer,
         "include_606_by": row.get("answer_name") if answer is not None else None,
+        "sin_comprobante": is_sin_comprobante(facts),
     }
 
 

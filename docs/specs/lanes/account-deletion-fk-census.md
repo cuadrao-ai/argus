@@ -167,6 +167,7 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `business_action_receipts.actor_id` | no | `auth.users` CASCADE |
 | `business_access_invites.issuer_id` | no | `auth.users` CASCADE |
 | `business_client_grants.grantee_id` | no | `auth.users` CASCADE |
+| `business_consent_acceptances.user_id` | no | `auth.users` CASCADE |
 | `business_email_deliveries.principal_id` | yes | `auth.users` CASCADE |
 | `business_email_routes.granted_by` | no | `auth.users` CASCADE |
 | `business_email_routes.principal_id` | no | `auth.users` CASCADE |
@@ -174,6 +175,8 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `business_receipt_consent_commands.owner_id` | no | `auth.users` CASCADE |
 | `business_receipt_read_states.person_id` | no | `auth.users` CASCADE |
 | `business_receipt_reading_consents.owner_id` | no | `auth.users` CASCADE |
+| `business_search_opens.user_id` | no | `auth.users` CASCADE |
+| `business_search_recents.user_id` | no | `auth.users` CASCADE |
 | `business_turns.actor_id` | no | `auth.users` CASCADE |
 | `chat_turn_lifecycles.user_id` | no | `profiles` CASCADE |
 | `collection_strategies.user_id` | no | `profiles` CASCADE |
@@ -427,7 +430,7 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_bank_accounts` | `account_id` | `financial_accounts` | NO ACTION | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | The binding does not follow the financial account. It goes with the Business space at step 7. Deleting the account while the binding exists is refused. |
 | `business_bank_accounts` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 | `business_bank_imports` | `bank_account_id, space_id` | `business_bank_accounts` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the bank binding, which goes with the space at step 7. |
-| `business_bank_imports` | `imported_by` | `auth.users` | NO ACTION | NO ACTION | no | Points straight at `auth.users`. The column is `not null`. | Catalog only. The probes had no rows here. | The upload does not follow the importer alone. The space cascade removes it at step 7. Deleting the importer while the upload remains is refused. |
+| `business_bank_imports` | `imported_by` | `auth.users` | SET NULL | NO ACTION | no | Points straight at `auth.users`. The column is nullable. | Catalog only. The probes had no rows here. | The upload stays and `imported_by` becomes null. The row still goes with the space at step 7. |
 | `business_bank_imports` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 | `business_bank_lines` | `bank_account_id, space_id` | `business_bank_accounts` | CASCADE | NO ACTION | no | No re-key in the first Business slice. Raw lines are immutable and have no delete API. | Catalog only. The probes had no rows here. | Goes with the bank binding at step 7. Do not rewrite a line onto another account. |
 | `business_bank_lines` | `first_import_id, space_id` | `business_bank_imports` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the first import, which goes with the space at step 7. |
@@ -438,6 +441,8 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_client_grants` | `grantee_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the named human grant when its grantee is deleted at step 7; do not transfer authority. |
 | `business_client_grants` | `issuer_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove the grant when its issuer is deleted at step 7; do not substitute an issuer. |
 | `business_client_grants` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove all client grants with the Business space at step 7. |
+| `business_consent_acceptances` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: an acceptance belongs to the actual person and the Business they worked in. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7; the person is asked again in their next Business. |
+| `business_consent_acceptances` | `user_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: an acceptance belongs to the actual person and the Business they worked in. | Catalog only. Household and guest probes had no rows here. | Goes with its actual person at step 7; do not transfer an acceptance to a placeholder. |
 | `business_draft_revisions` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the canonical import event; immutable revisions allow parent deletion. |
 | `business_draft_sources` | `draft_id, space_id` | `financial_import_events` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with the canonical import event; no orphaned draft-source relationship. |
 | `business_draft_sources` | `source_id, space_id` | `business_sources` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Goes with its source during step 2 or space deletion at step 7. |
@@ -450,6 +455,10 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_receipt_read_states` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
 | `business_receipt_reading_consents` | `owner_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | The consent generation goes with its actual owner at step 7; do not transfer consent to a placeholder. |
 | `business_receipt_reading_consents` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_search_opens` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_search_opens` | `user_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its actual member at step 7; do not transfer it to a placeholder. |
+| `business_search_recents` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_search_recents` | `user_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its actual member at step 7; do not transfer it to a placeholder. |
 | `business_sender_leases` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove worker ownership with the Business space at step 7. |
 | `business_sources` | `connection_id, space_id` | `financial_source_connections` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Existing step 2 source-connection deletion cascades attachments and answered questions before import events. Direct source deletion remains denied. |
 | `business_sources` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete message, web-action and other original evidence with its Business space at step 7; no retention exception. |
@@ -473,6 +482,10 @@ The October 12 email receiving migration adds ten foreign keys, all nondeferrabl
 | `business_email_routes` | `granted_by` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | The route goes with the member who bound it at step 7; receiving stops. |
 | `business_email_routes` | `principal_id` | `auth.users` | CASCADE | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is `not null`. | Catalog only. The probes had no rows here. | Goes with the Business owner at step 7. |
 | `business_email_routes` | `space_id, principal_id` | `spaces` | CASCADE | NO ACTION | no | Composite owner key, ON UPDATE NO ACTION, not deferrable: the route can never name an owner other than the space's creator. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
+| `business_email_retired_aliases` | `route_id` | `business_email_routes` | SET NULL | NO ACTION | no | No owner column. The column is nullable, so it can be set to null instead. | Catalog only. The probes had no rows here. | A retired address stays when its route is deleted and is not reused. |
+| `business_email_senders` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Sender rules go with the Business space at step 7. |
+| `business_email_address_events` | `actor_id` | `auth.users` | SET NULL | NO ACTION | no | Points straight at `auth.users`: a placeholder id must be a real `auth.users` row, or this key must change. The column is nullable, so it can be set to null instead. | Catalog only. The probes had no rows here. | None. The event stays with the Business. The actor id clears when that person is deleted. |
+| `business_email_address_events` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. The probes had no rows here. | Goes with the Business space at step 7. |
 
 ### Month close
 

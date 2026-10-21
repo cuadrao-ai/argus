@@ -19,6 +19,7 @@ mock.module("@/lib/supabase-client", () => ({
 mock.module("@/components/business-app/BusinessWorkspace", () => ({
   BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
 }));
+mock.module("@/components/business-app/BusinessNamingProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
 mock.module("@/components/chat/ChatInterface", () => ({
   default: () => <input aria-label="Business draft" defaultValue="" />,
 }));
@@ -32,7 +33,11 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
+let restoreConsent = () => {};
+let consentAsked = () => {};
+
 afterAll(() => {
+  restoreConsent();
   resetLeavingSession();
   GlobalRegistrator.unregister();
 });
@@ -45,6 +50,15 @@ async function mount() {
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
+  const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
+  const { consent } = liveBusinessDataSource;
+  restoreConsent = () => Object.assign(liveBusinessDataSource, { consent });
+  Object.assign(liveBusinessDataSource, {
+    consent: async (version: string) => {
+      consentAsked();
+      return { version, accepted_at: "2026-10-18T12:00:00.000Z" };
+    },
+  });
   const i18n = i18next.createInstance();
   await i18n.init({
     lng: "es-419",
@@ -60,9 +74,18 @@ async function mount() {
   return { act, host, root };
 }
 
+/** The consent gate hashes its copy off the main thread, which `act` cannot see, so wait for its check. */
+async function signIn(page: Awaited<ReturnType<typeof mount>>, id: string) {
+  const asked = new Promise<void>((resolve) => {
+    consentAsked = resolve;
+  });
+  await page.act(async () => listener("SIGNED_IN", { user: { id } }));
+  await page.act(() => asked);
+}
+
 test("an unexpected sign-out still shows the account-changed alert", async () => {
   const page = await mount();
-  await page.act(async () => listener("SIGNED_IN", { user: { id: "owner" } }));
+  await signIn(page, "owner");
   await page.act(async () => listener("SIGNED_OUT", null));
   assert.match(page.host.querySelector("[role=alert]")?.textContent ?? "", /Tu cuenta cambió/);
   await page.act(async () => page.root.unmount());
@@ -70,8 +93,8 @@ test("an unexpected sign-out still shows the account-changed alert", async () =>
 
 test("a different signed-in account does not show the account-changed alert", async () => {
   const page = await mount();
-  await page.act(async () => listener("SIGNED_IN", { user: { id: "owner" } }));
-  await page.act(async () => listener("SIGNED_IN", { user: { id: "other" } }));
+  await signIn(page, "owner");
+  await signIn(page, "other");
   assert.equal(page.host.querySelector("[role=alert]"), null);
   assert.notEqual(page.host.querySelector("input"), null);
   await page.act(async () => page.root.unmount());
@@ -79,7 +102,7 @@ test("a different signed-in account does not show the account-changed alert", as
 
 test("signing out of Business skips the account-changed alert and opens login", async () => {
   const page = await mount();
-  await page.act(async () => listener("SIGNED_IN", { user: { id: "owner" } }));
+  await signIn(page, "owner");
   const landed: string[] = [];
   await page.act(async () => {
     await leaveSession({

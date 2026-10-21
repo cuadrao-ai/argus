@@ -41,6 +41,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import (
     GrantImportStore,
@@ -50,6 +51,8 @@ from argus.domain.business.transactions import (
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
+
+SEARCH_MEMORY_PATH = "/api/v1/business/search/"
 
 
 def action_problem(request: Request, refusal: Refused) -> HTTPException:
@@ -68,6 +71,9 @@ def action_problem(request: Request, refusal: Refused) -> HTTPException:
         code=refusal.code,
         title=refusal.code.replace("_", " ").capitalize(),
         detail=refusal.code,
+        context={"existing_record_id": str(refusal.existing_record_id)}
+        if refusal.existing_record_id
+        else None,
         headers=NO_STORE,
     )
 
@@ -166,7 +172,12 @@ def bind_to_grant(documents, hub, actions, context, capability, action=None, key
     return scoped_documents, imports
 
 
-def _receipt_read_request(request) -> bool:
+def _needs_only_read(request) -> bool:
+    """A write that needs only ``read``: marking a receipt read, or the
+    member's own search memory."""
+
+    if request.url.path.startswith(SEARCH_MEMORY_PATH):
+        return True
     receipt_id = request.path_params.get("receipt_id")
     return bool(
         receipt_id
@@ -192,7 +203,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             if not scope.acting_as_owner:
                 needed = (
                     "read"
-                    if request.method == "GET" or _receipt_read_request(request)
+                    if request.method == "GET" or _needs_only_read(request)
                     else (
                         "approve" if request.url.path.endswith("/confirm") else "prepare"
                     )
@@ -246,7 +257,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         record = actions.record_context(context)
         capability = (
             "read"
-            if request.method == "GET" or _receipt_read_request(request)
+            if request.method == "GET" or _needs_only_read(request)
             else ("approve" if request.url.path.endswith("/confirm") else "prepare")
         )
         if capability not in record.capabilities:
@@ -403,10 +414,15 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         if "draft_id" in summary:
             out["draft_id"] = None
         return out
-    if not drafts or legacy == str(drafts[0]["id"]):
+    if not drafts:
         return summary
     row = drafts[0]
-    facts = BusinessResolution.model_validate(row["resolution"]["business"]).facts
+    resolution = BusinessResolution.model_validate(row["resolution"]["business"])
+    if legacy == str(row["id"]):
+        return (
+            {**summary, "due_on": resolution.due_on} if "due_on" in summary else summary
+        )
+    facts = resolution.facts
 
     def value(fact):  # noqa: ANN001, ANN202
         return fact.value if isinstance(fact, Known) else None
@@ -430,8 +446,15 @@ def draft_overlay(summary: dict, drafts: list[dict]) -> dict:
         if isinstance(funding, BusinessAccountFunding)
         else None,
         **row["marks"],
+        "document_type": resolution.document_type,
+        "document_type_detected": resolution.document_type_detected,
+        "document_type_editable": row["state"] == "open",
     }
-    for key, item in (("draft_id", str(row["id"])), ("version", row["version"])):
+    for key, item in (
+        ("draft_id", str(row["id"])),
+        ("version", row["version"]),
+        ("due_on", resolution.due_on),
+    ):
         if key in summary:
             out[key] = item
     out.update(
@@ -464,8 +487,17 @@ def bridged(context: BusinessContext, summaries: list[dict]) -> list[dict]:
         context.record_context.capabilities if context.record_context else ()
     )
     # The overlay names "personal" only for a receipt one draft owns: nothing else to mark.
+    # The same people set its document type while that draft is open.
     return [
-        {**view, "personal_editable": editable} if "personal" in view else view
+        {
+            **view,
+            **({"personal_editable": editable} if "personal" in view else {}),
+            **(
+                {"document_type_editable": editable}
+                if view.get("document_type_editable")
+                else {}
+            ),
+        }
         for view in views
     ]
 
@@ -605,16 +637,23 @@ def expense_detail(context: BusinessContext, expense_id: str) -> dict:
     return item
 
 
-def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
-    """The search result with its receipts overlaid and its expenses linked to
-    their receipts; accounts as found."""
+def search_with_drafts(
+    context: BusinessContext,
+    query: SearchQuery,
+    numbers: dict[str, tuple[str, ...]] | None = None,
+) -> dict:
+    """Every match, unpaged: receipts overlaid and email-flagged as the Bandeja
+    lists them, expenses and ventas linked to their receipts, accounts as found."""
 
-    receipts = context.service.receipts(context.scope)
+    from argus.api.routers.business import _email_flagged
+
+    receipts = _email_flagged(context, context.service.receipts(context.scope))
     views = {
         item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
     }
-    found = context.service.search(context.scope, q, limit, views)
+    found = context.service.search(context.scope, query, views, numbers)
     found["expenses"] = _with_records(context, found["expenses"])
+    found["ventas"] = _with_records(context, found["ventas"])
     return found
 
 

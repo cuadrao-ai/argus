@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 
 const baseline = process.env.CUADRAO_UPLOAD_BASELINE === "true";
 const evidence = process.env.CUADRAO_UPLOAD_EVIDENCE_DIR;
@@ -29,6 +29,7 @@ async function setup(page: Page, options: { enterable?: boolean; preparable?: bo
     if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso de prueba", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null } });
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (path === "email/deliveries" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [] } });
+    if (path === "consent") return fulfillAcceptedBusinessConsent(route);
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
   return state;
@@ -44,7 +45,7 @@ for (const width of [1280, 390]) {
     };
     await page.goto("/biz");
     const region = page.getByTestId("workspace-panel-region");
-    await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+    await expect(page.getByTestId("month-close-cards")).toBeVisible();
     await capture("overview");
     if (!baseline) {
       const upload = region.getByTestId("business-primary-upload");
@@ -109,7 +110,7 @@ for (const permissions of [{ enterable: false, preparable: false }, { enterable:
 test("English keeps existing canonical labels and accountant has no upload hero", async ({ page }) => {
   await setup(page, { language: "en", owner: false });
   await page.goto("/biz");
-  await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+  await expect(page.getByTestId("month-close-cards")).toBeVisible();
   await expect(page.getByTestId("business-primary-upload")).toHaveCount(0);
   await page.goto("/biz?view=inbox");
   const row = page.getByTestId("business-inbox-receipts").locator("li").first();

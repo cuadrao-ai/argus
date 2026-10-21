@@ -1,7 +1,8 @@
 # ruff: noqa: F811
 from datetime import datetime, timedelta
 
-from tests.business.test_business_api import Owner, alice, bob  # noqa: F401
+from tests.business.test_business_access_api import alice  # noqa: F401
+from tests.business.test_business_api import Owner, bob  # noqa: F401
 
 
 def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
@@ -19,7 +20,7 @@ def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
     assert first.json()["invite_delivery"] == "accepted"
     invite = first.json()["invites"][0]
     assert sent[0]["recipient"] == "contadora@example.test"
-    assert "Mi negocio" in sent[0]["subject"]
+    assert "Colmado La Esquina" in sent[0]["subject"]
     assert "Member" in sent[0]["subject"]
     assert "https://app.example.test/" in sent[0]["html"]
     assert "token" not in sent[0]["html"]

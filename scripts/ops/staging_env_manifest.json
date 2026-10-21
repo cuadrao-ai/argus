@@ -81,6 +81,11 @@
           "value": "false"
         },
         {
+          "name": "CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_DOCUMENT_EXTRACTION_ENABLED",
           "kind": "plain",
           "value": "true"
@@ -182,6 +187,11 @@
         },
         {
           "name": "ARGUS_IN_PLACE_CARD_EDITS_ENABLED",
+          "kind": "plain",
+          "value": "true"
+        },
+        {
+          "name": "ARGUS_PUBLIC_ACCOUNT_ACCESS_ENABLED",
           "kind": "plain",
           "value": "true"
         },

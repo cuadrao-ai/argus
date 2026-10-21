@@ -1,0 +1,14 @@
+{
+  "lines": [
+    "FICTITIOUS / SYNTHETIC",
+    "Synthetic Shop - Order confirmation",
+    "Ordered on 2026-10-10",
+    "Notebook                       USD 40.00",
+    "Estimated tax                  USD  3.20",
+    "Order total                    USD 43.20",
+    "Payment",
+    "Billing contact: Sample Buyer",
+    "Your order has been received."
+  ],
+  "license": "repository-authored synthetic fixture"
+}

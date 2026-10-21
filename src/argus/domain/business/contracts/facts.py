@@ -20,7 +20,8 @@ from pydantic.json_schema import SkipJsonSchema
 from typing_extensions import TypeAliasType
 
 from argus.domain.business.contracts.checks import DgiiQr, EcfVerification
-from argus.domain.business.contracts.dgii import DgiiDeclaration
+from argus.domain.business.contracts.dgii import DgiiDeclaration, PurchaseReview
+from argus.domain.business.document_type import DocumentType
 
 T = TypeVar("T")
 
@@ -238,6 +239,11 @@ class ReadPurchase(Contract):
 
 class BusinessResolution(Contract):
     schema_version: Literal[1] = 1
+    document_type: DocumentType = "recibo"
+    #: The read set the type because the upload named none; false once a person sets it.
+    document_type_detected: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
     facts: BusinessFacts
     dgii: DgiiDeclaration | None = None
     #: Empty for a single clean read. Several entries mean the read showed
@@ -249,8 +255,14 @@ class BusinessResolution(Contract):
     ecf_checks: EcfVerification | None = None
     #: The DGII QR the receipt carried, kept with the draft for the person to open.
     dgii_qr: DgiiQr | None = None
+    #: One NCF due notice is one expense. Unpaid it is marked payable. Paid,
+    #: the same record takes the paid mark. A later read does not open another.
+    bill_mark: Literal["Factura por pagar", "Factura pagada"] | None = None
     #: A person settled the read purchases this draft does not record.
     remainder_settled: bool = False
+    #: The due date a person set in review. None is unknown: never read from
+    #: the document and never defaulted.
+    due_on: date | None = Field(default=None, exclude_if=lambda value: value is None)
 
     def unrecorded_purchases(self) -> int:
         """Read purchases this draft's amount does not account for. One read
@@ -294,6 +306,15 @@ FactInput = TypeAliasType(
 )
 
 
+class UnknownInput(Contract):
+    state: Literal["unknown"]
+    value: None = None
+
+
+#: A due date a person states, or takes back to unknown.
+DueOnInput = Annotated[KnownInput[date] | UnknownInput, Field(discriminator="state")]
+
+
 def _patch_json_schema(schema: dict[str, Any]) -> None:
     schema["minProperties"] = 1
     for field in schema["properties"].values():
@@ -312,6 +333,9 @@ class BusinessFactPatch(Contract):
     business_share: FactInput[BusinessShare] | SkipJsonSchema[None] = None
     receipt_state: FactInput[ReceiptState] | SkipJsonSchema[None] = None
     category_id: FactInput[str] | SkipJsonSchema[None] = None
+    #: Human review only. Kept out of the model schema so a tax field never
+    #: becomes something the interpreter is asked to fill.
+    purchase: SkipJsonSchema[PurchaseReview | None] = None
 
     @model_serializer(mode="wrap")
     def serialize_patch(
@@ -378,6 +402,26 @@ def is_personal(facts: BusinessFacts) -> bool:
         isinstance(share, Known)
         and share.value.kind == "none"
         and share.origin in ("owner_stated", "member_set")
+    )
+
+
+#: Receipt states that say the record has no comprobante fiscal.
+NO_COMPROBANTE = frozenset({"informal_receipt", "no_receipt"})
+
+
+def is_sin_comprobante(facts: BusinessFacts) -> bool:
+    """Stated to have no comprobante fiscal, and no fiscal number on the draft.
+
+    The receipt state is the person's answer, never inferred from a missing
+    number. A draft that carries an NCF or an e-CF has a comprobante whatever
+    the state says.
+    """
+
+    state = facts.receipt_state
+    return (
+        isinstance(state, Known)
+        and state.value in NO_COMPROBANTE
+        and fiscal_value(facts) is None
     )
 
 

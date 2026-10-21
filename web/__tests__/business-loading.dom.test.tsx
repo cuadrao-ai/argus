@@ -43,7 +43,7 @@ describe("Business loading presentation", () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
     expect(view.host.querySelector("p")).toBeNull();
     const status = view.host.querySelector('[role="status"]');
-    expect(status?.textContent).toBe("Cargando");
+    expect(status?.textContent).toBe("Cargando...");
     expect(status?.getAttribute("aria-live")).toBe("polite");
     expect(view.host.querySelectorAll('[role="status"]').length).toBe(1);
     expect(view.host.textContent).not.toContain("Argus");

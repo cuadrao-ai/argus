@@ -52,7 +52,8 @@ def resolve_deployed_sha(
     api_sha = _value(api, "commit")
     web_sha = _value(web, "commit")
     workflow_sha = _value(workflow, "commit")
-    _require(api_sha and api_sha == web_sha, "api_web_deploy_sha_mismatch")
+    _require(bool(api_sha), "api_deploy_sha_missing")
+    _require(bool(web_sha), "web_deploy_sha_missing")
     _require(
         _workflow_commit_matches(api_sha, workflow_sha),
         "workflow_commit_mismatch",

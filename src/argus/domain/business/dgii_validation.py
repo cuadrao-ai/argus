@@ -13,7 +13,11 @@ from argus.domain.business.contracts.dgii import (
 )
 from argus.domain.business.contracts.facts import BusinessFacts, Known
 from argus.domain.business.dgii_columns import OPTIONAL_AMOUNTS, PAYMENT_BUCKETS
-from argus.domain.business.fiscal_identity import normalized_ncf, normalized_taxpayer_id
+from argus.domain.business.fiscal_identity import (
+    COUNTERPARTY_ID_LENGTH,
+    normalized_ncf,
+    normalized_taxpayer_id,
+)
 
 
 @dataclass(frozen=True)
@@ -66,7 +70,9 @@ def record_issues(
     def issue(code: str, field: str) -> None:
         issues.append({"code": code, "activity_id": record.activity_id, "field": field})
 
-    declaration = record.declaration
+    from argus.domain.business.dgii_line import confirmed_declaration
+
+    declaration = confirmed_declaration(record)
     if declaration is None:
         issue("fiscal_declaration_missing", "declaration")
         return issues
@@ -165,7 +171,7 @@ def record_issues(
         else fact_value(record, "rnc")
     )
     if not consumption:
-        expected = {"1": 9, "2": 11}.get(declaration.id_type)
+        expected = COUNTERPARTY_ID_LENGTH.get(declaration.id_type)
         if (
             identity is None
             or expected

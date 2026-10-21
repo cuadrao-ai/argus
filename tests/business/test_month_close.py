@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
-from datetime import date
+from dataclasses import replace
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -32,6 +33,7 @@ from argus.domain.business.month_close import (
     itbis_owed,
     month_period,
     net_result,
+    open_items,
     project_documents,
     read_fiscal,
     set_document_status,
@@ -184,6 +186,249 @@ def test_summary_matches_formato_totals_for_the_fixture_month():
     MonthClose.model_validate({"month": "2026-10", **summary})
 
 
+def test_a_receipt_with_an_unusable_fiscal_number_stays_out_of_expense():
+    start, end = month_period("2026-10")
+    good = document(
+        activity_id="receipt-good",
+        role="receipt",
+        total_minor=11800,
+        itbis_minor=1800,
+        ncf="B0100000001",
+        status="pagado",
+    )
+    bad = document(
+        activity_id="receipt-mistyped",
+        role="receipt",
+        ncf="B01-0001",
+        total_minor=5900,
+        itbis_minor=900,
+        status="pagado",
+    )
+    totals = formato_totals([good, bad], start, end)
+    summary = summarize([good, bad], start, end)
+    dop = next(block for block in summary["currencies"] if block["currency"] == "DOP")
+
+    assert totals["DOP"].expense_before_itbis == 10000
+    assert dop["expense_before_itbis_minor"] == 10000
+    assert summary["closed"] is False
+    assert {
+        "code": "missing_ncf",
+        "activity_id": "receipt-mistyped",
+        "document_kind": "receipt",
+    } in summary["reasons"]
+
+
+def test_a_sale_with_an_unusable_fiscal_number_keeps_the_month_open():
+    start, end = month_period("2026-10")
+    good = document(
+        activity_id="sale-good",
+        total_minor=11800,
+        itbis_minor=1800,
+        status="cobrado",
+    )
+    bad = document(
+        activity_id="sale-mistyped",
+        ncf="B01-0001",
+        total_minor=5900,
+        itbis_minor=900,
+        status="cobrado",
+    )
+    summary = summarize([good, bad], start, end)
+    dop = next(block for block in summary["currencies"] if block["currency"] == "DOP")
+
+    assert summary["closed"] is False
+    assert summary["reasons"] == [
+        {
+            "code": "missing_ncf",
+            "activity_id": "sale-mistyped",
+            "document_kind": "invoice",
+        }
+    ]
+    assert [item["activity_id"] for item in summary["missing_ncf"]] == ["sale-mistyped"]
+    assert dop["income_before_itbis_minor"] == 10000
+
+
+def test_credit_notes_subtract_the_declared_amount_and_the_itbis():
+    start, end = month_period("2026-10")
+    sale = document(
+        activity_id="sale",
+        total_minor=256000,
+        itbis_minor=18000,
+        declared_base_minor=200000,
+        ncf="B0100000001",
+        status="cobrado",
+    )
+    credit = document(
+        activity_id="credit",
+        total_minor=11800,
+        itbis_minor=1800,
+        declared_base_minor=10000,
+        ncf="B0400000001",
+        status="cobrado",
+    )
+    totals = formato_totals([sale, credit], start, end)
+    summary = summarize([sale, credit], start, end)
+    dop = next(block for block in summary["currencies"] if block["currency"] == "DOP")
+
+    assert totals["DOP"].income_before_itbis == 190000
+    assert totals["DOP"].itbis_charged == 16200
+    assert dop["by_status"]["invoices"]["cobrado"] == {
+        "count": 2,
+        "before_itbis_minor": 190000,
+    }
+    assert dop["income_before_itbis_minor"] == 190000
+    assert dop["itbis_charged_minor"] == 16200
+
+
+def test_a_personal_sale_is_not_607_income():
+    start, end = month_period("2026-10")
+    business = document(
+        activity_id="business-sale",
+        total_minor=11800,
+        itbis_minor=1800,
+        status="cobrado",
+    )
+    personal = document(
+        activity_id="personal-sale",
+        personal=True,
+        total_minor=59000,
+        itbis_minor=9000,
+        status="cobrado",
+    )
+    totals = formato_totals([business, personal], start, end)
+    summary = summarize([business, personal], start, end)
+
+    assert totals["DOP"].income_before_itbis == 10000
+    assert totals["DOP"].itbis_charged == 1800
+    assert summary["closed"] is True
+    assert "personal-sale" not in {
+        item["activity_id"] for item in summary["missing_ncf"] + summary["reasons"]
+    }
+
+
+def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
+    start, end = month_period("2026-10")
+    bought = document(
+        activity_id="cash-purchase",
+        role="receipt",
+        total_minor=50000,
+        itbis_minor=7627,
+        rnc=None,
+        ncf=None,
+        sin_comprobante=True,
+        status="pendiente",
+        settled_on=None,
+        payment_method=None,
+    )
+    sold = document(
+        activity_id="cash-sale",
+        total_minor=30000,
+        itbis_minor=4576,
+        rnc=None,
+        ncf=None,
+        sin_comprobante=True,
+    )
+    personal = document(
+        activity_id="personal-cash",
+        role="receipt",
+        total_minor=7000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        personal=True,
+        sin_comprobante=True,
+    )
+    fiscal = october()[2]
+    documents = [bought, sold, personal, fiscal]
+    totals = formato_totals(documents, start, end)["DOP"]
+    summary = summarize(documents, start, end)
+    [dop] = summary["currencies"]
+
+    # The purchase's 76.27 ITBIS cannot be credited: its whole 500.00 is cost and
+    # none of it is ITBIS paid. The sale's stated 45.76 ITBIS is charged.
+    assert (totals.income_before_itbis, totals.expense_before_itbis) == (25424, 52000)
+    assert (totals.itbis_charged, totals.itbis_paid) == (4576, 360)
+    assert (dop["income_before_itbis_minor"], dop["expense_before_itbis_minor"]) == (
+        25424,
+        52000,
+    )
+    assert dop["net_result_minor"] == -26576
+    assert dop["itbis_owed_minor"] == 4216
+    assert dop["by_status"]["receipts"]["pendiente"] == {
+        "count": 1,
+        "before_itbis_minor": 50000,
+    }
+    assert summary["closed"] is True
+    assert summary["reasons"] == []
+    assert summary["missing_rnc"] == summary["missing_ncf"] == []
+    [line] = summary["cuentas_por_pagar"]
+    assert (line["activity_id"], line["sin_comprobante"]) == ("cash-purchase", True)
+    assert (line["before_itbis_minor"], line["before_itbis"]) == (50000, "500.00")
+    unpaid_sale = replace(sold, status="pendiente", settled_on=None, payment_method=None)
+    [sale_line] = open_items([unpaid_sale])["cuentas_por_cobrar"]["items"]
+    assert (sale_line["before_itbis_minor"], sale_line["itbis_minor"]) == (25424, 4576)
+
+
+def test_a_purchase_with_a_comprobante_and_no_number_still_blocks_the_close():
+    start, end = month_period("2026-10")
+    missing = document(
+        activity_id="missing-number",
+        role="receipt",
+        total_minor=1000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        status="pagado",
+    )
+    stated = document(
+        activity_id="stated",
+        role="receipt",
+        total_minor=2000,
+        itbis_minor=None,
+        rnc=None,
+        ncf=None,
+        sin_comprobante=True,
+        status="pagado",
+    )
+    summary = summarize([missing, stated], start, end)
+    [dop] = summary["currencies"]
+
+    assert summary["closed"] is False
+    assert summary["reasons"] == [
+        {"code": "missing_rnc", "activity_id": "missing-number", "document_kind": "receipt"},
+        {"code": "missing_ncf", "activity_id": "missing-number", "document_kind": "receipt"},
+    ]
+    assert [line["activity_id"] for line in summary["missing_ncf"]] == ["missing-number"]
+    assert dop["expense_before_itbis_minor"] == 2000
+
+
+def _stated(receipt_state, **fiscal):
+    source = uuid4()
+
+    def known(value):
+        return Known(value=value, origin="member_set", source_ids=(source,))
+
+    facts = BusinessFacts(
+        kind=known("expense"),
+        receipt_state=known(receipt_state) if receipt_state else BusinessFacts().receipt_state,
+        fiscal=FiscalFacts(**{name: known(value) for name, value in fiscal.items()})
+        if fiscal
+        else None,
+    )
+    resolution = {"business": BusinessResolution(facts=facts).model_dump(mode="json")}
+    return read_fiscal(resolution, "DOP").sin_comprobante
+
+
+def test_sin_comprobante_is_the_stated_receipt_state_without_a_fiscal_number():
+    assert _stated("no_receipt") is True
+    assert _stated("informal_receipt") is True
+    assert _stated("fiscal_receipt") is False
+    assert _stated(None) is False
+    assert _stated("no_receipt", ncf="B0100000001") is False
+    assert _stated("no_receipt", ecf="E310000000001") is False
+    assert _stated("no_receipt", rnc="131000001") is True
+
+
 def test_pending_rolls_into_open_balances_and_missing_fiscal_data_keeps_the_month_open():
     start, end = month_period("2026-10")
     open_month = summarize(october(), start, end)
@@ -204,6 +449,145 @@ def test_pending_rolls_into_open_balances_and_missing_fiscal_data_keeps_the_mont
     assert closed["reasons"] == []
     assert [item["activity_id"] for item in closed["cuentas_por_cobrar"]] == ["sale-open"]
     assert closed["cuentas_por_pagar"] == []
+
+
+def pending(activity_id, role, day, **overrides):
+    return document(
+        activity_id=activity_id,
+        role=role,
+        occurred_on=day,
+        status="pendiente",
+        settled_on=None,
+        payment_method=None,
+        **overrides,
+    )
+
+
+def test_open_items_are_every_month_close_list_from_every_month_oldest_first():
+    documents = [
+        pending("oct-sale", "invoice", date(2026, 10, 2), total_minor=500),
+        pending("aug-sale", "invoice", date(2026, 8, 30), total_minor=700),
+        pending("sep-sale-b", "invoice", date(2026, 9, 16), total_minor=300),
+        pending("sep-sale-a", "invoice", date(2026, 9, 16), total_minor=200),
+        document(activity_id="sep-collected", occurred_on=date(2026, 9, 1)),
+        pending("sep-personal-sale", "invoice", date(2026, 9, 2), personal=True),
+        pending("oct-bill", "receipt", date(2026, 10, 5), total_minor=900),
+        pending("sep-bill", "receipt", date(2026, 9, 3), total_minor=100),
+        pending(
+            "sep-personal-kept",
+            "receipt",
+            date(2026, 9, 4),
+            personal=True,
+            include_606=True,
+            total_minor=50,
+        ),
+        pending(
+            "sep-personal-left",
+            "receipt",
+            date(2026, 9, 4),
+            personal=True,
+            include_606=False,
+        ),
+        document(
+            activity_id="sep-paid",
+            role="receipt",
+            status="pagado",
+            occurred_on=date(2026, 9, 9),
+        ),
+    ]
+    opened = open_items(documents)
+    cobrar, pagar = opened["cuentas_por_cobrar"], opened["cuentas_por_pagar"]
+    assert [item["activity_id"] for item in cobrar["items"]] == [
+        "aug-sale",
+        "sep-sale-a",
+        "sep-sale-b",
+        "oct-sale",
+    ]
+    assert [item["activity_id"] for item in pagar["items"]] == [
+        "sep-bill",
+        "sep-personal-kept",
+        "oct-bill",
+    ]
+    assert {item["status"] for item in cobrar["items"] + pagar["items"]} == {"pendiente"}
+    assert (cobrar["count"], pagar["count"]) == (4, 3)
+
+    def by_id(items):
+        return sorted(items, key=lambda item: item["activity_id"])
+
+    for key in ("cuentas_por_cobrar", "cuentas_por_pagar"):
+        by_month = []
+        for month in ("2026-08", "2026-09", "2026-10"):
+            by_month += summarize(documents, *month_period(month))[key]
+        assert by_id(opened[key]["items"]) == by_id(by_month)
+
+
+def test_the_cap_keeps_the_count_and_each_currency_total_of_every_pending_item():
+    documents = [
+        pending("sale-1", "invoice", date(2026, 9, 1), total_minor=1000),
+        pending("sale-2", "invoice", date(2026, 9, 2), total_minor=2000),
+        pending("sale-3", "invoice", date(2026, 9, 3), total_minor=4000),
+        pending("sale-usd", "invoice", date(2026, 9, 4), currency="USD", total_minor=150),
+    ]
+    cobrar = open_items(documents, cap=2)["cuentas_por_cobrar"]
+    assert [item["activity_id"] for item in cobrar["items"]] == ["sale-1", "sale-2"]
+    assert cobrar["count"] == 4
+    assert cobrar["totals"] == [
+        {"currency": "DOP", "total_minor": 7000, "total": "70.00"},
+        {"currency": "USD", "total_minor": 150, "total": "1.50"},
+    ]
+    assert open_items([])["cuentas_por_pagar"] == {"count": 0, "totals": [], "items": []}
+
+
+def test_the_documented_cap_shows_the_oldest_hundred():
+    days = [date(2026, 1, 1) + timedelta(days=index) for index in range(101)]
+    documents = [
+        pending(f"sale-{index:03}", "invoice", day, total_minor=1)
+        for index, day in enumerate(reversed(days))
+    ]
+    cobrar = open_items(documents)["cuentas_por_cobrar"]
+    assert len(cobrar["items"]) == 100
+    assert cobrar["count"] == 101
+    assert cobrar["totals"][0]["total_minor"] == 101
+    assert [item["occurred_on"] for item in cobrar["items"]] == [
+        day.isoformat() for day in days[:100]
+    ]
+
+
+def test_an_open_line_keeps_its_currency_parts_and_unknown_itbis_stays_null():
+    line = open_items(
+        [
+            pending(
+                "sale",
+                "invoice",
+                DAY,
+                currency="USD",
+                total_minor=11800,
+                itbis_minor=None,
+                counterparty="Cliente",
+                ncf=None,
+                ecf="E310000000001",
+            )
+        ]
+    )["cuentas_por_cobrar"]["items"][0]
+    assert line == {
+        "activity_id": "sale",
+        "document_kind": "invoice",
+        "currency": "USD",
+        "occurred_on": "2026-10-05",
+        "total_minor": 11800,
+        "total": "118.00",
+        "before_itbis_minor": 11800,
+        "before_itbis": "118.00",
+        "itbis_minor": None,
+        "itbis": None,
+        "counterparty": "Cliente",
+        "rnc": "131000001",
+        "ncf": None,
+        "ecf": "E310000000001",
+        "status": "pendiente",
+        "sin_comprobante": False,
+        "due_on": None,
+    }
 
 
 def test_an_empty_month_is_closed():
@@ -295,6 +679,7 @@ def test_a_draft_projects_onto_the_activity_and_a_transfer_stays_out():
         amount=known("118.00"),
         currency=known("DOP"),
         occurred_on=known(DAY),
+        counterparty=known("Ferretería"),
         funding=known(OwnerFunding()),
         business_share=known(WholeBusinessShare(kind="all")),
         fiscal=FiscalFacts(
@@ -305,12 +690,13 @@ def test_a_draft_projects_onto_the_activity_and_a_transfer_stays_out():
     )
     resolution = {"business": BusinessResolution(facts=facts).model_dump(mode="json")}
     parts = read_fiscal(resolution, "DOP")
-    assert (parts.rnc, parts.ncf, parts.itbis_minor, parts.personal) == (
-        "131000001",
-        "B0100000001",
-        1800,
-        False,
-    )
+    assert (
+        parts.rnc,
+        parts.ncf,
+        parts.itbis_minor,
+        parts.personal,
+        parts.counterparty,
+    ) == ("131000001", "B0100000001", 1800, False, "Ferretería")
     sale = {
         "activity_id": "sale",
         "kind": "income",
@@ -330,6 +716,7 @@ def test_a_draft_projects_onto_the_activity_and_a_transfer_stays_out():
     assert documents[0].status == "pendiente"
     assert documents[0].total_minor == 11800
     assert documents[0].itbis_minor == 1800
+    assert documents[0].counterparty == "Ferretería"
     assert read_fiscal({"business": {"schema_version": 1}}, "DOP").rnc is None
 
 

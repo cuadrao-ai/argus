@@ -95,6 +95,8 @@ export type ReceiptSummary = ReceiptReviewFields & {
   include_606_by?: string | null;
   /** The caller may mark or unmark it: anyone holding prepare, on a receipt that has a draft. */
   personal_editable?: boolean;
+  /** `venta` is an invoice this business already issued. Absent means a receipt. */
+  document_type?: "recibo" | "venta";
   filename: string | null;
   /** The sender's own words sent with the file (a WhatsApp caption), verbatim. */
   source_text?: string | null;
@@ -200,6 +202,13 @@ export async function approveBusinessDraft(draftId: string, version: number, ide
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify({ version, action: "record_expense" }),
   });
+}
+
+/** The draft an approval refused as a second copy of: `duplicate_comprobante` names it in `context.existing_record_id`. */
+export function duplicateRecordId(error: unknown): string | null {
+  const { code, context } = (error ?? {}) as { code?: unknown; context?: { existing_record_id?: unknown } | null };
+  const id = context?.existing_record_id;
+  return code === "duplicate_comprobante" && typeof id === "string" && id ? id : null;
 }
 
 /** The owner or a prepare-holder marks a receipt as personal (no part of it is the Business's) or takes the mark back. */
@@ -429,6 +438,21 @@ export async function markBusinessAccessSeen(grantId: string): Promise<void> {
   if (!response.ok) throw new Error(`API error ${response.status}`);
 }
 
+/** The person's acceptance of one wording of the consent screen, kept server side; null until accepted. */
+export type BusinessConsent = { version: string; accepted_at: string | null };
+
+export function getBusinessConsent(version: string): Promise<BusinessConsent> {
+  return apiFetch(`/business/consent?version=${encodeURIComponent(version)}`);
+}
+
+export function acceptBusinessConsent(version: string): Promise<BusinessConsent> {
+  return apiFetch("/business/consent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
+}
+
 export async function getBusinessWorkspace(): Promise<BusinessWorkspaceInfo> {
   return apiFetch("/business/workspace");
 }
@@ -483,10 +507,20 @@ export async function listBusinessExpenses(
   return page.items;
 }
 
+/** Retry-After as seconds or an HTTP date, in milliseconds from now; null when absent or unreadable. */
+export function retryAfterMs(header: string | null, now = Date.now()): number | null {
+  if (header === null || header.trim() === "") return null;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const at = Date.parse(header);
+  return Number.isNaN(at) ? null : Math.max(0, at - now);
+}
+
 export async function uploadBusinessReceipt(
   file: File,
   consentToPrepare: boolean,
   idempotencyKey: string,
+  documentType: "recibo" | "venta" = "recibo",
 ): Promise<ReceiptSummary> {
   const authHeaders = await authenticatedRequestHeaders();
   const headers = argusApiRequestHeaders(
@@ -494,6 +528,7 @@ export async function uploadBusinessReceipt(
       "Content-Type": file.type,
       "Idempotency-Key": idempotencyKey,
       "X-Document-Filename": encodeURIComponent(file.name),
+      ...(documentType === "venta" ? { "X-Document-Type": "venta" } : {}),
       ...(consentToPrepare ? { "X-Extraction-Consent": "true" } : {}),
     },
     authHeaders,
@@ -509,9 +544,11 @@ export async function uploadBusinessReceipt(
     const error = new Error(body.code ?? `API error ${response.status}`) as Error & {
       status: number;
       code: string;
+      retryAfterMs: number | null;
     };
     error.status = response.status;
     error.code = body.code ?? "unknown";
+    error.retryAfterMs = retryAfterMs(response.headers.get("Retry-After"));
     throw error;
   }
   return response.json() as Promise<ReceiptSummary>;

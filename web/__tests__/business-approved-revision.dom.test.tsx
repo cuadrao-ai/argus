@@ -75,7 +75,7 @@ async function mount() {
     await act(async () => target.click());
     await wait(done);
   };
-  const recorded = () => host.querySelector('[data-testid="receipt-review-fields"] [role="status"]')?.textContent ?? null;
+  const recorded = () => [...host.querySelectorAll('[data-testid="receipt-review-fields"] [role="status"]')].find((status) => status.textContent?.startsWith("Se registró un gasto"))?.textContent ?? null;
   const revision = () => [...host.querySelectorAll("header span")].map((item) => item.textContent).find((text) => text?.startsWith("Revisión")) ?? null;
   return { act, root, host, wait, click, recorded, revision, open: (draftId: string) => act(async () => api!.openPanel({ kind: "draft", draftId })) };
 }
@@ -88,11 +88,14 @@ describe("a recorded receipt names the revision that was approved", () => {
     await page.wait(() => [...page.host.querySelectorAll("button")].some((item) => item.textContent === "Aprobar"));
     const approve = [...page.host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === "Aprobar")!;
     await page.act(async () => approve.click());
+    const confirmation = [...document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')].find((button) => button.textContent === "Aprobar");
+    assert.ok(confirmation);
+    await page.act(async () => confirmation.click());
     await page.wait(() => page.recorded() !== null);
     assert.equal(page.recorded(), "Se registró un gasto tras aprobar la revisión 2.Registrado el 10 oct 2026");
 
-    await page.click('[data-testid="receipt-mark-personal"]', () => page.revision() === "Revisión 4");
-    assert.equal(page.revision(), "Revisión 4", "the header names the latest revision the mark added");
+    await page.click('[data-testid="receipt-mark-personal"]', () => page.host.querySelector('[data-testid="receipt-mark-personal"]')?.getAttribute("aria-pressed") === "true");
+    assert.equal(page.revision(), null, "the top block names no revision");
     assert.equal(page.recorded(), "Se registró un gasto tras aprobar la revisión 2.Registrado el 10 oct 2026");
     await page.act(async () => page.root.unmount());
   });

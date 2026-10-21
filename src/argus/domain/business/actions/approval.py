@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from loguru import logger
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.actions import dossier, mutations, plans
-from argus.domain.business.actions.facts import validate_facts
+from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
     refund_reference,
     require_distinct_fiscal_document,
@@ -29,12 +30,14 @@ from argus.domain.business.contracts.actions import (
     RefundApprovalCommand,
     Refused,
 )
+from argus.domain.business.contracts.dgii import PurchaseDeclaration
 from argus.domain.business.contracts.facts import (
     BusinessAccountFunding,
     BusinessFacts,
     Known,
     OwnerFunding,
 )
+from argus.domain.business.purchase_review import declaration_from_facts
 from argus.domain.business.transactions import ActionTransaction, transaction
 from argus.domain.ingestion.reconcile.model import ImportEvent
 from argus.domain.ingestion.reconcile.recording import _NOT_WRITTEN
@@ -59,6 +62,10 @@ def _reviewed_facts(
             first.code,
         )
     if not isinstance(view.facts.kind, Known) or view.facts.kind.value != kind:
+        raise ActionError("invalid_input", "activity_kind_unsupported")
+    if (event.resolution.get("business") or {}).get(
+        "document_type"
+    ) == "venta" and kind != "income":
         raise ActionError("invalid_input", "activity_kind_unsupported")
     validate_facts(tx, view.facts)
     require_distinct_fiscal_document(tx, event, view.facts)
@@ -94,6 +101,86 @@ def _money_request(
         else None,
         category_id=facts.category_id.value,
     )
+
+
+def _approval_declaration(
+    tx: ActionTransaction, event: ImportEvent, facts: BusinessFacts, stale: bool
+) -> PurchaseDeclaration | None:
+    """The 606 declaration an expense approval writes from its stored facts.
+
+    None when the draft holds a declaration a person saved: theirs wins. A
+    ``stale`` one, left by an approval whose money write failed, is rebuilt.
+    """
+
+    if (event.resolution.get("business") or {}).get("dgii") and not stale:
+        return None
+    if not isinstance(facts.kind, Known) or facts.kind.value != "expense":
+        return None
+    funding = facts.funding.value
+    paid_from = (
+        "owner_funds"
+        if isinstance(funding, OwnerFunding)
+        else next(
+            account.type
+            for account in dossier.record_context(tx).accounts
+            if account.id == funding.account_id
+        )
+    )
+    return declaration_from_facts(facts, paid_from)
+
+
+def _failed_approval_declaration(tx: ActionTransaction, event: ImportEvent) -> bool:
+    """Whether an open draft's declaration is the one its last approval built.
+
+    That approval wrote it as the revision at the version its claim took
+    (request version + 1); a person's saved declaration is never there.
+    """
+
+    dgii = (event.resolution.get("business") or {}).get("dgii")
+    pointer = event.resolution.get("approval_receipt")
+    if event.state != "open" or not dgii or not pointer:
+        return False
+    built = tx.rows(
+        "select r.after_dgii from public.business_action_receipts a"
+        " join public.business_draft_revisions r on r.space_id=a.space_id"
+        " and r.draft_id=%s and r.version=(a.command->'request'->>'version')::integer+1"
+        " where a.space_id=%s and a.actor_id::text=%s and a.idempotency_key=%s",
+        (event.id, tx.context.actor.space_id, pointer["actor_id"], pointer["key"]),
+    )
+    return bool(built) and built[0]["after_dgii"] == dgii
+
+
+def _clear_approval_declaration(
+    service: BusinessActions, context: ActionContext, draft_id: UUID
+) -> None:
+    """Clear, on the reopened draft, the declaration a failed approval built.
+
+    A failure here leaves it for the next approval to rebuild and never stops
+    the refusal from being stored.
+    """
+
+    try:
+        with transaction(service.authority, context, "approve") as tx:
+            event = tx.imports.event(str(draft_id))
+            if not _failed_approval_declaration(tx, event):
+                return
+            facts = facts_of(event)
+            mutations.save_revision(
+                tx,
+                replace(
+                    event,
+                    version=event.version + 1,
+                    updated_at=datetime.now(timezone.utc),
+                ),
+                facts,
+                facts,
+                (),
+                tx.authorization.provenance,
+                None,
+                clear_dgii=True,
+            )
+    except ActionError as error:
+        logger.warning("business.approval_declaration_not_cleared code={}", error.code)
 
 
 def reviewed_request(
@@ -185,9 +272,10 @@ def approve(
             else:
                 plans.start_receipt(tx, key, command)
                 try:
-                    event, _ = _reviewed_facts(tx, draft_id, request.version, kind)
+                    event, facts = _reviewed_facts(tx, draft_id, request.version, kind)
                 except ActionError as error:
                     return plans.finish_receipt(tx, key, error.result)
+                stale = _failed_approval_declaration(tx, event)
                 claim_key = hashlib.sha256(
                     f"{context.actor.actor_id}:{key}".encode()
                 ).hexdigest()
@@ -206,7 +294,24 @@ def approve(
                         },
                     },
                 )
-                tx.imports.put_event(event)
+                declared = _approval_declaration(tx, event, facts, stale)
+                if declared is None and not stale:
+                    tx.imports.put_event(event)
+                else:
+                    # Revisions are immutable, so the declaration is the approval's
+                    # own revision, at the version the accepting record takes.
+                    mutations.save_revision(
+                        tx,
+                        event,
+                        facts,
+                        facts,
+                        (),
+                        tx.authorization.provenance,
+                        None,
+                        dgii=declared,
+                        clear_dgii=declared is None,
+                    )
+                    event = tx.imports.event(str(draft_id))
                 plans.finish_receipt(
                     tx, key, OutcomeUnknown(code="business_recording_unsettled")
                 )
@@ -219,6 +324,7 @@ def approve(
                 scope=context.scope,
             )
         except _NOT_WRITTEN as error:
+            _clear_approval_declaration(service, context, draft_id)
             result = Refused(
                 outcome="invalid_input", code=getattr(error, "code", "activity_invalid")
             )

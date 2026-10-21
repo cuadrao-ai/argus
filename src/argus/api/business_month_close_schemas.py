@@ -80,9 +80,21 @@ class DocumentLine(_Wire):
     currency: str
     occurred_on: date
     total_minor: int
+    total: str
     before_itbis_minor: int
+    before_itbis: str
     itbis_minor: int | None
+    itbis: str | None
+    counterparty: str | None
+    rnc: str | None
+    ncf: str | None
+    ecf: str | None
     status: str
+    # Marked in review as having no comprobante fiscal: counted in the totals,
+    # left out of the 606 and 607, and never a missing RNC or NCF.
+    sin_comprobante: bool = False
+    # The due date set in review; null while unknown. Open items sort on it.
+    due_on: date | None
 
 
 class MonthClose(_Wire):
@@ -98,3 +110,20 @@ class MonthClose(_Wire):
     missing_ncf: list[DocumentLine]
     cuentas_por_cobrar: list[DocumentLine]
     cuentas_por_pagar: list[DocumentLine]
+
+
+class OpenTotal(_Wire):
+    currency: str
+    total_minor: int
+    total: str
+
+
+class OpenList(_Wire):
+    count: int
+    totals: list[OpenTotal]
+    items: list[DocumentLine]
+
+
+class OpenItems(_Wire):
+    cuentas_por_cobrar: OpenList
+    cuentas_por_pagar: OpenList

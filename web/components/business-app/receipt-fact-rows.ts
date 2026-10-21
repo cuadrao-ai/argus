@@ -71,6 +71,10 @@ export function factRows<K extends BusinessFactField | BusinessFiscalField>(
 
 export const RECORD_FIELDS: readonly BusinessFactField[] = ["kind", "counterparty", "occurred_on", "amount", "currency", "category_id", "funding", "business_share", "receipt_state"];
 
+/** Where the receipt detail shows each field: the activity card, then (after the fiscal card) the rest. */
+export const ACTIVITY_FIELDS: readonly BusinessFactField[] = ["occurred_on", "amount", "currency"];
+export const MORE_FIELDS: readonly BusinessFactField[] = ["category_id", "counterparty", "kind", "funding", "business_share", "receipt_state"];
+
 /**
  * What the page says about completeness, in the same numbers the rows show:
  * suggestions waiting on a person; "missing" is every row with no value that

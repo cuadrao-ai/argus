@@ -121,6 +121,16 @@ test("a receipt row has exactly one marker and the badge uses server count", asy
   assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }, { status: "queued", read_pending: true }] }), 1);
 });
 
+test("a venta row shows the Venta badge and a receipt row does not", async () => {
+  const detail = await receipt();
+  const render = (row: ReceiptDetail) => renderToStaticMarkup(<I18nextProvider i18n={i18n}><ReceiptRow receipt={row} onOpen={() => {}} /></I18nextProvider>);
+  const sale = render({ ...detail, document_type: "venta" });
+  assert.ok(sale.includes('data-testid="inbox-venta"'));
+  assert.ok(sale.includes("Venta"));
+  const purchase = render({ ...detail, document_type: "recibo" });
+  assert.ok(!purchase.includes("inbox-venta"));
+});
+
 test("opening or old hydration does not mark seen; focused visible hydrated content does", async () => {
   const detail = await receipt();
   let marked = 0;
@@ -145,6 +155,17 @@ test("opening or old hydration does not mark seen; focused visible hydrated cont
   await act(async () => page.root.unmount());
 });
 
+
+test("an unpaid NCF due notice shows Factura por pagar on the dossier", async () => {
+  const fixture = createFixtureBusinessDataSource();
+  const marked = { ...await fixture.dossier(dossierFixtureIds.ready), bill_mark: "Factura por pagar" as const };
+  const detail = { ...await receipt(), draft_id: marked.draft_id, version: marked.version };
+  const source: BusinessDataSource = { ...fixture, dossier: async () => marked };
+  const page = await host();
+  await act(async () => page.root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context(source, () => {})}><ReceiptDossierReview draftId={marked.draft_id} receipt={detail} /></BusinessContext.Provider></I18nextProvider>));
+  assert.equal(page.element.querySelector('[data-testid="bill-mark"]')?.textContent, "Factura por pagar");
+  await act(async () => page.root.unmount());
+});
 
 test("old dossier hydration cannot consume a newer receipt completion", async () => {
   hidden = false; focused = true;

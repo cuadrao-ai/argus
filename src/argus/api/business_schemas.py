@@ -6,12 +6,21 @@ from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+)
 
 from argus.api.schemas import Language
 from argus.domain.business.contracts.dossier import RecordContext
+from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import Attention
+from argus.domain.business.search import SearchKind
 from argus.domain.business.spaces import MAX_NAME_LENGTH
+from argus.domain.financial_search import query_text
 from argus.domain.ingestion.receipt_review import ReceiptStatus
 
 ExpenseAccountType = Literal["cash", "checking", "savings", "credit_card"]
@@ -30,6 +39,23 @@ SpaceName = Annotated[
 class BusinessSpaceInfo(_Wire):
     id: str
     name: str
+
+
+class BusinessNamingState(BusinessSpaceInfo):
+    name_required: bool
+    name_prompt_seen: bool
+
+
+class BusinessNamePrompt(BusinessNamingState):
+    show_prompt: bool
+
+
+class BusinessNameTarget(_Wire):
+    space_id: UUID
+
+
+class SaveBusinessName(BusinessNameTarget):
+    name: SpaceName
 
 
 class GrantedSpaceInfo(_Wire):
@@ -57,6 +83,21 @@ class StartBusinessSpace(_Wire):
 
 class RenameBusinessSpace(_Wire):
     name: SpaceName
+
+
+#: Names one wording of the Business consent screen; the web derives it from the copy.
+ConsentVersion = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{16}$")]
+
+
+class AcceptBusinessConsent(_Wire):
+    version: ConsentVersion
+
+
+class BusinessConsent(_Wire):
+    """The caller's acceptance of one wording; ``accepted_at`` is null until then."""
+
+    version: ConsentVersion
+    accepted_at: datetime | None
 
 
 class BusinessAccount(_Wire):
@@ -124,14 +165,17 @@ class ReceiptActivity(_Wire):
 
 
 class ReceiptActivityCounts(_Wire):
+    # Receipts being read, plus emails still being read with nothing saved yet.
     reading_count: int
     # New activity this person has not opened: the badge's dot, not its number.
     unread_count: int
     presentation: Literal["working", "unread", "none"]
     # Every row the Bandeja lists, opened or not: receipts not yet saved or
-    # dismissed (never the email itself) and notes no receipt carries.
+    # dismissed (never the email itself), notes no receipt carries and each
+    # email that is a row of its own (being read, or brought no receipt).
     pending_review_count: int
-    # Of those receipts, how many need the person's attention.
+    # Of those rows, how many need the person's attention; an email that
+    # brought no receipt always does, an email being read does not.
     needs_attention_count: int
 
 
@@ -177,6 +221,15 @@ class ReceiptSummary(_Wire):
     # The whole message of an email whose attachment is already a receipt. It
     # cannot be prepared or approved; its attachment is the receipt.
     email_original: bool = False
+    document_type: DocumentType = "recibo"
+    # The read set the type because the upload named none.
+    document_type_detected: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
+    # The caller may change the type now: its draft is open and they hold prepare.
+    document_type_editable: bool = Field(
+        default=False, exclude_if=lambda value: value is False
+    )
     expense_id: str | None
     merchant: str | None
     occurred_on: str | None
@@ -203,6 +256,8 @@ class ReceiptSummary(_Wire):
     include_606_by: str | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    # Marked in review as having no comprobante fiscal; absent otherwise.
+    sin_comprobante: bool = Field(default=False, exclude_if=lambda value: value is False)
     # Whether the caller may mark or unmark it: anyone holding prepare.
     personal_editable: bool = Field(
         default=False, exclude_if=lambda value: value is False
@@ -236,6 +291,8 @@ class ReceiptDetail(ReceiptSummary):
     version: int
     evidence: ReceiptEvidence | None
     missing_fields: list[ReviewField]
+    # The due date its draft holds; null while unknown or without a draft.
+    due_on: date | None = None
 
 
 class ReceiptPage(_Wire):
@@ -281,6 +338,7 @@ class BusinessExpense(_Wire):
     include_606_by: str | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    sin_comprobante: bool = Field(default=False, exclude_if=lambda value: value is False)
 
 
 class ExpenseDetail(BusinessExpense):
@@ -344,9 +402,78 @@ class UpdatePage(_Wire):
     items: list[BusinessUpdate]
 
 
+class EmailDeliveryHit(_Wire):
+    """One email delivery; ``/business/email/deliveries/{id}`` opens it."""
+
+    id: str
+    sender: str | None
+    subject: str | None
+    received_at: datetime
+    state: Literal["received", "processing", "partial", "captured", "rejected"]
+    inbox_group: Literal["bandeja", "remitentes_nuevos"] | None
+
+
+class EmailSenderHit(_Wire):
+    """One sender rule, as ``/business/email/senders`` lists it."""
+
+    id: str
+    kind: Literal["address", "domain"]
+    value: str
+    status: Literal["authorized", "blocked"]
+
+
+class SearchCursors(_Wire):
+    """Per list, the cursor to its next page; null when it has no more."""
+
+    expenses: str | None
+    ventas: str | None
+    receipts: str | None
+    accounts: str | None
+    email_deliveries: str | None
+    email_senders: str | None
+
+
 class BusinessSearch(_Wire):
-    """Each list is capped at the request's ``limit``; nothing is paged."""
+    """A page of each list, or only of the ``kind`` asked for."""
 
     expenses: list[BusinessExpense]
+    # Saved ventas (income); ``merchant`` is the client, as on a venta's receipt.
+    ventas: list[BusinessExpense]
     receipts: list[ReceiptSummary]
     accounts: list[BusinessAccount]
+    email_deliveries: list[EmailDeliveryHit]
+    email_senders: list[EmailSenderHit]
+    next_cursors: SearchCursors
+
+
+def _searchable(value: str) -> str:
+    if not query_text(value):
+        raise ValueError("a search needs a letter, a digit or a sign")
+    return value
+
+
+class RememberSearch(_Wire):
+    q: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+        AfterValidator(_searchable),
+    ]
+
+
+class RecentSearch(_Wire):
+    id: str
+    q: str
+    searched_at: datetime
+
+
+class RecentSearches(_Wire):
+    """The member's newest distinct searches in this Business, newest first."""
+
+    items: list[RecentSearch]
+
+
+class OpenSearchResult(_Wire):
+    """A record the member opened from a search result."""
+
+    kind: SearchKind
+    id: UUID

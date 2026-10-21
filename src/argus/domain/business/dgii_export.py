@@ -15,8 +15,13 @@ from argus.domain.business.contracts.dgii import (
     amount_or_zero,
     money_text,
 )
-from argus.domain.business.contracts.facts import Known
+from argus.domain.business.contracts.facts import is_sin_comprobante
 from argus.domain.business.dgii_columns import COLUMNS, OPTIONAL_AMOUNTS
+from argus.domain.business.dgii_line import (
+    confirmed_declaration,
+    hard_rejects,
+    line_review,
+)
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
     fact_value,
@@ -29,6 +34,7 @@ from argus.domain.business.fiscal_identity import (
     normalized_ncf,
     normalized_taxpayer_id,
 )
+from argus.domain.business.rnc_registry import RncRegistry, UnknownRncRegistry
 
 
 @dataclass(frozen=True)
@@ -38,7 +44,7 @@ class FiscalPacket:
 
 
 def _row(record: FiscalRecord) -> tuple[str, ...]:
-    declaration = record.declaration
+    declaration = confirmed_declaration(record)
     values = declaration.model_dump()
     values.update(
         rnc=normalized_taxpayer_id(fact_value(record, "rnc"))
@@ -152,9 +158,13 @@ def build_fiscal_packet(
     start: date,
     end: date,
     captured_on: date,
+    registry: RncRegistry | None = None,
 ) -> FiscalPacket:
+    registry = registry or UnknownRncRegistry()
     rows: dict[str, list[tuple[str, ...]]] = {"606": [], "607": []}
     issues = []
+    warnings = []
+    checks = []
     bridge = []
     originals = {record.activity_id: record for record in records}
     selected = [record for record in records if start <= record.occurred_on <= end]
@@ -199,6 +209,11 @@ def build_fiscal_packet(
         for record in selected
         if fact_value(record, "ecf") or fact_value(record, "ncf")
     )
+
+    def collect(subject: FiscalRecord) -> list[dict]:
+        found = record_issues(subject, originals, filer_identity=rnc, period_end=end)
+        return found + hard_rejects(subject, registry)
+
     for record in selected:
         gross = Decimal(record.amount)
         item = {
@@ -214,11 +229,18 @@ def build_fiscal_packet(
             "reason": None,
         }
         bridge.append(item)
+        if isinstance(record.declaration, PurchaseDeclaration):
+            check, line_warnings = line_review(record, registry)
+            checks.append(check)
+            item["rnc_check_status"] = check["status"]
+            warnings.extend(line_warnings)
+
         if record.currency != "DOP":
+            if is_sin_comprobante(record.facts):
+                item.update(disposition="excluded", reason="no_fiscal_number")
+                continue
             item["reason"] = "fiscal_conversion_required"
-            issues.extend(
-                record_issues(record, originals, filer_identity=rnc, period_end=end)
-            )
+            issues.extend(collect(record))
             continue
         if record.kind == "expense":
             totals["purchase_invoice_gross"] += gross
@@ -231,11 +253,7 @@ def build_fiscal_packet(
             continue
         ncf = fact_value(record, "ecf") or fact_value(record, "ncf")
         if not ncf:
-            receipt = record.facts.receipt_state
-            if isinstance(receipt, Known) and receipt.value in {
-                "informal_receipt",
-                "no_receipt",
-            }:
+            if is_sin_comprobante(record.facts):
                 item.update(disposition="excluded", reason="no_fiscal_number")
             else:
                 item["reason"] = "fiscal_fact_required"
@@ -252,7 +270,7 @@ def build_fiscal_packet(
                 disposition="excluded", reason="b02_purchase_not_reportable_in_606"
             )
             continue
-        errors = record_issues(record, originals, filer_identity=rnc, period_end=end)
+        errors = collect(record)
         if occurrences[identity(record)] > 1:
             errors.append(
                 {
@@ -372,6 +390,8 @@ def build_fiscal_packet(
         "reconciliation_complete": not issues,
         "totals_complete": not issues,
         "issues": issues,
+        "warnings": warnings,
+        "rnc_checks": checks,
         "physical_format": {
             "encoding": "ASCII",
             "newline": "CRLF",

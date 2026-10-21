@@ -38,6 +38,7 @@ export default function AdaptivePanel({
   onBack,
   backLabel,
   closeLabel,
+  dismissible = true,
   width = "sm",
   desktopMaxHeight = "max-h-[85vh]",
   footer,
@@ -51,6 +52,7 @@ export default function AdaptivePanel({
   onBack?: () => void;
   backLabel?: string;
   closeLabel: string;
+  dismissible?: boolean;
   width?: AdaptivePanelWidth;
   desktopMaxHeight?: string;
   footer?: ReactNode;
@@ -89,6 +91,7 @@ export default function AdaptivePanel({
       <BottomSheet
         isOpen
         onClose={onClose}
+        dismissible={dismissible}
         title={title}
         closeLabel={closeLabel}
         height="auto"
@@ -101,7 +104,7 @@ export default function AdaptivePanel({
     );
   }
 
-  return <DesktopDialog {...{ title, titleId, overlayId, panelRef, onClose, closeLabel, width, desktopMaxHeight, footer, returnFocusRef, initialFocusRef, back, children }} />;
+  return <DesktopDialog {...{ title, titleId, overlayId, panelRef, onClose, closeLabel, dismissible, width, desktopMaxHeight, footer, returnFocusRef, initialFocusRef, back, children }} />;
 }
 
 function DesktopDialogSurface({
@@ -111,6 +114,7 @@ function DesktopDialogSurface({
   panelRef,
   onClose,
   closeLabel,
+  dismissible,
   width,
   desktopMaxHeight,
   footer,
@@ -125,6 +129,7 @@ function DesktopDialogSurface({
   panelRef: React.RefObject<HTMLDivElement | null>;
   onClose: () => void;
   closeLabel: string;
+  dismissible: boolean;
   width: AdaptivePanelWidth;
   desktopMaxHeight: string;
   footer?: ReactNode;
@@ -140,7 +145,8 @@ function DesktopDialogSurface({
     // backdrop, which is a pointer affordance and never a tab stop.
     containerRef: panelRef,
     onDismiss: onClose,
-    onEscape: onClose,
+    canDismiss: () => dismissible,
+    onEscape: dismissible ? onClose : () => {},
     returnFocusRef,
     initialFocusRef,
   });
@@ -151,7 +157,7 @@ function DesktopDialogSurface({
         type="button"
         tabIndex={-1}
         className="absolute inset-0"
-        onClick={onClose}
+        onClick={dismissible ? onClose : undefined}
         aria-label={closeLabel}
       />
       <div
@@ -168,14 +174,14 @@ function DesktopDialogSurface({
           >
             {title}
           </h2>
-          <button
+          {dismissible ? <button
             type="button"
             onClick={onClose}
             aria-label={closeLabel}
             className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-black/45 transition-colors hover:bg-black/5 hover:text-black dark:text-white/45 dark:hover:bg-white/10 dark:hover:text-white"
           >
             <X className="h-4 w-4" />
-          </button>
+          </button> : null}
         </div>
         {back}
         <div className="argus-thin-scrollbar min-h-0 flex-1 overflow-y-auto">

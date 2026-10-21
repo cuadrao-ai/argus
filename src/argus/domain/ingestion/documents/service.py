@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
 
+from argus.domain.business.document_type import DocumentType
 from argus.domain.ingestion.connections import (
     LIVE,
     ConnectionNotFound,
@@ -57,6 +58,7 @@ def owner_entry_id(sha256: str) -> str:
 
 
 def owner_purchase(draft: DocumentDraft, now: datetime) -> ImportCandidate:
+    venta = draft.document_type == "venta"
     return ImportCandidate(
         source=SourceRef(
             source="statement",
@@ -65,8 +67,8 @@ def owner_purchase(draft: DocumentDraft, now: datetime) -> ImportCandidate:
             observed_at=now,
         ),
         evidence="transaction",
-        direction="outflow",
-        kind_hint="expense",
+        direction="inflow" if venta else "outflow",
+        kind_hint="income" if venta else "expense",
         uncertain=frozenset({"amount", "currency", "occurred_on"}),
     )
 
@@ -304,6 +306,7 @@ class DocumentsService:
         scope: OwnerScope,
         on_capture: CaptureHook | None = None,
         context_only: bool = False,
+        document_type: DocumentType | None = None,
     ) -> DocumentOutcome:
         consent_id = None
         if space_id(scope) is not None:
@@ -326,6 +329,7 @@ class DocumentsService:
                     scope=scope,
                     on_capture=on_capture,
                     consent_id=consent_id,
+                    document_type=document_type,
                 )
             except BaseException as error:
                 # SystemExit/KeyboardInterrupt must travel as data: raising
@@ -366,6 +370,7 @@ class DocumentsService:
         scope: OwnerScope,
         on_capture: CaptureHook | None,
         consent_id: str | None = None,
+        document_type: DocumentType | None = None,
     ) -> DocumentOutcome:
         validate_source(content, media_type)
         digest = hashlib.sha256(content).hexdigest()
@@ -385,6 +390,14 @@ class DocumentsService:
                 raise DocumentServiceError("document_unavailable") from None
             connection = self._connection(user_id, error.existing_id, scope=scope)
             replayed = True
+            stored = self.store.draft(user_id=user_id, connection_id=connection.id)
+            if (
+                document_type is not None
+                and stored is not None
+                and stored.document_type is not None
+                and stored.document_type != document_type
+            ):
+                raise DocumentServiceError("document_type_conflict") from None
         draft = DocumentDraft(
             connection_id=connection.id,
             filename=stored_filename(filename),
@@ -395,6 +408,7 @@ class DocumentsService:
             consent=consent,
             business_reading_consent_id=consent_id,
             source_text=source_text,
+            document_type=document_type,
             status="queued" if consent else "saved",
             created_at=self.hub.clock(),
             updated_at=self.hub.clock(),
@@ -572,7 +586,12 @@ class DocumentsService:
                 queued_only=True,
                 scope=scope,
             )
-        except Exception:
+        except Exception as error:
+            logger.warning(
+                "document_prepare_failed failure_mode={} connection_id={}",
+                type(error).__name__,
+                connection_id,
+            )
             return
 
     async def resume(

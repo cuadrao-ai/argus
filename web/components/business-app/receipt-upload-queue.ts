@@ -1,7 +1,8 @@
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
+import { classifyFailure, type FailureClass } from "@/lib/failure-screen";
 import { randomId } from "@/lib/random-id";
 import { receiptFileWithType } from "./receipt-file";
-import { nextWaitingUpload, runFifo } from "./receipt-upload-fifo";
+import { nextWaitingUpload, runFifo, waitingUploads } from "./receipt-upload-fifo";
 
 /** Where a captured receipt goes next: its review, or the composer. */
 export type IntakeTarget = "inbox" | "composer";
@@ -17,12 +18,25 @@ export function composerUploadDisposition(origin: UploadOrigin, current: { conve
 
 export type ReceiptUpload = UploadFile & (
   | { status: "queued" }
-  | { status: "uploading" | "failed"; consent: boolean }
-  | { status: "saved"; consent: boolean; receipt: ReceiptSummary }
+  | { status: "uploading"; consent: boolean; documentType: DocumentType }
+  | { status: "failed"; consent: boolean; documentType: DocumentType; failure: FailureClass }
+  | { status: "saved"; consent: boolean; documentType: DocumentType; receipt: ReceiptSummary }
   | { status: "rejected"; reason: UploadRejection }
 );
 
-type Upload = (file: File, consent: boolean, key: string) => Promise<ReceiptSummary>;
+export type DocumentType = "recibo" | "venta";
+type Upload = (file: File, consent: boolean, key: string, documentType: DocumentType) => Promise<ReceiptSummary>;
+/** Where the file stands in the running drain: "Subiendo 6 de 9". */
+export type UploadProgress = { target: IntakeTarget; position: number; total: number };
+
+/** The wait after a 429 that names no Retry-After. */
+const UPLOAD_LIMIT_FALLBACK_MS = 5_000;
+
+function limitedFor(error: unknown): number | null {
+  if (!(error instanceof Error) || !("status" in error) || error.status !== 429) return null;
+  const after = "retryAfterMs" in error ? error.retryAfterMs : null;
+  return typeof after === "number" ? after : UPLOAD_LIMIT_FALLBACK_MS;
+}
 export const isUnfinishedUpload = (item: ReceiptUpload) =>
   item.status === "queued" || item.status === "uploading" || item.status === "failed";
 
@@ -37,12 +51,14 @@ function rejectionFor(file: File, limits: ReceiptLimits): UploadRejection | null
 /**
  * Owned by one mounted business workspace, including while its dialog is
  * hidden. Each file keeps one upload key, so a retry never saves it twice,
- * and one file's failure never blocks its siblings.
+ * and one file's failure never blocks its siblings. The upload limit (429)
+ * is not a failure: the drain waits out Retry-After and sends the same file again.
  */
 export class ReceiptUploadQueue {
   private items: readonly ReceiptUpload[] = [];
   private listeners = new Set<() => void>();
   private running = false;
+  private current: UploadProgress | null = null;
 
   constructor(private upload: Upload, private onSaved: (receipt: ReceiptSummary, origin: UploadOrigin) => void) {}
 
@@ -54,6 +70,7 @@ export class ReceiptUploadQueue {
     return () => { this.listeners.delete(listener); };
   };
   get uploading() { return this.running; }
+  get progress() { return this.current; }
   get unfinished() { return this.items.some(isUnfinishedUpload); }
 
   private publish(items: readonly ReceiptUpload[]) {
@@ -102,7 +119,7 @@ export class ReceiptUploadQueue {
     if (!this.running) this.publish(this.items.filter((item) => item.target !== target));
   }
 
-  async save(target: IntakeTarget, consent: boolean, onlyKey?: string) {
+  async save(target: IntakeTarget, consent: boolean, onlyKey?: string, documentType: DocumentType = "recibo") {
     if (this.running) return;
     this.running = true;
     const presentAtStart = new Set(this.items.map((item) => item.key));
@@ -114,17 +131,25 @@ export class ReceiptUploadQueue {
         () => nextWaitingUpload(this.items, target, attempted, seeded, presentAtStart),
         async (item) => {
           attempted.add(item.key);
+          const remaining = waitingUploads(this.items, target, attempted, seeded, presentAtStart).length;
+          this.current = { target, position: attempted.size, total: attempted.size + remaining };
           const chosenConsent = item.status === "failed" ? item.consent : consent;
-          const attempt = { ...item, consent: chosenConsent };
+          const chosenType = item.status === "failed" ? item.documentType : documentType;
+          const attempt = { ...item, consent: chosenConsent, documentType: chosenType };
           this.replace({ ...attempt, status: "uploading" });
           let receipt: ReceiptSummary;
           try {
-            receipt = await this.upload(item.file, chosenConsent, item.key);
+            receipt = await this.uploadPastLimits(item.file, chosenConsent, item.key, chosenType);
           } catch (error: unknown) {
             if (error instanceof Error && "status" in error && error.status === 415) {
               this.replace({ ...item, status: "rejected", reason: "unsupported" });
             } else {
-              this.replace({ ...attempt, status: "failed" });
+              const online = typeof navigator === "undefined" ? true : navigator.onLine;
+              this.replace({
+                ...attempt,
+                status: "failed",
+                failure: classifyFailure(error, { fetch: true, online }),
+              });
             }
             return;
           }
@@ -134,7 +159,20 @@ export class ReceiptUploadQueue {
       );
     } finally {
       this.running = false;
+      this.current = null;
       this.publish([...this.items]);
+    }
+  }
+
+  private async uploadPastLimits(file: File, consent: boolean, key: string, documentType: DocumentType): Promise<ReceiptSummary> {
+    for (;;) {
+      try {
+        return await this.upload(file, consent, key, documentType);
+      } catch (error: unknown) {
+        const waitMs = limitedFor(error);
+        if (waitMs === null) throw error;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
     }
   }
 }

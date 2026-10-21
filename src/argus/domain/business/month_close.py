@@ -22,8 +22,10 @@ from argus.domain.business.contracts.facts import (
     Known,
     fiscal_inclusion,
     is_personal,
+    is_sin_comprobante,
 )
 from argus.domain.business.dgii_validation import credit_note, reportable_607
+from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.currency import (
     currency_exponent,
@@ -58,6 +60,9 @@ class MonthDocument:
     settled_on: date | None
     payment_method: str | None
     declared_base_minor: int | None = None
+    counterparty: str | None = None
+    sin_comprobante: bool = False
+    due_on: date | None = None
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,15 @@ def before_itbis(total_minor: int, itbis_minor: int | None) -> int:
     return total_minor - (itbis_minor or 0)
 
 
+def expense_base(document: MonthDocument) -> int:
+    """A purchase's cost before creditable ITBIS. ITBIS without a comprobante
+    cannot be credited, so a sin comprobante purchase costs its whole total."""
+
+    if document.sin_comprobante:
+        return document.total_minor
+    return before_itbis(document.total_minor, document.itbis_minor)
+
+
 def net_result(income_before: int, expense_before: int) -> int:
     return income_before - expense_before
 
@@ -129,7 +143,10 @@ def in_close(document: MonthDocument) -> bool:
 
 
 def in_606(document: MonthDocument) -> bool:
-    if document.role != "receipt" or not _fiscal(document):
+    if (
+        document.role != "receipt"
+        or normalized_ncf(document.ecf or document.ncf) is None
+    ):
         return False
     if document.personal:
         return document.include_606 is True
@@ -171,6 +188,10 @@ class FormatoCurrency:
 def formato_totals(
     documents: Sequence[MonthDocument], start: date, end: date
 ) -> dict[str, FormatoCurrency]:
+    """Income and expense from the 607 and 606 lines plus the business
+    documents marked sin comprobante. ITBIS stated on a sin comprobante sale
+    is charged; a sin comprobante purchase pays no creditable ITBIS."""
+
     totals: dict[str, list[int]] = {}
     for document in documents:
         if not in_month(document, start, end):
@@ -183,6 +204,12 @@ def formato_totals(
         elif in_606(document):
             bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
             bucket[3] += document.itbis_minor or 0
+        elif document.sin_comprobante and in_close(document):
+            if document.role == "invoice":
+                bucket[0] += sales_base(document)
+                bucket[2] += document.itbis_minor or 0
+            else:
+                bucket[1] += expense_base(document)
     return {
         currency: FormatoCurrency(*parts)
         for currency, parts in sorted(totals.items())
@@ -239,15 +266,31 @@ def set_document_status(
 
 
 def _line(document: MonthDocument) -> dict:
+    currency = document.currency
+    before = (
+        expense_base(document)
+        if document.role == "receipt"
+        else before_itbis(document.total_minor, document.itbis_minor)
+    )
+    itbis = document.itbis_minor
     return {
         "activity_id": document.activity_id,
         "document_kind": document.role,
-        "currency": document.currency,
+        "currency": currency,
         "occurred_on": document.occurred_on.isoformat(),
         "total_minor": document.total_minor,
-        "before_itbis_minor": before_itbis(document.total_minor, document.itbis_minor),
-        "itbis_minor": document.itbis_minor,
+        "total": format_minor_units(document.total_minor, currency),
+        "before_itbis_minor": before,
+        "before_itbis": format_minor_units(before, currency),
+        "itbis_minor": itbis,
+        "itbis": None if itbis is None else format_minor_units(itbis, currency),
+        "counterparty": document.counterparty,
+        "rnc": document.rnc,
+        "ncf": document.ncf,
+        "ecf": document.ecf,
         "status": document.status,
+        "sin_comprobante": document.sin_comprobante,
+        "due_on": None if document.due_on is None else document.due_on.isoformat(),
     }
 
 
@@ -266,6 +309,8 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     missing_rnc = []
     missing_ncf = []
     for document in sorted(chosen, key=lambda item: (item.occurred_on, item.activity_id)):
+        if document.sin_comprobante:
+            continue
         if not document.rnc:
             reasons.append(
                 {
@@ -275,7 +320,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 }
             )
             missing_rnc.append(_line(document))
-        if not _fiscal(document):
+        if (
+            not _fiscal(document)
+            or normalized_ncf(document.ecf or document.ncf) is None
+        ):
             reasons.append(
                 {
                     "code": "missing_ncf",
@@ -314,8 +362,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
             group = "invoices" if document.role == "invoice" else "receipts"
             cell = status[group][document.status]
             cell["count"] += 1
-            cell["before_itbis_minor"] += before_itbis(
-                document.total_minor, document.itbis_minor
+            cell["before_itbis_minor"] += (
+                sales_base(document)
+                if document.role == "invoice"
+                else expense_base(document)
             )
         income = part.income_before_itbis
         expense = part.expense_before_itbis
@@ -372,6 +422,59 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
     }
 
 
+OPEN_ITEMS_CAP = 100
+
+
+def open_items(documents: Sequence[MonthDocument], cap: int = OPEN_ITEMS_CAP) -> dict:
+    """Every pending document the month close would list, from any month.
+
+    Soonest due date first; documents with no due date follow, oldest first.
+    ``count`` and the per-currency totals cover every pending document,
+    including the ones past ``cap``.
+    """
+
+    pending = sorted(
+        (
+            document
+            for document in documents
+            if in_close(document) and document.status == "pendiente"
+        ),
+        key=lambda document: (
+            document.due_on is None,
+            document.due_on or date.min,
+            document.occurred_on,
+            document.activity_id,
+        ),
+    )
+    return {
+        "cuentas_por_cobrar": _open_list(
+            [document for document in pending if document.role == "invoice"], cap
+        ),
+        "cuentas_por_pagar": _open_list(
+            [document for document in pending if document.role == "receipt"], cap
+        ),
+    }
+
+
+def _open_list(documents: Sequence[MonthDocument], cap: int) -> dict:
+    totals: dict[str, int] = {}
+    for document in documents:
+        currency = document.currency
+        totals[currency] = totals.get(currency, 0) + document.total_minor
+    return {
+        "count": len(documents),
+        "totals": [
+            {
+                "currency": currency,
+                "total_minor": minor,
+                "total": format_minor_units(minor, currency),
+            }
+            for currency, minor in sorted(totals.items())
+        ],
+        "items": [_line(document) for document in documents[:cap]],
+    }
+
+
 def itbis_or_none(text: str | None, currency: str) -> int | None:
     if text is None:
         return None
@@ -390,6 +493,9 @@ class FiscalParts:
     personal: bool
     include_606: bool | None
     declared_base_minor: int | None = None
+    counterparty: str | None = None
+    sin_comprobante: bool = False
+    due_on: date | None = None
 
 
 _NO_FISCAL = FiscalParts(None, None, None, None, False, None)
@@ -400,7 +506,7 @@ def _known(fact: object) -> object | None:
 
 
 def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
-    """RNC, fiscal number, ITBIS, and the personal mark from one draft.
+    """RNC, fiscal number, ITBIS, marks, counterparty, and due date from one draft.
 
     An unreadable draft contributes no fiscal parts. The activity total is not
     read from the draft.
@@ -434,6 +540,9 @@ def read_fiscal(resolution: Mapping | None, currency: str) -> FiscalParts:
         is_personal(facts),
         fiscal_inclusion(facts),
         declared,
+        _text(_known(facts.counterparty)),
+        is_sin_comprobante(facts),
+        parsed.due_on,
     )
 
 
@@ -499,6 +608,9 @@ def project_documents(
                 personal=parts.personal,
                 include_606=parts.include_606,
                 declared_base_minor=parts.declared_base_minor,
+                counterparty=parts.counterparty,
+                sin_comprobante=parts.sin_comprobante,
+                due_on=parts.due_on,
                 status=status,
                 settled_on=settled_on,
                 payment_method=method,

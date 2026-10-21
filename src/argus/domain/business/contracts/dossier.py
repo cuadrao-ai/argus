@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Annotated, Literal
+import json
+from datetime import date, datetime
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import Field, model_validator
+
+from argus.domain.business.document_type import DocumentType
 
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
@@ -26,6 +29,11 @@ class WebActionSource(Contract):
     channel: Literal["web"] = "web"
     received_at: datetime
     text: str = Field(min_length=1, max_length=20000)
+
+
+def web_action_text(command: dict[str, Any]) -> str:
+    """The canonical text a web action source records for its command."""
+    return json.dumps(command, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 class AttachmentSource(Contract):
@@ -86,6 +94,8 @@ class DraftRevision(Contract):
     created_at: datetime
     before_dgii: DgiiDeclaration | None = None
     after_dgii: DgiiDeclaration | None = None
+    before_due_on: date | None = None
+    after_due_on: date | None = None
 
 
 class Blocker(Contract):
@@ -151,13 +161,49 @@ class BusinessDossier(RecordContext):
     ecf_checks: EcfVerification | None = None
     #: The DGII QR the receipt carried: the link a person opens on DGII's page.
     dgii_qr: DgiiQr | None = None
+    #: The due-notice mark on this one expense. Unpaid is "Factura por pagar".
+    #: Paid, the same record becomes "Factura pagada".
+    bill_mark: Literal["Factura por pagar", "Factura pagada"] | None = None
     #: The record's marks, read by the same function every list uses: Personal,
     #: who last changed that mark when it was not the owner, whether the fiscal
     #: reading is settled, the fiscal number the draft carries (ncf, ecf), and
-    #: the accountant's 606 answer with who gave it.
+    #: the accountant's 606 answer with who gave it, and whether the record is
+    #: sin comprobante.
     personal: bool = False
     personal_marked_by: str | None = None
     fiscal_known: bool = False
     fiscal_value: Literal["ncf", "ecf"] | None = None
     include_606: bool | None = None
     include_606_by: str | None = None
+    sin_comprobante: bool = False
+    #: The document type: a receipt (recibo) or an invoice the business issued
+    #: (venta). Detected when no person named it. Editable while the draft is
+    #: open and the caller may prepare.
+    document_type: DocumentType = "recibo"
+    document_type_detected: bool = False
+    document_type_editable: bool = False
+    #: The due date a person set in review; null while unknown. Never read
+    #: from the document or defaulted. Locked with the other facts once approved.
+    due_on: date | None = None
+
+    def model_facing(self) -> dict[str, Any]:
+        """The dossier as every model reads it: the JSON dump without the
+        facts no scorecard has measured yet."""
+        view = self.model_dump(mode="json", exclude=_UNMEASURED_DOSSIER_FIELDS)
+        view["sources"] = [_unmeasured_removed(source) for source in view["sources"]]
+        return view
+
+
+#: The due date a person sets in review, wherever the dossier carries it.
+_UNMEASURED_DOSSIER_FIELDS = {
+    "due_on": True,
+    "history": {"__all__": {"before_due_on", "after_due_on"}},
+}
+
+
+def _unmeasured_removed(source: dict[str, Any]) -> dict[str, Any]:
+    if source["kind"] != "web_action" or '"due_on"' not in source["text"]:
+        return source
+    command = json.loads(source["text"])
+    command.get("request", {}).pop("due_on", None)
+    return {**source, "text": web_action_text(command)}

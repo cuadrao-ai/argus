@@ -2251,6 +2251,57 @@
         "marketing/**"
       ]
     },
+    "codex/lane09-business-name-prompt": {
+      "description": "Owner-only Business naming: durable first-visit claim, current-Business rename, shared invite/export requirement and editable settings. Additive migration requires staging application before landing. Shared methods granted by coordinator; BusinessWorkspace and auth logic stay unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "docs/reports/evidence/lane09-business-name/**",
+        "src/argus/api/business_naming.py",
+        "src/argus/api/business_schemas.py",
+        "src/argus/api/routers/business.py",
+        "src/argus/api/routers/business_export.py",
+        "src/argus/domain/business/spaces.py",
+        "tests/business/test_business_access_api.py",
+        "tests/business/test_business_export.py",
+        "tests/business/test_invite_email_api.py",
+        "tests/business/test_business_naming.py",
+        "tests/business/test_business_switcher_api.py",
+        "tests/test_business_accountant_path_routes_postgres.py",
+        "tests/test_business_fiscal_routes_postgres.py",
+        "tests/test_business_name_prompt_postgres.py",
+        "tests/test_business_scope_switch_routes_postgres.py",
+        "web/__tests__/bottom-sheet.test.tsx",
+        "web/__tests__/business-naming-provider.dom.test.tsx",
+        "web/__tests__/business-sign-out.dom.test.tsx",
+        "web/__tests__/fixtures/auth-account-transition/business-boundary.tsx",
+        "web/__tests__/mobile-shell-layout.test.tsx",
+        "web/components/business-app/BusinessAccessPanel.tsx",
+        "web/components/business-app/BusinessApp.tsx",
+        "web/components/business-app/BusinessNameDialog.tsx",
+        "web/components/business-app/BusinessNamingProvider.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/components/business-app/business-name-copy.ts",
+        "web/components/settings/BusinessNameSettings.tsx",
+        "web/components/sidebar/ProfileMenu.tsx",
+        "web/components/sidebar/ProfileSettingsPanels.tsx",
+        "web/components/ui/AdaptivePanel.tsx",
+        "web/components/ui/BottomSheet.tsx",
+        "web/e2e/business-name-prompt.spec.ts",
+        "web/lib/business-naming-api.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "marketing/**",
+        "web/public/locales/en/**",
+        "web/components/business-app/BusinessWorkspace.tsx"
+      ]
+    },
     "codex/lane09-item6-navigation": {
       "description": "Lane09 item6 and final9a-9h Business navigation and keyboard shortcuts. Optional shared shell and registry methods only; existing receipt callback registration and focus handoff, no approval/auth/API changes. Root owns reconciliation, independent Eval, merge and staging.",
       "base_ref": "d547945ea51ecb08dc3f7a6d160256da3a3cb770",
@@ -2317,6 +2368,23 @@
         "supabase/migrations/**",
         "marketing/**",
         "web/public/locales/**"
+      ]
+    },
+    "codex/marketing-business-contact-ctas": {
+      "description": "Marketing Business CTA destinations only; Personal waitlist and language switches remain unchanged.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "marketing/components/business-header.tsx",
+        "marketing/components/business-footer.tsx",
+        "marketing/components/touchup-landing.tsx",
+        "marketing/e2e/business-cta.spec.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        ".env.*",
+        "web/.env.*"
       ]
     },
     "codex/marketing-personal-waitlist": {
@@ -3360,6 +3428,66 @@
         "marketing/lib/**",
         "marketing/components/business-footer.tsx",
         "marketing/components/personal-early-access.tsx"
+      ]
+    },
+    "codex/cuadrao-age-web-api-20261017": {
+      "description": "18+ client attestation on account signup, durable profile timestamp and one forward migration. Merge held until receipt gate and independent exact-head review.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "docs/reports/2026-10-17-age-confirmation.md",
+        "docs/reports/evidence/age-confirmation/**",
+        "src/argus/api/age_confirmation.py",
+        "src/argus/api/app_setup.py",
+        "src/argus/api/schemas.py",
+        "src/argus/api/routers/auth.py",
+        "src/argus/domain/supabase_gateway.py",
+        "src/argus/domain/supabase_guest_accounts.py",
+        "src/argus/domain/supabase_signup.py",
+        "supabase/migrations/20261019060000_profile_age_confirmation.sql",
+        "tests/test_age_confirmation.py",
+        "tests/test_age_confirmation_postgres.py",
+        "tests/test_alpha_api_supabase.py",
+        "tests/test_business_accountant_path_routes_postgres.py",
+        "tests/test_financial_accounts_api_postgres.py",
+        "tests/test_guest_auth.py",
+        "tests/test_guest_auth_local_supabase.py",
+        "tests/test_guest_conversion.py",
+        "tests/test_guest_signup_local_supabase.py",
+        "tests/test_registration_signal.py",
+        "tests/test_signup_rejection_diagnostics.py",
+        "web/app/page.tsx",
+        "web/components/auth/AuthForm.tsx",
+        "web/components/auth/AgeConfirmation.tsx",
+        "web/components/guest/ExpiredGuestSession.tsx",
+        "web/components/guest/useGuestConversion.ts",
+        "web/lib/age-confirmation.ts",
+        "web/lib/use-age-confirmation.ts",
+        "web/lib/browser-storage.ts",
+        "web/lib/argus-api.ts",
+        "web/lib/guest-api.ts",
+        "web/lib/guest-session.ts",
+        "web/public/locales/*/common.json",
+        "web/__tests__/age-confirmation.test.ts",
+        "web/__tests__/age-confirmation.dom.test.tsx",
+        "web/__tests__/signup-confirmation-code.dom.test.tsx",
+        "web/__tests__/auth-captcha-confirmation.test.ts",
+        "web/__tests__/guest-session.test.ts",
+        "web/__tests__/landing-intent-requests.test.ts",
+        "web/__tests__/fixtures/auth-account-transition/login-generation.ts",
+        "web/__tests__/setup.ts",
+        "web/__tests__/legal-pages.test.tsx",
+        "web/e2e/age-confirmation.spec.ts"
+      ],
+      "deny": [
+        "ios/**",
+        "marketing/**",
+        ".github/**",
+        "src/argus/domain/business/**",
+        "web/components/business/**"
       ]
     },
     "codex/cleanup-m1-retention-registry": {

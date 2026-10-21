@@ -17,7 +17,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
 )
 from argus.domain.business.contracts.authority import TrustedActor
-from argus.domain.business.contracts.dgii import FiscalReview
+from argus.domain.business.contracts.dgii import FiscalReview, PurchaseReview
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.export import ExportPeriod, export_package
 from argus.domain.business.fiscal_profile import (
@@ -27,6 +27,7 @@ from argus.domain.business.fiscal_profile import (
 )
 from argus.domain.ingestion.documents.objects import InMemorySourceObjects
 from argus.domain.recording.repository import NewAccount
+from psycopg.rows import dict_row
 
 from tests import test_business_actions_postgres as shared
 from tests.dgii.test_packet import packet
@@ -40,6 +41,7 @@ ORACLE = {
     row["id"]: row
     for row in json.loads((FIXTURES / "practice-oracle.json").read_text())["records"]
 }
+PRACTICE_NAME = "PRÁCTICA José"
 
 
 @pytest.fixture
@@ -47,8 +49,28 @@ def actions(shared_actions):
     from argus.domain.business.spaces import PostgresSpaceStore
 
     service, context, grant = shared_actions
-    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, "Taller Ensayo")
+    PostgresSpaceStore(service.authority.pool).rename(context.owner_id, PRACTICE_NAME)
     yield service, context, grant
+
+
+def filer_change(
+    value: str | None,
+    previous: str | None = None,
+    *,
+    name: str = PRACTICE_NAME,
+    previous_name: str = PRACTICE_NAME,
+):
+    def tax(digits: str | None):
+        if digits is None:
+            return None
+        return {"type": "cedula" if len(digits) == 11 else "rnc", "value": digits}
+
+    return FiscalProfileChange(
+        name=name,
+        previous_name=previous_name,
+        tax_id=tax(value),
+        previous_tax_id=tax(previous),
+    )
 
 
 def cash_account(service, context):
@@ -143,7 +165,7 @@ def test_practice_human_capture_revision_approval_and_actual_export(actions):
     set_profile(
         service.authority,
         context,
-        FiscalProfileChange(rnc="199990013", previous_rnc=None),
+        filer_change("199990013"),
         "rnc",
     )
     first = None
@@ -204,10 +226,9 @@ def test_fiscal_duplicate_approvals_create_one_money_activity(actions, sale, buy
             executor.map(lambda draft: approve(service, context, draft), [first, second])
         )
     assert sorted(result.outcome for result in results) == ["applied", "invalid_input"]
-    assert (
-        next(result.code for result in results if result.outcome == "invalid_input")
-        == "fiscal_duplicate_document"
-    )
+    assert next(
+        result.code for result in results if result.outcome == "invalid_input"
+    ) == ("fiscal_duplicate_document" if sale else "duplicate_comprobante")
     with service.authority.pool.connection() as db:
         assert (
             db.execute(
@@ -239,7 +260,8 @@ def test_conflicting_amount_same_ncf_is_refused_before_money_and_review_keeps_ta
     assert before.dgii is not None
     assert before.history[-1].before_dgii == before.history[-1].after_dgii
     outcome = approve(service, context, (second[0], changed.version, second[2]))
-    assert outcome.code == "fiscal_duplicate_document"
+    assert outcome.code == "duplicate_comprobante"
+    assert outcome.existing_record_id == first[0]
 
 
 def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_packet(
@@ -262,7 +284,7 @@ def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_pa
         set_profile(
             service.authority,
             accountant,
-            FiscalProfileChange(rnc="199990013", previous_rnc=None),
+            filer_change("199990013"),
             "rnc",
         )
     denied = service.approve_refund(
@@ -290,7 +312,7 @@ def test_accountant_cannot_change_rnc_or_approve_refund_but_reads_same_fiscal_pa
 def test_rnc_profile_revision_and_accepted_fiscal_edit_never_reposts_money(actions):
     service, context, _ = actions
     account = cash_account(service, context)
-    command = FiscalProfileChange(rnc="199990013", previous_rnc=None)
+    command = filer_change("199990013")
     assert set_profile(service.authority, context, command, "same") == set_profile(
         service.authority, context, command, "same"
     )
@@ -298,7 +320,7 @@ def test_rnc_profile_revision_and_accepted_fiscal_edit_never_reposts_money(actio
         set_profile(
             service.authority,
             context,
-            FiscalProfileChange(rnc=None, previous_rnc=None),
+            filer_change(None),
             "stale",
         )
     draft = reviewed(service, context, account)
@@ -354,7 +376,7 @@ def test_legacy_printed_supplier_identity_blocks_new_canonical_duplicate(actions
         == "applied"
     )
     second = reviewed(service, context, account)
-    assert approve(service, context, second).code == "fiscal_duplicate_document"
+    assert approve(service, context, second).code == "duplicate_comprobante"
 
 
 def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, users):
@@ -383,7 +405,8 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
     with TestClient(app) as client:
         profile = client.get("/business/fiscal-profile")
         assert profile.status_code == 200 and profile.json() == {
-            "rnc": None,
+            "name": "PRÁCTICA José",
+            "tax_id": None,
             "can_edit": True,
         }
         assert profile.headers["cache-control"] == "no-store"
@@ -394,18 +417,33 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
         )["options"] == ["1", "2", "3", "4", "5", "6"]
         invalid = client.patch(
             "/business/fiscal-profile",
-            json={"rnc": "000000000", "previous_rnc": None},
+            json={
+                "name": "PRÁCTICA José",
+                "previous_name": "PRÁCTICA José",
+                "tax_id": {"type": "rnc", "value": "000000000"},
+                "previous_tax_id": None,
+            },
             headers={"Idempotency-Key": "invalid"},
         )
         assert (
-            invalid.status_code == 422 and invalid.headers["cache-control"] == "no-store"
+            invalid.status_code == 422
+            and invalid.headers["cache-control"] == "no-store"
+            and invalid.json()["detail"]["code"] == "tax_id_all_zero"
         )
         changed = client.patch(
             "/business/fiscal-profile",
-            json={"rnc": "199990013", "previous_rnc": None},
+            json={
+                "name": "PRÁCTICA José",
+                "previous_name": "PRÁCTICA José",
+                "tax_id": {"type": "rnc", "value": "199-99001-3"},
+                "previous_tax_id": None,
+            },
             headers={"Idempotency-Key": "valid"},
         )
-        assert changed.status_code == 200 and changed.json()["rnc"] == "199990013"
+        assert changed.status_code == 200 and changed.json()["tax_id"] == {
+            "type": "rnc",
+            "value": "199990013",
+        }
         with service.authority.pool.connection() as db:
             assert (
                 db.execute(
@@ -415,7 +453,7 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
             )
             assert (
                 db.execute(
-                    "select has_column_privilege('anon','public.spaces','business_rnc','UPDATE')"
+                    "select has_column_privilege('anon','public.spaces','business_tax_id_type','UPDATE')"
                 ).fetchone()[0]
                 is False
             )
@@ -434,10 +472,10 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
     profile = set_profile(
         service.authority,
         context,
-        FiscalProfileChange(rnc=filer, previous_rnc=None),
+        filer_change(filer),
         "cedula-profile",
     )
-    assert profile["rnc"] == filer
+    assert profile["tax_id"]["value"] == filer
     from psycopg.errors import CheckViolation
 
     with service.authority.pool.connection() as db:
@@ -447,7 +485,7 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
                     "update public.spaces set business_rnc=%s where id=%s",
                     ("00000000000", context.actor.space_id),
                 )
-    assert read_profile(service.authority, context)["rnc"] == filer
+    assert read_profile(service.authority, context)["tax_id"]["value"] == filer
     for index in (0, 4):
         assert (
             approve(service, context, reviewed(service, context, account, index)).outcome
@@ -469,4 +507,278 @@ def test_cedula_filer_persists_and_exports_both_formats(actions):
             assert (
                 archive.read(f"dgii/DGII_F_{form}_{filer}_202609.TXT").split(b"\r\n")[0]
                 == f"{form}|{filer}|202609|1".encode()
+            )
+
+
+def _blank_purchase():
+    return {
+        "form": "606",
+        "id_type": "1",
+        "modified_ncf": None,
+        "selective_tax": "1.10",
+        "other_taxes": "2.20",
+        "legal_tip": "0.25",
+        "category": None,
+        "paid_on": None,
+        "services_amount": None,
+        "goods_amount": None,
+        "itbis_withheld": None,
+        "itbis_proportionality": None,
+        "itbis_cost": None,
+        "itbis_perceived": None,
+        "income_withholding_type": None,
+        "income_withheld": None,
+        "income_perceived": None,
+        "payment_method": None,
+    }
+
+
+def test_purchase_review_save_applies_payment_withholding_and_the_base(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    capture = service.capture(
+        context, CaptureNote(text="PRÁCTICA compra con centavos"), str(uuid4())
+    )
+    facts = BusinessFactPatch.model_validate(
+        {
+            name: {"state": "known", "value": value}
+            for name, value in {
+                "kind": "expense",
+                "amount": "1180.55",
+                "currency": "DOP",
+                "occurred_on": "2026-09-03",
+                "counterparty": "PRÁCTICA centavos",
+                "funding": {"kind": "business_account", "account_id": str(account)},
+                "business_share": {"kind": "all"},
+                "receipt_state": "fiscal_receipt",
+            }.items()
+        }
+    )
+    stored = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=facts,
+            dgii=FiscalReview.model_validate(
+                {
+                    "fiscal": {
+                        "rnc": "199990021",
+                        "ncf": "B0100000001",
+                        "itbis": "180.10",
+                    },
+                    "declaration": _blank_purchase(),
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert stored.outcome == "applied", stored
+    saved = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=stored.version,
+            facts=BusinessFactPatch(
+                purchase=PurchaseReview(
+                    category="09",
+                    payment_method="04",
+                    paid_on=date(2026, 9, 3),
+                    itbis_withheld="18.40",
+                    income_withholding_type="02",
+                    income_withheld="10.15",
+                )
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert saved.outcome == "applied", saved
+    dossier = service.dossier(context, capture.draft_id)
+    assert dossier.dgii.goods_amount == "996.90"
+    assert dossier.dgii.services_amount is None
+    assert dossier.dgii.payment_method == "04"
+    assert dossier.dgii.itbis_withheld == "18.40"
+    assert dossier.dgii.income_withholding_type == "02"
+    assert dossier.dgii.income_withheld == "10.15"
+    assert dossier.history[-1].after_dgii.payment_method == "04"
+    assert dossier.history[-1].after_dgii.goods_amount == "996.90"
+
+
+def test_a_listed_bad_check_digit_stays_in_the_606(actions):
+    service, context, _ = actions
+    account = cash_account(service, context)
+    set_profile(service.authority, context, filer_change("199990013"), "rnc")
+    listed_rnc = "138888003"
+    with service.authority.pool.connection() as connection, connection.transaction():
+        connection.execute(
+            "insert into public.dgii_rnc (rnc, name, trade_name, status, file_date)"
+            " values (%s, %s, %s, 'ACTIVO', %s)",
+            (listed_rnc, "FARMACIA CAROL", "FARMACIA", date(2026, 10, 17)),
+        )
+    try:
+        draft = reviewed(service, context, account, override={"rnc": listed_rnc})
+        assert approve(service, context, draft).outcome == "applied"
+        blob = export_package(
+            service.authority,
+            context,
+            ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+            InMemorySourceObjects(),
+        )
+    finally:
+        with service.authority.pool.connection() as connection, connection.transaction():
+            connection.execute("delete from public.dgii_rnc where rnc=%s", (listed_rnc,))
+    with ZipFile(io.BytesIO(blob)) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        names = archive.namelist()
+    assert "dgii/DGII_F_606_199990013_202609.TXT" in names
+    assert manifest["forms"]["606"]["status"] == "prepared_candidate"
+    assert not any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["issues"]
+    )
+    assert not any(
+        item["code"] == "fiscal_identity_check_digit" for item in manifest["warnings"]
+    )
+    assert manifest["rnc_checks"][0]["status"] == "verificado"
+    assert manifest["rnc_checks"][0]["name"] == "FARMACIA CAROL"
+
+
+def test_an_income_draft_without_a_declaration_does_not_gain_a_606(actions):
+    service, context, _ = actions
+    capture = service.capture(
+        context, CaptureNote(text="PRÁCTICA ingreso sin declaración"), str(uuid4())
+    )
+    saved = service.review(
+        context,
+        capture.draft_id,
+        ReviewDraft(
+            version=capture.version,
+            facts=BusinessFactPatch.model_validate(
+                {
+                    "kind": {"state": "known", "value": "income"},
+                    "amount": {"state": "known", "value": "100.50"},
+                    "purchase": {"category": "09", "payment_method": "04"},
+                }
+            ),
+        ),
+        str(uuid4()),
+    )
+    assert saved.outcome == "applied", saved
+    dossier = service.dossier(context, capture.draft_id)
+    assert dossier.dgii is None
+
+
+def test_typed_profile_feeds_the_export_header_and_a_non_owner_cannot_edit(
+    actions, users
+):
+    service, context, _ = actions
+    saved = set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(
+            name="Taller Norte",
+            previous_name="PRÁCTICA José",
+            tax_id={"type": "rnc", "value": "199-99001-3"},
+            previous_tax_id=None,
+        ),
+        "profile-rnc",
+    )
+    assert saved == {
+        "name": "Taller Norte",
+        "tax_id": {"type": "rnc", "value": "199990013"},
+        "can_edit": True,
+    }
+    cedula = set_profile(
+        service.authority,
+        context,
+        FiscalProfileChange(
+            name="Taller Norte",
+            previous_name="Taller Norte",
+            tax_id={"type": "cedula", "value": "001 0000000 1"},
+            previous_tax_id={"type": "rnc", "value": "199990013"},
+        ),
+        "profile-cedula",
+    )
+    assert cedula["tax_id"] == {"type": "cedula", "value": "00100000001"}
+    with service.authority.pool.connection() as db:
+        row = (
+            db.cursor(row_factory=dict_row)
+            .execute(
+                "select actor_id::text as actor_id, created_at, command"
+                " from public.business_action_receipts"
+                " where space_id=%s and idempotency_key=%s",
+                (context.actor.space_id, "profile-cedula"),
+            )
+            .fetchone()
+        )
+        assert row["actor_id"] == str(context.actor.actor_id)
+        assert row["created_at"] is not None
+        assert row["command"]["tax_id"]["type"] == "cedula"
+        assert row["command"]["tax_id"]["value"] == "00100000001"
+        assert row["command"]["name"] == "Taller Norte"
+        from psycopg.errors import CheckViolation
+
+        with pytest.raises(CheckViolation):
+            with db.transaction():
+                db.execute(
+                    "update public.spaces set business_tax_id_type=%s, business_rnc=%s where id=%s",
+                    ("rnc", "00100000001", context.actor.space_id),
+                )
+        with pytest.raises(CheckViolation):
+            with db.transaction():
+                db.execute(
+                    "update public.spaces set business_tax_id_type=%s, business_rnc=%s where id=%s",
+                    ("cedula", "199990013", context.actor.space_id),
+                )
+    with service.authority.pool.connection() as db:
+        grant = db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+            " values(%s,%s,%s,array['read','prepare']) returning id",
+            (context.actor.space_id, users["other"], users["owner"]),
+        ).fetchone()[0]
+    accountant = service.resolve_actor(
+        TrustedActor(
+            actor_id=users["other"],
+            actor_kind="member",
+            space_id=context.actor.space_id,
+        ),
+        grant_id=grant,
+    )
+    assert read_profile(service.authority, accountant)["can_edit"] is False
+    with pytest.raises(ActionError, match="business_permission_denied"):
+        set_profile(
+            service.authority,
+            accountant,
+            FiscalProfileChange(
+                name="Otro nombre",
+                previous_name="Taller Norte",
+                tax_id={"type": "rnc", "value": "199990048"},
+                previous_tax_id={"type": "cedula", "value": "00100000001"},
+            ),
+            "accountant-edit",
+        )
+    account = cash_account(service, context)
+    for index in (0, 4):
+        assert (
+            approve(service, context, reviewed(service, context, account, index)).outcome
+            == "applied"
+        )
+    with ZipFile(
+        io.BytesIO(
+            export_package(
+                service.authority,
+                context,
+                ExportPeriod(date(2026, 9, 1), date(2026, 9, 30)),
+                InMemorySourceObjects(),
+            )
+        )
+    ) as archive:
+        manifest = json.loads(archive.read("manifest.json"))["dgii"]
+        assert manifest["business_name"] == "Taller Norte"
+        assert manifest["reporter_rnc"] == "00100000001"
+        for form in ("606", "607"):
+            assert (
+                archive.read(f"dgii/DGII_F_{form}_00100000001_202609.TXT").split(b"\r\n")[
+                    0
+                ]
+                == f"{form}|00100000001|202609|1".encode()
             )

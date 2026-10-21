@@ -18,8 +18,10 @@ import {
   normalizeApiLanguage,
   signupWithEmail,
 } from "@/lib/argus-api";
-import { leaveSession, resetLeavingSession } from "@/lib/logout-flow";
+import { resetLeavingSession } from "@/lib/logout-flow";
 import { businessPilotEnabled, guestAccessEnabled } from "@/lib/private-alpha-flags";
+import { BusinessClosedNotice } from "@/components/status/BusinessClosedNotice";
+import { sessionEndedNotice } from "@/lib/failure-screen";
 import {
   guestEntryAvailable,
   resolveLandingEntrySurface,
@@ -31,30 +33,11 @@ import {
   signedInHomeClosed,
 } from "@/lib/landing-intent";
 import { guestCaptchaConfigured } from "@/lib/guest-session";
-import { ENABLED_LANGUAGES, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { landingLanguageChoices, languageToShow, normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 import { guestProfileProbeOutcome } from "@/lib/guest-account";
 import { completeAuthVerification } from "@/lib/auth-verification";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
-
-const BUSINESS_HOME_CLOSED_EMAIL = "admin@cuadrao.ai";
-
-function businessHomeClosedBody(body: string) {
-  const at = body.indexOf(BUSINESS_HOME_CLOSED_EMAIL);
-  if (at < 0) return body;
-  return (
-    <>
-      {body.slice(0, at)}
-      <a
-        className="font-medium underline decoration-black/25 underline-offset-4 dark:decoration-white/30"
-        href={`mailto:${BUSINESS_HOME_CLOSED_EMAIL}`}
-      >
-        {BUSINESS_HOME_CLOSED_EMAIL}
-      </a>
-      {body.slice(at + BUSINESS_HOME_CLOSED_EMAIL.length)}
-    </>
-  );
-}
 
 type AuthMode = "intro" | "request" | "signup" | "login";
 
@@ -86,7 +69,7 @@ export default function LandingPage() {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [verificationFailed, setVerificationFailed] = useState(false);
   const [homeClosed, setHomeClosed] = useState(false);
-  const [signOutFailed, setSignOutFailed] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const [profileProbeFailedClosed, setProfileProbeFailedClosed] =
     useState(false);
 
@@ -94,6 +77,7 @@ export default function LandingPage() {
     captureLandingIntentFromLocation();
     const nextAuthMode = authModeFromLocation();
     setAuthMode(nextAuthMode);
+    setSessionEnded(sessionEndedNotice(window.location.search));
     const verification = completeAuthVerification();
     let cancelled = false;
     (async () => {
@@ -164,7 +148,7 @@ export default function LandingPage() {
   // account after sign-in. A Business build keeps showing Spanish.
   const [chosenLanguage, setChosenLanguage] = useState<ArgusLanguage | null>(null);
   const shownLanguage = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
-  const otherLanguages = ENABLED_LANGUAGES.filter((language) => language.code !== shownLanguage);
+  const otherLanguages = landingLanguageChoices(businessPilotEnabled, shownLanguage);
   const chooseLanguage = async (code: ArgusLanguage) => {
     const shown = languageToShow(businessPilotEnabled, code);
     if (shown) await i18n.changeLanguage(shown);
@@ -173,28 +157,14 @@ export default function LandingPage() {
   const showRequest = () => updateAuthMode("request");
   const showSignup = () => updateAuthMode("signup");
   const showLogin = () => updateAuthMode("login");
-  const signOutClosedHome = () => {
-    setSignOutFailed(false);
-    void leaveSession({
-      boundary: { beginConversion() {}, finishConversion() {} },
-      currentUserId: null,
-      signOut: () => logoutFromApi(),
-      clearLocalState() {},
-      navigate: (href) => {
-        setHomeClosed(false);
-        if (href === "/" || href.startsWith("/?auth=login")) {
-          updateAuthMode("login");
-          return;
-        }
-        window.location.assign(href);
-      },
-      onFailed() {
-        setSignOutFailed(true);
-      },
-      businessBuild: businessPilotEnabled,
-    }).finally(() => {
-      resetLeavingSession();
-    });
+  const leaveClosedHome = (href: string) => {
+    resetLeavingSession();
+    setHomeClosed(false);
+    if (href === "/" || href.startsWith("/?auth=login")) {
+      updateAuthMode("login");
+      return;
+    }
+    window.location.assign(href);
   };
 
   const handleAuthSubmit = async (submission: AuthFormSubmission) => {
@@ -291,18 +261,7 @@ export default function LandingPage() {
 
         <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
           {homeClosed ? (
-            <div data-testid="business-home-closed" className="w-full max-w-sm text-center">
-              <h2 className="text-[16px] font-medium tracking-wide">{t("auth.business_unavailable.title")}</h2>
-              <p className="mt-3 text-[16px] tracking-wide">{businessHomeClosedBody(String(t("auth.business_unavailable.body")))}</p>
-              <button
-                type="button"
-                className="font-display mt-6 flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium !text-[var(--cuadrao-cream)] transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:bg-white dark:focus-visible:ring-white"
-                onClick={signOutClosedHome}
-              >
-                {t("auth.business_unavailable.sign_out")}
-              </button>
-              {signOutFailed ? <p className="mt-3" role="alert">{t("settings.logout_error")}</p> : null}
-            </div>
+            <BusinessClosedNotice navigate={leaveClosedHome} />
           ) : authMode === "intro" ? (
             <button
               type="button"
@@ -314,8 +273,12 @@ export default function LandingPage() {
             </button>
           ) : (
             <div className="w-full max-w-sm">
+              {sessionEnded && authMode === "login" ? (
+                <p role="status" data-testid="session-ended" className="mb-4 text-center text-[16px] text-[#2f5a49]">
+                  {t("auth.screen.session_ended", "Your session ended. Sign in again.")}
+                </p>
+              ) : null}
               {verificationFailed ? <p role="alert">{t("auth.errors.unauthorized", "We couldn’t verify those account details. Check them and try again.")}</p> : null}
-              {signOutFailed ? <p role="alert">{t("settings.logout_error")}</p> : null}
               {authMode === "request" ? (
                 <RequestAccess
                   onShowSignup={showSignup}
