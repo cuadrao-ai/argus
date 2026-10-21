@@ -69,7 +69,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
         {purchases.map((purchase) => (
           <li key={purchase.index} className="flex items-baseline justify-between gap-3 py-2 text-[14px]">
             <span className="min-w-0 truncate text-black/80 dark:text-white/80">{purchase.merchant ?? t("business.dossier.read_purchase", "Purchase {{index}}", { index: purchase.index })}{purchase.occurred_on ? ` · ${purchase.occurred_on}` : ""}</span>
-            <span className="shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? `${purchase.amount}${purchase.currency ? ` ${purchase.currency}` : ""}` : t("business.dossier.unknown_amount", "Amount unknown")}</span>
+            <span className="cuadrao-amount shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? `${purchase.amount}${purchase.currency ? ` ${purchase.currency}` : ""}` : t("business.dossier.unknown_amount", "Amount unknown")}</span>
           </li>
         ))}
       </ul>

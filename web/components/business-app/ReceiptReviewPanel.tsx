@@ -507,10 +507,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
                 {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
                 {detail.evidence.lines.map((line, index) => (
-                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="tabular-nums">{formatMoney(line.amount, detail.evidence?.currency ?? null, locale)}</dd></div>
+                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(line.amount, detail.evidence?.currency ?? null, locale)}</dd></div>
                 ))}
-                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="tabular-nums">{formatMoney(detail.evidence.tax, detail.evidence.currency, locale)}</dd></div> : null}
-                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="tabular-nums">{formatMoney(detail.evidence.total, detail.evidence.currency, locale)}</dd></div> : null}
+                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(detail.evidence.tax, detail.evidence.currency, locale)}</dd></div> : null}
+                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(detail.evidence.total, detail.evidence.currency, locale)}</dd></div> : null}
               </dl>
               <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
                 {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}
