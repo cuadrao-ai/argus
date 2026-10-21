@@ -964,6 +964,18 @@ paths:
           - type: string
             maxLength: 512
           - type: 'null'
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            pattern: ^[A-Z]{3}$
+          - type: 'null'
+          description: ISO 4217 code. Items and totals hold only this currency; `other_currencies`
+            counts the rows left out.
+        description: ISO 4217 code. Items and totals hold only this currency; `other_currencies`
+          counts the rows left out.
       - name: X-Business-Grant
         in: header
         required: false
@@ -2741,6 +2753,15 @@ paths:
           - type: string
             format: date
           - type: 'null'
+      - name: kind
+        in: query
+        required: false
+        schema:
+          enum:
+          - expense
+          - income
+          type: string
+          default: expense
       - name: X-Business-Grant
         in: header
         required: false
@@ -23439,6 +23460,12 @@ components:
             - charge
             - deposit
           - type: 'null'
+        currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The chosen currency. Items and totals hold only that currency while
+            set.
         accounts:
           items:
             $ref: '#/components/schemas/AccountCoverage'
@@ -23447,6 +23474,16 @@ components:
           items:
             $ref: '#/components/schemas/MovementTotals'
           type: array
+        counts:
+          $ref: '#/components/schemas/MovementCounts'
+          description: The period's counts across every currency, whatever the segment,
+            sense, currency or page.
+        other_currencies:
+          items:
+            $ref: '#/components/schemas/OtherCurrencyCount'
+          type: array
+          description: Rows of the segment and sense that the chosen currency leaves out,
+            per other currency. Empty while no currency is chosen.
         items:
           items:
             $ref: '#/components/schemas/MovementItem'
@@ -23463,6 +23500,7 @@ components:
       - sense
       - accounts
       - totals
+      - counts
       - items
       - next_cursor
     NetworkNumbers:
@@ -23876,6 +23914,16 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OtherCurrencyCount:
+      properties:
+        currency:
+          type: string
+        count:
+          type: integer
+      type: object
+      required:
+      - currency
+      - count
     OutcomeHistoryEntry:
       properties:
         id:

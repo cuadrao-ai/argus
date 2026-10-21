@@ -188,6 +188,40 @@ def test_one_live_outcome_per_line_and_one_live_line_per_document(db, users) -> 
     ).fetchone() == (2, 1)
 
 
+BANK_TABLES = (
+    "business_bank_accounts",
+    "business_bank_imports",
+    "business_bank_lines",
+    "business_bank_suggestions",
+    "business_bank_line_outcomes",
+)
+
+
+@pytest.mark.parametrize("table", BANK_TABLES)
+def test_the_server_role_keeps_bank_rows_and_cannot_delete_or_truncate(db, table) -> None:  # noqa: ANN001
+    granted = {
+        privilege
+        for privilege in (
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "TRUNCATE",
+            "REFERENCES",
+            "TRIGGER",
+        )
+        if db.execute(
+            "select has_table_privilege('service_role', %s, %s)",
+            (f"public.{table}", privilege),
+        ).fetchone()[0]
+    }
+    assert granted == {"SELECT", "INSERT", "UPDATE"}
+    for statement in (f"delete from public.{table}", f"truncate public.{table}"):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), db.transaction():
+            db.execute("set local role service_role")
+            db.execute(statement)
+
+
 def test_a_matched_settlement_changes_only_through_its_match(db, users) -> None:  # noqa: ANN001
     owner = users["owner"]
     space_id = space(db, owner)

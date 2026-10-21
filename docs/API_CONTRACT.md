@@ -9151,7 +9151,7 @@ The web discovers arrivals every 15 seconds while Inbox is visible and polls eve
 
 ### Business bank matching (default-off)
 
-Statement import, suggested matches, the unmatched charge count, the Transacciones movements read (`GET /business/bank/movements`: every line of a period with a server-owned state, the documents with no movement, and totals per currency), and the decisions on a line (igualar, which also writes the document's cobrado or pagado; desigualar, which restores it; decline; no lleva comprobante) for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
+Statement import, suggested matches, the unmatched charge count, the Transacciones movements read (`GET /business/bank/movements`: every line of a period with a server-owned state, the documents with no movement, totals per currency, the period's counts across currencies, and an optional `currency` filter that reports how many rows the other currencies hold), and the decisions on a line (igualar, which also writes the document's cobrado or pagado; desigualar, which restores it; decline; no lleva comprobante) for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
 
 ### Business pilot (default-off)
 
@@ -10165,11 +10165,14 @@ accept path recorded.
   second key or a concurrent confirm returns the same confirmed receipt with
   the same `expense_id`. An acceptance that another key claimed but did not
   finish is finished first, and one expense is recorded.
-- GET `/api/v1/business/expenses?from&to` returns `{items: BusinessExpense[]}`.
+- GET `/api/v1/business/expenses?from&to&kind` returns `{items: BusinessExpense[]}`.
   These are expense activities whose local date falls in `[from, to]`, newest
   first. `receipt_id` names the receipt when the expense came from exactly one;
   `draft_id` names the bridge draft that recorded it, so an expense whose
   draft is linked to several receipts or to none still opens its record.
+  Optional `kind` is `expense` (default) or `income`: `income` lists the
+  period's ventas in the same shape, `merchant` being the client, each item in
+  its own currency. Any other value is 422.
 - GET `/api/v1/business/expenses/{expense_id}` returns that expense with
   `recorded_at` and `revision` from the money read; 404 `expense_not_found`
   for any other id, including another Business's. An expense entered by hand

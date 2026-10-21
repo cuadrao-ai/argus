@@ -318,6 +318,57 @@ def test_the_staging_bank_line_outcomes_and_table_density_records_hold_inside_th
         applier.parse_hosted_approval(text, _STAGING_SHA_JK, versions, (), expires)
 
 
+_STAGING_APPROVAL_L = (
+    "docs/release-manifests/2026-10-21-staging-business-country-apply.json"
+)
+_STAGING_APPROVAL_M = (
+    "docs/release-manifests/2026-10-21-staging-profile-images-apply.json"
+)
+_STAGING_APPROVAL_N = (
+    "docs/release-manifests/2026-10-21-staging-business-sale-ncf-once-apply.json"
+)
+_STAGING_APPROVAL_O = (
+    "docs/release-manifests/2026-10-21-staging-bank-line-outcomes-no-delete-apply.json"
+)
+_STAGING_SHA_L = "0252425cb321a5db56b9e76c662b5e8a4b9a8149"
+_STAGING_SHA_M = "e23c9d902b6f0e8acf3ce7f75d85fdbe7cddca40"
+_STAGING_SHA_N = "79ed3f456113f624fb15a33d66675f4a21086e55"
+_STAGING_SHA_O = "d3bb0dd6c7d10c8d3d98d8374a24ec245a045b13"
+_STAGING_VERSIONS_L = ["20261021020000"]
+_STAGING_VERSIONS_M = ["20261021040000"]
+_STAGING_VERSIONS_N = ["20261021050000"]
+_STAGING_VERSIONS_O = ["20261021060000"]
+_STAGING_LMNO_WRONG = ["20261021020000", "20261021040000"]
+
+
+@pytest.mark.parametrize(
+    ("path", "sha", "versions", "record_id", "other_sha"),
+    [
+        (_STAGING_APPROVAL_L, _STAGING_SHA_L, _STAGING_VERSIONS_L,
+         "staging-apply-2026-10-21-c", _STAGING_SHA_M),
+        (_STAGING_APPROVAL_M, _STAGING_SHA_M, _STAGING_VERSIONS_M,
+         "staging-apply-2026-10-21-d", _STAGING_SHA_L),
+        (_STAGING_APPROVAL_N, _STAGING_SHA_N, _STAGING_VERSIONS_N,
+         "staging-apply-2026-10-21-e", _STAGING_SHA_O),
+        (_STAGING_APPROVAL_O, _STAGING_SHA_O, _STAGING_VERSIONS_O,
+         "staging-apply-2026-10-21-f", _STAGING_SHA_N),
+    ],
+)  # fmt: skip
+def test_the_staging_country_images_ncf_and_no_delete_records_hold_inside_their_window(
+    path: str, sha: str, versions: list[str], record_id: str, other_sha: str
+) -> None:
+    text = (Path(__file__).resolve().parents[1] / path).read_text()
+    approval = _staging_approval(path, sha, versions)
+    expires = datetime.fromisoformat("2026-10-24T10:45:00-05:00")
+    assert (approval.id, approval.expires_at) == (record_id, expires)
+    with pytest.raises(applier.ApplyError, match="different list of versions"):
+        applier.parse_hosted_approval(text, sha, _STAGING_LMNO_WRONG, (), expires)
+    with pytest.raises(applier.ApplyError, match="different candidate commit"):
+        applier.parse_hosted_approval(text, other_sha, versions, (), expires)
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(text, sha, versions, (), expires)
+
+
 _STAGING_REF = "skedzwocnmrhfigiwyzi"
 _STAGING_DIRECT = f"db.{_STAGING_REF}.supabase.co"
 _STAGING_POOLER = "aws-0-us-east-1.pooler.supabase.com"
@@ -336,12 +387,20 @@ _STAGING_RECORDS = (
     (_STAGING_APPROVAL_I, _STAGING_SHA_I, _STAGING_VERSIONS_I),
     (_STAGING_APPROVAL_J, _STAGING_SHA_JK, _STAGING_VERSIONS_J),
     (_STAGING_APPROVAL_K, _STAGING_SHA_JK, _STAGING_VERSIONS_K),
+    (_STAGING_APPROVAL_L, _STAGING_SHA_L, _STAGING_VERSIONS_L),
+    (_STAGING_APPROVAL_M, _STAGING_SHA_M, _STAGING_VERSIONS_M),
+    (_STAGING_APPROVAL_N, _STAGING_SHA_N, _STAGING_VERSIONS_N),
+    (_STAGING_APPROVAL_O, _STAGING_SHA_O, _STAGING_VERSIONS_O),
 )
+
+
+def _issued_at(text: str) -> datetime:
+    return datetime.fromisoformat(json.loads(text)["issued_at"])
 
 
 def _staging_approval(path: str, sha: str, versions: list[str]) -> applier.HostedApproval:
     text = (Path(__file__).resolve().parents[1] / path).read_text()
-    return applier.parse_hosted_approval(text, sha, versions, (), _STAGING_NOW)
+    return applier.parse_hosted_approval(text, sha, versions, (), _issued_at(text))
 
 
 def _staging_url(
@@ -620,7 +679,7 @@ def _quoted_main(
         applier,
         "datetime",
         SimpleNamespace(
-            now=lambda _tz: _STAGING_NOW, fromisoformat=datetime.fromisoformat
+            now=lambda _tz: _issued_at(text), fromisoformat=datetime.fromisoformat
         ),
     )
     approved = tmp_path / "approved.json"
