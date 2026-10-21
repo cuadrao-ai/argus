@@ -8,7 +8,6 @@ import {
   isInvalidSearchCursor,
   isStaleSearchCursor,
   listBusinessSearchRecents,
-  normalizeSearchQuery,
   parseBusinessSearch,
   recordBusinessSearchOpen,
   removeBusinessSearchRecent,
@@ -89,24 +88,12 @@ describe("Business search client", () => {
     expect([isStaleSearchCursor(invalid), isInvalidSearchCursor(invalid)]).toEqual([false, true]);
   });
 
-  test("an amount typed with thousands separators and no decimals is sent as digits", async () => {
-    expect(normalizeSearchQuery("3,450")).toBe("3450");
-    expect(normalizeSearchQuery(" 1,234,567 ")).toBe("1234567");
-    expect(normalizeSearchQuery("RD$ 3,450")).toBe("RD$ 3450");
-    expect(normalizeSearchQuery("$3,450")).toBe("$3450");
-    for (const kept of ["3450", "3,450.00", "12,5", "1,23", "ferretería 3,450", "3,45", "-3,450", "3,450 pesos"]) expect(normalizeSearchQuery(kept)).toBe(kept.trim());
+  test("the query goes as typed; the server reads grouped amounts like 3,450", async () => {
     const calls = respond({ status: 200, body: {} }, { status: 200, body: {} }, { status: 200, body: {} });
-    await searchBusiness("3,450");
-    await searchBusiness("3,450.00");
+    await searchBusiness("RD$ 3,450");
     await searchBusinessMore("3,450", "expenses", "c");
-    expect(calls.map((call) => params(call).q)).toEqual(["3450", "3,450.00", "3450"]);
-  });
-
-  test("the live source applies it, so every caller of search and load more gets it", async () => {
-    const calls = respond({ status: 200, body: {} }, { status: 200, body: {} });
-    await liveBusinessDataSource.search("3,450");
-    await liveBusinessDataSource.searchMore!("3,450", "receipts", "c1");
-    expect(calls.map((call) => params(call).q)).toEqual(["3450", "3450"]);
+    await liveBusinessDataSource.search("3,450.00");
+    expect(calls.map((call) => params(call).q)).toEqual(["RD$ 3,450", "3,450", "3,450.00"]);
   });
 
   test("recents list, add, remove and clear use the recents routes, and empty answers do not break", async () => {

@@ -265,8 +265,8 @@ describe("chat archive/delete lifecycle source contract", () => {
     expect(legal).toContain("text-[13px]");
     expect(legal).toContain("font-normal");
     expect(legal).toContain("text-black/40 dark:text-white/40");
-    expect(en.chat.disclaimer).toBe("Argus can make mistakes. For education only. Not financial advice.");
-    expect(es.chat.disclaimer).toBe("Argus puede equivocarse. Solo con fines educativos. No es asesoría financiera.");
+    expect(en.chat.disclaimer).toBe("Cuadrao can make mistakes. For education only. Not financial advice.");
+    expect(es.chat.disclaimer).toBe("Cuadrao puede equivocarse. Solo con fines educativos. No es asesoría financiera.");
   });
 
   test("guest expiry copy is gone and the registered disclaimer stays on both layouts", () => {

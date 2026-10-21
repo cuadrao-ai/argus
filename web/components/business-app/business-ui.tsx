@@ -4,10 +4,11 @@ import { useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptAttention, ReceiptStatus } from "@/lib/business-api";
 import { BusinessContext } from "./BusinessWorkspace";
+import { FOCUS_RING } from "./foundation/presentation";
 import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
-  "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
+  "rounded-surface border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
 /**
  * The one owner of button looks (Lucas, October 21, 2026). Four levels, never a fifth:
  * primary is the screen's one main action in Cuadrao green; secondary is an outlined
@@ -15,11 +16,11 @@ export const cardClass =
  * danger is the red confirm of a delete. All are fully round with a 44px target.
  */
 export const pillButtonClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-[opacity,background-color] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40";
+  `inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-[opacity,background-color] hover:opacity-90 ${FOCUS_RING} disabled:opacity-40`;
 
 export const primaryButtonClass = `${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
 export const secondaryButtonClass = `${pillButtonClass} border border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] hover:opacity-100 dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]`;
-export const quietButtonClass = "inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[15px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40";
+export const quietButtonClass = `inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[15px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline ${FOCUS_RING} disabled:opacity-40`;
 /** A destructive action: red, and always behind a confirmation. */
 export const dangerButtonClass = `${pillButtonClass} border border-[#9e2f39]/40 bg-white text-[#9e2f39] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
 export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#9e2f39] text-white dark:bg-[#ec9aa0] dark:text-[#172b26]`;
@@ -133,11 +134,11 @@ export function useTerminalRead() {
 
 export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {
   const { t } = useTranslation();
-  const line = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
+  const line = "rounded-mark bg-black/[0.06] dark:bg-white/[0.08]";
   const pulse = "animate-pulse motion-reduce:animate-none";
   const fields = Array.from({ length: rows }, (_, index) => (
     <div key={index} className={layout === "overview" ? `${cardClass} min-h-40 space-y-4` : "flex min-h-20 items-center gap-3 px-3 py-3"}>
-      {layout === "rows" ? <div className={`${line} h-11 w-11 shrink-0 rounded-[12px]`} /> : null}
+      {layout === "rows" ? <div className={`${line} h-11 w-11 shrink-0 rounded-item`} /> : null}
       <div className="min-w-0 flex-1 space-y-3">
         <div className={`${line} h-3 w-2/5`} />
         <div className={`${line} ${layout === "overview" ? "h-7 w-3/5" : "h-4 w-3/4"}`} />
@@ -167,6 +168,11 @@ export function useChannelLabel() {
     channel === "whatsapp" ? "WhatsApp" : channel === "email" ? t("business.dossier.email", "Email") : t("business.dossier.web", "Web upload");
 }
 
+/** The person may add receipts and notes to the Business they are in: the server's prepare capability, the owner's included. */
+export function canAddRecords(chosen: { capabilities: readonly string[] } | null | undefined): boolean {
+  return Boolean(chosen?.capabilities.includes("prepare"));
+}
+
 /** The owner is looking: their own Business, not a client's opened through a grant. */
 export function useOwnerView(): boolean {
   const business = useContext(BusinessContext);
@@ -194,7 +200,7 @@ export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_kno
 export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: string | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
-  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-full border px-2 text-[11px] font-medium";
+  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
   if (!personal && !fiscal) return null;
   const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
   return (

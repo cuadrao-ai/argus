@@ -14,8 +14,8 @@ import { Switch } from "@/components/ui/Switch";
  * the owner or anyone holding prepare marks a receipt as personal or takes
  * the mark back (a new revision each way), so the owner can always undo
  * someone else's mark in one tap; a prepare-holder who is not the owner
- * answers whether a personal receipt with a fiscal number goes into the 606.
- * The owner reads that answer; the app never gives it.
+ * answers whether a personal receipt with a fiscal number goes into the 606,
+ * when the server says the caller may. The owner reads that answer; the app never gives it.
  */
 export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: { dossier: BusinessDossier; busy?: boolean; onChanged: (next: BusinessDossier) => void }) {
   const { t } = useTranslation();
@@ -84,7 +84,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
       ) : null}
       {personal && fiscalValue ? (
         <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10" data-testid="receipt-606">
-          {inclusion === null && !owner && canPrepare ? (
+          {inclusion === null && dossier.fiscal_inclusion_available ? (
             <>
               <p className="text-[14px] font-medium text-black dark:text-white">{t("business.marks.question_606", "Include in the 606?")}</p>
               <div className="mt-3 flex gap-2">

@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { getChosenGrant, grantNotLive, setChosenGrant } from "@/lib/business-grant";
 import { consentCopyVersion } from "@/lib/business-privacy-notice";
+import { classifyFailure, referenceCode } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
 import type { BusinessDataSource } from "./business-data";
 import { BusinessConsentContext } from "./business-consent-context";
-import { BusinessConsentLoading, BusinessConsentScreen } from "./BusinessConsentScreen";
+import { BusinessConsentLoading, BusinessConsentScreen, type ConsentSave } from "./BusinessConsentScreen";
 
-type Phase = "checking" | "screen" | "saving" | "app";
+type Phase = { kind: "checking" } | { kind: "screen"; save: ConsentSave } | { kind: "app" };
 
 type ConsentSource = Pick<BusinessDataSource, "consent" | "acceptConsent" | "ensureSpace">;
 
@@ -30,21 +31,26 @@ async function acceptWhereWorking(source: ConsentSource, language: ArgusLanguage
   }
 }
 
+/** Offline is the docked banner's to say, so the screen only goes back to idle. */
+function failedSave(error: unknown): ConsentSave {
+  if (classifyFailure(error, { online: navigator.onLine }) === "offline") return { kind: "idle" };
+  return { kind: "failed", reference: referenceCode(error) };
+}
+
 export default function BusinessConsentGate({ source, children }: { source: ConsentSource; children: ReactNode }) {
   const { i18n } = useTranslation();
-  const [phase, setPhase] = useState<Phase>("checking");
-  const [failed, setFailed] = useState(false);
-  const value = useMemo(() => ({ accepted: phase === "app", reopen: () => setPhase("screen") }), [phase]);
+  const [phase, setPhase] = useState<Phase>({ kind: "checking" });
+  const accepted = phase.kind === "app";
+  const value = useMemo(() => ({ accepted, reopen: () => setPhase({ kind: "screen", save: { kind: "idle" } }) }), [accepted]);
 
   useEffect(() => {
     let live = true;
-    consentCopyVersion()
-      .then((version) => source.consent(version))
+    source.consent(consentCopyVersion())
       .then((found) => {
-        if (live) setPhase(found.accepted_at ? "app" : "screen");
+        if (live) setPhase(found.accepted_at ? { kind: "app" } : { kind: "screen", save: { kind: "idle" } });
       })
       .catch(() => {
-        if (live) setPhase("screen");
+        if (live) setPhase({ kind: "screen", save: { kind: "idle" } });
       });
     return () => {
       live = false;
@@ -52,26 +58,22 @@ export default function BusinessConsentGate({ source, children }: { source: Cons
   }, [source]);
 
   const accept = () => {
-    setPhase("saving");
-    setFailed(false);
+    if (phase.kind === "screen" && phase.save.kind === "saving") return;
+    setPhase({ kind: "screen", save: { kind: "saving" } });
     const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language);
-    consentCopyVersion()
-      .then((version) => acceptWhereWorking(source, language, version))
+    acceptWhereWorking(source, language, consentCopyVersion())
       .then((saved) => {
         if (!saved.accepted_at) throw new Error("business_consent_not_saved");
-        setPhase("app");
+        setPhase({ kind: "app" });
       })
-      .catch(() => {
-        setFailed(true);
-        setPhase("screen");
-      });
+      .catch((error: unknown) => setPhase({ kind: "screen", save: failedSave(error) }));
   };
 
   return (
     <BusinessConsentContext.Provider value={value}>
-      {phase === "checking" || phase === "saving" ? <BusinessConsentLoading /> : null}
-      {phase === "screen" ? <BusinessConsentScreen failed={failed} onContinue={accept} /> : null}
-      {phase === "app" ? children : null}
+      {phase.kind === "checking" ? <BusinessConsentLoading /> : null}
+      {phase.kind === "screen" ? <BusinessConsentScreen save={phase.save} onContinue={accept} /> : null}
+      {phase.kind === "app" ? children : null}
     </BusinessConsentContext.Provider>
   );
 }

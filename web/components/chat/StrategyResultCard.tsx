@@ -262,7 +262,7 @@ export default function StrategyResultCard({
             {t("chat.memory.proposal_benefit", {
               label: memoryProposal.label,
               defaultValue:
-                "Argus would keep “{{label}}” so you can revisit and compare it later. You can inspect or remove it any time in Data Controls.",
+                "Cuadrao would keep “{{label}}” so you can revisit and compare it later. You can inspect or remove it any time in Data Controls.",
             })}
           </p>
           {memoryProposalState === "failed" ? (

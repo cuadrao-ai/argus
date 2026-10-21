@@ -205,22 +205,15 @@ for (const cell of AUDIT_CELLS) {
       }
 
       if (account === "registered") {
-        for (const destination of ["security", "terms", "privacy"] as const) {
-          test(`settings route ${destination}`, async ({ page }) => {
-            await openFixture(page, cell);
-            await openSettings(page, cell);
-            if (destination === "security") {
-              await button(page, cell, DATA).click();
-              await button(page, cell, "settings.data.security").click();
-            } else {
-              await button(page, cell, "settings.help.title").click();
-              await page.getByRole("link", { name: label(language, `settings.help.${destination}`), exact: true }).first().click();
-            }
-            await expect(page).toHaveURL(new RegExp(destination === "security" ? "/account/security$" : `/${destination}$`));
-            await page.addStyleTag({ content: FREEZE_CSS });
-            await capture(page, cell, destination, page.getByRole("heading", { name: label(language, destination === "security" ? "account_security.title" : `legal.${destination}.title`), exact: true }));
-          });
-        }
+        test("settings route security", async ({ page }) => {
+          await openFixture(page, cell);
+          await openSettings(page, cell);
+          await button(page, cell, DATA).click();
+          await button(page, cell, "settings.data.security").click();
+          await expect(page).toHaveURL(/\/account\/security$/);
+          await page.addStyleTag({ content: FREEZE_CSS });
+          await capture(page, cell, "security", page.getByRole("heading", { name: label(language, "account_security.title"), exact: true }));
+        });
         test("currency picker", async ({ page }) => {
           await openFixture(page, cell);
           await openSettings(page, cell);

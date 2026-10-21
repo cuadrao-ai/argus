@@ -1,6 +1,12 @@
 import { dueDistance } from "@/lib/business-month-close";
 import { currencyDigits, currencySymbol } from "@/lib/money-entry";
 
+/**
+ * What a value the system does not know looks like: a plain short dash, never the long one.
+ * A negative amount keeps its minus sign in front of the number, so a lone dash is never a sign.
+ */
+export const UNKNOWN_VALUE = "-";
+
 const DECIMAL_AMOUNT = /^(-?)(\d+)(?:\.(\d+))?$/;
 
 export function formatBusinessName(name: string | null | undefined, fallback: string): string {

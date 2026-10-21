@@ -114,7 +114,7 @@ export default function SidebarHeader({
           type="button"
           onClick={onToggle}
           data-testid="sidebar-rail-toggle"
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[12px] text-black/60 transition-colors duration-200 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-black/60 transition-colors duration-200 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
           aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
         >
           <SidebarSimple size={20} aria-hidden="true" />
@@ -139,7 +139,7 @@ export default function SidebarHeader({
             onClick={onToggle}
             data-testid="sidebar-rail-toggle"
             aria-label={t("common.expand", "Expand")}
-            className="group relative flex h-11 w-11 items-center justify-center rounded-[12px] transition-colors duration-200 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/5"
+            className="group relative flex h-11 w-11 items-center justify-center rounded-item transition-colors duration-200 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/5"
           >
             <span className="transition-opacity duration-150 ease-out group-hover:opacity-0 group-focus-visible:opacity-0">{businessMark ?? brandMark()}</span>
             <SidebarSimple size={20} className="absolute text-black/60 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />

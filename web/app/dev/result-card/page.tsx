@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import ResultCardPlaygroundClient from "./ResultCardPlaygroundClient";
 
 export const metadata = {
-  title: "Result Card Playground - Argus",
+  title: "Result Card Playground - Cuadrao",
 };
 
 export const dynamic = "force-dynamic";

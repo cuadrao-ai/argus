@@ -37,7 +37,7 @@ for (const theme of ["light", "dark"] as const) {
       await next.click();
       await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
       await expect(page.getByRole("heading", { name: "Papelería Central" })).toBeVisible();
-      await expect(page.getByLabel("Comercio")).toHaveValue("Papelería Central");
+      await expect(page.getByRole("textbox", { name: "Comercio" })).toHaveValue("Papelería Central");
       if (viewport.name === "desktop") await expect(badge).toHaveText(String(waiting - 1));
       await capture(page, `next-receipt-${theme}-${viewport.name}`);
     });

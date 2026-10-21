@@ -109,7 +109,7 @@ export default function ActionMenu({ actions, label, placement, portal = false, 
       aria-label={label}
       onKeyDown={onKeyDown}
       style={portal ? (fixedStyle ?? undefined) : undefined}
-      className={`z-[70] min-w-[220px] rounded-[14px] border border-black/10 bg-white py-1.5 dark:border-white/10 dark:bg-[#1f2225] ${portal ? "" : `absolute ${PLACEMENT[placement]}`}`}
+      className={`z-[70] min-w-[220px] rounded-surface border border-black/10 bg-white py-1.5 dark:border-white/10 dark:bg-[#1f2225] ${portal ? "" : `absolute ${PLACEMENT[placement]}`}`}
     >
       {actions.map((action, index) => {
         const Icon = action.icon;
@@ -125,7 +125,7 @@ export default function ActionMenu({ actions, label, placement, portal = false, 
               close();
               action.run();
             }}
-            className="mx-1 my-0.5 flex min-h-11 w-[calc(100%-0.5rem)] items-center gap-3 rounded-[10px] px-3 text-left text-[14px] font-medium text-black transition-colors hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none dark:text-white dark:hover:bg-white/5 dark:focus-visible:bg-white/5"
+            className="mx-1 my-0.5 flex min-h-11 w-[calc(100%-0.5rem)] items-center gap-3 rounded-item px-3 text-left text-[14px] font-medium text-black transition-colors hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none dark:text-white dark:hover:bg-white/5 dark:focus-visible:bg-white/5"
           >
             <Icon className="h-[18px] w-[18px] shrink-0 text-black/60 dark:text-white/60" />
             {action.label}

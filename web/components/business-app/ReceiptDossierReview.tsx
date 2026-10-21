@@ -12,7 +12,6 @@ import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import { approveFiscalRecord } from "@/lib/business-dgii";
 import { duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
@@ -27,11 +26,13 @@ import ReceiptHistory from "./ReceiptHistory";
 import ReceiptDocumentType from "./ReceiptDocumentType";
 import ReceiptMarksCard from "./ReceiptMarksCard";
 import ReceiptReviewFrame from "./ReceiptReviewFrame";
-import { formatMoney } from "./business-format";
+import { formatMoney, UNKNOWN_VALUE } from "./business-format";
+import { receiptCurrencyOptions } from "./receipt-currencies";
 import { handTitleFocus, nextBandejaReceipt } from "./bandeja-order";
 import { primaryButtonClass, secondaryButtonClass, StatusPill } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { ContentFade, Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 type Operation = { kind: "idle" } | { kind: "saving" | "approving" } | { kind: "uncertain"; action: "save" | "approve"; version: number };
 
@@ -53,7 +54,8 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
   const unrecorded = dossier.unrecorded_purchases ?? purchases.length;
   const recorded = dossier.review_state === "accepted" && dossier.facts.amount.state === "known";
   const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
-  const money = (amount: string) => (currency ? formatMoney(amount, currency, i18n.resolvedLanguage ?? "en") : amount);
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const money = (amount: string, own: string | null = currency) => formatMoney(amount, own, locale) || UNKNOWN_VALUE;
   const note = !recorded
     ? t("business.dossier.read_purchases_note", "The read showed more than one purchase. Complete this record with one of them; the rest stay here as evidence.")
     : unrecorded > 0 && dossier.read_total
@@ -69,7 +71,7 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
         {purchases.map((purchase) => (
           <li key={purchase.index} className="flex items-baseline justify-between gap-3 py-2 text-[14px]">
             <span className="min-w-0 truncate text-black/80 dark:text-white/80">{purchase.merchant ?? t("business.dossier.read_purchase", "Purchase {{index}}", { index: purchase.index })}{purchase.occurred_on ? ` · ${purchase.occurred_on}` : ""}</span>
-            <span className="cuadrao-amount shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? `${purchase.amount}${purchase.currency ? ` ${purchase.currency}` : ""}` : t("business.dossier.unknown_amount", "Amount unknown")}</span>
+            <span className="cuadrao-amount shrink-0 tabular-nums text-black dark:text-white">{purchase.amount ? money(purchase.amount, purchase.currency) : t("business.dossier.unknown_amount", "Amount unknown")}</span>
           </li>
         ))}
       </ul>
@@ -80,7 +82,6 @@ export function ReceiptReadPurchases({ dossier, busy, onSettle }: { dossier: Bus
 
 export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }: { draftId: string; onUnprepared?: () => void; receipt?: ReceiptDetail }) {
   const { t, i18n } = useTranslation();
-  const spanishReview = i18n.resolvedLanguage === "es-419";
   const { source, reload, records, openPanel } = useBusiness();
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -151,7 +152,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   };
 
   const write = async (action: "save" | "approve", facts?: BusinessFactPatch): Promise<BusinessDossier | null> => {
-    if (!dossier || inFlight.current || fiscalBusy || action === "approve" && fiscalDirty || operation.kind !== "idle" || action === "save" && !facts) return null;
+    const approval = dossier?.approval_action;
+    if (!dossier || inFlight.current || fiscalBusy || action === "approve" && (fiscalDirty || !approval) || operation.kind !== "idle" || action === "save" && !facts) return null;
     inFlight.current = true;
     setOperation({ kind: action === "save" ? "saving" : "approving" });
     setProblem(null);
@@ -164,13 +166,10 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
         next = await source.reviewDraft(draftId, request.version, request.facts, request.key);
         reviewRequest.current = null;
       }
-      else {
+      else if (approval) {
         if (approvalKey.current?.version !== dossier.version) approvalKey.current = { version: dossier.version, key: randomId() };
-        const kind = dossier.facts.kind.value;
-        next = source.mode === "live" && (kind === "income" || kind === "refund")
-          ? await approveFiscalRecord(draftId, dossier.version, kind === "income" ? "record_income" : "record_refund", approvalKey.current.key)
-          : await source.approveDraft(draftId, dossier.version, approvalKey.current.key);
-      }
+        next = await source.approveDraft(draftId, dossier.version, approvalKey.current.key, approval);
+      } else return null;
       setDossier(next);
       if (action === "save" && facts) {
         const saved = Object.keys(facts);
@@ -247,7 +246,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const currency = dossier.facts.currency.state === "known" ? dossier.facts.currency.value : null;
   const approval = dossier.approval_result?.status === "recorded" ? dossier.approval_result : null;
   const recorded = approval !== null;
-  const supportedKind = dossier.facts.kind.state === "known" && ["expense", "income", "refund"].includes(dossier.facts.kind.value);
+  // The server names the approve action; without one there is nothing this screen may approve.
+  const supportedKind = Boolean(dossier.approval_action);
   const mutable = !capturePending && !captureOpen && !fiscalBusy && !fiscalDirty && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
@@ -278,7 +278,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   // The receipt's own status when there is one; a bare record maps only the review states a status pill can say.
   const pillStatus = receipt?.status ?? (recorded || dossier.review_state === "accepted" ? "confirmed" : dossier.review_state === "open" ? "review_ready" : null);
   const reasonId = `approve-reason-${dossier.draft_id}`;
-  const approvalLabel = dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Aprobar ingreso") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Aprobar reembolso") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"));
+  const approvalLabel = dossier.approval_action === "record_income" ? t("business.dgii.approve_income", "Approve income") : dossier.approval_action === "record_refund" ? t("business.dgii.approve_refund", "Approve refund") : t("business.dossier.approve_action", "Approve expense");
 
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
   return (<><ContentFade><>
@@ -298,11 +298,11 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     {captureRecovery}
     <ReceiptReviewFrame
       recordId={receipt?.id ?? draftId}
-      back={recorded ? "expenses" : "inbox"}
+      back={recorded ? "transactions" : "inbox"}
       title={title}
       history={<ReceiptHistory history={dossier.history} accounts={accounts} sources={dossier.sources} approval={dossier.approval_result} />}
       badge={pillStatus ? <StatusPill status={pillStatus} /> : <span className="text-[13px] leading-[18px] text-[#56635e] dark:text-white/70">{t(`business.dossier.state.${dossier.review_state}`, dossier.review_state)}</span>}
-      amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? "en") : null}
+      amount={amount !== null && currency !== null ? formatMoney(amount, currency, i18n.resolvedLanguage ?? resolveLanguage({})) : null}
       mark={dossier.bill_mark}
       footer={!approval && canApprove ? <div className="flex flex-wrap items-center gap-3">
         <button type="button" aria-busy={operation.kind === "approving" && !advancing} className={`${primaryButtonClass} w-full whitespace-nowrap tablet:w-auto`} aria-describedby={reason ? reasonId : undefined} disabled={!supportedKind || !approvable} onClick={() => requestApproval()}>{operation.kind === "approving" && !advancing ? <><Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />{t("business.dossier.approving", "Approving…")}</> : approvalLabel}</button>
@@ -320,8 +320,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           <ReceiptDocumentType dossier={dossier} busy={busy || dirty} onChanged={setDossier} />
           <div>
             {operation.kind === "uncertain" && operation.action === "save" ? <h3 className="mb-4 font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.dossier.pending_details", "Your unconfirmed edits")}</h3> : null}
-            {canPrepare && confirmationCount > 0 ? <button type="button" className={`${secondaryButtonClass} mb-4`} disabled={!mutable} onClick={() => void write("save", confirmations)}>{spanishReview ? `Confirmar ${confirmationCount} datos leídos` : `${t("business.dossier.confirm_value", "Confirm")} ${confirmationCount}`}</button> : null}
-            <ReceiptRecordFacts dossier={dossier} accounts={accounts} onEdit={canPrepare && mutable ? (key) => setEditing((current) => current.includes(key) ? current : [...current, key]) : undefined} editor={canPrepare ? (key) => editing.includes(key) || key === "occurred_on" && dossier.facts.occurred_on.state === "unknown" ? <ReceiptFactEditor key={`${key}-${editReset}`} field={key} autoFocus={editing.includes(key)} facts={dossier.facts} patch={edits} accounts={accounts} currencies={[...new Set([...accounts.map((account) => account.currency), ...(currency ? [currency] : [])])]} disabled={!mutable} onChange={(patch, invalid) => {
+            {canPrepare && confirmationCount > 0 ? <button type="button" className={`${secondaryButtonClass} mb-4`} disabled={!mutable} onClick={() => void write("save", confirmations)}>{t("business.dossier.confirm_read", { count: confirmationCount, defaultValue: "Confirm {{count}}" })}</button> : null}
+            <ReceiptRecordFacts dossier={dossier} accounts={accounts} onEdit={canPrepare && mutable ? (key) => setEditing((current) => current.includes(key) ? current : [...current, key]) : undefined} editor={canPrepare ? (key) => editing.includes(key) || key === "occurred_on" && dossier.facts.occurred_on.state === "unknown" ? <ReceiptFactEditor key={`${key}-${editReset}`} field={key} autoFocus={editing.includes(key)} facts={dossier.facts} patch={edits} accounts={accounts} currencies={receiptCurrencyOptions(records.workspace, accounts, currency)} disabled={!mutable} onChange={(patch, invalid) => {
               setEdits((current) => ({ ...current, ...patch }));
               setInvalidFields((current) => invalid ? [...new Set([...current, key])] : current.filter((field) => field !== key));
             }} /> : null : undefined} />
@@ -336,7 +336,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           {problem ? <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p> : null}
           {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
           <div className={SURFACE_CARD}>
-            {approval ? <><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{(dossier.facts.kind.value === "income" ? t("business.dgii.recorded_income", "Se registró un ingreso después de aprobar la revisión {{version}}.", { version: approval.approved_revision }) : dossier.facts.kind.value === "refund" ? t("business.dgii.recorded_refund", "Se registró un reembolso después de aprobar la revisión {{version}}.", { version: approval.approved_revision }) : t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision }))}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? "en", { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
+            {approval ? <><div role="status"><p className="flex gap-2 text-[14px] text-black/80 dark:text-white/80"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{(dossier.facts.kind.value === "income" ? t("business.dgii.recorded_income", "Income was recorded after revision {{version}} was approved.", { version: approval.approved_revision }) : dossier.facts.kind.value === "refund" ? t("business.dgii.recorded_refund", "A refund was recorded after revision {{version}} was approved.", { version: approval.approved_revision }) : t("business.dossier.recorded", "One expense was recorded after approval of revision {{version}}.", { version: approval.approved_revision }))}</p><p className="mt-1 pl-6 text-[13px] text-black/65 dark:text-white/65">{t("business.expenses.recorded_on", "Recorded on {{when}}", { when: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? resolveLanguage({}), { day: "numeric", month: "short", year: "numeric" }).format(new Date(approval.approved_at)) })}</p></div><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.approved_by", "Approved by {{name}} · permission granted by {{issuer}}", { name: approval.actor.display_name, issuer: approval.actor.issuer_display_name })}</p><p className="mt-3 text-[12px] text-black/55 dark:text-white/55">{t("business.dossier.correction_unsupported", "Corrections after recording aren't available in this first flow.")}</p></> : <>
               {line ? <p className="text-[13px] leading-relaxed text-black/65 dark:text-white/65">{t("business.dossier.prepare_only", "Your permission allows preparing this record. A person with approval permission must approve it.")}</p> : null}
               {dossier.approval_result?.status === "failed" ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{t("business.dossier.approval_failed", "Approval did not finish. Check the current record before another action.")}</p> : null}
             </>}

@@ -95,7 +95,9 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
     receiptPage: async (view: "inbox" | "all") => {
       pageReads += 1;
       const rows = view === "all" ? receipts : pending();
-      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: pending().filter((item) => !item.email_original).length, needs_attention_count: 0 } };
+      const waiting = pending().filter((item) => !item.email_original).length;
+      const confirmed = receipts.filter((item) => item.status === "confirmed" && !item.email_original).length;
+      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting, confirmed_count: confirmed, dismissed_count: 0 } };
     },
     receipt: async (id: string) => {
       if (id === "rcpt-dos") {
@@ -276,7 +278,7 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.open("rcpt-uno");
     await page.click("Aprobar y siguiente", () => (page.panel() as { receiptId?: string }).receiptId === "rcpt-dos");
     assert.equal(page.heading(), null, "the intended receipt is still loading");
-    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.act(async () => page.workspace().openPanel({ kind: "transactions" }));
     await page.release();
     await page.open("rcpt-tres");
     assert.equal(page.heading(), "Tres");
@@ -350,13 +352,13 @@ describe("Aprobar y siguiente on the receipt review page", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("opening Gastos while the approval is pending keeps Gastos open when it records", async () => {
+  test("opening Transacciones while the approval is pending keeps it open when it records", async () => {
     const page = await mount({ hold: "approval" });
     await page.open("rcpt-uno");
     await page.click("Aprobar y siguiente", () => page.approvals.length === 1);
-    await page.act(async () => page.workspace().openPanel({ kind: "expenses" }));
+    await page.act(async () => page.workspace().openPanel({ kind: "transactions" }));
     await page.release();
-    assert.deepEqual(page.panel(), { kind: "expenses" });
+    assert.deepEqual(page.panel(), { kind: "transactions" });
     assert.equal(page.bandejaReads(), 0, "nothing reads the Bandeja for a page the owner left");
     await page.act(async () => page.root.unmount());
   });

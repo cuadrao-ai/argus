@@ -96,7 +96,9 @@ async function mount(source: ConsentSource): Promise<{ host: HTMLElement; root: 
 const button = (host: HTMLElement) => host.querySelector('[data-testid="business-consent-continue"]') as HTMLButtonElement;
 const checkbox = (host: HTMLElement) => host.querySelector('input[type="checkbox"]') as HTMLInputElement;
 
-test("Continuar waits for the box, saves on the server, and shows Inicio's skeleton meanwhile", async () => {
+const alert = (host: HTMLElement) => host.querySelector('[data-testid="business-consent-screen"] [role="alert"]');
+
+test("Continuar waits for the box, locks with a spinner while saving, and goes straight in", async () => {
   const world = server();
   const releaseRead = world.holdRead();
   const { host, root } = await mount(world.source);
@@ -108,7 +110,11 @@ test("Continuar waits for the box, saves on the server, and shows Inicio's skele
   const screen = host.querySelector('[data-testid="business-consent-screen"]');
   assert.ok(screen);
   assert.equal(screen.querySelector("h1")?.textContent, "Antes de empezar");
-  assert.equal(host.querySelector('[data-testid="business-consent-privacy"]'), null, "a draft notice gets no link");
+  assert.equal(screen.querySelector("h1 + p")?.textContent, spanish.business.consent.one_time);
+  const privacy = host.querySelector('[data-testid="business-consent-privacy"]') as HTMLAnchorElement;
+  assert.equal(privacy.getAttribute("href"), "https://cuadrao.ai/privacidad");
+  assert.equal(privacy.getAttribute("target"), "_blank");
+  assert.equal(privacy.textContent, "Ver aviso de privacidad");
   assert.equal(button(host).disabled, true);
   await act(async () => { checkbox(host).click(); });
   assert.equal(button(host).disabled, false);
@@ -119,8 +125,13 @@ test("Continuar waits for the box, saves on the server, and shows Inicio's skele
   const release = world.holdAccept();
   await act(async () => { button(host).click(); });
   await settle();
-  assert.equal(host.querySelector('[data-testid="business-consent-screen"]'), null);
-  assert.ok(host.querySelector('[data-testid="business-consent-loading"] [data-layout="overview"]'), "saving paints Inicio's skeleton");
+  assert.ok(host.querySelector('[data-testid="business-consent-screen"]'), "the screen stays while it saves");
+  assert.ok(host.querySelector('[data-testid="business-consent-saving"]'), "Continuar shows a spinner");
+  assert.equal(button(host).getAttribute("aria-busy"), "true");
+  assert.equal(checkbox(host).disabled, true, "the box is locked while saving");
+  await act(async () => { button(host).click(); });
+  await settle();
+  assert.equal(world.calls.accept.length, 1, "a second press while saving sends nothing");
   assert.equal(host.querySelector('[data-testid="inicio"]'), null);
   release();
   await settle();
@@ -138,17 +149,53 @@ test("Continuar waits for the box, saves on the server, and shows Inicio's skele
   again.host.remove();
 });
 
-test("a failed save stays on the screen and says so", async () => {
+test("a server failure says what failed inline, with its reference, and Reintentar saves", async () => {
   const world = server();
-  world.failOnce(new Error("offline"));
+  world.failOnce(Object.assign(new Error("API error 503"), { status: 503, digest: "req_7f3a9c" }));
   const { host, root } = await mount(world.source);
   await settle();
   await act(async () => { checkbox(host).click(); });
   await act(async () => { button(host).click(); });
   await settle();
-  assert.ok(host.querySelector('[data-testid="business-consent-screen"] [role="alert"]'));
+  const failure = alert(host);
+  assert.ok(failure);
+  assert.match(failure.textContent ?? "", /No pudimos guardar tu aceptación\. No cambió nada\./);
+  assert.match(failure.textContent ?? "", /Ref\. req_7f3a9c/);
+  assert.equal(checkbox(host).checked, true, "the box stays ticked");
+  assert.equal(host.querySelector('[data-testid="connection-banner"]'), null);
   assert.equal(host.querySelector('[data-testid="inicio"]'), null);
   assert.equal(world.accepted.size, 0);
+
+  await act(async () => { (host.querySelector('[data-testid="business-consent-retry"]') as HTMLButtonElement).click(); });
+  await settle();
+  assert.ok(host.querySelector('[data-testid="inicio"]'), "Reintentar saves and goes straight in");
+  assert.equal(world.accepted.size, 1);
+  await act(async () => root.unmount());
+  host.remove();
+});
+
+test("offline, the docked banner speaks and the screen claims no server failure", async () => {
+  const world = server();
+  const online = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(navigator), "onLine");
+  const { host, root } = await mount(world.source);
+  await settle();
+  await act(async () => { checkbox(host).click(); });
+  Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+  world.failOnce(new TypeError("Failed to fetch"));
+  try {
+    await act(async () => { window.dispatchEvent(new Event("offline")); });
+    await act(async () => { button(host).click(); });
+    await settle();
+    assert.ok(host.querySelector('[data-testid="connection-banner"]'));
+    assert.equal(alert(host), null);
+    assert.equal(button(host).disabled, false, "Continuar is ready to try again");
+    assert.equal(host.querySelector('[data-testid="inicio"]'), null);
+  } finally {
+    delete (navigator as { onLine?: boolean }).onLine;
+    if (online) Object.defineProperty(Object.getPrototypeOf(navigator), "onLine", online);
+    await act(async () => { window.dispatchEvent(new Event("online")); });
+  }
+  assert.equal(host.querySelector('[data-testid="connection-banner"]'), null);
   await act(async () => root.unmount());
   host.remove();
 });

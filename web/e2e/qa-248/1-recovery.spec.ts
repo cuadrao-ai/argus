@@ -89,7 +89,6 @@ test.describe("issue-248 recovery journeys (local real auth)", () => {
 
     const newPassword = `Qa!R${Date.now().toString(36)}x${Math.random().toString(36).slice(2, 8)}`;
     await page.getByLabel("New password", { exact: true }).fill(newPassword);
-    await page.getByLabel("Confirm new password", { exact: true }).fill(newPassword);
     await page.locator('button[type="submit"]').click();
     await expect(page.locator("main").getByRole("status")).toContainText(
       "Sign in again on every browser",
@@ -171,7 +170,6 @@ test.describe("issue-248 recovery journeys (local real auth)", () => {
     const attempted = `Qa!W${Date.now().toString(36)}x${Math.random().toString(36).slice(2, 8)}`;
     await page.getByLabel("Current password", { exact: true }).fill("Wrong-current-1!");
     await page.getByLabel("New password", { exact: true }).fill(attempted);
-    await page.getByLabel("Confirm new password", { exact: true }).fill(attempted);
     await page.getByRole("button", { name: "Change password" }).click();
 
     const alert = page.locator("main").getByRole("alert");
@@ -211,7 +209,6 @@ test.describe("issue-248 recovery journeys (local real auth)", () => {
     const newPassword = `Qa!C${Date.now().toString(36)}x${Math.random().toString(36).slice(2, 8)}`;
     await page.getByLabel("Current password", { exact: true }).fill(password);
     await page.getByLabel("New password", { exact: true }).fill(newPassword);
-    await page.getByLabel("Confirm new password", { exact: true }).fill(newPassword);
     await page.getByRole("button", { name: "Change password" }).click();
 
     const status = page.locator("main").getByRole("status");

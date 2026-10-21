@@ -16,15 +16,17 @@ import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DatePicker } from "./foundation/DatePicker";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
+import { receiptCurrencyOptions } from "./receipt-currencies";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
-import { primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
+import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS, UNKNOWN_VALUE } from "./business-format";
+import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
 
@@ -42,11 +44,12 @@ function draftFrom(detail: ReceiptDetail): Draft {
 }
 
 const inputClass =
-  "block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
+  "block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
   const terminalRead = useTerminalRead();
@@ -84,14 +87,14 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }, [receiptId, source, revision, attempt]);
 
   const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
-  const currencies = [...new Set(accounts.map((account) => account.currency))];
+  const currencies = receiptCurrencyOptions(records.workspace, accounts, detail?.currency ?? null);
   const missing = useMemo(
     () => (detail && draft ? detail.missing_fields.filter((key) => !draft[key]?.trim()) : []),
     [detail, draft],
   );
   const confirmed = detail?.status === "confirmed";
-  // Backend state only: a read is pending when the API says so, never from the status alone.
-  const waitingForAi = detail?.read_pending === true;
+  // Backend state only: the receipt is being read when the server's Bandeja flag says so, never from the status.
+  const waitingForAi = detail?.bandeja?.leyendo === true;
   const [readStalled, setReadStalled] = useState(false);
   // The read settles on the server; this page asks again until it has, so the
   // same page fills in. Fields the person typed meanwhile keep their text.
@@ -132,12 +135,12 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }
   if (!detail || !draft) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
-  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
     <ContentFade><ReceiptReviewFrame
       recordId={receiptId}
-      back={confirmed ? "expenses" : "inbox"}
+      back={confirmed ? "transactions" : "inbox"}
       title={detail.merchant || (confirmed ? t("business.review.saved_title", "Saved expense") : t("business.review.title", "Review receipt"))}
       badge={<StatusPill status={detail.status} />}
       amount={!reading && detail.amount && detail.currency ? formatMoney(detail.amount, detail.currency, locale) : null}
@@ -146,7 +149,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
       {children}
     </ReceiptReviewFrame></ContentFade>
   );
-  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={false} preparable={false} /></>);
+  if (!waitingForAi && (detail.activity?.state === "saved_unread" || detail.activity?.state === "reading")) return frame(<><ReceiptReadingControl /><ReceiptReadNotice receipt={detail} enterable={false} preparable={false} /></>);
   const incompleteBridge = unprepared || (detail.status === "review_ready" && !detail.enterable);
   const locked = confirmed || uncertainVersion !== null || !canPrepare || (detail.version === 0 && !detail.enterable);
   const canEnter = detail.enterable && canPrepare && !locked;
@@ -378,7 +381,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
               ) : null}
             </div>
           ) : null}
-          <ReceiptReadNotice status={detail.status} readPending={waitingForAi} enterable={canEnter} preparable={detail.preparable && canPrepare} />
+          <ReceiptReadNotice receipt={detail} enterable={canEnter} preparable={detail.preparable && canPrepare} />
 
           <section data-testid="receipt-facts-activity" className={`${SURFACE_CARD} space-y-4`}>
             {field(
@@ -466,9 +469,9 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           {confirmed ? (
             <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
               <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: formatMoney(detail.amount, detail.currency, locale) })}
+                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: money(detail.amount, detail.currency) })}
               </p>
-              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "expenses" })}>
+              <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "transactions" })}>
                 {t("business.review.view_expenses", "View expenses")}
               </button>
             </div>
@@ -502,10 +505,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
                 {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
                 {detail.evidence.lines.map((line, index) => (
-                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(line.amount, detail.evidence?.currency ?? null, locale)}</dd></div>
+                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{money(line.amount, detail.evidence?.currency ?? null)}</dd></div>
                 ))}
-                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(detail.evidence.tax, detail.evidence.currency, locale)}</dd></div> : null}
-                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(detail.evidence.total, detail.evidence.currency, locale)}</dd></div> : null}
+                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.tax, detail.evidence.currency)}</dd></div> : null}
+                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.total, detail.evidence.currency)}</dd></div> : null}
               </dl>
               <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
                 {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { disclosedCookieConcept } from "../lib/browser-cookies";
 import { STORAGE_REGISTRY } from "../lib/browser-storage";
+import { installMobileShellFixture } from "./support/mobile-shell-fixture";
 
 /**
  * Observation backstop for the storage chokepoint.
@@ -49,9 +50,12 @@ test("every key a real session keeps is a disclosed key", async ({ page }) => {
     };
   });
 
-  // Surfaces that persist anything: landing, theme boot, language detection,
-  // both legal pages, and a return trip so restored preferences are written.
-  for (const path of ["/", "/privacy", "/terms", "/"]) {
+  // Surfaces that persist anything: the chat shell, theme boot, language
+  // detection, and a return trip so restored preferences are written. The
+  // legal pages redirect to the published site, so they are not on this
+  // journey. The shell fixture stands in for the session that writes them.
+  await installMobileShellFixture(page, { account: "registered" });
+  for (const path of ["/chat", "/auth/forgot-password", "/chat"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
   }
@@ -115,10 +119,8 @@ test("every cookie a real session leaves is a disclosed cookie", async ({
   page,
   context,
 }) => {
-  for (const path of ["/", "/privacy", "/terms"]) {
-    await page.goto(path);
-    await page.waitForLoadState("networkidle");
-  }
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
 
   const cookies = await context.cookies();
   const undisclosed = cookies

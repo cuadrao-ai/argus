@@ -7,7 +7,7 @@ import { openItemsHeaderCurrency } from "@/lib/business-month-close";
  * so the screen never reads a wire shape.
  */
 
-/** Signed decimal text, exactly as the server sends it: below zero is money out. */
+/** Signed decimal text in the currency's own exponent, exactly as the server sends it: below zero is money out. */
 export type Money = Readonly<{ amount: string; currency: string }>;
 
 export type DocumentKind = "recibo" | "venta";
@@ -16,42 +16,42 @@ export type DocumentSummary = Readonly<{
   id: string;
   kind: DocumentKind;
   counterparty: string | null;
-  occurredOn: string | null;
+  occurredOn: string;
   rnc: string | null;
+  /** The paper NCF or the e-CF, whichever the document carries. */
   ncf: string | null;
   itbis: Money | null;
-  total: Money | null;
+  total: Money;
 }>;
 
-/** Why the server offered a pair, in words the tray can say. `daysBefore` is null when the server did not say. */
-export type SuggestionReason = { kind: "amount" } | { kind: "date"; daysBefore: number | null } | { kind: "name" };
+/** Why the server offered a pair, in words the tray can say. `days` is the document's date minus the movement's. */
+export type SuggestionReason = { kind: "amount" } | { kind: "date"; days: number } | { kind: "name" };
 
 export type Suggestion = Readonly<{
   id: string;
   /** The server's confidence, 0 to 1; it orders the run and is never shown as a number. */
-  confidence: number | null;
-  documentKind: DocumentKind;
-  /** Null while the server sends only the document's id. */
-  document: DocumentSummary | null;
+  confidence: number;
+  document: DocumentSummary;
   reasons: readonly SuggestionReason[];
 }>;
 
 export const NO_COMPROBANTE_REASONS = ["cargo_banco", "entre_cuentas", "compra_informal", "personal"] as const;
 export type NoComprobanteReason = (typeof NO_COMPROBANTE_REASONS)[number];
+/** A zero-amount line needs no comprobante by the server's own rule; nobody chose it, so nobody can take it back. */
+export type NoLlevaReason = NoComprobanteReason | "monto_cero";
 
 /** How a row stands against its proof. Each state carries only what it can know. */
 export type Match =
   | { state: "igualada"; document: DocumentSummary | null }
   | { state: "sugerencia"; suggestion: Suggestion }
   | { state: "falta_comprobante" }
-  | { state: "igualada_en_parte"; document: DocumentSummary | null; missing: Money }
-  | { state: "no_lleva"; reason: NoComprobanteReason }
+  | { state: "no_lleva"; reason: NoLlevaReason }
   | { state: "sin_movimiento"; document: DocumentSummary };
 
 export type MatchState = Match["state"];
 
 export type AccountKind = "bank" | "card" | "cash";
-export type MovementAccount = Readonly<{ kind: AccountKind; name: string; last4: string | null }>;
+export type MovementAccount = Readonly<{ kind: AccountKind; name: string | null }>;
 
 export type Movement = Readonly<{
   id: string;
@@ -65,99 +65,153 @@ export type Movement = Readonly<{
   match: Match;
 }>;
 
-/** The server's totals for the period. A null part is one the server does not serve: the screen shows it as unknown. */
-export type Totals = Readonly<{
-  entradas: readonly Money[] | null;
-  salidas: readonly Money[] | null;
-  porIgualar: Readonly<{ count: number; amounts: readonly Money[] | null }> | null;
-  igualadas: Readonly<{ count: number; of: number }> | null;
+export type Counts = Readonly<{
+  movimientos: number;
+  igualadas: number;
+  noLleva: number;
+  sugerencias: number;
+  faltaComprobante: number;
+  sinMovimiento: number;
+  porIgualar: number;
 }>;
 
-export type TransaccionesView = Readonly<{
+/** One currency's totals for the whole period, whatever the segment or page. Currencies are never added together. */
+export type CurrencyTotals = Readonly<{ currency: string; entradas: string; salidas: string; porIgualar: string; counts: Counts }>;
+
+export type Segment = "por_igualar" | "igualadas" | "todas";
+export const SEGMENTS: readonly Segment[] = ["por_igualar", "igualadas", "todas"];
+
+export type IgualarView = Readonly<{
+  mode: "igualar";
+  segment: Segment;
+  /** The segment's rows in the server's order, every page read so far. */
   movements: readonly Movement[];
-  totals: Totals;
+  nextCursor: string | null;
+  totals: readonly CurrencyTotals[];
+  /** The currency of the account the statement comes from, for a total of a period with no rows. */
+  accountCurrency: string | null;
   /** The last statement day the bank covers; null when no statement says. */
   coverageThrough: string | null;
 }>;
 
+export type RecordKind = "gasto" | "venta";
+
+/** Where a saved record opens: the existing record tray's receipt, draft or plain expense. */
+export type RecordTarget =
+  | { kind: "receipt"; receiptId: string; list: "transactions" }
+  | { kind: "draft"; draftId: string; list: "transactions" }
+  | { kind: "expense"; expenseId: string };
+
+/** A saved gasto, as the screen lists it with no statement to igualar against. */
+export type RecordRow = Readonly<{
+  id: string;
+  kind: RecordKind;
+  occurredOn: string;
+  counterparty: string | null;
+  /** Signed like a movement: a gasto is money out. */
+  money: Money;
+  categoryId: string | null;
+  account: MovementAccount | null;
+  /** Its file: true shows the receipt icon, false nothing, null unknown. */
+  hasProof: boolean | null;
+  /** A personal gasto stays listed but out of Salidas, so the row says so; the fiscal mark is the same one Gastos showed. */
+  marks: Readonly<{ personal: boolean; markedBy: string | null; fiscal: "sin_comprobante" | "missing_ncf" | null }>;
+  /** Null while the record has no screen of its own. */
+  opens: RecordTarget | null;
+}>;
+
+/** Salidas is the server's own total. No read serves the period's ventas, so Entradas reads as unknown. */
+export type RecordsTotals = Readonly<{ salidas: readonly Money[] }>;
+
+/**
+ * With no statement to igualar against, the screen lists the period's saved
+ * gastos: no Por igualar flags, no suggestions, no coverage.
+ */
+export type RecordsView = Readonly<{ mode: "records"; records: readonly RecordRow[]; totals: RecordsTotals }>;
+
+export type TransaccionesView = IgualarView | RecordsView;
+
+/** Taking an outcome back names the outcome, so the inverse can put it back. */
+export type Outcome = { kind: "match"; documentId: string } | { kind: "no_receipt"; reason: NoComprobanteReason };
+
 export type Decision =
-  | { kind: "igualar"; movementId: string; suggestionId: string }
+  | { kind: "igualar"; movementId: string; suggestionId: string; documentId: string }
+  | { kind: "igualar_con"; movementId: string; documentId: string }
   | { kind: "rechazar"; movementId: string; suggestionId: string }
   | { kind: "sin_comprobante"; movementId: string; reason: NoComprobanteReason }
-  | { kind: "desigualar"; movementId: string };
+  | { kind: "desigualar"; movementId: string; outcome: Outcome };
 
 export type DecisionKind = Decision["kind"];
 
-/**
- * The seam the backend plugs into. `supports` says which decisions the
- * server takes today; `undo` is absent while the server cannot take a
- * decision back, and the screen then offers no Deshacer.
- */
+/** The decision that takes this one back, or null when the server keeps it for good: a declined pair never returns. */
+export function inverse(decision: Decision): Decision | null {
+  switch (decision.kind) {
+    case "igualar":
+    case "igualar_con":
+      return { kind: "desigualar", movementId: decision.movementId, outcome: { kind: "match", documentId: decision.documentId } };
+    case "sin_comprobante":
+      return { kind: "desigualar", movementId: decision.movementId, outcome: { kind: "no_receipt", reason: decision.reason } };
+    case "desigualar":
+      return decision.outcome.kind === "match"
+        ? { kind: "igualar_con", movementId: decision.movementId, documentId: decision.outcome.documentId }
+        : { kind: "sin_comprobante", movementId: decision.movementId, reason: decision.outcome.reason };
+    case "rechazar":
+      return null;
+  }
+}
+
+/** One past outcome of a line, oldest first. */
+export type HistoryEntry = Readonly<{ id: string; outcome: "match" | "no_receipt"; documentKind: DocumentKind | null; reason: NoComprobanteReason | null; from: string; until: string | null }>;
+
+export type LoadRequest = Readonly<{ from: string; to: string | null; segment: Segment; cursor?: string | null; limit?: number }>;
+
+/** The seam the backend plugs into. The screen re-reads after every decision; it never moves a row itself. */
 export type TransaccionesSource = Readonly<{
-  load: (period: Readonly<{ from: string; to: string | null }>) => Promise<TransaccionesView>;
+  load: (request: LoadRequest) => Promise<TransaccionesView>;
   decide: (decision: Decision, idempotencyKey: string) => Promise<void>;
-  supports: (kind: DecisionKind) => boolean;
-  undo?: (decision: Decision) => Promise<void>;
+  history: (movementId: string) => Promise<readonly HistoryEntry[]>;
 }>;
 
-export type Segment = "por_igualar" | "igualadas" | "todas";
-export const SEGMENTS: readonly Segment[] = ["por_igualar", "igualadas", "todas"];
 export type Group = "sugerencias" | "falta_comprobante" | "sin_movimiento";
 export const GROUPS: readonly Group[] = ["sugerencias", "falta_comprobante", "sin_movimiento"];
 
-/** Where each state lives: its segment, its Por igualar group, and the actions a row in it offers. */
-export const MATCH_STATES: Record<MatchState, Readonly<{ segment: "por_igualar" | "igualadas"; group: Group | null; actions: readonly DecisionKind[] }>> = {
-  igualada: { segment: "igualadas", group: null, actions: ["desigualar"] },
-  sugerencia: { segment: "por_igualar", group: "sugerencias", actions: ["igualar", "rechazar", "sin_comprobante"] },
-  falta_comprobante: { segment: "por_igualar", group: "falta_comprobante", actions: ["sin_comprobante"] },
-  igualada_en_parte: { segment: "por_igualar", group: "falta_comprobante", actions: ["desigualar"] },
-  no_lleva: { segment: "igualadas", group: null, actions: ["desigualar"] },
-  sin_movimiento: { segment: "por_igualar", group: "sin_movimiento", actions: [] },
-};
-
-/** The actions a row offers now: what its state allows and the source takes. */
-export function rowActions(movement: Movement, source: Pick<TransaccionesSource, "supports">): DecisionKind[] {
-  return MATCH_STATES[movement.match.state].actions.filter((kind) => source.supports(kind));
-}
-
-const newestFirst = (left: Movement, right: Movement) => (left.occurredOn === right.occurredOn ? left.id.localeCompare(right.id) : left.occurredOn < right.occurredOn ? 1 : -1);
-const confidenceOf = (movement: Movement) => (movement.match.state === "sugerencia" ? movement.match.suggestion.confidence ?? 0 : 0);
-
-export type Section = Readonly<{ group: Group | null; rows: readonly Movement[] }>;
+/** Where each state lives: its Por igualar group, and the count that names the group. */
+const GROUP_OF: Record<MatchState, Group | null> = { igualada: null, sugerencia: "sugerencias", falta_comprobante: "falta_comprobante", no_lleva: null, sin_movimiento: "sin_movimiento" };
+const GROUP_COUNT: Record<Group, keyof Counts> = { sugerencias: "sugerencias", falta_comprobante: "faltaComprobante", sin_movimiento: "sinMovimiento" };
 
 /**
- * The rows a segment shows. Por igualar comes in its three groups, the
- * suggestions most confident first; the others are one list, by date.
+ * A count for the whole period. Each currency's block counts its own rows and
+ * no row is in two currencies, so the blocks add up to the period exactly.
  */
-export function segmentSections(movements: readonly Movement[], segment: Segment, order: "desc" | "asc" = "desc"): Section[] {
-  const byDate = (left: Movement, right: Movement) => (order === "desc" ? newestFirst(left, right) : -newestFirst(left, right));
-  if (segment !== "por_igualar") {
-    const rows = movements.filter((movement) => segment === "todas" || MATCH_STATES[movement.match.state].segment === segment);
-    return [{ group: null, rows: [...rows].sort(byDate) }];
-  }
-  return GROUPS.map((group) => {
-    const rows = movements.filter((movement) => MATCH_STATES[movement.match.state].group === group);
-    return { group, rows: group === "sugerencias" ? [...rows].sort((left, right) => confidenceOf(right) - confidenceOf(left) || newestFirst(left, right)) : [...rows].sort(byDate) };
-  }).filter((section) => section.rows.length > 0);
+export function periodCount(totals: readonly CurrencyTotals[], key: keyof Counts): number {
+  return totals.reduce((sum, block) => sum + block.counts[key], 0);
 }
 
-/** The suggestion run: every pending suggestion, most confident first. */
-export function suggestionRun(movements: readonly Movement[]): Movement[] {
-  return [...(segmentSections(movements, "por_igualar").find((section) => section.group === "sugerencias")?.rows ?? [])];
+/** One figure per currency, never added across them. */
+export function perCurrency(totals: readonly CurrencyTotals[], key: "entradas" | "salidas" | "porIgualar"): Money[] {
+  return totals.map((block) => ({ currency: block.currency, amount: block[key] }));
 }
 
-export function segmentCount(movements: readonly Movement[], segment: Segment): number {
-  return segmentSections(movements, segment).reduce((sum, section) => sum + section.rows.length, 0);
+export type Section = Readonly<{ group: Group | null; count: number | null; rows: readonly Movement[] }>;
+
+/**
+ * The rows a segment shows, in the server's order. Por igualar comes in its
+ * three groups, each named with the server's count for the period.
+ */
+export function segmentSections(view: IgualarView): Section[] {
+  if (view.segment !== "por_igualar") return [{ group: null, count: null, rows: view.movements }];
+  return GROUPS.map((group) => ({ group, count: periodCount(view.totals, GROUP_COUNT[group]), rows: view.movements.filter((movement) => GROUP_OF[movement.match.state] === group) }))
+    .filter((section) => section.rows.length > 0);
 }
 
-/** Por igualar when it has rows; Todas otherwise. */
-export function defaultSegment(movements: readonly Movement[]): Segment {
-  return segmentCount(movements, "por_igualar") > 0 ? "por_igualar" : "todas";
+/** The suggestion run: the Por igualar segment's suggestions, in the server's order, most confident first. */
+export function suggestionRun(view: IgualarView): Movement[] {
+  return view.segment === "por_igualar" ? view.movements.filter((movement) => movement.match.state === "sugerencia") : [];
 }
 
-/** The currency the Monto header names: DOP when any row is in pesos. One owner: `openItemsHeaderCurrency`. */
-export function headerCurrency(movements: readonly Movement[]): string | null {
-  return openItemsHeaderCurrency({ count: 0, items: [], totals: movements.map((movement) => ({ currency: movement.money.currency, total: movement.money.amount })) });
+/** The currency the Monto header names: the Business currency when a row holds it, else the only currency, else none. One owner: `openItemsHeaderCurrency`. */
+export function headerCurrency(rows: readonly Readonly<{ money: Money }>[], businessCurrency: string | null = null): string | null {
+  return openItemsHeaderCurrency({ count: 0, items: [], totals: rows.map((row) => ({ currency: row.money.currency, total: row.money.amount })) }, businessCurrency);
 }
 
 /** Totals in one currency each, the header's first. Never added across currencies. */
@@ -176,6 +230,3 @@ export function signOf(money: Money): Sign {
 export function magnitude(money: Money): Money {
   return { ...money, amount: money.amount.trim().replace(/^[-+]/, "") };
 }
-
-/** The unknown mark: a value the system does not know. Screen readers hear "sin dato". */
-export const UNKNOWN = "—";

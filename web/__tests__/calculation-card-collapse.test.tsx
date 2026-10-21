@@ -50,7 +50,7 @@ describe("a computed answer's card under the prose", () => {
       const t = instance.t.bind(instance);
       const price = { name: "price", label: { locale_key: "tools.calc.fields.price", interpolation_args: {} }, value: 150, unit: null };
       expect(toolFactSourceText({ ...price, source: { kind: "market_data", date: "2026-09-11" } }, t, language))
-        .toContain(language === "en" ? "Argus market data" : "Datos de mercado de Argus");
+        .toContain(language === "en" ? "Cuadrao market data" : "Datos de mercado de Cuadrao");
       expect(toolFactSourceText({ ...price, source: { kind: "assumption" } }, t, language))
         .toBe(language === "en" ? "Assumed in the answer" : "Supuesto en la respuesta");
     });

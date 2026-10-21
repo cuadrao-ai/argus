@@ -10,7 +10,7 @@ export const CONTENT_FADE_MS = 150;
 /** The screen-reader label is this word, and it is never visible. */
 export const SCREEN_READER_LOADING_LABEL = "Cargando";
 
-export type SkeletonLayout = "overview" | "inbox" | "expenses" | "access" | "detail" | "rows" | "form";
+export type SkeletonLayout = "overview" | "inbox" | "access" | "detail" | "rows" | "form";
 
 export function placeholderPhase(elapsedMs: number, delayMs = SKELETON_DELAY_MS): "blank" | "skeleton" {
   return elapsedMs < delayMs ? "blank" : "skeleton";
@@ -44,29 +44,14 @@ function ListShell({ children }: { children: ReactNode }) {
 function InboxRow() {
   return (
     <div className="flex items-center gap-3 px-3 py-3">
-      <Bar className="h-11 w-11 shrink-0 rounded-[12px]" />
+      <Bar className="h-11 w-11 shrink-0 rounded-item" />
       <span className="min-w-0 flex-1 space-y-2">
         <Bar className="h-[15px] w-2/5" />
         <Bar className="h-[13px] w-3/5" />
       </span>
       <Bar className="h-[15px] w-16 shrink-0" />
-      <Bar className="h-6 w-20 shrink-0 rounded-full" />
+      <Bar className="h-6 w-20 shrink-0 rounded-mark" />
       <span className="h-4 w-4 shrink-0" />
-    </div>
-  );
-}
-
-function ExpenseRow() {
-  return (
-    <div className="px-3 py-1">
-      <div className="flex min-h-11 items-center gap-3 py-2">
-        <span className="min-w-0 flex-1">
-          <span className="flex h-[1lh] items-center text-[15px]"><Bar className="h-[15px] w-2/5" /></span>
-          <span className="mt-0.5 flex h-[1lh] items-center text-[13px]"><Bar className="h-[13px] w-3/5" /></span>
-        </span>
-        <Bar className="h-[15px] w-16 shrink-0" />
-        <span className="h-4 w-4 shrink-0" />
-      </div>
     </div>
   );
 }
@@ -74,7 +59,7 @@ function ExpenseRow() {
 function AccessRow() {
   return (
     <div className="flex items-center gap-3 px-3 py-3">
-      <Bar className="h-11 w-11 shrink-0 rounded-[12px]" />
+      <Bar className="h-11 w-11 shrink-0 rounded-item" />
       <span className="min-w-0 flex-1 space-y-2">
         <Bar className="h-[15px] w-2/5" />
         <Bar className="h-[13px] w-3/5" />
@@ -89,7 +74,6 @@ type ListLayout = Exclude<SkeletonLayout, "overview" | "detail" | "form">;
 const LIST_ROWS: Record<ListLayout, () => ReactNode> = {
   inbox: InboxRow,
   rows: InboxRow,
-  expenses: ExpenseRow,
   access: AccessRow,
 };
 
@@ -97,7 +81,7 @@ function OverviewSkeleton() {
   return (
     <div className="grid gap-3 tablet:grid-cols-2">
       <div className={`${cardClass} flex items-center gap-3 tablet:col-span-2`}>
-        <Bar className="h-5 w-5 shrink-0 rounded-[12px]" />
+        <Bar className="h-5 w-5 shrink-0 rounded-item" />
         <span className="min-w-0 flex-1 space-y-2">
           <Bar className="h-5 w-2/5" />
           <Bar className="h-[13px] w-1/4" />
@@ -127,7 +111,7 @@ function DetailSkeleton() {
       <div className="mb-6" data-testid="business-skeleton-top">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Bar className="h-7 w-2/5 max-w-full" />
-          <Bar className="h-6 w-24 shrink-0 rounded-full" />
+          <Bar className="h-6 w-24 shrink-0 rounded-mark" />
         </div>
         <Bar className="mt-2 h-[34px] w-48 max-w-full" />
       </div>
@@ -136,12 +120,12 @@ function DetailSkeleton() {
           {Array.from({ length: 3 }, (_, index) => (
             <span key={index} className="block space-y-2">
               <Bar className="h-[13px] w-1/4" />
-              <Bar className="h-11 w-full rounded-[12px]" />
+              <Bar className="h-11 w-full rounded-item" />
             </span>
           ))}
         </div>
         <div className={`${SURFACE_CARD} desktop:col-start-1 desktop:row-start-1`}>
-          <div data-testid="business-skeleton-preview" className={`${styles.shimmer} ${styles.block} hidden min-h-[200px] overflow-hidden rounded-[12px] desktop:flex desktop:min-h-[280px]`} />
+          <div data-testid="business-skeleton-preview" className={`${styles.shimmer} ${styles.block} hidden min-h-[200px] overflow-hidden rounded-item desktop:flex desktop:min-h-[280px]`} />
         </div>
       </div>
     </>
@@ -155,7 +139,7 @@ function FormSkeleton() {
       {["w-56", "w-24", "w-40"].map((width) => (
         <span key={width} className="space-y-1.5">
           <Bar className="h-[13px] w-16" />
-          <Bar className={`h-11 rounded-lg ${width}`} />
+          <Bar className={`h-11 rounded-item ${width}`} />
         </span>
       ))}
     </div>
@@ -198,7 +182,7 @@ export function DelayedSourceWell() {
   return (
     <span role="status" aria-live="polite" className="block h-full w-full">
       <span className="sr-only">{SCREEN_READER_LOADING_LABEL}</span>
-      <span aria-hidden="true" data-testid="business-skeleton-shimmer" className={`${styles.shimmer} ${styles.block} block h-full w-full rounded-[14px]`} />
+      <span aria-hidden="true" data-testid="business-skeleton-shimmer" className={`${styles.shimmer} ${styles.block} block h-full w-full rounded-item`} />
     </span>
   );
 }

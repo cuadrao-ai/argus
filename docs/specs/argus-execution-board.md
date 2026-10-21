@@ -989,9 +989,10 @@ The founder selected the existing approved Preview3427 interface for mobile reco
   web as "Al continuar, aceptas los [Términos] y la [Política de privacidad]." and
   "By continuing, you agree to the [Terms] and [Privacy Policy].", both linked, with
   no checkbox (Lucas, October 15, 2026). It stays hidden until both URLs are set.
-- [ ] For web, set `NEXT_PUBLIC_CUADRAO_TERMS_URL`, `NEXT_PUBLIC_CUADRAO_PRIVACY_URL`
-  and `NEXT_PUBLIC_CUADRAO_DATA_DELETION_URL` on the target service and rebuild the
-  web, because they are read at build time (Lucas, October 15, 2026;
+- [ ] For web, Terms and Privacy default to https://cuadrao.ai/terminos and
+  https://cuadrao.ai/privacidad (October 21, 2026). Set
+  `NEXT_PUBLIC_CUADRAO_DATA_DELETION_URL` on the target service and rebuild the
+  web, because it is read at build time (Lucas, October 15, 2026;
   [#1156](https://github.com/lagarcess/argus/pull/1156),
   [#1162](https://github.com/lagarcess/argus/issues/1162)).
 - [ ] Reconcile App Store privacy answers, app/SDK privacy manifests and required

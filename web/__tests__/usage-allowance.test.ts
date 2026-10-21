@@ -392,7 +392,7 @@ describe("private-alpha usage allowance", () => {
       "Conversation is free. Asking questions and reading answers never counts.",
     );
     expect(en.search_rule).toBe(
-      "Searches with sources count once per search Argus runs for you. Answers from Argus data don’t count.",
+      "Searches with sources count once per search Cuadrao runs for you. Answers from Cuadrao data don’t count.",
     );
     expect(en.simulation_rule).toBe(
       "New simulations count once. Retrying the same simulation doesn’t count again.",
@@ -414,7 +414,7 @@ describe("private-alpha usage allowance", () => {
       "La conversación es gratis. Preguntar y leer respuestas nunca cuenta.",
     );
     expect(es.search_rule).toBe(
-      "Las búsquedas con fuentes cuentan una vez por cada búsqueda que Argus hace por ti. Las respuestas con datos de Argus no cuentan.",
+      "Las búsquedas con fuentes cuentan una vez por cada búsqueda que Cuadrao hace por ti. Las respuestas con datos de Cuadrao no cuentan.",
     );
     expect(es.simulation_rule).toBe(
       "Las simulaciones nuevas cuentan una vez. Reintentar la misma simulación no vuelve a contar.",

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import BottomSheetPlaygroundClient from "./BottomSheetPlaygroundClient";
 
 export const metadata = {
-  title: "Bottom Sheet Playground - Argus",
+  title: "Bottom Sheet Playground - Cuadrao",
 };
 
 export const dynamic = "force-dynamic";

@@ -28,7 +28,7 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       if (path === "search") return route.fulfill({ json: await source.search(url.searchParams.get("q") ?? "") });
       if (path === "captures" && method === "GET") {
         if (state.notesUnavailable) return route.fulfill({ status: 503, json: { code: "private-internal-payload" } });
-        return route.fulfill({ json: { items: await source.captures(url.searchParams.get("q") ?? "") } });
+        return route.fulfill({ json: await source.captures(url.searchParams.get("q") ?? "") });
       }
       if (path === "captures") {
         const input = route.request().postDataJSON() as BusinessCaptureInput;
@@ -50,7 +50,7 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
       if (draft) {
         if (draft[2] === "dossier") return route.fulfill({ json: await source.dossier(draft[1]) });
         const body = route.request().postDataJSON();
-        if (draft[2] === "approve") { state.approvals++; return route.fulfill({ json: await source.approveDraft(draft[1], body.version, route.request().headers()["idempotency-key"]) }); }
+        if (draft[2] === "approve") { state.approvals++; return route.fulfill({ json: await source.approveDraft(draft[1], body.version, route.request().headers()["idempotency-key"], body.action) }); }
         return route.fulfill({ json: await source.reviewDraft(draft[1], body.version, body.facts, route.request().headers()["idempotency-key"]) });
       }
       return route.fulfill({ json: { items: [] } });
@@ -167,7 +167,7 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await page.goto(`/biz?draft=${dossierFixtureIds.readOnly}`);
   await expect(page.getByTestId("business-record-review")).toBeVisible();
   await expect(page.getByRole("button", { name: "Agregar una nota a este registro", exact: true })).toHaveCount(0);
-  await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval");
+  await source.approveDraft(dossierFixtureIds.ready, 2, "fixture-explicit-approval", "record_expense");
   await page.goto(`/biz?draft=${dossierFixtureIds.ready}`);
   await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
   await expect(page.getByRole("button", { name: "Agregar una nota a este registro", exact: true })).toHaveCount(0);

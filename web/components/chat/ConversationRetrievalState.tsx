@@ -28,7 +28,7 @@ export function ConversationRetrievalAnnouncement({ business = false, initial = 
       role="status"
       aria-live="polite"
     >
-      {spanishBusiness ? "Cargando Cuadrao" : initial ? t("guest.entry.loading", "Opening Argus") : t("chat.opening_conversation", "Opening conversation…")}
+      {spanishBusiness ? "Cargando Cuadrao" : initial ? t("guest.entry.loading", "Opening Cuadrao") : t("chat.opening_conversation", "Opening conversation…")}
     </span>
   );
 }

@@ -61,7 +61,7 @@ export function useReceiptReadPoll({
         next = null;
       } finally { if (request === controller) request = null; }
       if (!current || controller.signal.aborted || !visible()) return;
-      if (next && next.read_pending !== true) {
+      if (next && next.bandeja?.leyendo !== true) {
         latest.current.onSettled(next);
         return;
       }

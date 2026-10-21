@@ -4,11 +4,13 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 
+import { ErrorSummary, PasswordField, useFieldChecks } from "@/components/ui/FormField";
 import {
   getAuthSecurityActions,
   type SessionActionResult,
 } from "@/lib/auth-security";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
+import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
 
 type RecoveryState = "checking" | "ready" | "invalid" | "saving" | "done";
 
@@ -17,7 +19,6 @@ export default function RecoveryPage() {
   const exchangeStarted = useRef(false);
   const [state, setState] = useState<RecoveryState>("checking");
   const [password, setPassword] = useState("");
-  const [confirmation, setConfirmation] = useState("");
   const [result, setResult] = useState<SessionActionResult | null>(null);
   const [retryingRevocation, setRetryingRevocation] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +50,7 @@ export default function RecoveryPage() {
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-    if (password !== confirmation) {
-      setError(t("auth.recovery.password_mismatch", "Passwords do not match."));
-      return;
-    }
+    if (!checks.submit()) return;
     setState("saving");
     try {
       const resetResult = await getAuthSecurityActions().resetRecoveredPassword(
@@ -70,6 +68,19 @@ export default function RecoveryPage() {
       setState("ready");
     }
   };
+
+  const checks = useFieldChecks(
+    {
+      password: (values) =>
+        !values.password
+          ? t("account_security.password.new_required", "Enter a new password.")
+          : values.password.length < PASSWORD_MIN_LENGTH
+            ? t("account_security.password.too_short", { min: PASSWORD_MIN_LENGTH, defaultValue: "Use at least {{min}} characters." })
+            : null,
+    },
+    { password },
+  );
+  const passwordLabel = t("auth.recovery.new_password", "New password");
 
   const retryRevocation = async () => {
     setError(null);
@@ -120,31 +131,22 @@ export default function RecoveryPage() {
         )}
 
         {(state === "ready" || state === "saving") && (
-          <form onSubmit={submit} className="mt-6 space-y-4">
-            <label className="block text-sm font-medium text-[var(--auth-ink)]">
-              {t("auth.recovery.new_password", "New password")}
-              <input
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 w-full rounded-[20px] border bg-transparent px-5 py-[14px] text-[16px] text-[var(--auth-ink)] outline-none"
-              />
-            </label>
-            <label className="block text-sm font-medium text-[var(--auth-ink)]">
-              {t("auth.recovery.confirm_password", "Confirm new password")}
-              <input
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
-                className="mt-2 w-full rounded-[20px] border bg-transparent px-5 py-[14px] text-[16px] text-[var(--auth-ink)] outline-none"
-              />
-            </label>
+          <form noValidate onSubmit={submit} className="mt-6 space-y-4">
+            <ErrorSummary
+              key={checks.attempt}
+              title={t("common.form_summary", "Check these fields to continue:")}
+              items={checks.summary.map(() => ({ id: "recovery-password", label: passwordLabel }))}
+            />
+            <PasswordField
+              id="recovery-password"
+              label={passwordLabel}
+              autoComplete="new-password"
+              value={password}
+              error={checks.errorOf("password")}
+              disabled={state === "saving"}
+              onBlur={() => checks.blur("password")}
+              onChange={(event) => setPassword(event.target.value)}
+            />
             {error && <p role="alert" className={`text-sm ${inlineFailureTextClass}`}>{error}</p>}
             <button
               type="submit"

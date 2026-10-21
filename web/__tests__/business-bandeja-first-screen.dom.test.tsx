@@ -90,6 +90,44 @@ test("a turned-on reading stays off the first screen, and a turned-off reading s
   } finally { await off.close(); }
 });
 
+test("reading off is one line under the title with an outlined action; the words agreed to and the switch live in Lectura de recibos", async () => {
+  const turnedOn: boolean[] = [];
+  const off = await mountInbox({
+    receiptReading: async () => reading(false),
+    setReceiptReading: async (current, enabled) => { turnedOn.push(enabled); return { ...current, enabled }; },
+  });
+  try {
+    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') !== null);
+    const notice = off.host.querySelector('[data-testid="receipt-reading-control"]')!;
+    const title = off.host.querySelector("h2")!;
+    assert.equal(title.textContent, "Bandeja");
+    assert.ok(title.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice sits under the title");
+    assert.deepEqual([...notice.querySelectorAll("p")].map((line) => line.textContent), ["Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión."]);
+    assert.equal(off.host.textContent?.includes("Permiso de prueba"), false, "the consent words are not repeated on the page");
+    const action = notice.querySelector("button")!;
+    assert.equal(action.textContent, "Activar lectura de recibos");
+    assert.ok(action.className.includes("border") && !action.className.includes("bg-[var(--cuadrao-green)]"), "secondary, not the page's primary");
+    await off.act(async () => action.click());
+    const sheet = document.querySelector('[data-testid="receipt-reading-sheet"]')!;
+    assert.ok(sheet.textContent?.includes("Permiso de prueba"));
+    const toggle = sheet.querySelector<HTMLButtonElement>('[role="switch"]')!;
+    assert.equal(toggle.getAttribute("aria-checked"), "false");
+    await off.act(async () => { toggle.click(); await Promise.resolve(); });
+    await off.settle(() => off.host.querySelector('[data-testid="receipt-reading-control"]') === null);
+    assert.deepEqual(turnedOn, [true]);
+    assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'), null);
+  } finally { await off.close(); }
+});
+
+test("a reading setting that did not load claims nothing", async () => {
+  const unknown = await mountInbox({ receiptReading: async () => { throw Object.assign(new Error("down"), { status: 503 }); } });
+  try {
+    await unknown.settle(() => unknown.host.querySelector('[data-testid="bandeja-segments"]') !== null);
+    assert.equal(unknown.host.querySelector('[data-testid="receipt-reading-control"]'), null);
+    assert.equal(unknown.host.textContent?.includes("sin leer"), false);
+  } finally { await unknown.close(); }
+});
+
 test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its segments are Por revisar, Con problema and Todo", async () => {
   const page = await mountInbox();
   try {

@@ -113,7 +113,7 @@ export function KeyboardShortcutsOverlaySurface({
               {!workspaceShortcuts ? <p className="mt-0.5 text-[13px] leading-relaxed text-black/55 dark:text-white/55">
                 {t(
                   "keyboard_shortcuts.description",
-                  "Quick ways to move through Argus.",
+                  "Quick ways to move through Cuadrao.",
                 )}
               </p> : null}
             </div>

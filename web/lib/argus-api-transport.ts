@@ -55,6 +55,12 @@ export function argusApiRequestHeaders(
   return headers;
 }
 
+/** The server names every response with X-Request-Id (and request_id in error bodies); a failure keeps it so the reference a person reads is the one in the server's logs. */
+export function serverRequestId(response: Response, body: Record<string, unknown>): string | undefined {
+  const id = response.headers.get("X-Request-Id") ?? body.request_id;
+  return typeof id === "string" && id ? id : undefined;
+}
+
 export async function apiFetch<T>(
   path: string,
   options?: AccountRequestOptions,
@@ -82,8 +88,9 @@ export async function apiFetch<T>(
 
     const error = new Error(
       (errorMsg as string) ?? `API error ${response.status}`,
-    ) as Error & { status: number; code: string; context?: unknown };
+    ) as Error & { status: number; code: string; context?: unknown; requestId?: string };
     error.status = response.status;
+    error.requestId = serverRequestId(response, body as Record<string, unknown>);
     error.code =
       ((body as Record<string, unknown>).code as string) ?? "unknown";
     error.context = (body as Record<string, unknown>).context;
@@ -115,8 +122,10 @@ export async function unauthenticatedApiFetch<T>(
     const error = new Error(message) as Error & {
       status: number;
       code: string;
+      requestId?: string;
     };
     error.status = response.status;
+    error.requestId = serverRequestId(response, body as Record<string, unknown>);
     error.code = String((body as Record<string, unknown>).code ?? "unknown");
     throw error;
   }

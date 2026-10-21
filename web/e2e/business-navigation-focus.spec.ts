@@ -23,7 +23,7 @@ test("production approve-next keeps the next receipt title focused", async ({ pa
     else if (parts[0] === "receipts" && parts[2] === "read") json = { ok: true };
     else if (parts[0] === "receipts" && parts.length === 2) json = await source.receipt(parts[1]);
     else if (parts[0] === "drafts" && parts[2] === "dossier") json = await source.dossier(parts[1]);
-    else if (parts[0] === "drafts" && parts[2] === "approve") json = await source.approveDraft(parts[1], body.version, "synthetic-key");
+    else if (parts[0] === "drafts" && parts[2] === "approve") json = await source.approveDraft(parts[1], body.version, "synthetic-key", body.action);
     else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
     else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
     else if (parts[0] === "consent") return fulfillAcceptedBusinessConsent(route);

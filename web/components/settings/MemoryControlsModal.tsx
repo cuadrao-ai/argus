@@ -134,7 +134,7 @@ function MemoryRecordRow({ record, locale, onEdited, onDeleted }: RecordRowProps
         code === "memory_sensitivity_restricted"
           ? t(
               "settings.data.personalization.errors.restricted",
-              "Argus keeps sensitive details out of memory.",
+              "Cuadrao keeps sensitive details out of memory.",
             )
           : t(
               "settings.data.personalization.errors.edit",
@@ -464,7 +464,7 @@ export default function MemoryControlsModal({
               <p className="text-[12.5px] leading-relaxed text-black/55 dark:text-white/55">
                 {t(
                   "settings.data.personalization.intro",
-                  "Argus only remembers what you confirm. You can review, edit, delete, or turn off everything here.",
+                  "Cuadrao only remembers what you confirm. You can review, edit, delete, or turn off everything here.",
                 )}
               </p>
 
@@ -502,7 +502,7 @@ export default function MemoryControlsModal({
                 <h3 className="text-[13px] font-medium text-black dark:text-white">
                   {t(
                     "settings.data.personalization.records_title",
-                    "What Argus remembers",
+                    "What Cuadrao remembers",
                   )}
                 </h3>
                 {records.length === 0 ? (

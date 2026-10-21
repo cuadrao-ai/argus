@@ -60,7 +60,7 @@ for (const width of [1440, 390]) {
     await expect(screen.getByRole("heading", { level: 1 })).toHaveText(COPY.title);
     await expect(screen.getByText(COPY.body, { exact: true })).toBeVisible();
     await expect(screen.getByText(COPY.optIn, { exact: true })).toBeVisible();
-    await expect(screen.getByText(COPY.privacy)).toHaveCount(0);
+    await expect(screen.getByRole("link", { name: COPY.privacy })).toHaveAttribute("href", "https://cuadrao.ai/privacidad");
     const go = screen.getByRole("button", { name: COPY.continue, exact: true });
     await expect(go).toBeDisabled();
     await expect(page.locator("#business-overview-title")).toHaveCount(0);
@@ -75,9 +75,10 @@ for (const width of [1440, 390]) {
     let release!: () => void;
     server.holdAccept = new Promise((resolve) => { release = resolve; });
     await go.click();
-    const loading = page.getByTestId("business-consent-loading");
-    await expect(loading.locator('[data-layout="overview"]')).toBeVisible();
-    await capture(page, `skeleton-${width}`);
+    await expect(screen.getByTestId("business-consent-saving")).toBeVisible();
+    await expect(go).toHaveAttribute("aria-busy", "true");
+    await expect(screen.getByRole("checkbox")).toBeChecked();
+    await capture(page, `saving-${width}`);
     release();
     server.holdAccept = null;
     await expect(page.locator("#business-overview-title")).toBeVisible();

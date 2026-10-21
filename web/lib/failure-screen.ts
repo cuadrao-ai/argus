@@ -47,11 +47,10 @@ export function classifyFailure(
 const REFERENCE = /^[A-Za-z0-9_-]{4,64}$/;
 
 export function referenceCode(error: unknown): string {
-  const digest =
-    typeof error === "object" && error !== null && "digest" in error
-      ? error.digest
-      : undefined;
-  if (typeof digest === "string" && REFERENCE.test(digest)) return digest;
+  for (const key of ["requestId", "digest"] as const) {
+    const value = typeof error === "object" && error !== null && key in error ? (error as Record<string, unknown>)[key] : undefined;
+    if (typeof value === "string" && REFERENCE.test(value)) return value;
+  }
   const bytes = new Uint8Array(4);
   crypto.getRandomValues(bytes);
   return `c${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;

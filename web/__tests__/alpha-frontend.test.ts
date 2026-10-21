@@ -1435,7 +1435,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(palette).toContain("md:flex-row");
     expect(palette).not.toContain("hidden w-[44%]");
     expect(palette).toContain('"command_palette.search_placeholder"');
-    expect(palette).toContain('"Search Argus..."');
+    expect(palette).toContain('"Search Cuadrao..."');
     expect(palette).toContain("maxLength={512}");
     expect(palette).toContain("loadMoreSearch");
     expect(api).toContain("cursor?: string");
@@ -2233,10 +2233,10 @@ describe("Argus Alpha frontend contract", () => {
     expect(loadMoreControl).toContain('"command_palette.load_more_error"');
     expect(loadMoreControl).toContain('"command_palette.retry_load_more"');
     expect(en.command_palette.load_more_error).toBe(
-      "Argus couldn’t load more results. Your current results are still available.",
+      "Cuadrao couldn’t load more results. Your current results are still available.",
     );
     expect(es.command_palette.load_more_error).toBe(
-      "Argus no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
+      "Cuadrao no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
     );
     expect(en.command_palette.retry_load_more).toBe("Try loading more");
     expect(es.command_palette.retry_load_more).toBe(
@@ -2318,7 +2318,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(dialog).toContain('type === "bug"');
     expect(dialog).toContain('const title = "Provide feedback";');
     expect(dialog).toContain('"File a bug report."');
-    expect(dialog).toContain('"Share feedback about your Argus experience."');
+    expect(dialog).toContain('"Share feedback about your Cuadrao experience."');
     expect(dialog).toContain('"What worked well in this response?"');
     expect(dialog).toContain('"What should be improved in this response?"');
     expect(dialog).toContain(
@@ -2601,78 +2601,13 @@ describe("Argus Alpha frontend contract", () => {
     expect(legalBlock).toContain("keyboard_shortcuts.menu_item");
     expect(legalBlock).toContain("settings.help.terms");
     expect(legalBlock).toContain("settings.help.privacy");
-    expect(legalBlock).toContain('href="/terms"');
-    expect(legalBlock).toContain('href="/privacy"');
+    expect(legalBlock).not.toContain('href="/terms"');
+    expect(legalBlock).not.toContain('href="/privacy"');
     expect(legalBlock).not.toContain("settings.help.release_notes");
     expect(enCatalog.settings.help).not.toHaveProperty("release_notes");
     expect(esCatalog.settings.help).not.toHaveProperty("release_notes");
-    expect(profileMenu).toContain('href="/terms"');
-    expect(profileMenu).toContain('href="/privacy"');
-  });
-
-  test("alpha legal pages exist and disclose terms privacy and providers", () => {
-    const termsPath = join(root, "app/terms/page.tsx");
-    const privacyPath = join(root, "app/privacy/page.tsx");
-    const legalPagePath = join(root, "components/legal/AlphaLegalPage.tsx");
-
-    expect(existsSync(termsPath)).toBe(true);
-    expect(existsSync(privacyPath)).toBe(true);
-    expect(existsSync(legalPagePath)).toBe(true);
-
-    const terms = readFileSync(termsPath, "utf-8");
-    const privacy = readFileSync(privacyPath, "utf-8");
-    const legalPage = readFileSync(legalPagePath, "utf-8");
-    const en = readFileSync(
-      join(root, "public/locales/en/common.json"),
-      "utf-8",
-    );
-    const es = readFileSync(
-      join(root, "public/locales/es-419/common.json"),
-      "utf-8",
-    );
-
-    expect(terms).toContain('kind="terms"');
-    expect(terms).toContain('from "@/lib/support-email"');
-    expect(terms).not.toContain("TODO");
-    expect(privacy).toContain('kind="privacy"');
-    expect(privacy).toContain('from "@/lib/support-email"');
-    expect(privacy).not.toContain("TODO");
-
-    expect(legalPage).toContain('"use client"');
-    expect(legalPage).toContain("useTranslation");
-    expect(legalPage).toContain("legal.terms.title");
-    expect(legalPage).toContain("legal.privacy.title");
-    expect(legalPage).toContain("font-display");
-    expect(legalPage).toContain("body_before_email");
-    expect(legalPage).toContain("mailto:${supportEmail}");
-
-    expect(en).toContain('"effective_date": "Effective date: August 7, 2026"');
-    expect(en).toContain('"title": "No investment advice"');
-    expect(en).toContain("not a broker");
-    expect(en).toContain("Historical simulations are hypothetical");
-    expect(en).toContain("OpenRouter");
-    expect(en).toContain("Supabase");
-    expect(en).toContain("Render");
-    expect(en).toContain("Alpaca");
-    expect(en).toContain("Kraken");
-    expect(en).toContain("TradingView Lightweight Charts");
-    expect(en).toContain("PostHog");
-    expect(en).toContain("prompts may be sent");
-
-    expect(es).toContain(
-      '"effective_date": "Fecha de entrada en vigor: 7 de agosto de 2026"',
-    );
-    expect(es).toContain("No es asesoría de inversión");
-    expect(es).toContain("Cuadrao no es broker");
-    expect(es).toContain("Las simulaciones históricas son hipotéticas");
-    expect(es).toContain("OpenRouter");
-    expect(es).toContain("Supabase");
-    expect(es).toContain("Render");
-    expect(es).toContain("Alpaca");
-    expect(es).toContain("Kraken");
-    expect(es).toContain("TradingView Lightweight Charts");
-    expect(es).toContain("PostHog");
-    expect(es).toContain("prompts puede enviarse");
+    expect(profileMenu).not.toContain('href="/terms"');
+    expect(profileMenu).not.toContain('href="/privacy"');
   });
 
   test("profile menu does not offer delete all conversations", () => {

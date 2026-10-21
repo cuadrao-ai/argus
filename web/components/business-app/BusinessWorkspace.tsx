@@ -58,18 +58,20 @@ import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
+import { createReloadWaits } from "./list-reload";
+import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 import { useEmailDeliveries } from "./useEmailDeliveries";
 import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass } from "./business-ui";
+import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 
 export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
-  | { kind: "expenses"; expenseId?: string }
-  // Transacciones takes the third screen behind `businessBankMatchingEnabled`; its rows open in its own tray.
-  | { kind: "transactions" }
+  // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
+  | { kind: "transactions"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
   // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
   | { kind: "business"; tab?: BusinessTab }
@@ -79,7 +81,7 @@ export type BusinessPanelState =
   // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
   | { kind: "email"; emailId: string };
 
-export type RecordList = "inbox" | "expenses";
+export type RecordList = "inbox" | "transactions";
 export type BusinessTab = "datos" | "equipo" | "correo";
 const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 
@@ -88,14 +90,14 @@ type Records = {
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
-  /** Saved notes, newest first; null until loaded. A notes outage never hides receipts. */
+  /** Saved notes, newest first; null until loaded or after a failed load. A notes outage never hides receipts, and never reads as no notes. */
   notes: BusinessCapture[] | null;
-  notesError: boolean;
-  /** The captures list stops at the server's page size; older open notes are found through search. */
+  notesFailure?: LoadFailure | null;
+  /** The server says more notes exist past the page it sent; older open notes are found through search. */
   notesTruncated: boolean;
   /** Received emails, newest first; null until loaded. An email outage never hides receipts. */
   emails: BusinessEmailDelivery[] | null;
-  emailsError: boolean;
+  emailsFailure?: LoadFailure | null;
   error: boolean;
   closed?: boolean;
   serverReference?: string | null;
@@ -116,6 +118,8 @@ export type BusinessContextValue = Readonly<{
   clearLostAccess: () => void;
   revision: number;
   reload: () => void;
+  /** Reloads and settles once every list has answered, "failed" when any could not. */
+  refresh: () => Promise<RefreshOutcome>;
   period: Period;
   setPeriod: (next: PeriodKey | Period) => void;
   panel: BusinessPanelState;
@@ -128,6 +132,8 @@ export type BusinessContextValue = Readonly<{
   openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
+  /** Asks again for only the lists named; the rest stay as they are. */
+  retrySources: (sources: readonly BandejaSource[]) => void;
 }>;
 
 /** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
@@ -140,9 +146,9 @@ export function useBusiness(): BusinessContextValue {
 }
 
 const NO_ACCOUNTS: never[] = [];
-// The captures endpoint's largest page; it has no cursor.
+// The captures endpoint's largest page; it has no cursor, so `has_more` sends the rest to search.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "transactions"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "transactions"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
@@ -159,8 +165,10 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" | "transactions" };
+    return { kind: view as "overview" | "inbox" | "transactions" };
   }
+  // Gastos became Transacciones; an old link lands there.
+  if (view === "expenses") return { kind: "transactions" };
   if (view === "business") {
     const tab = params.get("tab");
     return tab && BUSINESS_TABS.has(tab) ? { kind: "business", tab: tab as BusinessTab } : { kind: "business" };
@@ -177,10 +185,10 @@ const EMPTY_RECORDS: Records = {
   inbox: null,
   receiptActivity: null,
   notes: null,
-  notesError: false,
+  notesFailure: null,
   notesTruncated: false,
   emails: null,
-  emailsError: false,
+  emailsFailure: null,
   error: false,
   closed: false,
   serverReference: null,
@@ -256,6 +264,7 @@ function BusinessWorkspaceContent({
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
+  const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
   // The chosen Business: a grant id the client remembers, proven by the server on every request.
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
@@ -325,6 +334,13 @@ function BusinessWorkspaceContent({
   const [draftRevision, setDraftRevision] = useState(0);
 
   const reload = useCallback(() => setRevision((value) => value + 1), []);
+  const [reloadWaits] = useState(createReloadWaits);
+  useEffect(() => reloadWaits.committed(revision), [reloadWaits, revision]);
+  const refresh = useCallback(() => {
+    reload();
+    return reloadWaits.next();
+  }, [reload, reloadWaits]);
+  const emailsAnswered = useCallback((at: number, ok: boolean) => reloadWaits.answered("emails", at, ok), [reloadWaits]);
 
   // A receipt saved from the composer belongs to the conversation it was added in.
   const conversationId = bridge?.conversationId ?? null;
@@ -367,7 +383,9 @@ function BusinessWorkspaceContent({
       source.receiptPage?.("inbox") ?? source.receipts("inbox").then((items) => ({ items, activity: null })),
     ]))
       .then(([workspace, overview, page]) => {
-        if (!cancelled) setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
+        if (cancelled) return;
+        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
+        reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -382,6 +400,7 @@ function BusinessWorkspaceContent({
           window.location.replace(sessionEndedLoginPath(window.location.pathname, window.location.search));
           return;
         }
+        reloadWaits.answered("records", revision, false);
         if (kind === "closed") {
           setRecords((current) => ({ ...current, error: false, closed: true, serverReference: null }));
           return;
@@ -395,12 +414,12 @@ function BusinessWorkspaceContent({
     return () => {
       cancelled = true;
     };
-  }, [onRecord, period.from, period.to, revision, source]);
+  }, [onRecord, period.from, period.to, revision, source, reloadWaits]);
 
-  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant });
+  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant, onAnswered: emailsAnswered });
   const workspaceRecords = useMemo<Records>(
-    () => ({ ...records, emails: emailDeliveries.items, emailsError: emailDeliveries.failed }),
-    [records, emailDeliveries.items, emailDeliveries.failed],
+    () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
+    [records, emailDeliveries.items, emailDeliveries.failure],
   );
   const emailRefresh = useMemo(
     () => ({ refresh: emailDeliveries.refresh, refreshing: emailDeliveries.refreshing, stalled: emailDeliveries.stalled }),
@@ -424,20 +443,30 @@ function BusinessWorkspaceContent({
     let cancelled = false;
     if (onRecord) return;
     source.ensureSpace(normalizeEnabledLanguage(i18n.language)).then(() => {
-      if (cancelled) return [];
+      if (cancelled) return { items: [] };
       return source.captures("", NOTES_PAGE, "inbox");
     }).then(
-      (notes) => {
-        if (!cancelled) setRecords((current) => ({ ...current, notes, notesError: false, notesTruncated: notes.length >= NOTES_PAGE }));
+      (page) => {
+        if (cancelled) return;
+        setRecords((current) => ({ ...current, notes: page.items, notesFailure: null, notesTruncated: page.has_more === true }));
+        reloadWaits.answered("notes", revision, true);
       },
-      () => {
-        if (!cancelled) setRecords((current) => ({ ...current, notes: [], notesError: true, notesTruncated: false }));
+      (error: unknown) => {
+        if (cancelled) return;
+        setRecords((current) => ({ ...current, notes: null, notesFailure: loadFailure(error), notesTruncated: false }));
+        reloadWaits.answered("notes", revision, false);
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [onRecord, revision, source, i18n]);
+  }, [onRecord, revision, notesAttempt, source, i18n, reloadWaits]);
+
+  const retryEmails = emailDeliveries.refresh;
+  const retrySources = useCallback((sources: readonly BandejaSource[]) => {
+    if (sources.includes("notes")) setNotesAttempt((value) => value + 1);
+    if (sources.includes("emails")) retryEmails();
+  }, [retryEmails]);
 
   // The shell may replace the route while leaving a conversation; writing again
   // once that navigation lands keeps the panel in the address bar.
@@ -477,6 +506,7 @@ function BusinessWorkspaceContent({
       clearLostAccess,
       revision,
       reload,
+      refresh,
       period,
       setPeriod,
       panel,
@@ -487,8 +517,9 @@ function BusinessWorkspaceContent({
       clearAttachedReceipt: () => setAttachedReceipt(null),
       openExport,
       emailRefresh,
+      retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;

@@ -41,7 +41,6 @@ test.describe("issue-248 password-change session integrity (local)", () => {
     // rejects it — a failed update after a legitimate attempt.
     await page.getByLabel("Current password", { exact: true }).fill(password);
     await page.getByLabel("New password", { exact: true }).fill(password);
-    await page.getByLabel("Confirm new password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Change password" }).click();
     await expect(page.locator("main").getByRole("alert")).toBeVisible({
       timeout: 25_000,

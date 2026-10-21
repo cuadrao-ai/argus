@@ -57,7 +57,7 @@ for (const width of [1280, 390]) {
         return;
       }
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByPlaceholder("Ej. Colmado La Esquina")).toBeFocused();
+      await expect(dialog.getByLabel("Nombre del negocio", { exact: true })).toBeFocused();
       const save = dialog.getByRole("button", { name: "Guardar", exact: true });
       await expect.poll(async () => { const box = await save.boundingBox(); return box ? box.y + box.height : 1000; }).toBeLessThanOrEqual(844);
       await page.screenshot({ path: testInfo.outputPath(`business-name-after-${width}.png`) });
@@ -81,7 +81,7 @@ for (const width of [1280, 390]) {
       await expect(dialog).toBeVisible();
       expect(state.invites).toBe(0);
       await page.screenshot({ path: testInfo.outputPath(`business-name-required-${width}.png`) });
-      await dialog.getByPlaceholder("Ej. Colmado La Esquina").fill("Colmado La Esquina");
+      await dialog.getByLabel("Nombre del negocio", { exact: true }).fill("Colmado La Esquina");
       await dialog.getByRole("button", { name: "Guardar y continuar" }).click();
       await expect(dialog).toHaveCount(0);
       await expect.poll(() => state.invites).toBe(1);

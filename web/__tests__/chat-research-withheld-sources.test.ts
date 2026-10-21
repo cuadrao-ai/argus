@@ -147,8 +147,8 @@ describe("withheld research answers keep where Argus looked", () => {
       expect(en[key]).not.toContain("—");
       expect(es[key]).not.toContain("—");
     }
-    expect(en.sources_panel_open_withheld).toBe("Where Argus looked ›");
-    expect(es.sources_panel_open_withheld).toBe("Dónde buscó Argus ›");
+    expect(en.sources_panel_open_withheld).toBe("Where Cuadrao looked ›");
+    expect(es.sources_panel_open_withheld).toBe("Dónde buscó Cuadrao ›");
   });
 
   test("every path that attaches research sources attaches the code, and the surface reads it", () => {

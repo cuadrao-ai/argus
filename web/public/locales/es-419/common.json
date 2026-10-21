@@ -25,17 +25,22 @@
     "done": "Listo",
     "error_occurred": "Ha ocurrido un error",
     "expand": "Expandir",
+    "form_summary": "Revisa estos campos para seguir:",
     "history": "Historial",
     "learn_more": "Más información",
     "loading": "Cargando...",
     "more": "Más",
     "navigation": "Navegación",
+    "no": "No",
     "no_items": "No se encontraron elementos",
     "offline_banner": "Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva.",
     "or": "o",
     "permanently_delete": "Eliminar permanentemente",
     "pin": "Anclar",
     "recents": "Recientes",
+    "reference": "Ref. {{reference}}",
+    "refresh_failed": "No pudimos actualizar.",
+    "refresh_updated": "Actualizado",
     "rename": "Renombrar",
     "restore": "Restaurar",
     "retry": "Reintentar",
@@ -49,110 +54,8 @@
     "today": "hoy",
     "try_again": "Intentar de nuevo",
     "unpin": "Desanclar",
+    "yes": "Sí",
     "yesterday": "ayer"
-  },
-  "legal": {
-    "eyebrow": "Legal de acceso anticipado",
-    "effective_date": "Fecha de entrada en vigor: 7 de agosto de 2026",
-    "footer_label": "Acceso anticipado de Cuadrao",
-    "back_to_argus": "Volver a Cuadrao",
-    "terms": {
-      "title": "Términos de uso",
-      "intro": "Cuadrao es un producto en acceso anticipado para investigación educativa de inversión. Estos términos describen cómo funciona Cuadrao hoy. Cuadrao sigue en construcción, así que estos términos van a cambiar conforme cambie el producto.",
-      "sections": {
-        "no_investment_advice": {
-          "title": "No es asesoría de inversión",
-          "body": "Cuadrao ofrece herramientas educativas que te ayudan a estructurar y revisar ideas de inversión. Cuadrao no ofrece asesoría de inversión, legal, fiscal, contable ni financiera. Tú eres responsable de tus propias decisiones."
-        },
-        "no_brokerage": {
-          "title": "Sin relación de corretaje ni trading",
-          "body": "Cuadrao no es broker, dealer, asesor de inversión, fiduciario, bolsa, custodio ni centro de negociación. Cuadrao no custodia fondos, no coloca órdenes, no ejecuta operaciones ni se conecta a cuentas de corretaje."
-        },
-        "historical_simulations": {
-          "title": "Las simulaciones históricas son hipotéticas",
-          "body": "Las simulaciones históricas son hipotéticas y dependen de los supuestos, la disponibilidad de datos, los activos compatibles, las referencias predeterminadas y los periodos que se muestran en el producto. Los rendimientos simulados no garantizan resultados futuros."
-        },
-        "early_access_changes": {
-          "title": "Disponibilidad y cambios del acceso anticipado",
-          "body": "Cuadrao está en acceso anticipado y se ofrece tal cual, sin garantías. Las funciones pueden cambiar, fallar, reiniciarse o eliminarse sin aviso, y algunas podrían no llegar nunca a una versión final. Podemos limitar el acceso, suspender cuentas o retirar contenido que genere riesgos de seguridad, abuso, cumplimiento u operación."
-        },
-        "eligibility": {
-          "title": "Elegibilidad",
-          "body": "Debes tener edad suficiente para celebrar un acuerdo vinculante en tu jurisdicción y poder usar Cuadrao conforme a la ley aplicable. No uses Cuadrao en nombre de otra persona u organización salvo que tengas autorización para hacerlo."
-        },
-        "acceptable_use": {
-          "title": "Uso aceptable",
-          "body": "No uses Cuadrao para infringir la ley, abusar del servicio, aplicar ingeniería inversa a sistemas privados, sobrecargar proveedores, enviar datos sensibles de terceros ni presentar resultados generados como asesoría profesional."
-        },
-        "third_party_services": {
-          "title": "Servicios de terceros",
-          "body": "Cuadrao depende de servicios de terceros para hosting, autenticación, datos de mercado, acceso a modelos, protección contra bots y renderizado de gráficos. TradingView Lightweight Charts se usa para renderizar gráficos y mostrar atribución, no como fuente de datos de mercado de Cuadrao."
-        },
-        "account_support": {
-          "title": "Soporte de cuenta",
-          "body_before_email": "Mientras Cuadrao está en acceso anticipado, las solicitudes de soporte y de eliminación de cuenta las atiende una persona. Contacta a",
-          "body_after_email": " o usa la solicitud de eliminación de cuenta dentro de la app."
-        }
-      }
-    },
-    "privacy": {
-      "title": "Política de privacidad",
-      "intro": "Esta política explica qué hace Argus con los datos de tu cuenta, tus conversaciones, tus comentarios y las solicitudes que envía a proveedores externos mientras el producto está en acceso anticipado.",
-      "sections": {
-        "data_collect": {
-          "title": "Datos que recopilamos",
-          "body": "Argus puede recopilar detalles de cuenta, estado de autenticación, conversaciones, ideas de inversión que envíes, registros guardados del producto, comentarios, solicitudes de soporte, información básica del navegador y dispositivo, eventos de uso, logs y diagnósticos de errores."
-        },
-        "data_use": {
-          "title": "Cómo usamos los datos",
-          "body": "Usamos datos para operar el producto, autenticar usuarios, guardar y restaurar conversaciones, generar y revisar simulaciones históricas, depurar fallas, proteger el servicio, responder soporte y mejorar Argus mientras está en acceso anticipado."
-        },
-        "ai_market_data": {
-          "title": "Proveedores de IA y datos de mercado",
-          "body": "El contenido de conversaciones y prompts puede enviarse a OpenRouter y proveedores de modelos para que Argus interprete solicitudes y redacte respuestas. Los datos de mercado y el descubrimiento de activos pueden usar proveedores como Alpaca y Kraken. La disponibilidad de proveedores puede afectar símbolos compatibles, periodos y resultados."
-        },
-        "infrastructure": {
-          "title": "Infraestructura y servicios del producto",
-          "body": "Argus usa Supabase para autenticación y persistencia del producto, Render para hosting, OpenRouter para acceso a modelos y Cloudflare para la entrega del dominio y la protección contra bots. La analítica de producto con PostHog corre en los servidores de Argus, y solo cuando se habilita intencionalmente. TradingView Lightweight Charts se usa como biblioteca de gráficos con atribución; no es la fuente de datos de mercado de Argus."
-        },
-        "cookies": {
-          "title": "Cookies y almacenamiento del navegador",
-          "body": "Argus guarda muy pocos datos en tu navegador. Todo lo que guarda sirve para que el producto funcione o para recordar tus ajustes, y nada de eso es publicidad ni rastreo, por eso Argus no muestra un aviso de consentimiento de cookies.",
-          "items": {
-            "sign_in": {
-              "label": "Cookies de inicio de sesión",
-              "body": "Mantienen tu sesión iniciada al moverte entre páginas. Las crea la autenticación de Supabase y Argus las renueva mientras sigas usando el producto. Se conservan aunque cierres el navegador, y cerrar sesión las elimina. Iniciar sesión o restablecer tu contraseña también crea una cookie de corta duración que completa el intercambio de forma segura y se descarta al terminar. Si las bloqueas, no vas a poder iniciar sesión."
-            },
-            "guest_handoff": {
-              "label": "Cookies de traspaso de invitado",
-              "body": "Si empiezas como invitado y luego creas una cuenta, Argus crea dos cookies para trasladar tu conversación temporal a la cuenta nueva. Iniciar sesión en una cuenta que ya tienes usa una cookie de diez minutos. Crear una cuenta nueva usa una que dura lo mismo que tu espacio de invitado, hasta siete días. Ambas se limitan a las rutas de autenticación de Argus, viajan a la API de Argus en su propio dominio y se eliminan apenas termina el traspaso."
-            },
-            "security": {
-              "label": "Cookies de seguridad",
-              "body": "Cloudflare Turnstile verifica que las solicitudes de inicio de sesión y de invitado vengan de una persona y no de un bot, y para eso Cloudflare puede crear cookies de desafío de corta duración. Están limitadas a Argus y no se usan para seguirte por otros sitios."
-            },
-            "preferences": {
-              "label": "Preferencias que tú eliges",
-              "body": "El almacenamiento local de tu navegador guarda tu idioma, que empieza con el de tu propio navegador hasta que lo cambies, junto con tus preferencias de apariencia y diseño, los avisos que descartaste, las conversaciones que marcaste como temporales y el anuncio o enlace que te trajo aquí. El idioma, la apariencia, el diseño, los avisos y las marcas temporales quedan en tu dispositivo. La campaña también se guarda ahí, y Argus puede recibirla cuando empiezas como invitado o creas una cuenta. Esta pestaña guarda temporalmente el identificador de tu cuenta, la hora de reinicio del límite diario y si cerraste el aviso. Ese estado se borra cuando se reinicia el límite, una pregunta se completa, cierras sesión o cambias de cuenta, o cierras la pestaña. Esta pestaña también guarda si aceptaste el aviso de privacidad vigente de Cuadrao Business, hasta que esa aceptación pueda guardarse en el servidor. Cerrar la pestaña borra esa copia. Argus nunca envía nada de esto a anunciantes. Al crear tu cuenta, guardamos con ella cuándo confirmaste que tienes 18 años o más. No guardamos tu fecha de nacimiento."
-            }
-          },
-          "body_after": "Argus no usa cookies publicitarias, píxeles de anuncios, rastreadores de marketing ni rastreo entre sitios, y no comparte datos de tu navegador con socios publicitarios. La analítica de producto, cuando está activa, corre en los servidores de Argus y no guarda nada en tu navegador. Puedes borrar o bloquear este almacenamiento desde la configuración de tu navegador, aunque el inicio de sesión dejará de funcionar si bloqueas las cookies de sesión."
-        },
-        "access_retention": {
-          "title": "Acceso y retención",
-          "body": "El acceso del fundador y administradores se limita a operar, depurar, proteger y mejorar Argus durante el acceso anticipado. Conservamos datos mientras tu cuenta esté activa, mientras sean necesarios para soporte o seguridad, o mientras los registros operativos lo requieran."
-        },
-        "your_controls": {
-          "title": "Tus controles",
-          "body_before_email": "Puedes archivar o eliminar conversaciones en la app. Mientras Argus está en acceso anticipado, la eliminación de cuentas la atiende una persona mediante la solicitud dentro de la app o contactando a",
-          "body_after_email": "."
-        },
-        "sale_personal_info": {
-          "title": "Venta y compartición de información personal",
-          "body": "Argus no vende ni comparte tu información personal, y no la usa para publicidad dirigida. Si eso llega a cambiar, esta política y los controles del producto se actualizarán antes de que entre en vigor."
-        }
-      }
-    }
   },
   "feedback": {
     "title": "Enviar comentarios",
@@ -169,8 +72,8 @@
     "details": "Detalles",
     "rating_placeholder": "Cuéntanos más sobre tu experiencia...",
     "details_placeholder": "¿Qué tienes en mente?",
-    "consent": "Autorizo al equipo de Argus a procesar estos comentarios y contactarme si necesitan más detalles.",
-    "consent_feature": "Autorizo al equipo de Argus a usar esta solicitud de función y contactarme si necesitan más contexto.",
+    "consent": "Autorizo al equipo de Cuadrao a procesar estos comentarios y contactarme si necesitan más detalles.",
+    "consent_feature": "Autorizo al equipo de Cuadrao a usar esta solicitud de función y contactarme si necesitan más contexto.",
     "include_conversation_context": "Incluir el contexto aprobado de esta conversación",
     "rating_positive_prompt": "¿Qué salió bien?",
     "rating_negative_prompt": "¿Qué salió mal?",
@@ -179,8 +82,8 @@
       "positive": "¿Qué funcionó bien en esta respuesta?",
       "negative": "¿Qué debería mejorar en esta respuesta?",
       "bug": "Reporta un error.",
-      "feature": "Solicita una función para Argus.",
-      "general": "Comparte comentarios sobre tu experiencia con Argus."
+      "feature": "Solicita una función para Cuadrao.",
+      "general": "Comparte comentarios sobre tu experiencia con Cuadrao."
     },
     "type": {
       "general": "Comentarios generales",
@@ -224,7 +127,7 @@
       }
     },
     "ask": {
-      "question": "¿Qué tal lo está haciendo Argus?",
+      "question": "¿Qué tal lo está haciendo Cuadrao?",
       "answers": {
         "negative": "Mal",
         "neutral": "Regular",
@@ -250,14 +153,14 @@
       "contribution": "Aportación: {{amount}} {{period}}",
       "contribution_without_period": "Aportación: {{amount}}"
     },
-    "welcome": "Bienvenido a Argus. Cuéntame una idea de inversión en lenguaje sencillo y te ayudaré a probarla con supuestos seguros de Alpha.",
+    "welcome": "Bienvenido a Cuadrao. Cuéntame una idea de inversión en lenguaje sencillo y te ayudaré a probarla con supuestos seguros de Alpha.",
     "input_placeholder": "Pregunta sobre cualquier empresa o idea",
     "input_placeholder_prerail": "Describe una idea de inversión...",
     "followup_placeholder": "Haz una pregunta de seguimiento...",
     "message_empty": "El mensaje está vacío",
     "send_message": "Enviar mensaje",
-    "text_only_input": "Argus solo puede aceptar texto aquí por ahora.",
-    "disclaimer": "Argus puede equivocarse. Solo con fines educativos. No es asesoría financiera.",
+    "text_only_input": "Cuadrao solo puede aceptar texto aquí por ahora.",
+    "disclaimer": "Cuadrao puede equivocarse. Solo con fines educativos. No es asesoría financiera.",
     "trigger_create_strategy": "Quiero crear una nueva estrategia.",
     "trigger_create_collection": "Quiero crear una nueva colección.",
     "greeting": {
@@ -296,7 +199,7 @@
       "manual_unread": "Marcada como no leída",
       "mark_unread": "Marcar como no leída",
       "mark_read": "Marcar como leída",
-      "jump_working": "Ir a lo más reciente; Argus sigue trabajando abajo",
+      "jump_working": "Ir a lo más reciente; Cuadrao sigue trabajando abajo",
       "jump_new": "Ir a la actividad nueva",
       "jump_needs_input": "Ir a la pregunta más reciente",
       "jump_needs_attention": "Ir a la recuperación más reciente",
@@ -304,7 +207,7 @@
       "mark_unread_error": "No se pudo marcar esta conversación como no leída. Inténtalo de nuevo.",
       "mark_read_success": "Marcada como leída.",
       "mark_unread_success": "Marcada como no leída.",
-      "announce_working": "Argus está trabajando en {{title}}.",
+      "announce_working": "Cuadrao está trabajando en {{title}}.",
       "announce_needs_attention": "{{title}} necesita atención.",
       "announce_needs_input": "{{title}} necesita tu respuesta.",
       "announce_new_activity": "{{title}} ya está lista."
@@ -312,11 +215,11 @@
     "research_job": {
       "queued": {
         "title": "Investigación en espera",
-        "body": "Argus está preparando una mirada más profunda. Puedes seguir conversando; la respuesta aparecerá aquí."
+        "body": "Cuadrao está preparando una mirada más profunda. Puedes seguir conversando; la respuesta aparecerá aquí."
       },
       "running": {
         "title": "Investigando",
-        "body": "Argus está leyendo datos financieros y fuentes para esta pregunta. La respuesta aparecerá aquí."
+        "body": "Cuadrao está leyendo datos financieros y fuentes para esta pregunta. La respuesta aparecerá aquí."
       },
       "succeeded": {
         "title": "Investigación lista",
@@ -325,10 +228,10 @@
       },
       "failed": {
         "title": "La investigación no terminó",
-        "body": "Argus no pudo completar esta investigación. Pregunta de nuevo, o prueba la idea directamente."
+        "body": "Cuadrao no pudo completar esta investigación. Pregunta de nuevo, o prueba la idea directamente."
       }
     },
-    "error_offline": "Argus no puede conectarse con su servicio en este momento. Revisa tu conexión e inténtalo de nuevo en un momento.",
+    "error_offline": "Cuadrao no puede conectarse con su servicio en este momento. Revisa tu conexión e inténtalo de nuevo en un momento.",
     "error_load": "No se pudo abrir esta conversación. Inténtalo de nuevo.",
     "opening_conversation": "Abriendo la conversación…",
     "error_open_conversation": "No se pudo abrir esta conversación.",
@@ -366,9 +269,9 @@
       "artifact_action_retry_rebuilt_confirmation": "Todavía tengo esa configuración fallida. Reconstruí el borrador para que puedas revisar la tarjeta y reintentar cuando estés listo.",
       "artifact_action_retry_inactive": "Ese reintento ya no está conectado a una ejecución fallida activa. Usa la acción de reintento más reciente o confirma la configuración que quieres ejecutar.",
       "execution_data_unavailable": "La configuración sigue aquí, pero no pude obtener {{dataLabel}} para esa simulación en este momento. Inténtalo de nuevo, cambia las fechas o elige otro activo compatible.",
-      "backtest_capacity_exceeded": "Argus ya está corriendo todas las pruebas que puede en este momento, así que esta no se inició. Nada falló y nada se perdió: tu configuración quedó tal como la dejaste. Vuelve a ejecutarla en unos minutos.",
-      "guest_compute_claim_unavailable": "Argus no pudo iniciar este turno. Inténtalo de nuevo en un momento.",
-      "registered_compute_claim_unavailable": "Argus no pudo iniciar este turno. Inténtalo de nuevo en un momento.",
+      "backtest_capacity_exceeded": "Cuadrao ya está corriendo todas las pruebas que puede en este momento, así que esta no se inició. Nada falló y nada se perdió: tu configuración quedó tal como la dejaste. Vuelve a ejecutarla en unos minutos.",
+      "guest_compute_claim_unavailable": "Cuadrao no pudo iniciar este turno. Inténtalo de nuevo en un momento.",
+      "registered_compute_claim_unavailable": "Cuadrao no pudo iniciar este turno. Inténtalo de nuevo en un momento.",
       "daily_cap_reached": "Llegaste al límite de preguntas de hoy. Se reinicia a las {{time}}.",
       "guest_compute_claim_retry_in_one": "Reintentar en {{count}} segundo",
       "guest_compute_claim_retry_in_other": "Reintentar en {{count}} segundos",
@@ -403,8 +306,8 @@
         "keep_unchanged": "Mantener la idea sin cambios",
         "cancel": "Cancelar"
       },
-      "unsupported_recovery": "Argus todavía no puede ejecutar esa regla directamente. ¿Qué camino quieres usar: {{options}}?",
-      "unsupported_recovery_for_asset": "Argus todavía no puede ejecutar esa regla directamente para {{symbol}}. ¿Qué camino quieres usar: {{options}}?",
+      "unsupported_recovery": "Cuadrao todavía no puede ejecutar esa regla directamente. ¿Qué camino quieres usar: {{options}}?",
+      "unsupported_recovery_for_asset": "Cuadrao todavía no puede ejecutar esa regla directamente para {{symbol}}. ¿Qué camino quieres usar: {{options}}?",
       "unsupported_recovery_incomplete": "¿Qué regla quieres probar? ¿Qué camino quieres usar: {{options}}?",
       "unsupported_recovery_incomplete_for_asset": "¿Qué regla quieres probar para {{symbol}}? ¿Qué camino quieres usar: {{options}}?",
       "data_window_unavailable": "Ese rango de fechas está fuera del historial de mercado disponible. Elige otro rango de fechas.",
@@ -526,11 +429,11 @@
       "search_current_send_comparison": "Buscar {{assetKind}} actuales comparables con {{query}}",
       "sources_panel_open_one": "{{count}} fuente ›",
       "sources_panel_open_other": "{{count}} fuentes ›",
-      "sources_panel_title": "Fuentes que Argus consultó",
+      "sources_panel_title": "Fuentes que Cuadrao consultó",
       "sources_panel_note": "Fuentes usadas para fundamentar esta respuesta. Los enlaces se abren en una pestaña nueva.",
-      "sources_panel_open_withheld": "Dónde buscó Argus ›",
-      "sources_panel_title_withheld": "Dónde buscó Argus",
-      "sources_panel_note_withheld": "Argus leyó estas páginas al responder y no pudo verificar la respuesta con ellas. Los enlaces se abren en una pestaña nueva.",
+      "sources_panel_open_withheld": "Dónde buscó Cuadrao ›",
+      "sources_panel_title_withheld": "Dónde buscó Cuadrao",
+      "sources_panel_note_withheld": "Cuadrao leyó estas páginas al responder y no pudo verificar la respuesta con ellas. Los enlaces se abren en una pestaña nueva.",
       "sources_panel_close": "Cerrar fuentes",
       "sources_panel_external_link_new_tab": "Se abre en una pestaña nueva",
       "allowance_banner": "Cupo de búsqueda con fuentes agotado",
@@ -633,25 +536,25 @@
     "backtest_job": {
       "queued_title": "Backtest en cola",
       "queued_status": "En cola",
-      "queued_body": "Argus ya tiene la solicitud y empezará pronto.",
+      "queued_body": "Cuadrao ya tiene la solicitud y empezará pronto.",
       "queued_detail": "Puedes salir de este chat y volver; el progreso queda guardado.",
       "running_title": "Backtest en ejecución",
       "running_status": "Ejecutando",
-      "running_body": "Argus está calculando el resultado en segundo plano.",
+      "running_body": "Cuadrao está calculando el resultado en segundo plano.",
       "running_detail": "Puedes salir de este chat y volver; el progreso queda guardado.",
       "succeeded_title": "Backtest terminado",
       "succeeded_status": "Resultado listo",
-      "succeeded_body": "El resultado está listo. Argus está cargando la tarjeta guardada.",
+      "succeeded_body": "El resultado está listo. Cuadrao está cargando la tarjeta guardada.",
       "succeeded_detail": "El resultado completado reemplazará esta tarjeta de progreso.",
       "failed_title": "El backtest no pudo terminar",
       "failed_status": "No se pudo ejecutar",
-      "failed_body": "La ejecución se detuvo antes de que Argus pudiera guardar un resultado. Ajusta la idea si hace falta e inténtalo otra vez.",
-      "failed_retryable_body": "La ejecución se detuvo antes de que Argus pudiera guardar un resultado. Puedes reintentar esta idea desde la confirmación más reciente.",
+      "failed_body": "La ejecución se detuvo antes de que Cuadrao pudiera guardar un resultado. Ajusta la idea si hace falta e inténtalo otra vez.",
+      "failed_retryable_body": "La ejecución se detuvo antes de que Cuadrao pudiera guardar un resultado. Puedes reintentar esta idea desde la confirmación más reciente.",
       "failed_detail": "La conversación está guardada y este estado seguirá aquí.",
       "expired_title": "Backtest no completado",
       "expired_status": "No completado",
       "expired_body": "Esta ejecución no se completó. Inicia un backtest nuevo cuando quieras.",
-      "expired_detail": "Argus no seguirá mostrando un estado de ejecución para este trabajo."
+      "expired_detail": "Cuadrao no seguirá mostrando un estado de ejecución para este trabajo."
     },
     "result_card": {
       "ending_value": "Valor final",
@@ -746,7 +649,7 @@
         "event_count_other": "{{count}} operaciones ejecutadas mostradas en este rango.",
         "no_events": "No hay operaciones ejecutadas mostradas en este rango.",
         "event_sampling": "Mostrando {{shown}} de {{total}} eventos disponibles.",
-        "marker_cap": "Argus guardó {{included}} de {{total}} grupos de operaciones ejecutadas para este resultado."
+        "marker_cap": "Cuadrao guardó {{included}} de {{total}} grupos de operaciones ejecutadas para este resultado."
       }
     },
     "strategy_type": {
@@ -764,7 +667,7 @@
       "no_results_title": "No hay coincidencias compatibles",
       "no_results": "No encontramos un activo o indicador compatible para \"{{query}}\". Prueba con el ticker o el nombre oficial de la compañía.",
       "unavailable_title": "La búsqueda está tardando más de lo esperado",
-      "unavailable": "Prueba con el ticker directamente, o sigue escribiendo. Argus todavía puede razonar sobre tu mensaje.",
+      "unavailable": "Prueba con el ticker directamente, o sigue escribiendo. Cuadrao todavía puede razonar sobre tu mensaje.",
       "sections": {
         "results": "Resultados de búsqueda",
         "assets": "Activos populares",
@@ -796,7 +699,7 @@
       "asset_count": "{{count}} activos",
       "selected_asset": "Activo seleccionado",
       "period_adjustment": "Ajusté el período de la prueba a {{period}} porque cada activo y la referencia necesitan un rango de datos compartido.",
-      "period_adjustment_limited_by": "Ajusté el período de la prueba a {{period}} porque Argus solo tiene precios de {{symbol}} desde el {{date}}.",
+      "period_adjustment_limited_by": "Ajusté el período de la prueba a {{period}} porque Cuadrao solo tiene precios de {{symbol}} desde el {{date}}.",
       "undo": "Deshacer",
       "peer_add_failed": "No se pudo cambiar esa prueba. La tarjeta no cambió.",
       "status": {
@@ -941,13 +844,13 @@
       "private_on": "Chat privado: activado",
       "private_off": "Chat privado",
       "proposal_title": "¿Recordar esta decisión guardada?",
-      "proposal_benefit": "Argus guardaría “{{label}}” para que puedas revisarla y compararla después. Puedes verla o quitarla cuando quieras en Controles de datos.",
+      "proposal_benefit": "Cuadrao guardaría “{{label}}” para que puedas revisarla y compararla después. Puedes verla o quitarla cuando quieras en Controles de datos.",
       "proposal_confirm": "Recordar",
       "proposal_decline": "No, gracias",
       "proposal_error": "No se pudo actualizar la memoria. Intenta de nuevo.",
       "proposal_saved": "Guardado en memoria. Adminístralo en Controles de datos, en Personalización."
     },
-    "send_busy": "Argus todavía está terminando el mensaje anterior. Inténtalo en un momento.",
+    "send_busy": "Cuadrao todavía está terminando el mensaje anterior. Inténtalo en un momento.",
     "copy_card": {
       "assets": "Activos",
       "period": "Periodo",
@@ -1082,6 +985,7 @@
       "language": "Idioma de la app",
       "close_language_modal": "Cerrar selector de idioma",
       "sidebar": "Barra lateral",
+      "switch_labels": "Interruptores con palabras",
       "security": "Seguridad",
       "appearance": "Apariencia",
       "appearance_options": {
@@ -1092,7 +996,7 @@
       "close_appearance": "Cerrar apariencia",
       "home_country": "País y moneda",
       "close_home_country": "Cerrar país y moneda",
-      "home_country_note": "Cuando Argus busca información, usa tu país como tu ubicación.",
+      "home_country_note": "Cuando Cuadrao busca información, usa tu país como tu ubicación.",
       "country": "País",
       "currency": "Moneda",
       "no_country": "Sin país",
@@ -1124,11 +1028,11 @@
         "loading": "Cargando memoria...",
         "load_error": "No se pudo cargar la memoria.",
         "retry": "Intentar de nuevo",
-        "intro": "Argus solo recuerda lo que confirmas. Aquí puedes revisar, editar, borrar o apagar todo.",
+        "intro": "Cuadrao solo recuerda lo que confirmas. Aquí puedes revisar, editar, borrar o apagar todo.",
         "toggle_label": "Recordar memorias confirmadas",
         "toggle_on_note": "Activado. Las memorias nuevas siguen necesitando tu confirmación.",
         "toggle_off_note": "Apagado. Las memorias existentes se conservan hasta que las borres.",
-        "records_title": "Lo que Argus recuerda",
+        "records_title": "Lo que Cuadrao recuerda",
         "empty": "Nada todavía. Cuando confirmes una memoria aparecerá aquí.",
         "saved_on": "Guardada el {{date}}",
         "why_stored": "¿Por qué se guardó?",
@@ -1152,7 +1056,7 @@
         "errors": {
           "explain": "No se pudo cargar la explicación. Intenta de nuevo.",
           "edit": "No se pudo guardar ese cambio. Intenta de nuevo.",
-          "restricted": "Argus mantiene los detalles sensibles fuera de la memoria.",
+          "restricted": "Cuadrao mantiene los detalles sensibles fuera de la memoria.",
           "delete": "No se pudo borrar esa memoria. Intenta de nuevo.",
           "toggle": "No se pudo actualizar la configuración de memoria. Intenta de nuevo.",
           "reset": "No se pudo restablecer la memoria. Intenta de nuevo.",
@@ -1191,7 +1095,7 @@
         "retry": "Intentar de nuevo",
         "close": "Cerrar uso",
         "conversation_rule": "La conversación es gratis. Preguntar y leer respuestas nunca cuenta.",
-        "search_rule": "Las búsquedas con fuentes cuentan una vez por cada búsqueda que Argus hace por ti. Las respuestas con datos de Argus no cuentan.",
+        "search_rule": "Las búsquedas con fuentes cuentan una vez por cada búsqueda que Cuadrao hace por ti. Las respuestas con datos de Cuadrao no cuentan.",
         "simulation_rule": "Las simulaciones nuevas cuentan una vez. Reintentar la misma simulación no vuelve a contar."
       },
       "shared_links": "Enlaces compartidos",
@@ -1231,7 +1135,7 @@
   },
   "keyboard_shortcuts": {
     "title": "Atajos de teclado",
-    "description": "Formas rápidas de moverte por Argus.",
+    "description": "Formas rápidas de moverte por Cuadrao.",
     "close": "Cerrar atajos de teclado",
     "menu_item": "Atajos de teclado",
     "groups": {
@@ -1262,7 +1166,7 @@
   },
   "command_palette": {
     "ask_argus": {
-      "label": "Preguntarle a Argus",
+      "label": "Preguntarle a Cuadrao",
       "hint": "Presiona Enter para iniciar un chat nuevo con esto"
     },
     "answer_dossier": {
@@ -1286,7 +1190,7 @@
     "asset_rollup": {
       "results_involving_one": "{{count}} resultado que incluye {{symbol}}",
       "results_involving_other": "{{count}} resultados que incluyen {{symbol}}",
-      "heading": "Tu historial de Argus",
+      "heading": "Tu historial de Cuadrao",
       "scope_registered": "En todas tus conversaciones",
       "scope_guest": "En esta conversación temporal",
       "runs_involving_one": "{{count}} ejecución que incluye {{symbol}}",
@@ -1351,7 +1255,7 @@
       "decision_filters": "Filtros de decisión",
       "no_saved_ideas": "No hay ideas guardadas en este estado"
     },
-    "load_more_error": "Argus no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
+    "load_more_error": "Cuadrao no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
     "load_older": "Cargar anteriores",
     "match_count_one": "{{count}} coincidencia",
     "match_count_other": "{{count}} coincidencias",
@@ -1397,7 +1301,7 @@
       "tested": "Lo que probaste",
       "what_happened": "Qué pasó"
     },
-    "read_error": "Argus no pudo cargar estos resultados.",
+    "read_error": "Cuadrao no pudo cargar estos resultados.",
     "rename_conversation": "Renombrar conversación",
     "result_count_one": "{{count}} resultado",
     "result_count_other": "{{count}} resultados",
@@ -1412,7 +1316,7 @@
     "retry_load_more": "Intentar cargar más",
     "retry_search": "Intentar la búsqueda de nuevo",
     "save_decision": "Guardar decisión",
-    "search_placeholder": "Buscar en Argus...",
+    "search_placeholder": "Buscar en Cuadrao...",
     "select_preview": "Selecciona un resultado para ver sus detalles.",
     "show_full_note": "Mostrar nota completa",
     "show_less_note": "Mostrar menos",
@@ -1495,7 +1399,14 @@
     },
     "password": {
       "show": "Mostrar contraseña",
-      "hide": "Ocultar contraseña"
+      "hide": "Ocultar contraseña",
+      "min_length": "Al menos {{min}} caracteres",
+      "no_patterns": "Sin palabras comunes, secuencias ni repeticiones",
+      "strength": "Seguridad",
+      "strength_weak": "Débil",
+      "strength_almost": "Casi lista",
+      "strength_strong": "Fuerte",
+      "met": "cumplido"
     },
     "recovery": {
       "forgot": "¿Olvidaste tu contraseña?",
@@ -1512,8 +1423,6 @@
       "invalid_link": "Este enlace de recuperación falta, venció o ya fue usado.",
       "request_new": "Solicitar un enlace nuevo",
       "new_password": "Contraseña nueva",
-      "confirm_password": "Confirmar contraseña nueva",
-      "password_mismatch": "Las contraseñas no coinciden.",
       "update_password": "Actualizar contraseña",
       "updating": "Actualizando...",
       "reset_error": "Este enlace ya no es válido. Solicita uno nuevo.",
@@ -1585,16 +1494,18 @@
       "description": "Ingresa tu contraseña actual. Después del cambio, cada navegador deberá iniciar sesión de nuevo.",
       "current": "Contraseña actual",
       "new": "Contraseña nueva",
-      "confirm": "Confirmar contraseña nueva",
       "submit": "Cambiar contraseña",
       "changing": "Cambiando...",
       "changed": "Contraseña cambiada. Inicia sesión de nuevo en cada navegador.",
       "revocation_warning": "La contraseña cambió, pero Cuadrao no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentar Cerrar todas las sesiones.",
-      "error": "No pudimos cambiar la contraseña. Verifica la contraseña actual e inténtalo de nuevo."
+      "error": "No pudimos cambiar la contraseña. Verifica la contraseña actual e inténtalo de nuevo.",
+      "too_short": "Usa al menos {{min}} caracteres.",
+      "current_required": "Escribe tu contraseña actual.",
+      "new_required": "Escribe una contraseña nueva."
     },
     "sessions": {
       "title": "Sesiones",
-      "description": "Elige si deseas mantener la sesión de este navegador.",
+      "description": "Elige dónde cerrar tu sesión.",
       "sign_out_this": "Cerrar sesión en este navegador",
       "sign_out_others": "Cerrar otras sesiones",
       "sign_out_all": "Cerrar todas las sesiones",
@@ -1605,7 +1516,16 @@
       "confirm_others_title": "¿Cerrar las otras sesiones?",
       "confirm_others_description": "Los otros navegadores perderán acceso. Este navegador seguirá conectado.",
       "confirm_all_title": "¿Cerrar sesión en todas partes?",
-      "confirm_all_description": "Cada navegador, incluido este, necesitará iniciar sesión de nuevo."
+      "confirm_all_description": "Cada navegador, incluido este, necesitará iniciar sesión de nuevo.",
+      "this_title": "Este navegador",
+      "this_line": "Sales solo aquí. Tus otras sesiones siguen abiertas.",
+      "this_action": "Cerrar sesión",
+      "others_title": "Otras sesiones",
+      "others_line": "Sales en tus otros navegadores y dispositivos. Tu sesión aquí sigue abierta.",
+      "others_action": "Cerrar otras",
+      "all_title": "Todas las sesiones",
+      "all_line": "Sales en todas partes, también aquí. Tendrás que iniciar sesión de nuevo.",
+      "all_action": "Cerrar todas"
     }
   },
   "landing": {
@@ -1630,8 +1550,8 @@
   },
   "receipt": {
     "thread": {
-      "notice": "Compartido desde Argus, copia del {{date}}. Tus preguntas inician tu propio chat.",
-      "preview_notice": "Compartido desde Argus. Vista previa de la copia. Tus preguntas inician tu propio chat.",
+      "notice": "Compartido desde Cuadrao, copia del {{date}}. Tus preguntas inician tu propio chat.",
+      "preview_notice": "Compartido desde Cuadrao. Vista previa de la copia. Tus preguntas inician tu propio chat.",
       "read_only": "Copia de solo lectura",
       "carried": "De una conversación compartida, {{date}}"
     },
@@ -1644,28 +1564,28 @@
       "placeholder": "Haz una pregunta...",
       "send": "Enviar pregunta",
       "starting": "Iniciando tu chat",
-      "hint": "Tu pregunta inicia tu propio chat en Argus."
+      "hint": "Tu pregunta inicia tu propio chat en Cuadrao."
     },
     "calculation": {
-      "stamp": "Argus calculó esto el {{date}}",
-      "used": "Lo que usó Argus",
+      "stamp": "Cuadrao calculó esto el {{date}}",
+      "used": "Lo que usó Cuadrao",
       "framing": "Es aritmética sobre los datos que se muestran, congelada en esa fecha. No es un consejo ni un pronóstico, y no cambia si esos datos cambian.",
       "short": "Aritmética sobre datos indicados. No es una recomendación.",
       "headline": "Aritmética, no un consejo."
     },
-    "page_title": "Probado con Argus",
+    "page_title": "Probado con Cuadrao",
     "eyebrow": "Compartido contigo",
-    "provenance": "Probado con Argus",
-    "wordmark": "ARGUS",
+    "provenance": "Probado con Cuadrao",
+    "wordmark": "CUADRAO",
     "framing": {
       "headline": "Esto es un qué habría pasado, no un consejo.",
-      "detail": "Alguien tuvo curiosidad por saber cómo le habría ido a esta idea, así que Argus la revisó con lo que el mercado hizo de verdad en esas fechas. No se movió dinero real, nadie compró nada, y esto no dice nada sobre lo que va a pasar.",
+      "detail": "Alguien tuvo curiosidad por saber cómo le habría ido a esta idea, así que Cuadrao la revisó con lo que el mercado hizo de verdad en esas fechas. No se movió dinero real, nadie compró nada, y esto no dice nada sobre lo que va a pasar.",
       "short": "Un qué habría pasado, con datos del mercado del pasado. No es un consejo."
     },
     "sections": {
       "result": "Cómo le fue",
       "what_was_tested": "Qué probaron",
-      "assumptions": "Qué supuso Argus",
+      "assumptions": "Qué supuso Cuadrao",
       "note": "Dejaron una nota",
       "chart": "Cómo se movió el dinero de prueba"
     },
@@ -1733,7 +1653,7 @@
     "fine_print": {
       "heading": "La letra chica",
       "settings": "Ajustes exactos",
-      "assumed": "Qué supuso Argus"
+      "assumed": "Qué supuso Cuadrao"
     },
     "fields": {
       "asset": "Qué",
@@ -1753,13 +1673,13 @@
     "chart_unavailable": "No se guardó ningún gráfico con este.",
     "cta": {
       "headline": "¿Tienes una idea? Pruébala.",
-      "detail": "Cuéntale a Argus una idea con tus propias palabras y te mostrará cómo le habría ido. Gratis y sin cuenta.",
-      "action": "Continuar con Argus"
+      "detail": "Cuéntale a Cuadrao una idea con tus propias palabras y te mostrará cómo le habría ido. Gratis y sin cuenta.",
+      "action": "Continuar con Cuadrao"
     },
     "tombstone": {
       "title": "Este ya no está",
       "detail": "La persona que lo compartió quitó el enlace, o borró el resultado que había detrás. No queda nada por mostrar.",
-      "cta_detail": "Aun así puedes probar Argus por tu cuenta."
+      "cta_detail": "Aun así puedes probar Cuadrao por tu cuenta."
     },
     "unavailable": {
       "title": "No pudimos cargar este",
@@ -1780,7 +1700,7 @@
       "copy_failed": "No se pudo copiar. Selecciona el enlace y cópialo.",
       "created_note": "Tu nombre no aparece, los buscadores no lo encuentran, y puedes quitarlo cuando quieras desde Controles de datos.",
       "errors": {
-        "create": "Argus no pudo crear ese enlace. Inténtalo de nuevo.",
+        "create": "Cuadrao no pudo crear ese enlace. Inténtalo de nuevo.",
         "note_rejected": "Esa nota no puede ser pública. Quita cualquier clave o código largo.",
         "rate_limited": "Has creado muchos enlaces hace poco. Inténtalo de nuevo en un rato.",
         "account_conversion_required": "Crea una cuenta o inicia sesión para compartir esta respuesta.",
@@ -1806,7 +1726,7 @@
       "revoking": "Quitándolo...",
       "confirm_revoke": "¿Seguro?",
       "revoke_error": "Ese enlace no se quitó. Inténtalo de nuevo.",
-      "cache_note": "El enlace muere en Argus de inmediato. Las apps de chat a veces guardan una tarjeta de vista previa antigua en las conversaciones donde ya se pegó, y Argus no puede entrar ahí."
+      "cache_note": "El enlace muere en Cuadrao de inmediato. Las apps de chat a veces guardan una tarjeta de vista previa antigua en las conversaciones donde ya se pegó, y Cuadrao no puede entrar ahí."
     },
     "strategy_facts": {
       "strategy_type": "Estrategia",
@@ -1833,12 +1753,12 @@
       "answer": "Respuesta"
     },
     "research": {
-      "stamp": "Argus consultó esto el {{date}}",
+      "stamp": "Cuadrao consultó esto el {{date}}",
       "preview_stamp": "Consultado el {{date}} · {{count}} fuentes",
       "sources": "Fuentes",
-      "next_step": "Qué ofreció Argus después",
-      "research_test_single": "Argus ofreció probar comprar y mantener {{symbols}}.",
-      "research_test_versus": "Argus ofreció comparar comprar y mantener {{symbols}}.",
+      "next_step": "Qué ofreció Cuadrao después",
+      "research_test_single": "Cuadrao ofreció probar comprar y mantener {{symbols}}.",
+      "research_test_versus": "Cuadrao ofreció comparar comprar y mantener {{symbols}}.",
       "framing": "Esto registra lo que estas fuentes reportaron en esa fecha. No es un consejo ni una predicción. Las cosas pueden haber cambiado desde entonces. Aquí no se compró ni se simuló nada.",
       "short": "Una investigación fechada. No es un consejo.",
       "headline": "Investigación de esa fecha, no un consejo."
@@ -2088,8 +2008,8 @@
         "page_dated": "{{title}}, {{date}}",
         "computed": "Calculado a partir de los otros datos",
         "not_found": "No encontrado",
-        "market_data": "Datos de mercado de Argus",
-        "market_data_dated": "Datos de mercado de Argus, {{date}}",
+        "market_data": "Datos de mercado de Cuadrao",
+        "market_data_dated": "Datos de mercado de Cuadrao, {{date}}",
         "assumption": "Supuesto en la respuesta"
       },
       "failure": {
@@ -2171,13 +2091,17 @@
           "reason": "Todavía no lo hemos verificado con la DGII."
         }
       },
-      "business_rnc": "RNC del negocio",
       "business_name": "Nombre del negocio",
       "tax_id_type": "Identificación",
       "tax_id_rnc": "RNC",
       "tax_id_cedula": "Cédula",
       "tax_id_value": "Número",
-      "save_rnc": "Guardar RNC",
+      "tax_id_hint_rnc": "9 dígitos. Puedes usar guiones.",
+      "tax_id_hint_cedula": "11 dígitos. Puedes usar guiones.",
+      "tax_id_length_rnc": "Un RNC tiene 9 dígitos.",
+      "tax_id_length_cedula": "Una cédula tiene 11 dígitos.",
+      "tax_id_none": "606 / 607 · No aplica",
+      "business_name_required": "Escribe el nombre del negocio.",
       "save_profile": "Guardar",
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
       "details": "Datos fiscales para 606 / 607",
@@ -2187,10 +2111,10 @@
       "save_failed": "No se confirmó que los datos fiscales se guardaran. Revisa el registro actual antes de aprobar.",
       "actual_refund": "Se recibió un reembolso de dinero por esta nota de crédito",
       "original_purchase": "Compra original",
-      "purchases_failed": "No se pudieron cargar las compras originales.",
+      "refund_candidate_refused": "Esa compra no se puede usar para este reembolso. Elige otra.",
+      "refund_candidates_none": "No hay compras aprobadas para elegir.",
       "suggested": "Sugerido",
       "save": "Guardar revisión fiscal",
-      "revision": "Datos fiscales de esta revisión",
       "approve_income": "Aprobar ingreso",
       "approve_refund": "Aprobar reembolso",
       "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
@@ -2201,9 +2125,9 @@
         "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
         "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar.",
         "tax_id_type": "Elige RNC o cédula.",
-        "tax_id_not_digits": "Usa solo dígitos. Los espacios y los guiones se quitan.",
+        "tax_id_not_digits": "Usa solo dígitos y guiones.",
         "tax_id_length": "Un RNC tiene 9 dígitos. Una cédula tiene 11 dígitos.",
-        "tax_id_all_zero": "Escribe una identificación que no sea solo ceros.",
+        "tax_id_all_zero": "No puede ser solo ceros.",
         "business_name_invalid": "Escribe un nombre de 1 a 80 caracteres.",
         "business_owner_required": "Solo el dueño del negocio puede cambiar este perfil.",
         "business_permission_denied": "Puedes ver este perfil. No puedes cambiarlo."
@@ -2212,15 +2136,22 @@
     },
     "activity": {
       "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
+      "change": "Cambiar",
       "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
       "mark_read": "Marcar como leído",
       "open_settings": "Abrir configuración de lectura",
-      "owner_only": "El dueño del negocio puede activar la lectura de recibos.",
+      "owner_only": "Tus recibos se guardan sin leer. El dueño del negocio puede activar la lectura.",
       "reading_on": "La lectura de recibos está activada.",
       "saved_prompt": "Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
-      "saved_row": "Guardado sin leer. En espera de la lectura de comprobantes.",
-      "turn_off": "Desactivar lectura",
-      "turn_on": "Activar lectura de recibos"
+      "sheet_title": "Lectura de recibos",
+      "state_off": "Desactivada",
+      "state_on": "Activada",
+      "state_unknown": "No disponible",
+      "switch_label": "Leer mis recibos con IA",
+      "turn_on": "Activar lectura de recibos",
+      "turned_off": "Lectura de recibos desactivada.",
+      "turned_on": "Lectura de recibos activada.",
+      "unavailable": "Ahora no se puede activar la lectura con IA."
     },
     "bank": {
       "empty": {
@@ -2277,7 +2208,10 @@
       "body": "Cuadrao guarda los recibos, facturas y datos que subes para leerlos, organizarlos y preparar tus reportes. Solo tú y las personas que invites a tu negocio pueden verlos. Puedes pedir que borremos tus datos cuando quieras.",
       "opt_in": "Entiendo y acepto que Cuadrao use mis datos para esto.",
       "continue": "Continuar",
-      "privacy_link": "Ver aviso de privacidad"
+      "privacy_link": "Ver aviso de privacidad",
+      "one_time": "Te lo pedimos una sola vez, para los datos de tu negocio.",
+      "save_failed": "No pudimos guardar tu aceptación. No cambió nada.",
+      "reference": "Ref. {{reference}}"
     },
     "export": {
       "start": "Desde",
@@ -2307,10 +2241,6 @@
       "fiscal_checking": "Revisando…",
       "fiscal_profile": "Nombre y RNC del 606"
     },
-    "panel": {
-      "crashed": "Esta parte no se pudo mostrar. Tus recibos están guardados.",
-      "retry": "Intentar de nuevo"
-    },
     "transactions": {
       "title": "Transacciones",
       "coverage": "Banco al día hasta el {{day}}.",
@@ -2320,7 +2250,7 @@
       "undo": "Deshacer",
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
-      "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "igualada_en_parte": "Igualada en parte", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
+      "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
       "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "monto": "Monto {{currency}}", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
@@ -2332,22 +2262,40 @@
         "igualada_venta_sin_ncf": "Venta sin NCF",
         "suggested_recibo": "Sugerimos el recibo del {{day}}",
         "suggested_venta": "Sugerimos la venta del {{day}}",
-        "suggested_recibo_unknown": "Sugerimos un recibo de este monto",
-        "suggested_venta_unknown": "Sugerimos una venta de este monto",
         "falta_charge": "No encontramos un recibo de este monto cerca de esa fecha",
         "falta_deposit": "¿De qué venta es este depósito?",
-        "en_parte": "Faltan {{amount}}",
         "sin_movimiento": "Lo marcaste pagado y no aparece en el banco",
-        "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "personal": "Personal, no lleva comprobante" }
+        "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "monto_cero": "Monto cero, no lleva comprobante", "personal": "Personal, no lleva comprobante" }
       },
       "reasons": { "title": "¿Por qué no lleva comprobante?", "cargo_banco": "Cargo del banco", "entre_cuentas": "Entre mis cuentas", "compra_informal": "Compra informal", "personal": "Personal" },
-      "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_near": "Las fechas están cerca", "name": "El nombre se parece al del banco" },
+      "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos", "empty_body": "Cada recibo que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos" },
+      "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
       "tray": { "title": "Movimiento", "step": "Sugerencia {{index}} de {{count}}", "movement": "Movimiento del banco", "suggested": "Comprobante que sugerimos", "matched": "Comprobante", "date": "Fecha", "account": "Cuenta", "bank_text": "Dice el banco", "recibo": "Compra", "venta": "Venta", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "moverte", "close": "cerrar", "back": "Volver" },
       "toast": { "igualada": "Igualada: {{name}}, {{amount}}", "igualadas": "{{count}} igualadas", "rechazada": "Quitamos esa sugerencia", "sin_comprobante": "Marcada: {{reason}}", "desigualada": "Desigualada: {{name}}" },
-      "error": { "load_title": "No pudimos cargar tus movimientos", "load_body": "Lo que ya igualaste sigue guardado.", "decision": "No pudimos guardar este cambio. Lo demás sigue igual.", "reference": "Ref. {{reference}}" },
+      "error": {
+        "load_title": "No pudimos cargar tus movimientos",
+        "load_body": "Lo que ya igualaste sigue guardado.",
+        "reference": "Ref. {{reference}}",
+        "reload": "Actualizar",
+        "more": "No pudimos cargar más movimientos. Los que ves siguen aquí.",
+        "list_changed": "La lista cambió mientras la leías. Actualízala para seguir.",
+        "codes": {
+          "business_document_matched": "Ese comprobante ya está igualado con un movimiento del banco.",
+          "changed": "Este movimiento cambió mientras lo veías. Actualiza para ver cómo quedó.",
+          "document_already_matched": "Ese comprobante ya está igualado con otro movimiento.",
+          "document_not_matchable": "Ese comprobante no cuadra con este movimiento: debe ser del mismo monto y la misma moneda.",
+          "line_marked_no_receipt": "Este movimiento ya está marcado como que no lleva comprobante.",
+          "line_not_found": "Este movimiento ya no está en tu estado de cuenta.",
+          "line_not_marked": "Este movimiento ya no tenía un motivo sin comprobante.",
+          "line_not_matched": "Este movimiento ya no estaba igualado.",
+          "unavailable": "No pudimos guardar este cambio. Lo demás sigue igual."
+        }
+      },
+      "history": { "title": "Historial", "match_recibo": "Igualada con un recibo", "match_venta": "Igualada con una venta", "no_receipt": "Sin comprobante: {{reason}}", "between": "del {{from}} al {{until}}", "since": "desde el {{from}}" },
+      "more": "Cargar más",
       "empty": { "first_run_title": "Importa tu estado de cuenta", "first_run_body": "Importa tu estado de cuenta para igualar cada movimiento con su comprobante.", "done_title": "Todo igualado", "done_body": "{{count}} movimientos, cada uno con su comprobante.", "segment": "No hay movimientos en esta vista." },
-      "density": { "options": "Opciones de vista", "label": "Altura de las filas", "compacto": "Compacto", "normal": "Normal", "amplio": "Amplio", "note": "Se guarda en este navegador." }
+      "density": { "options": "Opciones de vista", "label": "Altura de las filas", "compacto": "Compacto", "normal": "Normal", "amplio": "Amplio", "note": "Se guarda para ti en cada equipo donde entres.", "failed": "No pudimos guardar la altura. Sigue la que tenías." }
     },
     "tray": {
       "title": "Detalle"
@@ -2418,6 +2366,7 @@
       "for_owner": "Para el dueño",
       "before_approval": "Antes de aprobar",
       "approve": "Aprobar gasto",
+      "approve_action": "Aprobar",
       "approve_next": "Aprobar y siguiente",
       "approve_reason": {
         "date": "Agrega la fecha para aprobar"
@@ -2527,6 +2476,7 @@
         "missing": "Falta"
       },
       "confirm_value": "Confirmar",
+      "confirm_read": "Confirmar {{count}} datos leídos",
       "suggestions_pending_one": "{{count}} sugerencia por confirmar",
       "suggestions_pending_other": "{{count}} sugerencias por confirmar",
       "missing_pending_one": "Falta {{count}} dato",
@@ -2578,11 +2528,7 @@
     "actions": {
       "add": "Agregar",
       "ask_spending": "¿Cuánto gasté este mes?",
-      "attach_receipt": "Agregar un recibo",
-      "record_expense": "Registrar gasto",
-      "review_receipts": "Revisar recibos",
-      "review_inbox_one": "Revisar {{count}} recibo",
-      "review_inbox_other": "Revisar {{count}} recibos"
+      "attach_receipt": "Agregar un recibo"
     },
     "category": {
       "none": "Sin categoría",
@@ -2630,30 +2576,16 @@
       "all_clear_title": "Todo aprobado. Pa'que cuadre.",
       "email_error": "No pudimos cargar tus correos",
       "error_body": "Tus datos siguen guardados. Revisa tu conexión e inténtalo otra vez.",
-      "expenses_body": "Cada recibo que apruebas en la Bandeja se vuelve un gasto de su mes.",
-      "expenses_error": "No pudimos cargar tus gastos",
-      "expenses_filtered_body": "Puede que haya gastos en otros meses.",
-      "expenses_filtered_title": "No hay gastos en este período",
-      "expenses_title": "Aquí verás tus gastos aprobados",
       "inbox_body": "Súbelos, escríbelos o reenvíalos por correo. Los revisas y los apruebas para que cuenten en tus números.",
       "inbox_error": "No pudimos cargar tu bandeja",
       "inbox_title": "Aquí llegan tus recibos",
       "month_body": "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.",
-      "notes_error": "No pudimos cargar tus notas",
       "overview_error": "No pudimos cargar tu negocio",
-      "see_all_periods": "Ver todos los períodos",
-      "updates_body": "Cuando Cuadrao lea, guarde o necesite algo de un recibo, te avisamos aquí.",
-      "updates_error": "No pudimos cargar las novedades",
-      "updates_title": "Aquí verás qué pasó con tus recibos"
+      "see_all_periods": "Ver todos los períodos"
     },
     "expenses": {
-      "empty": "No hay gastos guardados en este período.",
-      "error": "No pudimos cargar tus gastos. Reintenta.",
       "no_merchant": "Gasto",
-      "subtitle": "Gastos guardados del {{from}} al {{to}}.",
       "title": "Gastos",
-      "view_receipt": "Recibo",
-      "view_detail": "Detalle",
       "detail_title": "Gasto guardado",
       "no_receipt": "Sin recibo adjunto",
       "recorded_on": "Registrado el {{when}}",
@@ -2700,18 +2632,16 @@
       "other": "Necesita atención"
     },
     "inbox": {
-      "empty_body": "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.",
-      "error": "No pudimos cargar tu bandeja. Reintenta.",
+      "failed_emails": "No pudimos cargar tus correos.",
+      "failed_notes": "No pudimos cargar tus notas.",
+      "failed_notes_emails": "No pudimos cargar tus notas ni tus correos.",
       "load_more": "Cargar más",
-      "notes_error": "No pudimos cargar tus notas. Reintenta.",
       "notes_latest": "Se muestran las últimas 50 notas guardadas. Las notas abiertas más antiguas se encuentran con la búsqueda.",
       "note_more_one": "{{count}} nota anterior",
       "note_more_other": "{{count}} notas anteriores",
-      "venta": "Venta",
       "reveal_more": "Ver más",
       "review_receipts": "Revisar recibos",
       "title": "Bandeja",
-      "all_reviewed": "Todo revisado",
       "row_reading": "Leyendo…",
       "row_saved": "Guardado, sin leer",
       "row_ready": "Listo para revisar",
@@ -2792,7 +2722,33 @@
         "too_large": "El archivo es demasiado grande.",
         "other": "No es un archivo que podamos guardar como recibo."
       },
-      "no_attachment": "No traía adjunto",
+      "no_receipt_reason": {
+        "document_email_limit": "El correo o sus adjuntos pasan del tamaño que aceptamos",
+        "document_empty": "El archivo está vacío",
+        "document_page_limit": "El documento tiene demasiadas páginas",
+        "document_text_limit": "El texto es demasiado largo para guardarlo",
+        "document_too_large": "El archivo es demasiado grande",
+        "email_alias_retired": "Esta dirección ya no se usa",
+        "email_capture_failed": "Algo falló al guardar este correo",
+        "email_capture_unavailable": "Algo falló al guardar este correo",
+        "email_no_attachment": "No traía adjunto",
+        "email_parts_rejected": "Ningún adjunto se pudo guardar como recibo",
+        "email_provider_unavailable": "Algo falló al guardar este correo",
+        "email_recipient_mismatch": "El mensaje no coincidió con esta dirección",
+        "email_route_ambiguous": "No pudimos saber a qué negocio iba este correo",
+        "email_route_changed": "No pudimos saber a qué negocio iba este correo",
+        "email_route_revoked": "Se retiró el acceso detrás de esta dirección",
+        "email_route_unavailable": "Esta dirección no está activa",
+        "email_sender_blocked": "Bloqueaste a este remitente",
+        "email_sender_domain_refused": "No aceptamos correos de este dominio",
+        "email_worker_interrupted": "Algo falló al guardar este correo",
+        "empty_document": "El archivo está vacío",
+        "encrypted_document": "El archivo tiene contraseña",
+        "invalid_document": "El archivo está dañado o no se puede abrir",
+        "other": "No trajo un recibo que pudiéramos guardar",
+        "unsupported_email_attachment": "Este tipo de adjunto no se puede guardar como recibo",
+        "unsupported_media_type": "Este tipo de archivo no se puede guardar como recibo"
+      },
       "not_found": "No encontramos este correo."
     },
     "intake": {
@@ -2800,15 +2756,10 @@
       "camera": "Tomar foto",
       "choose": "Elegir archivo",
       "choose_another": "Elegir otro archivo",
-      "consent": "Prepararlo con IA después de guardarlo. El recibo se envía a nuestro proveedor de IA para completar los detalles y que tú los revises. Déjalo desactivado para completarlos tú mismo.",
-      "failed": "No pudimos leer el recibo. Inténtalo de nuevo.",
       "formats": "{{formats}}, hasta {{size}} MB. El original es privado para ti.",
       "heic": "Esta es una foto HEIC de iPhone. Súbela desde el navegador de tu iPhone, que la convierte, o expórtala como JPG primero.",
-      "replace": "Elegir otro",
       "save": "Guardar en la Bandeja",
-      "saving": "Guardando…",
       "title": "Subir recibo",
-      "type_label": "Qué subes",
       "type_recibo": "Compra",
       "type_recibo_help": "Algo que el negocio pagó.",
       "type_venta": "Venta",
@@ -2857,19 +2808,10 @@
       "other_ways": "Otras formas de agregar recibos",
       "email_way": "Reenvíalos por correo",
       "review_saved": "Revisar los recibos guardados",
-      "save_pending": "Guardar los archivos pendientes",
       "choose_multiple": "Elegir archivos",
       "remove_file": "Quitar {{name}} de esta lista",
-      "retry_consent": "Al reintentar se mantiene la opción de IA del primer intento.",
       "keep_open": "Puedes cerrar este panel y volver a tus subidas. Mantén la página abierta hasta que se guarde cada archivo.",
       "open_queue": "Subidas ({{count}})",
-      "queue_status": {
-        "queued": "En cola",
-        "uploading": "Guardando…",
-        "saved": "Guardado en la Bandeja",
-        "failed": "No se guardó. Reintenta.",
-        "rejected": "No se puede subir"
-      },
       "too_large": "Este archivo pesa más de {{size}} MB. Usa una foto o un PDF más pequeño.",
       "unsupported": "Este archivo no es compatible. Prueba con {{formats}}.",
       "uploading_progress": "Subiendo {{position}} de {{total}}…"
@@ -2878,8 +2820,16 @@
       "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",
       "go_business": "Ir a Cuadrao Business"
     },
+    "naming": {
+      "title": "¿Cómo se llama tu negocio?",
+      "explanation": "Así lo verán tu contador y tu equipo.",
+      "example": "Ej. Colmado La Esquina",
+      "save": "Guardar",
+      "skip": "Ahora no",
+      "continue": "Guardar y continuar",
+      "save_failed": "No pudimos guardar el nombre. Inténtalo de nuevo."
+    },
     "nav": {
-      "expenses": "Gastos",
       "inbox": "Bandeja",
       "label": "Negocio",
       "overview": "Inicio",
@@ -2909,11 +2859,14 @@
       "action_see": "Ver",
       "action_which": "Ver cuáles",
       "action_hide": "Ocultar",
+      "close_after_steps_one": "Cuando termines el paso que falta, podrás cerrar {{month}}.",
+      "close_after_steps_other": "Cuando termines los {{count}} pasos, podrás cerrar {{month}}.",
       "close_named": "Cerrar {{month}}",
-      "close_with_open_tasks": "Ya puedes cerrar. Lo que falte queda como está.",
       "figure_unknown": "Todavía no se puede calcular.",
       "net_waits_one": "Falta marcar {{count}} documento",
       "net_waits_other": "Falta marcar {{count}} documentos",
+      "net_waits_in_one": "Falta marcar {{count}} documento en {{currency}}",
+      "net_waits_in_other": "Falta marcar {{count}} documentos en {{currency}}",
       "due_today": "vence hoy",
       "due_in_days_one": "vence en {{count}} día",
       "due_in_days_other": "vence en {{count}} días",
@@ -2923,11 +2876,11 @@
       "show_all_other": "Ver las {{count}}",
       "show_less": "Ver menos",
       "subtitle": "Ingresos, gastos e ITBIS del mes.",
+      "subtitle_in": "Ingresos, gastos e ITBIS del mes en {{currency}}.",
       "income_label": "Ingresos",
       "expense_label": "Gastos",
       "net_label": "Resultado neto",
       "next_month": "Mes siguiente",
-      "pending_label": "Pendiente",
       "previous_month": "Mes anterior",
       "itbis_credit_label": "Saldo a favor de ITBIS",
       "itbis_label": "ITBIS a pagar",
@@ -2963,11 +2916,18 @@
       "blocker_rnc": "{{name}} no tiene RNC",
       "blocker_ncf": "{{name}} no tiene NCF ni e-CF",
       "choose_month": "Elegir mes",
+      "currency_menu": "Moneda",
+      "currency_menu_named": "Moneda: {{currency}}",
+      "currency_business": "Moneda del negocio",
+      "currency_others": "También hay movimientos en {{currencies}}.",
+      "currency_announce": "Mostrando cifras en {{currency}}",
       "empty": "No hay facturas ni gastos en este mes.",
       "empty_title": "Este mes no tiene documentos",
       "error_title": "No pudimos cargar el mes",
       "retry": "Reintentar",
       "mark_failed": "No pudimos guardar el cambio. El estado volvió al anterior.",
+      "matched_cobrado": "Esta venta ya está igualada con un depósito del banco, así que cuenta como cobrada. Para cambiarlo, desiguálala en Transacciones.",
+      "matched_pagado": "Este gasto ya está igualado con un cargo del banco, así que cuenta como pagado. Para cambiarlo, desiguálalo en Transacciones.",
       "close_failed": "No pudimos cerrar el mes. Reintenta.",
       "rnc": "RNC {{value}}",
       "ncf": "NCF {{value}}",
@@ -2985,34 +2945,19 @@
       "export_records": "Exportar registros",
       "greeting": "Hola, {{name}}",
       "greeting_unnamed": "Hola",
-      "attention_one": "{{count}} recibo necesita tu atención",
-      "attention_other": "{{count}} recibos necesitan tu atención",
-      "in_inbox": "En tu bandeja",
-      "confirmed": "Gastos guardados, {{period}}",
-      "coverage": "Cubre del {{from}} al {{to}}. Último recibo {{received}}. Los totales incluyen solo gastos guardados, no recibos pendientes de revisión.",
-      "error": "No pudimos cargar los registros de tu negocio. Tus recibos y gastos guardados están seguros. Reintenta.",
-      "expense_count_one": "{{count}} gasto",
-      "expense_count_other": "{{count}} gastos",
-      "never": "ninguno todavía",
-      "no_expenses": "Todavía no hay gastos guardados en este período.",
-      "open_inbox": "Abrir la bandeja",
-      "por_revisar": "por revisar",
-      "por_revisar_none": "Nada por revisar",
       "problem_one": "{{count}} con problema",
       "problem_other": "{{count}} con problema",
       "reading_one": "{{count}} todavía leyendo",
       "reading_other": "{{count}} todavía leyendo",
-      "separate_currencies": "Cada moneda se suma por separado. Sin conversión.",
       "title": "Mi negocio"
     },
     "period": {
       "all": "Todo",
       "custom": "Personalizado",
-      "from": "Desde",
-      "to": "Hasta",
       "apply": "Ver",
       "outside_one": "{{count}} gasto guardado fuera de este período, el {{date}}.",
       "outside_other": "{{count}} gastos guardados fuera de este período, el último el {{date}}.",
+      "range": "{{from}} – {{to}}",
       "show_all": "Ver todos",
       "label": "Período",
       "last_30_days": "Últimos 30 días",
@@ -3038,9 +2983,7 @@
       "choose": "Elegir",
       "choose_account": "Elige una cuenta",
       "confirm": "Confirmar gasto",
-      "confirm_failed": "No pudimos confirmar este gasto. Nada se guardó dos veces. Reintenta.",
       "confirming": "Guardando…",
-      "consent": "Cuadrao puede leer este recibo con IA y completar los detalles para que los revises. El recibo se envía a nuestro proveedor de IA solo si eliges esta opción. También puedes completar los detalles tú mismo.",
       "currency": "Moneda",
       "currency_mismatch": "Esta cuenta usa {{account}}. Elige una cuenta en {{receipt}} o corrige la moneda.",
       "date": "Fecha",
@@ -3067,7 +3010,6 @@
       "source": "Recibo original",
       "source_error": "No pudimos abrir el recibo original con tu acceso actual.",
       "email_original": "Este es el correo en sí. Su adjunto es el recibo que debes revisar.",
-      "stale": "Este recibo cambió desde que lo abriste. Revisa los detalles actuales antes de confirmar.",
       "tax": "ITBIS",
       "title": "Revisar recibo",
       "view_expenses": "Ver gastos"
@@ -3176,31 +3118,29 @@
       "datos_title": "Nombre y RNC",
       "datos_body": "Salen en tu 606 y 607 y en lo que exportas."
     },
+    "shortcuts": {
+      "edit_detail": "Editar dato",
+      "go_to": "Ir a {{section}}",
+      "next_receipt": "Recibo siguiente",
+      "previous_receipt": "Recibo anterior",
+      "sidebar": "Mostrar u ocultar barra lateral"
+    },
     "switcher": {
-      "label": "Negocio",
       "change": "Cambiar de negocio",
       "choose": "Elige un negocio",
-      "own": "Tu negocio",
       "client": "Cliente",
       "client_cue": "Cliente: {{name}}",
       "role_owner": "Dueño",
       "role_accountant": "Contador",
       "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
       "got_it": "Entendido",
-      "lost": "Ya no tienes acceso a este negocio.",
-      "team": "Equipo y accesos",
       "settings": "Configurar negocio"
     },
     "marks": {
-      "real_expenses": "Gastos reales",
-      "fiscal_expenses": "Con valor fiscal",
-      "without_fiscal": "Sin comprobante fiscal: {{amount}} no entra al 606",
       "no_fiscal_chip": "Sin comprobante fiscal",
       "personal_chip": "Personal",
       "marked_by": "Marcado por {{name}}",
       "mark_personal": "Personal",
-      "mark_personal_label": "Marcar como personal",
-      "unmark_personal_label": "Ya no es personal",
       "marked_personal": "Marcado como personal. No cuenta en los totales del negocio.",
       "unmarked_personal": "Ya no es personal. Vuelve a contar en los totales.",
       "undo": "Deshacer",
@@ -3214,7 +3154,6 @@
       "included_606_by": "Incluido en 606 por {{name}}",
       "excluded_606_by": "Fuera del 606 por {{name}}",
       "decide_failed": "No pudimos guardar la respuesta. Inténtalo de nuevo.",
-      "none_fiscal": "Ninguno con valor fiscal en este período.",
       "personal_help": "No cuenta en los totales del negocio.",
       "sin_comprobante_chip": "Sin comprobante",
       "missing_ncf_chip": "Falta NCF"

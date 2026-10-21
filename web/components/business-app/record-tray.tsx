@@ -6,7 +6,7 @@ import type { BusinessPanelState, RecordList } from "./BusinessWorkspace";
 
 /** The list a record sits beside on a desktop; null for a panel that is not a record. */
 export function recordList(panel: BusinessPanelState): RecordList | null {
-  if (panel.kind === "expense") return "expenses";
+  if (panel.kind === "expense") return "transactions";
   if (panel.kind === "receipt" || panel.kind === "draft") return panel.list ?? "inbox";
   if (panel.kind === "email") return "inbox";
   return null;
@@ -21,7 +21,7 @@ export function isOpenRecord(panel: BusinessPanelState, target: BusinessPanelSta
   return false;
 }
 
-/** The open row's highlight, the same in the Bandeja and in Gastos. */
+/** The open row's highlight, the same in the Bandeja and in Transacciones. */
 export const OPEN_ROW_CLASS = "aria-[current=true]:bg-[var(--cuadrao-green)]/10";
 
 export type RecordTrayValue = Readonly<{

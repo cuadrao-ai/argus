@@ -162,7 +162,7 @@ export function Tooltip({ content, children, side = "right" }: TooltipProps) {
             visibility: placement ? "visible" : "hidden",
             zIndex: 9999,
           }}
-          className="pointer-events-none w-max rounded-[8px] border border-[#DCE0DA] bg-white px-2.5 py-1.5 text-[13px] font-medium leading-[18px] text-[#172b26] dark:border-white/10 dark:bg-[#1f2225] dark:text-white"
+          className="pointer-events-none w-max rounded-item border border-[#DCE0DA] bg-white px-2.5 py-1.5 text-[13px] font-medium leading-[18px] text-[#172b26] dark:border-white/10 dark:bg-[#1f2225] dark:text-white"
         >
           {content}
           <span

@@ -1,0 +1,188 @@
+/* Both weights sit stacked, so becoming the current screen is a crossfade, never a swap. */
+.icon {
+  display: grid;
+  place-items: center;
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.layer {
+  grid-area: 1 / 1;
+  overflow: visible;
+  transition: opacity 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The weight leaving waits for the arriving one, so the icon never dims midway. */
+.icon[data-active="true"] .outline,
+.icon[data-active="false"] .fill {
+  opacity: 0;
+  transition-delay: 60ms;
+}
+
+.icon[data-settle] {
+  animation: nav-icon-settle 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:global(button):active .icon[data-active] {
+  transform: scale(0.92);
+  transition-duration: 80ms;
+}
+
+/* Starts where the press left it, so a click lands without a second dip. */
+@keyframes nav-icon-settle {
+  from {
+    transform: scale(0.92);
+  }
+}
+
+/* Moves. Every keyframe begins and ends at rest, so a move cut short can only land the icon at rest.
+   The transform origin and the receipt's cut-out apply only while moving: at rest Chrome then draws the parts exactly as the one Phosphor path. */
+.icon[data-move] [data-part] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Inicio: the cards settle into place corner to corner. */
+.icon:not([data-move]) [data-part="tile"],
+.icon[data-move] [data-rest] {
+  visibility: hidden;
+}
+
+.icon[data-move] [data-part="tile"] {
+  animation: nav-move-tile 360ms;
+}
+
+.icon[data-move] [data-part="tile"]:nth-of-type(2),
+.icon[data-move] [data-part="tile"]:nth-of-type(3) {
+  animation-delay: 50ms;
+}
+
+.icon[data-move] [data-part="tile"]:nth-of-type(4) {
+  animation-delay: 100ms;
+}
+
+@keyframes nav-move-tile {
+  0% {
+    animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+  }
+  30% {
+    transform: scale(0.55);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+  65% {
+    transform: scale(1.06);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Bandeja: a receipt drops in under the rim, lands with a small bounce as the tray dips, then slides away behind the lip. */
+.icon [data-part="receipt"] {
+  transform: translateY(-128px);
+}
+
+.icon:not([data-move]) [data-part="tray"] > path {
+  mask: none;
+}
+
+.icon[data-move] [data-part="receipt"] {
+  animation: nav-move-receipt 560ms;
+}
+
+.icon[data-move] [data-part="tray"] {
+  animation: nav-move-tray 560ms;
+}
+
+@keyframes nav-move-receipt {
+  0% {
+    transform: translateY(-128px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  28% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  38% {
+    transform: translateY(-8px);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  46%,
+  62% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5);
+  }
+  100% {
+    transform: translateY(112px);
+  }
+}
+
+@keyframes nav-move-tray {
+  0%,
+  27% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  36% {
+    transform: translateY(12px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  50% {
+    transform: translateY(-3px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  62%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Transacciones: money goes out and comes back, the two arrows sliding past each other and settling. */
+.icon[data-move] [data-part="arrow-left"] {
+  animation: nav-move-arrow-left 500ms;
+}
+
+.icon[data-move] [data-part="arrow-right"] {
+  animation: nav-move-arrow-right 500ms 60ms;
+}
+
+@keyframes nav-move-arrow-left {
+  0% {
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  35% {
+    transform: translateX(-32px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  70% {
+    transform: translateX(5px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@keyframes nav-move-arrow-right {
+  0% {
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  35% {
+    transform: translateX(32px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  70% {
+    transform: translateX(-5px);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon,
+  .layer,
+  .icon[data-settle],
+  .icon[data-move] [data-part],
+  .icon[data-active="true"] .outline,
+  .icon[data-active="false"] .fill {
+    transition: none;
+    animation: none;
+  }
+
+  :global(button):active .icon[data-active] {
+    transform: none;
+  }
+}

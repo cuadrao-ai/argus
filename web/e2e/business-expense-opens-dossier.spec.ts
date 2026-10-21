@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { installBreakpointFixture } from "./support/breakpoint-fixture";
 
 // Business is Spanish only, so every string below is the es-419 copy.
-/** A saved expense opens the record it was recorded from: the Expenses row and the search hit both land on the dossier. */
+/** A saved expense opens the record it was recorded from: the Transacciones row and the search hit both land on the dossier. */
 
 async function openPreview(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
@@ -18,7 +18,7 @@ async function approveFromInbox(page: Page) {
   await nav.getByRole("button", { name: /^Bandeja/ }).click();
   // The receipt row, not the received-email group that names the same merchant.
   await panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ }).click();
-  await page.getByLabel(/Pagado desde/).selectOption({ label: "Operating account · DOP" });
+  await page.getByLabel(/Pagado desde/).selectOption({ label: "Cuenta corriente · DOP" });
   await page.getByRole("button", { name: "Guardar detalles de revisión" }).click();
   await page.getByRole("button", { name: "Aprobar", exact: true }).click();
   await expect(page.getByTestId("business-record-review")).toContainText("Se registró un gasto");
@@ -29,22 +29,22 @@ const dossier = (page: Page) => page.getByTestId("business-record-review");
 test.describe("A saved expense opens its record", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test("the Expenses row opens the dossier of the receipt it was recorded from", async ({ page }) => {
+  test("the Transacciones row opens the dossier of the receipt it was recorded from", async ({ page }) => {
     await openPreview(page);
     await approveFromInbox(page);
     const nav = page.getByTestId("business-sidebar-nav");
     const panel = page.getByTestId("workspace-panel-region");
-    await nav.getByRole("button", { name: /^Gastos/ }).click();
-    await expect(panel.getByRole("heading", { name: "Gastos", exact: true })).toBeVisible();
-    await panel.getByRole("button", { name: /Ferretería La Esquina/ }).first().click();
+    await nav.getByRole("button", { name: /^Transacciones/ }).click();
+    await expect(panel.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
+    await panel.locator("tr[data-record-id]").filter({ hasText: "Ferretería La Esquina" }).first().click();
     await expect(dossier(page)).toBeVisible();
     await expect(page).toHaveURL(/[?&]receipt=/);
     await expect(dossier(page)).toContainText("Se registró un gasto");
     await expect(dossier(page)).toContainText("Ferretería La Esquina");
     await expect(dossier(page).getByRole("region", { name: "Historial" })).toBeVisible();
     await expect(dossier(page).getByText(/^Actividad: /).first()).toBeVisible();
-    // On a desktop the record sits in a tray beside Expenses; its close control returns, and the address follows.
-    await expect(panel.getByRole("heading", { name: "Gastos", exact: true })).toBeVisible();
+    // On a desktop the record sits in a tray beside Transacciones; its close control returns, and the address follows.
+    await expect(panel.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
     await page.getByTestId("side-drawer").getByRole("button", { name: "Cerrar", exact: true }).click();
     await expect(page.getByTestId("side-drawer")).toHaveCount(0);
     await expect(page).not.toHaveURL(/[?&]receipt=/);
@@ -54,8 +54,8 @@ test.describe("A saved expense opens its record", () => {
     await openPreview(page);
     const nav = page.getByTestId("business-sidebar-nav");
     const panel = page.getByTestId("workspace-panel-region");
-    await nav.getByRole("button", { name: /^Gastos/ }).click();
-    await panel.getByRole("button", { name: /Estación Ruta 3/ }).click();
+    await nav.getByRole("button", { name: /^Transacciones/ }).click();
+    await panel.locator("tr[data-record-id]").filter({ hasText: "Estación Ruta 3" }).click();
     const detail = page.getByTestId("business-expense-detail");
     await expect(detail).toBeVisible();
     await expect(page).toHaveURL(/[?&]expense=exp-gas/);
@@ -63,9 +63,9 @@ test.describe("A saved expense opens its record", () => {
     await expect(detail).toContainText("Sin recibo adjunto");
     await expect(detail).toContainText(/Registrado el/);
     await expect(detail).toContainText("Revisión 1");
-    await expect(panel.getByRole("heading", { name: "Gastos", exact: true })).toBeVisible();
+    await expect(panel.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
     await page.getByTestId("side-drawer").getByRole("button", { name: "Cerrar", exact: true }).click();
-    await expect(panel.getByRole("button", { name: /Estación Ruta 3/ })).toBeFocused();
+    await expect(panel.locator("tr[data-record-id]").filter({ hasText: "Estación Ruta 3" })).toBeFocused();
     await expect(page).not.toHaveURL(/[?&]expense=/);
   });
 

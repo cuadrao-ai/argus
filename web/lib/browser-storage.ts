@@ -38,8 +38,8 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_sidebar_mode": "layout",
   // Whether money amounts show blurred, for sharing a screen or working in public.
   "cuadrao:hide_amounts": "layout",
-  // The row height of dense tables (Compacto, Normal or Amplio) until the profile keeps it.
-  "cuadrao:table_density": "layout",
+  // Whether every switch shows its Sí and No words, until the account keeps the choice.
+  "cuadrao:switch_labels": "appearance",
   "argus:command_palette_layout": "layout",
   "argus:guest-hint:confirmation:v1": "tips",
   "argus:guest-hint:result:v1": "tips",
@@ -53,6 +53,8 @@ export const STORAGE_REGISTRY = {
   "argus:business-grant:v1": "layout",
   // The last few Business searches that led to a record, per Business, on this device only.
   "cuadrao:business_recent_searches:v1": "layout",
+  // Which currency Inicio's month figures show, per Business, until the account keeps it.
+  "cuadrao:business_currency_view:v1": "layout",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;

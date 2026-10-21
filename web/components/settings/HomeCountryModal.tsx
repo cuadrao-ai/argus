@@ -205,7 +205,7 @@ export default function HomeCountryModal({
         <p className="px-1 pt-2 text-[12px] text-black/45 dark:text-white/45">
           {t(
             "settings.app.home_country_note",
-            "When Argus looks things up, it uses your country as your location.",
+            "When Cuadrao looks things up, it uses your country as your location.",
           )}
         </p>
       </div>

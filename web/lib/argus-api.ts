@@ -614,6 +614,7 @@ export type ProfilePatch = {
   country?: string | null;
   /** ISO 4217; null goes back to the currency the country implies. */
   currency_override?: string | null;
+  table_density?: "compacto" | "normal" | "amplio";
 };
 
 /** The one place an account enters the web: its language is the one that may decide here. */

@@ -1,6 +1,7 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { type FormEvent, useContext, useEffect, useId, useState } from "react";
+import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   getFiscalProfile,
@@ -9,6 +10,7 @@ import {
   type TaxIdType,
 } from "@/lib/business-dgii";
 import { randomId } from "@/lib/random-id";
+import { ErrorSummary, FormField, SelectField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
 import { BusinessContext } from "./BusinessWorkspace";
 import { quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
@@ -19,27 +21,20 @@ function digitsOf(raw: string): string {
   return raw.replace(/[ -]/g, "");
 }
 
-function acceptable(kind: TaxIdType, raw: string): boolean {
-  if (!raw.trim()) return true;
-  const digits = digitsOf(raw);
-  return new RegExp(`^(?!0+$)\\d{${LENGTH[kind]}}$`).test(digits);
-}
-
-function labelFor(profile: FiscalProfile): string {
-  if (!profile.tax_id) return "606 / 607 · No aplica";
-  const title = profile.tax_id.type === "cedula" ? "Cédula" : "RNC";
-  return `${title} ${profile.tax_id.value}`;
-}
+type Field = "name" | "number";
+/** A refusal the server explains; retrying the same values cannot help. */
+type Problem = { text: string; retry: boolean };
 
 export default function BusinessFiscalProfile({ draftId }: { draftId?: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const workspace = useContext(BusinessContext);
+  const base = useId();
   const [profile, setProfile] = useState<FiscalProfile | null>(null);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<TaxIdType>("rnc");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   // The workspace's source owns the read, so the sample business answers with its own name and RNC.
@@ -63,8 +58,28 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
       live = false;
     };
   }, [draftId, read, attempt]);
-  const save = async () => {
-    if (!profile || busy || !acceptable(kind, value)) return;
+
+  // The same rules the server applies to a tax id: digits once spaces and hyphens go, the exact length, not all zeros.
+  const rules: FieldRules<Field> = {
+    name: (values) =>
+      values.name.trim() ? null : t("business.dgii.business_name_required", "Enter the business name."),
+    number: (values) => {
+      if (!values.number.trim()) return null;
+      const digits = digitsOf(values.number);
+      if (!/^\d+$/.test(digits)) return t("business.dgii.error.tax_id_not_digits", "Use digits and hyphens only.");
+      if (digits.length !== LENGTH[kind]) {
+        return kind === "rnc"
+          ? t("business.dgii.tax_id_length_rnc", "An RNC has 9 digits.")
+          : t("business.dgii.tax_id_length_cedula", "A cédula has 11 digits.");
+      }
+      return /^0+$/.test(digits) ? t("business.dgii.error.tax_id_all_zero", "It can't be all zeros.") : null;
+    },
+  };
+  const checks = useFieldChecks(rules, { name, number: value });
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profile || busy || !checks.submit()) return;
     setBusy(true);
     setProblem(null);
     try {
@@ -81,14 +96,15 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
       setName(next.name);
       setKind(next.tax_id?.type ?? kind);
       setValue(next.tax_id?.value ?? "");
+      checks.reset();
       if (next.name !== profile.name) workspace?.reload();
     } catch (error) {
       const code = (error as { code?: string }).code;
-      setProblem(
-        t(`business.dgii.error.${code}`, {
-          defaultValue: t("business.dgii.profile_failed"),
-        }),
-      );
+      const known = Boolean(code) && i18n.exists(`business.dgii.error.${code}`);
+      setProblem({
+        text: known ? t(`business.dgii.error.${code}`) : t("business.dgii.profile_failed"),
+        retry: !known,
+      });
     } finally {
       setBusy(false);
     }
@@ -98,78 +114,102 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
     name.trim() === profile.name &&
     (value.trim() ? digitsOf(value) : "") === (profile.tax_id?.value ?? "") &&
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
+  const ids: Record<Field, string> = { name: `${base}-name`, number: `${base}-number` };
+  const labels: Record<Field, string> = {
+    name: t("business.dgii.business_name", "Business name"),
+    number: t("business.dgii.tax_id_value", "Number"),
+  };
+  const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
   return (
-    <div className="mt-3 space-y-2" data-testid="business-fiscal-profile">
+    <div className="mt-[21px]" data-testid="business-fiscal-profile">
       {profile === null && !loadFailed ? <Settle pending layout="form" /> : null}
       {/* The editable fields already show the name and number; the summary line is for those who can only read. */}
       {profile && !profile.can_edit ? (
-        <p className="text-[13px] text-black/65 dark:text-white/65">
-          {profile.name} · {labelFor(profile)}
+        <p className="text-[14px] text-[#56635e] dark:text-white/70">
+          {profile.name || "-"} · {profile.tax_id ? `${taxIdTitle} ${profile.tax_id.value}` : t("business.dgii.tax_id_none", "606 / 607 · Not applicable")}
         </p>
       ) : null}
       {profile?.can_edit ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-[13px] text-black/65 dark:text-white/65">
-            {t("business.dgii.business_name", "Business name")}
-            <input
-              name="business-name"
-              aria-label={t("business.dgii.business_name", "Business name")}
-              value={name}
-              disabled={busy}
-              maxLength={80}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-1 block min-h-11 rounded-lg border border-black/15 bg-transparent px-3 dark:border-white/20"
-            />
-          </label>
-          <label className="text-[13px] text-black/65 dark:text-white/65">
-            {t("business.dgii.tax_id_type", "Tax id")}
-            <select
+        <form noValidate onSubmit={(event) => void save(event)} className="max-w-[34rem] space-y-[13px]">
+          <ErrorSummary
+            key={checks.attempt}
+            title={t("common.form_summary", "Check these fields to continue:")}
+            items={checks.summary.map((field) => ({ id: ids[field], label: labels[field] }))}
+          />
+          <FormField
+            id={ids.name}
+            name="business-name"
+            label={labels.name}
+            error={checks.errorOf("name")}
+            autoComplete="organization"
+            maxLength={80}
+            value={name}
+            disabled={busy}
+            onBlur={() => checks.blur("name")}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <div className="grid gap-x-[13px] gap-y-[13px] tablet:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
+            <SelectField
+              id={`${base}-kind`}
               name="tax-id-type"
-              aria-label={t("business.dgii.tax_id_type", "Tax id")}
+              label={t("business.dgii.tax_id_type", "Tax id")}
               value={kind}
               disabled={busy}
               onChange={(event) => setKind(event.target.value as TaxIdType)}
-              className="mt-1 block min-h-11 rounded-lg border border-black/15 bg-transparent px-3 dark:border-white/20"
             >
               <option value="rnc">{t("business.dgii.tax_id_rnc", "RNC")}</option>
               <option value="cedula">{t("business.dgii.tax_id_cedula", "Cédula")}</option>
-            </select>
-          </label>
-          <label className="text-[13px] text-black/65 dark:text-white/65">
-            {t("business.dgii.tax_id_value", "Number")}
-            <input
+            </SelectField>
+            <FormField
+              id={ids.number}
               name="tax-id-value"
-              aria-label={t("business.dgii.tax_id_value", "Number")}
+              label={labels.number}
+              hint={
+                kind === "rnc"
+                  ? t("business.dgii.tax_id_hint_rnc", "9 digits. Hyphens are fine.")
+                  : t("business.dgii.tax_id_hint_cedula", "11 digits. Hyphens are fine.")
+              }
+              error={checks.errorOf("number")}
               inputMode="numeric"
+              autoComplete="off"
+              spellCheck={false}
               maxLength={13}
               value={value}
               disabled={busy}
+              onBlur={() => checks.blur("number")}
               onChange={(event) => setValue(event.target.value)}
-              className="mt-1 block min-h-11 rounded-lg border border-black/15 bg-transparent px-3 dark:border-white/20"
             />
-          </label>
-          <button
-            type="button"
-            className={secondaryButtonClass}
-            disabled={busy || unchanged || !name.trim() || !acceptable(kind, value)}
-            onClick={() => void save()}
-          >
-            {t("business.dgii.save_profile", "Save")}
-          </button>
-        </div>
+          </div>
+          <div className="pt-2">
+            <button type="submit" className={secondaryButtonClass} disabled={busy || unchanged}>
+              {t("business.dgii.save_profile", "Save")}
+            </button>
+          </div>
+          {problem ? (
+            <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+              <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />
+              <div className="min-w-0">
+                <p>{problem.text}</p>
+                {problem.retry ? (
+                  <button type="submit" disabled={busy} className={`${quietButtonClass} -ml-1`}>
+                    {t("common.retry", "Retry")}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </form>
       ) : null}
       {loadFailed ? (
-        <p role="alert" className="flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
-          {t("business.dgii.profile_load_failed", "We couldn't load the name and RNC.")}
-          <button type="button" onClick={() => setAttempt((value) => value + 1)} className={quietButtonClass}>
-            {t("common.retry", "Retry")}
-          </button>
-        </p>
-      ) : null}
-      {problem ? (
-        <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-          {problem}
-        </p>
+        <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+          <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />
+          <div className="min-w-0">
+            <p>{t("business.dgii.profile_load_failed", "We couldn't load the name and RNC.")}</p>
+            <button type="button" onClick={() => setAttempt((count) => count + 1)} className={`${quietButtonClass} -ml-1`}>
+              {t("common.retry", "Retry")}
+            </button>
+          </div>
+        </div>
       ) : null}
     </div>
   );

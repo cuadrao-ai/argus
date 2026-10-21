@@ -10,6 +10,7 @@ import { useCategoryLabel } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { ACTIVITY_FIELDS as ACTIVITY, MORE_FIELDS as MORE, fiscalFactRows, recordFactRows, reviewCounts, type FactRow } from "./receipt-fact-rows";
+import { resolveLanguage } from "@/lib/language-features";
 const FISCAL = ["rnc", "ncf", "itbis", "ecf"] as const;
 
 const labelClass = "text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white";
@@ -32,7 +33,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
   const { t, i18n } = useTranslation();
   const ids = useId();
   const categoryLabel = useCategoryLabel();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const fiscal = dossier.facts.fiscal;
   const labels = {
     unknown: "",
@@ -79,12 +80,12 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
         type="button"
         onClick={() => onEdit(key)}
         aria-label={`${t("business.dossier.edit", "Edit details")} · ${label}`}
-        className="flex min-h-11 w-full items-center rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#141517] dark:text-white"
+        className="flex min-h-11 w-full items-center rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#141517] dark:text-white"
       >
         {value}
       </button>
     ) : key === "occurred_on" && !value ? (
-      <input disabled readOnly aria-label={label} placeholder={t("business.date_picker.placeholder", "dd/mm/aaaa")} value="" className="block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-transparent px-3 text-[16px] disabled:opacity-50" />
+      <input disabled readOnly aria-label={label} placeholder={t("business.date_picker.placeholder", "dd/mm/aaaa")} value="" className="block min-h-11 w-full rounded-item border border-[#7d8a84] bg-transparent px-3 text-[16px] disabled:opacity-50" />
     ) : value);
     return field(key, label, control, rows.get(key));
   };

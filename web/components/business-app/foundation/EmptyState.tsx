@@ -48,9 +48,12 @@ export function EmptyState({ kind, mark, title, body, action, secondary, testId,
             <button
               type="button"
               onClick={action.run}
-              className={kind === "error" || kind === "done"
-                ? secondaryButtonClass
-                : primaryButtonClass}
+              // Changing the filter is an action inside content, never the screen's one primary.
+              className={kind === "filtered"
+                ? quietButtonClass
+                : kind === "error" || kind === "done"
+                  ? secondaryButtonClass
+                  : primaryButtonClass}
             >
               {action.icon}
               {action.label}

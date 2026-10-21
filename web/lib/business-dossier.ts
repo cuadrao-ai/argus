@@ -84,6 +84,10 @@ export type ReadVsQr = { read: string; qr: string };
 export type EcfCheck = { name: EcfCheckName; state: EcfCheckState; code: string | null; detail: Record<string, string>; read_vs_qr?: Record<string, ReadVsQr> };
 export type EcfVerification = { encf: string | null; tipo_ecf: string | null; checked_at: string; checks: EcfCheck[] };
 
+export type BusinessApprovalAction = "record_expense" | "record_income" | "record_refund";
+/** An approved purchase a refund or credit note may name; `id` is the activity `purchase_activity_id` takes. */
+export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
+
 export type BusinessDossier = BusinessRecordContext & {
   dgii?: DgiiDeclaration | null;
   /** What the e-CF XML proved by itself; null for any other source. */
@@ -122,6 +126,12 @@ export type BusinessDossier = BusinessRecordContext & {
   history: BusinessDraftRevision[];
   blockers: { code: string; field: BusinessFactField | null }[];
   approval_available: boolean;
+  /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
+  approval_action?: BusinessApprovalAction | null;
+  /** The caller may answer the 606 question now, by the gate that action enforces. */
+  fiscal_inclusion_available?: boolean;
+  /** Purchases this draft may refund, newest first; empty unless it is a refund or a credit note. */
+  refund_candidates?: RefundCandidate[];
   /** A recorded approval names the facts revision the person approved and when; later marks add history revisions without changing either. */
   approval_result: { status: "recorded"; activity_id: string; reviewed_version: number; approved_revision: number; approved_at: string; actor: BusinessActor } | { status: "outcome_unknown" | "failed"; code: string; reviewed_version: number } | null;
 };

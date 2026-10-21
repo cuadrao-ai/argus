@@ -221,7 +221,7 @@ test.describe("Business preview", () => {
     await expect(page.getByText("Se registró un gasto", { exact: false })).toHaveCount(0);
     await tray(page).getByRole("button", { name: "Aprobar", exact: true }).click();
     await expect(tray(page).getByRole("status").filter({ hasText: "Se registró un gasto" })).toBeVisible();
-    await expect(panelHeading(page, "Gastos")).toBeVisible();
+    await expect(panelHeading(page, "Transacciones")).toBeVisible();
     await expect(page.getByTestId("workspace-panel-region")).toContainText("Ferretería La Esquina");
   });
 
@@ -461,7 +461,7 @@ test.describe("Business preview on a phone", () => {
 
     await expect(nav(page)).toHaveCount(0);
     const tabs = page.getByTestId("business-bottom-tabs");
-    for (const label of ["Inicio", "Bandeja", "Gastos"]) {
+    for (const label of ["Inicio", "Bandeja", "Transacciones"]) {
       await expect(tabs.getByText(label, { exact: true })).toBeVisible();
     }
     await expect(tabs.getByRole("button", { name: /Bandeja$/ })).toContainText("4");
@@ -635,7 +635,7 @@ test.describe("Business preview while its chat is off", () => {
 
     for (const [label, heading] of [
       ["Bandeja", "Bandeja"],
-      ["Gastos", "Gastos"],
+      ["Transacciones", "Transacciones"],
       ["Inicio", "Hola"],
     ]) {
       await nav(page).getByRole("button", { name: new RegExp(`^${label}`) }).click();
@@ -699,7 +699,7 @@ test.describe("Business preview on a phone while its chat is off", () => {
     await openPreview(page, `${PREVIEW}?chat=off`);
     await expect(panelHeading(page, "Hola")).toBeVisible();
     const tabs = page.getByTestId("business-bottom-tabs");
-    for (const label of ["Inicio", "Bandeja", "Gastos"]) {
+    for (const label of ["Inicio", "Bandeja", "Transacciones"]) {
       await expect(tabs.getByText(label, { exact: true })).toBeVisible();
     }
     await expect(page.getByTestId("add-menu-page").getByRole("button", { name: "Agregar" })).toBeVisible();

@@ -6,6 +6,7 @@ import type { DgiiQr, EcfCheck, EcfVerification } from "@/lib/business-dossier";
 import { formatRelativeTime } from "./business-format";
 import { secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { resolveLanguage } from "@/lib/language-features";
 
 /**
  * What the e-CF file proved by itself, as five rows: the signature, the totals,
@@ -161,7 +162,7 @@ const STATE_STYLE: Record<RowState, { Icon: typeof CheckCircle2; className: stri
 export default function ReceiptEcfChecks({ verification, qr = null }: { verification: EcfVerification | null | undefined; qr?: DgiiQr | null }) {
   const { t, i18n } = useTranslation();
   if (!verification) return null;
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const typeLabel = verification.tipo_ecf ? t(`business.dossier.ecf_type_${verification.tipo_ecf}`, "") : "";
   const document = verification.encf
     ? typeLabel

@@ -98,7 +98,7 @@ export default function SidebarNavButton({
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       data-sidebar-row="business"
-      className={`group flex h-11 w-full shrink-0 items-center gap-3 overflow-hidden rounded-[12px] px-3 text-left font-sans text-[14px] leading-5 transition-colors duration-200 ${
+      className={`group flex h-11 w-full shrink-0 items-center gap-3 overflow-hidden rounded-item px-3 text-left font-sans text-[14px] leading-5 transition-colors duration-200 ${
         active
           ? "bg-[#e3ebe1] font-medium text-[#2f5a49] dark:bg-white/10 dark:text-white"
           : `${BUSINESS_ROW_HOVER} font-normal text-[#172b26] dark:text-white/80 dark:hover:bg-white/5`

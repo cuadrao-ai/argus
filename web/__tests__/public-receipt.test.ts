@@ -418,7 +418,7 @@ describe("viewer language", () => {
   });
 
   test("copy resolves and interpolates", () => {
-    expect(receiptCopy("en").provenance).toBe("Tested with Argus");
+    expect(receiptCopy("en").provenance).toBe("Tested with Cuadrao");
     expect(
       interpolate(receiptCopy("en").frozen_note, { date: "August 7, 2026" }),
     ).toContain("August 7, 2026");

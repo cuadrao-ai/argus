@@ -91,8 +91,8 @@ const dossierCopy = {
     es419: "{{count}} / {{max}}",
   },
   "command_palette.asset_rollup.heading": {
-    en: "Your Argus history",
-    es419: "Tu historial de Argus",
+    en: "Your Cuadrao history",
+    es419: "Tu historial de Cuadrao",
   },
   "command_palette.asset_rollup.scope_registered": {
     en: "Across your conversations",
@@ -178,8 +178,8 @@ const conversationActivityCopy = {
     es419: "Marcar como leída",
   },
   "chat.activity.jump_working": {
-    en: "Jump to latest; Argus is working below",
-    es419: "Ir a lo más reciente; Argus sigue trabajando abajo",
+    en: "Jump to latest; Cuadrao is working below",
+    es419: "Ir a lo más reciente; Cuadrao sigue trabajando abajo",
   },
   "chat.activity.jump_new": {
     en: "Jump to new activity",
@@ -211,8 +211,8 @@ const conversationActivityCopy = {
     es419: "Marcada como no leída.",
   },
   "chat.activity.announce_working": {
-    en: "Argus is working on {{title}}.",
-    es419: "Argus está trabajando en {{title}}.",
+    en: "Cuadrao is working on {{title}}.",
+    es419: "Cuadrao está trabajando en {{title}}.",
   },
   "chat.activity.announce_needs_attention": {
     en: "{{title}} needs attention.",

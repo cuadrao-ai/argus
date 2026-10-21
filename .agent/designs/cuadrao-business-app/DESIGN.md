@@ -68,8 +68,10 @@ the code, named after it, and every screen uses that owner.
   minutos", "ayer", "hace 3 días". From 7 days on it reads as a short date,
   "12 oct", with the year only when it is not this year: "24 dic 2025". Owner:
   `formatRelativeTime` for timestamps and `formatRelativeDay` for calendar days.
-- **Unknown is "—".** An amount the system does not know shows "—", never 0
-  or RD$0.00. A real zero shows as RD$0.00.
+- **Unknown is "-".** An amount the system does not know shows a plain short
+  dash ("-"), never the long one, never 0 or RD$0.00. A real zero shows as
+  RD$0.00. A negative amount keeps its minus sign in front of the number, so a
+  lone dash is never a sign. Owner: `UNKNOWN_VALUE` in `business-format.ts`.
 - **Ocultar montos.** Every amount carries the `cuadrao-amount` class, so
   Ocultar montos hides it, headline figures included.
 
@@ -82,12 +84,42 @@ the code, named after it, and every screen uses that owner.
 - A split layout gives content about 62% and actions or details about 38%.
 - Surfaces are flat. Separate them with colour contrast and hairlines, never
   decorative shadows.
-- Corners are 12px for standard elements and 20px for cards. Buttons are fully round.
+- Corners come from one scale, Tailwind theme tokens in `web/app/globals.css`
+  (Lucas, October 21, 2026). A guard test fails on any other corner in a
+  Business file.
+
+  | Token | Radius | For |
+  | --- | --- | --- |
+  | `rounded-mark` | 4px | chips (status, lateness, type), counts, key caps, skeleton lines, a focus outline on text |
+  | `rounded-item` | 8px | inputs, menu items, rows, small tiles, blocks inside a surface |
+  | `rounded-surface` | 16px | cards, sheets, popovers, menus, toasts |
+  | `rounded-full` | pill | buttons, segmented controls, switches, the search field, avatars, dots, progress bars, the sheet handle |
+
+- **Concentric.** An inner shape's radius is the outer radius minus the
+  padding between them, rounded down to the scale. Below 4 it is 4 or square.
+  When the padding is at least the outer radius, the curves do not meet and
+  the inner shape keeps its own step. It is never rounder than its container.
+  Controls stay pill wherever they sit.
+- **Docked.** A sheet docked to the bottom of a phone rounds its top corners
+  only. A full-height drawer touches the top, right and bottom edges, so it
+  is square, with a hairline on its open side. A full page is square.
+- **Focus.** The focus ring is an outline that follows the element's own
+  radius, offset outward. Every focusable shape carries a radius, so no ring
+  is square on a round control.
 
 ### Widths
 
 Design and check each screen at the five widths of the Argus guide. Nothing
 scrolls sideways at any width.
+
+One canvas holds every Business screen (Lucas, October 21, 2026): at most
+75rem (1200px) wide, left-aligned at the main area's 32px gutter from the
+tablet stop up. The top bar spans the same box, so the search starts at the
+canvas's left edge and the actions end at its right edge on every screen.
+Inside it, Inicio and Transacciones fill the canvas, the Bandeja keeps its
+48rem list beside the record tray, and Negocio and other forms keep a 40rem
+column at its left. No screen widens or moves the canvas. Owner:
+`web/components/chat/workspace-canvas.ts`. Phones keep their 16px gutters.
 
 | Name | Width |
 | --- | --- |
@@ -128,11 +160,25 @@ loading and error. A disabled control shows why it is disabled next to it.
 
 ### Forms
 
-- Every field has a visible label. Example text never replaces the label or
-  the instructions.
-- Errors sit under their field, in plain words that say how to fix the value.
-  Never use browser validation pop-ups.
-- A valid edit clears that field's error. Editing another field does not.
+One owner builds every field: `web/components/ui/FormField.tsx` (field styles in
+`web/components/ui/form-field.ts`, password rules in `web/lib/password-strength.ts`).
+Use it; never restyle a field by hand (Lucas, October 21, 2026).
+
+- Every field has a real label above it that never leaves. Example text never
+  replaces the label or the instructions.
+- A field stays quiet while the owner types. Leaving it with something in it
+  checks it. From then on it is checked on every keystroke, so the error clears
+  the moment the value is fixed. Editing another field does not clear it.
+- Each field reserves one line for its hint or its error, so the submit never
+  moves. Errors say how to fix the value. Never use browser validation pop-ups.
+- The submit stays pressable. A failed submit opens a summary at the top that
+  links to each broken field and moves focus there.
+- Autofill is styled to the surface. Codes such as an RNC are text with
+  `inputMode="numeric"`, never `type="number"`.
+- Passwords show a live checklist and a strength meter (Débil, Casi lista,
+  Fuerte), always with the word. They use the shared eye toggle, never block
+  paste, have no confirm field, and set `passwordrules` for password managers.
+  Only the server's real minimum blocks a password.
 
 ### Delete confirmations
 
@@ -169,17 +215,19 @@ Sheet rules:
    the page stays readable beside it, and a click beside it closes it.
 4. **One sheet at a time.** Opening something from inside a sheet replaces it
    and shows a back arrow that returns to it. One sheet, one swipe to leave.
-5. **Flat.** No blur, no shadow. Edges are hairlines and corners are 20px.
+5. **Flat.** No blur, no shadow. Edges are hairlines and corners are
+   `rounded-surface`, flat on the docked side.
 
 Which container, screen by screen (Lucas, October 20, 2026):
 
-- **Pages:** Inicio, Bandeja, Gastos, Novedades, Acceso.
+- **Pages:** Inicio, Bandeja, Transacciones, Novedades, Acceso.
 - **Record tray:** a receipt, draft, email or expense opens beside its list on
   desktop, without a scrim, so another row can be opened straight away. On a
   phone it is a full page with a way back. It is the one sheet that is not
   modal.
 - **Sheets:** Agregar, Exportar registros, settings, forms and lists.
-- **Popovers:** pickers (a date, a month, a menu).
+- **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
+  range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
 
 ### Sidebar and account
@@ -190,13 +238,29 @@ top right is who you are.
 - **Top left:** the business you are working in (its initial, name and your
   role), the one name that reads first. Its menu switches business and opens
   **Configurar negocio**. The open and close toggle sits beside it.
-- **Then:** the screens: Inicio, Bandeja, Gastos. Negocio is reached from the
+- **Then:** the screens: Inicio, Bandeja, Transacciones. Negocio is reached from the
   business menu (Configurar negocio), the one door.
 - **Foot of the rail:** the Cuadrao mark, small and quiet.
 - **Opening and closing the rail** takes 200ms, ease out. Nothing inside
   changes shape: icons keep one position, labels fade, the business mark
   stays where it is, and the open header stays until the rail has closed.
-- **Top bar:** lined up with the content column. Search on the left, always
+- **Screen icons** are Phosphor: outline when idle, filled on the screen you
+  are on. Becoming the current screen crossfades the two weights in 120ms (the
+  outline leaves 60ms later, so the icon never dims) and settles the icon from
+  92% to full size in 180ms, ease out, no overshoot; a press shrinks it to 92%.
+  Each icon also acts out its screen in one short move: Inicio's four cards
+  shrink and settle back corner to corner (360ms, 50ms apart); a receipt drops
+  into the Bandeja, bounces once as the tray dips 1px, then slides in behind
+  the lip (560ms); Transacciones' arrows slide past each other and settle
+  (500ms, the second 60ms later). The move plays on pointer hover over the
+  row's soft fill (Inicio and Transacciones again on leave), on keyboard
+  focus, and when the icon becomes the current screen, which is the only
+  trigger on phones. A move under way finishes rather than restarting, and
+  every move ends at rest. At rest the icons are Phosphor's, pixel for pixel.
+  Nothing plays on first paint or while the rail opens or closes. Reduced
+  motion swaps the weight at once and moves nothing. The rail and the phone tabs share one owner:
+  `components/business-app/nav-glyphs.tsx` and its stylesheet.
+- **Top bar:** spans the one canvas and never changes per screen. Search on the left, always
   visible (its placeholder says what it finds). On the right: **Agregar ▾**,
   the one global action, whose menu holds Exportar registros and Copiar
   dirección de reenvío; the **Ocultar montos** eye, which
@@ -228,10 +292,10 @@ a 44px target.
   the nearest of the four.
 - A sheet's X is its only way to leave. Do not add Listo or Hecho to a sheet
   just to close it. A footer button names the next step (Guardar, Aprobar).
-- The top bar's Agregar is the primary of every screen with no main action of
-  its own. A screen whose main action is its own (Transacciones: Igualar
-  sugerencias) claims the primary while that action shows, and Agregar steps
-  down to secondary until it ends. Owner: `screen-primary.ts`.
+- The top bar's Agregar is the green primary on every screen (Lucas, October
+  21, 2026). "One per screen" counts the page's content only, never the top
+  bar: Igualar sugerencias is Transacciones' one primary in the page while
+  Agregar stays green above it.
 - `components/business-app/business-ui.tsx` owns the classes
   (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
   `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
@@ -289,7 +353,7 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 
 | Type | Example | Surface |
 | --- | --- | --- |
-| Validation | A typo in an RNC | Inline under the field, as the owner types. The action stays disabled until the value is valid. |
+| Validation | A typo in an RNC | Inline under the field, after the owner leaves it and live from then on. The action stays pressable and a failed press lists each broken field (see Forms). |
 | Network | The connection dropped | The banner docked at the top ("Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva."). It moves the bar and the page down, never covers them, and leaves when the connection is back. |
 | Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
 | Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
@@ -380,8 +444,10 @@ table only.
   80ms; every transition stays under 150ms, with no bounce.
 - The header pins on vertical scroll. The first column pins on horizontal
   scroll, and a column that is the point of the screen may pin right.
-- An empty cell is "—" when missing (read as "sin dato"), a real 0.00 only
-  when zero is known, and a skeleton only while loading.
+- An empty cell is "-" when missing (read as "sin dato", or as what it means,
+  such as "Sin recibo" in Comprobante), a real 0.00 only when zero is known,
+  and a skeleton only while loading. A blank cell is a question, so no cell is
+  left empty.
 - Long text truncates to one line with a tooltip. Numbers never truncate.
 - Row actions appear on hover and on keyboard focus, each with its key, over
   text columns and never over a number. Touch gets a kebab. Every action is
@@ -389,9 +455,12 @@ table only.
 - A sort arrow shows only on the sorted column.
 - Density: Compacto 40px, Normal 48px (the default), Amplio 56px. Type stays
   14px in every mode; inputs stay 16px. The choice sits in a quiet view
-  options button and is kept per person (in the browser until the profile
-  keeps it; owner `table-density.ts`). Phones ignore it: rows become two-line
+  options button and is kept per person on the account (`table_density` on
+  `/me`; owner `table-density.ts`). Phones ignore it: rows become two-line
   list items of at least 64px.
+- Ventas and Entradas in records mode (no bank data) wait on a server read of
+  the period's ventas; until then records mode lists gastos and Entradas
+  shows "-".
 - Single-letter keys work only while focus is in the table and not in a field.
 
 ## 4. Accessibility
@@ -404,7 +473,9 @@ table only.
 
 ## 5. Dominican formats and language
 
-- The app is always in Spanish (`es-419`).
+- The app is Spanish first (`es-419`) by default. A person may choose English in
+  Preferencias > Idioma de la app, saved on the account. `resolveLanguage` is the
+  one owner: the account, then the device, then `es-419`. The browser is ignored.
 - A typed date reads DD/MM/AAAA. A shown date follows [Numbers](#numbers).
 - Every amount shows its currency, once per list as [Numbers](#numbers) says,
   with two decimals. Number separators follow the `es-419` locale.
@@ -432,6 +503,10 @@ frame, such as readable names, tax numbers or amounts.
 The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting.
 
 Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
+
+Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the greeting row on the left, "Pendiente hoy" on the right at the greeting's 26px, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together. Narrower, one column in the order above.
+
+"Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
@@ -490,7 +565,7 @@ A month without receipts shows as empty, never as a closed month at RD$0.00.
 This guide sets the screen's presentation only, not the file formats. The
 screen shows amounts in RD$ and never converts currency.
 
-Exportar registros is one sheet, from Inicio and from Gastos. The period is a
+Exportar registros is one sheet, from the Agregar menu on every screen. The period is a
 segmented control with this month, last month and this year by name, and
 "Otras fechas" for a typed range of up to 366 days. Under it, one line gives
 the exact dates. "Incluye" lists what the ZIP holds: records (Excel and CSV),
@@ -503,9 +578,16 @@ says so in a toast.
 
 ### Transacciones
 
-Transacciones answers "does every peso that moved have its proof?" It takes
-Gastos's place and shortcut behind `businessBankMatchingEnabled` (default off;
-with it off, Gastos stays as it is). Lucas decided these on October 21, 2026:
+Transacciones answers "does every peso that moved have its proof?" It replaced
+Gastos for everyone on October 21, 2026: its name, place and shortcut, and old
+Gastos links. Only the igualar parts (movements, suggestions, the run,
+Desigualar, sin comprobante, the segments and their counts, "Banco al día
+hasta") wait behind `businessBankMatchingEnabled`, default off. With it off,
+or while the server has the bank routes off, the screen lists the period's
+saved gastos and ventas in the same columns with no Por igualar flags:
+Entradas and Salidas exact per currency, the receipt icon in Comprobante when
+a file backs the record, each row opening its record in the record tray.
+Lucas decided these on October 21, 2026:
 
 - The screen is **Transacciones**, the verb **Igualar**, the segments **Por
   igualar**, **Igualadas** and **Todas**. Por igualar groups Sugerencias,
@@ -526,8 +608,8 @@ with it off, Gastos stays as it is). Lucas decided these on October 21, 2026:
   Deshacer, offered only when the server can take a decision back. A failed
   decision says so in the tray with Reintentar and its reference.
 - The totals (Entradas, Salidas, Por igualar, Igualadas) are the server's,
-  exact, one per currency. A total the server does not serve reads "—".
-- The ledger uses the wide canvas, and the top bar lines up with it.
+  exact, one per currency. A total the server does not serve reads "-".
+- The ledger fills the one canvas, as in [Widths](#widths).
 
 ## 7. Voice
 

@@ -13,6 +13,9 @@ export const CANVAS = "#F7F5EE";
 export const LOADING_TRACK = "#7d8a84";
 export const MUTED_TEXT = "#56635e";
 export const CONFIRM_ACTION = "#9e2f39";
+/** The one keyboard focus ring for every Business button, dialogs included. */
+export const FOCUS_RING =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]";
 
 export function statusNameForReceipt(status: ReceiptStatus): BusinessStatusName {
   if (status === "confirmed") return "approved";

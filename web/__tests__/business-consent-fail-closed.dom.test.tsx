@@ -29,7 +29,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 function context(source: BusinessDataSource, inbox: ReceiptSummary[] = []): BusinessContextValue {
   return {
     source,
-    records: { workspace: null, overview: null, inbox, notes: [], notesError: false, notesTruncated: false, error: false },
+    records: { workspace: null, overview: null, inbox, notes: [], notesTruncated: false, emails: [], error: false },
     spaces: [],
     chosen: { space_id: "own", grant_id: "own", name: "Colmado", role: "owner", capabilities: ["prepare", "approve"], access_seen: true },
     chooseBusiness: () => {},
@@ -85,7 +85,7 @@ const inboxReceipt = {
   replayed: false,
   preparable: true,
   enterable: false,
-  read_pending: false,
+  bandeja: { por_revisar: true, con_problema: true, leyendo: false },
   expense_id: null,
   merchant: "Ferretería",
   occurred_on: null,

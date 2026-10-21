@@ -8,6 +8,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { formatDay, todayIso } from "../business-format";
 import { quietButtonClass } from "../business-ui";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type Month = { year: number; month: number };
 
@@ -65,7 +66,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
   disabled?: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const ownId = useId();
   const inputId = id ?? `${ownId}-input`;
   const headingId = `${ownId}-month`;
@@ -199,7 +200,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
       className="relative"
       onBlur={(event) => { if (open && !isBelowTablet && event.relatedTarget && !root.current?.contains(event.relatedTarget as Node)) setOpen(false); }}
     >
-      <div className="flex min-h-11 items-center rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] dark:bg-[#141517]">
+      <div className="flex min-h-11 items-center rounded-item border border-[#7d8a84] bg-[#FFFEFA] dark:bg-[#141517]">
         <input
           ref={field}
           id={inputId}
@@ -207,7 +208,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
           inputMode="numeric"
           autoComplete="off"
           placeholder={t("business.date_picker.placeholder", "dd/mm/aaaa")}
-          className={`min-h-11 min-w-0 flex-1 rounded-[12px] bg-transparent pl-3 text-[16px] text-[#172b26] placeholder:text-[#687A72] disabled:opacity-50 dark:text-white ${focusRing}`}
+          className={`min-h-11 min-w-0 flex-1 rounded-item bg-transparent pl-3 text-[16px] text-[#172b26] placeholder:text-[#687A72] disabled:opacity-50 dark:text-white ${focusRing}`}
           value={shown}
           disabled={disabled}
           aria-invalid={Boolean(text) && !typed}
@@ -234,7 +235,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
         </button>
       </div>
       {open && !isBelowTablet ? (
-        <div id={popoverId} role="dialog" aria-labelledby={headingId} data-testid="date-picker-dialog" className="absolute left-0 top-full z-[70] mt-2 w-max rounded-[12px] border border-[#DCE0DA] bg-[#FFFEFA] p-4 shadow-lg dark:border-white/10 dark:bg-[#1f2225]">
+        <div id={popoverId} role="dialog" aria-labelledby={headingId} data-testid="date-picker-dialog" className="absolute left-0 top-full z-[70] mt-2 w-max rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-4 shadow-lg dark:border-white/10 dark:bg-[#1f2225]">
           {month}
         </div>
       ) : null}

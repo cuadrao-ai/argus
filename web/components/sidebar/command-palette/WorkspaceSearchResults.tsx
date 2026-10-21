@@ -17,7 +17,7 @@ export const WORKSPACE_GROUP_ROWS = 3;
 const HIT = "data-workspace-hit";
 
 const ROW_CLASS =
-  "flex min-h-11 w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left transition-colors hover:bg-black/[0.03] focus:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.03] dark:focus:bg-white/[0.05] dark:focus-visible:outline-[#8fcbb0]";
+  "flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2.5 text-left transition-colors hover:bg-black/[0.03] focus:bg-black/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.03] dark:focus:bg-white/[0.05] dark:focus-visible:outline-[#8fcbb0]";
 const LABEL_CLASS = "font-display text-[12px] font-medium text-[#56635e] dark:text-white/65";
 const MUTED_CLASS = "text-[#56635e] dark:text-white/65";
 const ACTION_CLASS = "text-[13px] font-medium text-[#2f5a49] dark:text-[#8fcbb0]";
@@ -156,7 +156,7 @@ type RowHandlers = {
 };
 
 function Badge({ children }: { children: string }) {
-  return <span className="shrink-0 rounded-full border border-black/10 px-2 py-0.5 text-[11px] font-medium text-[#56635e] dark:border-white/15 dark:text-white/70">{children}</span>;
+  return <span className="shrink-0 rounded-mark border border-black/10 px-2 py-0.5 text-[11px] font-medium text-[#56635e] dark:border-white/15 dark:text-white/70">{children}</span>;
 }
 
 function HitBody({ hit }: { hit: WorkspaceSearchHit }) {

@@ -6,13 +6,14 @@ import { I18nextProvider } from "react-i18next";
 
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
-import { EmailDeliveryDetail, EmailDeliveryRow, EmailReceivingAddress } from "../components/business-app/BusinessEmailDeliveries";
+import { EmailDeliveryDetail, EmailDeliveryRow, EmailReceivingAddress, useEmailWords } from "../components/business-app/BusinessEmailDeliveries";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { businessReceivingAddress, emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "../lib/business-email";
 
 const delivery = (overrides: Partial<BusinessEmailDelivery> = {}): BusinessEmailDelivery => ({
   id: "email-1", state: "captured", received_at: "2026-10-12T14:00:00Z", updated_at: "2026-10-12T14:01:00Z",
   original_document_id: "rcpt-eml", retryable: false, subject: "Factura 0041", sender: "ventas@proveedor.example", sent_at: null, error_code: null,
+  standing: null, saved_receipt_count: 1, no_receipt_reason: null,
   parts: [{ id: "1.2", filename: "IMG_2214.jpg", media_type: "image/jpeg", state: "captured", document_id: "rcpt-ferreteria", error_code: null }],
   ...overrides,
 });
@@ -39,6 +40,38 @@ describe("received emails in the Inbox", () => {
       <I18nextProvider i18n={i18n}><EmailDeliveryDetail delivery={delivery()} loadDetail={async () => ({ ...delivery(), text_body: "hola" })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></I18nextProvider>,
     );
     assert.ok(open.includes("IMG_2214.jpg") && open.includes("Abrir recibo") && open.includes("Abrir el correo original"));
+  });
+
+  test("what an email saved and why it brought nothing are the server's, not read from its parts", async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish }, en: { translation: english } } });
+    const detail = (over: Partial<BusinessEmailDelivery>) => renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}><EmailDeliveryDetail delivery={delivery(over)} loadDetail={async () => ({ ...delivery(over), text_body: null })} openReceipt={() => undefined} retryDelivery={async () => ({ id: "email-1" })} /></I18nextProvider>,
+    );
+    // One captured part on the wire, three saved by the server's count: the count wins.
+    assert.ok(detail({ saved_receipt_count: 3, original_document_id: null }).includes("3 recibos llegaron a la Bandeja."));
+    assert.ok(!detail({ saved_receipt_count: 0 }).includes("Abrir el correo original"), "with nothing saved the original is the receipt to open");
+    function Reason({ item }: { item: BusinessEmailDelivery }) { return <p>{useEmailWords().noReceipt(item)}</p>; }
+    const reason = (over: Partial<BusinessEmailDelivery>, lng = "es-419") => {
+      void i18n.changeLanguage(lng);
+      return renderToStaticMarkup(<I18nextProvider i18n={i18n}><Reason item={delivery({ standing: "no_receipt", state: "rejected", ...over })} /></I18nextProvider>);
+    };
+    // The parts and error code point elsewhere; the server's reason is the one said.
+    const refused = { error_code: "email_parts_rejected", parts: [{ id: "1.2", filename: "a.zip", media_type: "application/zip", state: "rejected" as const, document_id: null, error_code: "unsupported_media_type" }] };
+    assert.equal(reason({ ...refused, no_receipt_reason: "email_sender_blocked" }), "<p>Bloqueaste a este remitente</p>");
+    assert.equal(reason({ no_receipt_reason: "email_no_attachment", parts: [] }), "<p>No traía adjunto</p>");
+    assert.equal(reason({ no_receipt_reason: "email_no_attachment", parts: [] }, "en"), "<p>It had no attachment</p>");
+    assert.equal(reason({ ...refused, no_receipt_reason: "a_code_without_copy" }), "<p>No trajo un recibo que pudiéramos guardar</p>");
+    assert.equal(reason({ ...refused, no_receipt_reason: undefined }), "<p>No trajo un recibo que pudiéramos guardar</p>", "an older server's email gets the plain line, not a guess from its parts");
+    void i18n.changeLanguage("es-419");
+  });
+
+  test("every reason code the server names has copy in Spanish and English, and no em dash", () => {
+    const es = (spanish as { business: { email: { no_receipt_reason: Record<string, string> } } }).business.email.no_receipt_reason;
+    const en = (english as { business: { email: { no_receipt_reason: Record<string, string> } } }).business.email.no_receipt_reason;
+    assert.deepEqual(Object.keys(es).sort(), Object.keys(en).sort());
+    for (const code of ["email_no_attachment", "email_parts_rejected", "unsupported_media_type", "email_sender_blocked", "email_route_unavailable", "other"]) assert.ok(es[code] && en[code], code);
+    assert.ok([...Object.values(es), ...Object.values(en)].every((line) => !line.includes("\u2014")));
   });
 
   test("without an address the owner is offered one; with it the address and copy button show", async () => {

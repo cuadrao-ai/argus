@@ -5,7 +5,7 @@ import { withViewportPortal } from "@/components/ui/withViewportPortal";
 import { useId, useRef, useCallback, useEffect } from "react";
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import { KeyboardShortcutKeycap } from "@/components/keyboard/KeyboardShortcutKeycap";
-import { CONFIRM_ACTION } from "@/components/business-app/foundation/presentation";
+import { CONFIRM_ACTION, FOCUS_RING } from "@/components/business-app/foundation/presentation";
 
 type ConfirmDialogProps = {
   isOpen: boolean;
@@ -141,7 +141,7 @@ function ConfirmDialogSurface({
         aria-modal="true"
         aria-labelledby="argus-confirm-title"
         aria-describedby="argus-confirm-description"
-        className="relative w-full max-w-sm rounded-[18px] border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225]"
+        className="relative w-full max-w-sm rounded-surface border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225]"
       >
         <h2
           id="argus-confirm-title"
@@ -165,12 +165,12 @@ function ConfirmDialogSurface({
             type="button"
             onClick={onCancel}
             disabled={isBusy}
-            className="min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+            className={`min-h-11 rounded-full border border-black/10 px-4 text-[16px] font-medium text-black hover:bg-black/5 disabled:opacity-50 ${FOCUS_RING} dark:border-white/10 dark:text-white dark:hover:bg-white/5`}
           >
             <span className="inline-flex items-center gap-2">
               {cancelLabel}
               {showKeyboardHints && (
-                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-md !px-2">
+                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-mark !px-2">
                   Esc
                 </KeyboardShortcutKeycap>
               )}
@@ -182,12 +182,12 @@ function ConfirmDialogSurface({
             disabled={isBusy}
             data-testid="confirm-dialog-confirm"
             style={{ backgroundColor: tone === "danger" ? CONFIRM_ACTION : "#2f5a49" }}
-            className="min-h-11 rounded-full px-4 text-[16px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className={`min-h-11 rounded-full px-4 text-[16px] font-medium text-white hover:opacity-90 disabled:opacity-50 ${FOCUS_RING}`}
           >
             <span className="inline-flex items-center gap-2">
               {confirmLabel}
               {showKeyboardHints && (
-                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-md !bg-white/15 !px-2 !text-white">
+                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-mark !bg-white/15 !px-2 !text-white">
                   ↵
                 </KeyboardShortcutKeycap>
               )}

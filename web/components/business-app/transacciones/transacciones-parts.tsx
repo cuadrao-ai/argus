@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { Banknote, CreditCard, Landmark, type LucideIcon } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { formatAmount, formatMoney } from "../business-format";
-import { magnitude, signOf, UNKNOWN, type AccountKind, type MatchState, type Money, type MovementAccount } from "./transacciones-model";
+import { formatAmount, formatMoney, UNKNOWN_VALUE } from "../business-format";
+import { magnitude, signOf, type AccountKind, type MatchState, type Money, type MovementAccount } from "./transacciones-model";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const line = { fill: "none", stroke: "currentColor", strokeWidth: 1.4, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -14,7 +14,6 @@ const SHAPES: Record<MatchState, ReactNode> = {
   igualada: <><circle cx="8" cy="8" r="6.25" {...line} /><path d="M5.3 8.2 7.1 10l3.6-3.8" {...line} /></>,
   sugerencia: <><circle cx="8" cy="8" r="6.25" {...line} strokeDasharray="2 2" /><circle cx="8" cy="8" r="1.6" fill="currentColor" /></>,
   falta_comprobante: <circle cx="8" cy="8" r="6.25" {...line} />,
-  igualada_en_parte: <><circle cx="8" cy="8" r="6.25" {...line} /><path d="M8 1.75a6.25 6.25 0 0 0 0 12.5Z" fill="currentColor" /></>,
   no_lleva: <><circle cx="8" cy="8" r="6.25" {...line} /><path d="m3.6 12.4 8.8-8.8" {...line} /></>,
   sin_movimiento: <><path d="M4 1.75h5.5L12.25 4.5v9.75H4Z" {...line} /><path d="M9.25 1.75V4.75h3M6 8h4.25M6 10.75h4.25" {...line} /></>,
 };
@@ -32,13 +31,13 @@ export function StateIcon({ state }: { state: MatchState }) {
   );
 }
 
-/** Unknown is a dash on screen and "sin dato" to a screen reader; never a zero. */
-export function Unknown() {
+/** Unknown is a plain dash on screen and its meaning ("sin dato" unless a cell says better) to a screen reader; never a zero. */
+export function Unknown({ meaning }: { meaning?: string }) {
   const { t } = useTransaccionesWords();
   return (
     <span>
-      <span aria-hidden="true">{UNKNOWN}</span>
-      <span className="sr-only">{t("business.transactions.unknown", "sin dato")}</span>
+      <span aria-hidden="true">{UNKNOWN_VALUE}</span>
+      <span className="sr-only">{meaning ?? t("business.transactions.unknown", "sin dato")}</span>
     </span>
   );
 }
@@ -70,10 +69,14 @@ export function PlainAmount({ money }: { money: Money }) {
   return <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(magnitude(money).amount, money.currency, locale)}</span>;
 }
 
-/** Totals in one currency each, side by side, never added; unknown when the server does not serve them. */
-export function MoneyList({ totals, header, locale }: { totals: readonly Money[] | null; header: string | null; locale: string }) {
+/**
+ * Totals in one currency each, side by side, never added; unknown when the
+ * server does not serve them. With no row in the period the total is a known
+ * zero, shown in the currency `zeroIn` names, or as unknown when nothing names one.
+ */
+export function MoneyList({ totals, header, locale, zeroIn = header }: { totals: readonly Money[] | null; header: string | null; locale: string; zeroIn?: string | null }) {
   if (totals === null) return <Unknown />;
-  if (totals.length === 0) return <span className="cuadrao-amount tabular-nums">{formatMoney("0.00", header ?? "DOP", locale)}</span>;
+  if (totals.length === 0) return zeroIn ? <span className="cuadrao-amount tabular-nums">{formatMoney("0", zeroIn, locale)}</span> : <Unknown />;
   return (
     <span className="flex flex-wrap items-baseline gap-x-2">
       {totals.map((money, index) => (
@@ -91,14 +94,14 @@ export function AccountLabel({ account }: { account: MovementAccount | null }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <Icon className="h-3.5 w-3.5 shrink-0 text-[#56635e] dark:text-white/60" aria-hidden="true" />
-      <span className="truncate">{account.name}{account.last4 ? <span className="tabular-nums"> ··{account.last4}</span> : null}</span>
+      {account.name ? <span className="truncate">{account.name}</span> : <Unknown />}
     </span>
   );
 }
 
 export function KeyHint({ children }: { children: string }) {
   // Drawn in the label's own colour, so it reads on a green primary and on an outlined button alike. Phones have no keys to show.
-  return <kbd className="ml-1.5 hidden h-[18px] tablet:inline-flex min-w-[18px] items-center justify-center rounded-[4px] border border-current/30 px-1 font-sans text-[11px] font-medium opacity-80">{children}</kbd>;
+  return <kbd className="ml-1.5 hidden h-[18px] tablet:inline-flex min-w-[18px] items-center justify-center rounded-mark border border-current/30 px-1 font-sans text-[11px] font-medium opacity-80">{children}</kbd>;
 }
 
 /** A long value cut to one line; the whole of it shows on hover and keyboard focus. */

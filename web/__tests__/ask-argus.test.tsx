@@ -85,7 +85,7 @@ describe("Ask Argus when nothing matched", () => {
       );
       expect(html).toContain("data-ask-argus-row");
       expect(html).toContain("Is a 7% loan cheaper than 6.5% with fees?");
-      expect(html).toContain(language === "en" ? "Ask Argus" : "Preguntarle a Argus");
+      expect(html).toContain(language === "en" ? "Ask Cuadrao" : "Preguntarle a Cuadrao");
       expect(html).not.toContain("—");
     });
   }

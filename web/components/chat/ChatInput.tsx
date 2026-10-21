@@ -165,7 +165,7 @@ export default function ChatInput({
   const sendButtonLabel = t("chat.send_message", "Send message");
   const textOnlyInputMessage = t(
     "chat.text_only_input",
-    "Argus can only accept text here right now.",
+    "Cuadrao can only accept text here right now.",
   );
   const isMentionButtonHidden = shouldHideMentionButton(isDiscoveryOpen, composerRawText);
 

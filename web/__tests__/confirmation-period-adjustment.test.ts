@@ -28,13 +28,13 @@ const translations: Record<string, Record<string, string>> = {
     [SHARED_WINDOW_KEY]:
       "I adjusted the test period to {{period}} because every asset and the benchmark need a shared data window.",
     [LIMITED_BY_KEY]:
-      "I adjusted the test period to {{period}} because Argus has price data for {{symbol}} only from {{date}}.",
+      "I adjusted the test period to {{period}} because Cuadrao has price data for {{symbol}} only from {{date}}.",
   },
   "es-419": {
     [SHARED_WINDOW_KEY]:
       "Ajusté el período de la prueba a {{period}} porque cada activo y la referencia necesitan un rango de datos compartido.",
     [LIMITED_BY_KEY]:
-      "Ajusté el período de la prueba a {{period}} porque Argus solo tiene precios de {{symbol}} desde el {{date}}.",
+      "Ajusté el período de la prueba a {{period}} porque Cuadrao solo tiene precios de {{symbol}} desde el {{date}}.",
   },
 };
 
@@ -85,7 +85,7 @@ describe("confirmation period adjustment", () => {
         "en",
       ),
     ).toBe(
-      "I adjusted the test period to Jul 27, 2020 – Dec 31, 2020 because Argus has price data for SPY only from Jul 27, 2020.",
+      "I adjusted the test period to Jul 27, 2020 – Dec 31, 2020 because Cuadrao has price data for SPY only from Jul 27, 2020.",
     );
     expect(keys).toEqual([LIMITED_BY_KEY]);
   });
@@ -98,7 +98,7 @@ describe("confirmation period adjustment", () => {
         "es-419",
       ),
     ).toBe(
-      "Ajusté el período de la prueba a 27 jul 2020 – 31 dic 2020 porque Argus solo tiene precios de SPY desde el 27 jul 2020.",
+      "Ajusté el período de la prueba a 27 jul 2020 – 31 dic 2020 porque Cuadrao solo tiene precios de SPY desde el 27 jul 2020.",
     );
   });
 
