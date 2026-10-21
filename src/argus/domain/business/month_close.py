@@ -35,7 +35,7 @@ from argus.domain.recording.currency import (
 from argus.domain.recording.errors import RecordingInputError
 
 DocumentKind = Literal["invoice", "receipt"]
-PAYMENT_METHODS = frozenset({"efectivo", "transferencia", "tarjeta", "credito", "otro"})
+PAYMENT_METHODS = ("efectivo", "transferencia", "tarjeta", "credito", "otro")
 _STATUS = {
     "invoice": frozenset({"pendiente", "cobrado"}),
     "receipt": frozenset({"pendiente", "pagado"}),
@@ -183,6 +183,13 @@ class FormatoCurrency:
     expense_before_itbis: int = 0
     itbis_charged: int = 0
     itbis_paid: int = 0
+    itbis_collected: int = 0
+
+
+def _charge(bucket: list[int], document: MonthDocument, tax: int) -> None:
+    bucket[2] += tax
+    if document.status == "cobrado":
+        bucket[4] += tax
 
 
 def formato_totals(
@@ -190,24 +197,29 @@ def formato_totals(
 ) -> dict[str, FormatoCurrency]:
     """Income and expense from the 607 and 606 lines plus the business
     documents marked sin comprobante. ITBIS stated on a sin comprobante sale
-    is charged; a sin comprobante purchase pays no creditable ITBIS."""
+    is charged; a sin comprobante purchase pays no creditable ITBIS. ITBIS
+    collected is the charged part of the sales already marked cobrado."""
 
     totals: dict[str, list[int]] = {}
     for document in documents:
         if not in_month(document, start, end):
             continue
-        bucket = totals.setdefault(document.currency, [0, 0, 0, 0])
+        bucket = totals.setdefault(document.currency, [0, 0, 0, 0, 0])
         if in_607(document):
             bucket[0] += sales_base(document)
             tax = document.itbis_minor or 0
-            bucket[2] += -tax if credit_note(document.ecf or document.ncf) else tax
+            _charge(
+                bucket,
+                document,
+                -tax if credit_note(document.ecf or document.ncf) else tax,
+            )
         elif in_606(document):
             bucket[1] += before_itbis(document.total_minor, document.itbis_minor)
             bucket[3] += document.itbis_minor or 0
         elif document.sin_comprobante and in_close(document):
             if document.role == "invoice":
                 bucket[0] += sales_base(document)
-                bucket[2] += document.itbis_minor or 0
+                _charge(bucket, document, document.itbis_minor or 0)
             else:
                 bucket[1] += expense_base(document)
     return {
@@ -371,6 +383,10 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
         expense = part.expense_before_itbis
         charged = part.itbis_charged
         paid = part.itbis_paid
+        pending_count = (
+            status["invoices"]["pendiente"]["count"]
+            + status["receipts"]["pendiente"]["count"]
+        )
         receivable = sum(
             item["total_minor"] for item in receivables if item["currency"] == currency
         )
@@ -384,6 +400,7 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
             "itbis_charged": _pair(charged, currency),
             "itbis_paid": _pair(paid, currency),
             "itbis_owed": _pair(itbis_owed(charged, paid), currency),
+            "itbis_cobrado": _pair(part.itbis_collected, currency),
             "cuentas_por_cobrar": _pair(receivable, currency),
             "cuentas_por_pagar": _pair(payable, currency),
         }
@@ -402,18 +419,23 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
                 "itbis_paid": shown["itbis_paid"]["amount"],
                 "itbis_owed_minor": shown["itbis_owed"]["minor"],
                 "itbis_owed": shown["itbis_owed"]["amount"],
+                "itbis_cobrado_minor": shown["itbis_cobrado"]["minor"],
+                "itbis_cobrado": shown["itbis_cobrado"]["amount"],
                 "cuentas_por_cobrar_minor": shown["cuentas_por_cobrar"]["minor"],
                 "cuentas_por_cobrar": shown["cuentas_por_cobrar"]["amount"],
                 "cuentas_por_pagar_minor": shown["cuentas_por_pagar"]["minor"],
                 "cuentas_por_pagar": shown["cuentas_por_pagar"]["amount"],
                 "by_status": status,
+                "net_result_final": pending_count == 0,
             }
         )
+    in_scope = [document.occurred_on for document in documents if in_close(document)]
     return {
         "from": start.isoformat(),
         "to": end.isoformat(),
         "closed": not reasons,
         "reasons": reasons,
+        "earliest_month": min(in_scope).strftime("%Y-%m") if in_scope else None,
         "currencies": blocks,
         "missing_rnc": missing_rnc,
         "missing_ncf": missing_ncf,
@@ -425,12 +447,25 @@ def summarize(documents: Sequence[MonthDocument], start: date, end: date) -> dic
 OPEN_ITEMS_CAP = 100
 
 
-def open_items(documents: Sequence[MonthDocument], cap: int = OPEN_ITEMS_CAP) -> dict:
+def overdue(document: MonthDocument, today: date) -> bool:
+    """Still pending past its due date. A document with no due date is never
+    overdue, and neither is one due today."""
+
+    return (
+        document.status == "pendiente"
+        and document.due_on is not None
+        and document.due_on < today
+    )
+
+
+def open_items(
+    documents: Sequence[MonthDocument], today: date, cap: int = OPEN_ITEMS_CAP
+) -> dict:
     """Every pending document the month close would list, from any month.
 
     Soonest due date first; documents with no due date follow, oldest first.
-    ``count`` and the per-currency totals cover every pending document,
-    including the ones past ``cap``.
+    ``count``, the per-currency totals and ``overdue`` cover every pending
+    document, including the ones past ``cap``.
     """
 
     pending = sorted(
@@ -447,30 +482,37 @@ def open_items(documents: Sequence[MonthDocument], cap: int = OPEN_ITEMS_CAP) ->
         ),
     )
     return {
+        "today": today.isoformat(),
         "cuentas_por_cobrar": _open_list(
-            [document for document in pending if document.role == "invoice"], cap
+            [document for document in pending if document.role == "invoice"], today, cap
         ),
         "cuentas_por_pagar": _open_list(
-            [document for document in pending if document.role == "receipt"], cap
+            [document for document in pending if document.role == "receipt"], today, cap
         ),
     }
 
 
-def _open_list(documents: Sequence[MonthDocument], cap: int) -> dict:
+def _currency_totals(documents: Sequence[MonthDocument]) -> list[dict]:
     totals: dict[str, int] = {}
     for document in documents:
         currency = document.currency
         totals[currency] = totals.get(currency, 0) + document.total_minor
+    return [
+        {
+            "currency": currency,
+            "total_minor": minor,
+            "total": format_minor_units(minor, currency),
+        }
+        for currency, minor in sorted(totals.items())
+    ]
+
+
+def _open_list(documents: Sequence[MonthDocument], today: date, cap: int) -> dict:
+    late = [document for document in documents if overdue(document, today)]
     return {
         "count": len(documents),
-        "totals": [
-            {
-                "currency": currency,
-                "total_minor": minor,
-                "total": format_minor_units(minor, currency),
-            }
-            for currency, minor in sorted(totals.items())
-        ],
+        "totals": _currency_totals(documents),
+        "overdue": {"count": len(late), "totals": _currency_totals(late)},
         "items": [_line(document) for document in documents[:cap]],
     }
 

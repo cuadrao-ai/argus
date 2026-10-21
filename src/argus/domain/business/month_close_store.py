@@ -13,9 +13,13 @@ from typing import Literal
 from psycopg.errors import CheckViolation, UniqueViolation
 from psycopg.rows import dict_row
 
+from argus.domain.business import ledger
 from argus.domain.business.authority import ActionContext, ActionError, authorize
+from argus.domain.business.dgii_export import fiscal_manifest
+from argus.domain.business.dgii_snapshot import fiscal_snapshot
 from argus.domain.business.month_close import (
     IMPLICIT,
+    PAYMENT_METHODS,
     Settlement,
     month_period,
     open_items,
@@ -23,6 +27,7 @@ from argus.domain.business.month_close import (
     set_document_status,
     summarize,
 )
+from argus.domain.business.rnc_registry import postgres_rnc_fetch, registry_from_config
 
 Capability = Literal["read", "prepare"]
 
@@ -86,16 +91,50 @@ class _Race(Exception):
 
 def read_month(authority, context: ActionContext, month: str) -> dict:
     start, end = month_period(month)
+    today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
-        documents, _by_id = _collect(authority, connection, auth.context)
-    summary = summarize(documents, start, end)
-    return {"month": month, **summary}
+        documents, by_id = _collect(authority, connection, auth.context)
+        forms = _form_statuses(
+            connection, auth.context, tuple(by_id.values()), start, end, today
+        )
+    return {
+        "month": month,
+        "today": today,
+        "payment_methods": list(PAYMENT_METHODS),
+        "dgii_forms": forms,
+        **summarize(documents, start, end),
+    }
+
+
+def _form_statuses(
+    connection, context: ActionContext, activities, start, end, today
+) -> dict[str, str]:
+    """Each form's status word, read from the summary the export packet writes."""
+
+    with connection.cursor(row_factory=dict_row) as cursor:
+        records, rnc, name = fiscal_snapshot(cursor, context, activities)
+
+        def lookup(sql, params):
+            cursor.execute(sql, params)
+            return cursor.fetchone()
+
+        manifest, _rows = fiscal_manifest(
+            records,
+            rnc=rnc,
+            business_name=name,
+            start=start,
+            end=end,
+            captured_on=today,
+            registry=registry_from_config("dgii", postgres_rnc_fetch(lookup)),
+        )
+    return {form: shape["status"] for form, shape in manifest["forms"].items()}
 
 
 def read_open(authority, context: ActionContext) -> dict:
+    today = ledger.today()
     with _session(authority, context, "read") as (connection, auth):
         documents, _by_id = _collect(authority, connection, auth.context)
-    return open_items(documents)
+    return open_items(documents, today)
 
 
 def settle_document(

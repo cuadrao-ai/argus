@@ -44,6 +44,7 @@ The error body is the usual problem document. `code` is the field above.
 ```json
 {
   "month": "2026-10",
+  "today": "2026-10-21",
   "from": "2026-10-01",
   "to": "2026-10-31",
   "closed": false,
@@ -51,6 +52,9 @@ The error body is the usual problem document. `code` is the field above.
     {"code": "missing_rnc", "activity_id": "…", "document_kind": "receipt"},
     {"code": "missing_ncf", "activity_id": "…", "document_kind": "receipt"}
   ],
+  "earliest_month": "2026-07",
+  "payment_methods": ["efectivo", "transferencia", "tarjeta", "credito", "otro"],
+  "dgii_forms": {"606": "needs_review", "607": "needs_review"},
   "currencies": [
     {
       "currency": "DOP",
@@ -66,6 +70,8 @@ The error body is the usual problem document. `code` is the field above.
       "itbis_paid": "5.40",
       "itbis_owed_minor": 2160,
       "itbis_owed": "21.60",
+      "itbis_cobrado_minor": 1800,
+      "itbis_cobrado": "18.00",
       "cuentas_por_cobrar_minor": 5900,
       "cuentas_por_cobrar": "59.00",
       "cuentas_por_pagar_minor": 1000,
@@ -79,7 +85,8 @@ The error body is the usual problem document. `code` is the field above.
           "pendiente": {"count": 1, "before_itbis_minor": 1000},
           "pagado": {"count": 1, "before_itbis_minor": 2000}
         }
-      }
+      },
+      "net_result_final": false
     }
   ],
   "missing_rnc": [],
@@ -93,10 +100,16 @@ The sample minors are illustrative. Each currency the month actually contains is
 
 | Field | Meaning |
 | --- | --- |
+| `today` | The server's day in the recording time zone (America/Santo_Domingo), from the one clock every Business "today" derives from. Clients compare `due_on` and default `settled_on` to this day, never to the browser's. |
+| `earliest_month` | The first month (`YYYY-MM`) with a document this close would show, from the Business's whole history. `null` while it has none. A personal document the close leaves out does not count. |
+| `payment_methods` | The methods the PATCH accepts, in this order. |
+| `dgii_forms` | One status word per form, `606` and `607`, from the same summary the export packet writes for this calendar month, with today as the capture day. The words are the packet's own: `no_aplica` (the Business has no RNC), `needs_review` (an issue blocks the form, including a month that has not ended), `summary_only` (607 with only consumption sales under the detail threshold), `no_operations` (nothing to report), `prepared_candidate` (the packet writes the TXT file). Only `prepared_candidate` means the ZIP carries that form. A document in a currency other than DOP is a `needs_review` issue, never a line. |
 | `closed` | True when every business document in the month has an RNC and a fiscal number that normalizes, or is sin comprobante. A blank number and a number that is not a B-series or E-series value both use `missing_ncf`. |
 | `reasons` | Why `closed` is false. `missing_rnc` or `missing_ncf`, with the activity. |
-| `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
+| `income_before_itbis_minor` | Sales lines that would go on the 607, plus sin comprobante sales. Every document counts in its own currency's block. Only the 606 and 607 files and `dgii_forms` are DOP-only (`argus.domain.business.dgii_validation.declarable`, the one gate the export and month close share). The line is the 607 Monto Facturado when the draft declares it, and the activity total minus ITBIS when it does not. A credit note subtracts. An e-CF sale is not a 607 line. |
 | `expense_before_itbis_minor` | Purchase lines that would go on the 606, total minus ITBIS, plus sin comprobante purchases at their whole total. |
+| `itbis_cobrado_minor` | The part of `itbis_charged_minor` that belongs to sales already marked `cobrado`. A credit note marked cobrado subtracts. |
+| `net_result_final` | True when no document of this currency in the month is still `pendiente`. A pending document in another currency does not hold it back. |
 | `net_result_minor` | Income before ITBIS minus expenses before ITBIS. Negative when expenses are larger. |
 | `itbis_charged_minor` | ITBIS on the 607 lines, plus ITBIS stated on a sin comprobante sale. A credit note subtracts. |
 | `itbis_paid_minor` | ITBIS on the 606 lines. A sin comprobante purchase adds none. |
@@ -156,9 +169,14 @@ The month lists show only what was issued in that month. Inicio shows what is st
 
 ```json
 {
+  "today": "2026-10-21",
   "cuentas_por_cobrar": {
     "count": 1,
     "totals": [{"currency": "DOP", "total_minor": 5900, "total": "59.00"}],
+    "overdue": {
+      "count": 1,
+      "totals": [{"currency": "DOP", "total_minor": 5900, "total": "59.00"}]
+    },
     "items": [
       {
         "activity_id": "…",
@@ -181,16 +199,18 @@ The month lists show only what was issued in that month. Inicio shows what is st
       }
     ]
   },
-  "cuentas_por_pagar": {"count": 0, "totals": [], "items": []}
+  "cuentas_por_pagar": {"count": 0, "totals": [], "overdue": {"count": 0, "totals": []}, "items": []}
 }
 ```
 
 | Field | Meaning |
 | --- | --- |
+| `today` | The same server day the month read carries. Overdue is decided against it. |
 | `cuentas_por_cobrar` | Every invoice still `pendiente`. The same documents the month read lists in its `cuentas_por_cobrar`, from every month together. |
 | `cuentas_por_pagar` | Every receipt still `pendiente`, chosen the same way. |
 | `count` | How many pending documents the list has, including the ones past the cap. |
 | `totals` | The sum of `total_minor` for every pending document in the list, one entry per currency. Currencies are never added together or converted. A currency with no pending document has no entry. |
+| `overdue` | The pending documents in the list whose `due_on` is before `today`, counted and summed the same way as `totals`, over every pending document and not only the page. A document with no due date is never overdue, and neither is one due today. |
 | `items` | The first 100 pending documents. Documents with a `due_on` come first, soonest due date first. Documents without one follow, by `occurred_on`. Ties go by `occurred_on` and then `activity_id`. The item shape is the month-close list item. |
 
 Marking a document `cobrado` or `pagado` with the PATCH above removes it from this read. Setting it back to `pendiente` returns it. The month summary and the close checklist stay month-scoped.
