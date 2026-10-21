@@ -20,7 +20,7 @@ from tests.business.test_business_api import (  # noqa: F401
     bob,
     prepared,
 )
-from tests.business.test_business_email_api import runtime  # noqa: F401
+from tests.business.test_business_email_api import UNREADABLE, runtime  # noqa: F401
 
 FERRETERIA = "Ferretería La Esquina"
 KINDS = (
@@ -255,10 +255,65 @@ def test_an_expense_matches_its_amount_by_value_only(alice: Owner) -> None:  # n
     def found(q: str) -> list[str]:
         return [e["id"] for e in alice.get("/search", q=q).json()["expenses"]]
 
-    for q in ("3450", "3450.00", "3,450.00", "$ 3450", "RD$3,450.00"):
+    for q in ("3450", "3450.00", "3,450", "3,450.00", "$ 3450", "RD$ 3,450", "RD$3,450.00"):
         assert found(q) == [expense], q
     for q in ("345", "34", "3450.01", "US$3,450.00", "-3450", "taller 3450"):
         assert expense not in found(q), q
+    # A comma before two digits is no thousands group: never 345.
+    assert found("3,45") == []
+
+
+def test_email_originals_are_left_out_before_the_page_is_cut(
+    alice: Owner,  # noqa: F811
+    runtime,  # noqa: ANN001
+) -> None:
+    """Two forwarded emails: each original is the email, not a receipt, so a
+    page of two holds both attachments and has no next page."""
+
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+
+    space_id = alice.scope().owner.space_id
+    store = runtime.store
+    route = store.create_route(
+        recipient="recibos-00000002@recibos.example.test",
+        space_id=space_id,
+        principal_id=alice.scope().person_id,
+        granted_by=alice.scope().person_id,
+        grant_id=str(uuid4()),
+    )
+    attachments = []
+    for n in (1, 2):
+        store.enqueue(
+            "resend",
+            str(uuid4()),
+            (route.recipient,),
+            route_id=route.id,
+            space_id=space_id,
+            principal_id=route.principal_id,
+        )
+        claimed = store.claim()
+        original = alice.upload(
+            content=b"Subject: Factura %d\r\n\r\nForwarded receipt" % n,
+            consent=False, name=f"factura-{n}.eml", media_type="message/rfc822",
+        )
+        attachment = alice.upload(
+            content=UNREADABLE + bytes([n]), consent=False, name=f"factura-{n}.png"
+        )
+        assert (original.status_code, attachment.status_code) == (200, 200)
+        store.update(claimed, original_document_id=original.json()["id"], subject="Factura")
+        store.put_part(
+            claimed,
+            EmailDeliveryPart(
+                "1.2", f"factura-{n}.png", "image/png", "captured",
+                attachment.json()["id"], None,
+            ),
+        )
+        store.finish(claimed, "captured")
+        attachments.append(attachment.json()["id"])
+
+    page = alice.get("/search", q="factura", limit="2").json()
+    assert sorted(item["id"] for item in page["receipts"]) == sorted(attachments)
+    assert page["next_cursors"]["receipts"] is None
 
 
 def test_another_owner_finds_nothing(alice: Owner, bob: Owner) -> None:  # noqa: F811
