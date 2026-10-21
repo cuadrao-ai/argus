@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
@@ -2105,7 +2106,7 @@ export default function ChatInterface() {
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} profileAvatar={workspace?.id === "business" ? <Avatar name={greetingName} size={40} testId="header-avatar" /> : undefined} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />

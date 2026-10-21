@@ -3,7 +3,7 @@
 import { useBusinessNaming } from "./BusinessNamingProvider";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Mail, ShieldCheck, UserRound } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
@@ -43,9 +43,7 @@ export function AccessList({
       <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-access-grants">
         {access.grants.map((grant) => (
           <li key={grant.id} className={rowClass}>
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
-              {grant.owner ? <ShieldCheck className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" /> : <UserRound className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />}
-            </span>
+            <Avatar name={grant.display_name || grant.email} size={40} testId="access-avatar" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name}{grant.email ? ` · ${grant.email}` : ""}</span>
               <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
@@ -69,9 +67,7 @@ export function AccessList({
           <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-access-invites">
             {access.invites.map((invite) => (
               <li key={invite.id} className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-3 px-3 py-3 sm:flex">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
-                  <Mail className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />
-                </span>
+                <Avatar name={invite.email} size={40} status="pending" testId="access-avatar" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-black dark:text-white">{invite.email}</span>
                   <span className="mt-0.5 block break-words text-[13px] text-black/50 dark:text-white/50">{invite.state === "expired"

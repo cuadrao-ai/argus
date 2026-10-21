@@ -139,6 +139,8 @@ export type ChatSidebarProps = {
   headerSlot?: ReactNode;
   /** The workspace's mark, the expand button on a closed rail. */
   headerMark?: ReactNode;
+  /** The person's avatar for the header account trigger; a person icon when absent. */
+  profileAvatar?: ReactNode;
   /** A workspace's actions, pinned above the profile footer. */
   footerActions?: ReactNode;
   /**
@@ -195,6 +197,7 @@ export default function ChatSidebar({
   primaryNav = null,
   headerSlot = null,
   headerMark = null,
+  profileAvatar = null,
   footerActions = null,
   profileSlot = null,
 }: ChatSidebarProps) {
@@ -912,9 +915,11 @@ export default function ChatSidebar({
                 aria-haspopup="menu"
                 aria-expanded={isProfileMenuOpen}
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:border-white/10 dark:bg-[#1f2225] dark:text-white/70 dark:hover:bg-white/5"
+                className={profileAvatar
+                  ? "flex h-11 w-11 items-center justify-center rounded-full transition-opacity hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]"
+                  : "flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:border-white/10 dark:bg-[#1f2225] dark:text-white/70 dark:hover:bg-white/5"}
               >
-                <User className="h-[18px] w-[18px]" />
+                {profileAvatar ?? <User className="h-[18px] w-[18px]" />}
               </button>
             </>,
             profileSlot,

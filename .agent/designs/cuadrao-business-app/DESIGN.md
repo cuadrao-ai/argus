@@ -245,6 +245,19 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 5. **Celebration scales with rarity.** Only the first closed month gets a
    moment. Every other save is quiet.
 
+### Avatars
+
+`Avatar` owns every picture of a person.
+
+- The person's photo when there is one; else two initials (first and last
+  word, or the first two letters of one word, or the name before an email's
+  @); else a person icon.
+- The tint comes from the name, so a person keeps one color everywhere. Every
+  tint keeps its initials at 4.5:1.
+- Sizes are 24, 32 and 40. People are round; the business is a square mark.
+- A pending invite draws a dashed ring instead of a fill.
+- A group overlaps up to three and counts the rest as "+N".
+
 ### Toggles
 
 `Switch` owns every on/off control.
