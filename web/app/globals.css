@@ -877,6 +877,12 @@ body {
   outline-offset: 3px;
 }
 
+/* A primary link or button that is not the form's submit, such as "Volver a iniciar sesión" after a recovery. */
+[data-auth-brand="cuadrao"] :is(a, button).auth-primary {
+  background-color: var(--auth-pine);
+  color: var(--auth-on-pine);
+}
+
 [data-auth-brand="cuadrao"] button[type="submit"] {
   background-color: var(--auth-pine);
   color: var(--auth-on-pine);
