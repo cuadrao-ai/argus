@@ -17,7 +17,7 @@ const originalFetch = globalThis.fetch;
 const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 const cleanups: (() => Promise<void>)[] = [];
 /** The account as the API holds it; a PATCH rewrites it the way the server would. */
-const account: { language: string; locale: string } = { language: "es-419", locale: "es-419" };
+const account: { language: string; locale: string; onboarding: { language_confirmed: boolean } } = { language: "es-419", locale: "es-419", onboarding: { language_confirmed: false } };
 const patches: Record<string, unknown>[] = [];
 
 beforeAll(() => {
@@ -29,7 +29,7 @@ beforeAll(() => {
     if (init?.method === "PATCH") {
       const patch = JSON.parse(String(init.body)) as Record<string, unknown>;
       patches.push(patch);
-      Object.assign(account, patch);
+      Object.assign(account, patch, "language" in patch ? { onboarding: { language_confirmed: true } } : {});
     }
     return Response.json({ user: { id: "settings-owner", display_name: "Test owner", email: "owner@example.test", ...account }, account_kind: "registered", available: false });
   }) as typeof fetch;
@@ -99,6 +99,7 @@ test.skipIf(!spanishShipped)("Preferencias > Idioma offers English, saves it on 
 
   assert.deepEqual(patches, [{ language: "en", locale: "en-US" }]);
   assert.equal(account.language, "en");
+  assert.equal(account.onboarding.language_confirmed, true);
   assert.equal(i18n.language, "en");
   assert.ok(button("Preferences"), "the menu reads in English right after the save");
   assert.equal(button("Preferencias"), undefined);

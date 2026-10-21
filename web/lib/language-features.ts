@@ -41,7 +41,7 @@ export function defaultLanguage(spanishEnabled: boolean, businessBuild: boolean)
 
 /** What a reader knows when it picks the language. The server knows none of these. */
 export type LanguageSources = {
-  /** The signed-in account's saved language. */
+  /** The signed-in account's language, as accountLanguage() admits it. */
   account?: string | null;
   /** The language this device last showed, or the shell's current one. */
   device?: string | null;
@@ -57,6 +57,16 @@ export function resolveLanguage(
 ): ArgusLanguage {
   const chosen = sources.account || sources.device || (businessBuild ? null : sources.browser);
   return chosen ? normalizeEnabledLanguage(chosen, spanishEnabled) : defaultLanguage(spanishEnabled, businessBuild);
+}
+
+/** The account language that may decide. Business counts it only once the person saved one; a consumer account's counts as it is. */
+export function accountLanguage<Code extends string>(
+  user: { language?: Code | null; onboarding?: { language_confirmed?: boolean } | null } | null | undefined,
+  businessBuild: boolean = businessPilotEnabled,
+): Code | null {
+  if (!user?.language) return null;
+  if (businessBuild && !user.onboarding?.language_confirmed) return null;
+  return user.language;
 }
 
 /** The sources a browser can read. On the server there are none. */

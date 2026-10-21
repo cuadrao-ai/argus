@@ -375,6 +375,11 @@ def patch_me(
     updates = patch.model_dump(exclude_unset=True)
     updated_fields = sorted(updates)
     data.update(updates)
+    written = set(updates)
+    if "language" in updates:
+        # A saved language is a chosen one; the row keeps that fact beside it.
+        data["onboarding"] = {**data["onboarding"], "language_confirmed": True}
+        written.add("onboarding")
     data["updated_at"] = utcnow()
     try:
         updated = User.model_validate(data)
@@ -396,7 +401,7 @@ def patch_me(
                 user.id,
                 {
                     "id": user.id,
-                    **updated.model_dump(mode="json", include=set(updates)),
+                    **updated.model_dump(mode="json", include=written),
                     "updated_at": updated.updated_at.isoformat(),
                 },
             )

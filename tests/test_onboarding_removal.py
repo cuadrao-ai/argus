@@ -174,7 +174,8 @@ def _client() -> TestClient:
 def _set_legacy_onboarding_stage(client: TestClient, stage: str) -> str:
     """Seed the legacy persisted profile shape directly, as old rows have it.
 
-    There is deliberately no API that can write onboarding state anymore, so
+    No API takes onboarding state from a client. `PATCH /me` sets only
+    `language_confirmed`, when a language is saved, so
     the seed mutates the store the way a legacy database row would look.
     """
 

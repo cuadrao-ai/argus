@@ -10,12 +10,12 @@ const en = (key: string, count?: number): string => {
   return String(value).replace("{{count}}", String(count));
 };
 
-async function installAccount(page: Page, language: Language) {
+async function installAccount(page: Page, language: Language, options: { languageChosen?: boolean } = {}) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await page.addInitScript(() => {
     Object.assign(window, { __deviceLanguage: window.localStorage.getItem("i18nextLng") });
   });
-  await installBreakpointFixture(page, { language, theme: "light", emptyChat: true });
+  await installBreakpointFixture(page, { language, theme: "light", emptyChat: true, ...options });
   await page.addInitScript(() => {
     const device = (window as Window & { __deviceLanguage?: string | null }).__deviceLanguage ?? null;
     if (device === null) window.localStorage.removeItem("i18nextLng");
@@ -23,8 +23,8 @@ async function installAccount(page: Page, language: Language) {
   });
 }
 
-async function setup(page: Page, language: Language) {
-  await installAccount(page, language);
+async function setup(page: Page, language: Language, options: { languageChosen?: boolean } = {}) {
+  await installAccount(page, language, options);
   await page.addInitScript(() => {
     const seen: string[] = [];
     const current = () => document.documentElement.lang;
@@ -195,4 +195,49 @@ test("Preferencias > Idioma switches a Spanish account to English in place and s
   expect(await page.evaluate(() => performance.getEntriesByType("navigation").length)).toBe(loaded);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("main[lang]")).toHaveCount(0);
+});
+
+test("an account that never chose a language, saved as en by default, opens Business in Spanish", async ({ page }) => {
+  await setup(page, "en", { languageChosen: false });
+  await page.goto("/biz");
+  await expect(page.locator("#business-overview-title")).toHaveText("Hola");
+  await expect(page.getByTestId("business-sidebar-nav")).toContainText("Bandeja");
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(page.getByText(en("business.overview.greeting_unnamed"), { exact: true })).toHaveCount(0);
+});
+
+test("English chosen in Preferencias is saved on the account and wins on another device", async ({ browser }) => {
+  const first = await browser.newContext();
+  const page = await first.newPage();
+  await setup(page, "es-419");
+  const patches: Record<string, unknown>[] = [];
+  let account: Record<string, unknown> | null = null;
+  await page.route("**/api/v1/me", async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const patch = route.request().postDataJSON() as Record<string, unknown>;
+    patches.push(patch);
+    const user = account?.user as Record<string, unknown>;
+    return route.fulfill({ json: { ...account, user: { ...user, ...patch, onboarding: { ...(user.onboarding as object), language_confirmed: true } } } });
+  });
+  page.on("response", async (response) => {
+    if (response.request().method() === "GET" && new URL(response.url()).pathname.endsWith("/api/v1/me")) account = await response.json();
+  });
+  await page.goto("/biz");
+  await page.getByTestId("header-profile-trigger").click();
+  await page.getByRole("button", { name: "Preferencias", exact: true }).click();
+  await page.getByRole("button", { name: "Idioma de la app", exact: true }).click();
+  await page.getByRole("button", { name: "English", exact: true }).click();
+  await expect(page.locator("#business-overview-title")).toHaveText(en("business.overview.greeting_unnamed"));
+  expect(patches).toEqual([{ language: "en", locale: "en-US" }]);
+  await first.close();
+
+  // The other device knows nothing but the account, which the API now answers as chosen English.
+  const other = await browser.newContext();
+  const elsewhere = await other.newPage();
+  await setup(elsewhere, "en");
+  await elsewhere.addInitScript(() => window.localStorage.removeItem("i18nextLng"));
+  await elsewhere.goto("/biz");
+  await expect(elsewhere.locator("#business-overview-title")).toHaveText(en("business.overview.greeting_unnamed"));
+  await expect(elsewhere.getByTestId("business-sidebar-nav")).toContainText(en("business.nav.inbox"));
+  await other.close();
 });

@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import english from "../public/locales/en/common.json";
 import spanish from "../public/locales/es-419/common.json";
-import { ALL_LANGUAGES, commitShellLanguage, defaultLanguage, documentLanguage, fallbackChain, landingLanguageChoices, resolveLanguage } from "../lib/language-features";
+import { ALL_LANGUAGES, accountLanguage, commitShellLanguage, defaultLanguage, documentLanguage, fallbackChain, landingLanguageChoices, resolveLanguage } from "../lib/language-features";
 
 const root = join(import.meta.dir, "..");
 
@@ -22,6 +22,18 @@ describe("the one precedence that picks the shown language", () => {
       expect(resolveLanguage({ account: "en", device: "es-419", browser: "es-MX" }, businessBuild, true)).toBe("en");
       expect(resolveLanguage({ account: "es-419", device: "en", browser: "en-US" }, businessBuild, true)).toBe("es-419");
     }
+  });
+
+  test("on Business an account language counts only once the person saved one; a consumer account's always counts", () => {
+    const unchosen = { language: "en", onboarding: { language_confirmed: false } };
+    const chosen = { language: "en", onboarding: { language_confirmed: true } };
+    expect(accountLanguage(unchosen, true)).toBeNull();
+    expect(accountLanguage(chosen, true)).toBe("en");
+    expect(accountLanguage({ language: "en" }, true)).toBeNull();
+    expect(accountLanguage(unchosen, false)).toBe("en");
+    expect(accountLanguage(null, true)).toBeNull();
+    expect(resolveLanguage({ account: accountLanguage(unchosen, true), browser: "en-US" }, true, true)).toBe("es-419");
+    expect(resolveLanguage({ account: accountLanguage(chosen, true), device: "es-419" }, true, true)).toBe("en");
   });
 
   test("before sign-in the device choice wins, whatever the browser says", () => {
@@ -98,6 +110,10 @@ describe("the one precedence that picks the shown language", () => {
     }
     const readers = sourceFiles(["app", "components", "lib"]).filter((file) => readFileSync(file, "utf-8").includes("LANGUAGE_STORAGE_KEY"));
     expect(readers.map((file) => file.slice(root.length + 1)).sort()).toEqual(["lib/browser-storage.ts", "lib/language-features.ts"]);
+    const chosenReaders = sourceFiles(["app", "components", "lib"]).filter((file) => /language_confirmed/.test(readFileSync(file, "utf-8")));
+    expect(chosenReaders.map((file) => file.slice(root.length + 1)).sort()).toEqual(["lib/guest-account.ts", "lib/language-features.ts"]);
+    const accountReaders = sourceFiles(["app", "components", "lib"]).filter((file) => /accountLanguage\(/.test(readFileSync(file, "utf-8")));
+    expect(accountReaders.map((file) => file.slice(root.length + 1)).sort()).toEqual(["lib/argus-api.ts", "lib/language-features.ts"]);
   });
 
   test("the auth page switches at once and saves the chosen language on the account at sign-in", () => {

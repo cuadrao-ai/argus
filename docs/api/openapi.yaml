@@ -23025,15 +23025,16 @@ components:
             - surprise_me
           - type: 'null'
       type: object
-      description: 'Legacy/inert compatibility state; no product behavior reads or writes
-        it.
+      description: 'Legacy compatibility state from the removed onboarding flow.
 
 
-        The explicit onboarding flow is removed. The field survives only because
+        `language_confirmed` is the one live field: `PATCH /me` sets it when a
 
-        old profile rows carry it and deployed clients may still read the `/me`
+        language is saved, and the Business web shows an account language only once
 
-        shape during a rollout.'
+        it is set. The other fields survive because old profile rows carry them and
+
+        deployed clients may still read the `/me` shape.'
     OpenItems:
       properties:
         cuentas_por_cobrar:
