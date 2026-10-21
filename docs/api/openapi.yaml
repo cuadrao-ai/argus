@@ -909,6 +909,393 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      parameters:
+      - name: period_start
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: period_end
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: segment
+        in: query
+        required: false
+        schema:
+          enum:
+          - por_igualar
+          - igualadas
+          - todas
+          type: string
+          default: todas
+      - name: sense
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - charge
+            - deposit
+            type: string
+          - type: 'null'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementsResponse'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: '`invalid_period` or `invalid_cursor`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/disposition:
+    put:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: No lleva comprobante, with the reason.
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispositionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/history:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: Every outcome the line has had, oldest first, ended ones included.
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OutcomeHistoryEntry'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/match:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: Igualar with a document the person chose. Same sense, currency, and amount.
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/bank/movements/{line_id}/unmatch:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      - business-bank
+      description: 'Desigualar: end the match and put back the settlement it replaced.'
+      parameters:
+      - name: line_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementItem'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
+        '422':
+          description: '`document_not_matchable`.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/bank/suggestions:
     get:
       tags:
@@ -971,6 +1358,7 @@ paths:
       - financial-accounts
       - business
       - business-bank
+      description: 'Igualar: match the line to this document and mark it pagado or cobrado.'
       parameters:
       - name: suggestion_id
         in: path
@@ -1007,12 +1395,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: '`document_not_matchable`.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -1063,12 +1453,14 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '404':
+          description: '`suggestion_not_found`, `line_not_found`, `business_record_not_found`.'
+        '409':
+          description: '`pair_declined`, `suggestion_not_pending`, `line_already_confirmed`,
+            `line_marked_no_receipt`, `line_not_matched`, `line_not_marked`, `document_already_matched`,
+            `target_not_approved`, `business_document_settlement_conflict`, `idempotency_conflict`.'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: '`document_not_matchable`.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '500':
@@ -12654,6 +13046,37 @@ components:
       - nickname
       - type
       - currency
+    AccountCoverage:
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        type:
+          type: string
+        bank_account_id:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        covered_through:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          description: Newest movement date imported for this account. Later dates are unknown,
+            not missing.
+      type: object
+      required:
+      - account_id
+      - name
+      - type
+      - bank_account_id
+      - currency
+      - covered_through
     AccountDeletionRequest:
       properties:
         confirm:
@@ -13840,9 +14263,10 @@ components:
         state:
           type: string
           enum:
-          - matched
-          - sin_comprobante
-          - unmatched
+          - igualada
+          - sugerencia
+          - falta_comprobante
+          - no_lleva_comprobante
       type: object
       required:
       - id
@@ -15073,6 +15497,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        por_igualar_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
         last_received_at:
           anyOf:
           - type: string
@@ -17474,6 +17902,18 @@ components:
       type: object
       required:
       - items
+    DispositionRequest:
+      properties:
+        reason:
+          type: string
+          enum:
+          - cargo_banco
+          - entre_cuentas
+          - compra_informal
+          - personal
+      type: object
+      required:
+      - reason
     DocumentLine:
       properties:
         activity_id:
@@ -21373,6 +21813,95 @@ components:
       required:
       - session
       - interest
+    MatchDocument:
+      properties:
+        activity_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - receipt
+          - venta
+        counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          type: string
+          format: date
+        currency:
+          type: string
+        total_minor:
+          type: integer
+        total:
+          type: string
+        itbis_minor:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        itbis:
+          anyOf:
+          - type: string
+          - type: 'null'
+        rnc:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ncf:
+          anyOf:
+          - type: string
+          - type: 'null'
+        ecf:
+          anyOf:
+          - type: string
+          - type: 'null'
+        status:
+          type: string
+          enum:
+          - pendiente
+          - pagado
+          - cobrado
+        settled_on:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+        payment_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+      type: object
+      required:
+      - activity_id
+      - kind
+      - counterparty
+      - occurred_on
+      - currency
+      - total_minor
+      - total
+      - itbis_minor
+      - itbis
+      - rnc
+      - ncf
+      - ecf
+      - status
+      - settled_on
+      - payment_method
+      - category_id
+    MatchRequest:
+      properties:
+        activity_id:
+          type: string
+          format: uuid
+          description: An approved receipt or venta of this Business.
+      type: object
+      required:
+      - activity_id
     MemberRecord:
       properties:
         membership_id:
@@ -22427,6 +22956,230 @@ components:
       - missing_ncf
       - cuentas_por_cobrar
       - cuentas_por_pagar
+    MovementAccount:
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+        type:
+          type: string
+      type: object
+      required:
+      - account_id
+      - name
+      - type
+    MovementCounts:
+      properties:
+        movimientos:
+          type: integer
+        igualadas:
+          type: integer
+        no_lleva_comprobante:
+          type: integer
+        sugerencias:
+          type: integer
+        falta_comprobante:
+          type: integer
+        sin_movimiento:
+          type: integer
+        por_igualar:
+          type: integer
+      type: object
+      required:
+      - movimientos
+      - igualadas
+      - no_lleva_comprobante
+      - sugerencias
+      - falta_comprobante
+      - sin_movimiento
+      - por_igualar
+    MovementItem:
+      properties:
+        kind:
+          type: string
+          enum:
+          - movement
+          - document
+        id:
+          type: string
+          format: uuid
+        occurred_on:
+          type: string
+          format: date
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+        counterparty:
+          anyOf:
+          - type: string
+          - type: 'null'
+        sense:
+          type: string
+          enum:
+          - charge
+          - deposit
+          - zero
+        currency:
+          type: string
+        amount_minor:
+          type: integer
+        amount:
+          type: string
+        state:
+          type: string
+          enum:
+          - igualada
+          - sugerencia
+          - falta_comprobante
+          - no_lleva_comprobante
+          - sin_movimiento
+        reason:
+          anyOf:
+          - type: string
+            enum:
+            - cargo_banco
+            - entre_cuentas
+            - compra_informal
+            - personal
+          - type: string
+            const: monto_cero
+          - type: 'null'
+        category_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        account:
+          $ref: '#/components/schemas/MovementAccount'
+        method:
+          anyOf:
+          - type: string
+          - type: 'null'
+        document:
+          anyOf:
+          - $ref: '#/components/schemas/MatchDocument'
+          - type: 'null'
+        suggestions:
+          items:
+            $ref: '#/components/schemas/MovementSuggestion'
+          type: array
+      type: object
+      required:
+      - kind
+      - id
+      - occurred_on
+      - description
+      - counterparty
+      - sense
+      - currency
+      - amount_minor
+      - amount
+      - state
+      - reason
+      - category_id
+      - account
+      - method
+      - document
+      - suggestions
+    MovementSuggestion:
+      properties:
+        id:
+          type: string
+          format: uuid
+        confidence:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+        reasons:
+          items:
+            $ref: '#/components/schemas/SuggestionReason'
+          type: array
+        document:
+          $ref: '#/components/schemas/MatchDocument'
+      type: object
+      required:
+      - id
+      - confidence
+      - reasons
+      - document
+    MovementTotals:
+      properties:
+        currency:
+          type: string
+        entradas_minor:
+          type: integer
+        entradas:
+          type: string
+        salidas_minor:
+          type: integer
+        salidas:
+          type: string
+        por_igualar_minor:
+          type: integer
+        por_igualar:
+          type: string
+        counts:
+          $ref: '#/components/schemas/MovementCounts'
+      type: object
+      required:
+      - currency
+      - entradas_minor
+      - entradas
+      - salidas_minor
+      - salidas
+      - por_igualar_minor
+      - por_igualar
+      - counts
+    MovementsResponse:
+      properties:
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        segment:
+          type: string
+          enum:
+          - por_igualar
+          - igualadas
+          - todas
+        sense:
+          anyOf:
+          - type: string
+            enum:
+            - charge
+            - deposit
+          - type: 'null'
+        accounts:
+          items:
+            $ref: '#/components/schemas/AccountCoverage'
+          type: array
+        totals:
+          items:
+            $ref: '#/components/schemas/MovementTotals'
+          type: array
+        items:
+          items:
+            $ref: '#/components/schemas/MovementItem'
+          type: array
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+      type: object
+      required:
+      - period_start
+      - period_end
+      - segment
+      - sense
+      - accounts
+      - totals
+      - items
+      - next_cursor
     NetworkNumbers:
       properties:
         beta:
@@ -22817,6 +23570,54 @@ components:
       - reason
       - recorded_by
       - recorded_at
+    OutcomeHistoryEntry:
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+          - match
+          - no_receipt
+        target_kind:
+          anyOf:
+          - type: string
+            enum:
+            - receipt
+            - venta
+          - type: 'null'
+        activity_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        reason:
+          anyOf:
+          - type: string
+            enum:
+            - cargo_banco
+            - entre_cuentas
+            - compra_informal
+            - personal
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        ended_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      type: object
+      required:
+      - id
+      - kind
+      - target_kind
+      - activity_id
+      - reason
+      - created_at
+      - ended_at
     OwnerDoesNotKnow:
       properties:
         state:
@@ -23361,6 +24162,14 @@ components:
           anyOf:
           - type: string
             pattern: ^[A-Z]{3}$
+          - type: 'null'
+        table_density:
+          anyOf:
+          - type: string
+            enum:
+            - compacto
+            - normal
+            - amplio
           - type: 'null'
       type: object
     ProposalUpdate:
@@ -24724,6 +25533,10 @@ components:
           type: integer
         ready_to_review_count:
           type: integer
+        por_igualar_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -24733,6 +25546,7 @@ components:
       - pending_review_count
       - needs_attention_count
       - ready_to_review_count
+      - por_igualar_count
     ReceiptCardFacts:
       properties:
         execution_costs:
@@ -27568,6 +28382,23 @@ components:
       type: object
       required:
       - success
+    SuggestionReason:
+      properties:
+        code:
+          type: string
+          enum:
+          - monto_exacto
+          - misma_fecha
+          - fecha_cercana
+          - nombre_parecido
+        days:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: 'fecha_cercana only: document date minus movement date.'
+      type: object
+      required:
+      - code
     SuggestionResponse:
       properties:
         sender:
@@ -27917,6 +28748,13 @@ components:
           - type: string
             pattern: ^[A-Z]{3}$
           - type: 'null'
+        table_density:
+          type: string
+          enum:
+          - compacto
+          - normal
+          - amplio
+          default: normal
         is_admin:
           type: boolean
           default: false

@@ -555,6 +555,7 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
             "pending_review_count": 0,
             "needs_attention_count": 0,
             "ready_to_review_count": 0,
+            "por_igualar_count": None,
         },
     }
     [saved] = alice.get("/receipts", view="all").json()["items"]
@@ -712,6 +713,7 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
             "pending_review_count": 0,
             "needs_attention_count": 0,
             "ready_to_review_count": 0,
+            "por_igualar_count": None,
         },
     }
     window = {"from": "2026-10-01", "to": "2026-10-31"}

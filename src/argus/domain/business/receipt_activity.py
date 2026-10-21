@@ -109,13 +109,16 @@ def inbox_counts(
     views: Iterable[Mapping[str, Any]],
     notes: int = 0,
     emails: Sequence[str] = (),
-) -> dict[str, int]:
+    por_igualar: int | None = None,
+) -> dict[str, int | None]:
     """What waits for a person in the Bandeja: every receipt row it lists plus
     ``notes``, the saved notes awaiting review that no receipt carries, plus
     ``emails``, the standing of each email that is a row of its own. An email
     still being read waits like a receipt being read; one that brought no
     receipt also needs attention. ``ready_to_review_count`` is the receipts
-    ready for review plus those notes; an email is never ready to review."""
+    ready for review plus those notes; an email is never ready to review.
+    ``por_igualar_count`` is the Transacciones movements and documents still
+    to igualar, or None while bank matching is off."""
 
     pending = [view for view in views if awaiting_owner(view)]
     return {
@@ -123,6 +126,7 @@ def inbox_counts(
         "ready_to_review_count": sum(map(ready_to_review, pending)) + notes,
         "needs_attention_count": emails.count("no_receipt")
         + sum(view["status"] == "needs_attention" for view in pending),
+        "por_igualar_count": por_igualar,
     }
 
 

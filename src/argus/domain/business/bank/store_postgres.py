@@ -10,7 +10,6 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
@@ -25,8 +24,9 @@ from argus.domain.business.bank.model import (
     SuggestionStatus,
     TargetKind,
 )
+from argus.domain.business.bank.movements import LiveOutcome
 
-_LINE = """
+LINE_COLUMNS = """
     id, space_id, bank_account_id, first_import_id, occurred_on, description,
     normalized_description, amount, currency, raw_line, line_hash, created_at
 """
@@ -130,7 +130,7 @@ class PostgresBankStore:
     def upsert_line(self, line: BankLine) -> tuple[BankLine, bool]:
         inserted = self._one(
             f"""
-            insert into public.business_bank_lines ({_LINE})
+            insert into public.business_bank_lines ({LINE_COLUMNS})
             values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             on conflict (
                 bank_account_id, occurred_on, amount,
@@ -176,7 +176,7 @@ class PostgresBankStore:
     ) -> BankLine | None:
         row = self._one(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where bank_account_id = %s
                 and occurred_on = %s
@@ -192,38 +192,38 @@ class PostgresBankStore:
                 line_hash,
             ),
         )
-        return None if row is None else _line(row)
+        return None if row is None else line_from_row(row)
 
     def list_lines(
         self, space_id: UUID, *, period_start: date, period_end: date
     ) -> tuple[BankLine, ...]:
         rows = self._rows(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where space_id = %s and occurred_on between %s and %s
             order by occurred_on, id
             """,
             (space_id, period_start, period_end),
         )
-        return tuple(_line(row) for row in rows)
+        return tuple(line_from_row(row) for row in rows)
 
     def lines_for_import(self, space_id: UUID, import_id: UUID) -> tuple[BankLine, ...]:
         rows = self._rows(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where space_id = %s and first_import_id = %s
             order by occurred_on, id
             """,
             (space_id, import_id),
         )
-        return tuple(_line(row) for row in rows)
+        return tuple(line_from_row(row) for row in rows)
 
     def get_line(self, space_id: UUID, line_id: UUID) -> BankLine:
         row = self._one(
             f"""
-            select {_LINE}
+            select {LINE_COLUMNS}
             from public.business_bank_lines
             where id = %s and space_id = %s
             """,
@@ -231,7 +231,7 @@ class PostgresBankStore:
         )
         if row is None:
             raise BankMatchingError("suggestion_not_found")
-        return _line(row)
+        return line_from_row(row)
 
     def get_pair(
         self, line_id: UUID, target_kind: TargetKind, target_id: str
@@ -309,47 +309,21 @@ class PostgresBankStore:
         )
         return tuple(_suggestion(row) for row in rows)
 
-    def confirmed_for_line(self, line_id: UUID) -> Suggestion | None:
-        row = self._one(
-            f"""
-            select {_SUGGESTION}
-            from public.business_bank_suggestions
-            where line_id = %s and status = 'confirmed'
+    def live_outcomes(self, space_id: UUID) -> dict[str, LiveOutcome]:
+        rows = self._rows(
+            """
+            select line_id::text as line_id, kind, target_id::text as target_id, reason
+            from public.business_bank_line_outcomes
+            where space_id = %s and ended_at is null
             """,
-            (line_id,),
+            (space_id,),
         )
-        return None if row is None else _suggestion(row)
-
-    def decide(
-        self,
-        space_id: UUID,
-        suggestion_id: UUID,
-        *,
-        status: SuggestionStatus,
-        actor_id: UUID,
-        decision_key: str,
-    ) -> Suggestion:
-        try:
-            row = self._one(
-                f"""
-                update public.business_bank_suggestions
-                set status = %s,
-                    decided_at = now(),
-                    decided_by = %s,
-                    decision_key = %s
-                where id = %s and space_id = %s and status = 'pending'
-                returning {_SUGGESTION}
-                """,
-                (status, actor_id, decision_key, suggestion_id, space_id),
+        return {
+            row["line_id"]: LiveOutcome(
+                row["line_id"], row["kind"], row["target_id"], row["reason"]
             )
-        except UniqueViolation as exc:
-            raise BankMatchingError("line_already_confirmed") from exc
-        if row is not None:
-            return _suggestion(row)
-        current = self.get_suggestion(space_id, suggestion_id)
-        if current.decision_key == decision_key and current.status == status:
-            return current
-        raise BankMatchingError("suggestion_not_pending")
+            for row in rows
+        }
 
     def _rows(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         held = getattr(self._local, "connection", None)
@@ -400,7 +374,7 @@ def _import(row: dict[str, Any]) -> BankImport:
     )
 
 
-def _line(row: dict[str, Any]) -> BankLine:
+def line_from_row(row: dict[str, Any]) -> BankLine:
     raw = row["raw_line"]
     return BankLine(
         id=row["id"],
