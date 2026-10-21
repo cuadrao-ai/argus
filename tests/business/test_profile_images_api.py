@@ -105,10 +105,17 @@ def test_a_wrong_type_an_oversized_body_or_bad_bytes_are_refused(
     assert _me(biz, ALICE)["photo_url"] is None
 
 
-def test_a_guest_cannot_upload_a_photo(biz: TestClient) -> None:
+def test_a_guest_cannot_upload_or_remove_a_photo(biz: TestClient) -> None:
     refused = _put(biz, PHOTO, png(), "image/png", **_bearer(GUEST))
     assert refused.status_code == 403, refused.text
+    assert biz.delete(PHOTO, headers=_bearer(GUEST)).status_code == 403
     assert _me(biz, GUEST)["photo_url"] is None
+
+
+def test_the_media_type_is_read_case_insensitively(biz: TestClient) -> None:
+    accepted = _put(biz, PHOTO, png(), "IMAGE/PNG; charset=binary", **_bearer(ALICE))
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["photo_url"]
 
 
 def test_another_person_sees_nothing_and_changes_only_their_own(
@@ -126,12 +133,28 @@ def test_another_person_sees_nothing_and_changes_only_their_own(
     assert stored.url(person(identities[BOB]["id"])) is None
 
 
-def test_the_owner_sees_a_member_photo_in_the_access_list(
+def test_a_member_photo_reaches_the_owner_only_once_the_member_opened_the_grant(
     biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
 ) -> None:
+    """An owner can grant any confirmed email without the person's say, so the
+    reply shows a stranger's name only; the photo follows the person's own
+    access_seen receipt. The access list is the one response that shows
+    members to another person."""
+
     bob_url = _put(biz, PHOTO, png(), "image/png", **bob.auth).json()["photo_url"]
     grants = alice.get("/access").json()["grants"]
+    assert [(g["owner"], g["photo_url"]) for g in grants] == [(True, None), (False, None)]
+    assert [s["access_seen"] for s in bob.get("/spaces").json()["spaces"] if s["role"] != "owner"] == [False]
+
+    opened = biz.post(f"{BASE}/spaces/{member['X-Business-Grant']}/seen", headers=bob.auth)
+    assert opened.status_code == 204
+    grants = alice.get("/access").json()["grants"]
     assert [(g["owner"], g["photo_url"]) for g in grants] == [(True, None), (False, bob_url)]
+    # The owner's own photo reaches the list without a receipt.
+    alice_url = _put(biz, PHOTO, webp(), "image/webp", **alice.auth).json()["photo_url"]
+    assert [g["photo_url"] for g in alice.get("/access").json()["grants"]] == [alice_url, bob_url]
+    # No other member-listing response exists: the Business list carries no people.
+    assert all("photo_url" not in s for s in bob.get("/spaces").json()["spaces"])
 
 
 # --------------------------------------------------------------------------- #

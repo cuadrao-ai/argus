@@ -132,7 +132,7 @@ class BusinessAccessGrant(_Wire):
     display_name: str
     photo_url: str | None = Field(
         default=None,
-        description="A signed URL to the member's 256 px profile photo, valid for about an hour; null without one.",
+        description="A signed URL to the member's 256 px profile photo, valid for about an hour; null without one, and null until the member has dismissed their access line (access_seen).",
     )
     capabilities: list[Literal["read", "prepare", "approve"]]
     created_at: datetime

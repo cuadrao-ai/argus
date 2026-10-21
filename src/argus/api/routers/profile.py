@@ -443,7 +443,7 @@ _PHOTO_RESPONSES = {
     403: {"description": "`account_conversion_required`: a guest has no profile photo."},
     413: {"description": "`image_too_large`: the picture is over 5 MiB."},
     415: {"description": "`image_media_type_unsupported`: not a JPEG, PNG or WebP."},
-    422: {"description": "`image_invalid`: not one still picture of 64 to 5000 pixels on each side (`context.reason`: `undecodable`, `too_small`, `animated`, `too_many_pixels`)."},
+    422: {"description": "`image_invalid`: not one still picture of at least 64 pixels on each side and at most 25 million pixels in all (`context.reason`: `undecodable`, `too_small`, `animated`, `too_many_pixels`)."},
     503: {"description": "`profile_images_unavailable` or `profile_image_storage_unavailable`: pictures cannot be served or saved right now."},
 }
 

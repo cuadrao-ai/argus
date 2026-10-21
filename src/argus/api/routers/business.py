@@ -424,14 +424,15 @@ def _access_store(request: Request) -> AccessStore:
 
 
 def _access(found: AccessList) -> dict[str, Any]:
-    photos = picture_urls("person", [grant.grantee_id for grant in found.grants])
+    # A photo reaches the Business only once its person has acted on the grant.
+    photos = picture_urls("person", [g.grantee_id for g in found.grants if g.seen])
     return {
         "grants": [
             {
                 "id": grant.id,
                 "email": grant.email,
                 "display_name": grant.display_name,
-                "photo_url": photos[grant.grantee_id],
+                "photo_url": photos.get(grant.grantee_id),
                 "capabilities": list(grant.capabilities),
                 "created_at": grant.created_at,
                 "owner": grant.owner,

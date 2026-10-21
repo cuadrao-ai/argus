@@ -169,3 +169,28 @@ def test_erase_removes_the_object_and_leaves_other_subjects(pool, users) -> None
     finally:
         for subject in (mine, theirs, logo):
             images.remove(subject)
+
+
+def test_a_member_grant_carries_seen_only_after_its_own_receipt(pool, users) -> None:
+    """The Postgres access list is the one owner of ``seen``, which gates the
+    member's photo in the owner's access reply."""
+
+    from argus.domain.business.access import PostgresAccessStore
+
+    owner, member = users["owner"], users["other"]
+    space, _ = PostgresSpaceStore(pool).create(owner, "Colmado")
+    access = PostgresAccessStore(pool)
+    with psycopg.connect(DSN) as db:
+        email = db.execute(
+            "update auth.users set email_confirmed_at=now() where id=%s returning lower(email)",
+            (member,),
+        ).fetchone()[0]
+    created, listed = access.give(space.id, owner, email)
+    assert created
+    assert [(g.owner, g.seen) for g in listed.grants] == [(True, True), (False, False)]
+    grant_id = next(g.id for g in listed.grants if not g.owner)
+    access.mark_seen(member, grant_id)
+    assert [(g.owner, g.seen) for g in access.list(space.id, owner).grants] == [
+        (True, True),
+        (False, True),
+    ]

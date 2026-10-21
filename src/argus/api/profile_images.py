@@ -99,7 +99,7 @@ def require_profile_images(request: Request) -> ProfileImages:
 async def read_image_upload(request: Request) -> tuple[str, bytes]:
     """The media type and bounded raw bytes of a picture upload."""
 
-    media_type = request.headers.get("content-type", "").split(";", 1)[0].strip()
+    media_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
     if media_type not in MEDIA_TYPES:
         raise problem(
             request,

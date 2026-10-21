@@ -3461,7 +3461,8 @@ square rebuilt from pixels, so no EXIF, GPS, ICC or XMP data is stored, and
 `sha256` is that object's digest; it versions the signed URL. Only the service
 role reads the rows or the bucket; readers get a signed URL (about an hour)
 from the API, which answers the visibility rule: a person's photo to that
-person and to a Business owner whose access list names them, a logo to the
+person, and to a Business owner whose access list names them once the person
+has dismissed their access line (their `access_seen` receipt); a logo to the
 Business's owner and live members. The `spaces` row is unchanged. The row goes
 with its auth user or space; the object does not: account deletion erases
 `people/{user_id}/` and `business/{space_id}/` for every space the person

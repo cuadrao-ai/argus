@@ -3560,8 +3560,9 @@ was verified, so the person existed a moment ago.
 ## `PUT /me/photo`
 
 Replace the person's profile photo. The body is the picture itself, cropped
-square by the client: `Content-Type: image/jpeg`, `image/png` or `image/webp`,
-at most 5 MiB, one still image of at least 64 pixels on each side. The server
+square by the client: `Content-Type: image/jpeg`, `image/png` or `image/webp`
+(case-insensitive), at most 5 MiB, one still image of at least 64 pixels on
+each side and at most 25 million pixels in all. The server
 re-encodes it to a 256 px WebP square and drops every EXIF, GPS, ICC and XMP
 block; a non-square picture is center-cropped. The reply is the `GET /me`
 document with the fresh `photo_url`. Errors: 415 `image_media_type_unsupported`,
@@ -9681,7 +9682,10 @@ person starts their space, every route below except POST `/space` answers 404
     photo_url, capabilities, created_at, owner}], invites: [{id, email, created_at,
     expires_at, state}]}`: live grants, the owner first, and unaccepted, unrevoked
     invites. `state` is `pending` or `expired`, computed by the server.
-    `photo_url` is the member's signed profile photo URL, or null.
+    `photo_url` is the member's signed profile photo URL, or null: null
+    without a photo, and null until that member has dismissed their one-time
+    access line (their `access_seen` receipt). A grant the owner creates by
+    email reveals the person's name only until they act on it.
   - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
     that email (case-insensitive) gets a read and prepare grant, never
     approve; any other email gets a pending invite that lasts 7 days and
