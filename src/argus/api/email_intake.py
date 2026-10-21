@@ -15,12 +15,17 @@ from argus.api.ingestion import ingestion_enabled
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.ingestion.documents.config import load_document_extraction_settings
 from argus.domain.ingestion.email_intake.config import EmailIntakeSettings
+from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
 from argus.domain.ingestion.email_intake.provider import ResendReceivingClient
 from argus.domain.ingestion.email_intake.service import (
     EmailCapture,
     grant_route_authority,
 )
-from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+from argus.domain.ingestion.email_intake.standing import (
+    EmailStanding,
+    email_standing,
+)
+from argus.domain.ingestion.email_intake.store import EmailRelation, PostgresEmailStore
 
 RESEND_DOWNLOAD_HOSTS = ("cdn.resend.app",)
 
@@ -225,6 +230,58 @@ def email_receipt_flags(
         )
         for document, relation in _runtime.store.membership(space_id).items()
     }
+
+
+def part_repeat(
+    runtime: EmailCapture,
+    delivery: EmailDelivery,
+    part: EmailDeliveryPart,
+    relations: dict[str, EmailRelation],
+) -> tuple[str | None, bool]:
+    """Whether a part's document was already saved: ``(repeat_of_delivery_id,
+    repeat_of_upload)``. An earlier delivery brought it, or it was saved another
+    way, a web upload, before this email arrived."""
+
+    earlier = relations.get(part.document_id or "", {}).get("delivery_ids") or []
+    first = earlier[0] if earlier else None
+    repeat_of_delivery = first if first and first != delivery.id else None
+    if not part.document_id or repeat_of_delivery is not None:
+        return repeat_of_delivery, False
+    # The Business, not the person, is the unit: a file anyone saved in this
+    # Business before the email came makes the email the repeat.
+    draft = runtime.documents.store.draft(
+        user_id=delivery.principal_id, connection_id=part.document_id
+    )
+    earliest = (
+        runtime.documents.store.earliest_saved(
+            space_id=delivery.space_id, sha256=draft.sha256
+        )
+        if draft is not None
+        else None
+    )
+    return None, earliest is not None and earliest < delivery.received_at
+
+
+def email_standings(space_id: str) -> list[EmailStanding]:
+    """The standing of every email in this Business that is a Bandeja row of its
+    own. Empty when email receiving is off."""
+
+    if _runtime is None:
+        return []
+    runtime = _runtime
+    relations = runtime.store.membership(space_id)
+    parts = runtime.store.parts_by_delivery(space_id)
+    standings = (
+        email_standing(
+            delivery,
+            parts.get(delivery.id, []),
+            lambda part, delivery=delivery: any(
+                part_repeat(runtime, delivery, part, relations)
+            ),
+        )
+        for delivery in runtime.store.list(space_id, limit=None)
+    )
+    return [standing for standing in standings if standing is not None]
 
 
 def arrived_by_email(saved_at: datetime, first_received_at: datetime | None) -> bool:

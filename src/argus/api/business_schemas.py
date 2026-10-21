@@ -157,14 +157,17 @@ class ReceiptActivity(_Wire):
 
 
 class ReceiptActivityCounts(_Wire):
+    # Receipts being read, plus emails still being read with nothing saved yet.
     reading_count: int
     # New activity this person has not opened: the badge's dot, not its number.
     unread_count: int
     presentation: Literal["working", "unread", "none"]
     # Every row the Bandeja lists, opened or not: receipts not yet saved or
-    # dismissed (never the email itself) and notes no receipt carries.
+    # dismissed (never the email itself), notes no receipt carries and each
+    # email that is a row of its own (being read, or brought no receipt).
     pending_review_count: int
-    # Of those receipts, how many need the person's attention.
+    # Of those rows, how many need the person's attention; an email that
+    # brought no receipt always does, an email being read does not.
     needs_attention_count: int
 
 

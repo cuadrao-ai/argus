@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Sequence
 from uuid import UUID
 
 from argus.domain.business.receipt_activity import (
@@ -121,9 +122,17 @@ def _project(views, states, baseline, drafts=None):
     return output
 
 
-def inbox(context, views: list[dict]) -> dict[str, int]:  # noqa: ANN001
-    """The Bandeja's counts over these receipt views and the Business's saved
-    notes awaiting review; the in-memory app keeps no notes."""
+def inbox(
+    context,  # noqa: ANN001
+    views: list[dict],
+    emails: Sequence[str] | None = None,
+) -> dict[str, int]:
+    """The Bandeja's counts over these receipt views, the Business's saved
+    notes awaiting review (the in-memory app keeps no notes) and the emails
+    that are a row of their own; ``emails`` are their standings, read here
+    when not given."""
+
+    from argus.api.email_intake import email_standings
 
     store = context.service.imports.store
     notes = 0
@@ -132,13 +141,21 @@ def inbox(context, views: list[dict]) -> dict[str, int]:  # noqa: ANN001
 
         with transaction(store.authority, store.context) as tx:
             notes = awaiting_notes(tx)
-    return inbox_counts(views, notes)
+    if emails is None:
+        emails = email_standings(str(context.scope.owner.space_id))
+    return inbox_counts(views, notes, emails)
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
     """One answer for the sidebar badge, the Bandeja and the Resumen."""
 
+    from argus.api.email_intake import email_standings
+
+    emails = email_standings(str(context.scope.owner.space_id))
     return {
-        **aggregate_activity(ReceiptActivity(**view["activity"]) for view in views),
-        **inbox(context, views),
+        **aggregate_activity(
+            (ReceiptActivity(**view["activity"]) for view in views),
+            reading_emails=emails.count("reading"),
+        ),
+        **inbox(context, views, emails),
     }
