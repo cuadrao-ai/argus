@@ -105,7 +105,8 @@ export function formatHeadlineMoney(amount: string, currency: string, locale: st
   const { group, decimal } = separators(locale);
   const tenth = tenths % ten;
   const number = `${groupDigits((tenths / ten).toString(), group)}${tenth === BigInt(0) ? "" : `${decimal}${tenth}`}`;
-  if (tenths === BigInt(0)) return { short: `${currencySymbol(currency)} 0`, exact };
+  // A figure too small for the row's unit would read "0"; it shows its real amount instead.
+  if (tenths === BigInt(0)) return { short: exact, exact };
   return { short: `${match[1]}${currencySymbol(currency)} ${number}${unit.space ? " " : ""}${unit.label}`, exact };
 }
 

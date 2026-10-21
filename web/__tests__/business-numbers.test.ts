@@ -18,7 +18,8 @@ describe("headline figures", () => {
     const row = ["58400.00", "9600.00", "-7902.00", "0.00"];
     expect(formatHeadlineMoney("9600.00", "DOP", "es-419", row)).toEqual({ short: "RD$ 9.6 mil", exact: "RD$ 9,600.00" });
     expect(formatHeadlineMoney("-7902.00", "DOP", "es-419", row).short).toBe("-RD$ 7.9 mil");
-    expect(formatHeadlineMoney("0.00", "DOP", "es-419", row).short).toBe("RD$ 0");
+    expect(formatHeadlineMoney("0.00", "DOP", "es-419", row).short).toBe("RD$ 0.00", "a figure that would read 0 in the row's unit shows its real amount");
+    expect(formatHeadlineMoney("40.00", "DOP", "es-419", ["58000.00", "40.00"]).short).toBe("RD$ 40.00");
     expect(formatHeadlineMoney("9600.00", "DOP", "es-419", ["9600.00", "944.00"]).short).toBe("RD$ 9,600.00");
     expect(formatHeadlineMoney("58400.00", "DOP", "es-419", ["58400.00", "1300000.00"]).short).toBe("RD$ 0.1 M");
   });
