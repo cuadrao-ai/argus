@@ -50,16 +50,16 @@ struct CuadraoTransactionSheet<Content: View>: View {
                     withAnimation { proxy.scrollTo(target, anchor: .center) }
                 }
             }.background(WelcomePalette.background)
-                .navigationTitle(title ?? (reviewing ? (spanish ? "Revisar movimiento" : "Review transaction") : (spanish ? "Añadir movimiento" : "Add transaction")))
+                .navigationTitle(title ?? (reviewing ? (CuadraoCopy.text("copy.cuadraoTransactionSheet.427fc9b135", spanish: spanish)) : (CuadraoCopy.text("copy.canvasAccountPresentation.ef0cf39904", spanish: spanish))))
                 .navigationBarTitleDisplayMode(.inline)
                 .scrollDismissesKeyboard(.interactively)
                 .toolbar {
-                    CuadraoCancelToolbar(title: reviewing ? (spanish ? "Atrás" : "Back") : (spanish ? "Cancelar" : "Cancel"), disabled: cancelDisabled) {
+                    CuadraoCancelToolbar(title: reviewing ? (CuadraoCopy.text("copy.cuadraoTransactionSheet.09b2a422c9", spanish: spanish)) : (CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)), disabled: cancelDisabled) {
                         if reviewing { back() } else { dismiss() }
                     }
                 }
                 .safeAreaInset(edge: .bottom) {
-                    RegistrationButton(title: primaryTitle ?? (reviewing ? (spanish ? "Guardar" : "Save") : (spanish ? "Revisar" : "Review")),
+                    RegistrationButton(title: primaryTitle ?? (reviewing ? (CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoTransactionSheet.a9a8d8a534", spanish: spanish))),
                                        busy: primaryBusy, enabled: primaryEnabled, action: primary)
                         .accessibilityIdentifier(primaryIdentifier ?? "")
                         .padding(24).background(WelcomePalette.background)

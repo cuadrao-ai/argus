@@ -9,7 +9,7 @@ struct GuestWelcomeAction: View {
     var body: some View {
         if let welcome, case .full(true) = welcome.shape {
             Button { welcome.open() } label: {
-                Text(spanish ? "Probar sin cuenta" : "Try without an account")
+                Text(CuadraoCopy.text("copy.guestWelcomeAction.b5d1e831c5", spanish: spanish))
                     .font(.system(.body, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(WelcomePalette.pine)
@@ -29,9 +29,9 @@ struct GuestOpenLine: View {
 
     var body: some View {
         Button(action: open) {
-            (Text(spanish ? "Tienes datos de invitado en este iPhone · " : "You have guest data on this iPhone · ")
+            (Text(CuadraoCopy.text("copy.guestWelcomeAction.56622585c5", spanish: spanish))
                 .foregroundColor(.secondary)
-             + Text(spanish ? "Abrir" : "Open").foregroundColor(WelcomePalette.pine).bold())
+             + Text(CuadraoCopy.text("copy.guestWelcomeAction.fcb3911249", spanish: spanish)).foregroundColor(WelcomePalette.pine).bold())
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)

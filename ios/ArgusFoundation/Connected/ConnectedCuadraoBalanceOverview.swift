@@ -96,18 +96,18 @@ private struct ConnectedBalanceReading: View {
                     }
                 }
             case .recorded:
-                balanceOnly(chart: CuadraoChartState(title: spanish ? "Tu historial empieza hoy" : "Your history starts today",
-                    detail: spanish ? "Con otro día registrado, aquí verás la línea de tu balance." : "Once another day is recorded, your balance line appears here.")
+                balanceOnly(chart: CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.ec3df4110c", spanish: spanish),
+                    detail: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.32fe20d7d3", spanish: spanish))
                     .accessibilityIdentifier("home-chart-history-starts"))
             case .unknown, nil:
                 if history == nil, ConnectedBalanceSummary(summary: summary).known {
-                    balanceOnly(chart: CuadraoChartState(title: spanish ? "Leyendo tus balances registrados" : "Reading your recorded balances",
-                        detail: spanish ? "Tu historial aparece en cuanto termina la lectura." : "Your history appears as soon as the read completes.",
+                    balanceOnly(chart: CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.596f48e364", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.57179cea1b", spanish: spanish),
                         loading: true)
                         .accessibilityIdentifier("home-chart-loading"))
                 } else {
-                    balanceOnly(chart: CuadraoChartState(title: spanish ? "Tu balance, a tu ritmo" : "Your balance, at your pace",
-                        detail: spanish ? "Los balances que registres darán forma a este espacio." : "Your recorded balances will give this space its shape.")
+                    balanceOnly(chart: CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.0d3f251ca9", spanish: spanish),
+                        detail: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.efa154fffd", spanish: spanish))
                         .accessibilityIdentifier("home-chart-empty"))
                 }
             }
@@ -125,7 +125,7 @@ private struct ConnectedBalanceReading: View {
             CuadraoBalanceAmount(amount: value.balance(locale: locale) ?? "—", currency: summary.currency,
                 currencies: currencies, spanish: spanish, expanded: expanded, amountIdentifier: amountIdentifier,
                 chooseCurrency: chooseCurrency, expand: expand)
-            Text(partial ? (spanish ? "Balance parcial" : "Partial balance") : (spanish ? "Balance neto" : "Net balance"))
+            Text(partial ? (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.bbfd3e0f4b", spanish: spanish)) : (CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.a3299351f5", spanish: spanish)))
                 .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 .accessibilityIdentifier("home-chart-date")
             chart
@@ -150,8 +150,7 @@ private struct ConnectedBalanceReading: View {
     }
 
     private func unavailableHistory(_ count: Int) -> String {
-        if spanish { return count == 1 ? "El historial de 1 cuenta no está disponible por ahora." : "El historial de \(count) cuentas no está disponible por ahora." }
-        return count == 1 ? "History for 1 account is not available right now." : "History for \(count) accounts is not available right now."
+        return count == 1 ? CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.2c50f14e2a", spanish: spanish) : CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.7d72633328", spanish: spanish, String(describing: count))
     }
 }
 
@@ -198,14 +197,13 @@ private struct ConnectedCuadraoInsights: View {
             switch ConnectedSpendingPeriod.reading(summary: summary, period: period, page: page) {
             case .recorded(let minor):
                 CuadraoSpendingReading(currency: summary.currency, amount: value.amount(minor, locale: locale),
-                    caption: spanish ? "Gastos registrados" : "Recorded spending")
-                CuadraoChartState(title: spanish ? "Tus gastos registrados" : "Your recorded spending",
-                    detail: spanish ? "Puedes ver el total registrado de este mes. El desglose por categoría aún no está disponible."
-                        : "You can see this month's recorded total. The category breakdown is not available yet.")
+                    caption: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.f5d8dd5e1a", spanish: spanish))
+                CuadraoChartState(title: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.7718421512", spanish: spanish),
+                    detail: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.11c6809730", spanish: spanish))
                     .accessibilityElement(children: .contain).accessibilityIdentifier("home-spending-chart")
             case .noData:
                 CuadraoSpendingReading(currency: summary.currency, amount: CuadraoMissingCoverage.amount(spanish),
-                    caption: spanish ? "Gastos registrados" : "Recorded spending")
+                    caption: CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.f5d8dd5e1a", spanish: spanish))
                 CuadraoChartState(title: CuadraoMissingCoverage.title(spanish), detail: CuadraoMissingCoverage.detail(spanish))
                     .accessibilityElement(children: .contain).accessibilityIdentifier("home-spending-chart")
             }
@@ -230,7 +228,7 @@ private struct ConnectedCuadraoInsights: View {
     }
 
     private var balanceTitle: String {
-        let title = spanish ? "Balance neto actual" : "Current net balance"
+        let title = CuadraoCopy.text("copy.connectedCuadraoBalanceOverview.012458b538", spanish: spanish)
         guard let asOf = summary.asOf else { return title }
         return title + " · " + AccountPresentation.date(asOf, zone: timeZone, locale: locale)
     }

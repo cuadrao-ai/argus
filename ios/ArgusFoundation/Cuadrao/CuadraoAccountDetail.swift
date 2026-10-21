@@ -17,7 +17,7 @@ struct CuadraoAccountDetail: View {
                         CuadraoSymbol(name: account.symbol)
                         Text(account.name).font(Cuadrao.title(34))
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Saldo registrado").font(Cuadrao.text(13)).foregroundStyle(Cuadrao.muted)
+                            Text(CuadraoCopy.text("loop.recorded")).font(Cuadrao.text(13)).foregroundStyle(Cuadrao.muted)
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text("DOP").font(Cuadrao.text(14)).foregroundStyle(Cuadrao.muted)
                                 Text(Cuadrao.money(data.balance(account))).font(Cuadrao.text(36)).monospacedDigit()
@@ -25,14 +25,14 @@ struct CuadraoAccountDetail: View {
                             }
                         }
                     }.padding(.top, 12)
-                    Button("Registrar gasto") { showExpense = true }.buttonStyle(CuadraoPrimaryButton())
+                    Button(CuadraoCopy.text("copy.cuadraoAccountDetail.4f525f0323", spanish: CuadraoCopy.isSpanish())) { showExpense = true }.buttonStyle(CuadraoPrimaryButton())
                     VStack(alignment: .leading, spacing: 14) {
                         HStack {
-                            CuadraoSectionTitle(title: "Actividad")
+                            CuadraoSectionTitle(title: CuadraoCopy.text("copy.cuadraoChatContext.fea64e51c2"))
                             Spacer()
                             Text("DOP").font(Cuadrao.text(12)).foregroundStyle(Cuadrao.muted)
                         }
-                        Text("HOY").font(Cuadrao.text(11)).tracking(2).foregroundStyle(Cuadrao.muted)
+                        Text(CuadraoCopy.text("copy.cuadraoAccountDetail.55e6e38cf1", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.text(11)).tracking(2).foregroundStyle(Cuadrao.muted)
                         ForEach(data.expenses.filter { $0.accountID == accountID }) { expense in
                             CuadraoExpenseRow(expense: expense)
                             Rectangle().fill(Cuadrao.line).frame(height: 0.5)
@@ -44,13 +44,13 @@ struct CuadraoAccountDetail: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
-                            Button("Cambiar nombre", systemImage: "pencil") {
+                            Button(CuadraoCopy.text("copy.cuadraoAccountCanvas.e59e534133"), systemImage: "pencil") {
                                 name = account.name
                                 showRename = true
                             }
-                            Button("Registrar gasto", systemImage: "plus") { showExpense = true }
+                            Button(CuadraoCopy.text("copy.cuadraoAccountDetail.4f525f0323", spanish: CuadraoCopy.isSpanish()), systemImage: "plus") { showExpense = true }
                         } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
-                        .accessibilityLabel("Opciones de cuenta")
+                        .accessibilityLabel(CuadraoCopy.text("copy.accountDetailView.f3398370dd"))
                     }
                 }
                 .sheet(isPresented: $showExpense) {
@@ -58,10 +58,10 @@ struct CuadraoAccountDetail: View {
                         .presentationDragIndicator(.visible)
                         .presentationBackground(Cuadrao.paper)
                 }
-                .alert("Cambiar nombre", isPresented: $showRename) {
-                    TextField("Nombre", text: $name)
-                    Button("Cancelar", role: .cancel) { }
-                    Button("Guardar") {
+                .alert(CuadraoCopy.text("copy.cuadraoAccountCanvas.e59e534133"), isPresented: $showRename) {
+                    TextField(CuadraoCopy.text("budget.name"), text: $name)
+                    Button(CuadraoCopy.text("accounts.cancel"), role: .cancel) { }
+                    Button(CuadraoCopy.text("accounts.save")) {
                         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         if !trimmed.isEmpty, let index = data.accounts.firstIndex(where: { $0.id == accountID }) {
                             data.accounts[index].name = trimmed
@@ -81,6 +81,18 @@ struct CuadraoExpenseSheet: View {
     @State private var category = "Comida"
     @FocusState private var amountFocused: Bool
 
+
+    private func categoryTitle(_ category: String) -> String {
+        switch category {
+        case "Comida": CuadraoCopy.text("copy.cuadraoSpendingHistory.d6de10ac20")
+        case "Compras": CuadraoCopy.text("copy.guestMovementPresentation.5f2fe9268b")
+        case "Transporte": CuadraoCopy.text("copy.guestMovementPresentation.f74da3b9d7")
+        case "Hogar": CuadraoCopy.text("copy.cuadraoHouseholdSheet.b845d91db6")
+        case "Sin categoría": CuadraoCopy.text("loop.category.none")
+        default: category
+        }
+    }
+
     private var cents: Int? {
         let normalized = amount.replacingOccurrences(of: ",", with: ".")
         guard let number = Decimal(string: normalized), number > 0, number <= Decimal(string: "9999999.99")! else { return nil }
@@ -95,44 +107,44 @@ struct CuadraoExpenseSheet: View {
                         CuadraoSymbol(name: account.symbol)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(account.name).font(Cuadrao.text(15))
-                            Text("Desde esta cuenta").font(Cuadrao.text(12)).foregroundStyle(Cuadrao.muted)
+                            Text(CuadraoCopy.text("copy.cuadraoAccountDetail.7e8023da13", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.text(12)).foregroundStyle(Cuadrao.muted)
                         }
                     }
                     VStack(alignment: .leading, spacing: 14) {
-                        Text("¿Cuánto gastaste?").font(Cuadrao.title(30))
+                        Text(CuadraoCopy.text("copy.cuadraoAccountDetail.59c5fd2b5c", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.title(30))
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
                             Text("DOP").font(Cuadrao.text(17)).foregroundStyle(Cuadrao.muted)
                             TextField("0.00", text: $amount)
                                 .keyboardType(.decimalPad).focused($amountFocused)
                                 .font(Cuadrao.text(40)).monospacedDigit().multilineTextAlignment(.trailing)
-                                .accessibilityLabel("Monto del gasto")
+                                .accessibilityLabel(CuadraoCopy.text("copy.cuadraoAccountDetail.aad098c853", spanish: CuadraoCopy.isSpanish()))
                                 .onChange(of: amount) { _, newValue in amount = cleanAmount(newValue) }
                         }.padding(18).background(Cuadrao.raised, in: RoundedRectangle(cornerRadius: 12))
                             .overlay { RoundedRectangle(cornerRadius: 12).stroke(Cuadrao.line, lineWidth: 1) }
                     }
                     VStack(spacing: 0) {
                         HStack {
-                            Text("Categoría")
+                            Text(CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f"))
                             Spacer()
-                            Picker("Categoría", selection: $category) {
-                                ForEach(["Comida", "Compras", "Transporte", "Hogar", "Sin categoría"], id: \.self) { Text($0) }
+                            Picker(CuadraoCopy.text("copy.connectedCuadraoHome.67c7ee0c0f"), selection: $category) {
+                                ForEach(["Comida", "Compras", "Transporte", "Hogar", "Sin categoría"], id: \.self) { Text(categoryTitle($0)) }
                             }.labelsHidden().tint(Cuadrao.ink)
                         }.padding(.vertical, 10)
                         Divider().overlay(Cuadrao.line)
-                        TextField("Nota (opcional)", text: $note)
+                        TextField(CuadraoCopy.text("copy.guestPlanSheet.c8e8a0dc8d"), text: $note)
                             .textInputAutocapitalization(.sentences).padding(.vertical, 20)
                     }.font(Cuadrao.text())
                 }.padding(24)
             }
             .cuadraoFormKeyboard()
             .background(Cuadrao.paper)
-            .navigationTitle("Registrar gasto").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(CuadraoCopy.text("copy.cuadraoAccountDetail.4f525f0323", spanish: CuadraoCopy.isSpanish())).navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                CuadraoCancelToolbar(title: "Cancelar") { dismiss() }
+                CuadraoCancelToolbar(title: CuadraoCopy.text("accounts.cancel")) { dismiss() }
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 12) {
-                    Button("Guardar gasto") {
+                    Button(CuadraoCopy.text("copy.cuadraoAccountDetail.5ea90e34e8", spanish: CuadraoCopy.isSpanish())) {
                         guard let cents else { return }
                         let title = note.trimmingCharacters(in: .whitespacesAndNewlines)
                         data.expenses.insert(CuadraoSampleExpense(accountID: account.id,

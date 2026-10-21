@@ -8,11 +8,13 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from loguru import logger
+from psycopg.errors import UniqueViolation
 from psycopg.types.json import Jsonb
 
 from argus.domain.business.actions import dossier, mutations, plans
 from argus.domain.business.actions.facts import facts_of, validate_facts
 from argus.domain.business.actions.fiscal import (
+    SALE_NCF_INDEX,
     refund_reference,
     require_distinct_fiscal_document,
 )
@@ -225,6 +227,15 @@ def approve(
         if isinstance(request, ApproveIncome)
         else ApprovalCommand(draft_id=draft_id, request=request)
     )
+
+    def refuse(refusal: Refused) -> ActionOutcome:
+        with transaction(service.authority, context, "approve") as tx:
+            old = plans.receipt(tx, key, command)
+            if old is not None:
+                return plans.replay(old)
+            plans.start_receipt(tx, key, command)
+            return plans.finish_receipt(tx, key, refusal)
+
     try:
         with transaction(service.authority, context) as tx:
             tx.authorization.require("approve")
@@ -244,7 +255,7 @@ def approve(
                 else reviewed_request(service, context, draft_id, request.version, kind)
             )
         except (ActionError, *_NOT_WRITTEN) as error:
-            refusal = (
+            return refuse(
                 error.result
                 if isinstance(error, ActionError)
                 else Refused(
@@ -252,69 +263,73 @@ def approve(
                     code=getattr(error, "code", "activity_invalid"),
                 )
             )
+        try:
             with transaction(service.authority, context, "approve") as tx:
                 old = plans.receipt(tx, key, command)
                 if old is not None:
-                    return plans.replay(old)
-                plans.start_receipt(tx, key, command)
-                return plans.finish_receipt(tx, key, refusal)
-        with transaction(service.authority, context, "approve") as tx:
-            old = plans.receipt(tx, key, command)
-            if old is not None:
-                if old["outcome"] and old["outcome"]["outcome"] != "outcome_unknown":
-                    return plans.replay(old)
-                event = tx.imports.event(str(draft_id))
-                pointer = event.resolution.get("approval_receipt")
-                if pointer != {"actor_id": str(context.actor.actor_id), "key": key}:
-                    return OutcomeUnknown(
-                        code="business_approval_reconciliation_required"
-                    )
-            else:
-                plans.start_receipt(tx, key, command)
-                try:
-                    event, facts = _reviewed_facts(tx, draft_id, request.version, kind)
-                except ActionError as error:
-                    return plans.finish_receipt(tx, key, error.result)
-                stale = _failed_approval_declaration(tx, event)
-                claim_key = hashlib.sha256(
-                    f"{context.actor.actor_id}:{key}".encode()
-                ).hexdigest()
-                event = replace(
-                    event,
-                    state="accepting",
-                    accept_key=claim_key,
-                    version=event.version + 1,
-                    updated_at=datetime.now(timezone.utc),
-                    resolution={
-                        **event.resolution,
-                        "pending_request": money_request.model_dump(mode="json"),
-                        "approval_receipt": {
-                            "actor_id": str(context.actor.actor_id),
-                            "key": key,
-                        },
-                    },
-                )
-                declared = _approval_declaration(tx, event, facts, stale)
-                if declared is None and not stale:
-                    tx.imports.put_event(event)
-                else:
-                    # Revisions are immutable, so the declaration is the approval's
-                    # own revision, at the version the accepting record takes.
-                    mutations.save_revision(
-                        tx,
-                        event,
-                        facts,
-                        facts,
-                        (),
-                        tx.authorization.provenance,
-                        None,
-                        dgii=declared,
-                        clear_dgii=declared is None,
-                    )
+                    if old["outcome"] and old["outcome"]["outcome"] != "outcome_unknown":
+                        return plans.replay(old)
                     event = tx.imports.event(str(draft_id))
-                plans.finish_receipt(
-                    tx, key, OutcomeUnknown(code="business_recording_unsettled")
-                )
+                    pointer = event.resolution.get("approval_receipt")
+                    if pointer != {"actor_id": str(context.actor.actor_id), "key": key}:
+                        return OutcomeUnknown(
+                            code="business_approval_reconciliation_required"
+                        )
+                else:
+                    plans.start_receipt(tx, key, command)
+                    try:
+                        event, facts = _reviewed_facts(
+                            tx, draft_id, request.version, kind
+                        )
+                    except ActionError as error:
+                        return plans.finish_receipt(tx, key, error.result)
+                    stale = _failed_approval_declaration(tx, event)
+                    claim_key = hashlib.sha256(
+                        f"{context.actor.actor_id}:{key}".encode()
+                    ).hexdigest()
+                    event = replace(
+                        event,
+                        state="accepting",
+                        accept_key=claim_key,
+                        version=event.version + 1,
+                        updated_at=datetime.now(timezone.utc),
+                        resolution={
+                            **event.resolution,
+                            "pending_request": money_request.model_dump(mode="json"),
+                            "approval_receipt": {
+                                "actor_id": str(context.actor.actor_id),
+                                "key": key,
+                            },
+                        },
+                    )
+                    declared = _approval_declaration(tx, event, facts, stale)
+                    if declared is None and not stale:
+                        tx.imports.put_event(event)
+                    else:
+                        # Revisions are immutable, so the declaration is the
+                        # approval's own revision, at the version the accepting
+                        # record takes.
+                        mutations.save_revision(
+                            tx,
+                            event,
+                            facts,
+                            facts,
+                            (),
+                            tx.authorization.provenance,
+                            None,
+                            dgii=declared,
+                            clear_dgii=declared is None,
+                        )
+                        event = tx.imports.event(str(draft_id))
+                    plans.finish_receipt(
+                        tx, key, OutcomeUnknown(code="business_recording_unsettled")
+                    )
+        except UniqueViolation as error:
+            if error.diag.constraint_name != SALE_NCF_INDEX:
+                raise
+            return refuse(
+                ActionError("invalid_input", "fiscal_duplicate_document").result
+            )
         try:
             recorded = service.imports._write(
                 context.owner_id,

@@ -114,7 +114,9 @@ from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
+from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
+from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
 from argus.domain.business.spaces import Space, default_space_name
@@ -244,6 +246,10 @@ def _problem(request: Request, error: Exception) -> HTTPException:
     if isinstance(error, (DocumentServiceError, DocumentExtractionError)):
         return document_problem(request, error)
     return domain_problem(request, error)
+
+
+def _identity(scope: BusinessScope) -> dict[str, str]:
+    return {"country": scope.country, "currency": scope.currency}
 
 
 @router.get("/space", response_model=BusinessSpaceInfo)
@@ -402,7 +408,9 @@ def start_space(
     it here, once."""
 
     space, created = person.spaces.create(
-        person.person_id, body.name or default_space_name(body.language)
+        person.person_id,
+        body.name or default_space_name(body.language),
+        body.country or DEFAULT_COUNTRY,
     )
     _access_store(request).ensure_owner_grant(space.id, person.person_id)
     response.status_code = 201 if created else 200
@@ -502,10 +510,15 @@ def give_access(
     response.status_code = 201 if created else 200
     payload = _access(found)
     if created:
-        invite = next((i for i in found.invites if i.email == body.email.strip().lower()), None)
+        invite = next(
+            (i for i in found.invites if i.email == body.email.strip().lower()), None
+        )
         if invite is not None:
             from argus.api.business_invite_delivery import deliver_invite
-            payload["invite_delivery"] = deliver_invite(request, found, invite, space_id, owner_id)
+
+            payload["invite_delivery"] = deliver_invite(
+                request, found, invite, space_id, owner_id
+            )
     return payload
 
 
@@ -520,12 +533,22 @@ def resend_access_invite(
     space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
     found = _access_store(request).resend(space_id, owner_id, str(invite_id))
     if found is None:
-        raise problem(request, status_code=404, code="business_access_not_found",
-                      title="Not Found", detail="This invite is not available.", headers=NO_STORE)
+        raise problem(
+            request,
+            status_code=404,
+            code="business_access_not_found",
+            title="Not Found",
+            detail="This invite is not available.",
+            headers=NO_STORE,
+        )
     response.headers.update(NO_STORE)
     from argus.api.business_invite_delivery import deliver_invite
+
     invite = next(i for i in found.invites if i.id == str(invite_id))
-    return {**_access(found), "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id)}
+    return {
+        **_access(found),
+        "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id),
+    }
 
 
 @router.delete("/access/grants/{grant_id}", status_code=204)
@@ -612,7 +635,7 @@ def get_workspace(
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
         workspace = {**workspace, "chat_available": False}
-    return workspace
+    return {**workspace, **_identity(context.scope)}
 
 
 @router.post("/accounts", response_model=BusinessAccount, status_code=201)
@@ -827,9 +850,13 @@ def list_receipts(
 ) -> dict[str, Any]:
     try:
         from argus.api.business_receipt_activity import counts
+        from argus.domain.business.receipts import CLOSED
 
-        items = receipt_summaries(context, view)
-        return {"items": items, "activity": counts(context, items)}
+        items = receipt_summaries(context, "all")
+        activity = counts(context, items)
+        if view == "inbox":
+            items = [item for item in items if item["status"] not in CLOSED]
+        return {"items": items, "activity": activity}
     except Exception as error:
         raise _problem(request, error) from None
 
@@ -1096,7 +1123,7 @@ def get_overview(
 ) -> dict[str, Any]:
     _period(request, start, end)
     try:
-        return overview_with_drafts(context, start, end)
+        return {**overview_with_drafts(context, start, end), **_identity(context.scope)}
     except Exception as error:
         raise _problem(request, error) from None
 

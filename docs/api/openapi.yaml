@@ -14334,6 +14334,20 @@ components:
       type: object
       required:
       - state
+    BandejaMembership:
+      properties:
+        por_revisar:
+          type: boolean
+        con_problema:
+          type: boolean
+        leyendo:
+          type: boolean
+      additionalProperties: false
+      type: object
+      required:
+      - por_revisar
+      - con_problema
+      - leyendo
     BankImportResponse:
       properties:
         id:
@@ -15304,6 +15318,14 @@ components:
           type: array
         approval_available:
           type: boolean
+        approval_action:
+          anyOf:
+          - type: string
+            enum:
+            - record_expense
+            - record_income
+            - record_refund
+          - type: 'null'
         approval_result:
           anyOf:
           - oneOf:
@@ -15389,6 +15411,14 @@ components:
           - type: string
             format: date
           - type: 'null'
+        fiscal_inclusion_available:
+          type: boolean
+          default: false
+        refund_candidates:
+          items:
+            $ref: '#/components/schemas/RefundCandidate'
+          type: array
+          default: []
       additionalProperties: false
       type: object
       required:
@@ -15571,6 +15601,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         logo_url:
           anyOf:
           - type: string
@@ -15588,6 +15622,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
       - name_required
       - name_prompt_seen
       - show_prompt
@@ -15606,6 +15642,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         logo_url:
           anyOf:
           - type: string
@@ -15621,6 +15661,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
       - name_required
       - name_prompt_seen
     BusinessOverview:
@@ -15634,6 +15676,10 @@ components:
         today:
           type: string
           format: date
+        country:
+          type: string
+        currency:
+          type: string
         totals:
           items:
             $ref: '#/components/schemas/CurrencyTotal'
@@ -15680,6 +15726,8 @@ components:
       - from
       - to
       - today
+      - country
+      - currency
       - totals
       - awaiting_review
       - needs_attention
@@ -15731,6 +15779,10 @@ components:
           type: string
         name:
           type: string
+        country:
+          type: string
+        currency:
+          type: string
         logo_url:
           anyOf:
           - type: string
@@ -15742,6 +15794,8 @@ components:
       required:
       - id
       - name
+      - country
+      - currency
     BusinessSpaces:
       properties:
         spaces:
@@ -15810,6 +15864,10 @@ components:
       - label
     BusinessWorkspace:
       properties:
+        country:
+          type: string
+        currency:
+          type: string
         accounts:
           items:
             $ref: '#/components/schemas/BusinessAccount'
@@ -15831,6 +15889,8 @@ components:
       additionalProperties: false
       type: object
       required:
+      - country
+      - currency
       - accounts
       - currencies
       - assistant_available
@@ -17154,8 +17214,14 @@ components:
           type: integer
         cuentas_por_pagar:
           type: string
+        itbis_cobrado_minor:
+          type: integer
+        itbis_cobrado:
+          type: string
         by_status:
           $ref: '#/components/schemas/StatusTotals'
+        net_result_final:
+          type: boolean
       additionalProperties: false
       type: object
       required:
@@ -17176,7 +17242,10 @@ components:
       - cuentas_por_cobrar
       - cuentas_por_pagar_minor
       - cuentas_por_pagar
+      - itbis_cobrado_minor
+      - itbis_cobrado
       - by_status
+      - net_result_final
     CurrencySummaryResponse:
       properties:
         currency:
@@ -17942,6 +18011,29 @@ components:
       - connection
       - device_token
       - intake_url
+    DgiiForms:
+      properties:
+        '606':
+          type: string
+          enum:
+          - no_aplica
+          - needs_review
+          - summary_only
+          - no_operations
+          - prepared_candidate
+        '607':
+          type: string
+          enum:
+          - no_aplica
+          - needs_review
+          - summary_only
+          - no_operations
+          - prepared_candidate
+      additionalProperties: false
+      type: object
+      required:
+      - '606'
+      - '607'
     DgiiQr:
       properties:
         url:
@@ -21905,6 +21997,10 @@ components:
           - accepting
           - accepted
           - dismissed
+        earlier_count:
+          type: integer
+          minimum: 0.0
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -21921,6 +22017,9 @@ components:
           items:
             $ref: '#/components/schemas/ManualCapture'
           type: array
+        has_more:
+          type: boolean
+          default: false
       additionalProperties: false
       type: object
       required:
@@ -23080,6 +23179,9 @@ components:
       properties:
         month:
           type: string
+        today:
+          type: string
+          format: date
         from:
           type: string
           format: date
@@ -23092,6 +23194,16 @@ components:
           items:
             $ref: '#/components/schemas/CloseReason'
           type: array
+        earliest_month:
+          anyOf:
+          - type: string
+          - type: 'null'
+        payment_methods:
+          items:
+            type: string
+          type: array
+        dgii_forms:
+          $ref: '#/components/schemas/DgiiForms'
         currencies:
           items:
             $ref: '#/components/schemas/CurrencyBlock'
@@ -23116,10 +23228,14 @@ components:
       type: object
       required:
       - month
+      - today
       - from
       - to
       - closed
       - reasons
+      - earliest_month
+      - payment_methods
+      - dgii_forms
       - currencies
       - missing_rnc
       - missing_ncf
@@ -23542,6 +23658,9 @@ components:
         deployed clients may still read the `/me` shape.'
     OpenItems:
       properties:
+        today:
+          type: string
+          format: date
         cuentas_por_cobrar:
           $ref: '#/components/schemas/OpenList'
         cuentas_por_pagar:
@@ -23549,6 +23668,7 @@ components:
       additionalProperties: false
       type: object
       required:
+      - today
       - cuentas_por_cobrar
       - cuentas_por_pagar
     OpenList:
@@ -23559,6 +23679,8 @@ components:
           items:
             $ref: '#/components/schemas/OpenTotal'
           type: array
+        overdue:
+          $ref: '#/components/schemas/OpenOverdue'
         items:
           items:
             $ref: '#/components/schemas/DocumentLine'
@@ -23568,7 +23690,21 @@ components:
       required:
       - count
       - totals
+      - overdue
       - items
+    OpenOverdue:
+      properties:
+        count:
+          type: integer
+        totals:
+          items:
+            $ref: '#/components/schemas/OpenTotal'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - count
+      - totals
     OpenSearchResult:
       properties:
         kind:
@@ -25707,6 +25843,12 @@ components:
           anyOf:
           - type: integer
           - type: 'null'
+        confirmed_count:
+          type: integer
+          default: 0
+        dismissed_count:
+          type: integer
+          default: 0
       additionalProperties: false
       type: object
       required:
@@ -25804,6 +25946,10 @@ components:
         activity:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
+          - type: 'null'
+        bandeja:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaMembership'
           - type: 'null'
         channel:
           type: string
@@ -26461,6 +26607,10 @@ components:
           anyOf:
           - $ref: '#/components/schemas/ReceiptActivity'
           - type: 'null'
+        bandeja:
+          anyOf:
+          - $ref: '#/components/schemas/BandejaMembership'
+          - type: 'null'
         channel:
           type: string
           enum:
@@ -26834,6 +26984,32 @@ components:
       - admitted
       - outcome
       - kind
+    RefundCandidate:
+      properties:
+        id:
+          type: string
+        merchant:
+          anyOf:
+          - type: string
+          - type: 'null'
+        occurred_on:
+          type: string
+          format: date
+        amount:
+          type: string
+        currency:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - merchant
+      - occurred_on
+      - amount
+      - currency
+      description: 'An approved purchase a credit note may refund; ``id`` is the activity
+
+        the declaration''s ``purchase_activity_id`` names.'
     RememberSearch:
       properties:
         q:
@@ -28510,6 +28686,14 @@ components:
             enum:
             - en
             - es-419
+          - type: 'null'
+        country:
+          anyOf:
+          - type: string
+            enum:
+            - DO
+            - US
+            - CA
           - type: 'null'
       additionalProperties: false
       type: object

@@ -6,12 +6,12 @@ struct CuadraoArchiveAccountReview: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(spanish ? "¿Archivar esta cuenta?" : "Archive this account?").font(CuadraoTypography.feature)
-            Text(spanish ? "El historial se conserva. Puedes recuperarla en Cuentas archivadas." : "Its history stays intact. Restore it from Archived accounts.")
-            Button(spanish ? "Archivar" : "Archive") { archive(); dismiss() }
+            Text(CuadraoCopy.text("copy.cuadraoAccountManagement.5c34dcf7f8", spanish: spanish)).font(CuadraoTypography.feature)
+            Text(CuadraoCopy.text("copy.cuadraoAccountManagement.7a4a4cb485", spanish: spanish))
+            Button(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish)) { archive(); dismiss() }
                 .buttonStyle(.borderedProminent).tint(WelcomePalette.pine)
                 .accessibilityIdentifier("accounts.archive.confirm")
-            Button(spanish ? "Cancelar" : "Cancel") { dismiss() }
+            Button(CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)) { dismiss() }
                 .accessibilityIdentifier("accounts.archive.cancel")
         }.padding(28).presentationDetents([.medium, .large])
     }
@@ -25,15 +25,15 @@ struct CuadraoArchivedAccounts: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(spanish ? "Sus balances e historial se conservan." : "Balances and history are kept.")
+                    Text(CuadraoCopy.text("copy.connectedCuadraoHome.d433d35ac8", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary)
                     if data.archived.isEmpty {
-                        ContentUnavailableView(spanish ? "No hay cuentas archivadas" : "No archived accounts", systemImage: "archivebox")
+                        ContentUnavailableView(CuadraoCopy.text("copy.connectedCuadraoHome.63cbd4a9dc", spanish: spanish), systemImage: "archivebox")
                     }
                     ForEach(data.archived) { account in
                         VStack(alignment: .leading, spacing: 0) {
                             CanvasAccountRow(account: account, spanish: spanish)
-                            CanvasActionRow(title: spanish ? "Restaurar" : "Restore", symbol: "arrow.uturn.backward") {
+                            CanvasActionRow(title: CuadraoCopy.text("copy.connectedCuadraoHome.e203d01b16", spanish: spanish), symbol: "arrow.uturn.backward") {
                                 data.archive(account.id, false)
                             }.foregroundStyle(WelcomePalette.pine)
                             Divider()
@@ -41,9 +41,9 @@ struct CuadraoArchivedAccounts: View {
                     }
                 }.padding(24)
             }.background(WelcomePalette.background)
-                .navigationTitle(spanish ? "Cuentas archivadas" : "Archived accounts")
+                .navigationTitle(CuadraoCopy.text("copy.connectedCuadraoHome.4ab8767f26", spanish: spanish))
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+                .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }.tint(WelcomePalette.pine)
     }
 }
@@ -83,7 +83,7 @@ struct CuadraoRenameAccountForm: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
-                Text(spanish ? "Nombre" : "Name").font(.subheadline)
+                Text(CuadraoCopy.text("copy.cuadraoAccountManagement.9d191b79fb", spanish: spanish)).font(.subheadline)
                 TextField(placeholder, text: $name)
                     .autocorrectionDisabled().focused($focused).modifier(RegistrationField(focused: focused))
                     .onChange(of: name) { _, value in if value.count > 60 { name = String(value.prefix(60)) } }
@@ -91,14 +91,14 @@ struct CuadraoRenameAccountForm: View {
                 if let status {
                     Text(status).font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier(statusIdentifier)
                 }
-                RegistrationButton(title: primaryTitle ?? (spanish ? "Guardar" : "Save"),
+                RegistrationButton(title: primaryTitle ?? (CuadraoCopy.text("copy.cuadraoAccountManagement.553ab1bf1a", spanish: spanish)),
                                    enabled: !busy && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, action: save)
                     .accessibilityIdentifier(saveIdentifier)
                 Spacer(minLength: 0)
             }.padding(24).background(WelcomePalette.background)
-                .navigationTitle(spanish ? "Cambiar nombre" : "Rename account").navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(CuadraoCopy.text("copy.cuadraoAccountCanvas.e59e534133", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel", disabled: busy, identifier: cancelIdentifier, action: cancel)
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish), disabled: busy, identifier: cancelIdentifier, action: cancel)
                 }
         }.tint(WelcomePalette.pine).presentationDetents([.medium, .large])
     }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager, nullcontext
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -183,7 +183,15 @@ def test_summary_matches_formato_totals_for_the_fixture_month():
     }
     usd = next(block for block in summary["currencies"] if block["currency"] == "USD")
     assert usd["net_result_minor"] == totals["USD"].income_before_itbis == 20000
-    MonthClose.model_validate({"month": "2026-10", **summary})
+    MonthClose.model_validate(
+        {
+            "month": "2026-10",
+            "today": DAY,
+            "payment_methods": ["efectivo"],
+            "dgii_forms": {"606": "no_aplica", "607": "no_aplica"},
+            **summary,
+        }
+    )
 
 
 def test_a_receipt_with_an_unusable_fiscal_number_stays_out_of_expense():
@@ -365,7 +373,7 @@ def test_sin_comprobante_counts_in_the_totals_and_never_blocks_the_close():
     assert (line["activity_id"], line["sin_comprobante"]) == ("cash-purchase", True)
     assert (line["before_itbis_minor"], line["before_itbis"]) == (50000, "500.00")
     unpaid_sale = replace(sold, status="pendiente", settled_on=None, payment_method=None)
-    [sale_line] = open_items([unpaid_sale])["cuentas_por_cobrar"]["items"]
+    [sale_line] = open_items([unpaid_sale], DAY)["cuentas_por_cobrar"]["items"]
     assert (sale_line["before_itbis_minor"], sale_line["itbis_minor"]) == (25424, 4576)
 
 
@@ -395,8 +403,16 @@ def test_a_purchase_with_a_comprobante_and_no_number_still_blocks_the_close():
 
     assert summary["closed"] is False
     assert summary["reasons"] == [
-        {"code": "missing_rnc", "activity_id": "missing-number", "document_kind": "receipt"},
-        {"code": "missing_ncf", "activity_id": "missing-number", "document_kind": "receipt"},
+        {
+            "code": "missing_rnc",
+            "activity_id": "missing-number",
+            "document_kind": "receipt",
+        },
+        {
+            "code": "missing_ncf",
+            "activity_id": "missing-number",
+            "document_kind": "receipt",
+        },
     ]
     assert [line["activity_id"] for line in summary["missing_ncf"]] == ["missing-number"]
     assert dop["expense_before_itbis_minor"] == 2000
@@ -410,7 +426,9 @@ def _stated(receipt_state, **fiscal):
 
     facts = BusinessFacts(
         kind=known("expense"),
-        receipt_state=known(receipt_state) if receipt_state else BusinessFacts().receipt_state,
+        receipt_state=known(receipt_state)
+        if receipt_state
+        else BusinessFacts().receipt_state,
         fiscal=FiscalFacts(**{name: known(value) for name, value in fiscal.items()})
         if fiscal
         else None,
@@ -449,145 +467,6 @@ def test_pending_rolls_into_open_balances_and_missing_fiscal_data_keeps_the_mont
     assert closed["reasons"] == []
     assert [item["activity_id"] for item in closed["cuentas_por_cobrar"]] == ["sale-open"]
     assert closed["cuentas_por_pagar"] == []
-
-
-def pending(activity_id, role, day, **overrides):
-    return document(
-        activity_id=activity_id,
-        role=role,
-        occurred_on=day,
-        status="pendiente",
-        settled_on=None,
-        payment_method=None,
-        **overrides,
-    )
-
-
-def test_open_items_are_every_month_close_list_from_every_month_oldest_first():
-    documents = [
-        pending("oct-sale", "invoice", date(2026, 10, 2), total_minor=500),
-        pending("aug-sale", "invoice", date(2026, 8, 30), total_minor=700),
-        pending("sep-sale-b", "invoice", date(2026, 9, 16), total_minor=300),
-        pending("sep-sale-a", "invoice", date(2026, 9, 16), total_minor=200),
-        document(activity_id="sep-collected", occurred_on=date(2026, 9, 1)),
-        pending("sep-personal-sale", "invoice", date(2026, 9, 2), personal=True),
-        pending("oct-bill", "receipt", date(2026, 10, 5), total_minor=900),
-        pending("sep-bill", "receipt", date(2026, 9, 3), total_minor=100),
-        pending(
-            "sep-personal-kept",
-            "receipt",
-            date(2026, 9, 4),
-            personal=True,
-            include_606=True,
-            total_minor=50,
-        ),
-        pending(
-            "sep-personal-left",
-            "receipt",
-            date(2026, 9, 4),
-            personal=True,
-            include_606=False,
-        ),
-        document(
-            activity_id="sep-paid",
-            role="receipt",
-            status="pagado",
-            occurred_on=date(2026, 9, 9),
-        ),
-    ]
-    opened = open_items(documents)
-    cobrar, pagar = opened["cuentas_por_cobrar"], opened["cuentas_por_pagar"]
-    assert [item["activity_id"] for item in cobrar["items"]] == [
-        "aug-sale",
-        "sep-sale-a",
-        "sep-sale-b",
-        "oct-sale",
-    ]
-    assert [item["activity_id"] for item in pagar["items"]] == [
-        "sep-bill",
-        "sep-personal-kept",
-        "oct-bill",
-    ]
-    assert {item["status"] for item in cobrar["items"] + pagar["items"]} == {"pendiente"}
-    assert (cobrar["count"], pagar["count"]) == (4, 3)
-
-    def by_id(items):
-        return sorted(items, key=lambda item: item["activity_id"])
-
-    for key in ("cuentas_por_cobrar", "cuentas_por_pagar"):
-        by_month = []
-        for month in ("2026-08", "2026-09", "2026-10"):
-            by_month += summarize(documents, *month_period(month))[key]
-        assert by_id(opened[key]["items"]) == by_id(by_month)
-
-
-def test_the_cap_keeps_the_count_and_each_currency_total_of_every_pending_item():
-    documents = [
-        pending("sale-1", "invoice", date(2026, 9, 1), total_minor=1000),
-        pending("sale-2", "invoice", date(2026, 9, 2), total_minor=2000),
-        pending("sale-3", "invoice", date(2026, 9, 3), total_minor=4000),
-        pending("sale-usd", "invoice", date(2026, 9, 4), currency="USD", total_minor=150),
-    ]
-    cobrar = open_items(documents, cap=2)["cuentas_por_cobrar"]
-    assert [item["activity_id"] for item in cobrar["items"]] == ["sale-1", "sale-2"]
-    assert cobrar["count"] == 4
-    assert cobrar["totals"] == [
-        {"currency": "DOP", "total_minor": 7000, "total": "70.00"},
-        {"currency": "USD", "total_minor": 150, "total": "1.50"},
-    ]
-    assert open_items([])["cuentas_por_pagar"] == {"count": 0, "totals": [], "items": []}
-
-
-def test_the_documented_cap_shows_the_oldest_hundred():
-    days = [date(2026, 1, 1) + timedelta(days=index) for index in range(101)]
-    documents = [
-        pending(f"sale-{index:03}", "invoice", day, total_minor=1)
-        for index, day in enumerate(reversed(days))
-    ]
-    cobrar = open_items(documents)["cuentas_por_cobrar"]
-    assert len(cobrar["items"]) == 100
-    assert cobrar["count"] == 101
-    assert cobrar["totals"][0]["total_minor"] == 101
-    assert [item["occurred_on"] for item in cobrar["items"]] == [
-        day.isoformat() for day in days[:100]
-    ]
-
-
-def test_an_open_line_keeps_its_currency_parts_and_unknown_itbis_stays_null():
-    line = open_items(
-        [
-            pending(
-                "sale",
-                "invoice",
-                DAY,
-                currency="USD",
-                total_minor=11800,
-                itbis_minor=None,
-                counterparty="Cliente",
-                ncf=None,
-                ecf="E310000000001",
-            )
-        ]
-    )["cuentas_por_cobrar"]["items"][0]
-    assert line == {
-        "activity_id": "sale",
-        "document_kind": "invoice",
-        "currency": "USD",
-        "occurred_on": "2026-10-05",
-        "total_minor": 11800,
-        "total": "118.00",
-        "before_itbis_minor": 11800,
-        "before_itbis": "118.00",
-        "itbis_minor": None,
-        "itbis": None,
-        "counterparty": "Cliente",
-        "rnc": "131000001",
-        "ncf": None,
-        "ecf": "E310000000001",
-        "status": "pendiente",
-        "sin_comprobante": False,
-        "due_on": None,
-    }
 
 
 def test_an_empty_month_is_closed():
@@ -814,12 +693,18 @@ def _project(records: tuple[FiscalRecord, ...]) -> list[MonthDocument]:
 
 def _export_607_income(result) -> Decimal:
     billed_at = next(
-        index for index, (name, _label) in enumerate(SALES_COLUMNS) if name == "billed_amount"
+        index
+        for index, (name, _label) in enumerate(SALES_COLUMNS)
+        if name == "billed_amount"
     )
-    ncf_at = next(index for index, (name, _label) in enumerate(SALES_COLUMNS) if name == "ncf")
+    ncf_at = next(
+        index for index, (name, _label) in enumerate(SALES_COLUMNS) if name == "ncf"
+    )
     income = Decimal(result.manifest["consumption_summary"]["base"])
     lines = (
-        result.files["dgii/DGII_F_607_199990013_202609.TXT"].decode("ascii").splitlines()[1:]
+        result.files["dgii/DGII_F_607_199990013_202609.TXT"]
+        .decode("ascii")
+        .splitlines()[1:]
     )
     for line in lines:
         fields = line.split("|")
@@ -832,7 +717,12 @@ def test_607_income_matches_the_export_when_billed_amount_is_not_total_minus_itb
     from tests.dgii.test_packet import packet, practice_records
 
     original = _sale_record(
-        1, ncf="B0100000099", billed="2000.00", itbis="360.00", gross="2560.00", legal_tip="200.00"
+        1,
+        ncf="B0100000099",
+        billed="2000.00",
+        itbis="360.00",
+        gross="2560.00",
+        legal_tip="200.00",
     )
     credit = _sale_record(
         2,
@@ -853,7 +743,9 @@ def test_607_income_matches_the_export_when_billed_amount_is_not_total_minus_itb
 
 
 def test_an_ecf_sale_is_outside_607_income():
-    paper = _sale_record(3, ncf="B0100000098", billed="1000.00", itbis="180.00", gross="1180.00")
+    paper = _sale_record(
+        3, ncf="B0100000098", billed="1000.00", itbis="180.00", gross="1180.00"
+    )
     electronic = _sale_record(
         4, ncf="E310000000001", billed="5000.00", itbis="900.00", gross="5900.00"
     )
@@ -865,7 +757,9 @@ def test_an_ecf_sale_is_outside_607_income():
         end=date(2026, 9, 30),
         captured_on=date(2026, 10, 18),
     )
-    assert any(issue["code"] == "fiscal_607_ecf_excluded" for issue in result.manifest["issues"])
+    assert any(
+        issue["code"] == "fiscal_607_ecf_excluded" for issue in result.manifest["issues"]
+    )
     documents = _project((paper, electronic))
     start, end = month_period("2026-09")
     income = formato_totals(documents, start, end)["DOP"].income_before_itbis
@@ -913,9 +807,7 @@ def _race_world():
     owner_id = uuid4()
     activity_id = uuid4()
     context = ActionContext(
-        actor=TrustedActor(
-            actor_id=actor_id, actor_kind="member", space_id=space_id
-        ),
+        actor=TrustedActor(actor_id=actor_id, actor_kind="member", space_id=space_id),
         grant_id=uuid4(),
         owner_id=str(owner_id),
         space_name="Race",

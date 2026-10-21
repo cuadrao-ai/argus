@@ -29,27 +29,27 @@ struct CuadraoForecastPlayground: View {
             VStack(alignment: .leading, spacing: 28) {
                 if isolatedExample {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(spanish ? "Escenario de ejemplo" : "Example scenario").font(.subheadline.weight(.medium))
-                        Text(spanish ? "Datos ficticios, separados de tus cuentas. Los cambios se quedan en este ejemplo." : "Fictional data, separate from your accounts. Changes stay in this example.")
+                        Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.1b8f6f8538", spanish: spanish)).font(.subheadline.weight(.medium))
+                        Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.d8afb57180", spanish: spanish))
                             .font(.caption).foregroundStyle(.secondary)
                     }.accessibilityIdentifier("forecast-example-notice")
                 }
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("\(spanish ? "Octubre" : "October") · \(scopeName)").font(.subheadline).foregroundStyle(.secondary)
-                    Text(spanish ? "Tu mes tiene posibilidades." : "Your month has possibilities.")
+                    Text("\(CuadraoCopy.text("copy.cuadraoForecastPlayground.1489ef5402", spanish: spanish)) · \(scopeName)").font(.subheadline).foregroundStyle(.secondary)
+                    Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.4f6e2dfaa9", spanish: spanish))
                         .font(CuadraoTypography.feature)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(point.map { "\($0.day) \(spanish ? "de octubre" : "October")\($0.day > CanvasForecast.today ? (spanish ? " · estimado" : " · estimated") : "")" }
-                         ?? (spanish ? "Al cierre del mes" : "At month end"))
+                    Text(point.map { "\($0.day) \(CuadraoCopy.text("copy.cuadraoForecastPlayground.651df10909", spanish: spanish))\($0.day > CanvasForecast.today ? (CuadraoCopy.text("copy.cuadraoForecastPlayground.201fd9701c", spanish: spanish)) : "")" }
+                         ?? (CuadraoCopy.text("copy.cuadraoForecastPlayground.00f88d36ae", spanish: spanish)))
                         .font(.caption).foregroundStyle(.secondary)
                     Text(PlanFormat.amount(point?.balance ?? forecast.ending(daily: draft)))
                         .font(CuadraoTypography.amount)
                         .lineLimit(1).minimumScaleFactor(0.6).accessibilityIdentifier("forecast-ending")
                     PlanForecastChart(forecast: forecast, daily: draft, spanish: spanish, comparison: baseline, selectedDay: $selectedDay, detailed: true)
                     HStack(spacing: 16) {
-                        Label(spanish ? "Registrado" : "Recorded", systemImage: "minus")
-                        Label(spanish ? "Estimado" : "Estimated", systemImage: "ellipsis")
+                        Label(CuadraoCopy.text("copy.cuadraoForecastPlayground.f370568882", spanish: spanish), systemImage: "minus")
+                        Label(CuadraoCopy.text("copy.cuadraoForecastPlayground.eb1bf8d2fe", spanish: spanish), systemImage: "ellipsis")
                         Spacer()
                     }.font(.caption2).foregroundStyle(.secondary)
                     if let event = forecast.events.first(where: { $0.day == selectedDay }) {
@@ -58,7 +58,7 @@ struct CuadraoForecastPlayground: View {
                 }
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Text(spanish ? "Gasto diario" : "Daily spending").font(.subheadline)
+                        Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.7cd7472e1f", spanish: spanish)).font(.subheadline)
                         Spacer()
                         Button { exact = true } label: {
                             HStack(spacing: 6) { Text(PlanFormat.amount(draft)).font(CuadraoTypography.rowAmount); Image(systemName: "pencil").font(.caption) }
@@ -66,13 +66,13 @@ struct CuadraoForecastPlayground: View {
                     }
                     Slider(value: $draft, in: 0...3000, step: 50) { editing in
                         if editing { selectedDay = nil; saved = false }
-                    }.tint(WelcomePalette.pine).accessibilityLabel(spanish ? "Gasto diario previsto" : "Expected daily spending")
+                    }.tint(WelcomePalette.pine).accessibilityLabel(CuadraoCopy.text("copy.cuadraoForecastPlayground.5d3db19ffe", spanish: spanish))
                         .accessibilityValue(PlanFormat.amount(draft)).accessibilityIdentifier("forecast-slider")
-                    Text(spanish ? "Mueve para probar. Toca el monto para ser más preciso." : "Slide to explore. Tap the amount to be more precise.")
+                    Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.e077e39624", spanish: spanish))
                         .font(.caption).foregroundStyle(.secondary)
                     if changed {
                         let difference = forecast.ending(daily: draft) - forecast.ending(daily: baseline)
-                        Text(spanish ? "\(PlanFormat.amount(abs(difference))) \(difference >= 0 ? "más" : "menos") al final del mes." : "\(PlanFormat.amount(abs(difference))) \(difference >= 0 ? "more" : "less") at month end.")
+                        Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.25f9d2e580", spanish: spanish, String(describing: PlanFormat.amount(abs(difference))), String(describing: ((difference >= 0 ? CuadraoCopy.text("copy.cuadraoForecastPlayground.14178c1062", spanish: spanish) : CuadraoCopy.text("copy.cuadraoForecastPlayground.d08611ffa1", spanish: spanish))))))
                             .font(.subheadline.weight(.medium)).foregroundStyle(WelcomePalette.pine)
                     }
                 }.padding(22).background(WelcomePalette.sage.opacity(0.6), in: RoundedRectangle(cornerRadius: 26))
@@ -80,8 +80,8 @@ struct CuadraoForecastPlayground: View {
                     Image(systemName: lowest.balance < 0 ? "exclamationmark.circle" : "calendar")
                         .foregroundStyle(lowest.balance < 0 ? Color.orange : WelcomePalette.pine)
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(spanish ? "El día más ajustado: \(lowest.day) oct." : "Tightest day: Oct \(lowest.day)").font(.subheadline.weight(.medium))
-                        Text(spanish ? "El balance estimado baja a \(PlanFormat.amount(lowest.balance))." : "The estimated balance dips to \(PlanFormat.amount(lowest.balance)).")
+                        Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.b2b85634f8", spanish: spanish, String(describing: lowest.day))).font(.subheadline.weight(.medium))
+                        Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.632938220c", spanish: spanish, String(describing: PlanFormat.amount(lowest.balance))))
                             .font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
@@ -89,23 +89,23 @@ struct CuadraoForecastPlayground: View {
                 VStack(spacing: 8) {
                     if changed {
                         PlanPrimaryButton(title: isolatedExample
-                            ? (spanish ? "Aplicar al ejemplo" : "Apply to example")
-                            : (spanish ? "Guardar este ritmo" : "Save this pace")) {
+                            ? (CuadraoCopy.text("copy.cuadraoForecastPlayground.9834537ff8", spanish: spanish))
+                            : (CuadraoCopy.text("copy.cuadraoForecastPlayground.547d4a05af", spanish: spanish))) {
                             store.applyDaily(draft, scope: scope); saved = true
                         }.accessibilityIdentifier("forecast-apply")
                         Button(isolatedExample
-                            ? (spanish ? "Restablecer ejemplo" : "Reset example")
-                            : (spanish ? "Volver a mi plan" : "Reset to my plan")) { draft = baseline; selectedDay = nil }
+                            ? (CuadraoCopy.text("copy.cuadraoForecastPlayground.39ffbb4a04", spanish: spanish))
+                            : (CuadraoCopy.text("copy.cuadraoForecastPlayground.2b7777515c", spanish: spanish))) { draft = baseline; selectedDay = nil }
                             .frame(minHeight: 44).accessibilityIdentifier("forecast-reset")
                     } else if saved {
                         Label(isolatedExample
-                            ? (spanish ? "Ejemplo actualizado" : "Example updated")
-                            : (spanish ? "Ritmo guardado" : "Pace saved"), systemImage: "checkmark.circle")
+                            ? (CuadraoCopy.text("copy.cuadraoForecastPlayground.101ee9e1ce", spanish: spanish))
+                            : (CuadraoCopy.text("copy.cuadraoForecastPlayground.9a8b6ad035", spanish: spanish)), systemImage: "checkmark.circle")
                             .foregroundStyle(WelcomePalette.pine).font(.subheadline).frame(minHeight: 44)
                     }
                     Text(isolatedExample
-                        ? (spanish ? "No cambia tus cuentas ni tus planes." : "Your accounts and plans stay unchanged.")
-                        : (spanish ? "Solo cambia tu previsión. No mueve dinero." : "Only changes your forecast. No money moves."))
+                        ? (CuadraoCopy.text("copy.cuadraoForecastPlayground.2e92b0e65b", spanish: spanish))
+                        : (CuadraoCopy.text("copy.cuadraoForecastPlayground.6731f7fa58", spanish: spanish)))
                         .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }
                 PlanPreviewFootnote(spanish: spanish)
@@ -113,30 +113,30 @@ struct CuadraoForecastPlayground: View {
         }
         .background(WelcomePalette.background).cuadraoSoftScrollEdges()
         .sensoryFeedback(.success, trigger: saved) { _, new in new }
-        .navigationTitle(spanish ? "Explorar el mes" : "Explore the month").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(CuadraoCopy.text("copy.cuadraoForecastPlayground.07455db089", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .sheet(isPresented: $exact) {
-            PlanExactAmount(amount: $draft, maximum: 3000, title: spanish ? "Gasto diario" : "Daily spending", currency: "DOP", spanish: spanish)
+            PlanExactAmount(amount: $draft, maximum: 3000, title: CuadraoCopy.text("copy.cuadraoForecastPlayground.7cd7472e1f", spanish: spanish), currency: "DOP", spanish: spanish)
         }
     }
     private var assumptions: some View {
         DisclosureGroup {
             VStack(alignment: .leading, spacing: 16) {
-                Text(spanish ? "Escenario de ejemplo al 12 de octubre de 2026. El ritmo diario es un supuesto editable, no un límite." : "Example scenario as of October 12, 2026. Daily pace is an editable assumption, not a limit.")
+                Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.12c0a17fe5", spanish: spanish))
                     .font(.subheadline).foregroundStyle(.secondary)
                 ForEach(forecast.events) { event in
                     HStack {
                         VStack(alignment: .leading) {
                             Text(event.title(spanish)).font(.subheadline)
-                            Text("\(event.day) oct.").font(.caption).foregroundStyle(.secondary)
+                            Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.d527fc60bc", spanish: spanish, String(describing: event.day))).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer(); Text(PlanFormat.amount(event.amount)).font(CuadraoTypography.rowAmount)
                     }
                 }
-                Text(spanish ? "Incluye estos pagos e ingresos previstos y el gasto diario del 13 al 31. No suma metas, ahorros ni cuentas privadas de otras personas." : "Includes these expected payments and income plus daily spending from the 13th to the 31st. Excludes goals, savings, and other people's private accounts.")
+                Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.0233490002", spanish: spanish))
                     .font(.caption).foregroundStyle(.secondary)
             }.padding(.top, 14)
-        } label: { Text(spanish ? "¿De dónde sale?" : "What's behind this?").font(.subheadline.weight(.medium)) }
+        } label: { Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.d71bd096f1", spanish: spanish)).font(.subheadline.weight(.medium)) }
     }
 }
 
@@ -156,13 +156,13 @@ struct PlanExactAmount: View {
                 PlanAmountInput(value: $input, currency: .constant(currency), error: $error,
                                 title: title, identifier: "plan-exact-input", spanish: spanish)
                 if !input.isFinite || input < minimum || input > maximum {
-                    Text(spanish ? "Usa un monto entre \(minimum.formatted()) y \(PlanFormat.amount(maximum, currency: currency))." : "Use an amount between \(minimum.formatted()) and \(PlanFormat.amount(maximum, currency: currency)).")
+                    Text(CuadraoCopy.text("copy.cuadraoForecastPlayground.ee61be4e1f", spanish: spanish, String(describing: minimum.formatted()), String(describing: PlanFormat.amount(maximum, currency: currency))))
                         .font(.caption).foregroundStyle(.red)
                 }
             }.navigationTitle(title).navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
-                    CuadraoConfirmToolbar(title: spanish ? "Listo" : "Done",
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)) { dismiss() }
+                    CuadraoConfirmToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish),
                                           disabled: !error.isEmpty || !input.isFinite || input < minimum || input > maximum,
                                           identifier: "plan-exact-done") { amount = input; dismiss() }
                 }

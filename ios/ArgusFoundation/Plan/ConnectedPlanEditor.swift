@@ -42,7 +42,7 @@ struct ConnectedPlanEditor: View {
             .task { if loop.plan.projection == nil { await loop.plan.refresh() } }
     }
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var accounts: [FinancialAccount] { loop.plan.projection?.accounts ?? [] }
     private var editing: Bool {
         switch seed {

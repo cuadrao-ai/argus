@@ -33,9 +33,9 @@ struct GuestAccountsSection: View {
                     .accessibilityElement(children: .contain).accessibilityIdentifier("guest.home.empty")
             } else {
                 HStack(spacing: 0) {
-                    Text(spanish ? "Cuentas" : "Accounts").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
+                    Text(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish)).font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
                     Spacer()
-                    CuadraoSectionAddButton(title: spanish ? "Añadir cuenta" : "Add account", action: add)
+                    CuadraoSectionAddButton(title: CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f", spanish: spanish), action: add)
                         .accessibilityIdentifier("accounts.add")
                 }
                 CuadraoOrderedCollection(items: active, spanish: spanish, spacing: 0,
@@ -49,7 +49,7 @@ struct GuestAccountsSection: View {
             if archivedCount > 0 {
                 Button(action: showArchived) {
                     HStack {
-                        Text(spanish ? "Cuentas archivadas" : "Archived accounts")
+                        Text(CuadraoCopy.text("copy.connectedCuadraoHome.4ab8767f26", spanish: spanish))
                         Text("\(archivedCount)").foregroundStyle(.secondary)
                         Spacer()
                         Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.secondary).accessibilityHidden(true)
@@ -80,20 +80,20 @@ struct GuestAccountDetail: View {
                 VStack(alignment: .leading, spacing: 24) {
                     CanvasAccountDetailHeader(value: GuestAccountPresentation.detail(account, in: model.book, spanish: spanish, locale: locale))
                     if !account.archived {
-                        RegistrationButton(title: spanish ? "Añadir movimiento" : "Add transaction", action: add)
+                        RegistrationButton(title: CuadraoCopy.text("copy.canvasAccountPresentation.ef0cf39904", spanish: spanish), action: add)
                             .accessibilityIdentifier("guest.account.record")
                     }
                     history(account)
                     VStack(spacing: 0) {
-                        CanvasActionRow(title: spanish ? "Editar cuenta" : "Edit account", symbol: "pencil", action: edit)
+                        CanvasActionRow(title: CuadraoCopy.text("copy.cuadraoFirstAccountSheet.4df1187ce2", spanish: spanish), symbol: "pencil", action: edit)
                             .accessibilityIdentifier("guest.account.edit")
                         Divider()
                         if account.archived {
-                            CanvasActionRow(title: spanish ? "Restaurar cuenta" : "Restore account",
+                            CanvasActionRow(title: CuadraoCopy.text("copy.guestAccounts.8a6d09afdd", spanish: spanish),
                                             symbol: "arrow.uturn.backward", action: restore)
                                 .foregroundStyle(WelcomePalette.pine).accessibilityIdentifier("guest.account.restore")
                         } else {
-                            CanvasActionRow(title: spanish ? "Archivar cuenta" : "Archive account", symbol: "archivebox", action: archive)
+                            CanvasActionRow(title: CuadraoCopy.text("copy.guestAccounts.13baae182c", spanish: spanish), symbol: "archivebox", action: archive)
                                 .accessibilityIdentifier("guest.account.archive")
                         }
                     }
@@ -112,12 +112,12 @@ extension GuestAccountDetail {
     @ViewBuilder fileprivate func history(_ account: BookAccount) -> some View {
         let movements = model.book.liveMovements(of: account.id)
         if movements.isEmpty {
-            CuadraoEmptyView(title: spanish ? "Aún no hay movimientos" : "No activity yet",
-                             detail: account.archived ? nil : (spanish ? "Añade el primero con el botón de arriba." : "Add the first with the button above."),
+            CuadraoEmptyView(title: CuadraoCopy.text("copy.accountActivityView.8e6c47416d", spanish: spanish),
+                             detail: account.archived ? nil : (CuadraoCopy.text("copy.guestAccounts.c1c6f87f41", spanish: spanish)),
                              identifier: "guest.account.empty")
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Text(spanish ? "Movimientos" : "Activity").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
+                Text(CuadraoCopy.text("copy.accountActivityView.f7d6ac01ad", spanish: spanish)).font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
                 VStack(spacing: 0) {
                     ForEach(movements) { movement in
                         GuestMovementRow(movement: movement, book: model.book, perspective: account.id, spanish: spanish,
@@ -139,15 +139,15 @@ struct GuestArchivedAccounts: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text(spanish ? "Sus balances e historial se conservan." : "Balances and history are kept.")
+                    Text(CuadraoCopy.text("copy.connectedCuadraoHome.d433d35ac8", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary)
                     if model.book.archivedAccounts.isEmpty {
-                        ContentUnavailableView(spanish ? "No hay cuentas archivadas" : "No archived accounts", systemImage: "archivebox")
+                        ContentUnavailableView(CuadraoCopy.text("copy.connectedCuadraoHome.63cbd4a9dc", spanish: spanish), systemImage: "archivebox")
                     }
                     ForEach(model.book.archivedAccounts) { account in
                         VStack(alignment: .leading, spacing: 0) {
                             GuestAccountRow(account: account, book: model.book, spanish: spanish)
-                            CanvasActionRow(title: spanish ? "Restaurar" : "Restore", symbol: "arrow.uturn.backward") {
+                            CanvasActionRow(title: CuadraoCopy.text("copy.connectedCuadraoHome.e203d01b16", spanish: spanish), symbol: "arrow.uturn.backward") {
                                 _ = try? model.apply { try $0.settingArchived(account.id, false) }
                             }.foregroundStyle(WelcomePalette.pine).accessibilityIdentifier("guest.account.restore." + account.id.uuidString)
                             Divider()
@@ -156,9 +156,9 @@ struct GuestArchivedAccounts: View {
                 }.padding(24)
             }
             .background(WelcomePalette.background)
-            .navigationTitle(spanish ? "Cuentas archivadas" : "Archived accounts")
+            .navigationTitle(CuadraoCopy.text("copy.connectedCuadraoHome.4ab8767f26", spanish: spanish))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { CuadraoDoneToolbar(title: spanish ? "Listo" : "Done") { dismiss() } }
+            .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) { dismiss() } }
         }.tint(WelcomePalette.pine).accessibilityIdentifier("guest.archived")
     }
 }

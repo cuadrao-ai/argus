@@ -11,13 +11,13 @@ struct GuestPlanTab: View {
     let offerUndo: (GuestUndoOffer) -> Void
     @Environment(\.locale) private var locale
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
     private var hasAccounts: Bool { !model.book.activeAccounts.isEmpty }
 
     var body: some View {
         NavigationStack(path: $path) {
             CuadraoPlanPage(spanish: spanish) {
-                CuadraoPlanHeader(spanish: spanish, createTitle: spanish ? "Crear plan" : "Create plan", canCreate: hasAccounts,
+                CuadraoPlanHeader(spanish: spanish, createTitle: CuadraoCopy.text("copy.cuadraoPlanCanvas.2131013203", spanish: spanish), canCreate: hasAccounts,
                                   createIdentifier: "plan-create") { sheet = .plan(.create) }
             } content: {
                 content
@@ -36,7 +36,7 @@ struct GuestPlanTab: View {
 
     @ViewBuilder private var content: some View {
         if !hasAccounts {
-            Text(spanish ? "Añade una cuenta con el botón + para crear tu primer plan." : "Add an account with the + button to make your first plan.")
+            Text(CuadraoCopy.text("copy.guestPlans.4677ecbf35", spanish: spanish))
                 .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.plan.needsAccount")
         }
         CuadraoPlanCollection(spanish: spanish, isEmpty: model.book.activePlans.isEmpty, canCreate: hasAccounts,
@@ -57,7 +57,7 @@ struct GuestPlanTab: View {
     private func archive(_ id: UUID) {
         guard (try? model.apply { try $0.settingPlanArchived(id, true) }) != nil else { return }
         path = []
-        offerUndo(GuestUndoOffer(text: spanish ? "Plan archivado" : "Plan archived", identifier: "guest.undo",
+        offerUndo(GuestUndoOffer(text: CuadraoCopy.text("copy.guestPlans.674b256524", spanish: spanish), identifier: "guest.undo",
                                  restore: { _ = try? model.apply { try $0.settingPlanArchived(id, false) } }))
     }
 }
@@ -102,15 +102,15 @@ struct GuestPlanDetail: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     CuadraoPlanDetailOptions(spanish: spanish) {
-                        Button(action: edit) { Label(spanish ? "Editar plan" : "Edit plan", systemImage: "pencil") }
+                        Button(action: edit) { Label(CuadraoCopy.text("copy.cuadraoPlanDetail.507c662ea3", spanish: spanish), systemImage: "pencil") }
                             .accessibilityIdentifier("guest.plan.edit")
-                        Button(action: archive) { Label(spanish ? "Archivar" : "Archive", systemImage: "archivebox") }
+                        Button(action: archive) { Label(CuadraoCopy.text("copy.connectedCuadraoHome.0960027352", spanish: spanish), systemImage: "archivebox") }
                             .accessibilityIdentifier("guest.plan.archive")
                     }
                 }
             }
         } else {
-            ContentUnavailableView(spanish ? "Este plan ya no está aquí" : "This plan is no longer here", systemImage: "square.stack")
+            ContentUnavailableView(CuadraoCopy.text("copy.cuadraoPlanDetail.037615818c", spanish: spanish), systemImage: "square.stack")
         }
     }
 
@@ -121,12 +121,12 @@ struct GuestPlanDetail: View {
     private func heading(_ plan: BookPlan, book: DeviceBook) -> some View {
         let saved = book.goalProgress(plan.id)?.savedMinor ?? book.budgetStatus(plan.id, now: .now)?.spentMinor ?? 0
         return CuadraoPlanDetailHeading(display: CuadraoPlanDetailDisplay(
-            name: plan.name, space: spanish ? "Este iPhone" : "This iPhone", look: GuestPlanPresentation.look(plan.look),
+            name: plan.name, space: CuadraoCopy.text("copy.guestAccountSheet.736ea2040f", spanish: spanish), look: GuestPlanPresentation.look(plan.look),
             amount: money(saved, plan),
-            annotation: plan.kind == .goal ? (spanish ? "reunido" : "saved") : (spanish ? "gastado este mes" : "spent this month"),
+            annotation: plan.kind == .goal ? (CuadraoCopy.text("copy.guestPlans.6f6cc5d5e6", spanish: spanish)) : (CuadraoCopy.text("copy.guestPlans.fc50bb6573", spanish: spanish)),
             amountIdentifier: "guest.plan.amount")) {
             if book.goalProgress(plan.id)?.reached == true {
-                Label(spanish ? "Lo hiciste. Un plan menos, más posibilidades." : "You did it. One plan down, more possibilities ahead.",
+                Label(CuadraoCopy.text("copy.cuadraoPlanDetail.59d3e81cdd", spanish: spanish),
                       systemImage: "checkmark.seal").font(.subheadline).foregroundStyle(GuestPlanPresentation.look(plan.look).color)
             }
         }
@@ -140,28 +140,28 @@ struct GuestPlanDetail: View {
                 HStack {
                     Text(GuestPlanPresentation.percent(progress.fraction)).accessibilityIdentifier("guest.plan.percent")
                     Spacer()
-                    Text((spanish ? "Falta " : "Left ") + money(progress.remainingMinor, plan)).accessibilityIdentifier("guest.plan.remaining")
+                    Text((CuadraoCopy.text("copy.guestPlans.fdd65d7580", spanish: spanish)) + money(progress.remainingMinor, plan)).accessibilityIdentifier("guest.plan.remaining")
                 }.font(.subheadline).foregroundStyle(.secondary)
             }
-            RegistrationButton(title: spanish ? "Añadir aporte" : "Add contribution", action: contribute)
+            RegistrationButton(title: CuadraoCopy.text("copy.guestPlanSheet.f243e37ce7", spanish: spanish), action: contribute)
                 .accessibilityIdentifier("guest.plan.contribute")
             if !plan.archived { GuestWhatIf(model: model, plan: plan, spanish: spanish) }
             let live = plan.contributions.filter { !$0.deleted }.sorted { $0.occurredAt > $1.occurredAt }
             VStack(alignment: .leading, spacing: 12) {
-                Text(spanish ? "Aportes" : "Contributions").font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
+                Text(CuadraoCopy.text("copy.cuadraoGroupDetail.4400cb3469", spanish: spanish)).font(CuadraoTypography.section).accessibilityAddTraits(.isHeader)
                 if live.isEmpty {
-                    Text(spanish ? "Aún no hay aportes. Lo que apartes a mano aparece aquí." : "No contributions yet. What you set aside by hand shows up here.")
+                    Text(CuadraoCopy.text("copy.guestPlans.536371fb9e", spanish: spanish))
                         .font(.subheadline).foregroundStyle(.secondary).accessibilityIdentifier("guest.plan.noContributions")
                 } else {
                     VStack(spacing: 0) {
                         ForEach(live) { item in
                             ConnectedSwipeRow(leading: [], trailing: [ConnectedSwipeAction(id: "guest.contribution.swipe.delete",
-                                title: spanish ? "Eliminar" : "Delete", symbol: "trash", tint: .red) {
+                                title: CuadraoCopy.text("copy.savedReceiptCopy.534547cf82", spanish: spanish), symbol: "trash", tint: .red) {
                                     guard (try? model.apply { try $0.settingContributionDeleted(item.id, in: plan.id, true) }) != nil else { return }
-                                    offerUndo(GuestUndoOffer(text: spanish ? "Aporte eliminado" : "Contribution deleted", identifier: "guest.undo",
+                                    offerUndo(GuestUndoOffer(text: CuadraoCopy.text("copy.guestPlans.b6a17abc5d", spanish: spanish), identifier: "guest.undo",
                                         restore: { _ = try? model.apply { try $0.settingContributionDeleted(item.id, in: plan.id, false) } }))
                                 }]) {
-                                CuadraoFeedRow(title: item.note ?? (spanish ? "Aporte" : "Contribution"), detail: date(item),
+                                CuadraoFeedRow(title: item.note ?? (CuadraoCopy.text("copy.guestPlans.5a1aad5aaa", spanish: spanish)), detail: date(item),
                                                amount: "+" + money(item.amountMinor, plan), icon: "arrow.down.left")
                                     .accessibilityElement(children: .combine)
                                     .accessibilityIdentifier("guest.contribution.row." + item.id.uuidString)
@@ -171,8 +171,8 @@ struct GuestPlanDetail: View {
                 }
             }
             facts(plan) {
-                line(spanish ? "Quiero reunir" : "I want to save", money(plan.targetMinor, plan))
-                line(spanish ? "Aporte mensual previsto" : "Planned monthly contribution", money(plan.monthlyMinor ?? 0, plan))
+                line(CuadraoCopy.text("copy.guestPlans.e778771fc8", spanish: spanish), money(plan.targetMinor, plan))
+                line(CuadraoCopy.text("copy.guestPlanSheet.ba8a20d76b", spanish: spanish), money(plan.monthlyMinor ?? 0, plan))
             }
         }
     }
@@ -185,20 +185,20 @@ struct GuestPlanDetail: View {
                 HStack {
                     Text(GuestPlanPresentation.percent(status.fraction)).accessibilityIdentifier("guest.plan.percent")
                     Spacer()
-                    Text(status.isOver ? (spanish ? "Te pasaste por " : "Over by ") + money(-status.remainingMinor, plan)
-                         : (spanish ? "Quedan " : "Left ") + money(status.remainingMinor, plan))
+                    Text(status.isOver ? (CuadraoCopy.text("copy.guestPlans.7354d3f567", spanish: spanish)) + money(-status.remainingMinor, plan)
+                         : (CuadraoCopy.text("copy.guestPlans.f4b2d561f4", spanish: spanish)) + money(status.remainingMinor, plan))
                         .accessibilityIdentifier("guest.plan.remaining")
                 }.font(.subheadline).foregroundStyle(status.isOver ? WelcomePalette.owedNegative : .secondary)
             }
             if !plan.archived { GuestWhatIf(model: model, plan: plan, spanish: spanish) }
-            Text((spanish ? "Mes de " : "Month of ") + status.month.start.formatted(.dateTime.month(.wide).year().locale(locale))
-                 + (spanish ? ", día \(status.elapsedDays) de \(status.totalDays)." : ", day \(status.elapsedDays) of \(status.totalDays)."))
+            Text((CuadraoCopy.text("copy.guestPlans.8307faabc7", spanish: spanish)) + status.month.start.formatted(.dateTime.month(.wide).year().locale(locale))
+                 + (CuadraoCopy.text("copy.guestPlans.9d05466f46", spanish: spanish, String(describing: status.elapsedDays), String(describing: status.totalDays))))
                 .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("guest.plan.month")
             facts(plan) {
-                line(spanish ? "Quiero gastar hasta" : "I want to spend up to", money(plan.targetMinor, plan))
-                line(spanish ? "Cuentas" : "Accounts", plan.accountScope.isEmpty ? (spanish ? "Todas en \(plan.currency)" : "All in \(plan.currency)")
+                line(CuadraoCopy.text("copy.guestPlans.d1b440c179", spanish: spanish), money(plan.targetMinor, plan))
+                line(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish), plan.accountScope.isEmpty ? (CuadraoCopy.text("copy.guestPlanSheet.5e336ce4f5", spanish: spanish, String(describing: plan.currency)))
                      : plan.accountScope.map { GuestMovementPresentation.accountTitle($0, in: book, spanish: spanish) }.joined(separator: ", "))
-                line(spanish ? "Categorías" : "Categories", plan.categoryScope.isEmpty ? (spanish ? "Todas" : "All")
+                line(CuadraoCopy.text("copy.cuadraoSpendingHighlights.c530befaf7", spanish: spanish), plan.categoryScope.isEmpty ? (CuadraoCopy.text("copy.cuadraoSearchCanvas.22417a3c9d", spanish: spanish))
                      : plan.categoryScope.map { GuestMovementPresentation.categoryTitle($0, spanish: spanish) }.joined(separator: ", "))
             }
         }
@@ -207,7 +207,7 @@ struct GuestPlanDetail: View {
     private func facts<Content: View>(_ plan: BookPlan, @ViewBuilder content: @escaping () -> Content) -> some View {
         CuadraoPlanDetailFacts(spanish: spanish) {
             content()
-            Text(spanish ? "El plan no mueve dinero. Cuenta solo lo que registras en este iPhone." : "The plan doesn't move money. It counts only what you record on this iPhone.")
+            Text(CuadraoCopy.text("copy.guestPlans.f6219a6065", spanish: spanish))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -233,8 +233,8 @@ struct GuestArchivedPlans: View {
     var body: some View {
         List {
             if model.book.archivedPlans.isEmpty {
-                ContentUnavailableView(spanish ? "Nada archivado" : "Nothing archived", systemImage: "archivebox",
-                    description: Text(spanish ? "Tus planes pueden descansar aquí. Siempre podrás retomarlos." : "Plans can rest here. You can always pick them back up."))
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoGroupCollection.e07523e83a", spanish: spanish), systemImage: "archivebox",
+                    description: Text(CuadraoCopy.text("copy.cuadraoPlanCanvas.ebcdf81c28", spanish: spanish)))
                     .listRowSeparator(.hidden)
             }
             ForEach(model.book.archivedPlans) { plan in
@@ -244,11 +244,11 @@ struct GuestArchivedPlans: View {
                         Text(GuestPlanPresentation.kindTitle(plan.kind, spanish: spanish)).font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(spanish ? "Retomar" : "Restore") { _ = try? model.apply { try $0.settingPlanArchived(plan.id, false) } }
+                    Button(CuadraoCopy.text("copy.cuadraoGroupCollection.1ae3bf9797", spanish: spanish)) { _ = try? model.apply { try $0.settingPlanArchived(plan.id, false) } }
                         .buttonStyle(.bordered).frame(minHeight: 44).accessibilityIdentifier("guest.plan.restore." + plan.id.uuidString)
                 }
             }
-        }.navigationTitle(spanish ? "Archivados" : "Archived").navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle(CuadraoCopy.text("copy.cuadraoSpacesSheet.e95aacbabf", spanish: spanish)).navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar).safeAreaPadding(.bottom, 90)
             .accessibilityIdentifier("guest.plan.archived")
     }

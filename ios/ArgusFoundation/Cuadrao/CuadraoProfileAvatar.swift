@@ -29,37 +29,36 @@ struct CuadraoProfileAvatarPicker: View {
     var body: some View {
         Section {
             PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                Label(spanish ? (hasPhoto ? "Cambiar foto" : "Elegir foto") : (hasPhoto ? "Change photo" : "Choose photo"),
+                Label((hasPhoto ? CuadraoCopy.text("copy.cuadraoProfileAvatar.e4a85fab36", spanish: spanish) : CuadraoCopy.text("copy.cuadraoProfileAvatar.3d62df090b", spanish: spanish)),
                       systemImage: "photo")
             }.accessibilityIdentifier("cuadrao.profile.photo.choose")
             if loading {
-                ProgressView(spanish ? "Preparando foto" : "Preparing photo")
+                ProgressView(CuadraoCopy.text("copy.cuadraoProfileAvatar.7415241987", spanish: spanish))
                     .accessibilityIdentifier("cuadrao.profile.photo.loading")
             }
             if case .photo(let photo) = avatar {
-                Button(spanish ? "Ajustar foto" : "Reposition photo") {
+                Button(CuadraoCopy.text("copy.cuadraoProfileAvatar.7e0ac1d51c", spanish: spanish)) {
                     cropRequest = CanvasAvatarCropRequest(source: photo.source, crop: photo.crop)
                 }.accessibilityIdentifier("cuadrao.profile.photo.edit")
-                Button(spanish ? "Quitar foto" : "Remove photo", role: .destructive) { select(.none) }
+                Button(CuadraoCopy.text("copy.cuadraoProfileAvatar.363f525e28", spanish: spanish), role: .destructive) { select(.none) }
                     .accessibilityIdentifier("cuadrao.profile.photo.remove")
             }
             if loadFailed {
-                Text(spanish ? "No pudimos abrir esa foto. Intenta con otra." : "We couldn't open that photo. Try another.")
+                Text(CuadraoCopy.text("copy.cuadraoProfileAvatar.ade68ffcc0", spanish: spanish))
                     .font(.footnote).foregroundStyle(.secondary)
                     .accessibilityIdentifier("cuadrao.profile.photo.error")
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 76))], spacing: 12) {
-                choice(.none, title: spanish ? "Perfil" : "Profile", id: "none")
-                choice(.initials, title: spanish ? "Iniciales" : "Initials", id: "initial")
+                choice(.none, title: CuadraoCopy.text("copy.cuadraoNavigationBar.a7a3471705", spanish: spanish), id: "none")
+                choice(.initials, title: CuadraoCopy.text("copy.cuadraoProfileAvatar.29387500ba", spanish: spanish), id: "initial")
                 ForEach(CuadraoAvatarTheme.allCases) { theme in
                     choice(.theme(theme), title: theme.title(spanish), id: theme.rawValue)
                 }
             }.padding(.vertical, 8)
         } header: {
-            Text(spanish ? "Tu foto o avatar" : "Your photo or avatar")
+            Text(CuadraoCopy.text("copy.cuadraoProfileAvatar.c95d5b6ebb", spanish: spanish))
         } footer: {
-            Text(spanish ? "Tu foto se queda en esta vista previa. No se sube a tu cuenta."
-                 : "Your photo stays in this preview. It isn't uploaded to your account.")
+            Text(CuadraoCopy.text("copy.cuadraoProfileAvatar.9f55e5ec93", spanish: spanish))
         }
             .listRowBackground(CanvasSettingsStyle.surface)
             .task(id: selectedPhoto) {

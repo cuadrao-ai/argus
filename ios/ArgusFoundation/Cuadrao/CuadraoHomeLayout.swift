@@ -13,18 +13,18 @@ enum CuadraoHomeSection: String, CaseIterable, Identifiable {
     }
     func title(_ es: Bool) -> String {
         switch self {
-        case .overview: es ? "Panorama" : "Overview"
-        case .upcoming: es ? "Próximamente" : "Coming up"
-        case .accounts: es ? "Cuentas" : "Accounts"
-        case .activity: es ? "Movimientos" : "Activity"
+        case .overview: CuadraoCopy.text("copy.cuadraoHomeLayout.4906bf4f96", spanish: es)
+        case .upcoming: CuadraoCopy.text("copy.cuadraoHomeLayout.101b77b57c", spanish: es)
+        case .accounts: CuadraoCopy.text("copy.cuadraoHomeLayout.8cce5d02a3", spanish: es)
+        case .activity: CuadraoCopy.text("copy.cuadraoHomeLayout.f7d6ac01ad", spanish: es)
         }
     }
     func detail(_ es: Bool) -> String {
         switch self {
-        case .overview: es ? "Tu resumen financiero" : "Your financial summary"
-        case .upcoming: es ? "Lo que viene" : "What’s ahead"
-        case .accounts: es ? "Dónde está tu dinero" : "Where your money is"
-        case .activity: es ? "Lo que ya pasó" : "What already happened"
+        case .overview: CuadraoCopy.text("copy.cuadraoHomeLayout.54267846a0", spanish: es)
+        case .upcoming: CuadraoCopy.text("copy.cuadraoHomeLayout.407f9183d7", spanish: es)
+        case .accounts: CuadraoCopy.text("copy.cuadraoHomeLayout.68f1fc2cbe", spanish: es)
+        case .activity: CuadraoCopy.text("copy.cuadraoHomeLayout.5f0fe2685a", spanish: es)
         }
     }
 }
@@ -52,26 +52,25 @@ struct CuadraoHomeLayoutSheet: View {
                         }.padding(.vertical, 12).padding(.trailing, 16)
                             .accessibilityElement(children: .combine)
                             .accessibilityIdentifier("home-order-" + section.rawValue)
-                            .accessibilityAction(named: Text(spanish ? "Subir" : "Move up")) { move(section, by: -1) }
-                            .accessibilityAction(named: Text(spanish ? "Bajar" : "Move down")) { move(section, by: 1) }
+                            .accessibilityAction(named: Text(CuadraoCopy.text("copy.cuadraoHomeLayout.e37bbfcb44", spanish: spanish))) { move(section, by: -1) }
+                            .accessibilityAction(named: Text(CuadraoCopy.text("copy.cuadraoHomeLayout.9f16cae174", spanish: spanish))) { move(section, by: 1) }
                     }.onMove { sections.move(fromOffsets: $0, toOffset: $1) }
                 } header: {
-                    Text(spanish ? "Arrastra las secciones a tu gusto." : "Drag sections into your preferred order.")
+                    Text(CuadraoCopy.text("copy.cuadraoHomeLayout.33c3fd3322", spanish: spanish))
                         .textCase(nil).padding(.bottom, 8)
                 } footer: {
-                    Text(spanish ? "El orden se aplica a todos tus espacios. Las secciones vacías aparecen cuando hay contenido."
-                         : "This order applies to all your spaces. Empty sections appear when there is content.")
+                    Text(CuadraoCopy.text("copy.cuadraoHomeLayout.8b8acf23e5", spanish: spanish))
                 }
                 Section {
-                    Button(spanish ? "Restablecer orden" : "Reset order") { sections = CuadraoHomeSection.allCases }
+                    Button(CuadraoCopy.text("copy.cuadraoHomeLayout.f93184560a", spanish: spanish)) { sections = CuadraoHomeSection.allCases }
                         .frame(minHeight: 44)
                 }
             }.environment(\.editMode, .constant(.active))
-                .navigationTitle(spanish ? "Ordenar Inicio" : "Reorder Home")
+                .navigationTitle(CuadraoCopy.text("copy.cuadraoHomeLayout.01b6a79dd0", spanish: spanish))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    CuadraoCancelToolbar(title: spanish ? "Cancelar" : "Cancel") { dismiss() }
-                    CuadraoConfirmToolbar(title: spanish ? "Listo" : "Done") {
+                    CuadraoCancelToolbar(title: CuadraoCopy.text("copy.connectedCuadraoProfile.62a128b722", spanish: spanish)) { dismiss() }
+                    CuadraoConfirmToolbar(title: CuadraoCopy.text("copy.guestClaimModel.bd6b05a681", spanish: spanish)) {
                         savedOrder = sections.map(\.rawValue).joined(separator: ","); dismiss()
                     }
                 }

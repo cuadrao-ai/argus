@@ -4,14 +4,14 @@ import ArgusSession
 struct ConnectedHouseholdAccounts: View {
     @ObservedObject var model: HouseholdModel
     @Environment(\.locale) private var locale
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         if let snapshot = model.snapshot {
             VStack(alignment: .leading, spacing: 12) {
                 if !snapshot.accounts.isEmpty {
                     HStack {
-                        Text(spanish ? "Cuentas" : "Accounts").font(CuadraoTypography.section)
+                        Text(CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3", spanish: spanish)).font(CuadraoTypography.section)
                             .accessibilityAddTraits(.isHeader)
                         Spacer()
                         CuadraoSectionAddButton(title: NSLocalizedString("household.shareAccounts", comment: "")) {
@@ -22,12 +22,12 @@ struct ConnectedHouseholdAccounts: View {
                         ForEach(snapshot.accounts.filter { !$0.account.archived }) { account in row(account) }
                     }
                     if snapshot.accounts.contains(where: { $0.account.archived }) {
-                        DisclosureGroup(spanish ? "Archivadas" : "Archived") {
+                        DisclosureGroup(CuadraoCopy.text("copy.connectedHouseholdAccounts.fa75965c7e", spanish: spanish)) {
                             ForEach(snapshot.accounts.filter { $0.account.archived }) { account in row(account) }
                         }.font(CuadraoTypography.supporting)
                     }
                 } else {
-                    CuadraoChartState(title: spanish ? "Un lugar para\nlo de ustedes." : "A place for\nwhat you share.",
+                    CuadraoChartState(title: CuadraoCopy.text("copy.cuadraoHomeEmptyState.c598130645", spanish: spanish),
                         detail: NSLocalizedString("household.consent", comment: ""))
                         .accessibilityIdentifier("household.empty")
                     RegistrationButton(title: NSLocalizedString("household.addAccount", comment: "")) { model.addAccount?() }
@@ -50,7 +50,7 @@ struct ConnectedHouseholdAccounts: View {
                 amount: item.account.balance.amount.map { AccountPresentation.amount($0, locale: locale) }
                     ?? NSLocalizedString("household.unknown", comment: ""),
                 amountCaption: item.account.currency,
-                note: item.account.archived ? (spanish ? "Archivada" : "Archived") : nil))
+                note: item.account.archived ? (CuadraoCopy.text("copy.connectedAccountPresentation.7268bbe2c2", spanish: spanish)) : nil))
                 .overlay(alignment: .bottom) { Divider().padding(.leading, 54) }
         }.buttonStyle(.plain).accessibilityIdentifier("household.account." + item.id.uuidString)
     }
@@ -108,7 +108,7 @@ struct ConnectedHouseholdAccountDetail: View {
         return VStack(alignment: .leading, spacing: 14) {
             CanvasAccountDetailHeader(value: .init(
                 title: account.nickname ?? NSLocalizedString("accounts.type." + account.type, comment: ""),
-                artwork: ConnectedAccountPresentation.artwork(account.type), balanceLabel: "Balance",
+                artwork: ConnectedAccountPresentation.artwork(account.type), balanceLabel: CuadraoCopy.text("copy.connectedHouseholdAccounts.02e2073456", spanish: CuadraoCopy.isSpanish()),
                 currency: account.currency,
                 amount: account.balance.amount.map { AccountPresentation.amount($0, locale: locale) }
                     ?? NSLocalizedString("household.unknown", comment: ""),

@@ -6,10 +6,10 @@ enum CanvasSpaceKind: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(_ es: Bool) -> String {
         switch self {
-        case .personal: "Personal"
-        case .household: es ? "Hogar" : "Household"
-        case .business: es ? "Negocio" : "Business"
-        case .custom: es ? "Personalizado" : "Custom"
+        case .personal: CuadraoCopy.text("context.personal", spanish: es)
+        case .household: CuadraoCopy.text("copy.cuadraoSpacesPreview.b845d91db6", spanish: es)
+        case .business: CuadraoCopy.text("copy.cuadraoSpacesPreview.2d7db3e0c9", spanish: es)
+        case .custom: CuadraoCopy.text("copy.cuadraoSpacesPreview.28600a1682", spanish: es)
         }
     }
     var symbol: String {

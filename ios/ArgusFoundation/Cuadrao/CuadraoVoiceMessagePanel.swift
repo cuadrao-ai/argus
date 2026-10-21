@@ -10,24 +10,24 @@ struct CuadraoVoiceMessagePanel: View {
             HStack(spacing: 10) {
                 Image(systemName: "waveform").foregroundStyle(WelcomePalette.pine)
                 Text(message.state == .review
-                     ? (es ? "Revisar mensaje · Vista previa" : "Review message · Preview")
-                     : (es ? "Mensaje de voz · Vista previa" : "Voice message · Preview"))
+                     ? (CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.5f02e4be7b", spanish: es))
+                     : (CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.59ad6fe63d", spanish: es)))
                     .font(.subheadline.weight(.medium)).accessibilityIdentifier("voice-message-status")
                 Spacer(minLength: 4)
                 Text(Duration.seconds(message.duration).formatted(.time(pattern: .minuteSecond)))
                     .monospacedDigit().font(.caption).foregroundStyle(.secondary)
             }
             HStack {
-                Button(es ? "Descartar" : "Discard") { message.cancel() }
+                Button(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.adac3a9868", spanish: es)) { message.cancel() }
                 Spacer()
                 if message.state == .review {
-                    Button(es ? "Enviar" : "Send") { message.submit() }
+                    Button(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.9318acd61f", spanish: es)) { message.submit() }
                         .accessibilityIdentifier("voice-message-send")
                 }
             }.font(.subheadline.weight(.medium)).frame(minHeight: 44)
             Text(message.state == .submitted
-                 ? (es ? "Ejemplo de envío. No se grabó ni envió audio." : "Example submission. No audio was recorded or sent.")
-                 : (es ? "Vista previa · No se grabó audio" : "Preview · No audio was recorded"))
+                 ? (CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.a384a9a51a", spanish: es))
+                 : (CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.78db2b617e", spanish: es)))
                 .font(.caption).foregroundStyle(.secondary)
         }.padding(8)
     }
@@ -74,7 +74,7 @@ struct CuadraoVoiceRecordingOverlay: View {
                     Label(Duration.seconds(message.elapsed()).formatted(.time(pattern: .minuteSecond)), systemImage: "lock.fill")
                         .font(.subheadline.monospacedDigit()).foregroundStyle(WelcomePalette.pine)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(es ? "Grabación sin mantener" : "Hands-free recording")
+                        .accessibilityLabel(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.5fe92c9ec9", spanish: es))
                         .accessibilityValue(Duration.seconds(message.elapsed()).formatted(.time(pattern: .minuteSecond)))
                         .accessibilityIdentifier("voice-recording-timer")
                 }.opacity(message.locked ? 1 : 0).accessibilityHidden(!message.locked)
@@ -93,7 +93,7 @@ struct CuadraoVoiceRecordingOverlay: View {
                 recordingActions.opacity(message.held ? 0 : 1)
                     .allowsHitTesting(!message.held).accessibilityHidden(message.held)
             }.frame(maxWidth: .infinity)
-            Text(es ? "Vista previa · Micrófono apagado" : "Preview · Microphone off")
+            Text(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.338852a5b2", spanish: es))
                 .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }.padding(.horizontal, 28).padding(.top, 24).padding(.bottom, 48)
     }
@@ -102,11 +102,11 @@ struct CuadraoVoiceRecordingOverlay: View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 16)) : AnyLayout(HStackLayout(spacing: 24))
         return layout {
             Button(role: .destructive) { message.cancel() } label: {
-                Text(es ? "Cancelar" : "Cancel").frame(minWidth: 80, minHeight: 48).contentShape(Rectangle())
+                Text(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.62a128b722", spanish: es)).frame(minWidth: 80, minHeight: 48).contentShape(Rectangle())
             }.buttonStyle(.plain).fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("voice-message-cancel")
             Button { message.stop() } label: {
-                Label(es ? "Detener" : "Stop", systemImage: "stop.fill")
+                Label(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.787445349f", spanish: es), systemImage: "stop.fill")
                     .font(CuadraoTypography.action).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 22).padding(.vertical, 10).frame(minHeight: 48)
                     .foregroundStyle(WelcomePalette.onAccent)
@@ -116,23 +116,23 @@ struct CuadraoVoiceRecordingOverlay: View {
     }
 
     private var lockHint: some View {
-        Label(es ? "↑ Desliza para fijar" : "↑ Slide to lock", systemImage: "lock.open")
+        Label(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.29367aa613", spanish: es), systemImage: "lock.open")
             .font(.footnote.weight(.medium)).fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16).frame(minHeight: 48)
             .background(.regularMaterial, in: Capsule())
             .foregroundStyle(WelcomePalette.pine)
             .opacity(message.cancelArmed ? 0.35 : 1)
             .accessibilityIdentifier("voice-lock-hint")
-            .accessibilityLabel(es ? "Desliza arriba para grabar sin mantener" : "Slide up to record hands-free")
+            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.4f69a0d7a8", spanish: es))
     }
 
     private var instruction: String {
-        if message.cancelArmed { return es ? "Suelta para cancelar" : "Release to cancel" }
-        if message.locked { return es ? "Puedes soltar" : "You can let go" }
+        if message.cancelArmed { return CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.59f2bd6184", spanish: es) }
+        if message.locked { return CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.e1091474ef", spanish: es) }
         return holdInstruction
     }
 
     private var holdInstruction: String {
-        es ? "Suelta para enviar\n← Desliza para cancelar" : "Release to send\n← Slide to cancel"
+        CuadraoCopy.text("copy.cuadraoVoiceMessagePanel.8ff3dc53c9", spanish: es)
     }
 }

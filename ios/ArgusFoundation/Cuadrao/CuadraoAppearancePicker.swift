@@ -50,9 +50,9 @@ struct CuadraoAppearanceChoices: View {
 
     private func title(_ option: AppearancePreference) -> String {
         switch option {
-        case .light: spanish ? "Claro" : "Light"
-        case .dark: spanish ? "Oscuro" : "Dark"
-        case .system: spanish ? "Sistema" : "System"
+        case .light: CuadraoCopy.text("copy.cuadraoAppearancePicker.a806b3e338", spanish: spanish)
+        case .dark: CuadraoCopy.text("copy.cuadraoAppearancePicker.d0713df468", spanish: spanish)
+        case .system: CuadraoCopy.text("copy.cuadraoAppearancePicker.403824e29d", spanish: spanish)
         }
     }
 

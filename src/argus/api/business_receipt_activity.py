@@ -7,8 +7,8 @@ from typing import Sequence
 from uuid import UUID
 
 from argus.domain.business.receipt_activity import (
-    ReceiptActivity,
     aggregate_activity,
+    bandeja,
     inbox_counts,
     project_activity,
 )
@@ -118,7 +118,8 @@ def _project(views, states, baseline, drafts=None):
             baseline=baseline,
             completed_at=completed,
         )
-        output.append({**view, "activity": activity.wire()})
+        row = {**view, "activity": activity.wire()}
+        output.append({**row, "bandeja": bandeja(row)})
     return output
 
 
@@ -154,15 +155,13 @@ def inbox(
 
 
 def counts(context, views: list[dict]) -> dict:  # noqa: ANN001
-    """One answer for the sidebar badge, the Bandeja and the Resumen."""
+    """One answer for the sidebar badge, the Bandeja and the Resumen, over
+    every receipt of the Business, whichever view the caller reads."""
 
     from argus.api.email_intake import email_standings
 
     emails = email_standings(str(context.scope.owner.space_id))
     return {
-        **aggregate_activity(
-            (ReceiptActivity(**view["activity"]) for view in views),
-            reading_emails=emails.count("reading"),
-        ),
+        **aggregate_activity(views, reading_emails=emails.count("reading")),
         **inbox(context, views, emails),
     }

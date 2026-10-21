@@ -9,7 +9,7 @@ struct ConnectedAccountSheet: View {
     let mode: AccountDraft.Mode
     @Environment(\.locale) private var locale
 
-    private var spanish: Bool { locale.language.languageCode?.identifier == "es" }
+    private var spanish: Bool { CuadraoCopy.isSpanish() }
 
     var body: some View {
         switch mode {

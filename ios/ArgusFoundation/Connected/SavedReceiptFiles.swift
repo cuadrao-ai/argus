@@ -24,7 +24,7 @@ enum SavedReceiptFiles {
         case .scan:
             let pages = files.compactMap { UIImage(data: $0.data) }
             guard pages.count == files.count, let pdf = combined(pages) else { return files }
-            return [(pdf, spanish ? "Escaneo.pdf" : "Scan.pdf", true)]
+            return [(pdf, CuadraoCopy.text("copy.savedReceiptFiles.61a8aed075", spanish: spanish), true)]
         case .photos, .file, .sample:
             return files.map { $0.pdf ? $0 : storable($0) }
         }

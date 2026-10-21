@@ -49,7 +49,7 @@ struct CanvasSpendingStory {
         return entries.max { $0.amount < $1.amount }
     }
     func periodText(_ interval: DateInterval, spanish: Bool) -> String {
-        let style = Date.FormatStyle.dateTime.locale(Locale(identifier: spanish ? "es_DO" : "en_US"))
+        let style = Date.FormatStyle.dateTime.locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish)))
         if range == .year && offset < 0 { return interval.start.formatted(style.year()) }
         let end = max(interval.start, interval.end.addingTimeInterval(-1))
         return interval.start.formatted(style.month(.abbreviated).day()) + " – " + end.formatted(style.month(.abbreviated).day())

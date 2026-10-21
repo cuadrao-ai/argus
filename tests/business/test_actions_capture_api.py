@@ -52,19 +52,23 @@ class CaptureService:
         self.calls.append(("dossier", draft))
         return self.view
 
-    def captures(self, actor, *, query, limit, view):
+    def captures_page(self, actor, *, query, limit, view):
         self.calls.append(("list", query, limit, view))
-        return [
-            {
-                "draft_id": self.view.draft_id,
-                "version": self.view.version,
-                "revision": 1,
-                "source_id": uuid4(),
-                "text": "  Original note\n",
-                "received_at": datetime.now(timezone.utc),
-                "review_state": "open",
-            }
-        ]
+        return {
+            "items": [
+                {
+                    "draft_id": self.view.draft_id,
+                    "version": self.view.version,
+                    "revision": 1,
+                    "source_id": uuid4(),
+                    "text": "  Original note\n",
+                    "received_at": datetime.now(timezone.utc),
+                    "review_state": "open",
+                    "earlier_count": 2,
+                }
+            ],
+            "has_more": True,
+        }
 
 
 @pytest.fixture
@@ -196,6 +200,8 @@ def test_search_preserves_source_identity_and_bounds(capture_api):
     assert item["text"] == "  Original note\n"
     assert item["source_id"]
     assert (item["version"], item["revision"]) == (api.service.view.version, 1)
+    # The page says what the service found: more past the limit, notes before this one.
+    assert (response.json()["has_more"], item["earlier_count"]) == (True, 2)
     assert api.service.calls[-1] == ("list", "100%_", 5, "all")
     # The Bandeja asks for the notes awaiting review that no receipt carries.
     inbox = api.client.get("/business/captures", params={"view": "inbox", "limit": 50})

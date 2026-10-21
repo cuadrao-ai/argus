@@ -18,7 +18,7 @@ struct CuadraoActivityDetail: View {
                     CanvasActivityDetailContent(value: CanvasActivityDetailValue(
                         title: entry.title,
                         amount: account.currency + " " + (entry.income ? "+" : "−") + CanvasMoney.format(entry.amount, currency: account.currency),
-                        kind: entry.income ? (spanish ? "Ingreso" : "Income") : (spanish ? "Gasto" : "Expense"),
+                        kind: entry.income ? (CuadraoCopy.text("copy.cuadraoAccountCanvas.68048ec6e6", spanish: spanish)) : (CuadraoCopy.text("copy.cuadraoAccountCanvas.705df72a66", spanish: spanish)),
                         date: entry.date.formatted(.dateTime.day().month(.wide).year().locale(locale)),
                         category: entry.income ? nil : CanvasActivityCategoryValue(title: entry.category.title(spanish), artwork: entry.category)),
                         spanish: spanish) {
@@ -30,16 +30,16 @@ struct CuadraoActivityDetail: View {
                         Button {
                             chatFocus = .activity(id: entry.id, title: entry.title)
                         } label: {
-                            Label(spanish ? "Preguntar a Cuadrao" : "Ask Cuadrao", systemImage: "bubble")
+                            Label(CuadraoCopy.text("copy.cuadraoAccountCanvas.b44a9adeb4", spanish: spanish), systemImage: "bubble")
                                 .font(.subheadline).frame(minHeight: 44).contentShape(Rectangle())
                         }.buttonStyle(.plain).foregroundStyle(WelcomePalette.pine)
                             .accessibilityIdentifier("activity-detail-ask")
                     }.padding(24)
                 }.background(WelcomePalette.background)
             } else {
-                ContentUnavailableView(spanish ? "Movimiento no disponible" : "Activity unavailable", systemImage: "doc.text.magnifyingglass")
+                ContentUnavailableView(CuadraoCopy.text("copy.cuadraoActivityDetail.1a8ab825c4", spanish: spanish), systemImage: "doc.text.magnifyingglass")
             }
-        }.navigationTitle(spanish ? "Movimiento" : "Activity")
+        }.navigationTitle(CuadraoCopy.text("copy.cuadraoActivityDetail.4a9fb37375", spanish: spanish))
             .navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
             .contextualCuadrao(focus: $chatFocus, spanish: spanish)
     }

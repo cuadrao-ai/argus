@@ -29,7 +29,7 @@ struct PlanRepayment: Identifiable, Codable, Equatable {
 }
 enum PlanGroupKind: String, Codable, CaseIterable {
     case trip, saving
-    func title(_ es: Bool) -> String { self == .trip ? (es ? "Compartir gastos" : "Share expenses") : (es ? "Ahorrar juntos" : "Save together") }
+    func title(_ es: Bool) -> String { self == .trip ? (CuadraoCopy.text("copy.cuadraoGroupPreview.93325ee3fe", spanish: es)) : (CuadraoCopy.text("copy.cuadraoGroupPreview.e442bef193", spanish: es)) }
 }
 struct PlanGroup: Identifiable, Codable, Equatable {
     var id = UUID()
@@ -138,11 +138,11 @@ extension PlanGroup {
         guard var group = group(id) else { return }; group.archived = archived; save(group)
     }
     func resetExamples(spanish es: Bool, empty: Bool = false) {
-        let members = [PlanMember(name: es ? "Tú" : "You", symbol: "sun.max.fill"), .init(name: "Ana", symbol: "leaf.fill"), .init(name: "Leo", symbol: "moon.fill"), .init(name: "Sol", symbol: "sparkle")]
-        var trip = PlanGroup(name: es ? "Samaná con los panas" : "Samaná with friends", members: members)
-        _ = trip.record(.init(title: es ? "La casa del finde" : "The weekend house", cents: 1200000, payer: members[0].id, shares: PlanSharedExpense.equal(1200000, among: members.map(\.id))))
-        var saving = PlanGroup(name: es ? "Nuestro próximo viaje" : "Our next adventure", kind: .saving, look: .sunshine, members: members, estimatedCents: 8000000, expectedPeople: 4)
-        _ = saving.record(.init(title: es ? "Primer aporte" : "First contribution", cents: 1000000, payer: members[0].id, shares: [members[0].id: 1000000]))
+        let members = [PlanMember(name: CuadraoCopy.text("copy.cuadraoGroupPreview.df8578d82b", spanish: es), symbol: "sun.max.fill"), .init(name: "Ana", symbol: "leaf.fill"), .init(name: "Leo", symbol: "moon.fill"), .init(name: "Sol", symbol: "sparkle")]
+        var trip = PlanGroup(name: CuadraoCopy.text("copy.cuadraoGroupPreview.bc28d3beb6", spanish: es), members: members)
+        _ = trip.record(.init(title: CuadraoCopy.text("copy.cuadraoGroupPreview.d180480ca4", spanish: es), cents: 1200000, payer: members[0].id, shares: PlanSharedExpense.equal(1200000, among: members.map(\.id))))
+        var saving = PlanGroup(name: CuadraoCopy.text("copy.cuadraoGroupPreview.0d8bb02894", spanish: es), kind: .saving, look: .sunshine, members: members, estimatedCents: 8000000, expectedPeople: 4)
+        _ = saving.record(.init(title: CuadraoCopy.text("copy.cuadraoGroupPreview.dbea0f2ca6", spanish: es), cents: 1000000, payer: members[0].id, shares: [members[0].id: 1000000]))
         groups = empty ? [] : [trip, saving]; persist()
     }
     func confirmReceipt(_ draft: ReceiptDraft, groupID: UUID) throws {

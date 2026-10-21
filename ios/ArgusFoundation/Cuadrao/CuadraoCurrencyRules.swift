@@ -13,7 +13,7 @@ struct CuadraoCurrencyRules {
     static let system = CuadraoCurrencyRules(
         digits: { CanvasMoney.digits($0) },
         maximum: { _ in CanvasMoney.maximum },
-        maximumMessage: { _, spanish in spanish ? "Máximo: 9,999,999.99" : "Maximum: 9,999,999.99" },
+        maximumMessage: { _, spanish in CuadraoCopy.text("copy.cuadraoCurrencyRules.cbf6d72372", spanish: spanish) },
         format: { CanvasMoney.format($0, currency: $1) },
         pickerCodes: { PlanCurrency.supported })
 }

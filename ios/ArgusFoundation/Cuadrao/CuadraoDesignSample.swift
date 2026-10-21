@@ -13,18 +13,18 @@ struct CuadraoDesignSample: View {
                         ToolbarItem(placement: .topBarLeading) {
                             HStack(spacing: 10) {
                                 CuadraoMark()
-                                Text("CUADRAO").font(Cuadrao.text(13)).tracking(3)
+                                Text(CuadraoCopy.text("copy.cuadraoDesignSample.35f083d4f4", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.text(13)).tracking(3)
                             }.fixedSize(horizontal: true, vertical: false)
                         }
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("Novedades", systemImage: "bell") { showingInfo = true }
+                            Button(CuadraoCopy.text("copy.cuadraoHomePresentation.41483aed95"), systemImage: "bell") { showingInfo = true }
                         }
                     }
-            }.tabItem { Label("Inicio", systemImage: "house") }.tag(0)
-            sampleDestination("Plan", symbol: "scope").tag(1)
-            sampleDestination("Argus", symbol: "sparkle").tag(2)
-            sampleDestination("Buscar", symbol: "magnifyingglass").tag(3)
-            sampleDestination("Perfil", symbol: "person.crop.circle").tag(4)
+            }.tabItem { Label(CuadraoCopy.text("destination.home"), systemImage: "house") }.tag(0)
+            sampleDestination(CuadraoCopy.text("destination.plan"), symbol: "scope").tag(1)
+            sampleDestination(CuadraoCopy.text("destination.argus"), symbol: "sparkle").tag(2)
+            sampleDestination(CuadraoCopy.text("destination.search"), symbol: "magnifyingglass").tag(3)
+            sampleDestination(CuadraoCopy.text("sheet.profile"), symbol: "person.crop.circle").tag(4)
         }
         .tint(Cuadrao.pine).foregroundStyle(Cuadrao.ink).font(Cuadrao.text())
         .sheet(isPresented: $showingInfo) { sampleNotice }
@@ -35,9 +35,9 @@ struct CuadraoDesignSample: View {
             VStack(spacing: 20) {
                 CuadraoSymbol(name: symbol)
                 Text(title).font(Cuadrao.title())
-                Text("Esta muestra explora Inicio, cuentas y registrar un gasto.")
+                Text(CuadraoCopy.text("copy.cuadraoDesignSample.8a26df145b", spanish: CuadraoCopy.isSpanish()))
                     .foregroundStyle(Cuadrao.muted).multilineTextAlignment(.center)
-                Button("Volver a Inicio") { selectedTab = 0 }.buttonStyle(CuadraoPrimaryButton())
+                Button(CuadraoCopy.text("copy.cuadraoDesignSample.c1411df892", spanish: CuadraoCopy.isSpanish())) { selectedTab = 0 }.buttonStyle(CuadraoPrimaryButton())
             }.padding(30).frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Cuadrao.paper)
         }.tabItem { Label(title, systemImage: symbol) }
@@ -45,9 +45,9 @@ struct CuadraoDesignSample: View {
 
     private var sampleNotice: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Muestra de diseño").font(Cuadrao.title())
-            Text("Datos de ejemplo. Puedes registrar un gasto y ver cómo cambia la cuenta. Nada se envía ni modifica tus cuentas reales.")
-            Text("Los cambios se reinician al cerrar la muestra.").foregroundStyle(Cuadrao.muted)
+            Text(CuadraoCopy.text("copy.cuadraoDesignSample.0b07f6aa15", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.title())
+            Text(CuadraoCopy.text("copy.cuadraoDesignSample.64c79d3021", spanish: CuadraoCopy.isSpanish()))
+            Text(CuadraoCopy.text("copy.cuadraoDesignSample.4be5e39052", spanish: CuadraoCopy.isSpanish())).foregroundStyle(Cuadrao.muted)
         }.padding(28).presentationDetents([.medium]).presentationDragIndicator(.visible)
             .presentationBackground(Cuadrao.paper)
     }
@@ -62,10 +62,10 @@ struct CuadraoHome: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("PERSONAL").font(Cuadrao.text(11)).tracking(2).foregroundStyle(Cuadrao.muted)
-                    Text("Tu dinero,\nen su lugar.").font(Cuadrao.title(38)).lineSpacing(-3)
+                    Text(CuadraoCopy.text("copy.cuadraoDesignSample.0dcbf7a4c1", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.text(11)).tracking(2).foregroundStyle(Cuadrao.muted)
+                    Text(CuadraoCopy.text("copy.cuadraoDesignSample.62bef1971d", spanish: CuadraoCopy.isSpanish())).font(Cuadrao.title(38)).lineSpacing(-3)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Saldo registrado").font(Cuadrao.text(13)).foregroundStyle(Cuadrao.muted)
+                        Text(CuadraoCopy.text("loop.recorded")).font(Cuadrao.text(13)).foregroundStyle(Cuadrao.muted)
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text("DOP").font(Cuadrao.text(14)).foregroundStyle(Cuadrao.muted)
                             Text(Cuadrao.money(data.total)).font(Cuadrao.text(33)).monospacedDigit()
@@ -75,13 +75,13 @@ struct CuadraoHome: View {
                 }
                 VStack(spacing: 0) {
                     HStack {
-                        CuadraoSectionTitle(title: "Cuentas")
+                        CuadraoSectionTitle(title: CuadraoCopy.text("copy.connectedCuadraoHome.8cce5d02a3"))
                         Spacer()
                         Button { showAdd = true } label: { Image(systemName: "plus") }
-                            .accessibilityLabel("Añadir cuenta")
+                            .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f"))
                             .frame(width: 44, height: 44)
                         Button { showAccounts = true } label: { Image(systemName: "ellipsis") }
-                            .accessibilityLabel("Opciones de cuentas")
+                            .accessibilityLabel(CuadraoCopy.text("copy.cuadraoDesignSample.bfc8ad4ba8", spanish: CuadraoCopy.isSpanish()))
                             .frame(width: 44, height: 44)
                     }.padding(.bottom, 6)
                     ForEach(data.active) { account in
@@ -103,7 +103,7 @@ struct CuadraoHome: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 16) {
-                    CuadraoSectionTitle(title: "Últimos movimientos")
+                    CuadraoSectionTitle(title: CuadraoCopy.text("copy.cuadraoDesignSample.266336b705", spanish: CuadraoCopy.isSpanish()))
                     ForEach(data.expenses.prefix(3)) { expense in
                         CuadraoExpenseRow(expense: expense)
                     }
@@ -113,15 +113,15 @@ struct CuadraoHome: View {
             .toolbarBackground(Cuadrao.paper, for: .navigationBar)
             .sheet(isPresented: $showAccounts) {
                 NavigationStack {
-                    List { Text("No hay cuentas archivadas") }
-                        .navigationTitle("Cuentas archivadas").navigationBarTitleDisplayMode(.inline)
+                    List { Text(CuadraoCopy.text("copy.connectedCuadraoHome.63cbd4a9dc")) }
+                        .navigationTitle(CuadraoCopy.text("copy.connectedCuadraoHome.4ab8767f26")).navigationBarTitleDisplayMode(.inline)
                         .scrollContentBackground(.hidden).background(Cuadrao.paper)
-                        .toolbar { CuadraoDoneToolbar(title: "Listo") { showAccounts = false } }
+                        .toolbar { CuadraoDoneToolbar(title: CuadraoCopy.text("copy.cuadraoHomeCanvas.1756cbfe73")) { showAccounts = false } }
                 }.presentationDetents([.medium]).presentationDragIndicator(.visible)
             }
-            .alert("Añadir cuenta", isPresented: $showAdd) {
-                Button("Entendido", role: .cancel) { }
-            } message: { Text("Esta muestra se concentra en abrir una cuenta y registrar un gasto. La creación de cuentas sigue en la app conectada.") }
+            .alert(CuadraoCopy.text("copy.connectedCuadraoHome.10d1d9ce3f"), isPresented: $showAdd) {
+                Button(CuadraoCopy.text("auth.apple.capture.dismiss"), role: .cancel) { }
+            } message: { Text(CuadraoCopy.text("copy.cuadraoDesignSample.14600a36e6", spanish: CuadraoCopy.isSpanish())) }
     }
 }
 

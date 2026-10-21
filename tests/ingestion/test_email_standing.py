@@ -3,11 +3,12 @@ the same rule, plus the one fact only the server sees: a saved original."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
 from argus.domain.ingestion.email_intake.models import EmailDelivery, EmailDeliveryPart
-from argus.domain.ingestion.email_intake.standing import email_standing
+from argus.domain.ingestion.email_intake.standing import email_row, email_standing
 
 NOW = datetime(2026, 10, 13, 17, 14, tzinfo=timezone.utc)
 
@@ -163,3 +164,54 @@ def test_a_repeat_is_only_looked_up_when_it_could_change_the_answer():
     assert asked == []
     assert email_standing(delivery("partial"), [SAVED, REJECTED], is_repeat) is None
     assert asked == [SAVED.id]
+
+
+def test_the_row_says_what_the_email_saved_and_why_it_brought_nothing():
+    """The delivery views read the standing, the saved count and the reason
+    from one row; the reason is a code, present only with ``no_receipt``."""
+
+    nothing = lambda each: False  # noqa: E731
+    saved = email_row(delivery("captured"), [SAVED, OTHER_SAVED], nothing)
+    assert (saved.standing, saved.saved_receipt_count, saved.no_receipt_reason) == (
+        None,
+        2,
+        None,
+    )
+    # The repeat still counts as a file the email saved; the refused file names the cause.
+    refused = email_row(
+        delivery("partial"), [SAVED, REJECTED], lambda each: each.id in ONLY_REPEAT
+    )
+    assert (refused.standing, refused.saved_receipt_count, refused.no_receipt_reason) == (
+        "no_receipt",
+        1,
+        "too_large",
+    )
+    # The email's own cause wins when it names one; "parts rejected" names none.
+    blocked = replace(delivery("rejected"), error_code="email_sender_blocked")
+    assert email_row(blocked, [], nothing).no_receipt_reason == "email_sender_blocked"
+    parts_rejected = replace(delivery("captured"), error_code="email_parts_rejected")
+    assert (
+        email_row(parts_rejected, [part(state="rejected")], nothing).no_receipt_reason
+        == "too_large"
+    )
+    assert email_row(delivery("captured"), [], nothing).no_receipt_reason == (
+        "email_no_attachment"
+    )
+    assert email_row(parts_rejected, [], nothing).no_receipt_reason == (
+        "email_no_attachment"
+    )
+    # Only a repeat was saved and nothing names a cause: the email's generic code.
+    only_repeat = email_row(delivery("rejected"), [SAVED], lambda each: True)
+    assert only_repeat.no_receipt_reason == "email_parts_rejected"
+    assert email_row(delivery("received"), [], nothing).no_receipt_reason is None
+
+
+@pytest.mark.parametrize(
+    ("state", "original", "parts", "repeats", "expected"),
+    [case[1:] for case in CASES],
+    ids=[case[0] for case in CASES],
+)
+def test_the_standing_is_the_rows_standing(state, original, parts, repeats, expected):
+    found = email_row(delivery(state, original), parts, lambda each: each.id in repeats)
+    assert found.standing == expected
+    assert (found.no_receipt_reason is not None) == (expected == "no_receipt")

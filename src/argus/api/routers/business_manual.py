@@ -79,6 +79,6 @@ def list_captures(
     response.headers.update(NO_STORE)
     try:
         actor = _owner(request, context, person)
-        return {"items": context.service.captures(actor, query=q, limit=limit, view=view)}
+        return context.service.captures_page(actor, query=q, limit=limit, view=view)
     except ActionError as error:
         raise action_problem(request, error.result) from None

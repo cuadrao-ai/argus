@@ -64,7 +64,14 @@ class Owner:
 
     def reading(self, enabled: bool):
         shown = self.get("/receipt-reading").json()
-        return self.post("/receipt-reading", {"enabled": enabled, "scope_version": 1, "disclosure_token": shown["disclosure_token"]})
+        return self.post(
+            "/receipt-reading",
+            {
+                "enabled": enabled,
+                "scope_version": 1,
+                "disclosure_token": shown["disclosure_token"],
+            },
+        )
 
     def account(self, currency: str = "DOP", nickname: str = "Operating") -> str:
         created = self.post(
@@ -90,7 +97,12 @@ class Owner:
         }
         shown = self.get("/receipt-reading").json()
         if not consent and shown["enabled"]:
-            assert self.post("/receipt-reading", {"enabled": False, "scope_version": 1}).status_code == 200
+            assert (
+                self.post(
+                    "/receipt-reading", {"enabled": False, "scope_version": 1}
+                ).status_code
+                == 200
+            )
         if consent:
             if not shown["enabled"]:
                 enabled = self.post(
@@ -248,6 +260,8 @@ def test_every_route_waits_for_the_space_and_starting_it_is_idempotent(
     assert renamed.json() == {
         "id": first.json()["id"],
         "name": "Taller Gómez",
+        "country": "DO",
+        "currency": "DOP",
         "logo_url": None,
     }
     assert alice.get("/space").json() == renamed.json()
@@ -320,6 +334,8 @@ def test_workspace_lists_expense_accounts_and_document_limits(alice: Owner) -> N
     workspace = alice.get("/workspace")
     assert workspace.headers["Cache-Control"] == "no-store"
     assert workspace.json() == {
+        "country": "DO",
+        "currency": "DOP",
         "accounts": [
             {"id": dop, "nickname": "Operating", "type": "checking", "currency": "DOP"},
             {"id": usd, "nickname": "Card", "type": "checking", "currency": "USD"},
@@ -561,6 +577,8 @@ def test_confirm_saves_one_expense_across_replays(alice: Owner) -> None:
             "needs_attention_count": 0,
             "ready_to_review_count": 0,
             "por_igualar_count": None,
+            "confirmed_count": 1,
+            "dismissed_count": 0,
         },
     }
     [saved] = alice.get("/receipts", view="all").json()["items"]
@@ -670,7 +688,9 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
     assert source.status_code == 200
     assert source.content.startswith(b"\xff\xd8") and source.content != RECEIPT
     store = documents_service().store
-    assert store.source(user_id=alice.scope().person_id, connection_id=receipt_id) == RECEIPT
+    assert (
+        store.source(user_id=alice.scope().person_id, connection_id=receipt_id) == RECEIPT
+    )
     before = dict(store.objects.objects)
     assert alice.get(f"/receipts/{receipt_id}/source").content == source.content
     assert store.objects.objects == before
@@ -719,6 +739,8 @@ def test_source_returns_only_rebuilt_bytes_to_the_owner(alice: Owner, bob: Owner
             "needs_attention_count": 0,
             "ready_to_review_count": 0,
             "por_igualar_count": None,
+            "confirmed_count": 0,
+            "dismissed_count": 0,
         },
     }
     window = {"from": "2026-10-01", "to": "2026-10-31"}
@@ -849,7 +871,9 @@ def test_missing_source_does_not_strand_other_unread_receipts(alice, stub):
 
 
 @pytest.mark.parametrize("change", ["disconnect", "delete"])
-def test_source_rechecks_connection_after_image_conversion(alice: Owner, monkeypatch, change):
+def test_source_rechecks_connection_after_image_conversion(
+    alice: Owner, monkeypatch, change
+):
     from datetime import datetime, timezone
 
     from argus.domain.ingestion.documents import rebuilt
@@ -858,23 +882,37 @@ def test_source_rechecks_connection_after_image_conversion(alice: Owner, monkeyp
     service = documents_service()
     owner = alice.scope().person_id
     real = rebuilt.ensure_rebuilt_image
+
     def changing(**kwargs):
         real(**kwargs)
         if change == "disconnect":
-            service.hub.connections.disconnect(user_id=owner, connection_id=receipt_id, now=datetime.now(timezone.utc))
+            service.hub.connections.disconnect(
+                user_id=owner, connection_id=receipt_id, now=datetime.now(timezone.utc)
+            )
         else:
             service.store.forget(user_id=owner, connection_id=receipt_id)
+
     monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", changing)
     response = alice.get(f"/receipts/{receipt_id}/source")
     assert response.status_code == (410 if change == "disconnect" else 422)
     assert not response.content.startswith(b"\xff\xd8")
 
 
-@pytest.mark.parametrize("media_type", [
-    "application/pdf", "text/plain", "text/csv", "application/xml", "text/xml",
-    "message/rfc822", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-])
-def test_nonimage_source_download_keeps_exact_bytes_without_image_producer(alice: Owner, monkeypatch, media_type):
+@pytest.mark.parametrize(
+    "media_type",
+    [
+        "application/pdf",
+        "text/plain",
+        "text/csv",
+        "application/xml",
+        "text/xml",
+        "message/rfc822",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+)
+def test_nonimage_source_download_keeps_exact_bytes_without_image_producer(
+    alice: Owner, monkeypatch, media_type
+):
     from argus.domain.ingestion.documents import rebuilt
 
     def forbidden(**_kwargs):

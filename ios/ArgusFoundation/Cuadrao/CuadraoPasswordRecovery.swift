@@ -19,28 +19,27 @@ struct CuadraoPasswordRecovery: View {
                     if state == .sent {
                         sentContent
                     } else {
-                        RegistrationHeading(title: spanish ? "Recupera el acceso." : "Recover access.",
-                            detail: spanish ? "Te enviaremos un enlace para cambiar tu contraseña."
-                                : "We’ll send you a link to change your password.")
+                        RegistrationHeading(title: CuadraoCopy.text("copy.cuadraoPasswordRecovery.fc17bdd4b4", spanish: spanish),
+                            detail: CuadraoCopy.text("copy.cuadraoPasswordRecovery.c44dd944d1", spanish: spanish))
                         VStack(alignment: .leading, spacing: 10) {
-                            Text(spanish ? "Correo electrónico" : "Email address").font(.subheadline.weight(.medium))
-                            TextField(spanish ? "nombre@ejemplo.com" : "name@example.com", text: $email)
+                            Text(CuadraoCopy.text("copy.connectedCuadraoAuth.4e184d5fb9", spanish: spanish)).font(.subheadline.weight(.medium))
+                            TextField(CuadraoCopy.text("copy.connectedCuadraoAuth.f99371c667", spanish: spanish), text: $email)
                                 .textContentType(.emailAddress).keyboardType(.emailAddress)
                                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                                 .focused($focused).submitLabel(.send)
                                 .onSubmit { send() }
                                 .modifier(RegistrationField(focused: focused, invalid: invalid))
                                 .disabled(state == .sending)
-                                .accessibilityLabel(spanish ? "Correo electrónico" : "Email address")
+                                .accessibilityLabel(CuadraoCopy.text("copy.connectedCuadraoAuth.4e184d5fb9", spanish: spanish))
                                 .accessibilityIdentifier("cuadrao.recovery.email")
                             if invalid {
-                                Label(spanish ? "Revisa el formato del correo." : "Check the email format.", systemImage: "exclamationmark.circle")
+                                Label(CuadraoCopy.text("copy.connectedCuadraoAuth.f72b1dead3", spanish: spanish), systemImage: "exclamationmark.circle")
                                     .font(.footnote).foregroundStyle(.red)
                             }
                         }
                         if state == .offline {
-                            RegistrationNotice(title: spanish ? "No pudimos conectar." : "We couldn’t connect.",
-                                detail: spanish ? "Revisa tu conexión y vuelve a intentarlo." : "Check your connection and try again.")
+                            RegistrationNotice(title: CuadraoCopy.text("copy.connectedCuadraoAuth.a97f4e5c01", spanish: spanish),
+                                detail: CuadraoCopy.text("copy.cuadraoPasswordRecovery.9c7cd3524c", spanish: spanish))
                         }
                     }
                     Spacer(minLength: 24)
@@ -61,7 +60,7 @@ struct CuadraoPasswordRecovery: View {
         .background(WelcomePalette.background.ignoresSafeArea()).foregroundStyle(WelcomePalette.ink)
         .navigationTitle("").navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            CuadraoCancelToolbar(title: spanish ? "Cerrar" : "Close") { dismiss() }
+            CuadraoCancelToolbar(title: CuadraoCopy.text("copy.cuadraoAccountsCollection.f296f2cba3", spanish: spanish)) { dismiss() }
         }
         .onChange(of: focused) { old, _ in if old { edited = true } }
         .onAppear {
@@ -82,22 +81,19 @@ struct CuadraoPasswordRecovery: View {
                 .frame(width: 72, height: 72)
                 .background(WelcomePalette.sage, in: RoundedRectangle(cornerRadius: 22))
                 .accessibilityHidden(true).padding(.bottom, 28)
-            RegistrationHeading(title: spanish ? "Revisa tu correo." : "Check your email.",
-                detail: spanish ? "Si hay una cuenta con este correo, recibirás un enlace para cambiar tu contraseña."
-                    : "If there’s an account with this email, you’ll receive a link to change your password.")
+            RegistrationHeading(title: CuadraoCopy.text("copy.cuadraoPasswordRecovery.e7c08d7a55", spanish: spanish),
+                detail: CuadraoCopy.text("copy.cuadraoPasswordRecovery.9dcfb22b24", spanish: spanish))
             Text(PreviewEmail.normalized(email)).font(.body.weight(.semibold))
                 .textSelection(.enabled).padding(.top, 14)
-            Button(spanish ? "Cambiar correo" : "Change email") { state = .entry; showHelp = false }
+            Button(CuadraoCopy.text("copy.connectedCuadraoAuth.2883c17995", spanish: spanish)) { state = .entry; showHelp = false }
                 .font(.subheadline.weight(.medium)).frame(minHeight: 44)
                 .foregroundStyle(WelcomePalette.pine).padding(.top, 6)
-            Button(spanish ? "¿No encuentras el correo?" : "Can’t find the email?") { showHelp.toggle() }
+            Button(CuadraoCopy.text("copy.cuadraoEmailConfirmation.0036b29e79", spanish: spanish)) { showHelp.toggle() }
                 .font(.subheadline).frame(minHeight: 44).padding(.top, 24)
             if showHelp {
                 Text(CuadraoFirstRelease.showsSocialSignIn
-                    ? (spanish ? "Revisa la carpeta de correo no deseado y comprueba la dirección. Si usas Apple para entrar, vuelve y elige Continuar con Apple."
-                        : "Check your spam folder and the email address. If you sign in with Apple, go back and choose Continue with Apple.")
-                    : (spanish ? "Revisa la carpeta de correo no deseado y comprueba la dirección."
-                        : "Check your spam folder and the email address."))
+                    ? (CuadraoCopy.text("copy.cuadraoPasswordRecovery.7e19949836", spanish: spanish))
+                    : (CuadraoCopy.text("copy.cuadraoPasswordRecovery.ccf0b939a8", spanish: spanish)))
                     .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 8)
             }
@@ -106,10 +102,10 @@ struct CuadraoPasswordRecovery: View {
 
     private var buttonTitle: String {
         switch state {
-        case .entry: spanish ? "Enviar enlace" : "Send link"
-        case .sending: spanish ? "Enviando…" : "Sending…"
-        case .sent: spanish ? "Volver a iniciar sesión" : "Back to sign in"
-        case .offline: spanish ? "Reintentar" : "Try again"
+        case .entry: CuadraoCopy.text("copy.cuadraoPasswordRecovery.75cee94b5e", spanish: spanish)
+        case .sending: CuadraoCopy.text("copy.cuadraoPasswordRecovery.92664cc038", spanish: spanish)
+        case .sent: CuadraoCopy.text("copy.cuadraoPasswordRecovery.544f420979", spanish: spanish)
+        case .offline: CuadraoCopy.text("copy.connectedCuadraoAuth.ada77fc089", spanish: spanish)
         }
     }
     private func send() {

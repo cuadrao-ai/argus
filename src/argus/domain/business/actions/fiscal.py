@@ -34,6 +34,11 @@ def reviewed_fiscal_facts(
     return facts.model_copy(update={"fiscal": FiscalFacts.model_validate(values)})
 
 
+# The database's copy of the sale rule below: one accepting or accepted sale
+# per Business and comprobante. It refuses what two approvals read past.
+SALE_NCF_INDEX = "financial_import_events_sale_ncf_idx"
+
+
 def require_distinct_fiscal_document(tx, event, facts: BusinessFacts) -> None:
     fiscal = facts.fiscal
     ncf = (

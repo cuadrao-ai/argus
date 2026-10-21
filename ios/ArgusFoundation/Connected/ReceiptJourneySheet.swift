@@ -294,7 +294,7 @@ struct ReceiptJourneySheet: View {
     private func categoryTitle(_ id: String) -> String { NSLocalizedString("loop.category." + id, comment: "") }
 
     private func dayText(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: spanish ? "es_DO" : "en_US")))
+        date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: CuadraoCopy.text("copy.receiptJourneySheet.57139f7c9f", spanish: spanish))))
     }
 
     private func money(_ amount: String, _ currency: String) -> String {

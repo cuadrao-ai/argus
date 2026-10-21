@@ -10,7 +10,7 @@ struct CanvasChatAttachmentChip: View {
             Text(item.name).font(.footnote).lineLimit(2)
             if let remove {
                 Button(action: remove) { Image(systemName: "xmark").frame(width: 44, height: 44) }
-                    .accessibilityLabel(Text(item.name + " · " + (spanish ? "Quitar" : "Remove")))
+                    .accessibilityLabel(Text(item.name + " · " + (CuadraoCopy.text("copy.cuadraoChatAnswer.1b73d18e75", spanish: spanish))))
             }
         }.padding(.leading, 12).padding(.trailing, remove == nil ? 12 : 0).padding(.vertical, remove == nil ? 12 : 0)
             .background(WelcomePalette.background, in: RoundedRectangle(cornerRadius: 14))
@@ -36,64 +36,60 @@ struct CuadraoChatAnswer: View {
     private var answer: String {
         switch turn.example {
         case .savings:
-            es ? "Juntarías DOP \(CanvasChatCalculation.amount(CanvasChatCalculation.total)) en seis meses, sin contar intereses."
-                : "You would have DOP \(CanvasChatCalculation.amount(CanvasChatCalculation.total)) in six months, before interest."
+            CuadraoCopy.text("copy.cuadraoChatAnswer.8076376dc7", spanish: es, String(describing: CanvasChatCalculation.amount(CanvasChatCalculation.total)))
         case .certificate:
-            es ? "Empieza por tres cosas: cuánto tiempo puedes dejar ese dinero, qué rendimiento ofrece y qué pasa si lo necesitas antes."
-                : "Start with three things: how long you can leave the money, the return offered, and what happens if you need it early."
+            CuadraoCopy.text("copy.cuadraoChatAnswer.d945b28e0e", spanish: es)
         case .document:
-            es ? "Podemos separar lo que aparece en el documento de lo que ya tienes registrado. Antes de añadir un movimiento, revisarías sus detalles."
-                : "We can separate what appears in the document from what you have already recorded. Before adding an entry, you would review its details."
+            CuadraoCopy.text("copy.cuadraoChatAnswer.67800d5eda", spanish: es)
         case nil:
-            es ? "Tu mensaje está en esta vista previa. Las respuestas reales se conectarán al asistente existente; aquí puedes explorar el diseño con los ejemplos."
-                : "Your message is in this preview. Real replies will connect to the existing assistant; here you can explore the design with examples."
+            CuadraoCopy.text("copy.cuadraoChatAnswer.f715280c85", spanish: es)
         }
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(es ? "RESPUESTA DE EJEMPLO" : "EXAMPLE RESPONSE")
+            Text(CuadraoCopy.text("copy.cuadraoChatAnswer.ea3e774390", spanish: es))
                 .font(.system(size: 10, weight: .medium)).tracking(1.3).foregroundStyle(.secondary)
             Text(answer).font(.body).lineSpacing(5).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             if turn.example == .savings {
                 Button(action: showDetails) {
                     VStack(alignment: .leading, spacing: 14) {
-                        Text(es ? "En seis meses" : "In six months").font(.subheadline).foregroundStyle(.secondary)
+                        Text(CuadraoCopy.text("copy.cuadraoChatAnswer.247a9b1d27", spanish: es)).font(.subheadline).foregroundStyle(.secondary)
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text("DOP").font(.subheadline).foregroundStyle(.secondary)
                             Text(CanvasChatCalculation.amount(CanvasChatCalculation.total)).font(CuadraoTypography.amount).monospacedDigit()
                         }
                         Divider()
                         HStack {
-                            Text(es ? "Ver cálculo" : "View calculation")
+                            Text(CuadraoCopy.text("copy.cuadraoChatAnswer.fa706248ef", spanish: es))
                             Spacer(); Image(systemName: "chevron.right").font(.caption)
                         }.font(.subheadline)
                     }.padding(20).background(WelcomePalette.surface, in: RoundedRectangle(cornerRadius: 20))
                 }.buttonStyle(.plain).accessibilityIdentifier("chat-calculation")
-                Text(es ? "Es una proyección; no mueve dinero ni crea una meta." : "This is a projection; it does not move money or create a goal.")
+                Text(CuadraoCopy.text("copy.cuadraoChatAnswer.a97b0ee59b", spanish: es))
                     .font(.footnote).foregroundStyle(.secondary)
             }
             if turn.example == .certificate {
-                explanation(es ? "El plazo" : "The term", es ? "Cuándo vuelve a estar disponible tu dinero." : "When your money becomes available again.")
-                explanation(es ? "El rendimiento" : "The return", es ? "La tasa, cómo se calcula y cuándo se paga." : "The rate, how it is calculated, and when it is paid.")
-                explanation(es ? "La salida anticipada" : "Early withdrawal", es ? "Las condiciones y posibles penalidades." : "The terms and possible penalties.")
+                explanation(CuadraoCopy.text("copy.cuadraoChatAnswer.952943dfd0", spanish: es), CuadraoCopy.text("copy.cuadraoChatAnswer.6b63ba3f15", spanish: es))
+                explanation(CuadraoCopy.text("copy.cuadraoChatAnswer.739b860862", spanish: es), CuadraoCopy.text("copy.cuadraoChatAnswer.7fe8d78a25", spanish: es))
+                explanation(CuadraoCopy.text("copy.cuadraoChatAnswer.a7bef519cb", spanish: es), CuadraoCopy.text("copy.cuadraoChatAnswer.9107177fe0", spanish: es))
                 Button(action: showSources) {
-                    Label(es ? "Sobre esta respuesta" : "About this answer", systemImage: "info.circle")
+                    Label(CuadraoCopy.text("copy.cuadraoChatAnswer.98180ee4aa", spanish: es), systemImage: "info.circle")
                         .font(.footnote).frame(minHeight: 44)
                 }
             }
             HStack(spacing: 4) {
                 Button { UIPasteboard.general.string = answer; copied = true } label: {
                     Image(systemName: copied ? "checkmark" : "doc.on.doc").frame(width: 44, height: 44)
-                }.accessibilityLabel(es ? "Copiar respuesta" : "Copy response")
+                }.accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatAnswer.016c5c4429", spanish: es))
                 Button { feedback = true } label: { Image(systemName: "hand.thumbsdown").frame(width: 44, height: 44) }
-                    .accessibilityLabel(es ? "Comentar respuesta" : "Give feedback")
+                    .accessibilityLabel(CuadraoCopy.text("copy.cuadraoChatAnswer.b977187eda", spanish: es))
                 Spacer()
             }.font(.system(size: 15)).foregroundStyle(.secondary)
         }
-        .alert(es ? "Comentarios" : "Feedback", isPresented: $feedback) {
-            Button(es ? "Listo" : "Done", role: .cancel) { }
+        .alert(CuadraoCopy.text("copy.cuadraoChatAnswer.1b153643ac", spanish: es), isPresented: $feedback) {
+            Button(CuadraoCopy.text("copy.cuadraoChatAnswer.bd6b05a681", spanish: es), role: .cancel) { }
         } message: {
-            Text(es ? "Este es un ejemplo de diseño. No se envía ningún comentario." : "This is a design example. No feedback is sent.")
+            Text(CuadraoCopy.text("copy.cuadraoChatAnswer.4d9494226a", spanish: es))
         }
     }
     private func explanation(_ title: String, _ detail: String) -> some View {

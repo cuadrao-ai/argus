@@ -8,23 +8,23 @@ enum CanvasPlanKind: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     func title(_ es: Bool) -> String {
         switch self {
-        case .goal: es ? "Una meta" : "A goal"
-        case .budget: es ? "Mi mes" : "My month"
-        case .debt: es ? "Salir de una deuda" : "Pay off a debt"
+        case .goal: CuadraoCopy.text("copy.cuadraoPlanPreview.cabba9bc9e", spanish: es)
+        case .budget: CuadraoCopy.text("copy.cuadraoPlanPreview.7736181f54", spanish: es)
+        case .debt: CuadraoCopy.text("copy.cuadraoPlanPreview.90cb2868da", spanish: es)
         }
     }
     func amountTitle(_ es: Bool) -> String {
         switch self {
-        case .goal: es ? "Quiero reunir" : "I want to save"
-        case .budget: es ? "Quiero gastar hasta" : "I want to spend up to"
-        case .debt: es ? "Deuda inicial" : "Starting debt"
+        case .goal: CuadraoCopy.text("copy.cuadraoPlanPreview.e778771fc8", spanish: es)
+        case .budget: CuadraoCopy.text("copy.cuadraoPlanPreview.d1b440c179", spanish: es)
+        case .debt: CuadraoCopy.text("copy.cuadraoPlanPreview.f3f72bfd68", spanish: es)
         }
     }
     func recordedTitle(_ es: Bool) -> String {
         switch self {
-        case .goal: es ? "Ya reunido" : "Already saved"
-        case .budget: es ? "Gastado este mes" : "Spent this month"
-        case .debt: es ? "Capital pagado" : "Principal repaid"
+        case .goal: CuadraoCopy.text("copy.cuadraoPlanPreview.cbd0c31fa0", spanish: es)
+        case .budget: CuadraoCopy.text("copy.cuadraoPlanPreview.eb4dc40337", spanish: es)
+        case .debt: CuadraoCopy.text("copy.cuadraoPlanPreview.6208769a5c", spanish: es)
         }
     }
 }
@@ -36,7 +36,7 @@ enum CanvasPlanLook: String, Codable, CaseIterable, Identifiable {
         switch self { case .coast: "water.waves"; case .sunshine: "sun.max"; case .bloom: "leaf"; case .clay: "mountain.2" }
     }
     func title(_ es: Bool) -> String {
-        switch self { case .coast: es ? "Mar" : "Sea"; case .sunshine: es ? "Sol" : "Sun"; case .bloom: es ? "Crecer" : "Grow"; case .clay: es ? "Tierra" : "Earth" }
+        switch self { case .coast: CuadraoCopy.text("copy.cuadraoPlanPreview.29bf91d53d", spanish: es); case .sunshine: CuadraoCopy.text("copy.cuadraoPlanPreview.d7d3325840", spanish: es); case .bloom: CuadraoCopy.text("copy.cuadraoPlanPreview.c7007b4160", spanish: es); case .clay: CuadraoCopy.text("copy.cuadraoPlanPreview.ac0374d65e", spanish: es) }
     }
 }
 
@@ -75,11 +75,10 @@ struct CanvasForecastPoint: Identifiable {
 
 struct CanvasForecastEvent: Identifiable {
     let day: Int
-    let spanish: String
-    let english: String
+    let titleKey: String
     let amount: Double
     var id: Int { day }
-    func title(_ es: Bool) -> String { es ? spanish : english }
+    func title(_ es: Bool) -> String { CuadraoCopy.text(titleKey, spanish: es) }
 }
 
 struct CanvasForecast {
@@ -90,11 +89,11 @@ struct CanvasForecast {
     var current: Double { household ? 18500 : 38200 }
     var events: [CanvasForecastEvent] {
         household ? [
-            .init(day: 18, spanish: "Servicios de casa", english: "Household bills", amount: -6500),
-            .init(day: 26, spanish: "Aportes al hogar", english: "Household contributions", amount: 16500)
+            .init(day: 18, titleKey: "copy.cuadraoPlanPreview.75e5e16f06", amount: -6500),
+            .init(day: 26, titleKey: "copy.cuadraoPlanPreview.d1465f77f9", amount: 16500)
         ] : [
-            .init(day: 18, spanish: "Pagos previstos", english: "Planned payments", amount: -8000),
-            .init(day: 25, spanish: "Próximo ingreso", english: "Next income", amount: 28000)
+            .init(day: 18, titleKey: "copy.cuadraoPlanPreview.3005ccb01b", amount: -8000),
+            .init(day: 25, titleKey: "copy.cuadraoPlanPreview.8a260385d8", amount: 28000)
         ]
     }
     var actual: [CanvasForecastPoint] {
@@ -164,10 +163,10 @@ struct CanvasForecast {
     func resetExamples(spanish es: Bool, empty: Bool = false) {
         hasForecast = !empty; dailyAssumptions = [:]
         plans = empty ? [] : [
-            CanvasPlan(name: es ? "Un finde en Samaná" : "A weekend in Samaná", target: 60000, recorded: 24000, monthly: 6000, look: .coast),
-            CanvasPlan(name: es ? "Casa a nuestro gusto" : "A home that feels like us", spaceID: "household", target: 90000, recorded: 35000, monthly: 10000, look: .clay),
-            CanvasPlan(name: es ? "Mi mes, a mi ritmo" : "My month, my pace", kind: .budget, target: 35000, recorded: 14200, monthly: 35000, look: .sunshine),
-            CanvasPlan(name: es ? "Adiós a la tarjeta" : "Goodbye, card balance", kind: .debt, target: 45000, recorded: 12000, monthly: 5000, annualRate: 24, look: .bloom)
+            CanvasPlan(name: CuadraoCopy.text("copy.cuadraoPlanPreview.6f714ea860", spanish: es), target: 60000, recorded: 24000, monthly: 6000, look: .coast),
+            CanvasPlan(name: CuadraoCopy.text("copy.cuadraoPlanPreview.e211be6ff4", spanish: es), spaceID: "household", target: 90000, recorded: 35000, monthly: 10000, look: .clay),
+            CanvasPlan(name: CuadraoCopy.text("copy.cuadraoPlanPreview.6e65f7bcc6", spanish: es), kind: .budget, target: 35000, recorded: 14200, monthly: 35000, look: .sunshine),
+            CanvasPlan(name: CuadraoCopy.text("copy.cuadraoPlanPreview.11dba30e0c", spanish: es), kind: .debt, target: 45000, recorded: 12000, monthly: 5000, annualRate: 24, look: .bloom)
         ]
         persist()
     }

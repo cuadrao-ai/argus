@@ -66,6 +66,26 @@ def test_amounts_with_more_than_one_reading_stay_unresolved(text):
     assert "amount" in parsed.uncertain
 
 
+@pytest.mark.parametrize(
+    ("text", "amount"),
+    [
+        ("3,450", "3450"),
+        ("RD$ 3,450", "3450"),
+        ("1,234,567", "1234567"),
+        ("3,450.00", "3450.00"),
+        ("3,45", "3.45"),
+    ],
+)
+def test_a_named_grouping_separator_reads_groups_of_three_as_thousands(text, amount):
+    assert parse_amount(text, grouping=",").amount == amount
+
+
+@pytest.mark.parametrize("text", ["3.450", "1234,567", "1,25,000", "1,2500"])
+def test_a_named_grouping_separator_settles_nothing_else(text):
+    parsed = parse_amount(text, grouping=",")
+    assert parsed.amount == parse_amount(text).amount
+
+
 def test_no_marker_is_missing_currency_not_a_guess():
     parsed = parse_amount("12.50")
     assert (parsed.amount, parsed.currency, parsed.uncertain) == (

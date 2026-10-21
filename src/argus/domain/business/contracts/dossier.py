@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 
 from argus.domain.business.document_type import DocumentType
 
+from .actions import ApprovalAction
 from .authority import ActorProvenance, Capability
 from .checks import DgiiQr, EcfVerification
 from .dgii import DgiiDeclaration
@@ -139,6 +140,17 @@ class RecordContext(Contract):
     capabilities: frozenset[Capability]
 
 
+class RefundCandidate(Contract):
+    """An approved purchase a credit note may refund; ``id`` is the activity
+    the declaration's ``purchase_activity_id`` names."""
+
+    id: str
+    merchant: str | None
+    occurred_on: date
+    amount: str
+    currency: str
+
+
 class BusinessDossier(RecordContext):
     dgii: DgiiDeclaration | None = None
     draft_id: UUID
@@ -150,6 +162,9 @@ class BusinessDossier(RecordContext):
     history: tuple[DraftRevision, ...]
     blockers: tuple[Blocker, ...]
     approval_available: bool
+    #: The approve action this draft takes once ``approval_available``, by its
+    #: kind; null while approval is not available.
+    approval_action: ApprovalAction | None = None
     approval_result: ApprovalResult | None = None
     #: The purchases a document read showed when it could not settle on one,
     #: the receipt total it showed, and how many of them this draft leaves
@@ -185,6 +200,13 @@ class BusinessDossier(RecordContext):
     #: The due date a person set in review; null while unknown. Never read
     #: from the document or defaulted. Locked with the other facts once approved.
     due_on: date | None = None
+    #: The caller may answer "¿Incluir en 606?" now: the same gate the
+    #: fiscal-inclusion action enforces (a prepare-holder other than the
+    #: owner, an open or accepted draft, a personal receipt with a fiscal number).
+    fiscal_inclusion_available: bool = False
+    #: The purchases this draft may refund, chosen on the server (see
+    #: ``actions/refunds.py``); empty unless the draft is a refund or a credit note.
+    refund_candidates: tuple[RefundCandidate, ...] = ()
 
     def model_facing(self) -> dict[str, Any]:
         """The dossier as every model reads it: the JSON dump without the
@@ -197,6 +219,9 @@ class BusinessDossier(RecordContext):
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
     "due_on": True,
+    "approval_action": True,
+    "fiscal_inclusion_available": True,
+    "refund_candidates": True,
     "history": {"__all__": {"before_due_on", "after_due_on"}},
 }
 

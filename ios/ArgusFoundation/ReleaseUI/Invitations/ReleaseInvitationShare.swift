@@ -23,7 +23,7 @@ struct ReleaseInvitationShareCard: View {
             }
             if let code = invitation.code {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(spanish ? "Código de invitación" : "Invitation code")
+                    Text(CuadraoCopy.text("copy.releaseInvitationShare.0da28c8201", spanish: spanish))
                         .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                     Text(code).font(.system(.title2, design: .monospaced))
                         .textSelection(.enabled)
@@ -36,13 +36,12 @@ struct ReleaseInvitationShareCard: View {
                     .accessibilityIdentifier(identifier + ".link")
             }
             if let expiresAt = invitation.expiresAt {
-                Text(spanish ? "Vence: \(expiresAt.formatted(date: .abbreviated, time: .shortened))"
-                     : "Expires: \(expiresAt.formatted(date: .abbreviated, time: .shortened))")
+                Text(CuadraoCopy.text("copy.releaseInvitationShare.d6a57a460f", spanish: spanish, String(describing: expiresAt.formatted(date: .abbreviated, time: .shortened))))
                     .font(CuadraoTypography.caption).foregroundStyle(.secondary)
             }
             if let item = invitation.url?.absoluteString ?? invitation.code {
                 ShareLink(item: item) {
-                    Label(spanish ? "Compartir invitación" : "Share invitation", systemImage: "square.and.arrow.up")
+                    Label(CuadraoCopy.text("copy.cuadraoHouseholdSheet.3e59d3aca8", spanish: spanish), systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity, minHeight: 48).modifier(ReleaseProminentLabel())
                 }
                 .buttonStyle(.borderedProminent).tint(WelcomePalette.pine)
@@ -50,14 +49,12 @@ struct ReleaseInvitationShareCard: View {
             }
             if let testFlightURL = invitation.testFlightURL {
                 Link(destination: testFlightURL) {
-                    Text(spanish ? "Instalar con TestFlight" : "Install with TestFlight").frame(minHeight: 44)
+                    Text(CuadraoCopy.text("copy.releaseInvitationShare.b0eb75ce95", spanish: spanish)).frame(minHeight: 44)
                 }.accessibilityIdentifier(identifier + ".testFlight")
-                Text(spanish ? "TestFlight instala la app; la invitación permite entrar."
-                     : "TestFlight installs the app; the invitation provides access.")
+                Text(CuadraoCopy.text("copy.releaseInvitationShare.2be7c75fbd", spanish: spanish))
                     .font(CuadraoTypography.caption).foregroundStyle(.secondary)
             }
-            Text(spanish ? "Compartir el enlace no significa que la persona ya aceptó."
-                 : "Sharing the link does not mean the person has accepted.")
+            Text(CuadraoCopy.text("copy.releaseInvitationShare.87cd57b6e7", spanish: spanish))
                 .font(CuadraoTypography.caption).foregroundStyle(.secondary)
         }
         .foregroundStyle(WelcomePalette.ink)
@@ -89,11 +86,9 @@ struct ReleaseInvitationQRCode: View {
             if let image {
                 Image(uiImage: image).interpolation(.none).resizable().scaledToFit()
                     .frame(maxWidth: 240).background(.white)
-                    .accessibilityLabel(spanish ? "QR de la misma invitación. También puedes compartir el enlace."
-                                        : "QR for the same invitation. You can also share the link.")
+                    .accessibilityLabel(CuadraoCopy.text("copy.releaseInvitationShare.6992ff98b5", spanish: spanish))
             } else {
-                Text(spanish ? "No se pudo mostrar el QR. Comparte el enlace."
-                     : "The QR could not be displayed. Share the link.")
+                Text(CuadraoCopy.text("copy.releaseInvitationShare.5f4aad07ab", spanish: spanish))
                     .font(CuadraoTypography.supporting)
             }
         }
@@ -107,11 +102,10 @@ struct HouseholdInvitationShareView: View {
     var body: some View {
         if let url = invitation.link.flatMap(URL.init(string:)) ?? invitation.token.flatMap({ URL(string: "argus-household://invite#" + $0) }) {
             VStack(alignment: .leading, spacing: 16) {
-                Text(spanish ? "Un lugar para lo compartido." : "A place for what you share.")
+                Text(CuadraoCopy.text("copy.releaseInvitationShare.09b59dcc3a", spanish: spanish))
                     .font(CuadraoTypography.section)
                 Text("household.consent").font(CuadraoTypography.supporting)
-                Text(spanish ? "Esta invitación es para tu Hogar. No usa tus invitaciones personales."
-                     : "This invitation is for your Household. It does not use your personal invitations.")
+                Text(CuadraoCopy.text("copy.releaseInvitationShare.2b864f2fbf", spanish: spanish))
                     .font(CuadraoTypography.caption).foregroundStyle(.secondary)
                 ReleaseInvitationShareCard(invitation: ReleaseInvitationShare(url: url, code: invitation.code,
                                                                               expiresAt: InvitationDates.date(invitation.expiresAt)),

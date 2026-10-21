@@ -115,6 +115,16 @@ class BusinessActions:
     ) -> list[dict]:
         return captures.entries(self, context, query=query, limit=limit, view=view)
 
+    def captures_page(
+        self,
+        context: ActionContext,
+        *,
+        query: str = "",
+        limit: int = 20,
+        view: str = "all",
+    ) -> dict:
+        return captures.page(self, context, query=query, limit=limit, view=view)
+
     def persist_plan(
         self,
         context: ActionContext,
@@ -218,7 +228,18 @@ class BusinessActions:
 
     def dossier(self, context: ActionContext, draft_id: UUID) -> BusinessDossier:
         with transaction(self.authority, context) as tx:
-            return views.dossier(tx, draft_id)
+            return views.dossier(tx, draft_id, ledger=lambda: self._activities(context))
+
+    def _activities(self, context: ActionContext) -> list[dict]:
+        """The Business's current money activities, as the Resumen reads them."""
+
+        from argus.domain.recording.money_reads import current_activities
+
+        return current_activities(
+            self.imports.money.accounts.list_accounts(
+                user_id=context.owner_id, scope=context.scope
+            )
+        )
 
     def record_context(self, context: ActionContext) -> RecordContext:
         with transaction(self.authority, context) as tx:
@@ -438,14 +459,13 @@ class BusinessActions:
         from argus.domain.business.contracts.facts import (
             FiscalFacts,
             Known,
-            fiscal_value,
-            is_personal,
+            fiscal_question_applies,
         )
 
         command = DecideFiscalInclusionCommand(draft_id=draft_id, request=request)
 
         def change(facts, source_id, acting_owner):  # noqa: ANN001, ANN202
-            if not is_personal(facts) or fiscal_value(facts) is None:
+            if not fiscal_question_applies(facts):
                 raise ActionError("invalid_input", "business_606_not_applicable")
             fiscal = facts.fiscal or FiscalFacts()
             return facts.model_copy(

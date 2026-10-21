@@ -48,7 +48,12 @@ class ParsedAmount:
     uncertain: frozenset[str]
 
 
-def parse_amount(text: str | None, *, currency_code: str | None = None) -> ParsedAmount:
+def parse_amount(
+    text: str | None,
+    *,
+    currency_code: str | None = None,
+    grouping: str | None = None,
+) -> ParsedAmount:
     """Magnitude and currency from a formatted amount; doubt is listed.
 
     ``currency_code`` is an explicit ISO code the shortcut sent alongside the
@@ -56,6 +61,10 @@ def parse_amount(text: str | None, *, currency_code: str | None = None) -> Parse
     marker it disagrees with or cannot vouch for ("R$", "€", "¥") leaves the
     currency unresolved. A sign or parentheses is doubt about direction: a
     refund, a reversal or just a display style, never decided here.
+
+    ``grouping`` is the thousands separator the text's source groups by (","
+    in a Business search box), so "3,450" there is one value. Without it,
+    "1,250" and "1.250" stay unresolved.
     """
 
     uncertain: set[str] = set()
@@ -65,7 +74,7 @@ def parse_amount(text: str | None, *, currency_code: str | None = None) -> Parse
     if len(raw) > MAX_AMOUNT_TEXT:
         return ParsedAmount(None, None, frozenset({"amount", "currency"}))
     marker, number, signed = _split(raw)
-    amount = _magnitude(number) if number is not None else None
+    amount = _magnitude(number, grouping) if number is not None else None
     if amount is None:
         uncertain.add("amount")
     if signed:
@@ -129,7 +138,7 @@ def _currency(marker: str, explicit: str | None) -> tuple[str | None, bool]:
     return None, True
 
 
-def _magnitude(core: str) -> str | None:
+def _magnitude(core: str, grouping: str | None = None) -> str | None:
     for space in _GROUPING_SPACES:
         if space in core:
             core = _ungroup(core, space)
@@ -154,8 +163,12 @@ def _magnitude(core: str) -> str | None:
         return None if whole is None else _decimal(whole, "")
     whole, fraction = core.split(sep)
     if len(fraction) == 3 and whole:
-        # "1,250" / "1.250": thousands in one locale, decimals in another.
-        return None
+        # "1,250" / "1.250": thousands in one locale, decimals in another,
+        # unless the source groups by this separator.
+        if sep != grouping:
+            return None
+        whole = _ungroup(core, sep)
+        return None if whole is None else _decimal(whole, "")
     return _decimal(whole or "0", fraction)
 
 

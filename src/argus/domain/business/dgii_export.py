@@ -24,6 +24,7 @@ from argus.domain.business.dgii_line import (
 )
 from argus.domain.business.dgii_validation import (
     FiscalRecord,
+    declarable,
     fact_value,
     is_credit,
     ncf_type,
@@ -150,7 +151,7 @@ def _workbook(manifest: dict, rows: dict[str, list[tuple[str, ...]]]) -> bytes:
     return output.getvalue()
 
 
-def build_fiscal_packet(
+def fiscal_manifest(
     records: tuple[FiscalRecord, ...],
     *,
     rnc: str | None,
@@ -159,7 +160,13 @@ def build_fiscal_packet(
     end: date,
     captured_on: date,
     registry: RncRegistry | None = None,
-) -> FiscalPacket:
+) -> tuple[dict, dict[str, list[tuple[str, ...]]]]:
+    """The DGII summary and the 606 and 607 rows for ``[start, end]``.
+
+    The packet writes its files from these. Month close reads each form's
+    status from the same summary, so both say the same thing about a month.
+    """
+
     registry = registry or UnknownRncRegistry()
     rows: dict[str, list[tuple[str, ...]]] = {"606": [], "607": []}
     issues = []
@@ -235,7 +242,7 @@ def build_fiscal_packet(
             item["rnc_check_status"] = check["status"]
             warnings.extend(line_warnings)
 
-        if record.currency != "DOP":
+        if not declarable(record.currency):
             if is_sin_comprobante(record.facts):
                 item.update(disposition="excluded", reason="no_fiscal_number")
                 continue
@@ -334,7 +341,6 @@ def build_fiscal_packet(
             }
         )
     forms = {}
-    files = {}
     for form in COLUMNS:
         relevant = [
             issue
@@ -364,10 +370,6 @@ def build_fiscal_packet(
             "issues": relevant,
             "official_validation": "NOT RUN",
         }
-        if status == "prepared_candidate":
-            files[f"dgii/DGII_F_{form}_{rnc}_{period}.TXT"] = _txt(
-                form, rnc, period, rows[form]
-            )
     manifest = {
         "schema_version": 1,
         "business_name": business_name,
@@ -403,6 +405,34 @@ def build_fiscal_packet(
             },
             "official_tool_verified": False,
         },
+    }
+    return manifest, rows
+
+
+def build_fiscal_packet(
+    records: tuple[FiscalRecord, ...],
+    *,
+    rnc: str | None,
+    business_name: str,
+    start: date,
+    end: date,
+    captured_on: date,
+    registry: RncRegistry | None = None,
+) -> FiscalPacket:
+    manifest, rows = fiscal_manifest(
+        records,
+        rnc=rnc,
+        business_name=business_name,
+        start=start,
+        end=end,
+        captured_on=captured_on,
+        registry=registry,
+    )
+    period = manifest["period"]
+    files = {
+        f"dgii/DGII_F_{form}_{rnc}_{period}.TXT": _txt(form, rnc, period, rows[form])
+        for form, shape in manifest["forms"].items()
+        if shape["status"] == "prepared_candidate"
     }
     files["dgii/summary.json"] = json.dumps(
         manifest, ensure_ascii=False, indent=2

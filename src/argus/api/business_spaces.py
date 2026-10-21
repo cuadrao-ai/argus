@@ -59,6 +59,8 @@ def space_payload(space: Space) -> dict[str, Any]:
     return {
         "id": space.id,
         "name": space.name,
+        "country": space.country,
+        "currency": space.currency,
         "logo_url": picture_urls("business", [space.id])[space.id],
     }
 

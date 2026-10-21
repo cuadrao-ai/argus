@@ -30,9 +30,9 @@ struct CuadraoSearchStart {
 
 struct CuadraoSearchCopy {
     let spanish: Bool
-    var recents: String { spanish ? "Recientes" : "Recent" }
-    var clear: String { spanish ? "Borrar" : "Clear" }
-    var suggestions: String { spanish ? "Prueba buscando" : "Try searching" }
+    var recents: String { CuadraoCopy.text("copy.cuadraoSearchStart.a75f08cffc", spanish: spanish) }
+    var clear: String { CuadraoCopy.text("copy.cuadraoSearchStart.26b544db5c", spanish: spanish) }
+    var suggestions: String { CuadraoCopy.text("copy.cuadraoSearchStart.954e788c73", spanish: spanish) }
 }
 
 struct CuadraoSearchStartView: View {
