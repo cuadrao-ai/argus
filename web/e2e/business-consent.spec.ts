@@ -39,7 +39,7 @@ async function openBusiness(page: Page, server: Server) {
     if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0 } } });
     if (path === "receipt-reading") return route.fulfill({ json: { scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Permiso de prueba", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null } });
     if (path === "email") return route.fulfill({ json: { enabled: false, receiving_address: null } });
-    if (path === "email/deliveries" || path === "captures" || path === "updates") return route.fulfill({ json: { items: [] } });
+    if (path === "email/deliveries" || path === "captures") return route.fulfill({ json: { items: [] } });
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
   await page.goto("/biz");
@@ -63,7 +63,7 @@ for (const width of [1440, 390]) {
     await expect(screen.getByText(COPY.privacy)).toHaveCount(0);
     const go = screen.getByRole("button", { name: COPY.continue, exact: true });
     await expect(go).toBeDisabled();
-    await expect(page.getByTestId("inicio-por-revisar")).toHaveCount(0);
+    await expect(page.locator("#business-overview-title")).toHaveCount(0);
     await capture(page, `consent-${width}`);
 
     await screen.getByRole("checkbox").check();
@@ -80,19 +80,19 @@ for (const width of [1440, 390]) {
     await capture(page, `skeleton-${width}`);
     release();
     server.holdAccept = null;
-    await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
+    await expect(page.locator("#business-overview-title")).toBeVisible();
     expect(server.accepted.size).toBe(1);
     await capture(page, `inicio-${width}`);
 
     await page.reload();
-    await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
+    await expect(page.locator("#business-overview-title")).toBeVisible();
     await expect(page.getByTestId("business-consent-screen")).toHaveCount(0);
 
     const fresh: BrowserContext = await browser.newContext({ viewport: { width, height: 900 } });
     try {
       const other = await fresh.newPage();
       await openBusiness(other, server);
-      await expect(other.getByTestId("inicio-por-revisar")).toBeVisible();
+      await expect(other.locator("#business-overview-title")).toBeVisible();
       await expect(other.getByTestId("business-consent-screen")).toHaveCount(0);
     } finally {
       await fresh.close();

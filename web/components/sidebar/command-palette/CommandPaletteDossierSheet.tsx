@@ -32,10 +32,11 @@ export default function CommandPaletteDossierSheet({
   return (
     <BottomSheet
       isOpen
-      height="full"
+      snaps={["full"]}
       title={preview.title}
       titleHidden
       closeLabel={t("command_palette.close_dossier", "Close dossier")}
+      backLabel={t("common.back", "Back")}
       onClose={onClose}
       footer={
         <button

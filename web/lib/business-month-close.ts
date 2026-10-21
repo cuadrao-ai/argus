@@ -13,6 +13,9 @@ import { apiFetch } from "./argus-api-transport";
  * - `PATCH /business/month-close/documents/{activity_id}`
  *   Body: `status`, `settled_on`, `payment_method`. A settled status needs
  *   both a date and a method. Pending omits them.
+ * - `GET /business/open-items`
+ *   Every invoice and receipt still pending, from any month, for Por cobrar
+ *   and Por pagar. The oldest 100 per list; `count` includes the rest.
  *
  * Each amount is decimal text with at most two fraction digits, never a float.
  * A line keeps its currency. DOP totals leave other currencies out, and use
@@ -73,6 +76,8 @@ export type MonthCloseDocument = {
    * Absent means those fields are the record.
    */
   fiscal_known?: boolean;
+  /** No comprobante fiscal: counts in the month, stays out of the 606 and 607, never blocks the close. */
+  sin_comprobante?: boolean;
 };
 
 export type MonthCloseWindow = {
@@ -189,12 +194,32 @@ export class MonthCloseError extends Error {
   }
 }
 
+/** One currency's pending total. Currencies are never added together. */
+export type OpenItemsTotal = { currency: string; total: string };
+
+export type OpenItemsList = {
+  /** Every pending document, including the ones past the cap. */
+  count: number;
+  totals: OpenItemsTotal[];
+  /** The oldest `OPEN_ITEMS_CAP`, by issue day. */
+  items: MonthCloseDocument[];
+};
+
+/** What is still owed, from every month: the Por cobrar and Por pagar columns. */
+export type OpenItems = { cuentas_por_cobrar: OpenItemsList; cuentas_por_pagar: OpenItemsList };
+
+export const OPEN_ITEMS_CAP = 100;
+
 export type MonthCloseClient = {
   readonly mode: "mock" | "http";
   /** `scope` is the selected Business grant. The mock keeps each grant's marks apart. The HTTP client refetches when the view's scope changes; the session already carries the grant. `month` is `YYYY-MM` and is the `month` query sent to the server. */
   load(month: string, scope?: string): Promise<MonthCloseSnapshot>;
+  /** Pending documents from every month. Same scope rule as `load`. */
+  openItems(scope?: string): Promise<OpenItems>;
   markCobrado(documentId: string, scope?: string, settledOn?: string): Promise<MonthCloseDocument>;
   markPagado(documentId: string, scope?: string, settledOn?: string): Promise<MonthCloseDocument>;
+  /** Back to `pendiente`, which returns the document to the open items: Deshacer after a mark. */
+  markPendiente(documentId: string, scope?: string): Promise<void>;
   /** The sample client locks the month locally. The HTTP client has no close request. */
   closeMonth(month: string, scope?: string): Promise<MonthCloseSnapshot>;
 };
@@ -298,13 +323,50 @@ export function monthCloseNetDisplay(
   return { state: "final", net_before_itbis: net };
 }
 
-export function documentsTotal(documents: readonly Pick<MonthCloseDocument, "amount" | "currency">[]): string {
-  return formatDopCents(documents.reduce((total, document) => (document.currency === "DOP" ? addCents(total, document.amount) : total), ZERO));
+/**
+ * The currency a Por cobrar or Por pagar header names: DOP when the list holds
+ * any, otherwise its first. A row or total in it shows the number alone.
+ */
+export function openItemsHeaderCurrency(list: OpenItemsList): string | null {
+  const currencies = [...list.totals.map((total) => total.currency), ...list.items.map((item) => item.currency)];
+  return currencies.includes("DOP") ? "DOP" : currencies[0] ?? null;
+}
+
+/** One total per currency, the header's first. */
+export function openItemsTotalsInOrder(list: OpenItemsList): OpenItemsTotal[] {
+  const header = openItemsHeaderCurrency(list);
+  return [...list.totals].sort((left, right) => Number(right.currency === header) - Number(left.currency === header));
 }
 
 function utcDayNumber(day: string): number {
   const [year, month, date] = day.split("-").map(Number);
   return Math.floor(Date.UTC(year, month - 1, date) / 86400000);
+}
+
+/** Due day first, so overdue rows lead, oldest first, then the nearest due; rows with no due day follow by issue day. */
+export function openItemsInDueOrder(items: readonly MonthCloseDocument[]): MonthCloseDocument[] {
+  return [...items].sort((left, right) => {
+    if (left.due_on !== right.due_on) {
+      if (left.due_on === null) return 1;
+      if (right.due_on === null) return -1;
+      return left.due_on.localeCompare(right.due_on);
+    }
+    return left.occurred_on.localeCompare(right.occurred_on) || left.id.localeCompare(right.id);
+  });
+}
+
+/** How many of these items are overdue and what they add up to, exactly, one total per currency in the order of `openItemsTotalsInOrder`. */
+export function openItemsOverdue(list: OpenItemsList, today: string): { count: number; totals: OpenItemsTotal[] } {
+  const sums = new Map<string, bigint>();
+  let count = 0;
+  for (const item of list.items) {
+    if (!documentOverdue(item, today)) continue;
+    count += 1;
+    sums.set(item.currency, addCents(sums.get(item.currency) ?? ZERO, item.amount));
+  }
+  const header = openItemsHeaderCurrency(list);
+  const totals = [...sums].map(([currency, cents]) => ({ currency, total: formatDopCents(cents) }));
+  return { count, totals: totals.sort((left, right) => Number(right.currency === header) - Number(left.currency === header)) };
 }
 
 /** Whole days from `today` to `dueOn`. Both are `YYYY-MM-DD`. */
@@ -610,6 +672,23 @@ function snapshotFor(documents: readonly MonthCloseDocument[], window: MonthClos
   };
 }
 
+/** Pending documents oldest first, capped, with one total per currency. The mock's read of `GET /business/open-items`. */
+export function openItemsFrom(documents: readonly MonthCloseDocument[]): OpenItems {
+  const list = (kind: MonthCloseKind): OpenItemsList => {
+    const pending = documents
+      .filter((document) => document.kind === kind && document.status === "pendiente")
+      .sort((left, right) => left.occurred_on.localeCompare(right.occurred_on) || left.id.localeCompare(right.id));
+    const sums = new Map<string, bigint>();
+    for (const document of pending) sums.set(document.currency, addCents(sums.get(document.currency) ?? ZERO, document.amount));
+    return {
+      count: pending.length,
+      totals: [...sums].map(([currency, cents]) => ({ currency, total: formatDopCents(cents) })),
+      items: pending.slice(0, OPEN_ITEMS_CAP),
+    };
+  };
+  return { cuentas_por_cobrar: list("invoice"), cuentas_por_pagar: list("receipt") };
+}
+
 export type MockMonthCloseOptions = {
   now?: Date;
   /** Mark calls for these ids fail, so the view can roll the optimistic row back. */
@@ -653,11 +732,19 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
       const current = book(scope);
       return snapshotFor(current.documents, windowForMonth(month), today, current.closedAt);
     },
+    async openItems(scope = "default") {
+      return openItemsFrom(book(scope).documents);
+    },
     async markCobrado(documentId, scope = "default") {
       return mark(scope, documentId, "invoice", "cobrado");
     },
     async markPagado(documentId, scope = "default") {
       return mark(scope, documentId, "receipt", "pagado");
+    },
+    async markPendiente(documentId, scope = "default") {
+      const document = book(scope).documents.find((item) => item.id === documentId);
+      if (!document) throw new MonthCloseError("not_found", "document not found");
+      mark(scope, documentId, document.kind, "pendiente");
     },
     async closeMonth(month, scope = "default") {
       if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
@@ -694,6 +781,11 @@ export function monthCloseLoadRequest(month: string): MonthCloseRequest {
   return { method: "GET", path: monthCloseRequestPath(month) };
 }
 
+/** `GET /business/open-items`. No query. */
+export function openItemsRequest(): MonthCloseRequest {
+  return { method: "GET", path: "/business/open-items" };
+}
+
 /** `PATCH /business/month-close/documents/{activity_id}`. A settled status carries the day and the method. */
 export function monthCloseSettlementRequest(activityId: string, status: "cobrado" | "pagado", settledOn: string): MonthCloseRequest {
   if (!DAY.test(settledOn)) throw new MonthCloseError("unavailable", "settlement date is unknown");
@@ -702,6 +794,16 @@ export function monthCloseSettlementRequest(activityId: string, status: "cobrado
     method: "PATCH",
     path: `/business/month-close/documents/${encodeURIComponent(activityId)}`,
     body: { status, settled_on: settledOn, payment_method: MONTH_CLOSE_MARK_METHOD },
+  };
+}
+
+/** `PATCH` back to `pendiente`, which carries neither a day nor a method. */
+export function monthCloseReopenRequest(activityId: string): MonthCloseRequest {
+  if (activityId.length === 0) throw new MonthCloseError("unavailable", "month close document has no id");
+  return {
+    method: "PATCH",
+    path: `/business/month-close/documents/${encodeURIComponent(activityId)}`,
+    body: { status: "pendiente" },
   };
 }
 
@@ -718,6 +820,7 @@ type WireLine = {
   itbis_minor: number | null;
   status: string;
   currency?: string;
+  counterparty: string | null;
 };
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
@@ -744,6 +847,7 @@ function readWireLine(value: unknown): WireLine {
     itbis_minor: value.itbis_minor,
     status: value.status,
     currency: lineCurrency(value.currency),
+    counterparty: readNullableText(value.counterparty),
   };
 }
 
@@ -751,7 +855,7 @@ function wireDocument(line: WireLine): MonthCloseDocument {
   return {
     id: line.activity_id,
     kind: line.document_kind,
-    counterparty: line.document_kind === "invoice" ? "Factura" : "Gasto",
+    counterparty: line.counterparty ?? (line.document_kind === "invoice" ? "Factura" : "Gasto"),
     occurred_on: line.occurred_on,
     due_on: null,
     currency: line.currency ?? "DOP",
@@ -843,6 +947,33 @@ export function readMonthCloseWire(value: unknown): MonthCloseSnapshot {
   };
 }
 
+function readOpenItemsList(value: unknown, kind: MonthCloseKind): OpenItemsList {
+  if (!isRecord(value)) throw new MonthCloseError("unavailable", "open items list was not an object");
+  if (typeof value.count !== "number" || !Number.isInteger(value.count) || value.count < 0) throw new MonthCloseError("unavailable", "open items count is unknown");
+  if (!Array.isArray(value.totals) || !Array.isArray(value.items)) throw new MonthCloseError("unavailable", "open items lists are missing");
+  const totals = value.totals.map((total) => {
+    if (!isRecord(total) || typeof total.currency !== "string" || !CURRENCY_CODE.test(total.currency)) throw new MonthCloseError("unavailable", "open items currency is unknown");
+    if (typeof total.total_minor !== "number") throw new MonthCloseError("unavailable", "month close amount was not a minor-unit integer");
+    return { currency: total.currency, total: minorToAmount(total.total_minor) };
+  });
+  const items = value.items.map((item) => {
+    const line = readWireLine(item);
+    if (line.document_kind !== kind || line.status !== "pendiente") throw new MonthCloseError("unavailable", "open item is not a pending document of its list");
+    return wireDocument(line);
+  });
+  if (items.length > value.count) throw new MonthCloseError("unavailable", "open items count is below its items");
+  return { count: value.count, totals, items };
+}
+
+/** The open-items body. Each list keeps the server's order and totals. */
+export function readOpenItemsWire(value: unknown): OpenItems {
+  if (!isRecord(value)) throw new MonthCloseError("unavailable", "open items response was not an object");
+  return {
+    cuentas_por_cobrar: readOpenItemsList(value.cuentas_por_cobrar, "invoice"),
+    cuentas_por_pagar: readOpenItemsList(value.cuentas_por_pagar, "receipt"),
+  };
+}
+
 export type MonthCloseTransport = (path: string, init?: RequestInit) => Promise<unknown>;
 
 function monthCloseError(error: unknown): MonthCloseError {
@@ -879,19 +1010,26 @@ export function createHttpMonthCloseClient(transport: MonthCloseTransport = (pat
     async load(month) {
       return readMonthCloseWire(await readTransport(transport, monthCloseLoadRequest(month)));
     },
+    async openItems() {
+      return readOpenItemsWire(await readTransport(transport, openItemsRequest()));
+    },
     async markCobrado(documentId, _scope, settledOn) {
       if (!settledOn) throw new MonthCloseError("unavailable", "settlement date is unknown");
       const request = monthCloseSettlementRequest(documentId, "cobrado", settledOn);
       const saved = await readTransport(transport, request);
       if (!isRecord(saved) || saved.status !== "cobrado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado" });
+      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado", counterparty: null });
     },
     async markPagado(documentId, _scope, settledOn) {
       if (!settledOn) throw new MonthCloseError("unavailable", "settlement date is unknown");
       const request = monthCloseSettlementRequest(documentId, "pagado", settledOn);
       const saved = await readTransport(transport, request);
       if (!isRecord(saved) || saved.status !== "pagado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado" });
+      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado", counterparty: null });
+    },
+    async markPendiente(documentId) {
+      const saved = await readTransport(transport, monthCloseReopenRequest(documentId));
+      if (!isRecord(saved) || saved.status !== "pendiente") throw new MonthCloseError("unavailable", "month close status does not fit the document");
     },
     async closeMonth() {
       throw new MonthCloseError("unavailable", "the month closes from the recorded documents");

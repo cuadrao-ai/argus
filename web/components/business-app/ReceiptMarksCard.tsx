@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessDossier } from "@/lib/business-dossier";
 import { useBusiness } from "./BusinessWorkspace";
-import { RecordMarks } from "./business-ui";
+import { primaryButtonClass, quietButtonClass, RecordMarks, recordFiscalMark, secondaryButtonClass } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { showToast } from "./foundation/toasts";
+import { Switch } from "@/components/ui/Switch";
 
 /**
  * What the record is marked as, and the two decisions that are people's:
@@ -20,6 +22,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const { source, chosen, reload } = useBusiness();
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [retry, setRetry] = useState<(() => void) | null>(null);
   const canPrepare = dossier.capabilities.includes("prepare");
   const owner = !chosen || chosen.role === "owner";
   // The server reads the marks; the card shows them as given.
@@ -29,6 +32,11 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const answeredBy = dossier.include_606_by ?? "";
   const markedBy = dossier.personal_marked_by ?? null;
 
+  // A failed change says so here, beside the work, with Reintentar.
+  const fail = (text: string, again: () => void) => {
+    setProblem(text);
+    setRetry(() => again);
+  };
   const run = async (call: () => Promise<BusinessDossier>, failure: string) => {
     setWorking(true);
     setProblem(null);
@@ -36,39 +44,52 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
       onChanged(await call());
       reload();
     } catch {
-      setProblem(failure);
+      fail(failure, () => void run(call, failure));
     } finally {
       setWorking(false);
     }
   };
   const disabled = busy || working;
-  const answer = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border px-4 text-[14px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40";
+  // Flips first; a refusal rolls the switch back and says so. A done change offers Deshacer.
+  const markPersonal = async (next: boolean) => {
+    setProblem(null);
+    try {
+      const marked = await source.markPersonal(dossier.draft_id, dossier.version, next, crypto.randomUUID());
+      onChanged(marked);
+      reload();
+      showToast({
+        kind: "success",
+        text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
+        action: { label: t("business.marks.undo", "Undo"), run: () => void run(() => source.markPersonal(dossier.draft_id, marked.version, !next, crypto.randomUUID()), t("business.marks.mark_failed", "We could not save the change. Try again.")) },
+      });
+    } catch (error) {
+      fail(t("business.marks.mark_failed", "We could not save the change. Try again."), () => void markPersonal(next).catch(() => undefined));
+      throw error;
+    }
+  };
 
   return (
     <div className={SURFACE_CARD} data-testid="receipt-marks-card">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <RecordMarks personal={personal} fiscalValue={fiscalValue} known={dossier.fiscal_known === true} markedBy={markedBy} />
-        {canPrepare ? (
-          <button
-            type="button"
-            data-testid="receipt-mark-personal"
-            aria-pressed={personal}
-            disabled={disabled}
-            onClick={() => void run(() => source.markPersonal(dossier.draft_id, dossier.version, !personal, crypto.randomUUID()), t("business.marks.mark_failed", "We could not save the change. Try again."))}
-            className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[13px] font-medium transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 ${personal ? "border-[#2f5a49] bg-[#2f5a49] text-[#FFFEFA]" : "border-[#7d8a84] bg-[#FFFEFA] text-[#172b26] dark:bg-[#1f2225] dark:text-white"}`}
-          >
-            {personal ? t("business.marks.unmark_personal_label", "No longer personal") : t("business.marks.mark_personal_label", "Mark as personal")}
-          </button>
-        ) : null}
+        <RecordMarks personal={personal} fiscal={recordFiscalMark(dossier)} markedBy={markedBy} />
       </div>
+      {canPrepare ? (
+        <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
+          <span className="min-w-0">
+            <span className="block text-[15px] font-medium text-[#172b26] dark:text-white">{t("business.marks.mark_personal", "Personal")}</span>
+            <span className="block text-[13px] text-[#56635e] dark:text-white/70">{t("business.marks.personal_help", "It does not count in the Business totals.")}</span>
+          </span>
+          <Switch testId="receipt-mark-personal" label={t("business.marks.mark_personal", "Personal")} checked={personal} disabled={disabled} onChange={markPersonal} />
+        </div>
+      ) : null}
       {personal && fiscalValue ? (
         <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10" data-testid="receipt-606">
           {inclusion === null && !owner && canPrepare ? (
             <>
               <p className="text-[14px] font-medium text-black dark:text-white">{t("business.marks.question_606", "Include in the 606?")}</p>
               <div className="mt-3 flex gap-2">
-                <button type="button" data-testid="receipt-606-yes" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, true, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={`${answer} border-[#2f5a49] bg-[#2f5a49] text-[#FFFEFA] hover:bg-[#1d4236]`}>{t("business.marks.yes", "Yes")}</button>
-                <button type="button" data-testid="receipt-606-no" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, false, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={`${answer} border-[#7d8a84] bg-[#FFFEFA] text-[#172b26] dark:bg-[#1f2225] dark:text-white`}>{t("business.marks.no", "No")}</button>
+                <button type="button" data-testid="receipt-606-yes" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, true, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={primaryButtonClass}>{t("business.marks.yes", "Yes")}</button>
+                <button type="button" data-testid="receipt-606-no" disabled={disabled} onClick={() => void run(() => source.decideFiscalInclusion(dossier.draft_id, dossier.version, false, crypto.randomUUID()), t("business.marks.decide_failed", "We could not save the answer. Try again."))} className={secondaryButtonClass}>{t("business.marks.no", "No")}</button>
               </div>
             </>
           ) : (
@@ -82,7 +103,12 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
           )}
         </div>
       ) : null}
-      {problem ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{problem}</p> : null}
+      {problem ? (
+        <p role="alert" data-testid="receipt-marks-problem" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
+          {problem}
+          {retry ? <button type="button" disabled={disabled} onClick={retry} className={quietButtonClass}>{t("common.retry", "Retry")}</button> : null}
+        </p>
+      ) : null}
     </div>
   );
 }

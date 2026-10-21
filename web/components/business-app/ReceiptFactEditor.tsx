@@ -58,11 +58,20 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
         else set("funding", { state: "known", value: value === "owner_funds" ? { kind: "owner_funds" } : { kind: "business_account", account_id: value.slice(8) } });
       }}><option value="">{choose}</option><option value="owner_does_not_know">{t("business.dossier.owner_unknown", "Owner doesn't know")}</option><option value="owner_funds">{t("business.dossier.owner_funds", "Owner's money")}</option>{accounts.map((account) => <option key={account.id} value={`account:${account.id}`}>{account.nickname ?? t("business.dossier.business_account", "Business account")} · {account.currency}</option>)}</select></label> : null}
       {field === "category_id" ? <label className="text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("category_id")}</span><select className={inputClass} value={scalar("category_id")} disabled={disabled} onChange={(event) => setScalar("category_id", event.target.value)}><option value="">{choose}</option>{RECEIPT_CATEGORY_IDS.map((id) => <option key={id} value={id}>{categoryLabel(id)}</option>)}</select></label> : null}
-      {field === "receipt_state" ? <label className="text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("receipt_state")}</span><select className={inputClass} value={receiptState.value ?? ""} disabled={disabled} onChange={(event) => {
-          const value = event.target.value;
-          if (value === "fiscal_receipt" || value === "informal_receipt" || value === "no_receipt") set("receipt_state", { state: "known", value });
-          else set("receipt_state", { state: "unknown", value: null });
-        }}><option value="">{choose}</option>{["fiscal_receipt", "informal_receipt", "no_receipt"].map((value) => <option key={value} value={value}>{t(`business.dossier.receipt.${value}`, value)}</option>)}</select></label> : null}
+      {field === "receipt_state" ? (
+        <fieldset disabled={disabled}>
+          <legend className="sr-only">{label("receipt_state")}</legend>
+          <div className="space-y-1">
+            {(["fiscal_receipt", "informal_receipt", "no_receipt"] as const).map((value) => (
+              <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] px-2 text-[15px] text-[#172b26] hover:bg-black/[0.03] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.04]">
+                <input type="radio" name={`receipt-state-${field}`} value={value} checked={receiptState.value === value} onChange={() => set("receipt_state", { state: "known", value })} className="h-4 w-4 accent-[#2f5a49]" />
+                {t(`business.dossier.receipt.${value}`, value)}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 px-2 text-[13px] text-[#56635e] dark:text-white/70">{t("business.dossier.receipt_hint", "The last two stay out of the 606 and 607.")}</p>
+        </fieldset>
+      ) : null}
       {field === "business_share" ? <label className="block text-[13px] text-black/65 dark:text-white/65"><span className="sr-only">{label("business_share")}</span><select className={inputClass} value={share.state === "known" ? share.value.kind : ""} disabled={disabled} onChange={(event) => {
         const value = event.target.value;
         if (value === "all" || value === "none") set("business_share", { state: "known", value: { kind: value } });

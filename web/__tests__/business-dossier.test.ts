@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import spanish from "@/public/locales/es-419/common.json";
-import { approvalLine, finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest, ReceiptApprovalGuidance, ReceiptPeriodExport, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
+import { approvalLine, ReceiptApprovalGuidance, ReceiptReadPurchases } from "@/components/business-app/ReceiptDossierReview";
+import { finishPeriodExportRequest, saveBlobDownload, startPeriodExportRequest } from "@/components/business-app/ExportRecordsPanel";
 import { factsRevision, type BusinessDossier } from "@/lib/business-dossier";
 import { businessExportPeriodValid, fetchBusinessExport, approveBusinessDraft, getBusinessDossier, reviewBusinessDraft, listBusinessExpenses, type BusinessExpense } from "@/lib/business-api";
 import { withBusinessSpace } from "@/components/business-app/business-data";
@@ -157,24 +158,6 @@ test("export periods match inclusive calendar limits without timezone or invalid
   for (const [start, end] of [["2026-02-29", "2026-03-01"], ["2026-10-11", "2026-10-10"], ["2026-1-01", "2026-01-31"], ["0000-01-01", "0000-01-02"], ["", "2026-01-01"]]) assert.equal(businessExportPeriodValid(start, end), false);
 });
 
-test("Spanish export control names the authorized client and allows read-only records without approval", async () => {
-  const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
-  const fixture = createDossierFixtures([{ id: "client-account", nickname: "Caja", type: "cash", currency: "DOP" }]);
-  const record = await fixture.dossier(dossierFixtureIds.readOnly);
-  const render = (dossier: BusinessDossier, available = true, end = "2026-10-31") => renderToStaticMarkup(createElement(I18nextProvider, { i18n }, createElement(ReceiptPeriodExport, { scope: { draftId: dossier.draft_id, name: dossier.space_name, capabilities: dossier.capabilities }, start: "2026-10-01", end, available })));
-  const html = render(record);
-  assert.ok(html.includes(record.space_name));
-  assert.match(html, /Descargar CSV, Excel y originales/);
-  assert.doesNotMatch(html, /type="date"/);
-  assert.doesNotMatch(html, /<button[^>]*\sdisabled=""/);
-  assert.ok(!html.includes("Aprobar"));
-  assert.equal(render({ ...record, capabilities: [] }), "");
-  assert.match(render(record, false), /<button[^>]*\sdisabled=""/);
-  assert.match(render(record, false), /vista conectada/);
-  assert.match(render(record, true, "2028-10-31"), /<button[^>]*\sdisabled=""/);
-});
-
 test("export transport reads only the explicit draft client and preserves the server ZIP bytes", async () => {
   const originalFetch = globalThis.fetch;
   const originalAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -310,5 +293,5 @@ test("the record page mounts no export panel: exports belong to a period surface
   const start = source.indexOf("export default function ReceiptDossierReview");
   assert.ok(start >= 0, "the page component is where the test looks for it");
   const page = source.slice(start);
-  assert.ok(!page.includes("<ReceiptPeriodExport"));
+  assert.ok(!page.includes("<ExportRecordsPanel"));
 });

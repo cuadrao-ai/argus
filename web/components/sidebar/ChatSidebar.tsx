@@ -137,6 +137,10 @@ export type ChatSidebarProps = {
   primaryNav?: ReactNode;
   /** Rendered directly under the lockup, before any nav entry. */
   headerSlot?: ReactNode;
+  /** The workspace's mark, the expand button on a closed rail. */
+  headerMark?: ReactNode;
+  /** The person's avatar for the header account trigger; a person icon when absent. */
+  profileAvatar?: ReactNode;
   /** A workspace's actions, pinned above the profile footer. */
   footerActions?: ReactNode;
   /**
@@ -192,6 +196,8 @@ export default function ChatSidebar({
   guestSettings = null,
   primaryNav = null,
   headerSlot = null,
+  headerMark = null,
+  profileAvatar = null,
   footerActions = null,
   profileSlot = null,
 }: ChatSidebarProps) {
@@ -454,10 +460,10 @@ export default function ChatSidebar({
 
   const isDrawer = variant === "drawer";
   // No rail exists in drawer mode, so its preference entry is absent, not greyed.
-  // Business has no rail preference: only its toggle collapses it.
-  const sidebarPreferenceHandler = isDrawer || business ? undefined : onOpenSidebarPreference;
+  const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;
   const businessRail = business && !isDrawer;
-  const railInset = isOpen ? "px-3" : "px-[10px]";
+  // Business keeps one inset open or closed, so icons never shift sideways as the rail moves.
+  const railInset = businessRail || !isOpen ? "px-[10px]" : "px-3";
   const rowVariant = businessRail ? "business" : undefined;
 
   return (
@@ -468,7 +474,7 @@ export default function ChatSidebar({
         isDrawer
           ? "flex h-full w-full flex-col border-r border-black/5 bg-white dark:border-white/5 dark:bg-[#141517]"
           : businessRail
-            ? `flex shrink-0 flex-col overflow-hidden border-r border-black/5 bg-[var(--cuadrao-cream)] transition-[width] duration-300 ease-in-out will-change-[width] dark:border-white/5 ${
+            ? `flex shrink-0 flex-col overflow-hidden border-r border-black/5 bg-[var(--cuadrao-cream)] transition-[width] duration-200 ease-out will-change-[width] motion-reduce:transition-none dark:border-white/5 ${
                 isOpen ? "w-60" : "w-16"
               }`
           : `flex shrink-0 flex-col border-r border-black/5 bg-white transition-[width] duration-300 ease-in-out overflow-hidden will-change-[width] dark:border-white/5 dark:bg-[#141517] ${
@@ -481,13 +487,13 @@ export default function ChatSidebar({
         isOpen={isOpen}
         railLocked={railLocked}
         business={businessRail}
+        businessSlot={businessRail ? headerSlot : undefined}
+        businessMark={businessRail ? headerMark : undefined}
         onToggle={onToggle}
         onRequestClose={onRequestClose}
       />
 
-      {businessRail && headerSlot ? (
-        <div className={`shrink-0 ${isOpen ? "px-3" : "flex justify-center"}`}>{headerSlot}</div>
-      ) : headerSlot}
+      {businessRail ? null : headerSlot}
 
       <div className={`flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${businessRail ? `${railInset} pt-2` : "px-[6px] pb-4 pt-2"}`}>
         {/* Main Navigation */}
@@ -909,9 +915,11 @@ export default function ChatSidebar({
                 aria-haspopup="menu"
                 aria-expanded={isProfileMenuOpen}
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:border-white/10 dark:bg-[#1f2225] dark:text-white/70 dark:hover:bg-white/5"
+                className={profileAvatar
+                  ? "flex h-11 w-11 items-center justify-center rounded-full transition-opacity hover:opacity-85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]"
+                  : "flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:border-white/10 dark:bg-[#1f2225] dark:text-white/70 dark:hover:bg-white/5"}
               >
-                <User className="h-[18px] w-[18px]" />
+                {profileAvatar ?? <User className="h-[18px] w-[18px]" />}
               </button>
             </>,
             profileSlot,

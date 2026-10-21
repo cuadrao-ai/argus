@@ -60,7 +60,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
     <div key={key} data-fact={key} data-standing={row?.standing} data-blocked={row?.blocked || row?.asked ? "true" : undefined} className="space-y-2">
       <dt className={labelClass}>{label}</dt>
       <dd className={`break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white ${key === "amount" || key === "itbis" ? "[font-variant-numeric:tabular-nums]" : ""}`}>
-        {content}
+        {key === "amount" || key === "itbis" ? <span className="cuadrao-amount">{content}</span> : content}
         {row?.blocked || row?.asked ? (
           <span className="mt-2 flex items-center gap-1 text-[13px] leading-[18px] text-[#9e2f39] dark:text-[#ec9aa0]">
             <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

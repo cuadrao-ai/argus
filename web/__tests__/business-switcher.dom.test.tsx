@@ -41,7 +41,7 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
   await env.act(async () => {
     env.root.render(
       <env.I18nextProvider i18n={env.i18n}>
-        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenAccess={() => opened.push("access")} />
+        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenSettings={() => opened.push("settings")} />
       </env.I18nextProvider>,
     );
   });
@@ -69,7 +69,7 @@ describe("the Business mark menu", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("with only the own Business the menu offers access and does not offer a switch", async () => {
+  test("with only the own Business the menu offers Configurar negocio and does not offer a switch", async () => {
     const page = await mountSwitcher([OWN], OWN);
     const control = page.host.querySelector('[data-testid="business-switcher"]')!;
     assert.equal(control.getAttribute("data-switchable"), "false");
@@ -80,14 +80,14 @@ describe("the Business mark menu", () => {
     await page.act(async () => button.click());
     await page.settle();
     const items = [...document.querySelectorAll('[role="menuitem"]')];
-    assert.ok(items.some((item) => item.textContent?.includes("Equipo y accesos")));
-    assert.equal(items.some((item) => item.textContent?.includes("Cambiar de negocio")), false);
+    assert.deepEqual(items.map((item) => item.textContent?.trim()), ["Configurar negocio"]);
     await page.act(async () => (items[0] as HTMLButtonElement).click());
-    assert.deepEqual(page.opened, ["access"]);
+    assert.deepEqual(page.opened, ["settings"]);
+    assert.equal(document.querySelector('[role="menu"]'), null, "the menu closes as the Negocio page opens");
     await page.act(async () => page.root.unmount());
   });
 
-  test("with only a client Business the menu offers access and does not offer a switch", async () => {
+  test("with only a client Business the menu offers Configurar negocio and does not offer a switch", async () => {
     const page = await mountSwitcher([CLIENT], null);
     const control = page.host.querySelector('[data-testid="business-switcher"]')!;
     assert.equal(control.getAttribute("data-switchable"), "false");
@@ -96,9 +96,23 @@ describe("the Business mark menu", () => {
     await page.act(async () => button.click());
     await page.settle();
     const items = [...document.querySelectorAll('[role="menuitem"]')];
-    assert.ok(items.some((item) => item.textContent?.includes("Equipo y accesos")));
-    assert.equal(items.some((item) => item.textContent?.includes("Cambiar de negocio")), false);
+    assert.deepEqual(items.map((item) => item.textContent?.trim()), ["Configurar negocio"]);
     await page.act(async () => page.root.unmount());
+  });
+
+  test("the open card names the business and the person's role in it; collapsed, only the initial shows", async () => {
+    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+    const owner = await mountSwitcher([OWN, CLIENT], OWN);
+    assert.equal(owner.host.querySelector("button[aria-haspopup=menu]")?.textContent, "FFerretería LunaDueño");
+    await owner.act(async () => owner.root.unmount());
+    const client = await mountSwitcher([OWN, CLIENT], CLIENT);
+    assert.equal(client.host.querySelector("button[aria-haspopup=menu]")?.textContent, `CColmado Peña${spanish.business.switcher.role_accountant}`);
+    assert.ok(!client.host.textContent?.includes("Dueño"));
+    await client.act(async () => client.root.unmount());
+    const collapsed = await mountSwitcher([OWN], OWN, true);
+    assert.equal(collapsed.host.querySelector('button[aria-haspopup=menu] [aria-hidden="true"]')?.textContent, "F");
+    assert.ok(!collapsed.host.textContent?.includes("Dueño"), "the collapsed rail shows no role line");
+    await collapsed.act(async () => collapsed.root.unmount());
   });
 
   test("with a client Business the menu opens the list the keyboard drives", async () => {

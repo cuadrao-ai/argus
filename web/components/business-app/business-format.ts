@@ -1,3 +1,4 @@
+import { dueDistance } from "@/lib/business-month-close";
 import { currencyDigits, currencySymbol } from "@/lib/money-entry";
 
 const DECIMAL_AMOUNT = /^(-?)(\d+)(?:\.(\d+))?$/;
@@ -18,11 +19,31 @@ function separators(locale: string): { group: string; decimal: string } {
   }
 }
 
+function groupDigits(whole: string, group: string): string {
+  let grouped = "";
+  for (let index = 0; index < whole.length; index += 1) {
+    if (index > 0 && (whole.length - index) % 3 === 0) grouped += group;
+    grouped += whole[index];
+  }
+  return grouped;
+}
+
 /**
- * Reads back a saved amount from its decimal string: padded to the currency's
- * digits and never rounded or passed through a float. The symbol names which
- * dollar it is.
+ * The number alone, for a row under a header that already names the currency:
+ * padded to the currency's digits and never rounded or passed through a float.
  */
+export function formatAmount(amount: string | null, currency: string | null, locale: string): string {
+  if (amount === null || currency === null) return "";
+  const match = DECIMAL_AMOUNT.exec(amount.trim());
+  if (!match) return amount;
+  const [, sign, whole, fraction = ""] = match;
+  const { group, decimal } = separators(locale);
+  const digits = Math.max(currencyDigits(currency), fraction.length);
+  const grouped = groupDigits(whole, group);
+  return `${sign}${digits > 0 ? `${grouped}${decimal}${fraction.padEnd(digits, "0")}` : grouped}`;
+}
+
+/** The saved amount with its currency symbol, which names which dollar it is. */
 export function formatMoney(
   amount: string | null,
   currency: string | null,
@@ -31,16 +52,62 @@ export function formatMoney(
   if (amount === null || currency === null) return "";
   const match = DECIMAL_AMOUNT.exec(amount.trim());
   if (!match) return `${currency} ${amount}`;
-  const [, sign, whole, fraction = ""] = match;
+  const number = formatAmount(amount, currency, locale);
+  const negative = number.startsWith("-");
+  return `${negative ? "-" : ""}${currencySymbol(currency)} ${negative ? number.slice(1) : number}`;
+}
+
+/** Headline figures shorten from here up; anything smaller reads exactly. */
+export const HEADLINE_COMPACT_FROM = BigInt(10_000);
+
+/**
+ * Spanish readers say "58.4 mil" and "1.3 M"; `Intl` gives es-419 an English "k".
+ * Largest unit first. Billions stay in millions in Spanish, as people say them.
+ */
+const COMPACT_UNITS: Record<"es" | "en", { size: bigint; label: string; space: boolean }[]> = {
+  es: [
+    { size: BigInt(1_000_000), label: "M", space: true },
+    { size: BigInt(1_000), label: "mil", space: true },
+  ],
+  en: [
+    { size: BigInt(1_000_000_000), label: "B", space: false },
+    { size: BigInt(1_000_000), label: "M", space: false },
+    { size: BigInt(1_000), label: "K", space: false },
+  ],
+};
+
+/**
+ * A big summary figure: one decimal and a unit from 10,000 up ("RD$ 58.4 mil"),
+ * the exact amount below it. Rounds half up from the decimal text, never a float.
+ * `row` holds every figure shown beside this one: the largest picks the unit for
+ * all of them, so a row never mixes "58.4 mil" with "9,600.00".
+ * `exact` is what the tooltip and the accessible name read.
+ */
+export function formatHeadlineMoney(amount: string, currency: string, locale: string, row: readonly string[] = [amount]): { short: string; exact: string } {
+  const exact = formatMoney(amount, currency, locale);
+  const match = DECIMAL_AMOUNT.exec(amount.trim());
+  const parsed = row.map((value) => DECIMAL_AMOUNT.exec(value.trim())).filter((found) => found !== null);
+  if (!match || parsed.length === 0) return { short: exact, exact };
+  const largest = parsed.reduce((top, found) => (BigInt(found[2]) > BigInt(top[2]) ? found : top));
+  if (BigInt(largest[2]) < HEADLINE_COMPACT_FROM) return { short: exact, exact };
+  const units = COMPACT_UNITS[locale.toLowerCase().startsWith("es") ? "es" : "en"];
+  const ten = BigInt(10);
+  const tenthsIn = ([, , whole, fraction = ""]: RegExpExecArray, size: bigint) => {
+    const scaled = BigInt(`${whole}${fraction}`);
+    const scale = ten ** BigInt(fraction.length);
+    return (scaled * ten * BigInt(2) + size * scale) / (size * scale * BigInt(2));
+  };
+  let index = units.findIndex((unit) => BigInt(largest[2]) >= unit.size);
+  // 999,960 rounds to "1,000.0 mil"; the next unit up says it as "1 M".
+  if (index > 0 && tenthsIn(largest, units[index].size) >= BigInt(10_000)) index -= 1;
+  const unit = units[index];
+  const tenths = tenthsIn(match, unit.size);
   const { group, decimal } = separators(locale);
-  const digits = Math.max(currencyDigits(currency), fraction.length);
-  let grouped = "";
-  for (let index = 0; index < whole.length; index += 1) {
-    if (index > 0 && (whole.length - index) % 3 === 0) grouped += group;
-    grouped += whole[index];
-  }
-  const number = digits > 0 ? `${grouped}${decimal}${fraction.padEnd(digits, "0")}` : grouped;
-  return `${sign}${currencySymbol(currency)} ${number}`;
+  const tenth = tenths % ten;
+  const number = `${groupDigits((tenths / ten).toString(), group)}${tenth === BigInt(0) ? "" : `${decimal}${tenth}`}`;
+  // A figure too small for the row's unit would read "0"; it shows its real amount instead.
+  if (tenths === BigInt(0)) return { short: exact, exact };
+  return { short: `${match[1]}${currencySymbol(currency)} ${number}${unit.space ? " " : ""}${unit.label}`, exact };
 }
 
 export function formatDay(day: string | null, locale: string): string {
@@ -56,16 +123,57 @@ export function formatTimestamp(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
-export function formatRelativeTime(iso: string | null, locale: string): string {
+/** Relative wording ("hace 3 días") holds under this many days; after it a date reads better. */
+export const RELATIVE_WINDOW_DAYS = 7;
+const DAY_MS = 86_400_000;
+
+/** "12 oct", with the year only when it is not this year. */
+function shortDate(date: Date, locale: string, now: Date): string {
+  const year = date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" as const };
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", ...year }).format(date);
+}
+
+/** A `YYYY-MM-DD` day as "12 oct", with the year only when it is not this year. */
+export function formatShortDay(day: string, locale: string, now = new Date()): string {
+  const date = new Date(`${day.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return day;
+  return shortDate(date, locale, now);
+}
+
+/** "hace 15 minutos", "ayer", "hace 3 días" under seven days; "12 oct" from then on. */
+export function formatRelativeTime(iso: string | null, locale: string, now = new Date()): string {
   if (!iso) return "";
-  const then = new Date(iso).getTime();
+  const date = new Date(iso);
+  const then = date.getTime();
   if (Number.isNaN(then)) return "";
-  const minutes = Math.round((then - Date.now()) / 60_000);
+  const elapsed = then - now.getTime();
+  if (Math.abs(elapsed) >= RELATIVE_WINDOW_DAYS * DAY_MS) return shortDate(date, locale, now);
+  const minutes = Math.round(elapsed / 60_000);
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
   const hours = Math.round(minutes / 60);
   if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
-  return rtf.format(Math.round(hours / 24), "day");
+  return rtf.format(Math.trunc(elapsed / DAY_MS), "day");
+}
+
+/** A calendar day against today: "hoy", "ayer", "hace 3 días", "en 2 días" under seven days; "12 oct" from then on. */
+export function formatRelativeDay(day: string, today: string, locale: string): string {
+  const at = (value: string) => Date.UTC(Number(value.slice(0, 4)), Number(value.slice(5, 7)) - 1, Number(value.slice(8, 10)));
+  const days = Math.round((at(day) - at(today)) / DAY_MS);
+  if (Number.isNaN(days)) return day;
+  if (Math.abs(days) >= RELATIVE_WINDOW_DAYS) return formatShortDay(day, locale, new Date(`${today}T12:00:00`));
+  return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(days, "day");
+}
+
+export type Lateness = { tone: "overdue" | "today" | "upcoming"; text: string };
+
+/** A pending document's due day against today, in calendar days: "30 días tarde", "vence hoy", "vence en 8 días". Null when the day is not a calendar day. */
+export function formatLateness(dueOn: string, today: string, t: (key: string, options: { count?: number; defaultValue: string }) => string): Lateness | null {
+  const distance = dueDistance(dueOn, today);
+  if (!distance) return null;
+  if (distance.direction === "past") return { tone: "overdue", text: t("business.month_close.late_days", { count: distance.days, defaultValue: "{{count}} days late" }) };
+  if (distance.direction === "today") return { tone: "today", text: t("business.month_close.due_today", { defaultValue: "due today" }) };
+  return { tone: "upcoming", text: t("business.month_close.due_in_days", { count: distance.days, defaultValue: "due in {{count}} days" }) };
 }
 
 export type PeriodKey = "this_month" | "last_month" | "last_30_days" | "all" | "custom";

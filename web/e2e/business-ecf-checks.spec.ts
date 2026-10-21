@@ -32,12 +32,12 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(verify).toHaveAttribute("rel", "noopener noreferrer");
       await expect(verify).toHaveText("Verificar en DGII");
       await expect(card).toContainText("Vigente en la fecha que declara el documento");
-      // The fixture was checked days ago; the relative time says so in words.
-      await expect(card).toContainText(/comprobado (hace|anteayer|ayer)/);
+      // The fixture was checked days ago: recent checks read in words, older ones as a date.
+      await expect(card).toContainText(/comprobado (hace|anteayer|ayer|\d{1,2} [a-z]{3})/);
       await expect(card).not.toContainText("firma verificada");
       await expect(card).not.toContainText("al firmar");
       // A line to review is information for a person, never a blocker.
-      await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toHaveCount(1);
     });
 
     test("a record from any other source shows no card", async ({ page }) => {

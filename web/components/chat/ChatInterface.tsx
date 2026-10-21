@@ -1,5 +1,7 @@
 "use client";
 
+import { Avatar } from "@/components/ui/Avatar";
+import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
 import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
@@ -562,9 +564,14 @@ export default function ChatInterface() {
     );
   }, [closeDrawer, setIsSidebarOpen, sidebarMode]);
   const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
+  // The fades under the top bar and above the composer take the surface's own color.
+  // An app-wide problem docks a banner at the top; the bar, its fade and the page move down by it.
+  const online = useOnline();
+  const bannerSpace = workspace && !online ? BANNER_HEIGHT_PX : 0;
+  const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -2100,12 +2107,12 @@ export default function ChatInterface() {
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
         mode={sidebarMode}
         omnisearchEnabled={
-          searchEntryEnabled && (!isGuest || canUseOmnisearch)
+          searchEntryEnabled && (!isGuest || canUseOmnisearch) && !(workspace?.headerSearch && !mobileShell.isBelowTablet)
         }
         shortcutHintsSuppressed={searchOverlayOpen}
         canManageConversation={canManageConversation}
         showProfileMenu={!isGuest}
-        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
+        primaryNav={workspace?.sidebarNav(shellBridge)} headerSlot={workspace?.sidebarHeader?.(shellBridge)} headerMark={workspace?.sidebarMark?.(shellBridge)} profileAvatar={workspace?.id === "business" ? <Avatar name={greetingName} size={40} testId="header-avatar" /> : undefined} footerActions={workspace?.sidebarFooter(shellBridge)} profileSlot={workspace?.profileInHeader && !mobileShell.isBelowTablet ? profileSlot : undefined}
         isGuest={isEstablishedGuest}
         guestExpiresAt={account?.guest?.expires_at}
       />
@@ -2155,10 +2162,16 @@ export default function ChatInterface() {
         onConfirm={() => void handleConfirmHeaderDelete()}
       />
 
-      <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
+      <section style={{ "--cuadrao-banner-space": `${bannerSpace}px` } as React.CSSProperties} className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
+        {bannerSpace ? <ConnectionBanner /> : null}
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
+        {/* Content scrolls under the bar through a soft fade, on every screen the bar is on. */}
+        {currentView === "workspace" || (currentView === "chat" && !showEmptyChatSurface) ? (
+          <div data-testid="header-fade" className={`pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
+        ) : null}
         {currentView !== "settings" && (
-          <header className="absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 tablet:px-8">
+          // A workspace with a search field in its bar lines the bar up with its centred content column (48rem, or a wide screen's own), so search and avatar sit on the column's edges.
+          <header className={`absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-var(--cuadrao-canvas-column,48rem))/2))]" : "tablet:px-8"}`}>
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger
@@ -2175,6 +2188,9 @@ export default function ChatInterface() {
               </div>
             )}
             {/* Title (left-aligned; truncates before the action cluster) */}
+            {workspace?.headerSearch && !mobileShell.isBelowTablet ? (
+              <div className="pointer-events-auto min-w-0 flex-1">{workspace.headerSearch(shellBridge)}</div>
+            ) : null}
             <ChatHeaderHeading>
               {currentView === "chat" &&
                 (conversationId !== null || messages.length > 0) &&
@@ -2242,8 +2258,6 @@ export default function ChatInterface() {
               />
             ) : (
               <>
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-32 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] dark:bg-[#141517]/80" />
-
                 {showConversationRetrievalState && isHydratingConversation && (
                   <ConversationRetrievalAnnouncement business={workspace?.id === "business"} />
                 )}
@@ -2342,7 +2356,7 @@ export default function ChatInterface() {
                 />
 
                 {/* Input fade + bar */}
-                <div className="pointer-events-none absolute bottom-0 inset-x-0 z-10 h-40 bg-[#f9f9f9]/80 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] dark:bg-[#141517]/80" />
+                <div className={`pointer-events-none absolute bottom-0 inset-x-0 z-10 h-40 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_top,black_50%,transparent_100%)] ${surfaceFade}`} />
                 <div className="pointer-events-none absolute bottom-6 inset-x-0 z-20 px-4">
                   <div className="pointer-events-auto mx-auto max-w-3xl rounded-full">
                     {showJumpToLatest && (

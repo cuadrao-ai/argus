@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/Switch";
 import {
   useCallback,
   useEffect,
@@ -487,28 +488,14 @@ export default function MemoryControlsModal({
                         )}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.enabled}
-                  disabled={isMutating}
-                  onClick={() => void handleToggleMemory()}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                    settings.enabled
-                      ? "bg-[#5d7f72]"
-                      : "bg-black/[0.15] dark:bg-white/[0.2]"
-                  }`}
-                  aria-label={t(
+                <Switch
+                  checked={settings.enabled}
+                  onChange={() => handleToggleMemory()}
+                  label={t(
                     "settings.data.personalization.toggle_label",
                     "Remember confirmed memories",
                   )}
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-[left] ${
-                      settings.enabled ? "left-[22px]" : "left-0.5"
-                    }`}
-                  />
-                </button>
+                />
               </div>
 
               <div className="mt-4">

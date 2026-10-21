@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
 
 test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
 
@@ -26,8 +27,9 @@ async function installBusiness(page: Page, storedMode: string | null) {
     else if (parts[0] === "receipt-reading") json = { enabled: false, available: true, can_change: true, disclosure: "Permiso", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [], reply: [] }, consented_at: null, revoked_at: null };
     else if (parts[0] === "receipts" && parts.length === 1) json = await source.receiptPage!(url.searchParams.get("view") === "all" ? "all" : "inbox");
     else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
-    else if (parts[0] === "month-close") json = { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed: false, reasons: [], missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: [], cuentas_por_pagar: [], currencies: [{ currency: "DOP", income_before_itbis: "48500.00", expense_before_itbis: "12300.00", net_result: "36200.00", itbis_owed: "6516.00" }] };
-    else if (["captures", "updates", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
+    else if (parts[0] === "month-close") json = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
+    else if (parts[0] === "open-items") json = OPEN_ITEMS_WIRE;
+    else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
     else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
     return route.fulfill({ json });
   });
@@ -38,7 +40,7 @@ async function railGeometry(page: Page) {
     const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
     const aside = nav.closest("aside") as HTMLElement;
     const box = (element: Element) => element.getBoundingClientRect();
-    const labels = /^(Inicio|Bandeja|Gastos|Novedades|Acceso|Ajustes)/;
+    const labels = /^(Inicio|Bandeja|Gastos)/;
     const rows = [...aside.querySelectorAll<HTMLButtonElement>("button")].filter((button) => labels.test(button.textContent?.trim() ?? ""));
     const active = rows.find((row) => row.getAttribute("aria-current") === "page") ?? null;
     return {
@@ -49,7 +51,11 @@ async function railGeometry(page: Page) {
       navGapAboveFirstRow: Math.round(box(rows[0]).top - (aside.querySelector('[data-testid="business-switcher"]')?.getBoundingClientRect().bottom ?? 0)),
       rowHeights: rows.map((row) => Math.round(box(row).height)),
       rowLabels: rows.map((row) => row.textContent?.replace(/Ctrl.*$|⌘.*$/, "").replace(/\d+$/, "").trim()),
-      footerBottomGap: Math.round(box(aside).bottom - box(rows[rows.length - 1]).bottom),
+      brandBottomGap: Math.round(box(aside).bottom - box(aside.querySelector('[data-testid="sidebar-brand"]')!).bottom),
+      accountInRail: aside.querySelector('[data-testid="header-profile-trigger"]') !== null,
+      accountInHeader: document.querySelector('[data-testid="header-profile-trigger"]') !== null,
+      searchInRail: [...aside.querySelectorAll("button")].some((button) => /^(Buscar|Search)/.test(button.textContent?.trim() ?? "")),
+      searchInHeader: document.querySelector('[data-testid="header-search"]') !== null,
       activeHeight: active ? Math.round(box(active).height) : null,
       activeBackground: active ? getComputedStyle(active).backgroundColor : null,
       activeColor: active ? getComputedStyle(active).color : null,
@@ -73,11 +79,15 @@ for (const width of [1440, 1024]) {
           width: 240,
           background: "rgb(247, 245, 238)",
           borderRight: "1px",
-          navTop: 108,
-          navGapAboveFirstRow: 8,
-          rowHeights: [44, 44, 44, 44, 44, 44],
-          rowLabels: ["Inicio", "Bandeja", "Gastos", "Novedades", "Acceso", "Ajustes"],
-          footerBottomGap: 12,
+          navTop: 64,
+          navGapAboveFirstRow: 10,
+          rowHeights: [44, 44, 44],
+          rowLabels: ["Inicio", "Bandeja", "Gastos"],
+          brandBottomGap: 0,
+          accountInRail: false,
+          accountInHeader: true,
+          searchInRail: false,
+          searchInHeader: true,
           activeHeight: 44,
           activeBackground: "rgb(227, 235, 225)",
           activeColor: "rgb(47, 90, 73)",
@@ -101,10 +111,14 @@ for (const width of [1440, 1024]) {
       const rail = await railGeometry(page);
       expect({ width: rail.width, rowHeights: rail.rowHeights, activeHeight: rail.activeHeight, navTop: rail.navTop }).toEqual({
         width: 64,
-        rowHeights: [44, 44, 44, 44, 44, 44],
+        rowHeights: [44, 44, 44],
         activeHeight: 44,
-        navTop: 108,
+        navTop: 64,
       });
+      // Closed, the business's own mark is the one way back open.
+      await expect(page.locator("aside").getByTestId("business-switcher")).toHaveCount(0);
+      await expect(page.getByTestId("sidebar-rail-toggle")).toHaveCount(1);
+      await expect(page.getByTestId("sidebar-rail-toggle")).toHaveAttribute("aria-label", "Expandir");
       await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos" }).hover();
       await expect(page.getByRole("tooltip").filter({ hasText: "Gastos" })).toBeVisible();
       if (SHOTS && width === 1440) {

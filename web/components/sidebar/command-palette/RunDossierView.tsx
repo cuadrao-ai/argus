@@ -316,10 +316,9 @@ export function RunDossierView({
             <Tooltip
               content={t(
                 "command_palette.retest_tooltip",
-                "Reuse this setup with the latest available data. You’ll review it before it runs.",
+                "Reuse this setup with the latest data.",
               )}
               side="bottom"
-              delay={150}
             >
               {retestButton}
             </Tooltip>

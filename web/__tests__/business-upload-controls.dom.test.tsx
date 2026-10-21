@@ -16,7 +16,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-test("recovery labels follow a language change without losing the receipt or its actions", async () => {
+test("a problem row's short state follows a language change without losing the receipt, and the row opens it", async () => {
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { en: { translation: english }, "es-419": { translation: spanish } } });
   const receipt = await createFixtureBusinessDataSource().receipt("rcpt-unknown");
@@ -24,26 +24,18 @@ test("recovery labels follow a language change without losing the receipt or its
   document.body.appendChild(host);
   const root = createRoot(host);
   let opened = 0;
-  let retried = 0;
+  const state = () => host.querySelector('[data-testid="bandeja-row-state"]')?.textContent ?? "";
   try {
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><ul><ReceiptRow receipt={receipt} onOpen={() => { opened++; }} onRetry={async () => { retried++; }} /></ul></I18nextProvider>));
-    const button = (label: string) => {
-      const found = [...host.querySelectorAll("button")].find((item) => item.textContent === label);
-      assert.ok(found, `The row must offer ${label}`);
-      return found;
-    };
-    button("Escribir datos");
-    button("Reintentar");
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><ul><ReceiptRow receipt={receipt} onOpen={() => { opened++; }} /></ul></I18nextProvider>));
+    assert.match(state(), /^No recuperamos la lectura · /);
+    assert.equal(host.querySelectorAll("button").length, 1, "the row is one control; fixes live in the record");
     await act(async () => { await i18n.changeLanguage("en"); });
-    assert.ok(!host.textContent?.includes("Escribir datos"));
-    await act(async () => button("Record expense").click());
-    await act(async () => button("Retry").click());
-    assert.equal(opened, 1);
-    assert.equal(retried, 1);
+    assert.match(state(), /^Reading result lost · /);
     assert.ok(host.textContent?.includes(receipt.filename!));
+    await act(async () => host.querySelector("button")!.click());
+    assert.equal(opened, 1);
     await act(async () => { await i18n.changeLanguage("es-419"); });
-    button("Escribir datos");
-    button("Reintentar");
+    assert.match(state(), /^No recuperamos la lectura · /);
   } finally {
     await act(async () => root.unmount());
     host.remove();

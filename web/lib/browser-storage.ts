@@ -34,6 +34,12 @@ export const STORAGE_REGISTRY = {
   [LANGUAGE_STORAGE_KEY]: "language",
   [THEME_STORAGE_KEY]: "appearance",
   "argus:sidebar_mode": "layout",
+  // The Business rail's own expanded, collapsed or hover choice.
+  "cuadrao:business_sidebar_mode": "layout",
+  // Whether money amounts show blurred, for sharing a screen or working in public.
+  "cuadrao:hide_amounts": "layout",
+  // The row height of dense tables (Compacto, Normal or Amplio) until the profile keeps it.
+  "cuadrao:table_density": "layout",
   "argus:command_palette_layout": "layout",
   "argus:guest-hint:confirmation:v1": "tips",
   "argus:guest-hint:result:v1": "tips",
@@ -45,6 +51,8 @@ export const STORAGE_REGISTRY = {
   "argus:landing-starter:v1": "temporary",
   // The Business the person was working in, as the grant that admits them.
   "argus:business-grant:v1": "layout",
+  // The last few Business searches that led to a record, per Business, on this device only.
+  "cuadrao:business_recent_searches:v1": "layout",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;
