@@ -25,6 +25,7 @@
     "done": "Listo",
     "error_occurred": "Ha ocurrido un error",
     "expand": "Expandir",
+    "form_summary": "Revisa estos campos para seguir:",
     "history": "Historial",
     "learn_more": "Más información",
     "loading": "Cargando...",
@@ -37,8 +38,8 @@
     "permanently_delete": "Eliminar permanentemente",
     "pin": "Anclar",
     "recents": "Recientes",
-    "rename": "Renombrar",
     "reference": "Ref. {{reference}}",
+    "rename": "Renombrar",
     "restore": "Restaurar",
     "retry": "Reintentar",
     "run_simulation": "Ejecutar simulación",
@@ -1395,7 +1396,14 @@
     },
     "password": {
       "show": "Mostrar contraseña",
-      "hide": "Ocultar contraseña"
+      "hide": "Ocultar contraseña",
+      "min_length": "Al menos {{min}} caracteres",
+      "no_patterns": "Sin palabras comunes, secuencias ni repeticiones",
+      "strength": "Seguridad",
+      "strength_weak": "Débil",
+      "strength_almost": "Casi lista",
+      "strength_strong": "Fuerte",
+      "met": "cumplido"
     },
     "recovery": {
       "forgot": "¿Olvidaste tu contraseña?",
@@ -1412,8 +1420,6 @@
       "invalid_link": "Este enlace de recuperación falta, venció o ya fue usado.",
       "request_new": "Solicitar un enlace nuevo",
       "new_password": "Contraseña nueva",
-      "confirm_password": "Confirmar contraseña nueva",
-      "password_mismatch": "Las contraseñas no coinciden.",
       "update_password": "Actualizar contraseña",
       "updating": "Actualizando...",
       "reset_error": "Este enlace ya no es válido. Solicita uno nuevo.",
@@ -1485,17 +1491,18 @@
       "description": "Ingresa tu contraseña actual. Después del cambio, cada navegador deberá iniciar sesión de nuevo.",
       "current": "Contraseña actual",
       "new": "Contraseña nueva",
-      "confirm": "Confirmar contraseña nueva",
       "submit": "Cambiar contraseña",
       "changing": "Cambiando...",
       "changed": "Contraseña cambiada. Inicia sesión de nuevo en cada navegador.",
       "revocation_warning": "La contraseña cambió, pero Cuadrao no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentar Cerrar todas las sesiones.",
       "error": "No pudimos cambiar la contraseña. Verifica la contraseña actual e inténtalo de nuevo.",
-      "too_short": "Usa al menos 8 caracteres."
+      "too_short": "Usa al menos {{min}} caracteres.",
+      "current_required": "Escribe tu contraseña actual.",
+      "new_required": "Escribe una contraseña nueva."
     },
     "sessions": {
       "title": "Sesiones",
-      "description": "Elige si deseas mantener la sesión de este navegador.",
+      "description": "Elige dónde cerrar tu sesión.",
       "sign_out_this": "Cerrar sesión en este navegador",
       "sign_out_others": "Cerrar otras sesiones",
       "sign_out_all": "Cerrar todas las sesiones",
@@ -1506,7 +1513,16 @@
       "confirm_others_title": "¿Cerrar las otras sesiones?",
       "confirm_others_description": "Los otros navegadores perderán acceso. Este navegador seguirá conectado.",
       "confirm_all_title": "¿Cerrar sesión en todas partes?",
-      "confirm_all_description": "Cada navegador, incluido este, necesitará iniciar sesión de nuevo."
+      "confirm_all_description": "Cada navegador, incluido este, necesitará iniciar sesión de nuevo.",
+      "this_title": "Este navegador",
+      "this_line": "Sales solo aquí. Tus otras sesiones siguen abiertas.",
+      "this_action": "Cerrar sesión",
+      "others_title": "Otras sesiones",
+      "others_line": "Sales en tus otros navegadores y dispositivos. Tu sesión aquí sigue abierta.",
+      "others_action": "Cerrar otras",
+      "all_title": "Todas las sesiones",
+      "all_line": "Sales en todas partes, también aquí. Tendrás que iniciar sesión de nuevo.",
+      "all_action": "Cerrar todas"
     }
   },
   "landing": {
@@ -2077,6 +2093,12 @@
       "tax_id_rnc": "RNC",
       "tax_id_cedula": "Cédula",
       "tax_id_value": "Número",
+      "tax_id_hint_rnc": "9 dígitos. Puedes usar guiones.",
+      "tax_id_hint_cedula": "11 dígitos. Puedes usar guiones.",
+      "tax_id_length_rnc": "Un RNC tiene 9 dígitos.",
+      "tax_id_length_cedula": "Una cédula tiene 11 dígitos.",
+      "tax_id_none": "606 / 607 · No aplica",
+      "business_name_required": "Escribe el nombre del negocio.",
       "save_profile": "Guardar",
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
       "details": "Datos fiscales para 606 / 607",
@@ -2099,9 +2121,9 @@
         "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
         "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar.",
         "tax_id_type": "Elige RNC o cédula.",
-        "tax_id_not_digits": "Usa solo dígitos. Los espacios y los guiones se quitan.",
+        "tax_id_not_digits": "Usa solo dígitos y guiones.",
         "tax_id_length": "Un RNC tiene 9 dígitos. Una cédula tiene 11 dígitos.",
-        "tax_id_all_zero": "Escribe una identificación que no sea solo ceros.",
+        "tax_id_all_zero": "No puede ser solo ceros.",
         "business_name_invalid": "Escribe un nombre de 1 a 80 caracteres.",
         "business_owner_required": "Solo el dueño del negocio puede cambiar este perfil.",
         "business_permission_denied": "Puedes ver este perfil. No puedes cambiarlo."
@@ -2110,6 +2132,7 @@
     },
     "activity": {
       "all_channels": "La lectura de recibos se administra para tu negocio e incluye correo, WhatsApp y archivos subidos.",
+      "change": "Cambiar",
       "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
       "mark_read": "Marcar como leído",
       "open_settings": "Abrir configuración de lectura",
@@ -2136,7 +2159,6 @@
         "unsupported_layout": "[placeholder] business.bank.error.unsupported_layout"
       },
       "import": {
-      "change": "Cambiar",
         "account": "[placeholder] business.bank.import.account",
         "choose_file": "[placeholder] business.bank.import.choose_file",
         "column_amount": "[placeholder] business.bank.import.column_amount",
@@ -2584,6 +2606,9 @@
       "other": "Necesita atención"
     },
     "inbox": {
+      "failed_emails": "No pudimos cargar tus correos.",
+      "failed_notes": "No pudimos cargar tus notas.",
+      "failed_notes_emails": "No pudimos cargar tus notas ni tus correos.",
       "load_more": "Cargar más",
       "notes_latest": "Se muestran las últimas 50 notas guardadas. Las notas abiertas más antiguas se encuentran con la búsqueda.",
       "note_more_one": "{{count}} nota anterior",
@@ -2606,9 +2631,6 @@
       "nothing_to_review": "Nada por revisar",
       "see_all_body": "Todos tus recibos están en Todo.",
       "see_all": "Ver todo",
-      "failed_emails": "No pudimos cargar tus correos.",
-      "failed_notes": "No pudimos cargar tus notas.",
-      "failed_notes_emails": "No pudimos cargar tus notas ni tus correos.",
       "segment_review_short": "Revisar",
       "segment_problem_short": "Problemas",
       "email_row_title": "Correo de {{sender}}",
@@ -2745,6 +2767,15 @@
     "notice": {
       "conversation_unavailable": "Esta conversación no está disponible en Cuadrao Business.",
       "go_business": "Ir a Cuadrao Business"
+    },
+    "naming": {
+      "title": "¿Cómo se llama tu negocio?",
+      "explanation": "Así lo verán tu contador y tu equipo.",
+      "example": "Ej. Colmado La Esquina",
+      "save": "Guardar",
+      "skip": "Ahora no",
+      "continue": "Guardar y continuar",
+      "save_failed": "No pudimos guardar el nombre. Inténtalo de nuevo."
     },
     "nav": {
       "inbox": "Bandeja",

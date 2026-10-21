@@ -25,6 +25,7 @@
     "done": "Done",
     "error_occurred": "An error occurred",
     "expand": "Expand",
+    "form_summary": "Check these fields to continue:",
     "history": "History",
     "learn_more": "Learn more",
     "loading": "Loading...",
@@ -37,8 +38,8 @@
     "permanently_delete": "Permanently delete",
     "pin": "Pin",
     "recents": "Recents",
-    "rename": "Rename",
     "reference": "Ref. {{reference}}",
+    "rename": "Rename",
     "restore": "Restore",
     "retry": "Retry",
     "run_simulation": "Run simulation",
@@ -1395,7 +1396,14 @@
     },
     "password": {
       "show": "Show password",
-      "hide": "Hide password"
+      "hide": "Hide password",
+      "min_length": "At least {{min}} characters",
+      "no_patterns": "No common words, runs or repeats",
+      "strength": "Strength",
+      "strength_weak": "Weak",
+      "strength_almost": "Almost there",
+      "strength_strong": "Strong",
+      "met": "done"
     },
     "recovery": {
       "forgot": "Forgot password?",
@@ -1412,8 +1420,6 @@
       "invalid_link": "This recovery link is missing, expired, or already used.",
       "request_new": "Request a new link",
       "new_password": "New password",
-      "confirm_password": "Confirm new password",
-      "password_mismatch": "Passwords do not match.",
       "update_password": "Update password",
       "updating": "Updating...",
       "reset_error": "This recovery link is no longer valid. Request a new one.",
@@ -1485,17 +1491,18 @@
       "description": "Enter your current password. After the change, every browser must sign in again.",
       "current": "Current password",
       "new": "New password",
-      "confirm": "Confirm new password",
       "submit": "Change password",
       "changing": "Changing...",
       "changed": "Password changed. Sign in again on every browser.",
       "revocation_warning": "Password changed, but Cuadrao could not confirm every session was signed out. Retry Sign out all sessions.",
       "error": "We couldn’t change the password. Check your current password and try again.",
-      "too_short": "Use at least 8 characters."
+      "too_short": "Use at least {{min}} characters.",
+      "current_required": "Enter your current password.",
+      "new_required": "Enter a new password."
     },
     "sessions": {
       "title": "Sessions",
-      "description": "Choose whether to keep this browser signed in.",
+      "description": "Choose where to sign out.",
       "sign_out_this": "Sign out this browser",
       "sign_out_others": "Sign out other sessions",
       "sign_out_all": "Sign out all sessions",
@@ -1506,7 +1513,16 @@
       "confirm_others_title": "Sign out other sessions?",
       "confirm_others_description": "Other browsers will lose access. This browser stays signed in.",
       "confirm_all_title": "Sign out everywhere?",
-      "confirm_all_description": "Every browser, including this one, will need a fresh login."
+      "confirm_all_description": "Every browser, including this one, will need a fresh login.",
+      "this_title": "This browser",
+      "this_line": "You sign out here only. Your other sessions stay open.",
+      "this_action": "Sign out",
+      "others_title": "Other sessions",
+      "others_line": "You sign out on your other browsers and devices. Your session here stays open.",
+      "others_action": "Sign out others",
+      "all_title": "All sessions",
+      "all_line": "You sign out everywhere, here too. You will need to sign in again.",
+      "all_action": "Sign out all"
     }
   },
   "landing": {
@@ -2077,8 +2093,14 @@
       "tax_id_rnc": "RNC",
       "tax_id_cedula": "Cédula",
       "tax_id_value": "Number",
+      "tax_id_hint_rnc": "9 digits. Hyphens are fine.",
+      "tax_id_hint_cedula": "11 digits. Hyphens are fine.",
+      "tax_id_length_rnc": "An RNC has 9 digits.",
+      "tax_id_length_cedula": "A cédula has 11 digits.",
+      "tax_id_none": "606 / 607 · Not applicable",
+      "business_name_required": "Enter the business name.",
       "save_profile": "Save",
-      "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
+      "profile_failed": "We couldn't read or save the RNC. Check the open business before you try again.",
       "details": "Datos fiscales para 606 / 607",
       "review_note": "Usa los montos del comprobante y tu clasificación fiscal. Deja en blanco los datos que no sabes. Guardar crea una revisión; aprobar es otro paso.",
       "form": "Formato",
@@ -2099,9 +2121,9 @@
         "recorded_correction_unsupported": "Los datos fiscales de un registro aprobado no se pueden cambiar en este flujo.",
         "stale_version": "Este registro cambió. Abre la revisión actual antes de guardar.",
         "tax_id_type": "Choose RNC or cédula.",
-        "tax_id_not_digits": "Use digits only. Spaces and hyphens are removed.",
+        "tax_id_not_digits": "Use digits and hyphens only.",
         "tax_id_length": "An RNC has 9 digits. A cédula has 11 digits.",
-        "tax_id_all_zero": "Enter a tax id that is not all zeros.",
+        "tax_id_all_zero": "It can't be all zeros.",
         "business_name_invalid": "Enter a business name of 1 to 80 characters.",
         "business_owner_required": "Only the business owner can change this profile.",
         "business_permission_denied": "You can view this profile. You cannot change it."
@@ -2110,6 +2132,7 @@
     },
     "activity": {
       "all_channels": "Receipt reading is managed for your Business across email, WhatsApp and uploads.",
+      "change": "Change",
       "error": "Receipt reading could not be updated. Try again.",
       "mark_read": "Mark as read",
       "open_settings": "Open receipt reading settings",
@@ -2136,7 +2159,6 @@
         "unsupported_layout": "This file does not match a supported statement."
       },
       "import": {
-      "change": "Change",
         "account": "Bank account",
         "choose_file": "Choose a statement file",
         "column_amount": "Amount column",
@@ -2573,6 +2595,15 @@
       "conversation_unavailable": "This conversation isn't available in Cuadrao Business.",
       "go_business": "Go to Cuadrao Business"
     },
+    "naming": {
+      "title": "What is your business called?",
+      "explanation": "Your accountant and your team will see it like this.",
+      "example": "For example, Colmado La Esquina",
+      "save": "Save",
+      "skip": "Not now",
+      "continue": "Save and continue",
+      "save_failed": "We couldn't save the name. Try again."
+    },
     "nav": {
       "label": "Business",
       "overview": "Home",
@@ -2701,6 +2732,9 @@
       "other": "Needs attention"
     },
     "inbox": {
+      "failed_emails": "We couldn't load your emails.",
+      "failed_notes": "We couldn't load your notes.",
+      "failed_notes_emails": "We couldn't load your notes or your emails.",
       "load_more": "Load more",
       "reveal_more": "Show more",
       "title": "Inbox",
@@ -2732,9 +2766,6 @@
     "email": {
       "no_address": "This business has no receiving address yet.",
       "activate": "Get a receiving address",
-      "failed_emails": "We couldn't load your emails.",
-      "failed_notes": "We couldn't load your notes.",
-      "failed_notes_emails": "We couldn't load your notes or your emails.",
       "activate_failed": "Email receiving is not available for this business yet.",
       "forward_to": "Forward receipts to this address:",
       "copy": "Copy address",
