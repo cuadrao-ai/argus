@@ -52,6 +52,8 @@ from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.recording.repository import InMemoryFinancialAccountRepository
 
+SEARCH_MEMORY_PATH = "/api/v1/business/search/"
+
 
 def action_problem(request: Request, refusal: Refused) -> HTTPException:
     status = {
@@ -170,7 +172,12 @@ def bind_to_grant(documents, hub, actions, context, capability, action=None, key
     return scoped_documents, imports
 
 
-def _receipt_read_request(request) -> bool:
+def _needs_only_read(request) -> bool:
+    """A write that needs only ``read``: marking a receipt read, or the
+    member's own search memory."""
+
+    if request.url.path.startswith(SEARCH_MEMORY_PATH):
+        return True
     receipt_id = request.path_params.get("receipt_id")
     return bool(
         receipt_id
@@ -196,7 +203,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             if not scope.acting_as_owner:
                 needed = (
                     "read"
-                    if request.method == "GET" or _receipt_read_request(request)
+                    if request.method == "GET" or _needs_only_read(request)
                     else (
                         "approve" if request.url.path.endswith("/confirm") else "prepare"
                     )
@@ -250,7 +257,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         record = actions.record_context(context)
         capability = (
             "read"
-            if request.method == "GET" or _receipt_read_request(request)
+            if request.method == "GET" or _needs_only_read(request)
             else ("approve" if request.url.path.endswith("/confirm") else "prepare")
         )
         if capability not in record.capabilities:
