@@ -1,12 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { PanelLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CuadraoMark } from "@/components/CuadraoMark";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 export type SidebarVariant = "rail" | "drawer";
+
+/** The rail's width transition (ChatSidebar's duration-200). */
+const RAIL_CLOSE_MS = 200;
 
 export default function SidebarHeader({
   variant,
@@ -31,6 +34,21 @@ export default function SidebarHeader({
 }) {
   const { t } = useTranslation();
   const brandName = "cuadrao";
+  // The open header stays through the rail's 200ms close, clipped by the narrowing rail, then gives way to the closed one.
+  const [shownOpen, setShownOpen] = useState(isOpen);
+  useEffect(() => {
+    if (isOpen) {
+      setShownOpen(true);
+      return undefined;
+    }
+    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      setShownOpen(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setShownOpen(false), RAIL_CLOSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
   const brandMark = (drawer = false) => (
     <CuadraoMark size={32} className="h-8 w-8 shrink-0" testId={drawer ? "sidebar-drawer-logo" : undefined} />
   );
@@ -102,9 +120,10 @@ export default function SidebarHeader({
         </button>
       </Tooltip>
     );
-    if (isOpen) {
+    // Both layouts put the mark at the same spot, and the open one stays while the rail closes, so nothing jumps.
+    if (shownOpen) {
       return (
-        <div className="flex min-h-14 shrink-0 items-center gap-1 pl-3 pr-1 pt-2">
+        <div className="flex h-14 shrink-0 items-center gap-1 overflow-hidden pl-[10px] pr-1 pt-2">
           <div className="min-w-0 flex-1">{businessSlot}</div>
           {railToggle}
         </div>
@@ -112,7 +131,7 @@ export default function SidebarHeader({
     }
     // Closed, the business's mark is the way back open: hovering or focusing it shows the expand icon in its place.
     return (
-      <div className="flex h-14 shrink-0 items-center justify-center pt-2">
+      <div className="flex h-14 shrink-0 items-center pl-[10px] pt-2">
         <Tooltip content={t("sidebar.open", "Open sidebar")} side="right">
           <button
             type="button"

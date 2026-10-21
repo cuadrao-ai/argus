@@ -131,13 +131,13 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         aria-controls={menuId}
         aria-label={name}
         onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
-        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
       >
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
-            <span data-testid="business-current-name" className="block break-words text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
+            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
           </span>
         )}
       </button></Tooltip> : (
@@ -149,13 +149,13 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         aria-controls={menuId}
         aria-label={name}
         onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
-        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
       >
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
-            <span data-testid="business-current-name" className="block break-words text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
+            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
           </span>
         )}
       </button>

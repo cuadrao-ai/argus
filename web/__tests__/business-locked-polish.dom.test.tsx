@@ -273,7 +273,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         assert.deepEqual([...page.host.querySelectorAll("footer button")], [], "the foot has no row");
         const brand = page.host.querySelector('footer [data-testid="sidebar-brand"]');
         assert.ok(brand?.querySelector('img[src*="cuadrao-mark"]'), "the Cuadrao mark sits at the foot");
-        assert.equal(brand?.textContent?.includes("cuadrao"), !sidebarCollapsed, "the word shows only beside a labeled rail");
+        assert.equal(brand?.querySelector('span[aria-hidden="true"]') !== null, sidebarCollapsed, "the word fades out (and leaves the reading order) on a closed rail");
         assert.equal(page.business().panel.kind, "overview");
         await page.click(mark);
         const items = [...document.querySelectorAll('[role="menuitem"]')];

@@ -75,9 +75,10 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
 /** The foot of the rail: the product's own mark, quiet, so the business above stays the one name that reads first. */
 export function BusinessSidebarFooter({ shell }: { shell: ChatShellBridge }) {
   return (
-    <div data-testid="sidebar-brand" className={`flex items-center gap-2 pb-3 pt-2 ${shell.sidebarCollapsed ? "justify-center" : "px-2"}`}>
+    // The mark keeps one place, centred on the closed rail; the word fades and the rail's width clips it.
+    <div data-testid="sidebar-brand" className="flex items-center gap-2 overflow-hidden pb-3 pl-3 pt-2">
       <CuadraoMark size={20} className="h-5 w-5 shrink-0 opacity-70" />
-      {shell.sidebarCollapsed ? null : <span className="font-display text-[15px] font-medium tracking-tight text-[#56635e] dark:text-white/60">cuadrao</span>}
+      <span aria-hidden={shell.sidebarCollapsed || undefined} className={`whitespace-nowrap font-display text-[15px] font-medium tracking-tight text-[#56635e] transition-opacity duration-150 ease-out motion-reduce:transition-none dark:text-white/60 ${shell.sidebarCollapsed ? "opacity-0" : "opacity-100"}`}>cuadrao</span>
     </div>
   );
 }

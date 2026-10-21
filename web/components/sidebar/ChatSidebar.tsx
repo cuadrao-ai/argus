@@ -459,7 +459,8 @@ export default function ChatSidebar({
   // No rail exists in drawer mode, so its preference entry is absent, not greyed.
   const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;
   const businessRail = business && !isDrawer;
-  const railInset = isOpen ? "px-3" : "px-[10px]";
+  // Business keeps one inset open or closed, so icons never shift sideways as the rail moves.
+  const railInset = businessRail || !isOpen ? "px-[10px]" : "px-3";
   const rowVariant = businessRail ? "business" : undefined;
 
   return (
@@ -470,7 +471,7 @@ export default function ChatSidebar({
         isDrawer
           ? "flex h-full w-full flex-col border-r border-black/5 bg-white dark:border-white/5 dark:bg-[#141517]"
           : businessRail
-            ? `flex shrink-0 flex-col overflow-hidden border-r border-black/5 bg-[var(--cuadrao-cream)] transition-[width] duration-300 ease-in-out will-change-[width] dark:border-white/5 ${
+            ? `flex shrink-0 flex-col overflow-hidden border-r border-black/5 bg-[var(--cuadrao-cream)] transition-[width] duration-200 ease-out will-change-[width] motion-reduce:transition-none dark:border-white/5 ${
                 isOpen ? "w-60" : "w-16"
               }`
           : `flex shrink-0 flex-col border-r border-black/5 bg-white transition-[width] duration-300 ease-in-out overflow-hidden will-change-[width] dark:border-white/5 dark:bg-[#141517] ${

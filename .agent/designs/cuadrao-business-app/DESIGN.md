@@ -160,6 +160,9 @@ top right is who you are.
 - **Then:** the screens: Inicio, Bandeja, Gastos. Negocio is reached from the
   business menu (Configurar negocio), the one door.
 - **Foot of the rail:** the Cuadrao mark, small and quiet.
+- **Opening and closing the rail** takes 200ms, ease out. Nothing inside
+  changes shape: icons keep one position, labels fade, the business mark
+  stays where it is, and the open header stays until the rail has closed.
 - **Top bar:** lined up with the content column. Search on the left, always
   visible (its placeholder says what it finds). On the right: **Agregar ▾**,
   the one global action, whose menu holds Exportar registros, Copiar

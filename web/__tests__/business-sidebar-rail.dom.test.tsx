@@ -122,7 +122,8 @@ const aside = () => document.querySelector("aside") as HTMLElement;
 const rows = () => [...document.querySelectorAll<HTMLButtonElement>('[data-sidebar-row="business"]')];
 const row = (label: string) => rows().find((button) => button.textContent?.includes(label));
 const visibleLabel = (button: HTMLButtonElement | undefined) =>
-  [...(button?.querySelectorAll("span") ?? [])].some((span) => span.textContent && !span.className.includes("sr-only") && !span.closest('[aria-hidden="true"]'));
+  // A faded label (opacity-0) still names the row for assistive tech, as sr-only did, but is not on screen.
+  [...(button?.querySelectorAll("span") ?? [])].some((span) => span.textContent && !span.className.includes("sr-only") && !/\bopacity-0\b/.test(span.className) && !span.closest('[aria-hidden="true"]'));
 
 test("a saved collapsed or hover preference does not collapse the Business rail", async () => {
   for (const storedMode of ["collapsed", "hover"]) {
@@ -154,7 +155,9 @@ test("the labeled rail stacks Inicio to Gastos under the business card, with the
   }
   const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
   assert.ok(nav.contains(row("Gastos")!));
-  const header = document.querySelector('[data-testid="sidebar-rail-toggle"]')?.closest(".min-h-14") as HTMLElement | null;
+  // The smallest box holding the toggle that also holds the business card: the header row.
+  let header = document.querySelector('[data-testid="sidebar-rail-toggle"]')?.parentElement ?? null;
+  while (header && header.tagName !== "ASIDE" && !header.querySelector('[data-testid="business-switcher"]')) header = header.parentElement;
   assert.ok(header?.querySelector('[data-testid="business-switcher"]'), "the business card sits beside the toggle at the top");
   assert.equal(header?.querySelector('[data-testid="business-current-name"]')?.textContent, "Ferretería Luna");
   assert.ok(header?.textContent?.includes("Dueño"), "the card names the role");
@@ -189,6 +192,9 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
     (document.querySelector('[data-testid="sidebar-rail-toggle"]') as HTMLButtonElement).click();
   });
   assert.match(aside().className, /\bw-16\b/);
+  assert.ok(document.querySelector('[data-testid="business-switcher"]'), "the open header stays while the rail closes, so nothing jumps");
+  // The closed header takes over once the rail's 200ms close has run.
+  await view.act(async () => { await new Promise((resolve) => setTimeout(resolve, 260)); });
   const toggles = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="sidebar-rail-toggle"]')];
   assert.equal(toggles.length, 1, "the closed rail has one header button");
   const expand = toggles[0];
@@ -208,8 +214,9 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
   });
   assert.equal(document.getElementById(expand.getAttribute("aria-describedby") ?? "")?.textContent, "Abrir barra lateral");
   for (const button of rows()) {
+    // The row keeps its shape (the 64px rail's inset leaves it 44px wide) and its label fades instead of leaving.
     assert.match(button.className, /\bh-11\b/);
-    assert.match(button.className, /\bw-11\b/);
+    assert.match(button.className, /\bw-full\b/);
     assert.equal(visibleLabel(button), false, button.textContent ?? "");
   }
   const inicio = row("Inicio")!;
