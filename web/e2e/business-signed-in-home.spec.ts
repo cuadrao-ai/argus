@@ -233,7 +233,8 @@ test.describe("signed-in home with business-only on", () => {
       `biz response ${response.status()} location=${location} url=${response.url()}`,
     ).toBe(200);
     await expect(page).toHaveURL(/\/biz(?:\?|$)/);
-    await expect(page.getByTestId("overview-real-expenses")).toBeVisible();
+    await expect(page.locator("#business-overview-title")).toBeVisible();
+    await expect(page.getByTestId("header-search")).toBeVisible();
     expect(visits.chat).toEqual([]);
     expect(visits.biz.length).toBeGreaterThan(0);
     mkdirSync(shots, { recursive: true });

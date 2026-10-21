@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
 
 async function setup(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
@@ -35,6 +36,8 @@ async function setup(page: Page) {
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
+    if (path === "month-close") return route.fulfill({ json: monthCloseWire(url.searchParams.get("month") ?? "2026-10") });
+    if (path === "open-items") return route.fulfill({ json: OPEN_ITEMS_WIRE });
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
 }
@@ -50,48 +53,44 @@ test("an en-US browser with stored English and an English account still shows Sp
   expect(langs.every((lang) => lang === "es")).toBe(true);
   expect(await page.evaluate(() => window.localStorage.getItem("i18nextLng"))).toBe("en");
   const overview = page.locator("#business-overview-title");
-  await expect(overview).toHaveText("Mi negocio");
-  await expect(page.getByTestId("overview-inbox")).toContainText("1 por revisar");
-  await expect(page.getByTestId("overview-inbox")).toContainText("Abrir la bandeja");
-  await expect(page.getByTestId("overview-real-expenses")).toContainText("Gastos reales");
-  await expect(page.getByTestId("overview-real-expenses")).toContainText("Todavía no hay gastos guardados en este período.");
-  await expect(page.getByTestId("overview-fiscal-expenses")).toContainText("Con valor fiscal");
-  await expect(page.getByTestId("overview-fiscal-expenses")).toContainText("Ninguno con valor fiscal en este período.");
-  await expect(page.getByTestId("business-sidebar-nav")).toContainText("Resumen");
-  await expect(page.getByTestId("business-primary-upload")).toHaveText("Subir recibo");
-  await expect(page.getByRole("button", { name: "Registrar gasto" }).first()).toBeVisible();
-  for (const english of ["Upload receipts", "My business", "Record expense", "Open inbox", "Actual expenses"]) {
+  await expect(overview).toHaveText("Hola");
+  await expect(page.getByTestId("month-close-task-review")).toContainText("Revisa 1 recibo en la Bandeja");
+  await expect(page.getByTestId("month-close-task-review").getByRole("button", { name: "Revisar" })).toBeVisible();
+  await expect(page.getByTestId("business-sidebar-nav")).toContainText("Inicio");
+  await expect(page.getByTestId("business-sidebar-nav")).toContainText("Bandeja");
+  await expect(page.getByTestId("header-search")).toBeVisible();
+  await expect(page.getByTestId("business-primary-upload")).toHaveText("Agregar");
+  await expect(page.getByTestId("amounts-toggle")).toHaveAccessibleName("Ocultar montos");
+  for (const english of ["Upload receipts", "My business", "Record expense", "Open inbox", "Add", "Overview", "Inbox", "Hide amounts"]) {
     await expect(page.getByText(english, { exact: true })).toHaveCount(0);
   }
   await page.screenshot({ path: testInfo.outputPath("overview-en-us.png"), fullPage: true });
 
   await page.getByTestId("business-primary-upload").click();
-  const upload = page.getByRole("dialog", { name: "Subir recibos" });
+  const upload = page.getByRole("dialog", { name: "Agregar" });
   await expect(upload).toBeVisible();
-  await expect(upload).not.toContainText("Upload receipts");
+  await expect(upload).not.toContainText("Upload receipt");
+  await expect(upload.getByTestId("intake-choose")).toHaveText("Elegir archivos");
   await page.screenshot({ path: testInfo.outputPath("upload-en-us.png") });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Registrar gasto" }).click();
-  const record = page.getByRole("dialog", { name: "Registrar gasto" });
-  await expect(record).toBeVisible();
-  for (const label of ["Comercio", "Total en DOP", "Fecha", "Pagado desde", "Categoría"]) {
-    await expect(record).toContainText(label);
-  }
-  await expect(record).not.toContainText("Record expense");
-  await expect(record).not.toContainText("Merchant");
-  await expect(record).not.toContainText("Paid from");
+  await page.getByTestId("business-primary-upload").click();
+  await page.getByTestId("intake-write-open").click();
+  const record = page.getByRole("dialog");
+  await expect(record.getByTestId("intake-write")).toBeVisible();
+  await expect(record).toContainText("Escríbelo");
+  await expect(record).not.toContainText("Write it");
   await page.screenshot({ path: testInfo.outputPath("record-expense-en-us.png") });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.getByTestId("overview-inbox").click();
+  await page.getByTestId("month-close-task-review").getByRole("button", { name: "Revisar" }).click();
   await page.getByTestId("business-inbox-receipts").getByRole("button", { name: /Ferretería La Esquina/ }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
-  const review = page.getByRole("main");
-  await expect(review).toContainText("Comercio");
-  await expect(review).toContainText("Fecha");
+  const review = page.getByTestId("side-drawer");
+  await expect(review).toContainText("Comercio o persona");
+  await expect(review).toContainText("Fecha de actividad");
   await expect(review).toContainText("Categoría");
   await expect(review).toContainText("Moneda");
   await expect(review).toContainText("Pagado desde");

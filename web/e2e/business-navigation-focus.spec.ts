@@ -40,5 +40,5 @@ test("production approve-next keeps the next receipt title focused", async ({ pa
   await page.getByRole("button", { name: "Guardar detalles de revisión", exact: true }).click();
   await page.getByRole("button", { name: "Aprobar y siguiente", exact: true }).click();
   await expect(page).toHaveURL(/receipt=rcpt-papeleria/);
-  await expect(page.getByRole("heading", { name: "Revisar recibo", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Papelería Central", level: 2 })).toBeFocused();
 });

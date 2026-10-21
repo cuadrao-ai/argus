@@ -36,8 +36,8 @@ async function openIntake(page: Page) {
   });
   await page.goto("/biz");
   await expect(page.getByTestId("workspace-panel-region")).toBeVisible();
-  await page.getByTestId("workspace-panel-region").getByRole("button", { name: "Subir recibo", exact: true }).click();
-  return { dialog: page.getByRole("dialog", { name: "Subir recibos", exact: true }), attempts, state };
+  await page.getByTestId("business-primary-upload").click();
+  return { dialog: page.getByRole("dialog"), attempts, state };
 }
 
 for (const width of [1280, 390]) {
@@ -58,24 +58,26 @@ for (const width of [1280, 390]) {
       expect(readingBounds.y + readingBounds.height).toBeLessThanOrEqual(footerBounds.y);
       expect(footerBounds.y + footerBounds.height).toBeLessThanOrEqual(844);
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-reading-${width}.png`) });
-      await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
-      await expect(dialog.getByRole("alert")).toHaveText("No pudimos leer el recibo. Inténtalo de nuevo.");
+      await expect(dialog.getByRole("alert")).toHaveText("No se pudo subir. Tu archivo sigue aquí.");
       await expect(dialog).not.toContainText("PRIVATE_VALIDATION_DETAIL");
       await expect(dialog).not.toContainText("422");
       await expect(dialog).not.toContainText("XML, XML");
       expect(attempts[0].consent).toBeUndefined();
       state.status = 415;
-      await dialog.getByRole("button", { name: "Reintentar", exact: true }).click();
+      await dialog.getByRole("button", { name: /^Reintentar / }).click();
       await expect(dialog.getByRole("alert")).toContainText("Este archivo no es compatible. Prueba con");
       expect(attempts).toHaveLength(2);
       expect(attempts[1]).toEqual(attempts[0]);
-      await expect(dialog.getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
+      await expect(dialog.getByRole("button", { name: /^Reintentar / })).toHaveCount(0);
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-unsupported-${width}.png`) });
       await dialog.getByRole("button", { name: "Elegir otro archivo", exact: true }).click();
       await picker.setInputFiles({ name: "replacement.png", mimeType: "image/png", buffer: Buffer.from("synthetic fixture") });
       await expect(dialog.getByTestId("receipt-upload-queue")).toContainText("replacement.png");
       await expect(dialog.getByTestId("receipt-upload-queue")).not.toContainText("synthetic.jpg");
-      expect(attempts).toHaveLength(2);
+      // A chosen file uploads at once, under a key of its own.
+      await expect.poll(() => attempts.length).toBe(3);
+      expect(attempts[2].key).not.toBe(attempts[0].key);
+      expect(attempts[2].bytes.toString()).toBe("synthetic fixture");
     });
 
     test("nine files under the upload limit wait it out, show their place and all save", async ({ page }, testInfo) => {
@@ -84,12 +86,16 @@ for (const width of [1280, 390]) {
       state.limitOnce = "recibo-6.jpg";
       const files = Array.from({ length: 9 }, (_, index) => ({ name: `recibo-${index + 1}.jpg`, mimeType: "image/jpeg", buffer: Buffer.from(`synthetic receipt ${index + 1}`) }));
       await dialog.locator('input[type="file"]').first().setInputFiles(files);
-      await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
-      await expect(dialog.getByRole("button", { name: "Subiendo 6 de 9…", exact: true })).toBeVisible();
+      await expect(dialog.getByTestId("receipt-upload-summary")).toContainText("Subiendo 6 de 9…");
       await page.screenshot({ path: testInfo.outputPath(`receipt-upload-limit-${width}.png`) });
       await expect(dialog).not.toContainText("No pudimos leer el recibo");
       await expect(dialog.getByRole("button", { name: "Revisar los recibos guardados", exact: true })).toBeVisible({ timeout: 15_000 });
-      await expect(dialog.getByTestId("receipt-upload-queue").getByText("Guardado en la Bandeja", { exact: true })).toHaveCount(9);
+      // Nine saved files fold into one line that opens to the rows.
+      const fold = dialog.getByTestId("receipt-upload-saved-fold");
+      await expect(fold).toContainText("9 guardados");
+      await fold.getByRole("button").click();
+      await expect(fold.getByTestId("receipt-upload-row")).toHaveCount(9);
+      await expect(fold.getByText("Guardado", { exact: true })).toHaveCount(9);
       await expect(dialog).not.toContainText("No pudimos leer el recibo");
       expect(attempts).toHaveLength(10);
       const sixth = attempts.filter((attempt) => attempt.bytes.toString() === "synthetic receipt 6");
@@ -103,11 +109,10 @@ test("a Venta upload names its type, and its retry keeps it", async ({ page }) =
   const { dialog, attempts, state } = await openIntake(page);
   await dialog.locator('[data-segment="venta"]').click();
   await dialog.locator('input[type="file"]').first().setInputFiles({ name: "factura.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
-  await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
   await dialog.locator('[data-segment="recibo"]').click();
   state.status = 201;
-  await dialog.getByRole("button", { name: "Reintentar", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Reintentar / }).click();
   await expect.poll(() => attempts.length).toBe(2);
   expect(attempts.map((attempt) => attempt.documentType)).toEqual(["venta", "venta"]);
 });
@@ -116,7 +121,6 @@ test("an unpicked type sends no document type, so the server detects it", async 
   const { dialog, attempts, state } = await openIntake(page);
   state.status = 201;
   await dialog.locator('input[type="file"]').first().setInputFiles({ name: "recibo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
-  await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
   await expect.poll(() => attempts.length).toBe(1);
   expect(attempts[0].documentType).toBeUndefined();
 });
@@ -126,7 +130,6 @@ test("a picked Compra names its type, which turns detection off", async ({ page 
   state.status = 201;
   await dialog.locator('[data-segment="recibo"]').click();
   await dialog.locator('input[type="file"]').first().setInputFiles({ name: "recibo.jpg", mimeType: "image/jpeg", buffer: Buffer.from("synthetic fixture") });
-  await dialog.getByRole("button", { name: "Guardar los archivos pendientes", exact: true }).click();
   await expect.poll(() => attempts.length).toBe(1);
   expect(attempts[0].documentType).toBe("recibo");
 });

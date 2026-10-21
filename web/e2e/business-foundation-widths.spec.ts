@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
-import { installBreakpointFixture } from "./support/breakpoint-fixture";
+import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
 
 const WIDTHS = [
   { name: "mobile-small", width: 390 },
@@ -21,23 +22,6 @@ const searchEnabled = process.env.NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED === "true"
 
 test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
 
-function monthCloseWire(month: string) {
-  const [year, index] = month.split("-").map(Number);
-  const last = new Date(Date.UTC(year, index, 0)).getUTCDate();
-  return {
-    month,
-    from: `${month}-01`,
-    to: `${month}-${String(last).padStart(2, "0")}`,
-    closed: false,
-    reasons: [],
-    missing_rnc: [],
-    missing_ncf: [],
-    cuentas_por_cobrar: [],
-    cuentas_por_pagar: [],
-    currencies: [{ currency: "DOP", income_before_itbis: "48500.00", expense_before_itbis: "12300.00", net_result: "36200.00", itbis_owed: "6516.00" }],
-  };
-}
-
 async function installBusiness(page: Page) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
@@ -47,6 +31,7 @@ async function installBusiness(page: Page) {
     const parts = url.pathname.split("/business/")[1].split("/");
     try {
       let json: unknown;
+      if (parts[0] === "consent") return fulfillAcceptedBusinessConsent(route);
       if (parts[0] === "space") json = await source.ensureSpace("es-419");
       else if (parts[0] === "spaces") json = { spaces: await source.spaces() };
       else if (parts[0] === "workspace") json = await source.workspace();
@@ -56,6 +41,7 @@ async function installBusiness(page: Page) {
       else if (parts[0] === "receipts" && parts.length === 2) json = await source.receipt(parts[1]);
       else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
       else if (parts[0] === "month-close" && parts.length === 1) json = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
+      else if (parts[0] === "open-items") json = OPEN_ITEMS_WIRE;
       else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
       else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       return route.fulfill({ json });
@@ -79,7 +65,7 @@ async function openScreen(page: Page, screen: "inicio" | "bandeja" | "receipt") 
   await expect(page.getByTestId("workspace-panel-region")).toBeVisible();
   await expect(page.getByTestId("business-switcher")).toBeVisible();
   if (screen === "inicio") {
-    await expect(page.getByRole("heading", { name: "Mi negocio" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Hola" })).toBeVisible();
     await expect(page.getByTestId("month-close-cards")).toBeVisible();
     await expect(page.getByTestId("business-primary-upload")).toBeVisible();
   }

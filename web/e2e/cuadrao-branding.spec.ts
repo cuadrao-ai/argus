@@ -41,12 +41,11 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       // The dev preview page names itself before the brand; the brand is what matters here.
       await expect(page).toHaveTitle(/Cuadrao$/);
       if (viewport.width === 390) {
-        await page.getByTestId("chat-shell-menu-trigger").click();
-        await expect(page.getByTestId("sidebar-drawer-logo")).toHaveAttribute("src", "/brand/cuadrao-mark-light.svg");
-        await expect(page.getByText("cuadrao", { exact: true })).toBeVisible();
+        // A phone has bottom tabs and no rail, so the mark at the foot of the rail is not drawn there.
+        await expect(page.getByTestId("business-bottom-tabs")).toBeVisible();
+        await expect(page.locator("aside")).toHaveCount(0);
+        await expect(page.getByText("argus", { exact: true })).toHaveCount(0);
         await capture(page, `brand-sidebar-spanish-${viewport.width}`);
-        await page.getByTestId("sidebar-drawer-close").click();
-        await expect(page.getByTestId("sidebar-drawer-logo")).toBeHidden();
       } else {
         await expect(page.getByText("cuadrao", { exact: true })).toBeVisible();
         await page.getByRole("button", { name: COPY["es-419"].collapse, exact: true }).click();
@@ -113,17 +112,19 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
           await page.goto("/dev/business-preview?view=inbox");
           await expect(page).toHaveTitle(/Cuadrao$/);
           await expect(page.getByRole("heading", { name: copy.inbox }).first()).toBeVisible();
+          await expect(page.getByText("argus", { exact: true })).toHaveCount(0);
           if (viewport.width === 390) {
-            await page.getByTestId("chat-shell-menu-trigger").click();
+            // A phone has bottom tabs and no rail, so there is no mark to draw.
+            await expect(page.getByTestId("business-bottom-tabs")).toBeVisible();
+            await expect(page.locator("aside")).toHaveCount(0);
+            await capture(page, `brand-biz-${theme}-${short(language)}-${viewport.width}`);
+            return;
           }
           await expect(page.getByText("cuadrao", { exact: true })).toBeVisible();
-          await expect(page.getByText("argus", { exact: true })).toHaveCount(0);
           await capture(page, `brand-biz-${theme}-${short(language)}-${viewport.width}`);
-          if (viewport.width === 1280) {
-            // The mark sits at the foot of the rail; collapsed, it stays without its word.
-            await page.getByRole("button", { name: copy.collapse, exact: true }).click();
-            await expect(page.getByTestId("sidebar-brand").getByText("cuadrao", { exact: true })).toHaveCount(0);
-          }
+          // The mark sits at the foot of the rail; collapsed, it stays and its word fades out.
+          await page.getByRole("button", { name: copy.collapse, exact: true }).click();
+          await expect(page.getByTestId("sidebar-brand").getByText("cuadrao", { exact: true })).toHaveCSS("opacity", "0");
           const mark = page.locator(`img[src="/brand/cuadrao-mark-${theme}.svg"]:visible`).first();
           await expect(mark).toBeVisible();
           await expect.poll(() => mark.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
 
 test.skip(process.env.NEXT_PUBLIC_BUSINESS_PILOT_ENABLED !== "true", "/biz needs the Business pilot server");
 
@@ -26,7 +27,8 @@ async function installBusiness(page: Page, storedMode: string | null) {
     else if (parts[0] === "receipt-reading") json = { enabled: false, available: true, can_change: true, disclosure: "Permiso", disclosure_token: "a".repeat(64), route: { gateway: "synthetic", interpretation: [], reply: [] }, consented_at: null, revoked_at: null };
     else if (parts[0] === "receipts" && parts.length === 1) json = await source.receiptPage!(url.searchParams.get("view") === "all" ? "all" : "inbox");
     else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
-    else if (parts[0] === "month-close") json = { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed: false, reasons: [], missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: [], cuentas_por_pagar: [], currencies: [{ currency: "DOP", income_before_itbis: "48500.00", expense_before_itbis: "12300.00", net_result: "36200.00", itbis_owed: "6516.00" }] };
+    else if (parts[0] === "month-close") json = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
+    else if (parts[0] === "open-items") json = OPEN_ITEMS_WIRE;
     else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
     else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
     return route.fulfill({ json });
@@ -109,7 +111,7 @@ for (const width of [1440, 1024]) {
       const rail = await railGeometry(page);
       expect({ width: rail.width, rowHeights: rail.rowHeights, activeHeight: rail.activeHeight, navTop: rail.navTop }).toEqual({
         width: 64,
-        rowHeights: [44, 44, 44, 44],
+        rowHeights: [44, 44, 44],
         activeHeight: 44,
         navTop: 64,
       });

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
 const baseline = process.env.CUADRAO_CLUTTER_BASELINE === "true";
 const evidence = process.env.CUADRAO_CLUTTER_EVIDENCE_DIR;
 type Scenario = "pending" | "new" | "approved" | "dismissed" | "filtered" | "unknown" | "unapproved" | "unavailable";
@@ -24,6 +25,8 @@ async function setup(page: Page, scenario: Scenario = "pending", language: "en" 
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (["email/deliveries", "captures"].includes(path)) return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
+    if (path === "month-close") return route.fulfill({ json: monthCloseWire(url.searchParams.get("month") ?? "2026-10") });
+    if (path === "open-items") return route.fulfill({ json: OPEN_ITEMS_WIRE });
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
 }
@@ -33,24 +36,23 @@ for (const width of [1280, 390]) {
     await setup(page);
     for (const view of ["overview", "inbox"]) {
       await page.goto(view === "overview" ? "/biz" : "/biz?view=inbox");
-      await expect(page.getByTestId(view === "overview" ? "inicio-por-revisar" : "business-inbox-receipts")).toBeVisible();
+      await expect(page.getByTestId(view === "overview" ? "month-close-task-review" : "business-inbox-receipts")).toBeVisible();
       if (evidence) await page.screenshot({ path: `${evidence}/${baseline ? "before" : "after"}-${view}-${width}.png`, fullPage: true });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (baseline) continue;
       if (view === "overview") {
-        const action = page.getByTestId("inicio-por-revisar");
-        await expect(page.getByTestId("inicio-por-revisar-count")).toHaveText("1");
-        await expect(action).toContainText("por revisar");
-        await expect(action).not.toContainText("8 por revisar");
+        const action = page.getByTestId("month-close-task-review");
+        await expect(action).toContainText("Revisa 1 recibo en la Bandeja");
+        await expect(action).not.toContainText("8");
         await expect(action).not.toContainText("con problema");
-        await expect(page.getByTestId("inicio-otras")).toHaveCount(0);
         const cards = page.getByTestId("month-close-cards");
         await expect(cards).toBeVisible();
         expect((await action.boundingBox())!.y).toBeLessThan((await cards.boundingBox())!.y);
         await expect(cards).not.toContainText("RD$ 0");
       } else {
         await expect(page.getByTestId("receipt-reading-control")).toHaveCount(0);
-        await expect(page.getByText(/Nada aquí es un gasto hasta que lo confirmes\./)).toHaveCount(1);
+        await expect(page.getByRole("heading", { level: 2, name: "Bandeja" })).toHaveCount(1);
+        await expect(page.getByText(/Nada aquí es un gasto hasta que lo confirmes\./)).toHaveCount(0);
       }
     }
   });
@@ -62,12 +64,12 @@ for (const scenario of ["new", "approved", "dismissed", "filtered", "unknown", "
     const empty = page.getByTestId("business-inbox-empty");
     await expect(empty).toBeVisible();
     if (scenario === "approved") await expect(empty).toContainText("Todo aprobado. Pa'que cuadre.");
-    else { await expect(empty).not.toContainText("Todo aprobado"); await expect(empty).toContainText("Sube un recibo"); }
+    else { await expect(empty).not.toContainText("Todo aprobado"); await expect(empty).toContainText("Aquí llegan tus recibos"); }
   });
 }
 test("English keeps the existing empty copy", async ({ page }) => {
   await setup(page, "approved", "en");
   await page.goto("/biz?view=inbox");
-  await expect(page.getByTestId("business-inbox-empty")).toContainText("Upload a receipt");
+  await expect(page.getByTestId("business-inbox-empty")).toContainText("Your receipts land here");
   await expect(page.getByTestId("business-inbox-empty")).not.toContainText("Todo aprobado");
 });

@@ -17,6 +17,8 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
     try {
       if (path === "space") { state.starts++; return route.fulfill({ json: { id: "fixture-space", name: "Negocio de prueba" } }); }
       if (path === "consent") return fulfillAcceptedBusinessConsent(route);
+      if (path === "fiscal-profile/fields") return route.fulfill({ json: { "606": [], "607": [] } });
+      if (path === "spaces") return route.fulfill({ json: { spaces: await source.spaces() } });
       if (path === "workspace") {
         if (state.workspaceUnavailable) return route.fulfill({ status: 403, json: { detail: { code: "permission_denied", status: 403, title: "Action refused", detail: "permission_denied", request_id: "capture-test" } } });
         return route.fulfill({ json: await source.workspace() });
@@ -62,12 +64,11 @@ async function setup(page: Page, draftId?: string, workspaceUnavailable = false)
   return { state, source };
 }
 
+/** Agregar is the one door: the owner types the note into its "Escríbelo" panel and it lands in the Bandeja. */
 async function newNote(page: Page) {
-  const create = page.getByTestId("business-create");
-  const compact = page.getByTestId("business-create-compact");
-  await (await compact.isVisible() ? compact : create).click();
-  await page.getByRole("menuitem", { name: "Guardar una nota", exact: true }).click();
-  return page.getByRole("dialog", { name: "Guardar una nota", exact: true });
+  await page.getByTestId("business-primary-upload").click();
+  await page.getByTestId("intake-write-open").click();
+  return page.getByTestId("intake-write");
 }
 async function screenshot(page: Page, name: string) {
   if (process.env.CUADRAO_MANUAL_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_MANUAL_EVIDENCE_DIR}/${name}.png`, fullPage: true });
@@ -78,18 +79,26 @@ for (const width of [1280, 390]) {
     test.use({ viewport: { width, height: 900 } });
     test("original sparse note opens canonical review, appends and returns through note search", async ({ page }) => {
       const { state } = await setup(page);
-      const dialog = await newNote(page);
+      const write = await newNote(page);
       const original = "  Ayer compré pintura para el taller.\nNo sé cuánto pagué.  ";
-      await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill("  ");
-      await expect(dialog.getByRole("button", { name: "Guardar nota", exact: true })).toBeDisabled();
-      await dialog.getByRole("textbox", { name: "Nota original", exact: true }).fill(original);
+      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill("  ");
+      await write.getByTestId("intake-write-save").click();
+      await expect(write.getByRole("alert")).toContainText("Escribe qué pasó antes de guardar.");
+      expect(state.captures).toHaveLength(0);
+      await write.getByRole("textbox", { name: "Escríbelo", exact: true }).fill(original);
       const starts = state.starts;
-      await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
+      await write.getByTestId("intake-write-save").click();
+      await expect(page.getByTestId("receipt-typed-row")).toContainText("Guardado en la Bandeja");
+      expect(state.captures[0].input).toMatchObject({ text: original.trim() });
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await page.getByRole("button", { name: /Bandeja/ }).first().click();
+      await page.getByTestId("bandeja-note").getByRole("button").click();
       const record = page.getByTestId("business-record-review");
       await expect(record).toBeVisible();
-      await expect(record.getByRole("blockquote")).toHaveText(original);
-      await expect(record).toContainText("Monto desconocido");
-      expect(state.captures[0].input).toEqual({ text: original });
+      await expect(record.getByRole("blockquote")).toHaveText(original.trim());
+      await expect(record).toContainText("Necesita una decisión antes de aprobar");
+      await expect(record).not.toContainText("RD$ 0");
       expect(state.starts).toBe(starts);
       expect(state.approvals).toBe(0);
       await screenshot(page, `sparse-original-${width}`);
@@ -101,11 +110,9 @@ for (const width of [1280, 390]) {
       expect(state.captures[1].input.draft?.version).toBe(1);
       expect(state.captures[1].key).not.toBe(state.captures[0].key);
       expect(state.approvals).toBe(0);
-      // From the tablet stop up search is the top bar's field; a phone keeps Buscar in its drawer.
-      if (width < 720) {
-        await page.getByRole("button", { name: "Abrir barra lateral", exact: true }).click();
-        await page.getByRole("button", { name: /^(Buscar|Search)/ }).first().click();
-      } else await page.getByTestId("header-search").click();
+      // From the tablet stop up search is the top bar's field; a phone has a Buscar button in its header.
+      if (width < 720) await page.getByRole("button", { name: "Buscar", exact: true }).click();
+      else await page.getByTestId("header-search").click();
       await page.getByPlaceholder("Busca comercio, monto o nota").fill("pintura");
       const hit = page.getByTestId("workspace-search-results").getByRole("button", { name: /Ayer compré pintura/ });
       await expect(hit).toContainText("Nota original guardada");
@@ -124,7 +131,7 @@ for (const width of [1280, 390]) {
       await expect(dialog.getByRole("alert")).toContainText("No pudimos confirmar");
       await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue(text);
       await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-      await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeDisabled();
+      await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
       expect(state.captures).toHaveLength(1);
       await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
       await screenshot(page, `uncertain-retained-${width}`);
@@ -150,7 +157,7 @@ test("denied and stale append preserve text, and read-only exposes no append", a
   await dialog.getByRole("button", { name: "Guardar nota", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("Tu acceso actual");
   await expect(dialog.getByRole("textbox", { name: "Nota original", exact: true })).toHaveValue("Mi texto sin perder");
-  await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
   await page.getByRole("button", { name: "Volver a abrir la nota conservada", exact: true }).click();
@@ -168,9 +175,11 @@ test("denied and stale append preserve text, and read-only exposes no append", a
 
 test("new-note entry waits for successful own-workspace load", async ({ page }) => {
   const { state } = await setup(page, undefined, true);
-  await expect(page.getByTestId("workspace-panel-region").getByRole("alert")).toBeVisible();
-  await page.getByTestId("business-create").click();
-  await expect(page.getByRole("menuitem", { name: "Guardar una nota", exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("workspace-panel-region").getByRole("heading", { name: "Cuadrao Business aún no está disponible para tu cuenta." })).toBeVisible();
+  await page.getByTestId("business-primary-upload").click();
+  // Agregar opens, but the typed-note door stays closed until the own workspace has loaded.
+  await expect(page.getByRole("dialog", { name: "Subir recibo" })).toBeVisible();
+  await expect(page.getByTestId("intake-write-open")).toHaveCount(0);
   expect(state.captures).toEqual([]);
 });
 
@@ -202,9 +211,9 @@ for (const code of ["business_action_unsettled", "outcome_unknown"] as const) {
     await expect(dialog.getByRole("button", { name: "Editar solicitud", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true })).toBeEnabled();
     await dialog.getByRole("button", { name: "Cerrar", exact: true }).last().click();
-    await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
     await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Aprobar gasto", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Aprobar", exact: true })).toBeDisabled();
     expect(state.captures).toHaveLength(1);
     await page.getByRole("button", { name: "Volver a abrir la nota sin confirmar", exact: true }).click();
     await dialog.getByRole("button", { name: "Reintentar la misma nota", exact: true }).click();

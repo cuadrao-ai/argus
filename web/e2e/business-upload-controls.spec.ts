@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./support/month-close-wire";
 
 const baseline = process.env.CUADRAO_UPLOAD_BASELINE === "true";
 const evidence = process.env.CUADRAO_UPLOAD_EVIDENCE_DIR;
@@ -30,6 +31,8 @@ async function setup(page: Page, options: { enterable?: boolean; preparable?: bo
     if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
     if (path === "email/deliveries" || path === "captures") return route.fulfill({ json: { items: [] } });
     if (path === "consent") return fulfillAcceptedBusinessConsent(route);
+    if (path === "month-close") return route.fulfill({ json: monthCloseWire(new URL(request.url()).searchParams.get("month") ?? "2026-10") });
+    if (path === "open-items") return route.fulfill({ json: OPEN_ITEMS_WIRE });
     return route.fulfill({ status: 404, json: { code: "fixture_only" } });
   });
   return state;
@@ -58,7 +61,7 @@ for (const width of [1280, 390]) {
       expect(bounds!.y).toBeLessThan(400);
       await upload.focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByRole("dialog", { name: "Subir recibos", exact: true })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Agregar", exact: true })).toBeVisible();
       const historyReturned = page.evaluate(() => new Promise<void>((resolve) => window.addEventListener("popstate", () => resolve(), { once: true })));
       await page.keyboard.press("Escape");
       await historyReturned;

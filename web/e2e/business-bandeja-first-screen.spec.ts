@@ -41,7 +41,7 @@ for (const width of [1280, 390]) {
     await expect(page.getByTestId("business-primary-upload")).toHaveCount(1);
     await expect(page.getByTestId(width === 390 ? "add-menu-header" : "add-menu-page")).toHaveCount(0);
     await expect(page.getByTestId("bandeja-emails-line")).toHaveCount(0);
-    await expect(page.getByTestId("bandeja-segments").locator('[data-segment="review"]')).toHaveText("Por revisar1");
+    await expect(page.getByTestId("bandeja-segments").locator('[data-segment="review"]')).toHaveText(width === 390 ? "Revisar1" : "Por revisar1");
     await expect(page.getByText("necesita tu atención")).toHaveCount(0);
     await expect(page.getByText(/Revisar \d+ recibo/)).toHaveCount(0);
     await expect(receipts).toContainText("RD$");
@@ -56,7 +56,7 @@ for (const width of [1280, 390]) {
     expect(uploadBox!.height).toBeGreaterThanOrEqual(44);
     expect(uploadBox!.y).toBeLessThan(receiptBox!.y);
     expect(receiptBox!.y).toBeLessThan(height);
-    await page.screenshot({ path: `../docs/reports/evidence/business-bandeja-first-screen/after-inbox-${width}.png` });
+    await page.screenshot({ path: test.info().outputPath(`after-inbox-${width}.png`) });
     await segments.locator('[data-segment="emails"]').click();
     await expect(page.getByTestId("bandeja-emails").getByTestId("email-copy-address")).toHaveText("Copiar dirección");
     await expect(receipts).toHaveCount(0);
