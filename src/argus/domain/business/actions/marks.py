@@ -10,6 +10,7 @@ from typing import Any
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     fiscal_inclusion,
+    fiscal_question_applies,
     fiscal_value,
     is_personal,
     is_sin_comprobante,
@@ -60,6 +61,22 @@ def record_marks(facts: BusinessFacts, row: dict[str, Any], owner_id: str) -> di
         "include_606_by": row.get("answer_name") if answer is not None else None,
         "sin_comprobante": is_sin_comprobante(facts),
     }
+
+
+def fiscal_inclusion_available(tx, facts: BusinessFacts, state: str) -> bool:  # noqa: ANN001
+    """Whether the caller may answer the 606 question on this draft now: the
+    gate ``decide_606`` enforces, read without acting. A member holding
+    prepare who is not the owner, on an open or accepted draft, when the
+    question applies to its facts."""
+
+    actor = tx.context.actor
+    return (
+        "prepare" in tx.authorization.capabilities
+        and actor.actor_kind == "member"
+        and str(actor.actor_id) != str(tx.context.owner_id)
+        and state in ("open", "accepted")
+        and fiscal_question_applies(facts)
+    )
 
 
 def draft_marks(tx, draft_id: Any, facts: BusinessFacts) -> dict:  # noqa: ANN001

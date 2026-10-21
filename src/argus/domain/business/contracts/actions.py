@@ -177,6 +177,16 @@ class ApproveRefund(Contract):
     action: Literal["record_refund"]
 
 
+ApprovalAction = Literal["record_expense", "record_income", "record_refund"]
+#: The approve action each kind of draft takes: what the dossier names as
+#: ``approval_action`` and what the approve route's body discriminates on.
+APPROVAL_ACTION: dict[str, ApprovalAction] = {
+    "expense": "record_expense",
+    "income": "record_income",
+    "refund": "record_refund",
+}
+
+
 class SettleRemainder(Contract):
     """A person settles the read purchases a recorded draft does not cover."""
 

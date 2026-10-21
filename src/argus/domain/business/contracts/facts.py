@@ -425,10 +425,18 @@ def is_sin_comprobante(facts: BusinessFacts) -> bool:
     )
 
 
+def fiscal_question_applies(facts: BusinessFacts) -> bool:
+    """Whether "¿Incluir en 606?" is a question on this record: a personal
+    receipt that carries a fiscal number. The answer and the dossier's
+    ``fiscal_inclusion_available`` both start here."""
+
+    return is_personal(facts) and fiscal_value(facts) is not None
+
+
 def fiscal_inclusion(facts: BusinessFacts) -> bool | None:
     """The accountant's 606 answer when one applies, else None."""
 
-    if not is_personal(facts) or fiscal_value(facts) is None or facts.fiscal is None:
+    if not fiscal_question_applies(facts) or facts.fiscal is None:
         return None
     answer = facts.fiscal.include_606
     return answer.value if isinstance(answer, Known) else None

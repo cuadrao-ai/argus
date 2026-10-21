@@ -119,18 +119,36 @@ def entries(
     limit: int = 20,
     view: str = "all",
 ) -> list[dict]:
+    return page(service, context, query=query, limit=limit, view=view)["items"]
+
+
+def page(
+    service: BusinessActions,
+    context: ActionContext,
+    *,
+    query: str = "",
+    limit: int = 20,
+    view: str = "all",
+) -> dict:
+    """One page of notes, newest first, and whether more exist past it. Each
+    note says how many notes of its draft came before it, counted over the
+    draft's notes whatever ``query`` keeps."""
+
     if "\x00" in query or len(query) > 200 or not 1 <= limit <= 50:
         raise ActionError("invalid_input", "business_capture_query_invalid")
     with transaction(service.authority, context) as tx:
-        return tx.rows(
-            "select e.id as draft_id,e.version,v.version as revision,s.id as source_id,"
-            " s.text_content as text,s.received_at,e.state as review_state"
+        rows = tx.rows(
+            "select * from (select e.id as draft_id,e.version,v.version as revision,"
+            " s.id as source_id,s.text_content as text,s.received_at,e.state as review_state,"
+            " count(*) over (partition by e.id order by s.received_at,s.id"
+            " rows between unbounded preceding and 1 preceding) as earlier_count"
             + _NOTES
             + (_AWAITING_WITHOUT_RECEIPT if view == "inbox" else "")
-            + " and strpos(lower(s.text_content),lower(%s))>0"
-            " order by s.received_at desc,s.id desc limit %s",
-            (context.actor.space_id, context.owner_id, query, limit),
+            + ") n where strpos(lower(n.text),lower(%s))>0"
+            " order by n.received_at desc,n.source_id desc limit %s",
+            (context.actor.space_id, context.owner_id, query, limit + 1),
         )
+    return {"items": rows[:limit], "has_more": len(rows) > limit}
 
 
 def awaiting_notes(tx) -> int:  # noqa: ANN001
