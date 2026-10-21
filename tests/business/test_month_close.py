@@ -181,14 +181,8 @@ def test_summary_matches_formato_totals_for_the_fixture_month():
         item["activity_id"]
         for item in summary["cuentas_por_pagar"] + summary["missing_ncf"]
     }
-    # A dollar sale with a comprobante is on no 607, so it is in no income figure.
-    assert "USD" not in totals
     usd = next(block for block in summary["currencies"] if block["currency"] == "USD")
-    assert usd["net_result_minor"] == 0
-    assert usd["by_status"]["invoices"]["cobrado"] == {
-        "count": 1,
-        "before_itbis_minor": 20000,
-    }
+    assert usd["net_result_minor"] == totals["USD"].income_before_itbis == 20000
     MonthClose.model_validate(
         {
             "month": "2026-10",

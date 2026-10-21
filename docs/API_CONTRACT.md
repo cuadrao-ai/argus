@@ -9288,8 +9288,9 @@ the ZIP carries the TXT). Each currency block adds `itbis_cobrado_minor` and
 `net_result_final` (true while no document of that currency in the month is
 `pendiente`). Each open-items list adds `overdue: {count, totals}` over every
 pending document in it, not only the page: pending with `due_on` before
-`today`; no due date is never overdue. Only DOP documents are 606 or 607
-lines, in month close and in the export alike. All additive; nothing renamed.
+`today`; no due date is never overdue. Every document counts in its own
+currency's block; only the DGII files and `dgii_forms` are DOP-only. All
+additive; nothing renamed.
 
 The same existing
 `POST /business/drafts/{draft_id}/approve` takes the action-discriminated union

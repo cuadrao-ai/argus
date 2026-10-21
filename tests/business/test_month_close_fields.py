@@ -1,6 +1,6 @@
 """The month-close and open-items fields the server owns: today, overdue,
 ITBIS cobrado, the per-currency final mark, the payment methods, the earliest
-month, the form statuses, and the peso gate on the 606 and 607."""
+month, the form statuses, and the peso gate on the DGII files only."""
 
 from __future__ import annotations
 
@@ -147,7 +147,7 @@ def test_earliest_month_is_the_first_month_the_close_would_show():
     assert summarize(documents, *OCTOBER)["earliest_month"] == "2025-07"
 
 
-def test_a_dollar_document_with_a_comprobante_is_on_neither_form_in_both_owners():
+def test_a_mixed_month_counts_a_dollar_document_in_its_own_block_and_on_no_form():
     assert declarable("DOP") and not declarable("USD")
     usd_bill = document(
         activity_id="usd-bill",
@@ -160,22 +160,24 @@ def test_a_dollar_document_with_a_comprobante_is_on_neither_form_in_both_owners(
     usd_sale = document(
         activity_id="usd-sale", currency="USD", total_minor=2360, itbis_minor=360
     )
-    assert not in_606(usd_bill) and not in_607(usd_sale)
-    assert in_606(
-        document(
-            activity_id="peso-bill",
-            role="receipt",
-            status="pagado",
-            total_minor=1180,
-            itbis_minor=180,
-        )
+    peso_sale = document(activity_id="peso-sale", total_minor=11800, itbis_minor=1800)
+    assert in_606(usd_bill) and in_607(usd_sale) and in_607(peso_sale)
+    totals = formato_totals([usd_bill, usd_sale, peso_sale], *OCTOBER)
+    assert (totals["USD"].income_before_itbis, totals["USD"].expense_before_itbis) == (
+        2000,
+        1000,
     )
-    assert "USD" not in formato_totals([usd_bill, usd_sale], *OCTOBER)
+    assert (totals["USD"].itbis_charged, totals["USD"].itbis_paid) == (360, 180)
+    assert totals["DOP"].income_before_itbis == 10000
     blocks = {
-        b["currency"]: b for b in summarize([usd_bill, usd_sale], *OCTOBER)["currencies"]
+        b["currency"]: b
+        for b in summarize([usd_bill, usd_sale, peso_sale], *OCTOBER)["currencies"]
     }
-    assert blocks["USD"]["itbis_paid_minor"] == blocks["USD"]["itbis_charged_minor"] == 0
-    assert blocks["USD"]["by_status"]["receipts"]["pagado"]["count"] == 1
+    assert (blocks["USD"]["net_result_minor"], blocks["USD"]["itbis_cobrado_minor"]) == (
+        1000,
+        360,
+    )
+    assert blocks["DOP"]["net_result_minor"] == 10000
 
     records = practice_records()
     dollar = [r.__class__(**{**r.__dict__, "currency": "USD"}) for r in records[:1]]
@@ -191,10 +193,12 @@ def test_a_dollar_document_with_a_comprobante_is_on_neither_form_in_both_owners(
     assert bridge["reason"] == "fiscal_conversion_required"
     assert rows == {"606": [], "607": []}
     # The dollar gross never enters the peso totals, and the record is an
-    # issue that keeps its form in review, not a silent exclusion.
+    # issue that keeps its form in review, so dgii_forms says needs_review.
     assert manifest["totals_dop"]["purchase_invoice_gross"] == "0.00"
     assert manifest["totals_dop"]["sales_gross"] == "0.00"
-    assert [issue["code"] for issue in manifest["issues"]] == ["fiscal_conversion_required"]
+    assert [issue["code"] for issue in manifest["issues"]] == [
+        "fiscal_conversion_required"
+    ]
     assert manifest["forms"][dollar[0].declaration.form]["status"] == "needs_review"
 
 

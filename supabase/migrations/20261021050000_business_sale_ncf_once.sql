@@ -2,8 +2,9 @@
 -- accepting or accepted sale with the same NCF or e-CF
 -- (argus.domain.business.actions.fiscal.require_distinct_fiscal_document);
 -- this index refuses the write the read cannot see. The number is normalized
--- the way that read normalizes it: e-CF before NCF, trimmed, upper case, and
--- only a B plus ten digits or an E plus twelve digits counts.
+-- the way that read normalizes it: e-CF before NCF (an empty e-CF counts as
+-- none), whitespace trimmed, upper case, and only a B plus ten digits or an E
+-- plus twelve digits counts.
 --
 -- Two sales already approved with one number would make the index fail, so the
 -- migration stops first with a named error and changes nothing. Resolve those
@@ -19,15 +20,15 @@ begin
   from (
     select owner_space_id,
            upper(btrim(coalesce(
-             resolution->'business'->'facts'->'fiscal'->'ecf'->>'value',
-             resolution->'business'->'facts'->'fiscal'->'ncf'->>'value'))) as number
+             nullif(resolution->'business'->'facts'->'fiscal'->'ecf'->>'value', ''),
+             resolution->'business'->'facts'->'fiscal'->'ncf'->>'value'), E' \t\r\n')) as number
     from public.financial_import_events
     where state in ('accepting', 'accepted')
       and owner_space_id is not null
       and resolution->'business'->'facts'->'kind'->>'value' = 'income'
       and upper(btrim(coalesce(
-            resolution->'business'->'facts'->'fiscal'->'ecf'->>'value',
-            resolution->'business'->'facts'->'fiscal'->'ncf'->>'value')))
+            nullif(resolution->'business'->'facts'->'fiscal'->'ecf'->>'value', ''),
+            resolution->'business'->'facts'->'fiscal'->'ncf'->>'value'), E' \t\r\n'))
           ~ '^(B[0-9]{10}|E[0-9]{12})$'
     group by 1, 2
     having count(*) > 1
@@ -42,15 +43,15 @@ create unique index if not exists financial_import_events_sale_ncf_idx
   on public.financial_import_events (
     owner_space_id,
     (upper(btrim(coalesce(
-      resolution->'business'->'facts'->'fiscal'->'ecf'->>'value',
-      resolution->'business'->'facts'->'fiscal'->'ncf'->>'value'))))
+      nullif(resolution->'business'->'facts'->'fiscal'->'ecf'->>'value', ''),
+      resolution->'business'->'facts'->'fiscal'->'ncf'->>'value'), E' \t\r\n')))
   )
   where state in ('accepting', 'accepted')
     and owner_space_id is not null
     and resolution->'business'->'facts'->'kind'->>'value' = 'income'
     and upper(btrim(coalesce(
-          resolution->'business'->'facts'->'fiscal'->'ecf'->>'value',
-          resolution->'business'->'facts'->'fiscal'->'ncf'->>'value')))
+          nullif(resolution->'business'->'facts'->'fiscal'->'ecf'->>'value', ''),
+          resolution->'business'->'facts'->'fiscal'->'ncf'->>'value'), E' \t\r\n'))
         ~ '^(B[0-9]{10}|E[0-9]{12})$';
 
 reset lock_timeout;

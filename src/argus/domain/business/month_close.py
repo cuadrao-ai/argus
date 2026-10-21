@@ -24,11 +24,7 @@ from argus.domain.business.contracts.facts import (
     is_personal,
     is_sin_comprobante,
 )
-from argus.domain.business.dgii_validation import (
-    credit_note,
-    declarable,
-    reportable_607,
-)
+from argus.domain.business.dgii_validation import credit_note, reportable_607
 from argus.domain.business.fiscal_identity import normalized_ncf
 from argus.domain.business.ledger import occurred_on
 from argus.domain.recording.currency import (
@@ -149,7 +145,6 @@ def in_close(document: MonthDocument) -> bool:
 def in_606(document: MonthDocument) -> bool:
     if (
         document.role != "receipt"
-        or not declarable(document.currency)
         or normalized_ncf(document.ecf or document.ncf) is None
     ):
         return False
@@ -162,7 +157,6 @@ def in_607(document: MonthDocument) -> bool:
     return (
         document.role == "invoice"
         and not document.personal
-        and declarable(document.currency)
         and reportable_607(document.ecf or document.ncf)
     )
 
