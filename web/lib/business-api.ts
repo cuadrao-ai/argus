@@ -1,7 +1,7 @@
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
-import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders } from "./argus-api-transport";
+import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId } from "./argus-api-transport";
 import type { ArgusLanguage } from "./language-features";
 import type { BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
@@ -189,8 +189,9 @@ export async function fetchBusinessExport(draftId: string | undefined, start: st
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    const error = new Error("Business export unavailable") as Error & { status: number; code: string };
+    const error = new Error("Business export unavailable") as Error & { status: number; code: string; requestId?: string };
     error.status = response.status;
+    error.requestId = serverRequestId(response, body);
     error.code = body?.detail?.code ?? body?.code ?? "unknown";
     throw error;
   }
@@ -373,7 +374,7 @@ export async function captureBusinessNote(input: BusinessCaptureInput, key: stri
     const body = await response.json().catch(() => ({})) as { code?: unknown; detail?: unknown };
     const problem = typeof body.detail === "object" && body.detail !== null ? body.detail as { code?: unknown } : body;
     const code = typeof problem.code === "string" ? problem.code : "unknown";
-    throw Object.assign(new Error("Capture request could not be confirmed"), { status: response.status, code });
+    throw Object.assign(new Error("Capture request could not be confirmed"), { status: response.status, code, requestId: serverRequestId(response, body) });
   }
   return response.json() as Promise<BusinessDossier>;
 }
