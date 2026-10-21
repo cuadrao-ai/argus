@@ -1192,7 +1192,7 @@ function ChatCommandPaletteSurface({
   const workspaceSheetRootClass = `fixed inset-0 z-[60] flex justify-center ${isBelowTablet ? "" : "items-start p-3 pt-[8dvh] sm:p-6 sm:pt-[8dvh]"}`;
   const workspaceSheetPanelClass = isBelowTablet
     ? "relative flex h-[100dvh] w-full flex-col overflow-hidden bg-white dark:bg-[#1b1d20]"
-    : `relative flex max-h-[84dvh] flex-col overflow-hidden rounded-[20px] border border-black/10 bg-white dark:border-white/10 dark:bg-[#1b1d20] ${
+    : `relative flex max-h-[84dvh] flex-col overflow-hidden rounded-surface border border-black/10 bg-white dark:border-white/10 dark:bg-[#1b1d20] ${
         effectiveLayoutMode === "expanded" ? "h-[78dvh] w-[94vw] max-w-6xl" : "h-[60dvh] w-full max-w-lg"
       }`;
   const footerCount = displayItems.length + workspaceGroups.reduce((count, group) => count + group.hits.length, 0);
@@ -1691,7 +1691,7 @@ function ChatCommandPaletteSurface({
                               role="button"
                               tabIndex={0}
                               aria-disabled={isNavigationDisabled}
-                              className={`group relative flex w-full items-start gap-2 rounded-[12px] px-3 py-2.5 text-left transition-colors ${workspaceSearch ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49]" : "outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/25"} max-desktop:min-h-11 max-desktop:pe-12 ${
+                              className={`group relative flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors ${workspaceSearch ? "rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49]" : "rounded-[12px] outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/25"} max-desktop:min-h-11 max-desktop:pe-12 ${
                                 selectedPreview?.id === item.id &&
                                 selectedPreview.type === item.type
                                   ? "bg-black/5 dark:bg-white/5"

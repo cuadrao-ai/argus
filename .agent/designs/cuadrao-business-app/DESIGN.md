@@ -82,7 +82,28 @@ the code, named after it, and every screen uses that owner.
 - A split layout gives content about 62% and actions or details about 38%.
 - Surfaces are flat. Separate them with colour contrast and hairlines, never
   decorative shadows.
-- Corners are 12px for standard elements and 20px for cards. Buttons are fully round.
+- Corners come from one scale, Tailwind theme tokens in `web/app/globals.css`
+  (Lucas, October 21, 2026). A guard test fails on any other corner in a
+  Business file.
+
+  | Token | Radius | For |
+  | --- | --- | --- |
+  | `rounded-mark` | 4px | chips (status, lateness, type), counts, key caps, skeleton lines, a focus outline on text |
+  | `rounded-item` | 8px | inputs, menu items, rows, small tiles, blocks inside a surface |
+  | `rounded-surface` | 16px | cards, sheets, popovers, menus, toasts |
+  | `rounded-full` | pill | buttons, segmented controls, switches, the search field, avatars, dots, progress bars, the sheet handle |
+
+- **Concentric.** An inner shape's radius is the outer radius minus the
+  padding between them, rounded down to the scale. Below 4 it is 4 or square.
+  When the padding is at least the outer radius, the curves do not meet and
+  the inner shape keeps its own step. It is never rounder than its container.
+  Controls stay pill wherever they sit.
+- **Docked.** A sheet docked to the bottom of a phone rounds its top corners
+  only. A full-height drawer touches the top, right and bottom edges, so it
+  is square, with a hairline on its open side. A full page is square.
+- **Focus.** The focus ring is an outline that follows the element's own
+  radius, offset outward. Every focusable shape carries a radius, so no ring
+  is square on a round control.
 
 ### Widths
 
@@ -169,7 +190,8 @@ Sheet rules:
    the page stays readable beside it, and a click beside it closes it.
 4. **One sheet at a time.** Opening something from inside a sheet replaces it
    and shows a back arrow that returns to it. One sheet, one swipe to leave.
-5. **Flat.** No blur, no shadow. Edges are hairlines and corners are 20px.
+5. **Flat.** No blur, no shadow. Edges are hairlines and corners are
+   `rounded-surface`, flat on the docked side.
 
 Which container, screen by screen (Lucas, October 20, 2026):
 

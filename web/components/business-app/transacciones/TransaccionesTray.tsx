@@ -59,7 +59,7 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
           <p className="mt-1 text-[17px] font-medium"><SignedAmount money={movement.money} header={null} /></p>
         </div>
         {failure ? (
-          <div role="alert" data-testid="transacciones-decision-error" className="rounded-[12px] border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
+          <div role="alert" data-testid="transacciones-decision-error" className="rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
             <p>{t("business.transactions.error.decision")}</p>
             <p className="mt-1 text-[12px] tabular-nums opacity-80">{t("business.transactions.error.reference", { reference: failure.reference })}</p>
             <button type="button" onClick={controller.retry} disabled={busy} className={`${quietButtonClass} -ml-1 mt-1`}>{t("common.retry", "Reintentar")}</button>
@@ -113,7 +113,7 @@ function Facts({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
       <h4 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/65">{title}</h4>
-      <dl className="divide-y divide-[#DCE0DA] rounded-[12px] border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">{children}</dl>
+      <dl className="divide-y divide-[#DCE0DA] rounded-item border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">{children}</dl>
     </section>
   );
 }

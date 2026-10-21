@@ -17,7 +17,7 @@ function initial(name: string): string {
 /** The business's square mark: its initial on the brand green. */
 export function BusinessMark({ name }: { name: string }) {
   return (
-    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#2f5a49] text-[13px] font-medium text-[#fffefa]">
+    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mark bg-[#2f5a49] text-[13px] font-medium text-[#fffefa]">
       {initial(name)}
     </span>
   );
@@ -85,8 +85,8 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
     // While the list loads, hold the mark's place so the menu below does not jump when it arrives.
     return spaces === null ? (
       <div data-testid="business-switcher-pending" aria-hidden="true" className={`flex min-h-11 items-center gap-2 px-1 ${collapsed ? "justify-center" : "w-full"}`}>
-        <span className="h-8 w-8 shrink-0 rounded-[12px] bg-black/[0.06] dark:bg-white/10" />
-        {collapsed ? null : <span className="h-4 w-24 rounded-md bg-black/[0.06] dark:bg-white/10" />}
+        <span className="h-8 w-8 shrink-0 rounded-mark bg-black/[0.06] dark:bg-white/10" />
+        {collapsed ? null : <span className="h-4 w-24 rounded-mark bg-black/[0.06] dark:bg-white/10" />}
       </div>
     ) : null;
   }
@@ -131,7 +131,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         aria-controls={menuId}
         aria-label={name}
         onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
-        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-item px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
       >
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
@@ -149,7 +149,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         aria-controls={menuId}
         aria-label={name}
         onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
-        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-item px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
       >
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
@@ -167,7 +167,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
           role="menu"
           aria-label={name}
           style={{ left: Math.max(8, position.left), top: position.top, transform: position.above ? "translateY(-100%)" : undefined }}
-          className="fixed z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-[12px] border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+          className="fixed z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-surface border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
           <p className="break-words px-2 py-2 text-[16px] font-medium text-[#172b26] dark:text-white">{name}</p>
           {mode === "menu" ? (
@@ -175,7 +175,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
               <button
                 type="button"
                 role="menuitem"
-                className="flex min-h-11 w-full items-center gap-2 rounded-[12px] px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
+                className="flex min-h-11 w-full items-center gap-2 rounded-item px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
                 onClick={() => { setMode("closed"); onOpenSettings(); }}
               >
                 <Settings2 className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
@@ -185,7 +185,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex min-h-11 w-full items-center gap-2 rounded-[12px] px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-item px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
                   onClick={() => setMode("choose")}
                 >
                   <ArrowLeftRight className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
@@ -201,7 +201,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
               aria-label={t("business.switcher.choose", "Elige un negocio")}
               aria-activedescendant={options[active] ? `${menuId}-${options[active].grant_id}` : undefined}
               onKeyDown={onListKey}
-              className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]"
+              className="rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]"
             >
               {options.map((space, index) => {
                 const optionName = formatBusinessName(space.name, fallback);
@@ -214,7 +214,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
                     data-active={index === active ? "true" : undefined}
                     onMouseEnter={() => setActive(index)}
                     onClick={() => choose(space)}
-                    className={`flex min-h-11 cursor-pointer items-center rounded-[12px] px-2 text-[16px] ${index === active ? "bg-[#efebdf]" : ""}`}
+                    className={`flex min-h-11 cursor-pointer items-center rounded-item px-2 text-[16px] ${index === active ? "bg-[#efebdf]" : ""}`}
                   >
                     <span className="min-w-0 break-words">{optionName}</span>
                   </li>

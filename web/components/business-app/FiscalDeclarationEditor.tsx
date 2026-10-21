@@ -9,7 +9,7 @@ import { getDgiiFields, reviewDgii, type DgiiDeclaration, type DgiiFields, type 
 import { randomId } from "@/lib/random-id";
 import { SURFACE_CARD } from "./foundation/surfaces";
 
-const inputClass = "mt-2 block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] dark:bg-[#141517] dark:text-white";
+const inputClass = "mt-2 block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] dark:bg-[#141517] dark:text-white";
 
 export default function FiscalDeclarationEditor({ dossier, disabled, onChanged, onBusy, onDirty }: { dossier: BusinessDossier; disabled: boolean; onChanged: (value: BusinessDossier) => void; onBusy: (value: boolean) => void; onDirty: (value: boolean) => void }) {
   const { t } = useTranslation();

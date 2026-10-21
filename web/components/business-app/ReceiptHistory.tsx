@@ -137,7 +137,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       <h3 id={titleId} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
       <ol ref={list} className="mt-4">
         {shown.map((event, index) => (
-          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
+          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
             {index < shown.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#DCE0DA] dark:bg-white/15" /> : null}
             <span aria-hidden="true" data-testid="history-dot" className="absolute left-0 top-[5px] h-3 w-3 rounded-full" style={{ backgroundColor: event.approved ? BUSINESS_STATUS.approved.ink : MUTED_TEXT }} />
             <p className="break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white">{event.line}</p>

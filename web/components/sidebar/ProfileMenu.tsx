@@ -1293,7 +1293,7 @@ export default function ProfileMenu({
         </button>
         {activeSubmenu === "help" && (
           <div
-            className={`${submenuSurfaceClass("min-w-[248px]")} [&>a]:mx-1 [&>a]:my-0.5 [&>a]:w-[calc(100%-0.5rem)] [&>a]:rounded-[10px]`}
+            className={`${submenuSurfaceClass("min-w-[248px]")} [&>a]:mx-1 [&>a]:my-0.5 [&>a]:w-[calc(100%-0.5rem)] [&>a]:rounded-item`}
             style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
             onMouseEnter={handleSubmenuKeepAlive}
             onMouseLeave={handleSubmenuLeave}

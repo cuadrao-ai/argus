@@ -62,7 +62,7 @@ export default function BusinessCreateMenu({
             aria-controls={open ? menuId : undefined}
             data-testid="business-create"
             onClick={toggle}
-            className={`group flex h-11 w-full items-center rounded-[14px] transition-colors duration-200 hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/5 ${
+            className={`group flex h-11 w-full items-center rounded-item transition-colors duration-200 hover:bg-black/5 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/5 ${
               open ? "bg-black/5 dark:bg-white/5" : ""
             }`}
           >

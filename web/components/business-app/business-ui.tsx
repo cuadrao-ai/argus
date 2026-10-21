@@ -7,7 +7,7 @@ import { BusinessContext } from "./BusinessWorkspace";
 import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
-  "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
+  "rounded-surface border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
 /**
  * The one owner of button looks (Lucas, October 21, 2026). Four levels, never a fifth:
  * primary is the screen's one main action in Cuadrao green; secondary is an outlined
@@ -133,11 +133,11 @@ export function useTerminalRead() {
 
 export function LoadingRows({ rows = 3, layout = "rows" }: { rows?: number; layout?: "rows" | "overview" | "detail" }) {
   const { t } = useTranslation();
-  const line = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
+  const line = "rounded-mark bg-black/[0.06] dark:bg-white/[0.08]";
   const pulse = "animate-pulse motion-reduce:animate-none";
   const fields = Array.from({ length: rows }, (_, index) => (
     <div key={index} className={layout === "overview" ? `${cardClass} min-h-40 space-y-4` : "flex min-h-20 items-center gap-3 px-3 py-3"}>
-      {layout === "rows" ? <div className={`${line} h-11 w-11 shrink-0 rounded-[12px]`} /> : null}
+      {layout === "rows" ? <div className={`${line} h-11 w-11 shrink-0 rounded-item`} /> : null}
       <div className="min-w-0 flex-1 space-y-3">
         <div className={`${line} h-3 w-2/5`} />
         <div className={`${line} ${layout === "overview" ? "h-7 w-3/5" : "h-4 w-3/4"}`} />
@@ -194,7 +194,7 @@ export function recordFiscalMark(record: { sin_comprobante?: boolean; fiscal_kno
 export function RecordMarks({ personal, fiscal, markedBy = null, className = "" }: { personal?: boolean; fiscal: ReturnType<typeof recordFiscalMark>; markedBy?: string | null; className?: string }) {
   const { t } = useTranslation();
   const owner = useOwnerView();
-  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-full border px-2 text-[11px] font-medium";
+  const chip = "inline-flex min-h-6 items-center whitespace-nowrap rounded-mark border px-2 text-[11px] font-medium";
   if (!personal && !fiscal) return null;
   const marker = personal && owner && markedBy ? t("business.marks.marked_by", "Marked by {{name}}", { name: markedBy }) : null;
   return (

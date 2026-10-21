@@ -115,12 +115,12 @@ export default function BusinessExpensesPanel() {
                 data-expense-id={expense.id}
                 aria-current={current ? "true" : undefined}
                 ref={current ? (row) => row?.scrollIntoView({ block: "nearest" }) : undefined}
-                className={`rounded-[14px] px-3 py-1 ${OPEN_ROW_CLASS}`}
+                className={`rounded-item px-3 py-1 ${OPEN_ROW_CLASS}`}
               >
                 <button
                   type="button"
                   onClick={() => openPanel(target)}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-[12px] py-2 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-item py-2 text-left hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 dark:hover:bg-white/[0.04] dark:focus-visible:ring-white/30"
                 >
                   {facts}
                   {expense.receipt_id ? <Paperclip className="h-4 w-4 shrink-0 text-black/45 dark:text-white/45" aria-hidden="true" /> : null}

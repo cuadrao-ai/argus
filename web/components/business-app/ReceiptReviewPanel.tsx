@@ -42,7 +42,7 @@ function draftFrom(detail: ReceiptDetail): Draft {
 }
 
 const inputClass =
-  "block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
+  "block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();

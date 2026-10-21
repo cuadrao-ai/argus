@@ -98,7 +98,7 @@ export function AccountLabel({ account }: { account: MovementAccount | null }) {
 
 export function KeyHint({ children }: { children: string }) {
   // Drawn in the label's own colour, so it reads on a green primary and on an outlined button alike. Phones have no keys to show.
-  return <kbd className="ml-1.5 hidden h-[18px] tablet:inline-flex min-w-[18px] items-center justify-center rounded-[4px] border border-current/30 px-1 font-sans text-[11px] font-medium opacity-80">{children}</kbd>;
+  return <kbd className="ml-1.5 hidden h-[18px] tablet:inline-flex min-w-[18px] items-center justify-center rounded-mark border border-current/30 px-1 font-sans text-[11px] font-medium opacity-80">{children}</kbd>;
 }
 
 /** A long value cut to one line; the whole of it shows on hover and keyboard focus. */

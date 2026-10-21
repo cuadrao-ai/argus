@@ -283,7 +283,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
     >
       <div className="space-y-5 px-4 pb-6">
         {writing ? (
-          <div data-testid="intake-write" className="rounded-[20px] border border-[#7d8a84] bg-[#FFFEFA] p-4 dark:border-white/30 dark:bg-white/[0.02]">
+          <div data-testid="intake-write" className="rounded-item border border-[#7d8a84] bg-[#FFFEFA] p-4 dark:border-white/30 dark:bg-white/[0.02]">
             <label htmlFor="intake-write-text" className="font-display text-[17px] font-medium text-[#172b26] dark:text-white">{t("business.intake.write_title", "Write it")}</label>
             <textarea
               id="intake-write-text"
@@ -294,7 +294,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               aria-describedby="intake-write-help"
               placeholder={t("business.intake.write_placeholder", "For example: I paid RD$500 for gas today at Isla, in cash.")}
               onChange={(event) => { setDraftText(event.target.value); setWriteEmpty(false); }}
-              className="mt-2 block w-full resize-y rounded-[12px] border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
+              className="mt-2 block w-full resize-y rounded-item border border-[#7d8a84] bg-white p-3 text-[16px] leading-relaxed text-[#172b26] placeholder:text-[#687A72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:bg-[#1f2225] dark:text-white"
             />
             {writeEmpty ? <p role="alert" className={`mt-1 text-[13px] ${DANGER}`}>{t("business.intake.write_empty", "Write what happened before saving.")}</p> : null}
             <p id="intake-write-help" className={`mt-2 text-[13px] ${MUTED}`}>{t("business.intake.write_help", "What you bought or sold, how much, when and how you paid. You review it in the Inbox before approving.")}</p>
@@ -318,9 +318,9 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
             onDrop={onDrop}
             onClick={openPicker}
             data-compact={compact}
-            className={`group cursor-pointer rounded-[20px] transition-[background-color,border-color,box-shadow] duration-150 motion-reduce:transition-none ${compact ? "flex items-center gap-3 px-4 py-3 text-left" : "px-5 py-8 text-center"} ${zoneTone}`}
+            className={`group cursor-pointer rounded-item transition-[background-color,border-color,box-shadow] duration-150 motion-reduce:transition-none ${compact ? "flex items-center gap-3 px-4 py-3 text-left" : "px-5 py-8 text-center"} ${zoneTone}`}
           >
-            <div className={`${compact ? "h-11 w-11 rounded-[12px]" : "mx-auto h-14 w-14 rounded-[16px]"} flex shrink-0 items-center justify-center transition-transform duration-150 motion-reduce:transition-none ${drag.kind === "reject" ? "bg-[#9e2f39]/10 text-[#9e2f39]" : "bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]"} ${drag.kind === "accept" ? "-translate-y-1 motion-reduce:translate-y-0" : ""}`}>
+            <div className={`${compact ? "h-11 w-11 rounded-item" : "mx-auto h-14 w-14 rounded-item"} flex shrink-0 items-center justify-center transition-transform duration-150 motion-reduce:transition-none ${drag.kind === "reject" ? "bg-[#9e2f39]/10 text-[#9e2f39]" : "bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]"} ${drag.kind === "accept" ? "-translate-y-1 motion-reduce:translate-y-0" : ""}`}>
               {drag.kind === "reject" ? <CircleAlert className={compact ? "h-5 w-5" : "h-7 w-7"} aria-hidden="true" /> : <FileUp className={compact ? "h-5 w-5" : "h-7 w-7"} aria-hidden="true" />}
             </div>
             <div className={compact ? "min-w-0 flex-1" : ""}>
@@ -429,12 +429,12 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               {batch.saved.length === 1 ? batch.saved.map(renderRow) : null}
             </ul>
             {batch.saved.length > 1 ? (
-              <div className="mt-2 rounded-[16px] border border-[#DCE0DA] dark:border-white/10" data-testid="receipt-upload-saved-fold">
+              <div className="mt-2 rounded-item border border-[#DCE0DA] dark:border-white/10" data-testid="receipt-upload-saved-fold">
                 <button
                   type="button"
                   aria-expanded={savedOpen}
                   aria-controls="receipt-upload-saved"
-                  className="flex min-h-11 w-full items-center gap-2 rounded-[16px] px-3 text-left text-[14px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
+                  className="flex min-h-11 w-full items-center gap-2 rounded-item px-3 text-left text-[14px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]"
                   onClick={() => setSavedOpen((open) => !open)}
                 >
                   <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
@@ -450,7 +450,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
         {many && (forwardAddress || showCamera) ? (
           <section aria-labelledby="intake-other-ways" data-testid="intake-other-ways">
             <h3 id="intake-other-ways" className={`mb-2 text-[14px] font-medium ${MUTED}`}>{t("business.intake.other_ways", "Other ways to add receipts")}</h3>
-            <ul className="divide-y divide-[#DCE0DA] rounded-[16px] border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">
+            <ul className="divide-y divide-[#DCE0DA] rounded-item border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">
               {forwardAddress ? (
                 <li className="flex items-center gap-3 p-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
@@ -475,7 +475,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
               ) : null}
               {showCamera ? (
                 <li>
-                  <button type="button" data-testid="intake-camera" className="flex min-h-11 w-full items-center gap-3 p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]" onClick={() => cameraInputRef.current?.click()}>
+                  <button type="button" data-testid="intake-camera" className="flex min-h-11 w-full items-center gap-3 rounded-item p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49]" onClick={() => cameraInputRef.current?.click()}>
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2f5a49]/10 text-[#2f5a49] dark:text-[#8fcbb0]">
                       <Camera className="h-5 w-5" aria-hidden="true" />
                     </span>
@@ -543,9 +543,9 @@ function TypedRow({ entry, onRetry }: { entry: TypedEntry; onRetry: () => void }
   const { t } = useTranslation();
   const failed = entry.status === "uncertain" || entry.status === "refused";
   return (
-    <li data-testid="receipt-typed-row" data-status={entry.status} className={`rounded-[16px] border p-3 ${failed ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
+    <li data-testid="receipt-typed-row" data-status={entry.status} className={`rounded-item border p-3 ${failed ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
       <div className="flex items-start gap-3">
-        <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-[8px] border border-[#DCE0DA] bg-[#F7F5EE] dark:border-white/10 dark:bg-white/5">
+        <span className="flex h-14 w-11 shrink-0 items-center justify-center rounded-item border border-[#DCE0DA] bg-[#F7F5EE] dark:border-white/10 dark:bg-white/5">
           <PenLine className="h-5 w-5 text-[#56635e] dark:text-white/70" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
@@ -591,7 +591,7 @@ function FileThumb({ file }: { file: File }) {
     };
   }, [file]);
   return (
-    <span className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-[#DCE0DA] bg-[#F7F5EE] dark:border-white/10 dark:bg-white/5">
+    <span className="flex h-14 w-11 shrink-0 items-center justify-center overflow-hidden rounded-item border border-[#DCE0DA] bg-[#F7F5EE] dark:border-white/10 dark:bg-white/5">
       {src ? <Image unoptimized src={src} alt="" width={44} height={56} className="h-full w-full object-cover" /> : <FileText className="h-5 w-5 text-[#56635e] dark:text-white/70" aria-hidden="true" />}
     </span>
   );
@@ -618,7 +618,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
   // A picked type shows at once; a detected one only once the server has read it.
   const shownType = item.documentType ?? (item.status === "saved" ? item.receipt.document_type ?? "recibo" : null);
   return (
-    <li data-testid="receipt-upload-row" data-status={item.status} className={`rounded-[16px] border p-3 ${item.status === "failed" || item.status === "rejected" ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
+    <li data-testid="receipt-upload-row" data-status={item.status} className={`rounded-item border p-3 ${item.status === "failed" || item.status === "rejected" ? "border-[#9e2f39]/30 bg-[#f6dfe0]/40 dark:border-[#ec9aa0]/30" : "border-[#DCE0DA] bg-[#FFFEFA] dark:border-white/10 dark:bg-transparent"}`}>
       <div className="flex items-center gap-3">
         <FileThumb file={item.file} />
         <div className="min-w-0 flex-1">
@@ -626,7 +626,7 @@ function UploadRow({ item, locale, fileSize, rejection, retryWaiting, canRemove,
           <p className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] tabular-nums ${MUTED}`}>
             <span>{`${receiptFormatLabel(item.file.type)} · ${fileSize(item.file.size)}`}</span>
             {shownType ? (
-              <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-full bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
+              <span data-testid="receipt-upload-type" className="inline-flex h-5 items-center rounded-mark bg-black/[0.06] px-2 text-[12px] font-medium text-[#172b26] dark:bg-white/10 dark:text-white">
                 {t(shownType === "venta" ? "business.intake.type_venta" : "business.intake.type_recibo", shownType === "venta" ? "Sale" : "Purchase")}
               </span>
             ) : null}

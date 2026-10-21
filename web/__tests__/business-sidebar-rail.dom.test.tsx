@@ -178,7 +178,7 @@ test("the active fill is the row itself, in the approved green", async () => {
   assert.match(active[0].className, /text-\[#2f5a49\]/);
   assert.match(active[0].className, /font-medium/);
   assert.match(active[0].className, /\bh-11\b/);
-  assert.match(active[0].className, /rounded-\[12px\]/);
+  assert.match(active[0].className, /rounded-item/);
   for (const button of rows().filter((candidate) => candidate !== active[0])) {
     assert.doesNotMatch(button.className, /bg-\[#e3ebe1\] /);
   }

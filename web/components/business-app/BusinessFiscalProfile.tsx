@@ -118,7 +118,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
               disabled={busy}
               maxLength={80}
               onChange={(event) => setName(event.target.value)}
-              className="mt-1 block min-h-11 rounded-lg border border-black/15 bg-transparent px-3 dark:border-white/20"
+              className="mt-1 block min-h-11 rounded-item border border-black/15 bg-transparent px-3 dark:border-white/20"
             />
           </label>
           <label className="text-[13px] text-black/65 dark:text-white/65">
@@ -129,7 +129,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
               value={kind}
               disabled={busy}
               onChange={(event) => setKind(event.target.value as TaxIdType)}
-              className="mt-1 block min-h-11 rounded-lg border border-black/15 bg-transparent px-3 dark:border-white/20"
+              className="mt-1 block min-h-11 rounded-item border border-black/15 bg-transparent px-3 dark:border-white/20"
             >
               <option value="rnc">{t("business.dgii.tax_id_rnc", "RNC")}</option>
               <option value="cedula">{t("business.dgii.tax_id_cedula", "Cédula")}</option>
@@ -145,7 +145,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
               value={value}
               disabled={busy}
               onChange={(event) => setValue(event.target.value)}
-              className="mt-1 block min-h-11 rounded-lg border border-black/15 bg-transparent px-3 dark:border-white/20"
+              className="mt-1 block min-h-11 rounded-item border border-black/15 bg-transparent px-3 dark:border-white/20"
             />
           </label>
           <button

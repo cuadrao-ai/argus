@@ -224,7 +224,7 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
             </ul>
             {available ? (
               <details className="group mt-4">
-                <summary className="flex min-h-11 cursor-pointer list-none items-center text-[14px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-item text-[14px] font-medium text-[#2f5a49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-[#8fcbb0]">
                   {t("business.export.fiscal_profile", "Name and RNC on the 606")}
                 </summary>
                 <BusinessFiscalProfile />

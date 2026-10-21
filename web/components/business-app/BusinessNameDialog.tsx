@@ -34,7 +34,7 @@ export default function BusinessNameDialog({ business, required, onSaved, onClos
   return <AdaptivePanel title={title} closeLabel={t("common.close")} onClose={() => { if (!busy && !required) onClose(); }} dismissible={!required && !busy} initialFocusRef={input} width="md">
     <form className="space-y-5 p-5" onSubmit={event => { event.preventDefault(); void save(); }}>
       <p className="text-sm text-black/65 dark:text-white/65">{businessNameCopy.explanation}</p>
-      <input ref={input} aria-label={title} placeholder={businessNameCopy.placeholder} value={name} onChange={event => setName(event.target.value)} maxLength={80} required disabled={busy} className="min-h-11 w-full rounded-xl border border-black/20 bg-transparent px-3 py-3 text-base text-black outline-offset-4 dark:border-white/25 dark:text-white" />
+      <input ref={input} aria-label={title} placeholder={businessNameCopy.placeholder} value={name} onChange={event => setName(event.target.value)} maxLength={80} required disabled={busy} className="min-h-11 w-full rounded-item border border-black/20 bg-transparent px-3 py-3 text-base text-black outline-offset-4 dark:border-white/25 dark:text-white" />
       {failed ? <p role="alert" className={inlineFailureTextClass}>{t("common.error_occurred")}</p> : null}
       <div className="flex flex-wrap justify-end gap-3">
         {!required ? <button type="button" disabled={busy} className={secondaryButtonClass} onClick={onClose}>{businessNameCopy.skip}</button> : null}

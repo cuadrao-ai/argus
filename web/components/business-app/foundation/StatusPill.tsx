@@ -15,7 +15,7 @@ export function StatusPill({ status, label: stateLabel }: { status: ReceiptStatu
     <span
       data-testid="status-pill"
       data-status={name}
-      className="inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[12px] font-medium leading-4"
+      className="inline-flex h-6 shrink-0 items-center gap-1 whitespace-nowrap rounded-mark px-2 text-[12px] font-medium leading-4"
       style={{ color: tone.ink, backgroundColor: tone.surface }}
     >
       <Icon aria-hidden="true" width={14} height={14} strokeWidth={2} className="shrink-0" />

@@ -73,10 +73,10 @@ export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: Receipt
   const state = stateWord(receipt);
   const money = formatMoney(receipt.amount, receipt.currency, locale);
   return (
-    <li aria-current={open ? "true" : undefined} data-testid="bandeja-row" data-new={receipt.activity?.unread ? "true" : undefined} className={`rounded-[12px] ${OPEN_ROW_CLASS}`}>
-      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
-        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]">
-          {reading ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[8px] border-2 border-[#2f5a49]/50 border-t-transparent motion-safe:animate-spin" /> : null}
+    <li aria-current={open ? "true" : undefined} data-testid="bandeja-row" data-new={receipt.activity?.unread ? "true" : undefined} className={`rounded-item ${OPEN_ROW_CLASS}`}>
+      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-item bg-black/[0.04] dark:bg-white/[0.06]">
+          {reading ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-item border-2 border-[#2f5a49]/50 border-t-transparent motion-safe:animate-spin" /> : null}
           {receipt.activity?.unread && !reading ? <span data-testid="receipt-unread-dot" className="absolute -left-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#FFFEFA] bg-[#2f5a49] dark:border-[#1f2225]"><span className="sr-only">{t("business.inbox.row_new", "New")}</span></span> : null}
           <Icon className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" />
         </span>
@@ -106,9 +106,9 @@ function NoteRow({ note, open, onOpen }: { note: OpenNote; open: boolean; onOpen
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? "en";
   return (
-    <li aria-current={open ? "true" : undefined} data-testid="bandeja-note" className={`rounded-[12px] ${OPEN_ROW_CLASS}`}>
-      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]"><NotebookPen className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
+    <li aria-current={open ? "true" : undefined} data-testid="bandeja-note" className={`rounded-item ${OPEN_ROW_CLASS}`}>
+      <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-item bg-black/[0.04] dark:bg-white/[0.06]"><NotebookPen className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{note.text.trim()}</span>
@@ -153,10 +153,10 @@ function EmailRow({ email, open, onOpen }: { email: BandejaEmail; open: boolean;
     }
   };
   return (
-    <li aria-current={open ? "true" : undefined} data-testid="bandeja-email" data-standing={standing} className={`flex flex-wrap items-center gap-1 rounded-[12px] ${OPEN_ROW_CLASS}`}>
-      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 rounded-[12px] px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
-        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]">
-          {reading && !delivery.waiting ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-[8px] border-2 border-[#2f5a49]/50 border-t-transparent motion-safe:animate-spin" /> : null}
+    <li aria-current={open ? "true" : undefined} data-testid="bandeja-email" data-standing={standing} className={`flex flex-wrap items-center gap-1 rounded-item ${OPEN_ROW_CLASS}`}>
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 rounded-item px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-item bg-black/[0.04] dark:bg-white/[0.06]">
+          {reading && !delivery.waiting ? <span aria-hidden="true" data-testid="receipt-reading-ring" className="absolute inset-0 rounded-item border-2 border-[#2f5a49]/50 border-t-transparent motion-safe:animate-spin" /> : null}
           <Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">

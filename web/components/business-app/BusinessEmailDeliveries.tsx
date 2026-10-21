@@ -108,8 +108,8 @@ export function EmailDeliveryRow({ delivery, onOpen }: { delivery: BusinessEmail
   const locale = i18n.resolvedLanguage ?? "en";
   return (
     <li>
-      <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
+      <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-item bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{delivery.subject || t("business.email.no_subject", "No subject")}</span>

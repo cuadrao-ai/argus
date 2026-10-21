@@ -131,7 +131,7 @@ function ToastCard({ toast, edge, offset, onHeight }: { toast: Toast; edge: "top
         transition: dragX !== 0 ? "none" : `transform ${SPRING.durationMs}ms ${SPRING.easing}, opacity 160ms ease-out`,
         borderLeftColor: tone.border,
       }}
-      className={`pointer-events-auto absolute inset-x-0 ${edge === "bottom" ? "bottom-0" : "top-0"} flex touch-pan-y items-start gap-3 rounded-[12px] border border-l-4 border-[#DCE0DA] bg-white py-2 pl-3 pr-1 motion-reduce:!transition-none dark:border-white/10 dark:bg-[#1f2225]`}
+      className={`pointer-events-auto absolute inset-x-0 ${edge === "bottom" ? "bottom-0" : "top-0"} flex touch-pan-y items-start gap-3 rounded-surface border border-l-4 border-[#DCE0DA] bg-white py-2 pl-3 pr-1 motion-reduce:!transition-none dark:border-white/10 dark:bg-[#1f2225]`}
     >
       <Icon className={`mt-2.5 h-5 w-5 shrink-0 ${tone.ink}`} aria-hidden="true" />
       <p className="min-w-0 flex-1 break-words py-2 text-[14px] leading-5 text-[#172b26] dark:text-white">{toast.text}</p>

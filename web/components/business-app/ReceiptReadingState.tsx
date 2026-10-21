@@ -8,7 +8,7 @@ import styles from "./receipt-reading.module.css";
 /** The receipt while the AI reads it: one soft green band sweeps down the source, top to bottom. */
 export function ReadingSheen({ children }: { children: ReactNode }) {
   return (
-    <div className="relative overflow-hidden rounded-[20px]" data-testid="receipt-reading-sheen">
+    <div className="relative overflow-hidden rounded-item" data-testid="receipt-reading-sheen">
       {children}
       <span aria-hidden="true" data-testid="receipt-reading-band" className={styles.sheen} />
     </div>
@@ -34,7 +34,7 @@ export default function ReceiptReadingState({ children }: { children?: ReactNode
         {fields.map(([key, label]) => (
           <div key={key} data-reading-field={key} className="space-y-2">
             <dt className="text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white">{label}</dt>
-            <dd className="h-11 rounded-[12px] bg-[#e3ebe1] dark:bg-white/10" />
+            <dd className="h-11 rounded-item bg-[#e3ebe1] dark:bg-white/10" />
           </div>
         ))}
       </dl>

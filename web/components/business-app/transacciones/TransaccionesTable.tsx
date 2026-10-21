@@ -101,7 +101,7 @@ export function TransaccionesTable({ controller, movements, segment, density, on
   };
 
   return (
-    <div data-testid="transacciones-scroll" className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-[20px] border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+    <div data-testid="transacciones-scroll" className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
       <table
         ref={table}
         role="grid"
@@ -128,7 +128,7 @@ export function TransaccionesTable({ controller, movements, segment, density, on
                   className={`sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}
                 >
                   {sortHere ? (
-                    <button type="button" onClick={() => setOrder((value) => (value === "desc" ? "asc" : "desc"))} className="inline-flex min-h-7 items-center gap-1 rounded-[6px] font-medium text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
+                    <button type="button" onClick={() => setOrder((value) => (value === "desc" ? "asc" : "desc"))} className="inline-flex min-h-7 items-center gap-1 rounded-full font-medium text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
                       {label}
                       {order === "desc" ? <ArrowDown data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowUp data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" />}
                     </button>

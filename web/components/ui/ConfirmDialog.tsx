@@ -141,7 +141,7 @@ function ConfirmDialogSurface({
         aria-modal="true"
         aria-labelledby="argus-confirm-title"
         aria-describedby="argus-confirm-description"
-        className="relative w-full max-w-sm rounded-[18px] border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225]"
+        className="relative w-full max-w-sm rounded-surface border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-[#1f2225]"
       >
         <h2
           id="argus-confirm-title"
@@ -170,7 +170,7 @@ function ConfirmDialogSurface({
             <span className="inline-flex items-center gap-2">
               {cancelLabel}
               {showKeyboardHints && (
-                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-md !px-2">
+                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-mark !px-2">
                   Esc
                 </KeyboardShortcutKeycap>
               )}
@@ -187,7 +187,7 @@ function ConfirmDialogSurface({
             <span className="inline-flex items-center gap-2">
               {confirmLabel}
               {showKeyboardHints && (
-                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-md !bg-white/15 !px-2 !text-white">
+                <KeyboardShortcutKeycap className="!h-6 !min-w-0 !rounded-mark !bg-white/15 !px-2 !text-white">
                   ↵
                 </KeyboardShortcutKeycap>
               )}

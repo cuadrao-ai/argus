@@ -54,7 +54,7 @@ describe("status is an icon, a word, and a color", () => {
       assert.match(pills[index].getAttribute("style") ?? "", new RegExp(BUSINESS_STATUS[name].ink, "i"));
       assert.match(pills[index].getAttribute("style") ?? "", new RegExp(BUSINESS_STATUS[name].surface, "i"));
     }
-    assert.ok(pills.every((pill) => /(^|\s)h-6(\s|$)/.test(pill.className) && /rounded-full/.test(pill.className) && /px-2/.test(pill.className) && /text-\[12px\]/.test(pill.className) && /leading-4/.test(pill.className) && /font-medium/.test(pill.className)));
+    assert.ok(pills.every((pill) => /(^|\s)h-6(\s|$)/.test(pill.className) && /rounded-mark/.test(pill.className) && /px-2/.test(pill.className) && /text-\[12px\]/.test(pill.className) && /leading-4/.test(pill.className) && /font-medium/.test(pill.className)));
     assert.equal(page.host.querySelector('[data-testid="status-dot"]'), null);
     await page.close();
   });

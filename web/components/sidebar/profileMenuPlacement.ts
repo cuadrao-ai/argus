@@ -21,10 +21,10 @@ export const SHEET_SUBMENU_CLASS =
   "[&_button]:min-h-[44px] [&_a]:min-h-[44px]";
 
 const MENU_SURFACE =
-  "rounded-[14px] border border-black/10 bg-white py-1.5 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-[10px] [&>div>button]:mx-1 [&>div>button]:my-0.5 [&>div>button]:w-[calc(100%-0.5rem)] [&>div>button]:rounded-[10px]";
+  "rounded-surface border border-black/10 bg-white py-1.5 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-item [&>div>button]:mx-1 [&>div>button]:my-0.5 [&>div>button]:w-[calc(100%-0.5rem)] [&>div>button]:rounded-item";
 
 const SUBMENU_SURFACE =
-  "rounded-[12px] border border-black/10 bg-white py-1 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-[10px]";
+  "rounded-surface border border-black/10 bg-white py-1 dark:border-white/10 dark:bg-[#1f2225] [&>button]:mx-1 [&>button]:my-0.5 [&>button]:w-[calc(100%-0.5rem)] [&>button]:rounded-item";
 
 /** Touch needs the 44px minimum from DESIGN.md section 17. */
 const TOUCH_TARGETS = "[&_button]:min-h-[44px]";

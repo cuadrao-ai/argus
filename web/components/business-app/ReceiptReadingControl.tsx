@@ -46,7 +46,7 @@ export default function ReceiptReadingControl({ hideWhenEnabled = false }: { hid
     } catch { if (generation.current === current && !controller.signal.aborted) setFailed(true); }
     finally { if (generation.current === current) setBusy(false); if (mutation.current === controller) mutation.current = null; }
   };
-  return <section className="mb-4 rounded-[14px] border border-black/10 p-4 dark:border-white/10" data-testid="receipt-reading-control">
+  return <section className="mb-4 rounded-item border border-black/10 p-4 dark:border-white/10" data-testid="receipt-reading-control">
     <p className="text-[14px] text-black/75 dark:text-white/75">{reading?.enabled ? t("business.activity.reading_on", "Receipt reading is on.") : t("business.activity.saved_prompt", "Your receipts are saved unread. Turn on receipt reading to prepare them for review.")}</p>
     {reading?.can_change ? <>
       {!reading.enabled ? <p className="mt-2 text-[13px] text-black/60 dark:text-white/60">{reading.disclosure}</p> : null}

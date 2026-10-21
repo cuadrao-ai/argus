@@ -62,7 +62,7 @@ export function RangeCalendar({ value, onChange, maxDays, label }: { value: DayR
   ).map(([key, name, day]) => {
     const current = (key === "from") === (phase === "start");
     return (
-      <div key={key} data-testid={`range-${key}`} className={`min-w-0 flex-1 rounded-[12px] border px-3 py-2 ${current ? "border-[#2f5a49]" : "border-[#DCE0DA] dark:border-white/10"}`}>
+      <div key={key} data-testid={`range-${key}`} className={`min-w-0 flex-1 rounded-item border px-3 py-2 ${current ? "border-[#2f5a49]" : "border-[#DCE0DA] dark:border-white/10"}`}>
         <p className="text-[12px] text-[#56635e] dark:text-white/70">{name}</p>
         <p className="text-[15px] font-medium tabular-nums text-[#172b26] dark:text-white">{formatDay(day, locale)}</p>
       </div>

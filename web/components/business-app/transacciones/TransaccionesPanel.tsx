@@ -140,12 +140,12 @@ function Summary({ totals, header, locale, loading }: { totals: Totals | null; h
     },
   ];
   return (
-    <dl data-testid="transacciones-summary" className="mb-4 grid grid-cols-2 overflow-hidden rounded-[20px] border border-[#DCE0DA] bg-white tablet:grid-cols-4 dark:border-white/10 dark:bg-[#1f2225]">
+    <dl data-testid="transacciones-summary" className="mb-4 grid grid-cols-2 overflow-hidden rounded-surface border border-[#DCE0DA] bg-white tablet:grid-cols-4 dark:border-white/10 dark:bg-[#1f2225]">
       {cells.map((cell, index) => (
         <div key={cell.key} data-total={cell.key} className={`min-w-0 px-4 py-3 ${index % 2 ? "border-l" : ""} ${index > 1 ? "border-t tablet:border-t-0" : ""} ${index === 2 ? "tablet:border-l" : ""} border-[#DCE0DA] dark:border-white/10`}>
           <dt className="text-[13px] text-[#56635e] dark:text-white/65">{t(`business.transactions.totals.${cell.key}`)}</dt>
           <dd className="mt-1 text-[17px] font-medium text-[#172b26] dark:text-white">
-            {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-md bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : cell.value}
+            {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-mark bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : cell.value}
           </dd>
         </div>
       ))}
@@ -157,13 +157,13 @@ function Summary({ totals, header, locale, loading }: { totals: Totals | null; h
 function LoadingRows({ density }: { density: Density }) {
   const { t } = useTransaccionesWords();
   return (
-    <div role="status" aria-label={t("common.loading", "Cargando")} data-testid="transacciones-loading" className="overflow-hidden rounded-[20px] border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+    <div role="status" aria-label={t("common.loading", "Cargando")} data-testid="transacciones-loading" className="overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
       <div aria-hidden="true" className="animate-pulse motion-reduce:animate-none">
         {Array.from({ length: 8 }, (_, index) => (
           <div key={index} style={{ height: DENSITY_ROW_PX[density] }} className="flex items-center gap-4 border-b border-[#DCE0DA] px-3 last:border-b-0 dark:border-white/10">
             <span className="h-4 w-4 rounded-full bg-black/[0.06] dark:bg-white/[0.08]" />
-            <span className="h-3 w-48 rounded-md bg-black/[0.06] dark:bg-white/[0.08]" />
-            <span className="ml-auto h-3 w-20 rounded-md bg-black/[0.06] dark:bg-white/[0.08]" />
+            <span className="h-3 w-48 rounded-mark bg-black/[0.06] dark:bg-white/[0.08]" />
+            <span className="ml-auto h-3 w-20 rounded-mark bg-black/[0.06] dark:bg-white/[0.08]" />
           </div>
         ))}
       </div>
@@ -188,10 +188,10 @@ function DensityMenu({ density }: { density: Density }) {
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
       </button>
       {open ? (
-        <div role="menu" aria-label={t("business.transactions.density.label")} className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right rounded-[14px] border border-black/10 bg-white p-1.5 dark:border-white/10 dark:bg-[#1f2225]">
+        <div role="menu" aria-label={t("business.transactions.density.label")} className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right rounded-surface border border-black/10 bg-white p-1.5 dark:border-white/10 dark:bg-[#1f2225]">
           <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#56635e] dark:text-white/65">{t("business.transactions.density.label")}</p>
           {DENSITIES.map((option) => (
-            <button key={option} type="button" role="menuitemradio" aria-checked={option === density} data-density-option={option} onClick={() => { setTableDensity(option); setOpen(false); }} className="flex min-h-10 w-full items-center justify-between rounded-[10px] px-2.5 text-left text-[14px] text-[#172b26] hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none aria-checked:font-medium dark:text-white dark:hover:bg-white/5">
+            <button key={option} type="button" role="menuitemradio" aria-checked={option === density} data-density-option={option} onClick={() => { setTableDensity(option); setOpen(false); }} className="flex min-h-10 w-full items-center justify-between rounded-item px-2.5 text-left text-[14px] text-[#172b26] hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none aria-checked:font-medium dark:text-white dark:hover:bg-white/5">
               {t(`business.transactions.density.${option}`)}
               {option === density ? <Check className="h-4 w-4 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
             </button>

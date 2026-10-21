@@ -24,6 +24,14 @@
   --breakpoint-lg: 64rem;
   --breakpoint-xl: 80rem;
   --breakpoint-2xl: 96rem;
+
+  /* The Business corner scale, one owner (business DESIGN.md, Spacing, shape
+     and depth): rounded-mark for chips and tiny marks, rounded-item for
+     anything that sits inside a surface, rounded-surface for cards, sheets,
+     popovers and toasts. Controls stay rounded-full. */
+  --radius-mark: 4px;
+  --radius-item: 8px;
+  --radius-surface: 16px;
 }
 
 @theme inline {

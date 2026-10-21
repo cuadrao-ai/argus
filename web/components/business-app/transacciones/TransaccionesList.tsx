@@ -25,7 +25,7 @@ export function TransaccionesList({ controller, movements, segment, rowRef }: {
   const header = headerCurrency(movements);
   const today = todayIso();
   return (
-    <div data-testid="transacciones-list" className="overflow-hidden rounded-[20px] border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+    <div data-testid="transacciones-list" className="overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
       {segmentSections(movements, segment).map((section) => (
         <section key={section.group ?? "all"} aria-label={section.group ? t(`business.transactions.groups.${section.group}`) : undefined}>
           {section.group ? (
@@ -40,7 +40,7 @@ export function TransaccionesList({ controller, movements, segment, rowRef }: {
               const selected = controller.tray?.movementId === movement.id;
               return (
                 <li key={movement.id} data-movement-id={movement.id} data-state={movement.match.state} aria-current={selected ? "true" : undefined} className="flex min-h-16 items-center border-b border-[#DCE0DA] last:border-b-0 aria-[current=true]:bg-[#eef3ec] dark:border-white/10 dark:aria-[current=true]:bg-[#24302b]">
-                  <button ref={(node) => rowRef(movement.id, node)} type="button" onClick={() => controller.open(movement.id)} className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]">
+                  <button ref={(node) => rowRef(movement.id, node)} type="button" onClick={() => controller.open(movement.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-item py-2.5 pl-4 pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]">
                     <StateIcon state={movement.match.state} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-medium text-[#172b26] dark:text-white">{name}</span>

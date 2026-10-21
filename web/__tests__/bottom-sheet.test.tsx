@@ -206,7 +206,7 @@ describe("bottom sheet accessibility and touch baseline", () => {
 
   test("sits on the bottom edge rather than centered", () => {
     expect(renderSheet()).toContain("items-end");
-    expect(renderSheet()).toContain("rounded-t-[20px]");
+    expect(renderSheet()).toContain("rounded-t-surface");
   });
 
   test("the scrolling body contains its overscroll", () => {

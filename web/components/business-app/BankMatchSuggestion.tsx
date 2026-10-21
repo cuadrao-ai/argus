@@ -44,7 +44,7 @@ export function BankMatchSuggestionCard({
   const Icon = kind.icon;
   const tap = { minHeight: TAP_TARGET_PX, minWidth: TAP_TARGET_PX };
   return (
-    <article data-testid="bank-match-card" className="rounded-[20px] border border-black/[0.06] bg-white p-4 dark:border-white/[0.06] dark:bg-[#1f2225]">
+    <article data-testid="bank-match-card" className="rounded-surface border border-black/[0.06] bg-white p-4 dark:border-white/[0.06] dark:bg-[#1f2225]">
       <div data-testid="bank-match-row" className="flex flex-row flex-nowrap items-stretch gap-3">
         <section data-testid="bank-match-line" className="min-w-0 flex-1">
           <p className="text-[13px] text-black/55 dark:text-white/55">{line.occurredOn}</p>

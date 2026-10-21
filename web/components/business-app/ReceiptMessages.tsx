@@ -37,7 +37,7 @@ export default function ReceiptMessages({ sources }: { sources: BusinessSourceEv
         {actions.map((source) => <li key={source.id}>
           <p className="text-[12px] text-black/55 dark:text-white/55">{formatTimestamp(source.received_at, i18n.resolvedLanguage ?? "en")}</p>
           <details className="mt-2">
-            <summary className="min-h-11 cursor-pointer text-[13px] text-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/70">{t("business.dossier.submitted_action", "Original submitted action")}</summary>
+            <summary className="min-h-11 cursor-pointer rounded-item text-[13px] text-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20 dark:text-white/70">{t("business.dossier.submitted_action", "Original submitted action")}</summary>
             <pre className="mt-2 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-black/65 dark:text-white/65">{source.text}</pre>
           </details>
         </li>)}

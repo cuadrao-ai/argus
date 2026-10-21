@@ -210,7 +210,7 @@ export function MonthSwitcher({
           aria-label={t("business.month_close.choose_month", "Elegir mes")}
           aria-activedescendant={options[active] ? `${listId}-${options[active].month}` : undefined}
           style={{ left: position.left, top: position.top }}
-          className="fixed z-[100] max-h-80 w-64 overflow-y-auto rounded-[16px] border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+          className="fixed z-[100] max-h-80 w-64 overflow-y-auto rounded-surface border border-black/10 bg-white p-1.5 shadow-lg focus-visible:outline-none dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
           {options.map((option, index) => {
             const selected = option.month === month;
@@ -225,7 +225,7 @@ export function MonthSwitcher({
                 data-active={index === active ? "true" : undefined}
                 onMouseEnter={() => setActive(index)}
                 onClick={() => choose(option.month)}
-                className={`flex min-h-11 items-center justify-between gap-2 rounded-[12px] px-3 font-display text-[15px] font-medium ${option.selectable ? "cursor-pointer text-black dark:text-white" : "cursor-not-allowed text-black/35 dark:text-white/30"} ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
+                className={`flex min-h-11 items-center justify-between gap-2 rounded-item px-3 font-display text-[15px] font-medium ${option.selectable ? "cursor-pointer text-black dark:text-white" : "cursor-not-allowed text-black/35 dark:text-white/30"} ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
               >
                 <span>{formatMonthLabel(option.month)}</span>
                 {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
@@ -249,7 +249,7 @@ function StatusChip({ status, label, overdue = false }: { status: MonthCloseStat
   const Icon = overdue ? AlertCircle : status === "pendiente" ? Clock : status === "cobrado" ? BadgeCheck : CircleCheck;
   const tone = overdue ? "bg-[#d66d75]/15 text-[#9e2f39] dark:text-[#ec9aa0]" : CHIP_TONE[status];
   return (
-    <span data-testid="month-close-status" data-status={overdue ? "vencida" : status} className={`inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-[12px] font-medium ${tone}`}>
+    <span data-testid="month-close-status" data-status={overdue ? "vencida" : status} className={`inline-flex min-h-11 items-center gap-1 rounded-mark px-3 text-[12px] font-medium ${tone}`}>
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {label}
     </span>
@@ -556,7 +556,7 @@ export function BusinessMonthCloseView({
         data-overdue={overdue ? "true" : "false"}
         data-layout={overdue ? "overdue" : layout}
         data-locked={locked ? "true" : "false"}
-        className={`flex flex-col gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${rowGrid}`}
+        className={`flex flex-col gap-3 rounded-item px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50 ${rowGrid}`}
       >
         <StatusChip status={document.status} overdue={overdue} label={overdue ? t("business.month_close.status_vencida", "Overdue") : statusLabel(document.status)} />
         <div className="min-w-0">
@@ -600,7 +600,7 @@ export function BusinessMonthCloseView({
   }
 
   function renderList(testId: string, title: string, rows: MonthCloseDocument[], empty: string, layout: "pending" | "overdue" | "closed" = "pending") {
-    const listClass = "mt-2 divide-y divide-black/[0.06] overflow-hidden rounded-[20px] border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]";
+    const listClass = "mt-2 divide-y divide-black/[0.06] overflow-hidden rounded-surface border border-black/[0.06] bg-white dark:divide-white/[0.06] dark:border-white/[0.06] dark:bg-[#1f2225]";
     return (
       <section aria-labelledby={`${testId}-title`} data-testid={testId} data-layout={layout} className="mt-6">
         <h4 id={`${testId}-title`} className="text-[15px] font-medium text-black dark:text-white">{title}</h4>
@@ -657,7 +657,7 @@ export function BusinessMonthCloseView({
                     <span className="flex min-w-0 flex-1 flex-col items-start gap-1">
                       <span className="min-w-0 break-words text-[15px] font-medium text-black dark:text-white">{document.counterparty}</span>
                       {late ? (
-                        <span data-testid="month-close-lateness" data-tone={late.tone} className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[12px] font-medium tabular-nums ${LATENESS_TONE[late.tone]}`}>{late.text}</span>
+                        <span data-testid="month-close-lateness" data-tone={late.tone} className={`inline-flex shrink-0 items-center rounded-mark px-2 py-0.5 text-[12px] font-medium tabular-nums ${LATENESS_TONE[late.tone]}`}>{late.text}</span>
                       ) : (
                         // No due day: the day it was issued, so the row still says how old it is.
                         <time data-testid="month-close-issued" dateTime={document.occurred_on} className="shrink-0 text-[13px] tabular-nums text-[#56635e] dark:text-white/70">{formatRelativeDay(document.occurred_on, today, locale)}</time>
@@ -667,7 +667,7 @@ export function BusinessMonthCloseView({
                   </>
                 );
                 // The row's body gives back its inset on the right, so its hover stays inside the card's padding and the amount ends on the content edge.
-                const bodyClass = "-mr-2 flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-[12px] px-2 py-1 text-left";
+                const bodyClass = "-mr-2 flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-item px-2 py-1 text-left";
                 return (
                   <li
                     key={document.id}
@@ -678,7 +678,7 @@ export function BusinessMonthCloseView({
                     data-kind={document.kind}
                     data-status={document.status}
                     data-overdue={overdueNow(document) ? "true" : "false"}
-                    className="flex items-center py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
+                    className="flex items-center rounded-item py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/50"
                   >
                     {canMutate && !lockedHere(document) ? markButton(document) : null}
                     {opens ? (
@@ -783,7 +783,7 @@ export function BusinessMonthCloseView({
     if (short === exact) return exact;
     return (
       <Tooltip content={exact} side="top">
-        <span tabIndex={0} data-testid="month-close-headline" data-exact={exact} className="rounded-[4px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]">
+        <span tabIndex={0} data-testid="month-close-headline" data-exact={exact} className="rounded-mark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)]">
           <span aria-hidden="true">{short}</span>
           <span className="sr-only">{exact}</span>
         </span>
@@ -804,7 +804,7 @@ export function BusinessMonthCloseView({
     );
   }
 
-  const loadingBar = "rounded-md bg-black/[0.06] dark:bg-white/[0.08]";
+  const loadingBar = "rounded-mark bg-black/[0.06] dark:bg-white/[0.08]";
   const figures = snapshot && summary && net ? {
     income: figureCard(summary.income_before_itbis, snapshot.figures?.income_before_itbis, Boolean(snapshot.figures), ""),
     expenses: figureCard(summary.expense_before_itbis, snapshot.figures?.expense_before_itbis, Boolean(snapshot.figures), ""),

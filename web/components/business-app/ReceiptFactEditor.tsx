@@ -9,7 +9,7 @@ import { RECEIPT_CATEGORY_IDS } from "./business-format";
 import { DatePicker } from "./foundation/DatePicker";
 import { useCategoryLabel } from "./business-ui";
 
-const inputClass = "block min-h-11 w-full rounded-[12px] border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
+const inputClass = "block min-h-11 w-full rounded-item border border-[#7d8a84] bg-[#FFFEFA] px-3 text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-50 dark:bg-[#141517] dark:text-white";
 
 export default function ReceiptFactEditor({ facts, accounts, currencies, disabled, field, patch, autoFocus, onChange }: {
   facts: BusinessFacts;
@@ -63,7 +63,7 @@ export default function ReceiptFactEditor({ facts, accounts, currencies, disable
           <legend className="sr-only">{label("receipt_state")}</legend>
           <div className="space-y-1">
             {(["fiscal_receipt", "informal_receipt", "no_receipt"] as const).map((value) => (
-              <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[8px] px-2 text-[15px] text-[#172b26] hover:bg-black/[0.03] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.04]">
+              <label key={value} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-item px-2 text-[15px] text-[#172b26] hover:bg-black/[0.03] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[#2f5a49] dark:text-white dark:hover:bg-white/[0.04]">
                 <input type="radio" name={`receipt-state-${field}`} value={value} checked={receiptState.value === value} onChange={() => set("receipt_state", { state: "known", value })} className="h-4 w-4 accent-[#2f5a49]" />
                 {t(`business.dossier.receipt.${value}`, value)}
               </label>

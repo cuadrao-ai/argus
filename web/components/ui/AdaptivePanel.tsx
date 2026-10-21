@@ -282,7 +282,7 @@ function DrawerPanel({
           </button>
         ) : null}
         <div className="min-w-0 flex-1 pt-2.5">
-          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="rounded-[8px] font-display text-[17px] font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
+          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="rounded-mark font-display text-[17px] font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
           {summary ? <p className="mt-1 text-[13px] text-[#56635e] dark:text-white/70">{summary}</p> : null}
         </div>
         {dismissible && !hasBelow ? (
