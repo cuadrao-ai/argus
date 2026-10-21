@@ -643,7 +643,7 @@ To regenerate the rows after a migration, point `ARGUS_DISPOSABLE_DATABASE_URL` 
 
 ## Business custody and purge catalog additions, October 18, 2026
 
-The local synthetic catalog includes forward migrations 20261019000000 through 20261019000008.
+The local synthetic catalog includes forward migrations 20261021070000 through 20261021150000.
 These rows extend the existing account-deletion census. The Business writer
 moves retained custody before personal deletion and removes the complete graph
 at its original day-30 deadline. Private retry plans outlive graph deletion.
