@@ -3,7 +3,9 @@
 import { HandCoins, Store, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { resolveLanguage } from "@/lib/language-features";
 import { businessBankMatchingEnabled } from "@/lib/private-alpha-flags";
+import { formatMoney, UNKNOWN_VALUE } from "./business-format";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
 
 /** Tailwind `h-11` is 44px. The inline size is what the tap-target test reads. */
@@ -18,7 +20,8 @@ export type BankMatchSide = {
   occurredOn: string;
   description: string;
   amount: string;
-  currency: string;
+  /** Unknown reads as "-", never as a default currency. */
+  currency: string | null;
 };
 
 export type BankMatchSuggestionCardProps = {
@@ -38,8 +41,10 @@ export function BankMatchSuggestionCard({
   disabled = false,
   enabled = businessBankMatchingEnabled,
 }: BankMatchSuggestionCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (!enabled) return null;
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const money = (side: BankMatchSide) => formatMoney(side.amount, side.currency, locale) || UNKNOWN_VALUE;
   const kind = KIND[document.kind];
   const Icon = kind.icon;
   const tap = { minHeight: TAP_TARGET_PX, minWidth: TAP_TARGET_PX };
@@ -49,7 +54,7 @@ export function BankMatchSuggestionCard({
         <section data-testid="bank-match-line" className="min-w-0 flex-1">
           <p className="text-[13px] text-black/55 dark:text-white/55">{line.occurredOn}</p>
           <p className="mt-1 text-[15px] text-black dark:text-white">{line.description}</p>
-          <p className="mt-2 font-medium tabular-nums text-black dark:text-white">{line.amount} {line.currency}</p>
+          <p className="mt-2 font-medium tabular-nums text-black dark:text-white">{money(line)}</p>
         </section>
         <section data-testid="bank-match-document" className="min-w-0 flex-1">
           <p data-testid="bank-match-kind" className="inline-flex items-center gap-2 text-[15px] text-black dark:text-white">
@@ -58,7 +63,7 @@ export function BankMatchSuggestionCard({
           </p>
           <p className="mt-1 text-[13px] text-black/55 dark:text-white/55">{document.occurredOn}</p>
           <p className="mt-1 text-[15px] text-black dark:text-white">{document.description}</p>
-          <p className="mt-2 font-medium tabular-nums text-black dark:text-white">{document.amount} {document.currency}</p>
+          <p className="mt-2 font-medium tabular-nums text-black dark:text-white">{money(document)}</p>
         </section>
       </div>
       <div className="mt-4 flex flex-row flex-wrap gap-2">

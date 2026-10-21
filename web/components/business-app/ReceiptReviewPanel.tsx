@@ -16,13 +16,14 @@ import ReceiptReviewFrame from "./ReceiptReviewFrame";
 import { DatePicker } from "./foundation/DatePicker";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { handTitleFocus } from "./bandeja-order";
+import { receiptCurrencyOptions } from "./receipt-currencies";
 import { receiptReviewAccess } from "./receipt-review-access";
 import MoneyInput from "@/components/money/MoneyInput";
 import { moneyProblemFromServer } from "@/lib/money-entry";
 import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
+import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS, UNKNOWN_VALUE } from "./business-format";
 import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
@@ -48,6 +49,7 @@ const inputClass =
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
   const terminalRead = useTerminalRead();
@@ -85,7 +87,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }, [receiptId, source, revision, attempt]);
 
   const { accounts, canPrepare, canApprove } = detail ? receiptReviewAccess(detail) : { accounts: [], canPrepare: false, canApprove: false };
-  const currencies = [...new Set(accounts.map((account) => account.currency))];
+  const currencies = receiptCurrencyOptions(records.workspace, accounts, detail?.currency ?? null);
   const missing = useMemo(
     () => (detail && draft ? detail.missing_fields.filter((key) => !draft[key]?.trim()) : []),
     [detail, draft],
@@ -467,7 +469,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
           {confirmed ? (
             <div className={`${SURFACE_CARD} flex flex-wrap items-center justify-between gap-3`}>
               <p className="text-[14px] text-black/75 dark:text-white/75">
-                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: formatMoney(detail.amount, detail.currency, locale) })}
+                {t("business.review.saved_body", "Saved as one expense of {{amount}}.", { amount: money(detail.amount, detail.currency) })}
               </p>
               <button type="button" className={secondaryButtonClass} onClick={() => openPanel({ kind: "transactions" })}>
                 {t("business.review.view_expenses", "View expenses")}
@@ -503,10 +505,10 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
                 {detail.evidence.merchant ? <div className="flex justify-between gap-3"><dt>{t("business.review.merchant", "Merchant")}</dt><dd className="text-right">{detail.evidence.merchant}</dd></div> : null}
                 {detail.evidence.occurred_on ? <div className="flex justify-between gap-3"><dt>{t("business.review.date", "Date")}</dt><dd>{formatDay(detail.evidence.occurred_on, locale)}</dd></div> : null}
                 {detail.evidence.lines.map((line, index) => (
-                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(line.amount, detail.evidence?.currency ?? null, locale)}</dd></div>
+                  <div key={index} className="flex justify-between gap-3"><dt className="truncate">{line.description}</dt><dd className="cuadrao-amount tabular-nums">{money(line.amount, detail.evidence?.currency ?? null)}</dd></div>
                 ))}
-                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(detail.evidence.tax, detail.evidence.currency, locale)}</dd></div> : null}
-                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{formatMoney(detail.evidence.total, detail.evidence.currency, locale)}</dd></div> : null}
+                {detail.evidence.tax ? <div className="flex justify-between gap-3"><dt>{t("business.review.tax", "Tax")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.tax, detail.evidence.currency)}</dd></div> : null}
+                {detail.evidence.total ? <div className="flex justify-between gap-3 font-medium text-black dark:text-white"><dt>{t("business.review.amount", "Total")}</dt><dd className="cuadrao-amount tabular-nums">{money(detail.evidence.total, detail.evidence.currency)}</dd></div> : null}
               </dl>
               <p className="mt-3 text-[12px] text-black/45 dark:text-white/45">
                 {t("business.review.evidence_note", "Your corrections don't change what was read from the receipt. One receipt saves one expense for its total.")}

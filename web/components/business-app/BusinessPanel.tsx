@@ -137,7 +137,7 @@ export default function BusinessPanel() {
   const shown = tray ?? panel.kind;
   const column = SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full pb-6 outline-none ${COLUMN[column]}`}>
+    <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
