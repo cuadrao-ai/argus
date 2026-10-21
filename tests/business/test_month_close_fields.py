@@ -22,7 +22,8 @@ from argus.domain.business.month_close import (
     summarize,
 )
 
-from tests.business.test_month_close import DAY, document, pending
+from tests.business.test_month_close import DAY, document
+from tests.business.test_open_items import pending
 from tests.dgii.test_packet import practice_records
 
 OCTOBER = month_period("2026-10")

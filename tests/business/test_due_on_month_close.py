@@ -15,7 +15,8 @@ from argus.domain.business.month_close import (
     summarize,
 )
 
-from tests.business.test_month_close import DAY, pending
+from tests.business.test_month_close import DAY
+from tests.business.test_open_items import pending
 
 
 def test_open_items_list_the_soonest_due_date_first_and_undated_ones_after_oldest_first():
