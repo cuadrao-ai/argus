@@ -37,8 +37,41 @@ This guide covers the light appearance. Dark appearance needs its own design.
   golden-ratio display sizes (42 and 68) belong to the marketing site: in a
   dense money screen they push the numbers below the fold.
 - Input text is at least 16px.
-- Money uses fixed-width (tabular) digits everywhere, so columns of amounts align.
 - Labels and headings wrap. They never truncate or clip.
+
+### Numbers
+
+The founder set these rules on October 20, 2026. Each rule has one owner in
+the code, named after it, and every screen uses that owner.
+
+- **Digits.** Every amount uses fixed-width (tabular) digits, so columns of
+  amounts align. A column of amounts is right-aligned.
+- **Exact.** Money is exact: integer minor units in the API, rendered without
+  rounding or a float. Lists, rows and column totals always show the exact
+  amount. Owner: `formatAmount` and `formatMoney` in `business-format.ts`.
+- **Currency in the header.** A list of amounts in one currency names it once,
+  in its header: "Por cobrar · RD$". Its rows and its total show the number
+  only. A row in another currency shows its own symbol, such as "US$ 50.00".
+  Totals in different currencies are never added together or converted: the
+  header lists one total per currency, the header's currency first. Owner:
+  `openItemsHeaderCurrency` in `business-month-close.ts`. A single amount with
+  no header, such as a Bandeja row, keeps its symbol.
+- **Short headline figures.** Only the big summary figures (Ingresos, Gastos,
+  Resultado neto, ITBIS a pagar) shorten, and only from 10,000 up: "RD$ 58.4 mil",
+  "RD$ 1.3 M". Spanish uses "mil" and "M", never "k". One decimal, rounded half
+  up. The exact amount shows in a tooltip on hover and on keyboard focus, and
+  is what a screen reader reads. The row shortens together: when its largest
+  figure is 10,000 or more, every figure in it uses that unit ("RD$ 9.6 mil"
+  beside "RD$ 58.4 mil"), and below that every figure is exact. Owner:
+  `formatHeadlineMoney`.
+- **Relative time when recent.** Under 7 days a time reads relative: "hace 15
+  minutos", "ayer", "hace 3 días". From 7 days on it reads as a short date,
+  "12 oct", with the year only when it is not this year: "24 dic 2025". Owner:
+  `formatRelativeTime` for timestamps and `formatRelativeDay` for calendar days.
+- **Unknown is "—".** An amount the system does not know shows "—", never 0
+  or RD$0.00. A real zero shows as RD$0.00.
+- **Ocultar montos.** Every amount carries the `cuadrao-amount` class, so
+  Ocultar montos hides it, headline figures included.
 
 ### Spacing, shape and depth
 
@@ -308,9 +341,9 @@ Rules for any list that grows past one screen, Bandeja first:
 ## 5. Dominican formats and language
 
 - The app is always in Spanish (`es-419`).
-- Dates read DD/MM, with the year as DD/MM/AAAA where it is needed.
-- Every amount shows RD$ explicitly, with two decimals. Number separators follow
-  the `es-419` locale.
+- A typed date reads DD/MM/AAAA. A shown date follows [Numbers](#numbers).
+- Every amount shows its currency, once per list as [Numbers](#numbers) says,
+  with two decimals. Number separators follow the `es-419` locale.
 - Never convert currency. An amount in another currency keeps its own currency label.
 
 ## 6. Core screens
@@ -331,6 +364,8 @@ frame, such as readable names, tax numbers or amounts.
 **Behavior rules (pending from Product).**
 
 ### Inicio
+
+The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting.
 
 **Behavior rules (pending from Product).**
 

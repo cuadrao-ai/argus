@@ -29,23 +29,29 @@ export default function BusinessOverviewPanel() {
 
   return (
     <section aria-labelledby="business-overview-title">
-      <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
-        {greeting}
-      </h2>
-      {isBelowTablet ? <div data-testid="inicio-actions" className="mt-4"><BusinessAddMenu placement="page" /></div> : null}
-      <div className="mt-6">
-        <BusinessMonthClosePanel
-          monthClose={monthClose}
-          review={porRevisar === null ? null : {
-            count: porRevisar,
-            detail: [
-              reading > 0 ? t("business.overview.reading", { count: reading }) : null,
-              problem > 0 ? t("business.overview.problem", { count: problem }) : null,
-            ].filter(Boolean).join(" · ") || null,
-            open: () => openPanel({ kind: "inbox" }),
-          }}
-        />
-      </div>
+      <BusinessMonthClosePanel
+        monthClose={monthClose}
+        header={(switcher) => (
+          <>
+            {/* The greeting and the month share one row; a phone wraps the month under it. */}
+            <div data-testid="inicio-greeting-row" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
+                {greeting}
+              </h2>
+              {switcher}
+            </div>
+            {isBelowTablet ? <div data-testid="inicio-actions"><BusinessAddMenu placement="page" /></div> : null}
+          </>
+        )}
+        review={porRevisar === null ? null : {
+          count: porRevisar,
+          detail: [
+            reading > 0 ? t("business.overview.reading", { count: reading }) : null,
+            problem > 0 ? t("business.overview.problem", { count: problem }) : null,
+          ].filter(Boolean).join(" · ") || null,
+          open: () => openPanel({ kind: "inbox" }),
+        }}
+      />
 
       {records.error ? (
         <div className={`${cardClass} mt-6`}>

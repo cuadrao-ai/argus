@@ -2733,11 +2733,9 @@
       "missing_rnc": "No RNC",
       "missing_ncf": "No NCF or e-CF",
       "loading": "Loading the month",
-      "due_today": "Today",
-      "due_past_one": "{{count}} day ago",
-      "due_past_other": "{{count}} days ago",
-      "due_future_one": "In {{count}} day",
-      "due_future_other": "In {{count}} days"
+      "open_items_beyond_one": "And {{count}} more not shown here.",
+      "open_items_beyond_other": "And {{count}} more not shown here.",
+      "open_items_error": "We couldn't load what is left to collect and pay"
     },
     "home": {
       "title": "What can we do for your business?",

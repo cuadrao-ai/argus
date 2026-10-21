@@ -2924,11 +2924,9 @@
       "missing_rnc": "Sin RNC",
       "missing_ncf": "Sin NCF ni e-CF",
       "loading": "Cargando el mes",
-      "due_today": "Hoy",
-      "due_past_one": "Hace {{count}} día",
-      "due_past_other": "Hace {{count}} días",
-      "due_future_one": "En {{count}} día",
-      "due_future_other": "En {{count}} días"
+      "open_items_beyond_one": "Y {{count}} más que no se muestra aquí.",
+      "open_items_beyond_other": "Y {{count}} más que no se muestran aquí.",
+      "open_items_error": "No pudimos cargar lo que falta por cobrar y por pagar"
     },
     "overview": {
       "copy_forward": "Copiar dirección de reenvío",

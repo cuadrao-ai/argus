@@ -5,7 +5,6 @@ import {
   calendarMonthOf,
   canCloseMonth,
   documentOverdue,
-  documentsTotal,
   dueDistance,
   canStepMonth,
   closeGate,
@@ -22,7 +21,13 @@ import {
   monthCloseSummary,
   monthPickerFloor,
   monthPickerMonths,
+  openItemsFrom,
+  openItemsHeaderCurrency,
+  openItemsRequest,
+  openItemsTotalsInOrder,
+  OPEN_ITEMS_CAP,
   readMonthCloseDocument,
+  readOpenItemsWire,
   readMonthCloseWire,
   rncPresent,
   statementMissingBlocker,
@@ -270,7 +275,6 @@ describe("month switcher", () => {
     expect(documentOverdue(taller!, today)).toBe(false);
     expect(documentOverdue(colmado!, today)).toBe(false);
     expect(documentOverdue({ status: "pendiente", due_on: null }, today)).toBe(false);
-    expect(documentsTotal([farmacia!, taller!])).toBe("27640.00");
     expect(readMonthCloseDocument({
       id: "inv-1",
       kind: "invoice",
@@ -455,7 +459,6 @@ describe("live figure mapping", () => {
       net_before_itbis: "100.00",
       itbis_owed: "18.00",
     });
-    expect(documentsTotal([dop, usd, eur])).toBe("118.00");
     const current = monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith("2026-10"));
     expect(monthCloseSummary(current).income_before_itbis).toBe("58400.00");
     expect(monthCloseSummary(current).expense_before_itbis).toBe("9600.00");
@@ -486,5 +489,91 @@ describe("live figure mapping", () => {
       expect.objectContaining({ id: "act-usd", currency: "USD", amount: "50.00", itbis: "5.00" }),
     ]);
     expect(readMonthCloseWire(mappedWire).documents[0]?.currency).toBe("DOP");
+  });
+});
+
+describe("open items", () => {
+  const item = (activityId: string, kind: "invoice" | "receipt", currency: string, occurredOn: string, totalMinor: number) => ({
+    activity_id: activityId,
+    document_kind: kind,
+    currency,
+    occurred_on: occurredOn,
+    total_minor: totalMinor,
+    total: "ignored",
+    before_itbis_minor: totalMinor,
+    itbis_minor: null,
+    counterparty: "Cliente de práctica",
+    status: "pendiente",
+  });
+
+  test("the HTTP client reads GET /business/open-items with no query, through the month's transport", async () => {
+    const calls: { path: string; method?: string }[] = [];
+    const client = createHttpMonthCloseClient(async (path, init) => {
+      calls.push({ path, method: init?.method });
+      return {
+        cuentas_por_cobrar: { count: 2, totals: [{ currency: "DOP", total_minor: 5900, total: "59.00" }, { currency: "USD", total_minor: 1050, total: "10.50" }], items: [item("act-1", "invoice", "DOP", "2026-09-12", 5900), item("act-2", "invoice", "USD", "2026-10-02", 1050)] },
+        cuentas_por_pagar: { count: 0, totals: [], items: [] },
+      };
+    });
+    const open = await client.openItems("grant-1");
+    expect(calls).toEqual([{ path: "/business/open-items", method: "GET" }]);
+    expect(openItemsRequest()).toEqual({ method: "GET", path: "/business/open-items" });
+    expect(open.cuentas_por_cobrar.count).toBe(2);
+    expect(open.cuentas_por_cobrar.totals).toEqual([{ currency: "DOP", total: "59.00" }, { currency: "USD", total: "10.50" }]);
+    expect(open.cuentas_por_cobrar.items[0]).toEqual(expect.objectContaining({ id: "act-1", kind: "invoice", occurred_on: "2026-09-12", amount: "59.00", counterparty: "Cliente de práctica", status: "pendiente" }));
+    expect(open.cuentas_por_pagar).toEqual({ count: 0, totals: [], items: [] });
+  });
+
+  test("a refused open-items read is the same month close error", async () => {
+    const client = createHttpMonthCloseClient(async () => {
+      throw Object.assign(new Error("grant revoked"), { code: "business_grant_not_live" });
+    });
+    await expect(client.openItems()).rejects.toMatchObject({ name: "MonthCloseError", code: "unavailable" });
+  });
+
+  test("the reader refuses a settled item, an item in the wrong list, a fractional minor, or a count below its items", () => {
+    const body = (cobrar: unknown) => ({ cuentas_por_cobrar: cobrar, cuentas_por_pagar: { count: 0, totals: [], items: [] } });
+    expect(() => readOpenItemsWire(body({ count: 1, totals: [], items: [{ ...item("a", "invoice", "DOP", "2026-09-01", 100), status: "cobrado" }] }))).toThrow(MonthCloseError);
+    expect(() => readOpenItemsWire(body({ count: 1, totals: [], items: [item("a", "receipt", "DOP", "2026-09-01", 100)] }))).toThrow(MonthCloseError);
+    expect(() => readOpenItemsWire(body({ count: 1, totals: [{ currency: "DOP", total_minor: 1.5 }], items: [] }))).toThrow(MonthCloseError);
+    expect(() => readOpenItemsWire(body({ count: 0, totals: [], items: [item("a", "invoice", "DOP", "2026-09-01", 100)] }))).toThrow(MonthCloseError);
+    expect(() => readOpenItemsWire({})).toThrow(MonthCloseError);
+  });
+
+  test("the mock lists every month's pending documents oldest first, and a mark removes it", async () => {
+    const client = createMockMonthCloseClient({ now });
+    const before = await client.openItems();
+    const receivable = before.cuentas_por_cobrar.items.map((document) => document.id);
+    expect(receivable).toEqual(["inv-luna", "inv-farmacia", "inv-taller"]);
+    expect(before.cuentas_por_pagar.items.map((document) => document.id)).toEqual(["rcpt-rosa", "rcpt-edenorte", "rcpt-transporte"]);
+    expect(before.cuentas_por_cobrar.totals).toEqual([{ currency: "DOP", total: "33540.00" }]);
+    expect((await client.load("2026-10")).documents.some((document) => document.id === "inv-luna")).toBe(false);
+    await client.markCobrado("inv-luna");
+    const after = await client.openItems();
+    expect(after.cuentas_por_cobrar.items.map((document) => document.id)).toEqual(["inv-farmacia", "inv-taller"]);
+    expect(after.cuentas_por_cobrar.count).toBe(2);
+    expect(after.cuentas_por_cobrar.totals).toEqual([{ currency: "DOP", total: "27640.00" }]);
+    expect((await client.openItems("other-grant")).cuentas_por_cobrar.count).toBe(3);
+  });
+
+  test("totals are one per currency and never added together; the header names DOP when the list holds any", () => {
+    const pending = (id: string, currency: string, amount: string): MonthCloseDocument => ({ ...document({ id, kind: "invoice", amount, itbis: null, status: "pendiente" }), currency });
+    const list = openItemsFrom([pending("usd", "USD", "50.00"), pending("dop-1", "DOP", "100.00"), pending("dop-2", "DOP", "18.50"), pending("eur", "EUR", "20.00")]).cuentas_por_cobrar;
+    expect(list.totals).toEqual([{ currency: "DOP", total: "118.50" }, { currency: "EUR", total: "20.00" }, { currency: "USD", total: "50.00" }]);
+    expect(openItemsHeaderCurrency(list)).toBe("DOP");
+    const serverOrder = { ...list, totals: [{ currency: "USD", total: "50.00" }, { currency: "EUR", total: "20.00" }, { currency: "DOP", total: "118.50" }] };
+    expect(openItemsTotalsInOrder(serverOrder).map((total) => total.currency)).toEqual(["DOP", "USD", "EUR"]);
+    const usdOnly = openItemsFrom([pending("usd", "USD", "50.00")]).cuentas_por_cobrar;
+    expect(openItemsHeaderCurrency(usdOnly)).toBe("USD");
+    expect(openItemsHeaderCurrency(openItemsFrom([]).cuentas_por_cobrar)).toBe(null);
+  });
+
+  test("the mock caps the list at the oldest 100 and counts the rest", () => {
+    const many = Array.from({ length: OPEN_ITEMS_CAP + 7 }, (_, index) => document({ id: `inv-${String(index).padStart(3, "0")}`, kind: "invoice", amount: "1.00", itbis: null, status: "pendiente", occurred_on: `2026-${String((index % 9) + 1).padStart(2, "0")}-01` }));
+    const list = openItemsFrom(many).cuentas_por_cobrar;
+    expect(list.count).toBe(107);
+    expect(list.items.length).toBe(100);
+    expect(list.items[0]?.occurred_on).toBe("2026-01-01");
+    expect(list.totals).toEqual([{ currency: "DOP", total: "107.00" }]);
   });
 });
