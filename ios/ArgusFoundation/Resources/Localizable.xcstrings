@@ -21769,7 +21769,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Receipt saved on this iPhone"
+            "value": "Recibo guardado en este iPhone"
           }
         },
         "en": {
@@ -21779,7 +21779,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.12c4e254b5": {
       "extractionState": "manual",
@@ -21787,7 +21787,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "You have no receipts on this iPhone yet. Tap + to save one."
+            "value": "Aún no tienes recibos en este iPhone. Toca + para guardar uno."
           }
         },
         "en": {
@@ -21797,7 +21797,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.1a42559a88": {
       "extractionState": "manual",
@@ -21805,7 +21805,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Attach to a movement"
+            "value": "Adjuntar a un movimiento"
           }
         },
         "en": {
@@ -21815,7 +21815,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.3345777fd4": {
       "extractionState": "manual",
@@ -21823,7 +21823,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Attached to"
+            "value": "Adjunto a"
           }
         },
         "en": {
@@ -21833,7 +21833,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.58ec8e6fdf": {
       "extractionState": "manual",
@@ -21841,7 +21841,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "You have no movements yet."
+            "value": "Aún no tienes movimientos."
           }
         },
         "en": {
@@ -21851,7 +21851,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.5b409df865": {
       "extractionState": "manual",
@@ -21859,7 +21859,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remove receipt"
+            "value": "Quitar recibo"
           }
         },
         "en": {
@@ -21869,7 +21869,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.8cd37d53b1": {
       "extractionState": "manual",
@@ -21877,7 +21877,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add a receipt"
+            "value": "Añadir un recibo"
           }
         },
         "en": {
@@ -21887,7 +21887,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.96e136d15f": {
       "extractionState": "manual",
@@ -21895,7 +21895,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "It was not sent anywhere. You can attach it to a movement now or later."
+            "value": "No se envió a ningún lado. Puedes adjuntarlo a un movimiento ahora o más tarde."
           }
         },
         "en": {
@@ -21905,7 +21905,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.afcc90c7b0": {
       "extractionState": "manual",
@@ -21913,7 +21913,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "No receipts yet."
+            "value": "Aún no hay recibos."
           }
         },
         "en": {
@@ -21923,7 +21923,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.b897319a4b": {
       "extractionState": "manual",
@@ -21931,7 +21931,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save a receipt's photo or file and attach it to an expense. It stays only on this iPhone."
+            "value": "Guarda la foto o el archivo de un recibo y únelo a un gasto. Se queda solo en este iPhone."
           }
         },
         "en": {
@@ -21941,7 +21941,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.c9002dc430": {
       "extractionState": "manual",
@@ -21949,7 +21949,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Scan with the camera"
+            "value": "Escanear con la cámara"
           }
         },
         "en": {
@@ -21959,7 +21959,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.db66631642": {
       "extractionState": "manual",
@@ -21967,7 +21967,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "It is deleted from this iPhone. Your activity does not change."
+            "value": "Se borra de este iPhone. Tus movimientos no cambian."
           }
         },
         "en": {
@@ -21977,7 +21977,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.e3b9850da9": {
       "extractionState": "manual",
@@ -21985,7 +21985,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "You have no unattached receipts. Tap + to save one."
+            "value": "No tienes recibos sin adjuntar. Toca + para guardar uno."
           }
         },
         "en": {
@@ -21995,7 +21995,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.ee6b11210c": {
       "extractionState": "manual",
@@ -22003,7 +22003,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Attach receipt"
+            "value": "Adjuntar recibo"
           }
         },
         "en": {
@@ -22013,7 +22013,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestReceipts.f333141bff": {
       "extractionState": "manual",
@@ -22021,7 +22021,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "We could not save the receipt on this iPhone."
+            "value": "No pudimos guardar el recibo en este iPhone."
           }
         },
         "en": {
@@ -22031,7 +22031,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.guestSearch.10ee3d11a4": {
       "extractionState": "manual",
@@ -23173,7 +23173,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sending receipt…"
+            "value": "Enviando recibo…"
           }
         },
         "en": {
@@ -23183,7 +23183,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.07bd00b851": {
       "extractionState": "manual",
@@ -23191,7 +23191,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "This account needs a confirmed balance before this expense. Check it and try again."
+            "value": "Esta cuenta necesita un saldo confirmado antes de este gasto. Revísala y vuelve a intentarlo."
           }
         },
         "en": {
@@ -23201,7 +23201,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.176bc5563c": {
       "extractionState": "manual",
@@ -23209,7 +23209,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "View receipt"
+            "value": "Ver recibo"
           }
         },
         "en": {
@@ -23219,7 +23219,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift, ios/ArgusFoundation/Guest/GuestReceipts.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift, ios/ArgusFoundation/Guest/GuestReceipts.swift"
     },
     "copy.receiptJourneyCopy.225664ae74": {
       "extractionState": "manual",
@@ -23245,7 +23245,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unknown"
+            "value": "Sin dato"
           }
         },
         "en": {
@@ -23255,7 +23255,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.2644936461": {
       "extractionState": "manual",
@@ -23263,7 +23263,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Choose the account that paid"
+            "value": "Elige la cuenta que pagó"
           }
         },
         "en": {
@@ -23273,7 +23273,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.283209abd4": {
       "extractionState": "manual",
@@ -23281,7 +23281,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open it later from Saved receipts."
+            "value": "Ábrelo luego desde Recibos guardados."
           }
         },
         "en": {
@@ -23291,7 +23291,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.2abe13d666": {
       "extractionState": "manual",
@@ -23299,7 +23299,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "You have no open account in this currency for this expense."
+            "value": "No tienes una cuenta abierta en esta moneda para este gasto."
           }
         },
         "en": {
@@ -23309,7 +23309,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.3dc5995bd6": {
       "extractionState": "manual",
@@ -23317,7 +23317,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "When you read a receipt, we send the image to Google Gemini to pick out the merchant, date, items and total. No expense is saved until you confirm it. If you turn this off, we ask before reading another receipt; saved receipts do not change."
+            "value": "Cuando lees un recibo, enviamos la imagen a Google Gemini para sacar el comercio, la fecha, los artículos y el total. No se guarda ningún gasto hasta que lo confirmes. Si lo apagas, te preguntamos antes de leer otro recibo; los recibos guardados no cambian."
           }
         },
         "en": {
@@ -23327,7 +23327,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.4a3f9b4af6": {
       "extractionState": "manual",
@@ -23335,7 +23335,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read again"
+            "value": "Leer de nuevo"
           }
         },
         "en": {
@@ -23345,7 +23345,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.4b4e939302": {
       "extractionState": "manual",
@@ -23353,7 +23353,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saving expense…"
+            "value": "Guardando gasto…"
           }
         },
         "en": {
@@ -23363,7 +23363,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.4f6e4f2289": {
       "extractionState": "manual",
@@ -23371,7 +23371,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "We could not read it"
+            "value": "No pudimos leerlo"
           }
         },
         "en": {
@@ -23381,7 +23381,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.51fddd2271": {
       "extractionState": "manual",
@@ -23389,7 +23389,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read receipts with AI"
+            "value": "Leer recibos con IA"
           }
         },
         "en": {
@@ -23399,7 +23399,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.5e98f536b8": {
       "extractionState": "manual",
@@ -23407,7 +23407,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "I already recorded this"
+            "value": "Ya anoté este gasto"
           }
         },
         "en": {
@@ -23417,7 +23417,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.5f6fa34cb3": {
       "extractionState": "manual",
@@ -23425,7 +23425,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read your receipts with AI?"
+            "value": "¿Leemos tus recibos con IA?"
           }
         },
         "en": {
@@ -23435,7 +23435,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.6751bbc478": {
       "extractionState": "manual",
@@ -23443,7 +23443,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "We found a movement with the same amount. You can add this receipt to it instead of creating another."
+            "value": "Encontramos un movimiento con el mismo monto. Puedes añadirle este recibo en vez de crear otro."
           }
         },
         "en": {
@@ -23453,7 +23453,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.69007b1cdc": {
       "extractionState": "manual",
@@ -23461,7 +23461,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not send"
+            "value": "No se pudo enviar"
           }
         },
         "en": {
@@ -23471,7 +23471,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.724c065e73": {
       "extractionState": "manual",
@@ -23479,7 +23479,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Receipt added to the movement"
+            "value": "Recibo añadido al movimiento"
           }
         },
         "en": {
@@ -23489,7 +23489,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.88b4c99896": {
       "extractionState": "manual",
@@ -23515,7 +23515,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save only"
+            "value": "Solo guardar"
           }
         },
         "en": {
@@ -23525,7 +23525,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.8dbbc7ed8e": {
       "extractionState": "manual",
@@ -23533,7 +23533,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "No expense found"
+            "value": "No encontramos un gasto"
           }
         },
         "en": {
@@ -23543,7 +23543,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.8e96c640cc": {
       "extractionState": "manual",
@@ -23551,7 +23551,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Google Gemini reads the photo and prepares the expense for you to review. Nothing is saved until you confirm. You can turn this off in Profile."
+            "value": "Google Gemini lee la foto y prepara el gasto para que lo revises. Nada se guarda hasta que lo confirmes. Puedes apagarlo en Perfil."
           }
         },
         "en": {
@@ -23561,7 +23561,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.9f2ed9f6be": {
       "extractionState": "manual",
@@ -23569,7 +23569,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reading your receipt…"
+            "value": "Leyendo tu recibo…"
           }
         },
         "en": {
@@ -23579,7 +23579,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.a098e5adcb": {
       "extractionState": "manual",
@@ -23587,7 +23587,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Back to review"
+            "value": "Volver a revisar"
           }
         },
         "en": {
@@ -23597,7 +23597,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.af72fbf701": {
       "extractionState": "manual",
@@ -23605,7 +23605,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Items are receipt detail. One expense is saved for the total."
+            "value": "Los artículos son detalle del recibo. Se guarda un solo gasto por el total."
           }
         },
         "en": {
@@ -23615,7 +23615,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.b0d12f3afd": {
       "extractionState": "manual",
@@ -23633,7 +23633,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.b1a30a5a78": {
       "extractionState": "manual",
@@ -23641,7 +23641,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "You can close this. You will find it in Saved receipts."
+            "value": "Puedes cerrar esto. Lo encontrarás en Recibos guardados."
           }
         },
         "en": {
@@ -23651,7 +23651,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.b2652dac6f": {
       "extractionState": "manual",
@@ -23659,7 +23659,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "No connection"
+            "value": "Sin conexión"
           }
         },
         "en": {
@@ -23669,7 +23669,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.cb0aa10792": {
       "extractionState": "manual",
@@ -23677,7 +23677,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "The receipt is still on this iPhone. Try again when you are back online."
+            "value": "El recibo sigue en este iPhone. Inténtalo cuando vuelva la conexión."
           }
         },
         "en": {
@@ -23687,7 +23687,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.cc033fc1d3": {
       "extractionState": "manual",
@@ -23695,7 +23695,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Receipt items"
+            "value": "Artículos del recibo"
           }
         },
         "en": {
@@ -23705,7 +23705,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.cd5de1072d": {
       "extractionState": "manual",
@@ -23713,7 +23713,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Still reading"
+            "value": "Sigue leyéndose"
           }
         },
         "en": {
@@ -23723,7 +23723,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.dabc84976a": {
       "extractionState": "manual",
@@ -23731,7 +23731,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "It is in your account with its receipt."
+            "value": "Está en tu cuenta con su recibo."
           }
         },
         "en": {
@@ -23741,7 +23741,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.ddd896d668": {
       "extractionState": "manual",
@@ -23749,7 +23749,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Review the expense"
+            "value": "Revisa el gasto"
           }
         },
         "en": {
@@ -23759,7 +23759,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.e47fa08736": {
       "extractionState": "manual",
@@ -23785,7 +23785,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "It is still in Saved receipts."
+            "value": "Sigue guardado en Recibos guardados."
           }
         },
         "en": {
@@ -23795,7 +23795,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.f3b44fd27f": {
       "extractionState": "manual",
@@ -23803,7 +23803,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "We could not save the expense."
+            "value": "No pudimos guardar el gasto."
           }
         },
         "en": {
@@ -23813,7 +23813,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.f6e569c91f": {
       "extractionState": "manual",
@@ -23821,7 +23821,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read"
+            "value": "Leer"
           }
         },
         "en": {
@@ -23831,7 +23831,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.f72bbcda64": {
       "extractionState": "manual",
@@ -28519,7 +28519,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "We could not load your receipts."
+            "value": "No pudimos cargar tus recibos."
           }
         },
         "en": {
@@ -28529,7 +28529,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/SavedReceiptCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/SavedReceiptCopy.swift"
     },
     "copy.savedReceiptCopy.1693909e16": {
       "extractionState": "manual",
@@ -28663,7 +28663,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "We could not open this receipt."
+            "value": "No pudimos abrir este recibo."
           }
         },
         "en": {
@@ -28673,7 +28673,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/SavedReceiptCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/SavedReceiptCopy.swift"
     },
     "copy.savedReceiptCopy.baec1c9f1c": {
       "extractionState": "manual",
@@ -28807,7 +28807,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "You have not saved any receipts yet. Tap + and scan or upload a receipt."
+            "value": "Aún no has guardado recibos. Toca + y escanea o sube un recibo."
           }
         },
         "en": {
@@ -28817,7 +28817,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/SavedReceiptCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/SavedReceiptCopy.swift"
     },
     "copy.savedReceiptCopy.f0a7244e55": {
       "extractionState": "manual",
@@ -46735,7 +46735,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your accounts, activity, budgets, goals and receipts on this iPhone will be removed. This can't be undone."
+            "value": "Se borrarán tus cuentas, movimientos, presupuestos, metas y recibos de este iPhone. No se puede deshacer."
           }
         },
         "en": {
@@ -46745,7 +46745,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Guest/GuestShell.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Guest/GuestShell.swift"
     },
     "copy.guestShell.5a1c3f7a35": {
       "extractionState": "manual",
@@ -47149,7 +47149,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Receipt ready"
+            "value": "Recibo listo"
           }
         },
         "en": {
@@ -47159,7 +47159,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.528d92bdda": {
       "extractionState": "manual",
@@ -47167,7 +47167,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ receipts ready"
+            "value": "%1$@ recibos listos"
           }
         },
         "en": {
@@ -47177,7 +47177,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.ac639e5b2c": {
       "extractionState": "manual",
@@ -47185,7 +47185,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Review the next receipt"
+            "value": "Revisar el siguiente recibo"
           }
         },
         "en": {
@@ -47195,7 +47195,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.receiptJourneyCopy.6962a3aaa7": {
       "extractionState": "manual",
@@ -47203,7 +47203,7 @@
         "es-419": {
           "stringUnit": {
             "state": "translated",
-            "value": "Review the next one (%1$@ left)"
+            "value": "Revisar el siguiente (quedan %1$@)"
           }
         },
         "en": {
@@ -47213,7 +47213,7 @@
           }
         }
       },
-      "comment": "TODO-COPY: Spanish approval pending. ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
+      "comment": "Existing copy at 43dfdd036628d99ef51f113e507bc12a332c2663 in ios/ArgusFoundation/Connected/ReceiptJourneyCopy.swift"
     },
     "copy.cuadraoDistributionContent.f08da4f153": {
       "extractionState": "manual",
