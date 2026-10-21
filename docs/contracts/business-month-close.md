@@ -34,6 +34,7 @@ A missing, revoked, or expired grant is `403` `business_grant_not_live`. A live 
 | 403 | `business_permission_denied` | The grant cannot prepare, or cannot read |
 | 403 | `business_grant_not_live` | The grant header does not name a live grant |
 | 409 | `business_document_settlement_conflict` | Two first settlements of the same document collided again after one fresh retry |
+| 409 | `business_document_matched` | The document is igualada with a bank movement and the request changes its settlement. Desigualar it first (`docs/contracts/business-bank-matching.md`) |
 | 503 | `business_month_close_unavailable` | The authorized snapshot could not be read or written. Open items use the same code. |
 
 The error body is the usual problem document. `code` is the field above.

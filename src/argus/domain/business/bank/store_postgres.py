@@ -10,7 +10,6 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
@@ -25,6 +24,7 @@ from argus.domain.business.bank.model import (
     SuggestionStatus,
     TargetKind,
 )
+from argus.domain.business.bank.movements import LiveOutcome
 
 LINE_COLUMNS = """
     id, space_id, bank_account_id, first_import_id, occurred_on, description,
@@ -309,47 +309,21 @@ class PostgresBankStore:
         )
         return tuple(_suggestion(row) for row in rows)
 
-    def confirmed_for_line(self, line_id: UUID) -> Suggestion | None:
-        row = self._one(
-            f"""
-            select {_SUGGESTION}
-            from public.business_bank_suggestions
-            where line_id = %s and status = 'confirmed'
+    def live_outcomes(self, space_id: UUID) -> dict[str, LiveOutcome]:
+        rows = self._rows(
+            """
+            select line_id::text as line_id, kind, target_id::text as target_id, reason
+            from public.business_bank_line_outcomes
+            where space_id = %s and ended_at is null
             """,
-            (line_id,),
+            (space_id,),
         )
-        return None if row is None else _suggestion(row)
-
-    def decide(
-        self,
-        space_id: UUID,
-        suggestion_id: UUID,
-        *,
-        status: SuggestionStatus,
-        actor_id: UUID,
-        decision_key: str,
-    ) -> Suggestion:
-        try:
-            row = self._one(
-                f"""
-                update public.business_bank_suggestions
-                set status = %s,
-                    decided_at = now(),
-                    decided_by = %s,
-                    decision_key = %s
-                where id = %s and space_id = %s and status = 'pending'
-                returning {_SUGGESTION}
-                """,
-                (status, actor_id, decision_key, suggestion_id, space_id),
+        return {
+            row["line_id"]: LiveOutcome(
+                row["line_id"], row["kind"], row["target_id"], row["reason"]
             )
-        except UniqueViolation as exc:
-            raise BankMatchingError("line_already_confirmed") from exc
-        if row is not None:
-            return _suggestion(row)
-        current = self.get_suggestion(space_id, suggestion_id)
-        if current.decision_key == decision_key and current.status == status:
-            return current
-        raise BankMatchingError("suggestion_not_pending")
+            for row in rows
+        }
 
     def _rows(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
         held = getattr(self._local, "connection", None)

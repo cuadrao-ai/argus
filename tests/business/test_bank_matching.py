@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -16,6 +17,7 @@ from argus.domain.business.bank.model import (
     BankMatchingError,
     ScoreParts,
 )
+from argus.domain.business.bank.movements import LiveOutcome
 from argus.domain.business.bank.service import (
     BankMatchingService,
     configure_bank_matching,
@@ -142,58 +144,19 @@ def test_nothing_auto_matches_and_a_declined_pair_is_not_offered_again() -> None
         derive_confidence(row.parts) == Decimal("1.000") for row in first.suggestions
     )
     declined = next(row for row in first.suggestions if row.target_id == decoy.id)
-    service.decline_suggestion(
-        space_id=SPACE,
-        actor_id=OWNER,
-        capabilities=PREPARE,
-        suggestion_id=declined.id,
-        idempotency_key="decline-1",
+    service.store.put_suggestion(
+        replace(
+            declined,
+            status="declined",
+            decided_at=WHEN,
+            decided_by=OWNER,
+            decision_key="decline-1",
+        )
     )
     second = _import(service, content, "two")
     assert decoy.id not in {row.target_id for row in second.suggestions}
     still = service.list_suggestions(space_id=SPACE, capabilities=READ, status="declined")
     assert [row.target_id for row in still] == [decoy.id]
-
-
-def test_one_confirmed_suggestion_per_line_and_confirming_a_decline_is_refused() -> None:
-    merchant = _NAMES[1]
-    first_target = _target("receipt", "800.00", "2026-10-03", merchant)
-    second_target = _target("receipt", "800.00", "2026-10-03", merchant)
-    service = _world((first_target, second_target))
-    imported = _import(service, _popular([("03/10/2026", merchant, "800.00", "")]))
-    chosen, other = imported.suggestions
-    service.confirm_suggestion(
-        space_id=SPACE,
-        actor_id=OWNER,
-        capabilities=PREPARE,
-        suggestion_id=chosen.id,
-        idempotency_key="yes",
-    )
-    with pytest.raises(BankMatchingError) as blocked:
-        service.confirm_suggestion(
-            space_id=SPACE,
-            actor_id=OWNER,
-            capabilities=PREPARE,
-            suggestion_id=other.id,
-            idempotency_key="also",
-        )
-    assert blocked.value.code == "line_already_confirmed"
-    service.decline_suggestion(
-        space_id=SPACE,
-        actor_id=OWNER,
-        capabilities=PREPARE,
-        suggestion_id=other.id,
-        idempotency_key="no",
-    )
-    with pytest.raises(BankMatchingError) as declined:
-        service.confirm_suggestion(
-            space_id=SPACE,
-            actor_id=OWNER,
-            capabilities=PREPARE,
-            suggestion_id=other.id,
-            idempotency_key="undo",
-        )
-    assert declined.value.code == "pair_declined"
 
 
 def test_a_reader_cannot_import_and_a_second_account_is_refused() -> None:
@@ -241,14 +204,10 @@ def test_october_statement_ends_igualada_or_missing_its_receipt() -> None:
     imported = _import(service, content, "oct")
     assert len(imported.lines) == 5
     assert imported.lines[2].amount == Decimal("-250.0000")
-    for suggestion in imported.suggestions:
-        service.confirm_suggestion(
-            space_id=SPACE,
-            actor_id=OWNER,
-            capabilities=PREPARE,
-            suggestion_id=suggestion.id,
-            idempotency_key=f"yes-{suggestion.id}",
-        )
+    service.store.outcomes[SPACE] = {
+        str(row.line_id): LiveOutcome(str(row.line_id), "match", row.target_id, None)
+        for row in imported.suggestions
+    }
     states = [service.line_state(line) for line in imported.lines]
     assert states == [
         "igualada",

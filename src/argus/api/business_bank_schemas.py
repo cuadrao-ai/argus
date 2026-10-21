@@ -20,6 +20,7 @@ ReaderId = Literal[
 SuggestionStatus = Literal["pending", "confirmed", "declined"]
 LineSense = Literal["charge", "deposit", "zero"]
 LineState = Literal["igualada", "sugerencia", "falta_comprobante", "no_lleva_comprobante"]
+NoReceiptReason = Literal["cargo_banco", "entre_cuentas", "compra_informal", "personal"]
 ItemState = Literal[
     "igualada",
     "sugerencia",
@@ -131,7 +132,7 @@ class MovementItem(BaseModel):
     amount_minor: int
     amount: str
     state: ItemState
-    reason: Literal["monto_cero"] | None
+    reason: NoReceiptReason | Literal["monto_cero"] | None
     category_id: str | None
     account: MovementAccount
     method: str | None
@@ -169,3 +170,23 @@ class MovementsResponse(BaseModel):
     totals: list[MovementTotals]
     items: list[MovementItem]
     next_cursor: str | None
+
+
+class MatchRequest(BaseModel):
+    activity_id: UUID = Field(
+        description="An approved receipt or venta of this Business."
+    )
+
+
+class DispositionRequest(BaseModel):
+    reason: NoReceiptReason
+
+
+class OutcomeHistoryEntry(BaseModel):
+    id: UUID
+    kind: Literal["match", "no_receipt"]
+    target_kind: Literal["receipt", "venta"] | None
+    activity_id: UUID | None
+    reason: NoReceiptReason | None
+    created_at: datetime
+    ended_at: datetime | None

@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Literal
 
-from psycopg.errors import UniqueViolation
+from psycopg.errors import CheckViolation, UniqueViolation
 from psycopg.rows import dict_row
 
 from argus.domain.business.authority import ActionContext, ActionError, authorize
@@ -175,6 +175,34 @@ def _settle_once(
         }
 
 
+def current_settlement(
+    connection, context: ActionContext, activity_id: str
+) -> tuple[Settlement, bool]:
+    """The document's settlement, locked, and whether a row holds it."""
+
+    row = _lock(connection, context, activity_id)
+    if row is None:
+        return IMPLICIT, False
+    return Settlement(row["status"], row["settled_on"], row["payment_method"]), True
+
+
+def write_settlement(
+    connection,
+    context: ActionContext,
+    activity,
+    previous: Settlement,
+    planned: Settlement,
+    *,
+    existed: bool,
+) -> None:
+    """Write ``planned`` with a revision row, unless it is already stored."""
+
+    if planned != previous:
+        _persist(
+            connection, context, activity, previous, planned, existed=existed, retry=False
+        )
+
+
 def _lock(connection, context: ActionContext, activity_id: str):
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(_LOCK, (context.actor.space_id, activity_id))
@@ -238,6 +266,10 @@ def _persist(
         raise ActionError(
             "idempotency_conflict", "business_document_settlement_conflict"
         ) from None
+    except CheckViolation as error:
+        if error.diag.message_primary != "business_document_matched":
+            raise
+        raise ActionError("idempotency_conflict", "business_document_matched") from None
 
 
 @contextmanager

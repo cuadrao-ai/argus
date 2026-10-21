@@ -18,6 +18,7 @@ from argus.domain.business.bank.model import (
     SuggestionStatus,
     TargetKind,
 )
+from argus.domain.business.bank.movements import LiveOutcome
 
 
 def _now() -> datetime:
@@ -32,6 +33,7 @@ class MemoryBankStore:
         self.imports: dict[UUID, BankImport] = {}
         self.lines: dict[UUID, BankLine] = {}
         self.suggestions: dict[UUID, Suggestion] = {}
+        self.outcomes: dict[UUID, dict[str, LiveOutcome]] = {}
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
@@ -189,54 +191,11 @@ class MemoryBankStore:
             ]
         return tuple(sorted(rows, key=lambda row: str(row.id)))
 
-    def confirmed_for_line(self, line_id: UUID) -> Suggestion | None:
-        with self._lock:
-            return next(
-                (
-                    row
-                    for row in self.suggestions.values()
-                    if row.line_id == line_id and row.status == "confirmed"
-                ),
-                None,
-            )
+    def live_outcomes(self, space_id: UUID) -> dict[str, LiveOutcome]:
+        """Live outcomes by line. Matching writes them only on Postgres."""
 
-    def decide(
-        self,
-        space_id: UUID,
-        suggestion_id: UUID,
-        *,
-        status: SuggestionStatus,
-        actor_id: UUID,
-        decision_key: str,
-    ) -> Suggestion:
         with self._lock:
-            row = self.suggestions.get(suggestion_id)
-            if row is None or row.space_id != space_id:
-                raise BankMatchingError("suggestion_not_found")
-            if row.status != "pending":
-                if row.decision_key == decision_key and row.status == status:
-                    return row
-                raise BankMatchingError("suggestion_not_pending")
-            if status == "confirmed" and any(
-                other.line_id == row.line_id and other.status == "confirmed"
-                for other in self.suggestions.values()
-            ):
-                raise BankMatchingError("line_already_confirmed")
-            decided = Suggestion(
-                id=row.id,
-                space_id=row.space_id,
-                line_id=row.line_id,
-                target_id=row.target_id,
-                target_kind=row.target_kind,
-                status=status,
-                parts=row.parts,
-                created_at=row.created_at,
-                decided_at=self._clock(),
-                decided_by=actor_id,
-                decision_key=decision_key,
-            )
-            self.suggestions[row.id] = decided
-            return decided
+            return dict(self.outcomes.get(space_id, {}))
 
 
 def new_id() -> UUID:

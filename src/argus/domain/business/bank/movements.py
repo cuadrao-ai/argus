@@ -1,7 +1,8 @@
 """Transacciones: every bank movement in a period, its state, and its totals.
 
-A movement's state is derived on read from the line, its decided pairs, and
-its open offers. Nothing here stores a state, and nothing here confirms a pair.
+A movement's state is derived on read from the line, its live outcome, and
+its open offers. Nothing here stores a state. The settlement a match writes is
+planned here and stored by the outcomes store.
 """
 
 from __future__ import annotations
@@ -15,14 +16,14 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal
 
-from argus.domain.business.bank.matching import derive_confidence
+from argus.domain.business.bank.matching import derive_confidence, expected_kind
 from argus.domain.business.bank.model import (
     MATCH_WINDOW_DAYS,
     BankLine,
     ScoreParts,
     TargetKind,
 )
-from argus.domain.business.month_close import MonthDocument, to_minor
+from argus.domain.business.month_close import MonthDocument, Settlement, to_minor
 from argus.domain.recording.currency import format_minor_units
 
 MovementState = Literal[
@@ -50,7 +51,9 @@ _METHOD_BY_ACCOUNT_TYPE: dict[str, Method] = {
     "cash": "efectivo",
 }
 _ROLE_KIND: dict[str, TargetKind] = {"receipt": "receipt", "invoice": "venta"}
+_SETTLED: dict[str, str] = {"receipt": "pagado", "venta": "cobrado"}
 MAX_PAGE = 200
+DISPOSITIONS = ("cargo_banco", "entre_cuentas", "compra_informal", "personal")
 
 
 class InvalidCursor(ValueError):
@@ -64,12 +67,14 @@ def method_for(account_type: str) -> Method:
 
 
 def movement_state(
-    amount: Decimal, *, matched: bool, has_offer: bool
+    amount: Decimal, *, matched: bool, disposition: str | None, has_offer: bool
 ) -> tuple[MovementState, str | None]:
     """The one rule for a line's state and, when it needs no comprobante, why."""
 
     if matched:
         return "igualada", None
+    if disposition is not None:
+        return "no_lleva_comprobante", disposition
     if amount == 0:
         return "no_lleva_comprobante", "monto_cero"
     if has_offer:
@@ -186,6 +191,47 @@ class StoredPair:
 
 
 @dataclass(frozen=True)
+class LiveOutcome:
+    """A line's one live outcome: a match to a document, or a reason it needs
+    no comprobante."""
+
+    line_id: str
+    kind: Literal["match", "no_receipt"]
+    target_id: str | None
+    reason: str | None
+
+
+def taken_documents(outcomes: Mapping[str, LiveOutcome]) -> frozenset[str]:
+    """Every document a live match holds."""
+
+    return frozenset(
+        outcome.target_id
+        for outcome in outcomes.values()
+        if outcome.kind == "match" and outcome.target_id is not None
+    )
+
+
+def applied_settlement(kind: TargetKind, line: BankLine, account: Account) -> Settlement:
+    """The settlement a match writes: settled on the movement's date, by the
+    method of the account the movement came from."""
+
+    return Settlement(_SETTLED[kind], line.occurred_on, account.method)
+
+
+def match_refusal(line: BankLine, document: Document) -> str | None:
+    """Why a person cannot match this line to this document, or None. One
+    movement to one document of the same sense, currency, and exact amount."""
+
+    if (
+        expected_kind(line.amount) != document.kind
+        or line.currency != document.currency
+        or abs(line.amount) != document.amount
+    ):
+        return "document_not_matchable"
+    return None
+
+
+@dataclass(frozen=True)
 class Movement:
     line: BankLine
     account: Account
@@ -222,42 +268,44 @@ def build_movements(
     accounts: Mapping[str, Account],
     documents: Mapping[str, Document],
     pairs: Sequence[StoredPair],
+    outcomes: Mapping[str, LiveOutcome],
     taken: frozenset[str],
 ) -> list[Movement]:
-    """Each line with its state. ``pairs`` are the stored rows of these lines;
-    ``taken`` is every document a confirmed pair holds in the Business. A
-    pending pair is an offer while its line and its document are both free."""
+    """Each line with its state. ``pairs`` are the stored offers of these lines,
+    ``outcomes`` their live outcomes by line, and ``taken`` every document a
+    live match holds in the Business. A pending pair is an offer while its line
+    has no outcome and its document is free."""
 
-    matched = {
-        pair.line_id: documents[pair.target_id]
-        for pair in pairs
-        if pair.status == "confirmed" and pair.target_id in documents
-    }
-    pending: dict[str, list[Offer]] = {}
-    for pair in pairs:
-        document = documents.get(pair.target_id)
-        if (
-            pair.status != "pending"
-            or document is None
-            or document.kind != pair.target_kind
-            or pair.line_id in matched
-            or pair.target_id in taken
-        ):
-            continue
-        pending.setdefault(pair.line_id, []).append(
-            Offer(pair.suggestion_id, document, pair.parts)
-        )
     movements = []
     for line in lines:
         line_id = str(line.id)
-        offers = tuple(
-            sorted(
-                pending.get(line_id, ()),
-                key=lambda offer: (-offer.confidence, offer.suggestion_id),
-            )
+        outcome = outcomes.get(line_id)
+        matched = (
+            documents.get(outcome.target_id or "")
+            if outcome is not None and outcome.kind == "match"
+            else None
         )
+        offers = ()
+        if outcome is None:
+            offers = tuple(
+                sorted(
+                    (
+                        Offer(pair.suggestion_id, documents[pair.target_id], pair.parts)
+                        for pair in pairs
+                        if pair.line_id == line_id
+                        and pair.status == "pending"
+                        and pair.target_id in documents
+                        and documents[pair.target_id].kind == pair.target_kind
+                        and pair.target_id not in taken
+                    ),
+                    key=lambda offer: (-offer.confidence, offer.suggestion_id),
+                )
+            )
         state, reason = movement_state(
-            line.amount, matched=line_id in matched, has_offer=bool(offers)
+            line.amount,
+            matched=outcome is not None and outcome.kind == "match",
+            disposition=outcome.reason if outcome is not None else None,
+            has_offer=bool(offers),
         )
         movements.append(
             Movement(
@@ -265,8 +313,8 @@ def build_movements(
                 account=accounts[str(line.bank_account_id)],
                 state=state,
                 reason=reason,
-                document=matched.get(line_id),
-                offers=offers if state == "sugerencia" else (),
+                document=matched,
+                offers=offers,
             )
         )
     return movements
