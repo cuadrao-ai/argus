@@ -11,6 +11,7 @@ import { EmptyState } from "./foundation/EmptyState";
 import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
@@ -35,7 +36,7 @@ export function AccessList({
   onResend: (invite: BusinessAccessInvite) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const rowClass = "flex items-center gap-3 px-3 py-3";
   return (
     <>

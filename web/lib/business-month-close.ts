@@ -441,8 +441,8 @@ export function shiftMonthKey(month: string, offset: number): string {
   return currentMonthKey(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + offset, 1));
 }
 
-/** "Octubre 2026". The month name and the year stay separate so the label is not "octubre de 2026". */
-export function formatMonthLabel(month: string, locale = "es-419"): string {
+/** "Octubre 2026" in Spanish, "October 2026" in English. The month name and the year stay separate so the label is not "octubre de 2026". */
+export function formatMonthLabel(month: string, locale: string): string {
   if (!MONTH.test(month)) throw new MonthCloseError("unavailable", "month close month is unknown");
   const formatted = new Intl.DateTimeFormat(locale, { month: "long" }).format(
     new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1),

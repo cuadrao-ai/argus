@@ -25,6 +25,7 @@ import { useBusinessConsent } from "./business-consent-context";
 import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
 import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
 
@@ -46,7 +47,7 @@ const inputClass =
 
 function ReceiptEntry({ receiptId }: { receiptId: string }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const categoryLabel = useCategoryLabel();
   const attentionLabel = useAttentionLabel();
   const terminalRead = useTerminalRead();

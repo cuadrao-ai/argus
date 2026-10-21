@@ -10,6 +10,7 @@ import { useCategoryLabel } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import { ACTIVITY_FIELDS as ACTIVITY, MORE_FIELDS as MORE, fiscalFactRows, recordFactRows, reviewCounts, type FactRow } from "./receipt-fact-rows";
+import { resolveLanguage } from "@/lib/language-features";
 const FISCAL = ["rnc", "ncf", "itbis", "ecf"] as const;
 
 const labelClass = "text-[13px] font-medium leading-[18px] text-[#172b26] dark:text-white";
@@ -32,7 +33,7 @@ export default function ReceiptRecordFacts({ dossier, accounts, onEdit, onEditRn
   const { t, i18n } = useTranslation();
   const ids = useId();
   const categoryLabel = useCategoryLabel();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const fiscal = dossier.facts.fiscal;
   const labels = {
     unknown: "",

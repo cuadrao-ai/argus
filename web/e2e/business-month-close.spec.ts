@@ -108,10 +108,10 @@ test.describe("inicio is the month close", () => {
       await expect(page.getByTestId("month-close-close")).toHaveCount(0);
       await expect(page.getByTestId("month-close-blockers")).toContainText("Transporte Díaz");
 
-      await expect(page.getByTestId("month-close-month")).toHaveText(formatMonthLabel(currentMonthKey(new Date())));
+      await expect(page.getByTestId("month-close-month")).toHaveText(formatMonthLabel(currentMonthKey(new Date()), "es-419"));
       await expect(page.getByTestId("month-close-month-next")).toBeDisabled();
       await page.getByRole("button", { name: "Mes anterior" }).click();
-      await expect(page.getByTestId("month-close-month")).toHaveText(formatMonthLabel(shiftMonthKey(currentMonthKey(new Date()), -1)));
+      await expect(page.getByTestId("month-close-month")).toHaveText(formatMonthLabel(shiftMonthKey(currentMonthKey(new Date()), -1), "es-419"));
       await expect(net).toHaveAttribute("data-state", "pending");
       await expect(net).toContainText(/Falta marcar \d+ documentos/);
       await expect(net).not.toContainText("RD$");

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { Switch } from "@/components/ui/Switch";
 import type { ReceiptReading } from "@/lib/business-api";
-import { normalizeEnabledLanguage } from "@/lib/language-features";
+import { normalizeEnabledLanguage, resolveLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass, secondaryButtonClass } from "./business-ui";
@@ -25,7 +25,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
   const { source, reload, chosen } = useBusiness();
   const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
-  const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? "en");
+  const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? resolveLanguage({}));
   const businessKey = chosen?.space_id ?? "own";
   const generation = useRef(0);
   const mutation = useRef<AbortController | null>(null);

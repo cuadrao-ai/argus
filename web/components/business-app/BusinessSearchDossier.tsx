@@ -14,6 +14,7 @@ import { cardClass, useCategoryLabel } from "./business-ui";
 import { StatusPill } from "./foundation/StatusPill";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type BusinessSearchRecord =
   | { kind: "receipt"; receipt: ReceiptSummary }
@@ -29,7 +30,7 @@ export type BusinessSearchRecord =
 export default function BusinessSearchDossier({ record, source, accounts }: { record: BusinessSearchRecord; source: BusinessDataSource; accounts: readonly BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   if (record.kind === "note") return <NotePreview note={record.note} source={source} accounts={accounts} />;
   if (record.kind === "email") {
     const { email } = record;
@@ -84,14 +85,14 @@ function ReceiptPreview({ receiptId, source }: { receiptId: string; source: Busi
   if (!detail) return <Settle pending layout="rows" rows={3} />;
   return <>
     <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? detail.media_type}</span></Field>
-    {detail.evidence?.lines.length ? <div className={cardClass}><h3 className="mb-3 text-sm font-medium">{t("business.review.evidence", "What the receipt says")}</h3><ul className="space-y-2 text-sm">{detail.evidence.lines.map((line, index) => <li key={index} className="flex justify-between gap-3"><span>{line.description}</span><span>{formatMoney(line.amount, detail.evidence?.currency ?? null, i18n.resolvedLanguage ?? "en")}</span></li>)}</ul></div> : null}
+    {detail.evidence?.lines.length ? <div className={cardClass}><h3 className="mb-3 text-sm font-medium">{t("business.review.evidence", "What the receipt says")}</h3><ul className="space-y-2 text-sm">{detail.evidence.lines.map((line, index) => <li key={index} className="flex justify-between gap-3"><span>{line.description}</span><span>{formatMoney(line.amount, detail.evidence?.currency ?? null, i18n.resolvedLanguage ?? resolveLanguage({}))}</span></li>)}</ul></div> : null}
     <ReceiptSourcePreview detail={detail} />
   </>;
 }
 
 function NotePreview({ note, source, accounts }: { note: BusinessCapture; source: BusinessDataSource; accounts: readonly BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {

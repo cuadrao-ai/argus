@@ -16,6 +16,7 @@ import { copyText } from "./foundation/CopyButton";
 import { showToast } from "./foundation/toasts";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { useSourceForwardAddress } from "./useForwardAddress";
+import { resolveLanguage } from "@/lib/language-features";
 
 /**
  * Business expenses, sales, receipts, notes, accounts, emails and email
@@ -49,7 +50,7 @@ export function useBusinessSearch({
   const stateWord = useReceiptStateWord();
   const categoryLabel = useCategoryLabel();
   const forwardAddress = useSourceForwardAddress(owner ? source : null);
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
 
   const recentsServer = useMemo<WorkspaceRecentSearchesServer | undefined>(() => {
     const { searchRecents, addSearchRecent, removeSearchRecent, clearSearchRecents } = source;

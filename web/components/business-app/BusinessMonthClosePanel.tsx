@@ -46,6 +46,7 @@ import { canAddRecords, cardClass, primaryButtonClass, quietButtonClass } from "
 import { useBusiness } from "./BusinessWorkspace";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
+import { resolveLanguage } from "@/lib/language-features";
 
 const monthArrowClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-black/70 transition-colors hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--cuadrao-green)]/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-white/70 dark:hover:bg-white/5";
@@ -100,7 +101,8 @@ export function MonthSwitcher({
   onMonth: (month: string) => void;
   openRequest?: number;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const options = useMemo(() => monthPickerMonths(current, earliest), [current, earliest]);
   const [open, setOpen] = useState(false);
   const [seenRequest, setSeenRequest] = useState(0);
@@ -109,7 +111,7 @@ export function MonthSwitcher({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const listId = useId();
-  const label = formatMonthLabel(month);
+  const label = formatMonthLabel(month, locale);
 
   function close() {
     setOpen(false);
@@ -248,7 +250,7 @@ export function MonthSwitcher({
                 onClick={() => choose(option.month)}
                 className={`flex min-h-11 items-center justify-between gap-2 rounded-item px-3 font-display text-[15px] font-medium ${option.selectable ? "cursor-pointer text-black dark:text-white" : "cursor-not-allowed text-black/35 dark:text-white/30"} ${index === active ? "bg-black/5 dark:bg-white/5" : ""}`}
               >
-                <span>{formatMonthLabel(option.month)}</span>
+                <span>{formatMonthLabel(option.month, locale)}</span>
                 {selected ? <Check className="h-4 w-4 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
               </li>
             );
@@ -345,7 +347,7 @@ export function BusinessMonthCloseView({
   openDocument?: (document: MonthCloseDocument) => (() => void) | null;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [clock] = useState(() => now ?? new Date());
   const currentMonth = currentMonthKey(clock);
   const today = calendarDay(clock);

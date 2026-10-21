@@ -15,6 +15,7 @@ import { Settle } from "./business-skeletons";
 import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
@@ -105,7 +106,7 @@ export function BusinessEmailAddress() {
 /** One received email: subject and where it stands, then who sent it, when, and how many files. */
 export function EmailDeliveryRow({ delivery, onOpen }: { delivery: BusinessEmailDelivery; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   return (
     <li>
       <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
@@ -147,7 +148,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
   inbox?: ReceiptSummary[] | null;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const waiting = delivery.waiting;
   const [body, setBody] = useState<Load<BusinessEmailDetail>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -277,7 +278,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
         <>
           <header>
             <h2 id="email-record-title" className="break-words font-display text-[22px] font-medium leading-7 text-[#172b26] dark:text-white"><WrappingAddress address={words.title(delivery)} /></h2>
-            <p className="mt-1 break-words text-[14px] text-[#56635e] dark:text-white/70">{[words.subject(delivery), formatRelativeTime(delivery.received_at, i18n.resolvedLanguage ?? "en")].join(" · ")}</p>
+            <p className="mt-1 break-words text-[14px] text-[#56635e] dark:text-white/70">{[words.subject(delivery), formatRelativeTime(delivery.received_at, i18n.resolvedLanguage ?? resolveLanguage({}))].join(" · ")}</p>
           </header>
           <EmailDeliveryDetail
             delivery={delivery}

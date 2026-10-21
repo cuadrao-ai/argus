@@ -246,8 +246,8 @@ describe("month close mock client", () => {
 
 describe("month switcher", () => {
   test("the label is the Spanish month name and the year", () => {
-    expect(formatMonthLabel("2026-10")).toBe("Octubre 2026");
-    expect(formatMonthLabel("2026-01")).toBe("Enero 2026");
+    expect(formatMonthLabel("2026-10", "es-419")).toBe("Octubre 2026");
+    expect(formatMonthLabel("2026-01", "es-419")).toBe("Enero 2026");
   });
 
   test("previous and next step across a year, and next stops on the current month", () => {

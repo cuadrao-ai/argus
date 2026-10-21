@@ -10,6 +10,7 @@ import { formatTimestamp } from "./business-format";
 import { quietButtonClass, secondaryButtonClass, useChannelLabel } from "./business-ui";
 import { DelayedSourceWell } from "./business-skeletons";
 import { SURFACE_CARD } from "./foundation/surfaces";
+import { resolveLanguage } from "@/lib/language-features";
 
 export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptSummary, "id" | "media_type" | "filename" | "received_at" | "channel" | "email_delivery_ids"> }) {
   const { t, i18n } = useTranslation();
@@ -70,7 +71,7 @@ export default function ReceiptSourcePreview({ detail }: { detail: Pick<ReceiptS
           {detail.channel === "email" && firstEmail ? <>{" · "}<button type="button" data-testid="receipt-see-email" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_email", "See email")}</button></> : null}
         </p>
         {deliveries > 1 ? <p className="mt-1" data-testid="receipt-email-times">{t("business.dossier.email_times", { count: deliveries, defaultValue: "This file arrived {{count}} times by email." })}{firstEmail && detail.channel !== "email" ? <>{" "}<button type="button" className={quietButtonClass} onClick={() => openPanel({ kind: "email", emailId: firstEmail })}>{t("business.dossier.see_first_email", "See the first email")}</button></> : null}</p> : null}
-        <p className="mt-1">{t("business.dossier.received", "Received {{time}}", { time: formatTimestamp(detail.received_at, i18n.resolvedLanguage ?? "en") })}</p>
+        <p className="mt-1">{t("business.dossier.received", "Received {{time}}", { time: formatTimestamp(detail.received_at, i18n.resolvedLanguage ?? resolveLanguage({})) })}</p>
       </figcaption>
     </figure>
   );

@@ -23,6 +23,7 @@ import { EmptyState } from "./foundation/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Settle } from "./business-skeletons";
 import { showToast } from "./foundation/toasts";
+import { resolveLanguage } from "@/lib/language-features";
 
 export { inboxCount, openNotesByDraft, type OpenNote } from "./inbox-count";
 
@@ -62,7 +63,7 @@ export function bandejaRows(list: ListKey, receipts: readonly ReceiptSummary[], 
  */
 export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: ReceiptSummary; open?: boolean; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const stateWord = useReceiptStateWord();
   const Icon = receipt.media_type === "application/pdf" ? FileText : ImageIcon;
   const problem = receipt.status === "needs_attention";
@@ -106,7 +107,7 @@ export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: Receipt
 
 function NoteRow({ note, open, onOpen }: { note: OpenNote; open: boolean; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   return (
     <li aria-current={open ? "true" : undefined} data-testid="bandeja-note" className={`rounded-item ${OPEN_ROW_CLASS}`}>
       <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-3 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
@@ -133,7 +134,7 @@ function NoteRow({ note, open, onOpen }: { note: OpenNote; open: boolean; onOpen
  */
 function EmailRow({ email, open, onOpen }: { email: BandejaEmail; open: boolean; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const { source, emailRefresh } = useBusiness();
   const words = useEmailWords();
   const [retrying, setRetrying] = useState(false);

@@ -10,6 +10,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { customPeriod, formatShortDay, PERIOD_PRESETS, todayIso, type Period, type PeriodKey } from "./business-format";
 import { RangeCalendar, type DayRange } from "./foundation/RangeCalendar";
 import { primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { resolveLanguage } from "@/lib/language-features";
 
 /** The longest range the calendar takes, the export's own limit. */
 const MAX_DAYS = 366;
@@ -19,7 +20,7 @@ const CHOSEN = "chosen";
 /** A period's name: the preset's word, or a chosen range as "21 sept – 20 oct". */
 export function usePeriodLabel() {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "es-419";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   return (period: Pick<Period, "key" | "from" | "to">) =>
     period.key === "custom"
       ? t("business.period.range", { from: formatShortDay(period.from, locale), to: formatShortDay(period.to ?? todayIso(), locale), defaultValue: "{{from}} – {{to}}" })

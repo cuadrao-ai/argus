@@ -10,6 +10,7 @@ import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks, recordFiscalMark } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { useRecordTray } from "./record-tray";
+import { resolveLanguage } from "@/lib/language-features";
 
 /**
  * One saved expense opened by its id (a direct ?expense= link). It resolves
@@ -26,7 +27,7 @@ export default function ExpenseDetailPanel({ expenseId }: { expenseId: string })
   const { t, i18n } = useTranslation();
   const { source, records, openPanel } = useBusiness();
   const categoryLabel = useCategoryLabel();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [state, setState] = useState<{ status: "loading" } | { status: "ready"; expense: BusinessExpenseDetail } | { status: "failed" }>({ status: "loading" });
   const panel = useRef<HTMLElement>(null);
   const inTray = useRecordTray() !== null;

@@ -9,6 +9,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { quietButtonClass, useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import FiscalRevision from "./FiscalRevision";
+import { resolveLanguage } from "@/lib/language-features";
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
 type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; approved?: boolean; testId?: string; detail?: ReactNode };
@@ -39,7 +40,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   approval?: BusinessDossier["approval_result"];
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const categoryLabel = useCategoryLabel();
   const [open, setOpen] = useState(false);
   const titleId = useId();

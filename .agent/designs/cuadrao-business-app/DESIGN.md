@@ -473,7 +473,9 @@ table only.
 
 ## 5. Dominican formats and language
 
-- The app is always in Spanish (`es-419`).
+- The app is Spanish first (`es-419`) by default. A person may choose English in
+  Preferencias > Idioma de la app, saved on the account. `resolveLanguage` is the
+  one owner: the account, then the device, then `es-419`. The browser is ignored.
 - A typed date reads DD/MM/AAAA. A shown date follows [Numbers](#numbers).
 - Every amount shows its currency, once per list as [Numbers](#numbers) says,
   with two decimals. Number separators follow the `es-419` locale.
