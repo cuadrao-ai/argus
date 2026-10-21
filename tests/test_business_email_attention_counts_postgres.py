@@ -1,11 +1,13 @@
 """The Bandeja counts include each email that is a row of its own (still being
 read, or brought no receipt), over HTTP on real Postgres: the sidebar badge, the
 Bandeja list and the Resumen read one number, and an email that later brings a
-receipt is never counted twice."""
+receipt is never counted twice. An email is never "por revisar"
+(``ready_to_review_count``), and a file it repeats is not a receipt it brought."""
 
 from __future__ import annotations
 
 import asyncio
+import io
 from email.message import EmailMessage
 from types import SimpleNamespace
 from uuid import uuid4
@@ -17,9 +19,11 @@ from argus.api.routers import business as business_api
 from argus.api.routers import email_intake as email_api
 from argus.domain.ingestion.documents.models import DocumentExtractionError
 from argus.domain.ingestion.documents.service import DocumentServiceError
+from argus.domain.owner_scope import BusinessSpace
 from faker import Faker
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from tests import test_business_email_intake_postgres as intake
 from tests import test_business_receipt_views_postgres as views
@@ -56,6 +60,35 @@ def with_receipt(*, attached: bool = True) -> bytes:
         msg.add_attachment(
             intake.receipt_png(), maintype="image", subtype="png", filename="recibo.png"
         )
+    return msg.as_bytes()
+
+
+def with_receipt_of(png: bytes) -> bytes:
+    msg = EmailMessage()
+    msg["From"] = "proveedor@example.test"
+    msg["Subject"] = fake.sentence()
+    msg.add_attachment(png, maintype="image", subtype="png", filename="recibo.png")
+    return msg.as_bytes()
+
+
+def fresh_png() -> bytes:
+    """A receipt image no earlier email or upload brought."""
+
+    stream = io.BytesIO()
+    Image.new("RGB", (32, 32), fake.color_rgb()).save(stream, format="PNG")
+    return stream.getvalue()
+
+
+def file_and_refused(png: bytes) -> bytes:
+    """One receipt image beside one attachment the reader refuses."""
+
+    msg = EmailMessage()
+    msg["From"] = "proveedor@example.test"
+    msg["Subject"] = fake.sentence()
+    msg.add_attachment(png, maintype="image", subtype="png", filename="recibo.png")
+    msg.add_attachment(
+        b"MZ", maintype="application", subtype="octet-stream", filename="virus.exe"
+    )
     return msg.as_bytes()
 
 
@@ -109,6 +142,11 @@ def numbers(bandeja) -> dict[str, int]:
         "presentation",
     )
     assert {key: listed[key] for key in both} == {key: found[key] for key in both}
+    assert (
+        listed["ready_to_review_count"]
+        == found["ready_to_review_count"]
+        == overview["ready_to_review_count"]
+    )
     assert overview["needs_attention"] == found["needs_attention_count"]
     assert (
         overview["awaiting_review"] + overview["needs_attention"]
@@ -120,6 +158,7 @@ def numbers(bandeja) -> dict[str, int]:
         "attention": found["needs_attention_count"],
         "reading": found["reading_count"],
         "awaiting": overview["awaiting_review"],
+        "ready": found["ready_to_review_count"],
     }
 
 
@@ -149,6 +188,7 @@ def test_an_email_that_saved_nothing_counts_once_in_every_surface(bandeja):
     assert after["attention"] == before["attention"] + 1
     assert after["reading"] == before["reading"]
     assert after["awaiting"] == before["awaiting"]
+    assert after["ready"] == before["ready"]
     inbox = bandeja.client.get("/business/email/inbox").json()["groups"]
     assert [item["standing"] for group in inbox for item in group["items"]] == [
         "no_receipt"
@@ -183,6 +223,8 @@ def test_an_email_that_brought_a_receipt_counts_as_that_receipt_only(
     assert after["attention"] == before["attention"]
     assert after["reading"] == before["reading"]
     assert after["awaiting"] == before["awaiting"] + 1
+    # The receipt is ready to review; the email's own document never is.
+    assert after["ready"] == before["ready"] + 1
 
 
 def test_a_retry_that_brings_the_receipt_replaces_the_email_count(bandeja, monkeypatch):
@@ -232,6 +274,7 @@ def test_an_email_still_being_read_waits_and_is_reading_not_attention(bandeja):
     assert received["reading"] == before["reading"] + 1
     assert received["attention"] == before["attention"]
     assert received["awaiting"] == before["awaiting"] + 1
+    assert received["ready"] == before["ready"]
     assert bandeja.client.get("/business/receipt-activity").json()["presentation"] == (
         "working"
     )
@@ -248,6 +291,7 @@ def test_an_email_still_being_read_waits_and_is_reading_not_attention(bandeja):
     assert settled["reading"] == before["reading"]
     assert settled["attention"] == before["attention"] + 1
     assert settled["awaiting"] == before["awaiting"]
+    assert settled["ready"] == before["ready"]
 
 
 def test_a_blocked_sender_brought_no_receipt_and_counts(bandeja):
@@ -265,6 +309,7 @@ def test_a_blocked_sender_brought_no_receipt_and_counts(bandeja):
     assert settled["attention"] == before["attention"] + 1
     assert settled["reading"] == before["reading"]
     assert settled["awaiting"] == before["awaiting"]
+    assert settled["ready"] == before["ready"]
 
 
 def test_an_email_that_only_repeats_a_saved_file_is_no_row_and_no_problem(bandeja):
@@ -277,3 +322,41 @@ def test_an_email_that_only_repeats_a_saved_file_is_no_row_and_no_problem(bandej
     assert [part["repeat_of_delivery_id"] for part in detail["parts"]] == [first]
     assert detail["standing"] is None
     assert numbers(bandeja) == before
+
+
+@pytest.mark.parametrize("earlier", ["email", "upload"])
+def test_a_repeated_file_beside_a_refused_part_brought_no_receipt(bandeja, earlier):
+    rig = bandeja.rig
+    png = fresh_png()
+    if earlier == "email":
+        first = arrive(bandeja, with_receipt_of(png))
+        assert standing(bandeja, first) is None
+    else:
+        asyncio.run(
+            rig["documents"].upload(
+                user_id=rig["users"]["owner"],
+                scope=BusinessSpace(rig["route"].space_id),
+                content=png,
+                filename="recibo.png",
+                media_type="image/png",
+                consent=False,
+            )
+        )
+    before = numbers(bandeja)
+    again = arrive(bandeja, file_and_refused(png))
+    detail = bandeja.client.get(f"/business/email/deliveries/{again}").json()
+    assert sorted(part["state"] for part in detail["parts"]) == ["captured", "rejected"]
+    assert standing(bandeja, again) == "no_receipt"
+    after = numbers(bandeja)
+    assert after["pending"] == before["pending"] + 1
+    assert after["attention"] == before["attention"] + 1
+    assert after["ready"] == before["ready"]
+
+
+def test_a_new_file_beside_a_refused_part_is_the_emails_receipt(bandeja):
+    before = numbers(bandeja)
+    delivery_id = arrive(bandeja, file_and_refused(fresh_png()))
+    assert standing(bandeja, delivery_id) is None
+    after = numbers(bandeja)
+    assert after["pending"] == before["pending"] + 1
+    assert after["attention"] == before["attention"]
