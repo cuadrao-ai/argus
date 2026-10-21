@@ -9116,7 +9116,7 @@ The stored setting is the only consent for a Business read, on every path: web u
 
 Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count`, `needs_attention_count`, `ready_to_review_count` and `por_igualar_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
-The Bandeja's counts have three meanings and three names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `needs_attention_count` is how many of those receipts are `needs_attention`, plus each email whose `standing` is `no_receipt`. `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection and returns the same `ready_to_review_count`. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none.
+The Bandeja's counts have three meanings and three names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `needs_attention_count` is how many of those receipts are `needs_attention`, plus each email whose `standing` is `no_receipt`. `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `ready_to_review_count` is the "por revisar" number, the web's `porRevisar` rule: each receipt that is not `confirmed`, not `dismissed`, not an email original, not still being read (`queued`, `preparing`, `read_pending`, or `activity.state` `reading`) and whose `attention` is not `unreadable`, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source, one per draft. An email never counts here, whatever its `standing`. `por_igualar_count` is the Transacciones "Por igualar" number: every bank movement whose state is `sugerencia` or `falta_comprobante` plus every `sin_movimiento` document, from any period, by the movements read rule (`docs/contracts/business-bank-matching.md`). It is null while bank matching is off. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection and returns the same `ready_to_review_count`. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none. Each receipt item of `GET /business/receipts` (either view) and of `GET /business/receipts/{id}` carries `bandeja: {por_revisar, con_problema, leyendo}`, its membership in those buckets by the same three predicates the counts sum: `por_revisar` is the `ready_to_review_count` rule for that receipt, `con_problema` the `needs_attention_count` rule (the receipt is `needs_attention`), `leyendo` the `reading_count` rule (its `activity.state` is `reading`). A `confirmed` or `dismissed` receipt and an email original have all three false. So `ready_to_review_count` equals the receipts flagged `por_revisar` plus the notes, `needs_attention_count` the receipts flagged `con_problema` plus the `no_receipt` emails, and `reading_count` the receipts flagged `leyendo` plus the `reading` emails. The web renders the flags; it does not recompute them. `ReceiptActivityCounts` also carries `confirmed_count` and `dismissed_count`, the receipts that left the Bandeja each way (never the email original), counted over every receipt of the Business whichever `view` is read, so `view=inbox` says what it does not list and the web needs no second fetch of `view=all`.
 
 `POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
 
@@ -9220,7 +9220,24 @@ distinction. There is no fallback lookup guessing which kind a UUID names.
 `space_id`, `space_name`, same-client `accounts`, `draft_id`, `version`,
 `review_state`, typed `facts`, `sources`, `questions`,
 immutable before/after `history`, live `capabilities`, `blockers`,
-`approval_available`, and `approval_result`. Sources expose original text or the
+`approval_available`, `approval_action`, `approval_result`,
+`fiscal_inclusion_available` and `refund_candidates`. `approval_action` is the
+approve action this draft takes, by its kind (`record_expense`,
+`record_income`, `record_refund`, the `action` the approve route's body
+discriminates on), and null while `approval_available` is false.
+`fiscal_inclusion_available` is true when the caller may answer
+`POST /business/drafts/{id}/fiscal-inclusion` now, by the gate that action
+enforces: a member holding `prepare` who is not the owner, on an `open` or
+`accepted` draft whose facts make the 606 question apply (a personal receipt
+with a fiscal number); the owner reads false. `refund_candidates` is the
+server's list of purchases this draft may refund, `[{id, merchant,
+occurred_on, amount, currency}]` with `id` the activity the declaration's
+`purchase_activity_id` names: empty unless the draft's kind is `refund` or its
+fiscal number is a credit note (NCF type 04 or 34) and its date and currency
+are known; otherwise the approved expenses in the draft's currency dated
+within the 30 days up to the draft's date (the 606 rule), restricted to the
+draft's supplier when its RNC is known, newest first, at most 20. The web
+renders the list; it no longer picks a window of its own. Sources expose original text or the
 existing authorized attachment connection, channel and receipt time; receipt
 time does not become activity date. A human form submission has source kind
 `web_action`, channel `web`, and immutable canonical submitted command text in
@@ -9435,6 +9452,12 @@ follows successful capture receipts through their exact immutable revision and
 source, ordered by source receipt time descending, then source ID descending.
 Each item represents a note; multiple notes may name the same draft. Reviewing
 or recording a draft does not rewrite or remove its original notes from search.
+Each item also carries `earlier_count`, how many notes of the same draft were
+received before it (by receipt time, then source ID), counted over every note
+of that draft, not only the page or the notes `q` keeps; the newest note of a
+draft therefore says how many came before it. The page carries `has_more`,
+true when notes exist past `limit`; the server reads one row past the limit
+to say so, and the web no longer infers it from a full page.
 
 Every mutation persists canonical normalized input hash and outcome under its
 idempotency key. A same-input replay returns its recorded result. A changed
@@ -9813,7 +9836,15 @@ accept path recorded.
     when the delivery is no Bandeja row of its own because a receipt it saved
     is (the rule is in receipt activity). `reading` counts in `reading_count`
     and `no_receipt` in `needs_attention_count`; both count in
-    `pending_review_count`.
+    `pending_review_count`. Beside `standing`, from the same rule, each
+    delivery carries `saved_receipt_count`, the number of its parts saved as a
+    receipt (`captured` with a `document_id`, repeats included), and
+    `no_receipt_reason`, a code saying why it brought no receipt: the
+    delivery's own `error_code` when it names a cause other than
+    `email_parts_rejected`, else the first `rejected` part's `error_code`,
+    else `email_no_attachment` when the email carried no file, else
+    `email_parts_rejected`. It is null unless `standing` is `no_receipt`. The
+    web maps the code to copy; it does not derive the reason itself.
     `waiting` is an additive nullable object. While a `received` delivery is
     deferred by either daily allowance and its durable `available_at` is still
     in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`

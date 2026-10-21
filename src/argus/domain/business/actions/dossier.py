@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
 from argus.domain.business.actions.facts import facts_of
-from argus.domain.business.actions.marks import draft_marks
+from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
+from argus.domain.business.actions.refunds import refund_candidates
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.actions import APPROVAL_ACTION
 from argus.domain.business.contracts.dossier import (
     AccountChoice,
     ApprovalResult,
@@ -115,6 +118,16 @@ def blockers(facts: BusinessFacts, accounts: tuple[AccountChoice, ...]) -> list[
     return result
 
 
+def _fiscal_records(tx: ActionTransaction, activities: list[dict[str, Any]]):  # noqa: ANN202
+    """The approved records as the 606 validation reads its originals."""
+
+    from argus.domain.business.dgii_snapshot import fiscal_snapshot
+
+    with tx.connection.cursor(row_factory=dict_row) as cursor:
+        records, _rnc, _name = fiscal_snapshot(cursor, tx.context, activities)
+    return records
+
+
 def approval_of(
     receipt: Mapping[str, Any] | None,
     activity_id: UUID | None,
@@ -151,7 +164,15 @@ def approval_of(
     return None
 
 
-def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
+def dossier(
+    tx: ActionTransaction,
+    draft_id: UUID,
+    ledger: Callable[[], list[dict[str, Any]]] | None = None,
+) -> BusinessDossier:
+    """The draft as a person reviews it. ``ledger`` reads the Business's money
+    activities when the draft may refund a purchase; without it the dossier
+    names no refund candidates."""
+
     try:
         event = tx.imports.event(str(draft_id))
     except EventNotFound:
@@ -224,6 +245,7 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         revisions,
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
+    approvable = not blocked and "approve" in tx.authorization.capabilities
     return BusinessDossier(
         **context.model_dump(),
         draft_id=draft_id,
@@ -234,8 +256,13 @@ def dossier(tx: ActionTransaction, draft_id: UUID) -> BusinessDossier:
         questions=questions,
         history=revisions,
         blockers=tuple(blocked),
-        approval_available=not blocked and "approve" in tx.authorization.capabilities,
+        approval_available=approvable,
+        approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,
         approval_result=approval,
+        fiscal_inclusion_available=fiscal_inclusion_available(tx, facts, event.state),
+        refund_candidates=refund_candidates(
+            facts, lambda: _fiscal_records(tx, ledger() if ledger else [])
+        ),
         read_purchases=resolution.read_purchases,
         read_total=resolution.read_total,
         unrecorded_purchases=resolution.unrecorded_purchases(),

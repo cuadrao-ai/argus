@@ -42,7 +42,7 @@ from argus.domain.ingestion.email_intake.signatures import (
     WebhookSignatureError,
     verify_webhook,
 )
-from argus.domain.ingestion.email_intake.standing import email_standing
+from argus.domain.ingestion.email_intake.standing import email_row
 from argus.domain.ingestion.email_intake.store import RecipientTaken
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
@@ -388,7 +388,9 @@ def alias_suggestion(
     _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
-    chosen = (name or runtime.store.space_name(context.scope.owner.space_id) or "").strip()
+    chosen = (
+        name or runtime.store.space_name(context.scope.owner.space_id) or ""
+    ).strip()
     if not chosen:
         raise _problem(
             request, 422, "email_alias_name_required", "A business name is required."
@@ -412,9 +414,7 @@ def change_receiving_address(
     space_id = context.scope.owner.space_id
     current = runtime.store.route_for_space(space_id)
     if current is None:
-        raise _problem(
-            request, 409, "email_route_unavailable", "Email receiving is off."
-        )
+        raise _problem(request, 409, "email_route_unavailable", "Email receiving is off.")
     _require_usable(request, runtime, current)
     domain = _configured_domain(request)
     report = _alias_report(runtime, body.alias, except_route_id=current.id)
@@ -600,9 +600,7 @@ def _group(
     repeats: dict[str, bool] = {}
     parts = runtime.store.parts(delivery.id)
     for part in parts:
-        repeat_of_delivery, repeat_of_upload = part_repeat(
-            runtime, delivery, part, known
-        )
+        repeat_of_delivery, repeat_of_upload = part_repeat(runtime, delivery, part, known)
         repeats[part.id] = bool(repeat_of_delivery or repeat_of_upload)
         result["parts"].append(
             {
@@ -611,7 +609,10 @@ def _group(
                 "repeat_of_upload": repeat_of_upload,
             }
         )
-    result["standing"] = email_standing(delivery, parts, lambda part: repeats[part.id])
+    row = email_row(delivery, parts, lambda part: repeats[part.id])
+    result["standing"] = row.standing
+    result["saved_receipt_count"] = row.saved_receipt_count
+    result["no_receipt_reason"] = row.no_receipt_reason
     return result
 
 

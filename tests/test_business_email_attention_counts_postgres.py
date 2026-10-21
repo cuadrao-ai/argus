@@ -170,6 +170,14 @@ def standing(bandeja, delivery_id: str) -> str | None:
     detail = bandeja.client.get(f"/business/email/deliveries/{delivery_id}").json()
     assert detail["standing"] == row["standing"]
     assert "needs_attention" not in row
+    # The list and the detail also agree on what the email saved and why it
+    # brought nothing; the reason is a code, given only with no_receipt.
+    for name in ("saved_receipt_count", "no_receipt_reason"):
+        assert detail[name] == row[name], name
+    assert row["saved_receipt_count"] == len(
+        [part for part in row["parts"] if part["state"] == "captured"]
+    )
+    assert (row["no_receipt_reason"] is not None) == (row["standing"] == "no_receipt")
     return row["standing"]
 
 
@@ -183,6 +191,13 @@ def test_an_email_that_saved_nothing_counts_once_in_every_surface(bandeja):
         None,
     )
     assert standing(bandeja, delivery_id) == "no_receipt"
+    [row] = [
+        item
+        for item in bandeja.client.get("/business/email/deliveries").json()["items"]
+        if item["id"] == delivery_id
+    ]
+    # The email's own code names no cause, so the refused file's code is the reason.
+    assert row["no_receipt_reason"] == row["parts"][0]["error_code"] is not None
     after = numbers(bandeja)
     assert after["pending"] == before["pending"] + 1
     assert after["attention"] == before["attention"] + 1
@@ -304,6 +319,13 @@ def test_a_blocked_sender_brought_no_receipt_and_counts(bandeja):
     saved = rig["store"].get(blocked, rig["route"].space_id)
     assert (saved.state, saved.error_code) == ("rejected", "email_sender_blocked")
     assert standing(bandeja, blocked) == "no_receipt"
+    # The email's own cause is the reason, as a code.
+    assert (
+        bandeja.client.get(f"/business/email/deliveries/{blocked}").json()[
+            "no_receipt_reason"
+        ]
+        == "email_sender_blocked"
+    )
     settled = numbers(bandeja)
     assert settled["pending"] == before["pending"] + 1
     assert settled["attention"] == before["attention"] + 1
