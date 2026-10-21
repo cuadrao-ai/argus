@@ -254,6 +254,16 @@ def _session(
 
 
 def _collect(authority, connection, context: ActionContext):
+    return collect_documents(
+        authority.pool, connection, context.owner_id, str(context.actor.space_id)
+    )
+
+
+def collect_documents(pool, connection, owner_id: str, space_id: str):
+    """The Business's recorded documents and their activities, read on
+    ``connection``. Bank matching reads the same documents."""
+
+    from argus.domain.owner_scope import BusinessSpace
     from argus.domain.recording.canonical_groups import VisibleAccounts, load
     from argus.domain.recording.money_reads import current_activities
     from argus.domain.recording.postgres_repository import (
@@ -261,10 +271,10 @@ def _collect(authority, connection, context: ActionContext):
     )
 
     canonical = load(
-        PostgresFinancialAccountRepository(authority.pool),
+        PostgresFinancialAccountRepository(pool),
         connection,
-        {context.owner_id},
-        scope=context.scope,
+        {owner_id},
+        scope=BusinessSpace(space_id),
     )
     activities = tuple(
         current_activities(
@@ -272,18 +282,16 @@ def _collect(authority, connection, context: ActionContext):
                 [
                     stored
                     for stored in canonical.records
-                    if stored.account.user_id == context.owner_id
+                    if stored.account.user_id == owner_id
                 ],
                 canonical,
             )
         )
     )
     with connection.cursor(row_factory=dict_row) as cursor:
-        cursor.execute(_DRAFTS, (context.owner_id, context.actor.space_id))
+        cursor.execute(_DRAFTS, (owner_id, space_id))
         resolutions = cursor.fetchall()
-        cursor.execute(_SETTLEMENTS, (context.actor.space_id, context.owner_id))
+        cursor.execute(_SETTLEMENTS, (space_id, owner_id))
         settlements = {row["activity_id"]: row for row in cursor.fetchall()}
-    documents = project_documents(
-        activities, resolutions, settlements, str(context.actor.space_id)
-    )
+    documents = project_documents(activities, resolutions, settlements, space_id)
     return documents, {str(activity["activity_id"]): activity for activity in activities}

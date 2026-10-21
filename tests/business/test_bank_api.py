@@ -48,7 +48,7 @@ def test_the_routes_are_absent_until_the_pilot_is_on(client: TestClient) -> None
     assert response.headers["cache-control"] == "no-store"
 
 
-def test_import_confirm_and_sin_comprobante(bank_client: TestClient, identities) -> None:  # noqa: ANN001
+def test_import_confirm_and_falta_comprobante(bank_client: TestClient, identities) -> None:  # noqa: ANN001
     owner = started(Owner(bank_client, ALICE, identities[ALICE]["id"]))
     account_id = owner.account()
     service = bank_matching_service()
@@ -75,7 +75,10 @@ def test_import_confirm_and_sin_comprobante(bank_client: TestClient, identities)
     body = created.json()
     assert body["reader_id"] == "banco_popular"
     assert body["inserted_count"] == 2
-    assert {line["state"] for line in body["lines"]} == {"sin_comprobante"}
+    assert [line["state"] for line in body["lines"]] == [
+        "sugerencia",
+        "falta_comprobante",
+    ]
     suggestion = body["suggestions"][0]
     assert suggestion["status"] == "pending"
     assert suggestion["actionable"] is True

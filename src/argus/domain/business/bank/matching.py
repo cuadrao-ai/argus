@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date
 from decimal import Decimal
 
@@ -84,3 +85,31 @@ def derive_confidence(parts: ScoreParts) -> Decimal:
 
     total = parts.amount_score + parts.date_score + parts.merchant_score
     return (total / Decimal(3)).quantize(_QUANTUM)
+
+
+def new_offers(
+    lines: Iterable[BankLine],
+    targets: Iterable[MatchTarget],
+    known_pairs: frozenset[tuple[str, str]],
+    taken: frozenset[str],
+) -> list[tuple[BankLine, MatchTarget, ScoreParts]]:
+    """Pairs that pass the offer rules, were never stored, and do not point at
+    a target another line already holds. A stored pair, declined included,
+    is never offered again."""
+
+    by_kind: dict[str, list[MatchTarget]] = {}
+    for target in targets:
+        if target.id not in taken:
+            by_kind.setdefault(target.kind, []).append(target)
+    offers = []
+    for line in lines:
+        kind = expected_kind(line.amount)
+        if kind is None:
+            continue
+        for target in by_kind.get(kind, ()):
+            if (str(line.id), target.id) in known_pairs:
+                continue
+            parts = score_parts(line, target)
+            if parts is not None:
+                offers.append((line, target, parts))
+    return offers

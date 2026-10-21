@@ -1,7 +1,8 @@
 """Import a statement, offer pairs, and record the person's decision.
 
-``unmatched_charge_count`` is the sin comprobante count for one space and
-period. Month close reads that function. It does not own these tables.
+``unmatched_charge_count`` counts the charges with no confirmed receipt for
+one space and period. Month close reads that function. It does not own these
+tables.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from uuid import UUID
 from argus.domain.business.bank.matching import (
     derive_confidence,
     expected_kind,
+    new_offers,
     normalize_description,
     score_parts,
 )
@@ -31,6 +33,7 @@ from argus.domain.business.bank.model import (
     Suggestion,
     TargetCatalog,
 )
+from argus.domain.business.bank.movements import movement_state
 from argus.domain.business.bank.readers import select_reader
 from argus.domain.business.bank.store import MemoryBankStore, new_id
 
@@ -289,12 +292,22 @@ class BankMatchingService:
         )
 
     def line_state(self, line: BankLine) -> str:
-        confirmed = self.store.confirmed_for_line(line.id)
-        if confirmed is not None:
-            return "matched"
-        if line.amount < 0:
-            return "sin_comprobante"
-        return "unmatched"
+        pairs = self.store.list_suggestions(line.space_id, line_id=line.id)
+        taken = self._taken(line.space_id)
+        state, _reason = movement_state(
+            line.amount,
+            matched=any(pair.status == "confirmed" for pair in pairs),
+            has_offer=any(
+                pair.status == "pending" and pair.target_id not in taken for pair in pairs
+            ),
+        )
+        return state
+
+    def _taken(self, space_id: UUID) -> frozenset[str]:
+        return frozenset(
+            row.target_id
+            for row in self.store.list_suggestions(space_id, status="confirmed")
+        )
 
     def _offer(self, space_id: UUID, lines: tuple[BankLine, ...]) -> list[Suggestion]:
         if not lines:
@@ -302,35 +315,38 @@ class BankMatchingService:
         window = timedelta(days=MATCH_WINDOW_DAYS)
         start = min(line.occurred_on for line in lines) - window
         end = max(line.occurred_on for line in lines) + window
-        created: list[Suggestion] = []
-        for line in lines:
-            kind = expected_kind(line.amount)
-            if kind is None:
-                continue
-            targets = self.catalog.approved_targets(
+        kinds = {expected_kind(line.amount) for line in lines} - {None}
+        targets = [
+            target
+            for kind in sorted(kinds)
+            for target in self.catalog.approved_targets(
                 space_id, kind=kind, period_start=start, period_end=end
             )
-            for target in targets:
-                if self.store.get_pair(line.id, target.kind, target.id) is not None:
-                    continue
-                parts = score_parts(line, target)
-                if parts is None:
-                    continue
-                suggestion = Suggestion(
-                    id=new_id(),
-                    space_id=space_id,
-                    line_id=line.id,
-                    target_id=target.id,
-                    target_kind=target.kind,
-                    status="pending",
-                    parts=parts,
-                    created_at=self._clock(),
-                    decided_at=None,
-                    decided_by=None,
-                    decision_key=None,
-                )
-                self.store.put_suggestion(suggestion)
-                created.append(suggestion)
+        ]
+        known = frozenset(
+            (str(row.line_id), row.target_id)
+            for line in lines
+            for row in self.store.list_suggestions(space_id, line_id=line.id)
+        )
+        created: list[Suggestion] = []
+        for line, target, parts in new_offers(
+            lines, targets, known, self._taken(space_id)
+        ):
+            suggestion = Suggestion(
+                id=new_id(),
+                space_id=space_id,
+                line_id=line.id,
+                target_id=target.id,
+                target_kind=target.kind,
+                status="pending",
+                parts=parts,
+                created_at=self._clock(),
+                decided_at=None,
+                decided_by=None,
+                decision_key=None,
+            )
+            self.store.put_suggestion(suggestion)
+            created.append(suggestion)
         return created
 
     def _recheck(self, space_id: UUID, suggestion: Suggestion) -> None:

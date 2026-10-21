@@ -45,9 +45,10 @@ def start_bank_matching(app) -> None:  # noqa: ANN001
     pool = getattr(app.state, "financial_accounts_pool", None)
     try:
         if pool is not None:
+            from argus.domain.business.bank.movements_store import DocumentCatalog
             from argus.domain.business.bank.store_postgres import PostgresBankStore
 
-            store = PostgresBankStore(pool)
+            store, catalog = PostgresBankStore(pool), DocumentCatalog(pool)
         elif api_state.PERSISTENCE_MODE == "supabase":
             logger.warning(
                 "Business bank matching needs the financial accounts pool; surface stays off"
@@ -55,8 +56,8 @@ def start_bank_matching(app) -> None:  # noqa: ANN001
             configure_bank_matching(None)
             return
         else:
-            store = MemoryBankStore()
-        configure_bank_matching(BankMatchingService(store, EmptyCatalog(), account_of))
+            store, catalog = MemoryBankStore(), EmptyCatalog()
+        configure_bank_matching(BankMatchingService(store, catalog, account_of))
     except Exception as exc:
         logger.warning(
             "Business bank matching construction failed; surface stays off",

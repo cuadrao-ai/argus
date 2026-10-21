@@ -218,7 +218,7 @@ def test_a_reader_cannot_import_and_a_second_account_is_refused() -> None:
     assert second.value.code == "one_account"
 
 
-def test_october_statement_ends_matched_or_on_sin_comprobante() -> None:
+def test_october_statement_ends_igualada_or_missing_its_receipt() -> None:
     """Synthetic 1–17 Oct. Deposits need a venta stub. The unmatched charge is the list."""
 
     charge_a, charge_b, unmatched, sale_a, sale_b = _NAMES
@@ -249,8 +249,14 @@ def test_october_statement_ends_matched_or_on_sin_comprobante() -> None:
             suggestion_id=suggestion.id,
             idempotency_key=f"yes-{suggestion.id}",
         )
-    states = {service.line_state(line) for line in imported.lines}
-    assert states <= {"matched", "sin_comprobante"}
+    states = [service.line_state(line) for line in imported.lines]
+    assert states == [
+        "igualada",
+        "igualada",
+        "falta_comprobante",
+        "igualada",
+        "igualada",
+    ]
     open_charges = service.unmatched_charges(
         space_id=SPACE,
         period_start=date(2026, 10, 1),
@@ -264,10 +270,10 @@ def test_october_statement_ends_matched_or_on_sin_comprobante() -> None:
         configure_bank_matching(None)
 
 
-def test_a_deposit_without_a_venta_is_not_sin_comprobante() -> None:
+def test_a_deposit_without_a_venta_is_missing_proof_but_not_an_unmatched_charge() -> None:
     service = _world()
     imported = _import(service, _popular([("10/10/2026", "Cobro", "", "5000.00")]))
-    assert service.line_state(imported.lines[0]) == "unmatched"
+    assert service.line_state(imported.lines[0]) == "falta_comprobante"
     assert (
         service.unmatched_charge_count(SPACE, date(2026, 10, 1), date(2026, 10, 17)) == 0
     )
