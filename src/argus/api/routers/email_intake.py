@@ -23,7 +23,7 @@ from argus.api.business import (
 from argus.api.client_ip import resolve_client_ip
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
-from argus.api.email_intake import email_intake, webhook_enabled
+from argus.api.email_intake import email_intake, part_repeat, webhook_enabled
 from argus.api.ingestion import ingestion_hub
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.domain.business.actions import BusinessActions
@@ -42,6 +42,7 @@ from argus.domain.ingestion.email_intake.signatures import (
     WebhookSignatureError,
     verify_webhook,
 )
+from argus.domain.ingestion.email_intake.standing import email_standing
 from argus.domain.ingestion.email_intake.store import RecipientTaken
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 
@@ -596,25 +597,13 @@ def _group(
         else runtime.store.membership(delivery.space_id)
     )
     result["parts"] = []
-    for part in runtime.store.parts(delivery.id):
-        earlier = known.get(part.document_id or "", {}).get("delivery_ids") or []
-        first = earlier[0] if earlier else None
-        repeat_of_delivery = first if first and first != delivery.id else None
-        repeat_of_upload = False
-        if part.document_id and repeat_of_delivery is None:
-            # The Business, not the person, is the unit: a file anyone saved in
-            # this Business before the email came makes the email the repeat.
-            draft = runtime.documents.store.draft(
-                user_id=delivery.principal_id, connection_id=part.document_id
-            )
-            earliest = (
-                runtime.documents.store.earliest_saved(
-                    space_id=delivery.space_id, sha256=draft.sha256
-                )
-                if draft is not None
-                else None
-            )
-            repeat_of_upload = earliest is not None and earliest < delivery.received_at
+    repeats: dict[str, bool] = {}
+    parts = runtime.store.parts(delivery.id)
+    for part in parts:
+        repeat_of_delivery, repeat_of_upload = part_repeat(
+            runtime, delivery, part, known
+        )
+        repeats[part.id] = bool(repeat_of_delivery or repeat_of_upload)
         result["parts"].append(
             {
                 **asdict(part),
@@ -622,6 +611,7 @@ def _group(
                 "repeat_of_upload": repeat_of_upload,
             }
         )
+    result["standing"] = email_standing(delivery, parts, lambda part: repeats[part.id])
     return result
 
 

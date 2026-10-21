@@ -9107,7 +9107,7 @@ The stored setting is the only consent for a Business read, on every path: web u
 
 Receipt summary/detail add `activity:{state,unread,completion_cursor}` after canonical Business draft overlay. State is `saved_unread|reading|ready|read_failed|blocked|inactive`; blocked is reserved for a security denial. `GET /business/receipt-activity` returns server `reading_count`, `unread_count`, `presentation:working|unread|none`, `pending_review_count` and `needs_attention_count`. Saved unread and unread ready receipts count as unread; security-blocked and context originals do not. Existing completions before the migration baseline start read. A new completion on an older receipt is unread.
 
-The Bandeja's counts have two meanings and two names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists). `needs_attention_count` is how many of those receipts are `needs_attention`. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none.
+The Bandeja's counts have two meanings and two names. `unread_count` is new activity this person has not opened; the web shows it as the badge's activity dot, never as the Bandeja number. `pending_review_count` is every row the Bandeja lists, opened or not: each receipt that is neither `confirmed` nor `dismissed` and is not an email original, plus each draft awaiting review (`open` or `accepting`) with a saved note and no receipt source (the drafts `GET /business/captures?view=inbox` lists), plus each email whose `standing` is not null (see email deliveries). `needs_attention_count` is how many of those receipts are `needs_attention`, plus each email whose `standing` is `no_receipt`. `reading_count` also counts each email whose `standing` is `reading`, and `presentation` is `working` while any receipt or email is being read. An email's `standing` is `null` when it is no row of its own: it saved a new file (one no earlier email and no earlier upload brought), so that receipt is the row; it saved its own text as the original and no attachment, so that original is the row; or it settled with every saved file a repeat and nothing refused. Otherwise it is `reading` while the delivery is `received` or `processing` or any part is `pending`, and `no_receipt` once it settled and it is `rejected`, has no parts, or has a refused part. Mail from a blocked sender is `no_receipt`. Once a retry saves a new file, the email stops counting and that receipt counts instead, so nothing counts twice. `GET /business/email/deliveries`, `/{id}` and `/inbox` return `standing` on each delivery. `GET /business/receipts` returns the same object as `activity` for either view, and `GET /business/overview` derives its `needs_attention` and `awaiting_review` (`pending_review_count` minus `needs_attention_count`) from the same server projection. The sidebar badge and the Resumen's "En tu bandeja" render `pending_review_count`; the Resumen's attention line renders `needs_attention_count`. An unknown count renders no number, never 0. The in-memory app keeps no notes and counts none.
 
 `POST /business/receipts/{receipt_id}/read` takes `{completion_cursor}` and returns current activity under the caller's live read grant. Only the current server cursor advances that person's boundary. A stale cursor leaves newer content unread. Seeing is separate for each person and Business. GET, opening a panel and seen mutations never change financial records or list ordering. Automatic web acknowledgement requires hydrated canonical ready content intersecting the visible, focused record viewport. Explicit mark read is also supported.
 
@@ -9799,6 +9799,12 @@ accept path recorded.
     null otherwise; `repeat_of_upload`: true when the document was saved another
     way, a web upload, before this email arrived). Each Business sees only its
     own deliveries; the same bytes in two Businesses never mark each other.
+    `standing` is `reading` while the delivery is still being read with no
+    receipt saved yet, `no_receipt` once it settled without one, and `null`
+    when the delivery is no Bandeja row of its own because a receipt it saved
+    is (the rule is in receipt activity). `reading` counts in `reading_count`
+    and `no_receipt` in `needs_attention_count`; both count in
+    `pending_review_count`.
     `waiting` is an additive nullable object. While a `received` delivery is
     deferred by either daily allowance and its durable `available_at` is still
     in the future, it is `{reason: "daily_budget", retry_at: <UTC timestamp>}`
@@ -10078,7 +10084,9 @@ accept path recorded.
   `awaiting_review`, `needs_attention`, `last_received_at` and
   `last_confirmed_at`. `awaiting_review` plus `needs_attention` equals the
   Bandeja's `pending_review_count` (see receipt activity): an email original is
-  context, never a receipt awaiting review.
+  context, never a receipt awaiting review. `needs_attention` includes each
+  email whose `standing` is `no_receipt`; `awaiting_review` includes each email
+  whose `standing` is `reading`.
 - GET `/api/v1/business/updates` returns `{items}` derived from receipt states
   (`receipt_ready`, `receipt_needs_attention`, `expense_confirmed`), newest
   first, each with the receipt's `error_code` and `attention`. Nothing is
@@ -10125,6 +10133,31 @@ accept path recorded.
   one with no `kind`, answers 422 `business_search_invalid_cursor`. When the
   list's records changed since the cursor was issued it answers 409
   `business_search_stale_cursor`; search again from the first page.
+  Each list ranks the records this member opened before first (most opened,
+  then most recently opened); the rest keep the order above. Opens are per
+  member and per Business: the owner and a grantee in the same Business rank
+  by their own. An open recorded after a first page reorders that list, so
+  its cursor answers 409.
+- Search memory belongs to the signed-in member in the Business their live
+  grant names; any live grant may keep its own, a read-only one included.
+  No member ever reads or changes another member's.
+  - GET `/api/v1/business/search/recents` returns `{items: [{id, q,
+    searched_at}]}`, the member's 10 newest distinct searches, newest first.
+  - POST `/api/v1/business/search/recents` with `{q}` (1 to 512 characters
+    after trimming; one that folds to nothing, as a lone accent mark, is
+    422) saves one and answers 201 `{id, q, searched_at}`. The
+    same query again, folded as search folds it (`Ferretería`,
+    ` ferreteria `), keeps its id, takes the new text and moves to the top.
+    The eleventh drops the oldest.
+  - DELETE `/api/v1/business/search/recents/{id}` removes one (204); an id
+    that is not this member's in this Business is 404
+    `business_search_recent_not_found`. DELETE
+    `/api/v1/business/search/recents` removes all of the member's recents in
+    this Business (204).
+  - POST `/api/v1/business/search/opens` with `{kind, id}` records that the
+    member opened that record from a result (204). `kind` is one of the
+    search lists and `id` the record's id as the list gives it. The member's
+    200 most recently opened records are kept.
 
 Another person's receipt id answers 404 `receipt_not_found` on every receipt
 route. 

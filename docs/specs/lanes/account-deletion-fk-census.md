@@ -175,6 +175,8 @@ Every uuid column whose name marks a person or a membership, or that has a forei
 | `business_receipt_consent_commands.owner_id` | no | `auth.users` CASCADE |
 | `business_receipt_read_states.person_id` | no | `auth.users` CASCADE |
 | `business_receipt_reading_consents.owner_id` | no | `auth.users` CASCADE |
+| `business_search_opens.user_id` | no | `auth.users` CASCADE |
+| `business_search_recents.user_id` | no | `auth.users` CASCADE |
 | `business_turns.actor_id` | no | `auth.users` CASCADE |
 | `chat_turn_lifecycles.user_id` | no | `profiles` CASCADE |
 | `collection_strategies.user_id` | no | `profiles` CASCADE |
@@ -457,6 +459,10 @@ The October 10 C0 catalog adds sixteen foreign keys, all nondeferrable `ON DELET
 | `business_receipt_read_states` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
 | `business_receipt_reading_consents` | `owner_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | The consent generation goes with its actual owner at step 7; do not transfer consent to a placeholder. |
 | `business_receipt_reading_consents` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: consent and personal attention belong to the actual person and Business. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_search_opens` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_search_opens` | `user_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its actual member at step 7; do not transfer it to a placeholder. |
+| `business_search_recents` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its Business space at step 7. |
+| `business_search_recents` | `user_id` | `auth.users` | CASCADE | NO ACTION | no | No re-key: search memory belongs to the actual member in the Business they searched. | Catalog only. Household and guest probes had no rows here. | Goes with its actual member at step 7; do not transfer it to a placeholder. |
 | `business_sender_leases` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Remove worker ownership with the Business space at step 7. |
 | `business_sources` | `connection_id, space_id` | `financial_source_connections` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Existing step 2 source-connection deletion cascades attachments and answered questions before import events. Direct source deletion remains denied. |
 | `business_sources` | `space_id` | `spaces` | CASCADE | NO ACTION | no | No re-key in the first Business slice. | Catalog only. Household and guest probes had no rows here. | Delete message, web-action and other original evidence with its Business space at step 7; no retention exception. |
