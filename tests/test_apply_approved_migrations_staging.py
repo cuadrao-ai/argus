@@ -257,12 +257,38 @@ def test_the_staging_fiscal_profile_and_due_on_records_hold_inside_their_window(
         applier.parse_hosted_approval(text, _STAGING_SHA_GH, versions, (), expires)
 
 
+_STAGING_APPROVAL_I = (
+    "docs/release-manifests/2026-10-20-staging-business-search-memory-apply.json"
+)
+_STAGING_SHA_I = "b50f01f3271384e213d206add1c0ada63e746907"
+_STAGING_VERSIONS_I = ["20261020200000"]
+
+
+def test_the_staging_search_memory_record_holds_inside_its_window() -> None:
+    text = (Path(__file__).resolve().parents[1] / _STAGING_APPROVAL_I).read_text()
+    approval = _staging_approval(_STAGING_APPROVAL_I, _STAGING_SHA_I, _STAGING_VERSIONS_I)
+    expires = datetime.fromisoformat("2026-10-23T22:15:00-05:00")
+    assert (approval.id, approval.expires_at) == ("staging-apply-2026-10-20-c", expires)
+    with pytest.raises(applier.ApplyError, match="different list of versions"):
+        applier.parse_hosted_approval(
+            text, _STAGING_SHA_I, ["20261020120000", "20261020200000"], (), _STAGING_NOW
+        )
+    with pytest.raises(applier.ApplyError, match="different candidate commit"):
+        applier.parse_hosted_approval(
+            text, _STAGING_SHA_GH, _STAGING_VERSIONS_I, (), _STAGING_NOW
+        )
+    with pytest.raises(applier.ApplyError, match="not valid now"):
+        applier.parse_hosted_approval(
+            text, _STAGING_SHA_I, _STAGING_VERSIONS_I, (), expires
+        )
+
+
 _STAGING_REF = "skedzwocnmrhfigiwyzi"
 _STAGING_DIRECT = f"db.{_STAGING_REF}.supabase.co"
 _STAGING_POOLER = "aws-0-us-east-1.pooler.supabase.com"
 _STAGING_OTHER_POOLER = "aws-0-eu-west-1.pooler.supabase.com"
 _STAGING_PASSWORD = "fake-password-do-not-echo"
-_STAGING_NOW = datetime.fromisoformat("2026-10-20T21:00:00-05:00")
+_STAGING_NOW = datetime.fromisoformat("2026-10-20T22:30:00-05:00")
 _STAGING_RECORDS = (
     (_STAGING_APPROVAL, _STAGING_SHA, _STAGING_VERSIONS),
     (_STAGING_APPROVAL_B, _STAGING_SHA_B, _STAGING_VERSIONS_B),
@@ -272,6 +298,7 @@ _STAGING_RECORDS = (
     (_STAGING_APPROVAL_F, _STAGING_SHA_F, _STAGING_VERSIONS_F),
     (_STAGING_APPROVAL_G, _STAGING_SHA_GH, _STAGING_VERSIONS_G),
     (_STAGING_APPROVAL_H, _STAGING_SHA_GH, _STAGING_VERSIONS_H),
+    (_STAGING_APPROVAL_I, _STAGING_SHA_I, _STAGING_VERSIONS_I),
 )
 
 
