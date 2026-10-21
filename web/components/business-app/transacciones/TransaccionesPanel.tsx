@@ -9,10 +9,10 @@ import BusinessAddMenu from "../BusinessAddMenu";
 import BusinessPeriodControl, { usePeriodLabel } from "../BusinessPeriodControl";
 import OutsidePeriodNote from "../OutsidePeriodNote";
 import { formatShortDay } from "../business-format";
-import { cardClass, primaryButtonClass } from "../business-ui";
+import { cardClass, primaryButtonClass, secondaryButtonClass } from "../business-ui";
 import { EmptyState } from "../foundation/EmptyState";
-import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density } from "./table-density";
-import { defaultSegment, headerCurrency, inHeaderOrder, SEGMENTS, segmentCount, suggestionRun, type RecordsTotals, type Segment, type Totals } from "./transacciones-model";
+import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Density, type DensityState } from "./table-density";
+import { headerCurrency, inHeaderOrder, perCurrency, periodCount, SEGMENTS, type CurrencyTotals, type IgualarView, type Money, type RecordsTotals } from "./transacciones-model";
 import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { RecordsList, RecordsTable } from "./TransaccionesRecords";
@@ -35,16 +35,15 @@ export default function TransaccionesPanel() {
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
-  const density = useTableDensity();
+  const densityState = useTableDensity();
+  const density = densityState.density;
   const controller = useTransacciones();
-  const { list, movements, tray } = controller;
-  const [chosen, setChosen] = useState<Segment | null>(null);
-  const segment = chosen ?? (list.kind === "ready" ? defaultSegment(movements) : "por_igualar");
+  const { list, movements, tray, segment, view: bank } = controller;
   const view = list.kind === "ready" ? list.view : null;
   // Until the first read lands, the gate says which screen is coming.
   const igualar = view ? view.mode === "igualar" : igualarOn;
-  const runCount = suggestionRun(movements).length;
-  const showRun = igualar && (list.kind === "loading" || runCount > 0);
+  const runCount = bank ? periodCount(bank.totals, "sugerencias") : null;
+  const showRun = igualar && (list.kind === "loading" || (runCount ?? 0) > 0);
 
   const rowNodes = useRef(new Map<string, HTMLElement>());
   const trayId = tray?.movementId ?? null;
@@ -54,13 +53,14 @@ export default function TransaccionesPanel() {
     if (node) rowNodes.current.set(id, node);
     else rowNodes.current.delete(id);
   };
-  const trayMovement = tray ? controller.byId.get(tray.movementId) : undefined;
-  const stepSegment = (step: 1 | -1) => setChosen(SEGMENTS[(SEGMENTS.indexOf(segment) + step + SEGMENTS.length) % SEGMENTS.length]);
+  const trayMovement = tray ? controller.byId.get(tray.movementId) ?? (controller.failure?.movement.id === tray.movementId ? controller.failure.movement : undefined) : undefined;
+  const stepSegment = (step: 1 | -1) => controller.choose(SEGMENTS[(SEGMENTS.indexOf(segment) + step + SEGMENTS.length) % SEGMENTS.length]);
 
   const monthly = period.key === "this_month" || period.key === "last_month";
   const when = monthly ? capitalize(new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(`${period.from}T12:00:00`))) : periodLabel(period);
-  const subtitle = [when, view?.mode === "igualar" && view.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(view.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
-  const porIgualar = view?.mode === "igualar" ? view.totals.porIgualar?.count ?? null : null;
+  const subtitle = [when, bank?.coverageThrough ? t("business.transactions.coverage", { day: formatShortDay(bank.coverageThrough, locale) }) : null].filter(Boolean).join(". ");
+  const porIgualar = bank ? periodCount(bank.totals, "porIgualar") : null;
+  const header = bank ? headerCurrency(movements) ?? bank.accountCurrency : null;
   const saved = view?.mode === "records" ? view.records : null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
@@ -78,7 +78,7 @@ export default function TransaccionesPanel() {
   const run = showRun ? (
     <button type="button" data-testid="transacciones-run" data-primary="true" disabled={list.kind !== "ready"} onClick={controller.startRun} className={`${primaryButtonClass} ${phone ? "shrink-0" : ""}`}>
       {phone ? t("business.transactions.run_short") : t("business.transactions.run")}
-      {list.kind === "ready" ? <span className="tabular-nums opacity-85">{runCount}</span> : null}
+      {runCount !== null ? <span className="tabular-nums opacity-85">{runCount}</span> : null}
       {phone ? null : <KeyHint>I</KeyHint>}
     </button>
   ) : null;
@@ -100,16 +100,16 @@ export default function TransaccionesPanel() {
             label={t("business.transactions.segments.label")}
             fill={phone}
             value={segment}
-            onChange={setChosen}
+            onChange={controller.choose}
             segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
           />
         ) : null}
         <BusinessPeriodControl period={period} setPeriod={setPeriod} />
-        {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu density={density} /></div>}
+        {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
       </div>
       {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
       {igualar
-        ? <Summary totals={view?.mode === "igualar" ? view.totals : null} header={headerCurrency(movements)} locale={locale} loading={list.kind === "loading"} />
+        ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
         : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
       {list.kind === "failed" ? (
         <div className={cardClass}>
@@ -125,20 +125,23 @@ export default function TransaccionesPanel() {
               : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
           </div>
         ) : phone ? <RecordsList records={saved} rowRef={rowRef} /> : <RecordsTable records={saved} density={density} rowRef={rowRef} />
-      ) : movements.length === 0 ? (
+      ) : !bank ? null : periodCount(bank.totals, "movimientos") + periodCount(bank.totals, "sinMovimiento") === 0 ? (
         <div className={cardClass}>
           <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
         </div>
-      ) : segmentCount(movements, segment) === 0 ? (
+      ) : movements.length === 0 ? (
         <div className={cardClass}>
-          {segment === "por_igualar"
-            ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: (view?.mode === "igualar" ? view.totals.igualadas?.of : null) ?? movements.length })} />
+          {bank.segment === "por_igualar"
+            ? <EmptyState kind="done" compact testId="transacciones-done" title={t("business.transactions.empty.done_title")} body={t("business.transactions.empty.done_body", { count: periodCount(bank.totals, "movimientos") })} />
             : <EmptyState kind="filtered" compact title={t("business.transactions.empty.segment")} />}
         </div>
-      ) : phone ? (
-        <TransaccionesList controller={controller} movements={movements} segment={segment} rowRef={rowRef} />
       ) : (
-        <TransaccionesTable controller={controller} movements={movements} segment={segment} density={density} onSegmentStep={stepSegment} onRunKey={controller.startRun} rowRef={rowRef} />
+        <>
+          {phone
+            ? <TransaccionesList controller={controller} view={bank} rowRef={rowRef} />
+            : <TransaccionesTable controller={controller} view={bank} density={density} onSegmentStep={stepSegment} onRunKey={controller.startRun} rowRef={rowRef} />}
+          <LoadMore controller={controller} view={bank} />
+        </>
       )}
       {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
     </section>
@@ -149,23 +152,26 @@ function capitalize(text: string): string {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }
 
-/** The server's totals: exact, one per currency, the header's first. A part it does not serve reads as unknown. */
-function Summary({ totals, header, locale, loading }: { totals: Totals | null; header: string | null; locale: string; loading: boolean }) {
+/** The server's totals: exact, one per currency, the header's first. The counts are the server's, for the whole period. */
+function Summary({ view, header, locale, loading }: { view: IgualarView | null; header: string | null; locale: string; loading: boolean }) {
   const { t } = useTransaccionesWords();
-  const order = (money: Totals["entradas"]) => (money ? inHeaderOrder(money, header) : null);
+  const totals: readonly CurrencyTotals[] = view?.totals ?? [];
+  const money = (key: "entradas" | "salidas" | "porIgualar"): Money[] | null => (view ? inHeaderOrder(perCurrency(totals, key), header) : null);
+  const zeroIn = view?.accountCurrency ?? null;
+  const settled = periodCount(totals, "igualadas") + periodCount(totals, "noLleva");
   const cells: { key: string; value: React.ReactNode }[] = [
-    { key: "entradas", value: <MoneyList totals={order(totals?.entradas ?? null)} header={header} locale={locale} /> },
-    { key: "salidas", value: <MoneyList totals={order(totals?.salidas ?? null)} header={header} locale={locale} /> },
+    { key: "entradas", value: <MoneyList totals={money("entradas")} header={header} locale={locale} zeroIn={zeroIn} /> },
+    { key: "salidas", value: <MoneyList totals={money("salidas")} header={header} locale={locale} zeroIn={zeroIn} /> },
     {
       key: "por_igualar",
-      value: totals?.porIgualar ? (
-        <span className="flex flex-wrap items-baseline gap-x-2"><span className="tabular-nums">{totals.porIgualar.count}</span>{totals.porIgualar.amounts ? <span className="text-[14px] font-normal text-[#56635e] dark:text-white/65"><MoneyList totals={order(totals.porIgualar.amounts)} header={header} locale={locale} /></span> : null}</span>
+      value: view ? (
+        <span className="flex flex-wrap items-baseline gap-x-2"><span className="tabular-nums">{periodCount(totals, "porIgualar")}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65"><MoneyList totals={money("porIgualar")} header={header} locale={locale} zeroIn={zeroIn} /></span></span>
       ) : <Unknown />,
     },
     {
       key: "igualadas",
-      value: totals?.igualadas ? (
-        <span className="flex items-baseline gap-x-2"><span className="tabular-nums">{totals.igualadas.count}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65">{t("business.transactions.totals.of", { count: totals.igualadas.of })}</span></span>
+      value: view ? (
+        <span className="flex items-baseline gap-x-2"><span className="tabular-nums">{settled}</span><span className="text-[14px] font-normal text-[#56635e] dark:text-white/65">{t("business.transactions.totals.of", { count: periodCount(totals, "movimientos") })}</span></span>
       ) : <Unknown />,
     },
   ];
@@ -183,21 +189,42 @@ function Summary({ totals, header, locale, loading }: { totals: Totals | null; h
   );
 }
 
-/** The saved records' totals: Entradas and Salidas, exact, one per currency; unknown when no read gives them exactly. */
+/** The saved records' totals: Salidas exact, one per currency. No read serves the period's ventas, so Entradas is unknown. */
 function RecordsSummary({ totals, header, locale, loading }: { totals: RecordsTotals | null; header: string | null; locale: string; loading: boolean }) {
   const { t } = useTransaccionesWords();
-  const order = (money: RecordsTotals["entradas"]) => (money ? inHeaderOrder(money, header) : null);
+  const cells = { entradas: <Unknown />, salidas: <MoneyList totals={totals ? inHeaderOrder(totals.salidas, header) : null} header={header} locale={locale} /> };
   return (
     <dl data-testid="transacciones-summary" data-mode="records" className="mb-4 grid grid-cols-2 overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
       {(["entradas", "salidas"] as const).map((key, index) => (
         <div key={key} data-total={key} className={`min-w-0 border-[#DCE0DA] px-4 py-3 dark:border-white/10 ${index ? "border-l" : ""}`}>
           <dt className="text-[13px] text-[#56635e] dark:text-white/65">{t(`business.transactions.totals.${key}`)}</dt>
           <dd className="mt-1 text-[17px] font-medium text-[#172b26] dark:text-white">
-            {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-mark bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : <MoneyList totals={order(totals?.[key] ?? null)} header={header} locale={locale} />}
+            {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-mark bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : cells[key]}
           </dd>
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Cargar más fetches the next page; rows already shown stay. A failure says so here with its way out. Hidden when there is no next page. */
+function LoadMore({ controller, view }: { controller: ReturnType<typeof useTransacciones>; view: IgualarView }) {
+  const { t } = useTransaccionesWords();
+  const { more } = controller;
+  if (!view.nextCursor && more.kind !== "failed") return null;
+  return (
+    <div data-testid="transacciones-more" className="mt-3 flex flex-wrap items-center justify-center gap-3">
+      {more.kind === "failed" ? (
+        <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{more.changed ? t("business.transactions.error.list_changed") : t("business.transactions.error.more")}</p>
+      ) : null}
+      {more.kind === "failed" && more.changed ? (
+        <button type="button" onClick={controller.retryLoad} className={secondaryButtonClass}>{t("business.transactions.error.reload")}</button>
+      ) : (
+        <button type="button" onClick={() => void controller.loadMore()} disabled={more.kind === "loading"} aria-busy={more.kind === "loading"} className={secondaryButtonClass}>
+          {more.kind === "failed" ? t("common.retry", "Reintentar") : t("business.transactions.more")}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -219,8 +246,9 @@ function LoadingRows({ density }: { density: Density }) {
   );
 }
 
-/** The quiet view options at the right of the filters: the table's row height, kept per person. */
-function DensityMenu({ density }: { density: Density }) {
+/** The quiet view options at the right of the filters: the table's row height, kept on the person's profile. A refused save stays open and says so. */
+function DensityMenu({ state }: { state: DensityState }) {
+  const { density } = state;
   const { t } = useTransaccionesWords();
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -236,15 +264,17 @@ function DensityMenu({ density }: { density: Density }) {
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
       </button>
       {open ? (
-        <div role="menu" aria-label={t("business.transactions.density.label")} className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right rounded-surface border border-black/10 bg-white p-1.5 dark:border-white/10 dark:bg-[#1f2225]">
+        <div role="menu" aria-label={t("business.transactions.density.label")} aria-busy={state.saving} className="absolute right-0 top-full z-40 mt-2 w-56 origin-top-right rounded-surface border border-black/10 bg-white p-1.5 dark:border-white/10 dark:bg-[#1f2225]">
           <p className="px-2.5 pb-1 pt-1.5 text-[12px] font-medium text-[#56635e] dark:text-white/65">{t("business.transactions.density.label")}</p>
           {DENSITIES.map((option) => (
-            <button key={option} type="button" role="menuitemradio" aria-checked={option === density} data-density-option={option} onClick={() => { setTableDensity(option); setOpen(false); }} className="flex min-h-10 w-full items-center justify-between rounded-item px-2.5 text-left text-[14px] text-[#172b26] hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none aria-checked:font-medium dark:text-white dark:hover:bg-white/5">
+            <button key={option} type="button" role="menuitemradio" aria-checked={option === density} data-density-option={option} onClick={() => { void setTableDensity(option).then((kept) => { if (kept) setOpen(false); }); }} className="flex min-h-10 w-full items-center justify-between rounded-item px-2.5 text-left text-[14px] text-[#172b26] hover:bg-black/5 focus-visible:bg-black/5 focus-visible:outline-none aria-checked:font-medium dark:text-white dark:hover:bg-white/5">
               {t(`business.transactions.density.${option}`)}
               {option === density ? <Check className="h-4 w-4 text-[var(--cuadrao-green)]" aria-hidden="true" /> : null}
             </button>
           ))}
-          <p className="px-2.5 pb-1.5 pt-1 text-[12px] text-[#56635e] dark:text-white/65">{t("business.transactions.density.note")}</p>
+          {state.failed
+            ? <p role="alert" data-testid="density-failed" className="px-2.5 pb-1.5 pt-1 text-[12px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.transactions.density.failed")}</p>
+            : <p className="px-2.5 pb-1.5 pt-1 text-[12px] text-[#56635e] dark:text-white/65">{t("business.transactions.density.note")}</p>}
         </div>
       ) : null}
     </div>

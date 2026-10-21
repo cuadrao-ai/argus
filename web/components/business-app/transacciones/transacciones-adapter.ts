@@ -1,219 +1,324 @@
 import { apiFetch } from "@/lib/argus-api-transport";
 import type { BusinessAccount, BusinessExpense, BusinessOverview, BusinessWorkspaceInfo } from "@/lib/business-api";
-import type { MonthCloseDocument, MonthCloseSnapshot } from "@/lib/business-month-close";
 import { todayIso } from "../business-format";
 import { expensePanel } from "../business-expense-target";
 import { recordFiscalMark } from "../business-ui";
-import { sumByCurrency, type AccountKind, type Decision, type DecisionKind, type IgualarView, type Match, type Movement, type MovementAccount, type RecordRow, type RecordsView, type Suggestion, type SuggestionReason, type TransaccionesSource } from "./transacciones-model";
+import {
+  NO_COMPROBANTE_REASONS,
+  type AccountKind,
+  type Counts,
+  type CurrencyTotals,
+  type Decision,
+  type DocumentSummary,
+  type HistoryEntry,
+  type IgualarView,
+  type Match,
+  type Movement,
+  type MovementAccount,
+  type RecordRow,
+  type RecordsView,
+  type SuggestionReason,
+  type TransaccionesSource,
+} from "./transacciones-model";
 
 /**
- * The one place the bank routes meet the screen. Today the server serves the
- * unmatched charges of a period and the pending suggestions; it confirms and
- * declines. Everything else the view model holds (deposits, matched rows,
- * accounts, categories, document summaries, totals, undo) is not served yet,
- * so it maps to unknown here and the screen shows it as unknown. When the
- * movements read lands, only this module changes.
+ * The one place the bank routes meet the screen. `GET /business/bank/movements`
+ * serves the period's rows with their server-owned state, a page at a time,
+ * and the period's totals per currency; the decisions are one route each.
+ * A shape the screen cannot trust fails the load, never half-renders.
  */
-
-type WireLine = {
-  id: string;
-  occurred_on: string;
-  description: string;
-  amount: string;
-  currency: string;
-  sense: "charge" | "deposit" | "zero";
-  state: "matched" | "sin_comprobante" | "unmatched";
-};
-
-type WireSuggestion = {
-  id: string;
-  line_id: string;
-  target_id: string;
-  target_kind: "receipt" | "venta";
-  status: "pending" | "confirmed" | "declined";
-  amount_score: string;
-  date_score: string;
-  merchant_score: string;
-  confidence: string;
-  actionable: boolean;
-};
-
-type WireUnmatched = { count: number; period_start: string; period_end: string; lines: WireLine[] };
-
-export type BankWire = Readonly<{ unmatched: WireUnmatched; suggestions: readonly WireSuggestion[] }>;
 
 class BankWireError extends Error {
   readonly code = "bank_wire_shape";
 }
 
-const text = (value: unknown, field: string): string => {
-  if (typeof value !== "string") throw new BankWireError(`bank: ${field} is not text`);
-  return value;
+const fail = (field: string, what: string): never => {
+  throw new BankWireError(`bank: ${field} ${what}`);
 };
-const decimal = (value: unknown, field: string): string => {
+const record = (value: unknown, field: string): Record<string, unknown> => (typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : fail(field, "is not an object"));
+const list = (value: unknown, field: string): unknown[] => (Array.isArray(value) ? value : fail(field, "is not a list"));
+const text = (value: unknown, field: string): string => (typeof value === "string" ? value : fail(field, "is not text"));
+const maybeText = (value: unknown, field: string): string | null => (value === null ? null : text(value, field));
+const integer = (value: unknown, field: string): number => (typeof value === "number" && Number.isInteger(value) ? value : fail(field, "is not a whole number"));
+const day = (value: unknown, field: string): string => {
   const raw = text(value, field);
-  if (!/^-?\d+(\.\d+)?$/.test(raw.trim())) throw new BankWireError(`bank: ${field} is not a decimal`);
-  return raw.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : fail(field, "is not a day");
 };
-const record = (value: unknown, field: string): Record<string, unknown> => {
-  if (typeof value !== "object" || value === null) throw new BankWireError(`bank: ${field} is not an object`);
-  return value as Record<string, unknown>;
+const maybeDay = (value: unknown, field: string): string | null => (value === null ? null : day(value, field));
+const currency = (value: unknown, field: string): string => {
+  const raw = text(value, field);
+  return /^[A-Z]{3}$/.test(raw) ? raw : fail(field, "is not a currency code");
 };
-
-function parseLine(value: unknown): WireLine {
-  const line = record(value, "line");
-  const sense = text(line.sense, "line.sense");
-  const state = text(line.state, "line.state");
-  if (sense !== "charge" && sense !== "deposit" && sense !== "zero") throw new BankWireError("bank: line.sense is unknown");
-  if (state !== "matched" && state !== "sin_comprobante" && state !== "unmatched") throw new BankWireError("bank: line.state is unknown");
-  return { id: text(line.id, "line.id"), occurred_on: text(line.occurred_on, "line.occurred_on"), description: text(line.description, "line.description"), amount: decimal(line.amount, "line.amount"), currency: text(line.currency, "line.currency"), sense, state };
-}
-
-function parseSuggestion(value: unknown): WireSuggestion {
-  const row = record(value, "suggestion");
-  const kind = text(row.target_kind, "suggestion.target_kind");
-  const status = text(row.status, "suggestion.status");
-  if (kind !== "receipt" && kind !== "venta") throw new BankWireError("bank: suggestion.target_kind is unknown");
-  if (status !== "pending" && status !== "confirmed" && status !== "declined") throw new BankWireError("bank: suggestion.status is unknown");
-  return {
-    id: text(row.id, "suggestion.id"),
-    line_id: text(row.line_id, "suggestion.line_id"),
-    target_id: text(row.target_id, "suggestion.target_id"),
-    target_kind: kind,
-    status,
-    amount_score: decimal(row.amount_score, "suggestion.amount_score"),
-    date_score: decimal(row.date_score, "suggestion.date_score"),
-    merchant_score: decimal(row.merchant_score, "suggestion.merchant_score"),
-    confidence: decimal(row.confidence, "suggestion.confidence"),
-    actionable: row.actionable === true,
-  };
-}
-
-/** Parse the two bank answers; a shape the screen cannot trust fails the load, never half-renders. */
-export function parseBankWire(unmatched: unknown, suggestions: unknown): BankWire {
-  const page = record(unmatched, "unmatched");
-  if (typeof page.count !== "number" || !Array.isArray(page.lines)) throw new BankWireError("bank: unmatched page is malformed");
-  if (!Array.isArray(suggestions)) throw new BankWireError("bank: suggestions is not a list");
-  return {
-    unmatched: { count: page.count, period_start: text(page.period_start, "period_start"), period_end: text(page.period_end, "period_end"), lines: page.lines.map(parseLine) },
-    suggestions: suggestions.map(parseSuggestion),
-  };
-}
-
-/** The reasons a score part supports. The server owns the scoring; a part above zero is a reason it counted. */
-function reasonsOf(suggestion: WireSuggestion): SuggestionReason[] {
-  const reasons: SuggestionReason[] = [];
-  if (Number(suggestion.amount_score) > 0) reasons.push({ kind: "amount" });
-  if (Number(suggestion.date_score) > 0) reasons.push({ kind: "date", daysBefore: null });
-  if (Number(suggestion.merchant_score) > 0) reasons.push({ kind: "name" });
-  return reasons;
-}
-
-function toSuggestion(wire: WireSuggestion): Suggestion {
-  return { id: wire.id, confidence: Number(wire.confidence), documentKind: wire.target_kind === "venta" ? "venta" : "recibo", document: null, reasons: reasonsOf(wire) };
-}
-
-function matchOf(line: WireLine, offered: readonly WireSuggestion[]): Match {
-  if (line.state === "matched") return { state: "igualada", document: null };
-  const best = [...offered].sort((left, right) => Number(right.confidence) - Number(left.confidence))[0];
-  return best ? { state: "sugerencia", suggestion: toSuggestion(best) } : { state: "falta_comprobante" };
-}
-
-/** Today's bank answers as the view model. Unknown facts stay unknown: no account, category, totals or coverage is invented. */
-export function mapBankWire(wire: BankWire): IgualarView {
-  const offered = new Map<string, WireSuggestion[]>();
-  for (const suggestion of wire.suggestions) {
-    if (suggestion.status !== "pending" || !suggestion.actionable) continue;
-    offered.set(suggestion.line_id, [...(offered.get(suggestion.line_id) ?? []), suggestion]);
-  }
-  const movements: Movement[] = wire.unmatched.lines.map((line) => ({
-    id: line.id,
-    occurredOn: line.occurred_on,
-    counterparty: null,
-    bankText: line.description,
-    money: { amount: line.amount, currency: line.currency },
-    categoryId: null,
-    account: null,
-    match: matchOf(line, offered.get(line.id) ?? []),
-  }));
-  return {
-    mode: "igualar",
-    movements,
-    totals: { entradas: null, salidas: null, porIgualar: { count: wire.unmatched.count, amounts: null }, igualadas: null },
-    coverageThrough: null,
-  };
-}
-
-type Fetch = <T>(path: string, init?: RequestInit) => Promise<T>;
-
-const SERVED: ReadonlySet<DecisionKind> = new Set(["igualar", "rechazar"]);
-
-/** The bank routes answer 404 while bank matching is off on the server. */
-const bankRoutesOff = (error: unknown) => (error as { status?: unknown } | null)?.status === 404;
-
-/**
- * The live source over today's bank routes. `fetchJson` is the API
- * transport; tests hand in their own. While the server has the routes off,
- * the screen lists the saved records from `records` instead.
- */
-export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch, records?: TransaccionesSource): TransaccionesSource {
-  return {
-    async load(period) {
-      const query = new URLSearchParams({ period_start: period.from, period_end: period.to ?? todayIso() });
-      try {
-        const [unmatched, suggestions] = await Promise.all([
-          fetchJson<unknown>(`/business/bank/unmatched?${query}`),
-          fetchJson<unknown>("/business/bank/suggestions?status=pending"),
-        ]);
-        return mapBankWire(parseBankWire(unmatched, suggestions));
-      } catch (error) {
-        if (records && bankRoutesOff(error)) return records.load(period);
-        throw error;
-      }
-    },
-    async decide(decision: Decision, idempotencyKey: string) {
-      if (decision.kind !== "igualar" && decision.kind !== "rechazar") throw new Error(`bank: ${decision.kind} is not served yet`);
-      const verb = decision.kind === "igualar" ? "confirm" : "decline";
-      await fetchJson(`/business/bank/suggestions/${encodeURIComponent(decision.suggestionId)}/${verb}`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey } });
-    },
-    supports: (kind) => SERVED.has(kind),
-  };
-}
-
-/** The reads the saved records come from: the same expenses read Gastos used, the server's period totals, the accounts, and the month a venta lives in. */
-export type RecordReads = Readonly<{
-  expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
-  overview: (from: string, to: string | null) => Promise<BusinessOverview>;
-  workspace: () => Promise<Pick<BusinessWorkspaceInfo, "accounts">>;
-  /** One calendar month of documents, `YYYY-MM`: the one read that serves ventas today. */
-  month: (month: string) => Promise<MonthCloseSnapshot>;
-  /** The account words for an expense paid from the owner's own money. */
-  ownerFunds: string;
-}>;
-
-/** Ventas come a month at a time; a longer period would read past what is worth a page load, so its Entradas reads as unknown. */
-const VENTAS_MONTHS = 13;
-
-/** Every `YYYY-MM` from `from`'s month through `to`'s, oldest first. */
-function monthsBetween(from: string, to: string): string[] {
-  const months: string[] = [];
-  let year = Number(from.slice(0, 4));
-  let month = Number(from.slice(5, 7));
-  const last = to.slice(0, 7);
-  for (let key = from.slice(0, 7); key <= last; key = `${year}-${String(month).padStart(2, "0")}`) {
-    months.push(key);
-    month += 1;
-    if (month > 12) { month = 1; year += 1; }
-  }
-  return months;
+/** Decimal text in the currency's exponent, as the server formats it from minor units. */
+const decimal = (value: unknown, field: string): string => {
+  const raw = text(value, field).trim();
+  return /^-?\d+(\.\d+)?$/.test(raw) ? raw : fail(field, "is not a decimal");
+};
+function oneOf<T extends string>(value: unknown, allowed: readonly T[], field: string): T {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fail(field, "is unknown");
 }
 
 const ACCOUNT_KINDS: Record<string, AccountKind> = { checking: "bank", savings: "bank", credit_card: "card", cash: "cash" };
 
+function parseDocument(value: unknown, field: string): DocumentSummary {
+  const wire = record(value, field);
+  const money = currency(wire.currency, `${field}.currency`);
+  integer(wire.total_minor, `${field}.total_minor`);
+  if (wire.itbis_minor !== null) integer(wire.itbis_minor, `${field}.itbis_minor`);
+  const itbis = wire.itbis === null ? null : decimal(wire.itbis, `${field}.itbis`);
+  return {
+    id: text(wire.activity_id, `${field}.activity_id`),
+    kind: oneOf(wire.kind, ["receipt", "venta"] as const, `${field}.kind`) === "venta" ? "venta" : "recibo",
+    counterparty: maybeText(wire.counterparty, `${field}.counterparty`),
+    occurredOn: day(wire.occurred_on, `${field}.occurred_on`),
+    rnc: maybeText(wire.rnc, `${field}.rnc`),
+    ncf: maybeText(wire.ncf, `${field}.ncf`) ?? maybeText(wire.ecf, `${field}.ecf`),
+    itbis: itbis === null ? null : { amount: itbis, currency: money },
+    total: { amount: decimal(wire.total, `${field}.total`), currency: money },
+  };
+}
+
+const REASON_CODES = ["monto_exacto", "misma_fecha", "fecha_cercana", "nombre_parecido"] as const;
+
+function parseReason(value: unknown, field: string): SuggestionReason {
+  const wire = record(value, field);
+  const code = oneOf(wire.code, REASON_CODES, `${field}.code`);
+  if (code === "monto_exacto") return { kind: "amount" };
+  if (code === "nombre_parecido") return { kind: "name" };
+  if (code === "misma_fecha") return { kind: "date", days: 0 };
+  return { kind: "date", days: integer(wire.days, `${field}.days`) };
+}
+
+function parseMatch(wire: Record<string, unknown>, field: string): Match {
+  const state = oneOf(wire.state, ["igualada", "sugerencia", "falta_comprobante", "no_lleva_comprobante", "sin_movimiento"] as const, `${field}.state`);
+  switch (state) {
+    case "igualada":
+      return { state: "igualada", document: wire.document === null ? null : parseDocument(wire.document, `${field}.document`) };
+    case "sugerencia": {
+      const [best] = list(wire.suggestions, `${field}.suggestions`);
+      const suggestion = record(best ?? fail(`${field}.suggestions`, "is empty on a suggestion"), `${field}.suggestions[0]`);
+      const confidence = Number(decimal(suggestion.confidence, `${field}.suggestions[0].confidence`));
+      return {
+        state: "sugerencia",
+        suggestion: {
+          id: text(suggestion.id, `${field}.suggestions[0].id`),
+          confidence,
+          document: parseDocument(suggestion.document, `${field}.suggestions[0].document`),
+          reasons: list(suggestion.reasons, `${field}.suggestions[0].reasons`).map((reason, index) => parseReason(reason, `${field}.suggestions[0].reasons[${index}]`)),
+        },
+      };
+    }
+    case "falta_comprobante":
+      return { state: "falta_comprobante" };
+    case "no_lleva_comprobante":
+      return { state: "no_lleva", reason: oneOf(wire.reason, [...NO_COMPROBANTE_REASONS, "monto_cero"] as const, `${field}.reason`) };
+    case "sin_movimiento":
+      return { state: "sin_movimiento", document: parseDocument(wire.document, `${field}.document`) };
+  }
+}
+
+function parseAccount(value: unknown, field: string): MovementAccount {
+  const wire = record(value, field);
+  return { kind: ACCOUNT_KINDS[text(wire.type, `${field}.type`)] ?? "bank", name: maybeText(wire.name, `${field}.name`) };
+}
+
+/** One movements item, the shape the list and every decision route answer with. */
+export function parseMovementItem(value: unknown, field = "item"): Movement {
+  const wire = record(value, field);
+  oneOf(wire.kind, ["movement", "document"] as const, `${field}.kind`);
+  integer(wire.amount_minor, `${field}.amount_minor`);
+  return {
+    id: text(wire.id, `${field}.id`),
+    occurredOn: day(wire.occurred_on, `${field}.occurred_on`),
+    counterparty: maybeText(wire.counterparty, `${field}.counterparty`),
+    bankText: maybeText(wire.description, `${field}.description`),
+    money: { amount: decimal(wire.amount, `${field}.amount`), currency: currency(wire.currency, `${field}.currency`) },
+    categoryId: maybeText(wire.category_id, `${field}.category_id`),
+    account: wire.account === null ? null : parseAccount(wire.account, `${field}.account`),
+    match: parseMatch(wire, field),
+  };
+}
+
+function parseCounts(value: unknown, field: string): Counts {
+  const wire = record(value, field);
+  const count = (key: string) => integer(wire[key], `${field}.${key}`);
+  return {
+    movimientos: count("movimientos"),
+    igualadas: count("igualadas"),
+    noLleva: count("no_lleva_comprobante"),
+    sugerencias: count("sugerencias"),
+    faltaComprobante: count("falta_comprobante"),
+    sinMovimiento: count("sin_movimiento"),
+    porIgualar: count("por_igualar"),
+  };
+}
+
+function parseTotals(value: unknown, field: string): CurrencyTotals {
+  const wire = record(value, field);
+  for (const key of ["entradas_minor", "salidas_minor", "por_igualar_minor"]) integer(wire[key], `${field}.${key}`);
+  return {
+    currency: currency(wire.currency, `${field}.currency`),
+    entradas: decimal(wire.entradas, `${field}.entradas`),
+    salidas: decimal(wire.salidas, `${field}.salidas`),
+    porIgualar: decimal(wire.por_igualar, `${field}.por_igualar`),
+    counts: parseCounts(wire.counts, `${field}.counts`),
+  };
+}
+
+export type MovementsPage = Readonly<{ view: IgualarView; hasStatement: boolean }>;
+
+/** `GET /business/bank/movements` as the view model. `hasStatement` is false while no account has an imported line. */
+export function parseMovementsPage(value: unknown): MovementsPage {
+  const wire = record(value, "movements");
+  const segment = oneOf(wire.segment, ["por_igualar", "igualadas", "todas"] as const, "movements.segment");
+  const accounts = list(wire.accounts, "movements.accounts").map((account, index) => {
+    const row = record(account, `movements.accounts[${index}]`);
+    return { currency: currency(row.currency, `movements.accounts[${index}].currency`), coveredThrough: maybeDay(row.covered_through, `movements.accounts[${index}].covered_through`) };
+  });
+  const covered = accounts.map((account) => account.coveredThrough).filter((through): through is string => through !== null).sort();
+  return {
+    hasStatement: covered.length > 0,
+    view: {
+      mode: "igualar",
+      segment,
+      movements: list(wire.items, "movements.items").map((item, index) => parseMovementItem(item, `movements.items[${index}]`)),
+      nextCursor: maybeText(wire.next_cursor, "movements.next_cursor"),
+      totals: list(wire.totals, "movements.totals").map((block, index) => parseTotals(block, `movements.totals[${index}]`)),
+      accountCurrency: accounts[0]?.currency ?? null,
+      // With more than one account, the bank is up to date only through the one that is furthest behind.
+      coverageThrough: covered[0] ?? null,
+    },
+  };
+}
+
+export function parseHistory(value: unknown): HistoryEntry[] {
+  return list(value, "history").map((entry, index) => {
+    const wire = record(entry, `history[${index}]`);
+    const field = `history[${index}]`;
+    const outcome = oneOf(wire.kind, ["match", "no_receipt"] as const, `${field}.kind`);
+    const target = wire.target_kind === null ? null : oneOf(wire.target_kind, ["receipt", "venta"] as const, `${field}.target_kind`);
+    return {
+      id: text(wire.id, `${field}.id`),
+      outcome,
+      documentKind: target === null ? null : target === "venta" ? "venta" : "recibo",
+      reason: wire.reason === null ? null : oneOf(wire.reason, NO_COMPROBANTE_REASONS, `${field}.reason`),
+      from: text(wire.created_at, `${field}.created_at`),
+      until: maybeText(wire.ended_at, `${field}.ended_at`),
+    };
+  });
+}
+
+/** What the screen says when a decision fails, and the way out it offers. */
+export type DecisionProblemCode =
+  | "line_not_found"
+  | "line_marked_no_receipt"
+  | "line_not_matched"
+  | "line_not_marked"
+  | "document_already_matched"
+  | "business_document_matched"
+  | "document_not_matchable"
+  | "changed"
+  | "unavailable";
+export type DecisionProblem = Readonly<{ code: DecisionProblemCode; action: "retry" | "reload" | "none" }>;
+
+/**
+ * The server's refusals. A decision that met a line or a document that moved
+ * on reads the list again (Actualizar); one the server will never take offers
+ * nothing; a server that could not answer offers Reintentar with the same key.
+ */
+const REFUSALS: Record<string, DecisionProblem> = {
+  line_not_found: { code: "line_not_found", action: "reload" },
+  line_marked_no_receipt: { code: "line_marked_no_receipt", action: "reload" },
+  line_not_matched: { code: "line_not_matched", action: "reload" },
+  line_not_marked: { code: "line_not_marked", action: "reload" },
+  document_already_matched: { code: "document_already_matched", action: "reload" },
+  business_document_matched: { code: "business_document_matched", action: "reload" },
+  document_not_matchable: { code: "document_not_matchable", action: "none" },
+  line_already_confirmed: { code: "changed", action: "reload" },
+  suggestion_not_pending: { code: "changed", action: "reload" },
+  suggestion_not_found: { code: "changed", action: "reload" },
+  pair_declined: { code: "changed", action: "reload" },
+  target_not_approved: { code: "changed", action: "reload" },
+};
+
+export function decisionProblem(error: unknown): DecisionProblem {
+  const code = (error as { code?: unknown } | null)?.code;
+  return (typeof code === "string" && REFUSALS[code]) || { code: "unavailable", action: "retry" };
+}
+
+/** Cargar más with a cursor the server no longer takes: the list changed under it. */
+export const listChanged = (error: unknown) => (error as { code?: unknown } | null)?.code === "invalid_cursor";
+
+type Fetch = <T>(path: string, init?: RequestInit) => Promise<T>;
+
+/** The bank routes answer 404 while bank matching is off on the server, or the Business store is not durable. */
+const bankRoutesOff = (error: unknown) => (error as { status?: unknown } | null)?.status === 404;
+
+const line = (movementId: string, verb: string) => `/business/bank/movements/${encodeURIComponent(movementId)}/${verb}`;
+
+function decisionRequest(decision: Decision): Readonly<{ path: string; method: string; body?: unknown }> {
+  switch (decision.kind) {
+    case "igualar":
+      return { path: `/business/bank/suggestions/${encodeURIComponent(decision.suggestionId)}/confirm`, method: "POST" };
+    case "rechazar":
+      return { path: `/business/bank/suggestions/${encodeURIComponent(decision.suggestionId)}/decline`, method: "POST" };
+    case "igualar_con":
+      return { path: line(decision.movementId, "match"), method: "POST", body: { activity_id: decision.documentId } };
+    case "sin_comprobante":
+      return { path: line(decision.movementId, "disposition"), method: "PUT", body: { reason: decision.reason } };
+    case "desigualar":
+      return decision.outcome.kind === "match" ? { path: line(decision.movementId, "unmatch"), method: "POST" } : { path: line(decision.movementId, "disposition"), method: "DELETE" };
+  }
+}
+
+/**
+ * The live source over the bank routes. `fetchJson` is the API transport;
+ * tests and the design preview hand in their own. With the routes off, or
+ * before any statement is imported, the screen lists the saved records from
+ * `records` instead.
+ */
+export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch, records?: TransaccionesSource): TransaccionesSource {
+  return {
+    async load(request) {
+      const query = new URLSearchParams({ period_start: request.from, period_end: request.to ?? todayIso(), segment: request.segment });
+      if (request.limit) query.set("limit", String(request.limit));
+      if (request.cursor) query.set("cursor", request.cursor);
+      let page: MovementsPage;
+      try {
+        page = parseMovementsPage(await fetchJson<unknown>(`/business/bank/movements?${query}`));
+      } catch (error) {
+        if (records && bankRoutesOff(error)) return records.load(request);
+        throw error;
+      }
+      return !page.hasStatement && records ? records.load(request) : page.view;
+    },
+    async decide(decision, idempotencyKey) {
+      const request = decisionRequest(decision);
+      await fetchJson(request.path, {
+        method: request.method,
+        headers: { "Idempotency-Key": idempotencyKey },
+        ...(request.body ? { body: JSON.stringify(request.body) } : {}),
+      });
+    },
+    async history(movementId) {
+      return parseHistory(await fetchJson<unknown>(line(movementId, "history")));
+    },
+  };
+}
+
+/** The reads the saved records come from: the same expenses read Gastos used, the server's period totals, and the accounts. */
+export type RecordReads = Readonly<{
+  expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
+  overview: (from: string, to: string | null) => Promise<BusinessOverview>;
+  workspace: () => Promise<Pick<BusinessWorkspaceInfo, "accounts">>;
+  /** The account words for an expense paid from the owner's own money. */
+  ownerFunds: string;
+}>;
+
 function accountOf(expense: BusinessExpense, accounts: readonly BusinessAccount[], ownerFunds: string): MovementAccount | null {
-  if (expense.funding === "owner_funds") return { kind: "cash", name: ownerFunds, last4: null };
+  if (expense.funding === "owner_funds") return { kind: "cash", name: ownerFunds };
   const account = accounts.find((item) => item.id === expense.account_id);
-  return account?.nickname ? { kind: ACCOUNT_KINDS[account.type] ?? "bank", name: account.nickname, last4: null } : null;
+  return account?.nickname ? { kind: ACCOUNT_KINDS[account.type] ?? "bank", name: account.nickname } : null;
 }
 
 function gastoRow(expense: BusinessExpense, accounts: readonly BusinessAccount[], ownerFunds: string): RecordRow {
@@ -231,44 +336,28 @@ function gastoRow(expense: BusinessExpense, accounts: readonly BusinessAccount[]
   };
 }
 
-function ventaRow(document: MonthCloseDocument): RecordRow {
-  // The month read does not say whether a file backs the venta, and an invoice has no record screen yet.
-  return { id: document.id, kind: "venta", occurredOn: document.occurred_on, counterparty: document.counterparty, money: { amount: document.amount, currency: document.currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null };
-}
-
 const newestFirst = (left: RecordRow, right: RecordRow) => right.occurredOn.localeCompare(left.occurredOn) || left.id.localeCompare(right.id);
 
 /**
- * The saved gastos and ventas of a period, with no statement to igualar
- * against. Salidas is the server's own "Gastos reales" for the period, so a
- * personal gasto stays listed, marked, and out of it. Entradas is the exact
- * sum of the ventas listed, unknown when the period is too long to read.
+ * The saved gastos of a period, with no statement to igualar against.
+ * Salidas is the server's own "Gastos reales" for the period, so a personal
+ * gasto stays listed, marked, and out of it.
  */
 export function createRecordsTransaccionesSource(reads: RecordReads): TransaccionesSource {
   return {
-    async load(period): Promise<RecordsView> {
-      const to = period.to ?? todayIso();
-      const months = monthsBetween(period.from, to);
-      const [expenses, overview, workspace, snapshots] = await Promise.all([
-        reads.expenses(period.from, period.to),
-        reads.overview(period.from, period.to),
-        reads.workspace(),
-        months.length <= VENTAS_MONTHS ? Promise.all(months.map((month) => reads.month(month))) : Promise.resolve(null),
-      ]);
-      const last = period.to ?? overview.today;
-      const ventas = snapshots === null ? null : snapshots.flatMap((snapshot) => snapshot.documents).filter((document) => document.kind === "invoice" && document.occurred_on >= period.from && document.occurred_on <= last).map(ventaRow);
+    async load(request): Promise<RecordsView> {
+      const [expenses, overview, workspace] = await Promise.all([reads.expenses(request.from, request.to), reads.overview(request.from, request.to), reads.workspace()]);
       return {
         mode: "records",
-        records: [...expenses.map((expense) => gastoRow(expense, workspace.accounts, reads.ownerFunds)), ...(ventas ?? [])].sort(newestFirst),
-        totals: {
-          entradas: ventas === null ? null : sumByCurrency(ventas.map((row) => row.money)),
-          salidas: overview.totals.map((total) => ({ amount: total.amount, currency: total.currency })),
-        },
+        records: expenses.map((expense) => gastoRow(expense, workspace.accounts, reads.ownerFunds)).sort(newestFirst),
+        totals: { salidas: overview.totals.map((total) => ({ amount: total.amount, currency: total.currency })) },
       };
     },
     async decide() {
       throw new Error("records: nothing to igualar");
     },
-    supports: () => false,
+    async history() {
+      return [];
+    },
   };
 }

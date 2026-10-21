@@ -14,7 +14,6 @@ const SHAPES: Record<MatchState, ReactNode> = {
   igualada: <><circle cx="8" cy="8" r="6.25" {...line} /><path d="M5.3 8.2 7.1 10l3.6-3.8" {...line} /></>,
   sugerencia: <><circle cx="8" cy="8" r="6.25" {...line} strokeDasharray="2 2" /><circle cx="8" cy="8" r="1.6" fill="currentColor" /></>,
   falta_comprobante: <circle cx="8" cy="8" r="6.25" {...line} />,
-  igualada_en_parte: <><circle cx="8" cy="8" r="6.25" {...line} /><path d="M8 1.75a6.25 6.25 0 0 0 0 12.5Z" fill="currentColor" /></>,
   no_lleva: <><circle cx="8" cy="8" r="6.25" {...line} /><path d="m3.6 12.4 8.8-8.8" {...line} /></>,
   sin_movimiento: <><path d="M4 1.75h5.5L12.25 4.5v9.75H4Z" {...line} /><path d="M9.25 1.75V4.75h3M6 8h4.25M6 10.75h4.25" {...line} /></>,
 };
@@ -70,10 +69,14 @@ export function PlainAmount({ money }: { money: Money }) {
   return <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(magnitude(money).amount, money.currency, locale)}</span>;
 }
 
-/** Totals in one currency each, side by side, never added; unknown when the server does not serve them. */
-export function MoneyList({ totals, header, locale }: { totals: readonly Money[] | null; header: string | null; locale: string }) {
+/**
+ * Totals in one currency each, side by side, never added; unknown when the
+ * server does not serve them. With no row in the period the total is a known
+ * zero, shown in the currency `zeroIn` names, or as unknown when nothing names one.
+ */
+export function MoneyList({ totals, header, locale, zeroIn = header }: { totals: readonly Money[] | null; header: string | null; locale: string; zeroIn?: string | null }) {
   if (totals === null) return <Unknown />;
-  if (totals.length === 0) return <span className="cuadrao-amount tabular-nums">{formatMoney("0.00", header ?? "DOP", locale)}</span>;
+  if (totals.length === 0) return zeroIn ? <span className="cuadrao-amount tabular-nums">{formatMoney("0", zeroIn, locale)}</span> : <Unknown />;
   return (
     <span className="flex flex-wrap items-baseline gap-x-2">
       {totals.map((money, index) => (
@@ -91,7 +94,7 @@ export function AccountLabel({ account }: { account: MovementAccount | null }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <Icon className="h-3.5 w-3.5 shrink-0 text-[#56635e] dark:text-white/60" aria-hidden="true" />
-      <span className="truncate">{account.name}{account.last4 ? <span className="tabular-nums"> ··{account.last4}</span> : null}</span>
+      {account.name ? <span className="truncate">{account.name}</span> : <Unknown />}
     </span>
   );
 }

@@ -2246,7 +2246,7 @@
       "undo": "Undo",
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
-      "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "igualada_en_parte": "Partly matched", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
+      "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
       "columns": { "contraparte": "Counterparty", "fecha": "Date", "monto": "Amount {{currency}}", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
@@ -2258,23 +2258,40 @@
         "igualada_venta_sin_ncf": "Sale with no NCF",
         "suggested_recibo": "We suggest the receipt from {{day}}",
         "suggested_venta": "We suggest the sale from {{day}}",
-        "suggested_recibo_unknown": "We suggest a receipt for this amount",
-        "suggested_venta_unknown": "We suggest a sale for this amount",
         "falta_charge": "We found no receipt for this amount near that date",
         "falta_deposit": "Which sale is this deposit for?",
-        "en_parte": "{{amount}} missing",
         "sin_movimiento": "You marked it paid and it is not in the bank",
-        "no_lleva": { "cargo_banco": "Bank charge, needs no proof", "entre_cuentas": "Between your accounts, needs no proof", "compra_informal": "Informal purchase, no proof", "personal": "Personal, needs no proof" }
+        "no_lleva": { "cargo_banco": "Bank charge, needs no proof", "entre_cuentas": "Between your accounts, needs no proof", "compra_informal": "Informal purchase, no proof", "monto_cero": "Zero amount, needs no proof", "personal": "Personal, needs no proof" }
       },
       "reasons": { "title": "Why does it need no proof?", "cargo_banco": "Bank charge", "entre_cuentas": "Between my accounts", "compra_informal": "Informal purchase", "personal": "Personal" },
-      "records": { "detail": { "gasto": "Expense", "venta": "Sale" }, "proof": "Receipt attached", "empty_title": "Your expenses and sales show here", "empty_body": "Every receipt or sale you approve in the Inbox shows here on its date.", "filtered_title": "No expenses or sales in this period", "filtered_body": "There may be some in other months.", "error_title": "We couldn't load your expenses and sales" },
-      "why": { "title": "Why we suggest it", "amount": "The amount is exact", "date_same": "It is from the same day", "date_one": "The document is from one day before", "date_many": "The document is from {{count}} days before", "date_near": "The dates are close", "name": "The name looks like the bank's" },
+      "records": { "detail": { "gasto": "Expense", "venta": "Sale" }, "proof": "Receipt attached", "empty_title": "Your expenses show here", "empty_body": "Every receipt you approve in the Inbox shows here on its date.", "filtered_title": "No expenses in this period", "filtered_body": "There may be some in other months.", "error_title": "We couldn't load your expenses" },
+      "why": { "title": "Why we suggest it", "amount": "The amount is exact", "date_same": "It is from the same day", "date_one": "The document is from one day before", "date_many": "The document is from {{count}} days before", "date_after_one": "The document is from one day after", "date_after_many": "The document is from {{count}} days after", "name": "The name looks like the bank's" },
       "actions": { "igualar": "Match", "rechazar": "Not this one", "sin_comprobante": "No proof", "desigualar": "Unmatch", "agregar": "Add proof", "more": "More actions for {{name}}", "add_for": "Add proof for {{name}}", "open_for": "Open {{name}}" },
       "tray": { "title": "Movement", "step": "Suggestion {{index}} of {{count}}", "movement": "Bank movement", "suggested": "Suggested document", "matched": "Document", "date": "Date", "account": "Account", "bank_text": "Bank text", "recibo": "Purchase", "venta": "Sale", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "move", "close": "close", "back": "Back" },
       "toast": { "igualada": "Matched: {{name}}, {{amount}}", "igualadas": "{{count}} matched", "rechazada": "Suggestion removed", "sin_comprobante": "Marked: {{reason}}", "desigualada": "Unmatched: {{name}}" },
-      "error": { "load_title": "We couldn't load your movements", "load_body": "What you already matched is still saved.", "decision": "We couldn't save this change. Nothing else changed.", "reference": "Ref. {{reference}}" },
+      "error": {
+        "load_title": "We couldn't load your movements",
+        "load_body": "What you already matched is still saved.",
+        "reference": "Ref. {{reference}}",
+        "reload": "Refresh",
+        "more": "We couldn't load more movements. The ones you see are still here.",
+        "list_changed": "The list changed while you read it. Refresh it to continue.",
+        "codes": {
+          "business_document_matched": "That document is already matched with a bank movement.",
+          "changed": "This movement changed while you were looking. Refresh to see where it stands.",
+          "document_already_matched": "That document is already matched with another movement.",
+          "document_not_matchable": "That document does not fit this movement: it must be the same amount and the same currency.",
+          "line_marked_no_receipt": "This movement is already marked as needing no proof.",
+          "line_not_found": "This movement is no longer in your bank statement.",
+          "line_not_marked": "This movement no longer had a no-proof reason.",
+          "line_not_matched": "This movement was no longer matched.",
+          "unavailable": "We couldn't save this change. Nothing else changed."
+        }
+      },
+      "history": { "title": "History", "match_recibo": "Matched with a receipt", "match_venta": "Matched with a sale", "no_receipt": "No proof: {{reason}}", "between": "from {{from}} to {{until}}", "since": "since {{from}}" },
+      "more": "Load more",
       "empty": { "first_run_title": "Import your bank statement", "first_run_body": "Import your bank statement to match each movement with its proof.", "done_title": "All matched", "done_body": "{{count}} movements, each with its proof.", "segment": "No movements in this view." },
-      "density": { "options": "View options", "label": "Row height", "compacto": "Compact", "normal": "Normal", "amplio": "Roomy", "note": "Kept in this browser." }
+      "density": { "options": "View options", "label": "Row height", "compacto": "Compact", "normal": "Normal", "amplio": "Roomy", "note": "Kept for you on every device you sign in on.", "failed": "We couldn't save the row height. Your last one stays." }
     },
     "tray": {
       "title": "Details"
@@ -2697,6 +2714,8 @@
       "error_title": "We couldn't load the month",
       "retry": "Try again",
       "mark_failed": "We couldn't save that change. The status is back to what it was.",
+      "matched_cobrado": "This sale is already matched with a bank deposit, so it counts as collected. To change that, unmatch it in Transactions.",
+      "matched_pagado": "This expense is already matched with a bank charge, so it counts as paid. To change that, unmatch it in Transactions.",
       "close_failed": "We couldn't close the month. Try again.",
       "rnc": "RNC {{value}}",
       "ncf": "NCF {{value}}",

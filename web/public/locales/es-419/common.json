@@ -2246,7 +2246,7 @@
       "undo": "Deshacer",
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
-      "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "igualada_en_parte": "Igualada en parte", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
+      "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
       "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "monto": "Monto {{currency}}", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
@@ -2258,23 +2258,40 @@
         "igualada_venta_sin_ncf": "Venta sin NCF",
         "suggested_recibo": "Sugerimos el recibo del {{day}}",
         "suggested_venta": "Sugerimos la venta del {{day}}",
-        "suggested_recibo_unknown": "Sugerimos un recibo de este monto",
-        "suggested_venta_unknown": "Sugerimos una venta de este monto",
         "falta_charge": "No encontramos un recibo de este monto cerca de esa fecha",
         "falta_deposit": "¿De qué venta es este depósito?",
-        "en_parte": "Faltan {{amount}}",
         "sin_movimiento": "Lo marcaste pagado y no aparece en el banco",
-        "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "personal": "Personal, no lleva comprobante" }
+        "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "monto_cero": "Monto cero, no lleva comprobante", "personal": "Personal, no lleva comprobante" }
       },
       "reasons": { "title": "¿Por qué no lleva comprobante?", "cargo_banco": "Cargo del banco", "entre_cuentas": "Entre mis cuentas", "compra_informal": "Compra informal", "personal": "Personal" },
-      "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos y ventas", "empty_body": "Cada recibo o venta que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
-      "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_near": "Las fechas están cerca", "name": "El nombre se parece al del banco" },
+      "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos", "empty_body": "Cada recibo que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos" },
+      "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
       "tray": { "title": "Movimiento", "step": "Sugerencia {{index}} de {{count}}", "movement": "Movimiento del banco", "suggested": "Comprobante que sugerimos", "matched": "Comprobante", "date": "Fecha", "account": "Cuenta", "bank_text": "Dice el banco", "recibo": "Compra", "venta": "Venta", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "moverte", "close": "cerrar", "back": "Volver" },
       "toast": { "igualada": "Igualada: {{name}}, {{amount}}", "igualadas": "{{count}} igualadas", "rechazada": "Quitamos esa sugerencia", "sin_comprobante": "Marcada: {{reason}}", "desigualada": "Desigualada: {{name}}" },
-      "error": { "load_title": "No pudimos cargar tus movimientos", "load_body": "Lo que ya igualaste sigue guardado.", "decision": "No pudimos guardar este cambio. Lo demás sigue igual.", "reference": "Ref. {{reference}}" },
+      "error": {
+        "load_title": "No pudimos cargar tus movimientos",
+        "load_body": "Lo que ya igualaste sigue guardado.",
+        "reference": "Ref. {{reference}}",
+        "reload": "Actualizar",
+        "more": "No pudimos cargar más movimientos. Los que ves siguen aquí.",
+        "list_changed": "La lista cambió mientras la leías. Actualízala para seguir.",
+        "codes": {
+          "business_document_matched": "Ese comprobante ya está igualado con un movimiento del banco.",
+          "changed": "Este movimiento cambió mientras lo veías. Actualiza para ver cómo quedó.",
+          "document_already_matched": "Ese comprobante ya está igualado con otro movimiento.",
+          "document_not_matchable": "Ese comprobante no cuadra con este movimiento: debe ser del mismo monto y la misma moneda.",
+          "line_marked_no_receipt": "Este movimiento ya está marcado como que no lleva comprobante.",
+          "line_not_found": "Este movimiento ya no está en tu estado de cuenta.",
+          "line_not_marked": "Este movimiento ya no tenía un motivo sin comprobante.",
+          "line_not_matched": "Este movimiento ya no estaba igualado.",
+          "unavailable": "No pudimos guardar este cambio. Lo demás sigue igual."
+        }
+      },
+      "history": { "title": "Historial", "match_recibo": "Igualada con un recibo", "match_venta": "Igualada con una venta", "no_receipt": "Sin comprobante: {{reason}}", "between": "del {{from}} al {{until}}", "since": "desde el {{from}}" },
+      "more": "Cargar más",
       "empty": { "first_run_title": "Importa tu estado de cuenta", "first_run_body": "Importa tu estado de cuenta para igualar cada movimiento con su comprobante.", "done_title": "Todo igualado", "done_body": "{{count}} movimientos, cada uno con su comprobante.", "segment": "No hay movimientos en esta vista." },
-      "density": { "options": "Opciones de vista", "label": "Altura de las filas", "compacto": "Compacto", "normal": "Normal", "amplio": "Amplio", "note": "Se guarda en este navegador." }
+      "density": { "options": "Opciones de vista", "label": "Altura de las filas", "compacto": "Compacto", "normal": "Normal", "amplio": "Amplio", "note": "Se guarda para ti en cada equipo donde entres.", "failed": "No pudimos guardar la altura. Sigue la que tenías." }
     },
     "tray": {
       "title": "Detalle"
@@ -2870,6 +2887,8 @@
       "error_title": "No pudimos cargar el mes",
       "retry": "Reintentar",
       "mark_failed": "No pudimos guardar el cambio. El estado volvió al anterior.",
+      "matched_cobrado": "Esta venta ya está igualada con un depósito del banco, así que cuenta como cobrada. Para cambiarlo, desiguálala en Transacciones.",
+      "matched_pagado": "Este gasto ya está igualado con un cargo del banco, así que cuenta como pagado. Para cambiarlo, desiguálalo en Transacciones.",
       "close_failed": "No pudimos cerrar el mes. Reintenta.",
       "rnc": "RNC {{value}}",
       "ncf": "NCF {{value}}",

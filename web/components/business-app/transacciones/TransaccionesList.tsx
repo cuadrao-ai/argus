@@ -3,7 +3,7 @@
 import { MoreVertical } from "lucide-react";
 import ActionMenu from "../ActionMenu";
 import { formatRelativeDay, todayIso } from "../business-format";
-import { headerCurrency, segmentSections, type Movement, type Segment } from "./transacciones-model";
+import { headerCurrency, segmentSections, type IgualarView } from "./transacciones-model";
 import { SignedAmount, StateIcon } from "./transacciones-parts";
 import { useRowCommands } from "./transacciones-commands";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -14,23 +14,22 @@ import { movementName, type TransaccionesController } from "./useTransacciones";
  * density. The state icon and the name, then the date and the reason; at the
  * right the amount and the state word; then a 44px kebab.
  */
-export function TransaccionesList({ controller, movements, segment, rowRef }: {
+export function TransaccionesList({ controller, view, rowRef }: {
   controller: TransaccionesController;
-  movements: readonly Movement[];
-  segment: Segment;
+  view: IgualarView;
   rowRef: (id: string, node: HTMLElement | null) => void;
 }) {
   const { t, locale, stateWord, detail } = useTransaccionesWords();
   const commandsOf = useRowCommands(controller);
-  const header = headerCurrency(movements);
+  const header = headerCurrency(view.movements);
   const today = todayIso();
   return (
     <div data-testid="transacciones-list" className="overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
-      {segmentSections(movements, segment).map((section) => (
+      {segmentSections(view).map((section) => (
         <section key={section.group ?? "all"} aria-label={section.group ? t(`business.transactions.groups.${section.group}`) : undefined}>
           {section.group ? (
             <h3 className="border-b border-[#DCE0DA] bg-[#F7F5EE] px-4 py-2 text-[13px] font-medium text-[#56635e] dark:border-white/10 dark:bg-[#191c1f] dark:text-white/65">
-              {t(`business.transactions.groups.${section.group}`)}<span className="ml-2 font-normal tabular-nums">{section.rows.length}</span>
+              {t(`business.transactions.groups.${section.group}`)}{section.count !== null ? <span className="ml-2 font-normal tabular-nums">{section.count}</span> : null}
             </h3>
           ) : null}
           <ul>

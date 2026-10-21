@@ -182,7 +182,8 @@ export type MonthCloseNetDisplay =
   | { state: "pending"; pending_count: number; reason: "documents" | "unmatched" | "unknown" }
   | { state: "final"; net_before_itbis: string };
 
-export type MonthCloseErrorCode = "not_found" | "closed" | "invalid_status" | "blockers" | "unavailable";
+/** `matched`: the document is igualada with a bank movement, so the match owns its cobrado or pagado. */
+export type MonthCloseErrorCode = "not_found" | "closed" | "invalid_status" | "blockers" | "matched" | "unavailable";
 
 export class MonthCloseError extends Error {
   readonly code: MonthCloseErrorCode;
@@ -991,6 +992,7 @@ function monthCloseError(error: unknown): MonthCloseError {
     business_status_invalid: "invalid_status",
     business_settlement_incomplete: "invalid_status",
     business_payment_method_invalid: "invalid_status",
+    business_document_matched: "matched",
     not_found: "not_found",
     closed: "closed",
     invalid_status: "invalid_status",

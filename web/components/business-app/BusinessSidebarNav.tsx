@@ -8,7 +8,8 @@ import SidebarNavButton from "@/components/sidebar/SidebarNavButton";
 import { CuadraoMark } from "@/components/CuadraoMark";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import { useBusiness, type BusinessPanelState } from "./BusinessWorkspace";
-import { inboxCount as countInbox } from "./inbox-count";
+import { inboxCount as countInbox, porIgualarCount } from "./inbox-count";
+import { useIgualarEnabled } from "./transacciones/transacciones-gate";
 import { recordList } from "./record-tray";
 
 export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }) {
@@ -17,12 +18,14 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
   useEffect(() => { setCommand(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)); }, []);
   const { panel, openPanel, records } = useBusiness();
   const inboxCount = countInbox(records);
+  // Only beside the screen that lists them: with igualar off here, Transacciones shows no Por igualar.
+  const igualarCount = useIgualarEnabled() ? porIgualarCount(records) : null;
   const isActive = (kind: BusinessPanelState["kind"]) =>
     shell.currentView === "workspace" &&
     (panel.kind === kind || recordList(panel) === kind);
-  const count = (value: number | null) =>
+  const count = (value: number | null, testId = "business-inbox-count") =>
     value !== null && value > 0 && !shell.sidebarCollapsed ? (
-      <span data-testid="business-inbox-count" className="rounded-mark bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
+      <span data-testid={testId} className="rounded-mark bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
         {value}
       </span>
     ) : null;
@@ -65,6 +68,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         shortcutOnInteraction={!shell.isBelowTablet}
         collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "transactions" })}
+        trailing={count(igualarCount, "business-igualar-count")}
         iconSize={20}
         variant="business"
       />

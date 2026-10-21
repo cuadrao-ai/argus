@@ -69,6 +69,8 @@ export type ReceiptActivityCounts = {
   needs_attention_count: number;
   /** Rows a person can review now: the Bandeja's Por revisar. */
   ready_to_review_count: number;
+  /** Transacciones' Por igualar over every period. Null while bank matching is off, which is not 0. Absent in older payloads. */
+  por_igualar_count?: number | null;
 };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 

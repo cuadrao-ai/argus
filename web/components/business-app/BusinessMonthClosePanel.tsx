@@ -20,6 +20,7 @@ import {
   itbisBalanceDisplay,
   monthCloseBlockers,
   monthCloseClient,
+  MonthCloseError,
   monthCloseNetDisplay,
   monthCloseStatusView,
   monthCloseSummary,
@@ -363,8 +364,8 @@ export function BusinessMonthCloseView({
   const [openPhase, setOpenPhase] = useState<"loading" | "ready" | "error">("loading");
   const [openAttempt, setOpenAttempt] = useState(0);
   const inFlight = useRef(new Set<string>());
-  // A mark or Deshacer that fails says so in Pendiente hoy, with Reintentar; a failed close says so inside its alert.
-  const [workProblem, setWorkProblem] = useState<{ text: string; retry: () => void } | null>(null);
+  // A mark or Deshacer that fails says so in Pendiente hoy, with Reintentar when trying again can work; a failed close says so inside its alert.
+  const [workProblem, setWorkProblem] = useState<{ text: string; retry?: () => void } | null>(null);
   const [closeProblem, setCloseProblem] = useState<string | null>(null);
   // Marks in a row share one toast and one Deshacer, instead of a stack of toasts.
   const markToast = useRef<{ id: number; kind: MonthCloseDocument["kind"]; ids: string[] } | null>(null);
@@ -459,7 +460,13 @@ export function BusinessMonthCloseView({
     let saved: MonthCloseDocument;
     try {
       saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey ?? undefined, today) : await client.markPagado(documentId, scopeKey ?? undefined, today);
-    } catch {
+    } catch (error) {
+      if (settledByBank(error)) {
+        setWorkProblem({ text: bankMatchedText(document.kind) });
+        await rereadSettlements();
+        settle(documentId);
+        return;
+      }
       setSnapshot((current) =>
         current
           ? {
@@ -482,27 +489,47 @@ export function BusinessMonthCloseView({
     const text = ids.length > 1
       ? invoice ? t("business.month_close.marked_cobrado_many", "{{count}} invoices collected.", { count: ids.length }) : t("business.month_close.marked_pagado_many", "{{count}} expenses paid.", { count: ids.length })
       : invoice ? t("business.month_close.marked_cobrado", "{{name}} invoice collected.", { name: document.counterparty }) : t("business.month_close.marked_pagado", "{{name}} expense paid.", { name: document.counterparty });
-    const id = showToast({ kind: "success", text, action: { label: t("business.marks.undo", "Undo"), run: () => { markToast.current = null; ids.forEach((each) => void reopen(each)); } } });
+    const id = showToast({ kind: "success", text, action: { label: t("business.marks.undo", "Undo"), run: () => { markToast.current = null; ids.forEach((each) => void reopen(each, document.kind)); } } });
     markToast.current = { id, kind: document.kind, ids };
     // The row stays hidden until the reread confirms it left the open items.
     await readOpenItems();
     settle(documentId);
   }
 
-  async function reopen(documentId: string) {
+  async function reopen(documentId: string, kind: MonthCloseDocument["kind"]) {
     if (inFlight.current.has(documentId)) return;
     inFlight.current.add(documentId);
     setWorkProblem(null);
     try {
       await client.markPendiente(documentId, scopeKey ?? undefined);
-    } catch {
-      setWorkProblem({ text: t("business.month_close.undo_failed", "We couldn't undo that change. Try again."), retry: () => void reopen(documentId) });
+    } catch (error) {
+      if (settledByBank(error)) {
+        setWorkProblem({ text: bankMatchedText(kind) });
+        await rereadSettlements();
+        inFlight.current.delete(documentId);
+        return;
+      }
+      setWorkProblem({ text: t("business.month_close.undo_failed", "We couldn't undo that change. Try again."), retry: () => void reopen(documentId, kind) });
       inFlight.current.delete(documentId);
       return;
     }
     setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === documentId ? { ...item, status: "pendiente" } : item)) } : current));
     await readOpenItems();
     inFlight.current.delete(documentId);
+  }
+
+  /** A document igualada with a bank movement keeps the cobrado or pagado the match wrote; only Transacciones can take it back. */
+  const settledByBank = (error: unknown) => error instanceof MonthCloseError && error.code === "matched";
+  const bankMatchedText = (kind: MonthCloseDocument["kind"]) => (kind === "invoice"
+    ? t("business.month_close.matched_cobrado", "This sale is already matched with a bank deposit, so it counts as collected. To change that, unmatch it in Transactions.")
+    : t("business.month_close.matched_pagado", "This expense is already matched with a bank charge, so it counts as paid. To change that, unmatch it in Transactions."));
+
+  /** Read the month and the open items again, quietly, so every row shows the settlement the server holds. */
+  async function rereadSettlements() {
+    if (scopeKey === null) return;
+    const request = ++generation.current;
+    const [next] = await Promise.all([client.load(month, scopeKey).catch(() => null), readOpenItems()]);
+    if (next && generation.current === request) setSnapshot(preview === "empty" ? { ...next, documents: [] } : next);
   }
 
   function settle(documentId: string) {
@@ -751,7 +778,7 @@ export function BusinessMonthCloseView({
           {workProblem ? (
             <p role="alert" data-testid="month-close-work-problem" className="mb-3 flex flex-wrap items-center gap-x-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
               {workProblem.text}
-              <button type="button" onClick={() => { const again = workProblem.retry; setWorkProblem(null); again(); }} className={quietButtonClass}>{t("common.retry", "Retry")}</button>
+              {workProblem.retry ? <button type="button" onClick={() => { const again = workProblem.retry; setWorkProblem(null); again?.(); }} className={quietButtonClass}>{t("common.retry", "Retry")}</button> : null}
             </p>
           ) : null}
           {moneyBody()}

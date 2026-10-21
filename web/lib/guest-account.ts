@@ -34,6 +34,8 @@ export type ApiUser = {
   country?: string | null;
   currency_override?: string | null;
   currency?: string | null;
+  /** Row height for dense tables such as Transacciones; registered-only, `normal` until chosen. */
+  table_density?: "compacto" | "normal" | "amplio";
   onboarding: {
     completed: boolean;
     stage: LegacyOnboardingStage;

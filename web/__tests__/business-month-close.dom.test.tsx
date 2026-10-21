@@ -96,6 +96,55 @@ describe("month close optimistic marks", () => {
     host.remove();
   });
 
+  test("a document igualada with the bank says the bank match settled it, offers no Reintentar, and leaves Pendiente hoy", async () => {
+    const { act } = await import("react");
+    const { createRoot } = await import("react-dom/client");
+    const i18next = (await import("i18next")).default;
+    const { I18nextProvider } = await import("react-i18next");
+    const spanish = (await import("../public/locales/es-419/common.json")).default;
+    const { BusinessMonthCloseView } = await import("../components/business-app/BusinessMonthClosePanel");
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+    const inner = createMockMonthCloseClient({ now });
+    // The server: Transacciones already matched this invoice to a deposit, which wrote cobrado; the PATCH is refused.
+    const matched = createHttpMonthCloseClient(async () => { throw Object.assign(new Error("matched"), { status: 409, code: "business_document_matched" }); });
+    const client: MonthCloseClient = {
+      ...inner,
+      async markCobrado(documentId, scope, settledOn) {
+        await inner.markCobrado(documentId, scope, settledOn);
+        return matched.markCobrado(documentId, scope, settledOn);
+      },
+    };
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <BusinessMonthCloseView client={client} now={now} />
+        </I18nextProvider>,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const button = host.querySelector('[data-document-id="inv-taller"] [data-testid="month-close-mark-cobrado"]');
+    assert.ok(button instanceof HTMLButtonElement);
+    await act(async () => {
+      button.click();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    const problem = host.querySelector('[data-testid="month-close-work-problem"]');
+    assert.equal(problem?.getAttribute("role"), "alert");
+    assert.match(problem?.textContent ?? "", /ya está igualada con un depósito del banco/);
+    assert.match(problem?.textContent ?? "", /desiguálala en Transacciones/);
+    assert.doesNotMatch(problem?.textContent ?? "", /volvió al anterior/);
+    assert.equal(problem?.querySelectorAll("button").length, 0, "trying again cannot work, so nothing offers it");
+    assert.equal(host.querySelector('[data-testid="month-close-receivable"] [data-document-id="inv-taller"]'), null, "the reread shows it settled");
+    await act(async () => root.unmount());
+    host.remove();
+  });
+
   test("without approval permission the month cannot be marked or closed", async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");

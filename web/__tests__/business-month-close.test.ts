@@ -365,6 +365,15 @@ describe("month close HTTP contract", () => {
     expect(calls).toHaveLength(2);
   });
 
+  test("a mark on a document the bank match settled is the matched error, for cobrado, pagado and Deshacer", async () => {
+    const client = createHttpMonthCloseClient(async () => {
+      throw Object.assign(new Error("Business document matched"), { status: 409, code: "business_document_matched" });
+    });
+    await expect(client.markCobrado("act-1", undefined, "2026-10-18")).rejects.toMatchObject({ code: "matched" });
+    await expect(client.markPagado("act-2", undefined, "2026-10-18")).rejects.toMatchObject({ code: "matched" });
+    await expect(client.markPendiente("act-2")).rejects.toMatchObject({ code: "matched" });
+  });
+
   test("an empty document list stays empty, and a failed load is an error", async () => {
     const snapshot = readMonthCloseWire({ ...wire, reasons: [], missing_rnc: [] });
     expect(snapshot.documents).toEqual([]);

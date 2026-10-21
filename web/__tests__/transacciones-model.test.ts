@@ -1,195 +1,294 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, test } from "bun:test";
-import { createBankTransaccionesSource, mapBankWire, parseBankWire } from "@/components/business-app/transacciones/transacciones-adapter";
-import { createSampleTransaccionesSource } from "@/components/business-app/transacciones/transacciones-sample";
-import { defaultSegment, headerCurrency, inHeaderOrder, rowActions, segmentSections, suggestionRun, type Movement } from "@/components/business-app/transacciones/transacciones-model";
-import { DEFAULT_DENSITY, densityPreference, resetTableDensity } from "@/components/business-app/transacciones/table-density";
+import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisionProblem, parseHistory, parseMovementItem, parseMovementsPage } from "@/components/business-app/transacciones/transacciones-adapter";
+import { createSampleBankServer } from "@/components/business-app/transacciones/transacciones-sample";
+import { inverse, perCurrency, periodCount, segmentSections, suggestionRun, type Decision, type IgualarView } from "@/components/business-app/transacciones/transacciones-model";
+import { DEFAULT_DENSITY, resetTableDensity, setTableDensity, type DensityProfile } from "@/components/business-app/transacciones/table-density";
+import { formatMoney } from "@/components/business-app/business-format";
 
 const OCTOBER = { from: "2026-10-01", to: "2026-10-31" };
 
-const line = (id: string, overrides: Record<string, unknown> = {}) => ({ id, occurred_on: "2026-10-16", description: `COMPRA ${id}`, amount: "-860.00", currency: "DOP", sense: "charge", state: "sin_comprobante", ...overrides });
-const suggestion = (id: string, lineId: string, overrides: Record<string, unknown> = {}) => ({ id, line_id: lineId, target_id: `doc-${id}`, target_kind: "receipt", status: "pending", amount_score: "1.000", date_score: "0.800", merchant_score: "0.000", confidence: "0.600", actionable: true, ...overrides });
-const page = (lines: unknown[], count = lines.length) => ({ count, period_start: "2026-10-01", period_end: "2026-10-31", lines });
+/** The `GET /business/bank/movements` example in docs/contracts/business-bank-matching.md, verbatim in shape. */
+const document = (overrides: Record<string, unknown> = {}) => ({
+  activity_id: "doc-1",
+  kind: "receipt",
+  counterparty: "Ferreteria La Esquina",
+  occurred_on: "2026-10-16",
+  currency: "DOP",
+  total_minor: 345000,
+  total: "3450.00",
+  itbis_minor: null,
+  itbis: null,
+  rnc: null,
+  ncf: null,
+  ecf: null,
+  status: "pendiente",
+  settled_on: null,
+  payment_method: null,
+  category_id: null,
+  ...overrides,
+});
+const item = (overrides: Record<string, unknown> = {}) => ({
+  kind: "movement",
+  id: "line-1",
+  occurred_on: "2026-10-17",
+  description: "COMPRA  FERRETERIA LA ESQUINA",
+  counterparty: "COMPRA FERRETERIA LA ESQUINA",
+  sense: "charge",
+  currency: "DOP",
+  amount_minor: -345000,
+  amount: "-3450.00",
+  state: "sugerencia",
+  reason: null,
+  category_id: null,
+  account: { account_id: "acc-1", name: "Cuenta Popular", type: "checking" },
+  method: "transferencia",
+  document: null,
+  suggestions: [{ id: "sg-1", confidence: "0.850", reasons: [{ code: "monto_exacto", days: null }, { code: "fecha_cercana", days: -1 }, { code: "nombre_parecido", days: null }], document: document() }],
+  ...overrides,
+});
+const counts = (overrides: Record<string, number> = {}) => ({ movimientos: 4, igualadas: 0, no_lleva_comprobante: 1, sugerencias: 2, falta_comprobante: 1, sin_movimiento: 1, por_igualar: 4, ...overrides });
+const block = (overrides: Record<string, unknown> = {}) => ({ currency: "DOP", entradas_minor: 500000, entradas: "5000.00", salidas_minor: 360000, salidas: "3600.00", por_igualar_minor: 950000, por_igualar: "9500.00", counts: counts(), ...overrides });
+const page = (overrides: Record<string, unknown> = {}) => ({
+  period_start: "2026-10-01",
+  period_end: "2026-10-31",
+  segment: "por_igualar",
+  sense: null,
+  accounts: [{ account_id: "acc-1", name: "Cuenta Popular", type: "checking", bank_account_id: "bank-1", currency: "DOP", covered_through: "2026-10-20" }],
+  totals: [block()],
+  items: [item()],
+  next_cursor: null,
+  ...overrides,
+});
 
-describe("bank adapter", () => {
-  test("a charge with a pending suggestion is a Sugerencia; one without is Falta comprobante", () => {
-    const view = mapBankWire(parseBankWire(page([line("a"), line("b")]), [suggestion("s1", "a")]));
-    const [a, b] = view.movements;
-    assert.equal(a.match.state, "sugerencia");
-    assert.equal(b.match.state, "falta_comprobante");
-    if (a.match.state !== "sugerencia") throw new Error("unreachable");
-    assert.equal(a.match.suggestion.id, "s1");
-    assert.equal(a.match.suggestion.documentKind, "recibo");
-    assert.deepEqual(a.match.suggestion.reasons, [{ kind: "amount" }, { kind: "date", daysBefore: null }]);
-    assert.deepEqual(a.money, { amount: "-860.00", currency: "DOP" });
-    assert.equal(a.bankText, "COMPRA a");
+const refusal = (status: number, code: string) => Object.assign(new Error(code), { status, code });
+
+describe("bank adapter: the movements read", () => {
+  test("the contract's own answer maps to the view: state, suggestion, reasons, account, totals and coverage", () => {
+    const { view, hasStatement } = parseMovementsPage(page());
+    assert.equal(hasStatement, true);
+    assert.equal(view.segment, "por_igualar");
+    assert.equal(view.coverageThrough, "2026-10-20");
+    assert.equal(view.accountCurrency, "DOP");
+    const [row] = view.movements;
+    assert.deepEqual(row.money, { amount: "-3450.00", currency: "DOP" });
+    assert.equal(row.counterparty, "COMPRA FERRETERIA LA ESQUINA");
+    assert.equal(row.bankText, "COMPRA  FERRETERIA LA ESQUINA");
+    assert.deepEqual(row.account, { kind: "bank", name: "Cuenta Popular" });
+    assert.ok(row.match.state === "sugerencia");
+    assert.equal(row.match.suggestion.id, "sg-1");
+    assert.equal(row.match.suggestion.document.counterparty, "Ferreteria La Esquina");
+    assert.deepEqual(row.match.suggestion.document.total, { amount: "3450.00", currency: "DOP" });
+    assert.deepEqual(row.match.suggestion.reasons, [{ kind: "amount" }, { kind: "date", days: -1 }, { kind: "name" }]);
+    assert.deepEqual(view.totals, [{ currency: "DOP", entradas: "5000.00", salidas: "3600.00", porIgualar: "9500.00", counts: { movimientos: 4, igualadas: 0, noLleva: 1, sugerencias: 2, faltaComprobante: 1, sinMovimiento: 1, porIgualar: 4 } }]);
   });
 
-  test("the most confident pending pair is the one offered; declined and spent pairs never show", () => {
-    const view = mapBankWire(parseBankWire(page([line("a"), line("b")]), [
-      suggestion("low", "a", { confidence: "0.400" }),
-      suggestion("high", "a", { confidence: "0.900", target_kind: "venta" }),
-      suggestion("declined", "b", { status: "declined", actionable: false }),
-      suggestion("spent", "b", { actionable: false }),
-    ]));
-    const [a, b] = view.movements;
-    assert.ok(a.match.state === "sugerencia" && a.match.suggestion.id === "high" && a.match.suggestion.documentKind === "venta");
-    assert.equal(b.match.state, "falta_comprobante");
+  test("each server state is its own match; a zero line's reason is the server's own", () => {
+    const states = [
+      item({ id: "a", state: "igualada", suggestions: [], document: document({ ncf: null, ecf: "E310000000012" }) }),
+      item({ id: "b", state: "falta_comprobante", suggestions: [] }),
+      item({ id: "c", state: "no_lleva_comprobante", reason: "entre_cuentas", suggestions: [] }),
+      item({ id: "d", state: "no_lleva_comprobante", reason: "monto_cero", amount_minor: 0, amount: "0.00", sense: "zero", suggestions: [] }),
+      item({ id: "e", kind: "document", state: "sin_movimiento", description: null, suggestions: [], document: document() }),
+    ].map((wire) => parseMovementItem(wire).match);
+    assert.deepEqual(states.map((match) => match.state), ["igualada", "falta_comprobante", "no_lleva", "no_lleva", "sin_movimiento"]);
+    assert.ok(states[0].state === "igualada" && states[0].document?.ncf === "E310000000012", "an e-CF stands in for the NCF");
+    assert.ok(states[2].state === "no_lleva" && states[2].reason === "entre_cuentas");
+    assert.ok(states[3].state === "no_lleva" && states[3].reason === "monto_cero");
   });
 
-  test("facts the server does not serve stay unknown: no account, category, document or totals are invented", () => {
-    const view = mapBankWire(parseBankWire(page([line("a")], 7), [suggestion("s1", "a")]));
-    const [a] = view.movements;
-    assert.equal(a.account, null);
-    assert.equal(a.categoryId, null);
-    assert.equal(a.counterparty, null);
-    assert.ok(a.match.state === "sugerencia" && a.match.suggestion.document === null);
-    assert.deepEqual(view.totals, { entradas: null, salidas: null, porIgualar: { count: 7, amounts: null }, igualadas: null });
-    assert.equal(view.coverageThrough, null);
+  test("a shape the screen cannot trust fails the load instead of rendering half a list", () => {
+    assert.throws(() => parseMovementsPage(page({ items: [item({ amount: "mucho" })] })));
+    assert.throws(() => parseMovementsPage(page({ items: [item({ state: "igualada_en_parte" })] })));
+    assert.throws(() => parseMovementsPage(page({ items: [item({ suggestions: [] })] })), "a suggestion row with no suggestion");
+    assert.throws(() => parseMovementsPage(page({ items: [item({ amount_minor: -3450.5 })] })), "minor units are whole");
+    assert.throws(() => parseMovementsPage(page({ totals: [block({ counts: { movimientos: 1 } })] })));
+    assert.throws(() => parseMovementsPage({ items: [] }));
   });
 
-  test("a malformed answer fails the load instead of rendering half a list", () => {
-    assert.throws(() => parseBankWire(page([line("a", { amount: "mucho" })]), []));
-    assert.throws(() => parseBankWire(page([line("a")]), [suggestion("s", "a", { target_kind: "factura" })]));
-    assert.throws(() => parseBankWire({ lines: [] }, []));
+  test("a missing currency is never read as pesos: the row refuses, and nothing becomes DOP", () => {
+    const { currency: _drop, ...noCurrency } = item();
+    assert.throws(() => parseMovementItem(noCurrency));
+    assert.throws(() => parseMovementItem(item({ currency: null })));
+    assert.throws(() => parseMovementItem(item({ currency: "" })));
+    assert.throws(() => parseMovementsPage(page({ totals: [block({ currency: undefined })] })));
   });
 
-  test("the live source reads today's two routes for the period and posts confirm and decline with the key", async () => {
-    const calls: { path: string; init?: RequestInit }[] = [];
+  test("each currency keeps its own exponent: no figure is padded, cut or re-scaled to two decimals", () => {
+    const yen = parseMovementItem(item({ currency: "JPY", amount_minor: -1500, amount: "-1500", suggestions: [], state: "falta_comprobante" }));
+    const dinar = parseMovementItem(item({ currency: "KWD", amount_minor: -1250, amount: "-1.250", suggestions: [], state: "falta_comprobante" }));
+    assert.deepEqual(yen.money, { amount: "-1500", currency: "JPY" });
+    assert.deepEqual(dinar.money, { amount: "-1.250", currency: "KWD" });
+    assert.match(formatMoney("1500", "JPY", "es-419"), /1,500$/);
+    assert.doesNotMatch(formatMoney("1500", "JPY", "es-419"), /\./);
+    assert.match(formatMoney("1.250", "KWD", "es-419"), /1\.250$/);
+    assert.match(formatMoney("24.00", "USD", "es-419"), /^US\$ 24\.00$/);
+  });
+
+  test("totals stay one per currency, never added; the period's counts add each currency's own rows", () => {
+    const { view } = parseMovementsPage(page({
+      totals: [block(), block({ currency: "USD", entradas_minor: 0, entradas: "0.00", salidas_minor: 2400, salidas: "24.00", por_igualar_minor: 2400, por_igualar: "24.00", counts: counts({ movimientos: 1, sugerencias: 0, falta_comprobante: 1, sin_movimiento: 0, no_lleva_comprobante: 0, por_igualar: 1 }) })],
+    }));
+    assert.deepEqual(perCurrency(view.totals, "salidas"), [{ currency: "DOP", amount: "3600.00" }, { currency: "USD", amount: "24.00" }]);
+    assert.deepEqual(perCurrency(view.totals, "porIgualar"), [{ currency: "DOP", amount: "9500.00" }, { currency: "USD", amount: "24.00" }]);
+    assert.equal(periodCount(view.totals, "porIgualar"), 5);
+    assert.equal(periodCount(view.totals, "movimientos"), 5);
+  });
+
+  test("Por igualar comes in the server's order, grouped, each group named with the server's count", () => {
+    const { view } = parseMovementsPage(page({
+      items: [item({ id: "s1" }), item({ id: "s2" }), item({ id: "f1", state: "falta_comprobante", suggestions: [] }), item({ id: "d1", kind: "document", state: "sin_movimiento", description: null, suggestions: [], document: document() })],
+      totals: [block({ counts: counts({ sugerencias: 7, falta_comprobante: 3, sin_movimiento: 1 }) })],
+    }));
+    const sections = segmentSections(view);
+    assert.deepEqual(sections.map((section) => [section.group, section.count, section.rows.map((row) => row.id)]), [["sugerencias", 7, ["s1", "s2"]], ["falta_comprobante", 3, ["f1"]], ["sin_movimiento", 1, ["d1"]]]);
+    assert.deepEqual(suggestionRun(view).map((row) => row.id), ["s1", "s2"]);
+    assert.deepEqual(suggestionRun({ ...view, segment: "todas" } as IgualarView), [], "the run walks only the server's best-first order");
+  });
+
+  test("history parses the line's outcomes, ended ones included", () => {
+    assert.deepEqual(parseHistory([{ id: "h1", kind: "match", target_kind: "receipt", activity_id: "doc-1", reason: null, created_at: "2026-10-21T12:00:00Z", ended_at: "2026-10-21T12:01:00Z" }, { id: "h2", kind: "no_receipt", target_kind: null, activity_id: null, reason: "personal", created_at: "2026-10-21T12:02:00Z", ended_at: null }]), [
+      { id: "h1", outcome: "match", documentKind: "recibo", reason: null, from: "2026-10-21T12:00:00Z", until: "2026-10-21T12:01:00Z" },
+      { id: "h2", outcome: "no_receipt", documentKind: null, reason: "personal", from: "2026-10-21T12:02:00Z", until: null },
+    ]);
+  });
+});
+
+describe("bank adapter: requests", () => {
+  const recording = () => {
+    const calls: { path: string; method: string; key: string | null; body: unknown }[] = [];
     const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
-      calls.push({ path, init });
-      if (path.startsWith("/business/bank/unmatched")) return page([line("a")]) as T;
-      if (path.startsWith("/business/bank/suggestions?")) return [suggestion("s1", "a")] as T;
-      return {} as T;
+      calls.push({ path, method: init?.method ?? "GET", key: new Headers(init?.headers).get("Idempotency-Key"), body: init?.body ? JSON.parse(String(init.body)) : null });
+      if (path.endsWith("/history")) return [] as T;
+      return (path.startsWith("/business/bank/movements?") ? page() : item()) as T;
     };
+    return { calls, fetchJson };
+  };
+
+  test("the read sends the period, the segment, the page size and the cursor", async () => {
+    const { calls, fetchJson } = recording();
     const source = createBankTransaccionesSource(fetchJson);
-    const view = await source.load(OCTOBER);
-    assert.equal(view.movements.length, 1);
-    assert.deepEqual(calls.map((call) => call.path).sort(), ["/business/bank/suggestions?status=pending", "/business/bank/unmatched?period_start=2026-10-01&period_end=2026-10-31"]);
-    calls.length = 0;
-    await source.decide({ kind: "igualar", movementId: "a", suggestionId: "s 1" }, "key-1");
-    await source.decide({ kind: "rechazar", movementId: "a", suggestionId: "s2" }, "key-2");
-    assert.deepEqual(calls.map((call) => [call.path, call.init?.method, new Headers(call.init?.headers).get("Idempotency-Key")]), [
-      ["/business/bank/suggestions/s%201/confirm", "POST", "key-1"],
-      ["/business/bank/suggestions/s2/decline", "POST", "key-2"],
+    await source.load({ ...OCTOBER, segment: "igualadas", limit: 50, cursor: "abc" });
+    assert.equal(calls[0].path, "/business/bank/movements?period_start=2026-10-01&period_end=2026-10-31&segment=igualadas&limit=50&cursor=abc");
+  });
+
+  test("every decision is one route with its Idempotency-Key, and Desigualar names which outcome it ends", async () => {
+    const { calls, fetchJson } = recording();
+    const source = createBankTransaccionesSource(fetchJson);
+    const decisions: Decision[] = [
+      { kind: "igualar", movementId: "l 1", suggestionId: "s 1", documentId: "doc-1" },
+      { kind: "rechazar", movementId: "l1", suggestionId: "s2" },
+      { kind: "igualar_con", movementId: "l1", documentId: "doc-9" },
+      { kind: "desigualar", movementId: "l1", outcome: { kind: "match", documentId: "doc-9" } },
+      { kind: "sin_comprobante", movementId: "l1", reason: "cargo_banco" },
+      { kind: "desigualar", movementId: "l1", outcome: { kind: "no_receipt", reason: "cargo_banco" } },
+    ];
+    for (const [index, decision] of decisions.entries()) await source.decide(decision, `key-${index}`);
+    await source.history("l1");
+    assert.deepEqual(calls.map((call) => [call.method, call.path, call.key, call.body]), [
+      ["POST", "/business/bank/suggestions/s%201/confirm", "key-0", null],
+      ["POST", "/business/bank/suggestions/s2/decline", "key-1", null],
+      ["POST", "/business/bank/movements/l1/match", "key-2", { activity_id: "doc-9" }],
+      ["POST", "/business/bank/movements/l1/unmatch", "key-3", null],
+      ["PUT", "/business/bank/movements/l1/disposition", "key-4", { reason: "cargo_banco" }],
+      ["DELETE", "/business/bank/movements/l1/disposition", "key-5", null],
+      ["GET", "/business/bank/movements/l1/history", null, null],
     ]);
   });
 
-  test("the live source offers only what the server serves, and no Deshacer", async () => {
-    const source = createBankTransaccionesSource(async <T,>() => ({}) as T);
-    assert.equal(source.supports("igualar"), true);
-    assert.equal(source.supports("rechazar"), true);
-    assert.equal(source.supports("sin_comprobante"), false);
-    assert.equal(source.supports("desigualar"), false);
-    assert.equal(source.undo, undefined);
-    await assert.rejects(source.decide({ kind: "sin_comprobante", movementId: "a", reason: "cargo_banco" }, "k"));
+  test("with the routes off, or before any statement, the saved records list; any other failure stays a failure", async () => {
+    const records = createRecordsTransaccionesSource({ expenses: async () => [], overview: async () => ({ from: "2026-10-01", to: "2026-10-31", today: "2026-10-21", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }), workspace: async () => ({ accounts: [] }), ownerFunds: "Dinero del dueño" });
+    const off = createBankTransaccionesSource(async () => { throw refusal(404, "business_unavailable"); }, records);
+    assert.equal((await off.load({ ...OCTOBER, segment: "por_igualar" })).mode, "records");
+    const noStatement = createBankTransaccionesSource(async <T,>() => page({ accounts: [{ account_id: "a", name: null, type: "checking", bank_account_id: "b", currency: "DOP", covered_through: null }], items: [], totals: [] }) as T, records);
+    assert.equal((await noStatement.load({ ...OCTOBER, segment: "por_igualar" })).mode, "records");
+    const down = createBankTransaccionesSource(async () => { throw refusal(503, "business_bank_unavailable"); }, records);
+    await assert.rejects(down.load({ ...OCTOBER, segment: "por_igualar" }));
+  });
+
+  test("each refusal maps to what the screen says and the way out it offers", () => {
+    const expected: Record<string, [string, string]> = {
+      line_not_found: ["line_not_found", "reload"],
+      line_marked_no_receipt: ["line_marked_no_receipt", "reload"],
+      line_not_matched: ["line_not_matched", "reload"],
+      line_not_marked: ["line_not_marked", "reload"],
+      document_already_matched: ["document_already_matched", "reload"],
+      business_document_matched: ["business_document_matched", "reload"],
+      document_not_matchable: ["document_not_matchable", "none"],
+      suggestion_not_pending: ["changed", "reload"],
+      business_bank_unavailable: ["unavailable", "retry"],
+      something_new: ["unavailable", "retry"],
+    };
+    for (const [code, [shown, action]] of Object.entries(expected)) assert.deepEqual(decisionProblem(refusal(409, code)), { code: shown, action }, code);
+    assert.deepEqual(decisionProblem(new TypeError("Failed to fetch")), { code: "unavailable", action: "retry" });
+  });
+
+  test("Deshacer is each decision's inverse; a declined pair has none", () => {
+    assert.deepEqual(inverse({ kind: "igualar", movementId: "l", suggestionId: "s", documentId: "d" }), { kind: "desigualar", movementId: "l", outcome: { kind: "match", documentId: "d" } });
+    assert.deepEqual(inverse({ kind: "desigualar", movementId: "l", outcome: { kind: "match", documentId: "d" } }), { kind: "igualar_con", movementId: "l", documentId: "d" });
+    assert.deepEqual(inverse({ kind: "sin_comprobante", movementId: "l", reason: "personal" }), { kind: "desigualar", movementId: "l", outcome: { kind: "no_receipt", reason: "personal" } });
+    assert.deepEqual(inverse({ kind: "desigualar", movementId: "l", outcome: { kind: "no_receipt", reason: "personal" } }), { kind: "sin_comprobante", movementId: "l", reason: "personal" });
+    assert.equal(inverse({ kind: "rechazar", movementId: "l", suggestionId: "s" }), null);
   });
 });
 
-describe("transacciones view model", () => {
-  test("Por igualar holds three groups in order; the suggestions run most confident first", async () => {
-    const { movements } = await createSampleTransaccionesSource().load(OCTOBER);
-    const sections = segmentSections(movements, "por_igualar");
-    assert.deepEqual(sections.map((section) => section.group), ["sugerencias", "falta_comprobante", "sin_movimiento"]);
-    assert.deepEqual(suggestionRun(movements).map((row) => row.counterparty), ["Ferretería La Esquina", "Repuestos Duarte", "Servicio eléctrico, contrato 4471"]);
-    const falta = sections[1].rows.map((row) => row.match.state);
-    assert.ok(falta.every((state) => state === "falta_comprobante" || state === "igualada_en_parte"));
-    assert.equal(defaultSegment(movements), "por_igualar");
+describe("sample bank server", () => {
+  const read = async (fetchJson: ReturnType<typeof createSampleBankServer>, segment: "por_igualar" | "igualadas" | "todas", extra = "") => parseMovementsPage(await fetchJson(`/business/bank/movements?period_start=2026-10-01&period_end=2026-10-31&segment=${segment}${extra}`)).view;
+  const post = (fetchJson: ReturnType<typeof createSampleBankServer>, path: string, key: string, method = "POST", body?: unknown) => fetchJson(path, { method, headers: { "Idempotency-Key": key }, body: body ? JSON.stringify(body) : undefined });
+
+  test("it answers in the contract's shape, with totals one per currency, and the counts move with a decision", async () => {
+    const bank = createSampleBankServer();
+    const before = await read(bank, "por_igualar");
+    assert.deepEqual(before.totals.map((block) => block.currency), ["DOP", "USD"]);
+    assert.equal(periodCount(before.totals, "sugerencias"), 3);
+    assert.equal(perCurrency(before.totals, "salidas").find((money) => money.currency === "USD")?.amount, "24.00");
+    await post(bank, "/business/bank/suggestions/sg-ferreteria/confirm", "k1");
+    const after = await read(bank, "por_igualar");
+    assert.equal(periodCount(after.totals, "sugerencias"), 2);
+    assert.equal(periodCount(after.totals, "porIgualar"), periodCount(before.totals, "porIgualar") - 1);
+    assert.equal((await read(bank, "igualadas")).movements.find((row) => row.id === "mv-ferreteria")?.match.state, "igualada");
   });
 
-  test("Igualadas holds igualadas and no lleva comprobante; Todas holds every row newest first", async () => {
-    const { movements } = await createSampleTransaccionesSource().load(OCTOBER);
-    const [igualadas] = segmentSections(movements, "igualadas");
-    assert.ok(igualadas.rows.every((row) => row.match.state === "igualada" || row.match.state === "no_lleva"));
-    const [todas] = segmentSections(movements, "todas");
-    assert.equal(todas.rows.length, movements.length);
-    const days = todas.rows.map((row) => row.occurredOn);
-    assert.deepEqual(days, [...days].sort().reverse());
+  test("the same key twice is one decision; Desigualar puts the suggestion back", async () => {
+    const bank = createSampleBankServer();
+    await post(bank, "/business/bank/movements/mv-colmado/disposition", "same", "PUT", { reason: "personal" });
+    await post(bank, "/business/bank/movements/mv-colmado/disposition", "same", "PUT", { reason: "personal" });
+    const history = parseHistory(await bank("/business/bank/movements/mv-colmado/history"));
+    assert.equal(history.length, 1);
+    await post(bank, "/business/bank/suggestions/sg-ferreteria/confirm", "c1");
+    await post(bank, "/business/bank/movements/mv-ferreteria/unmatch", "u1");
+    assert.equal((await read(bank, "por_igualar")).movements.find((row) => row.id === "mv-ferreteria")?.match.state, "sugerencia");
+    await assert.rejects(post(bank, "/business/bank/movements/mv-ferreteria/unmatch", "u2"), /line_not_matched/);
   });
 
-  test("an empty list opens on Todas", () => {
-    assert.equal(defaultSegment([]), "todas");
-  });
-
-  test("the Monto header names pesos when any row is in pesos, and totals list the header currency first", async () => {
-    const { movements } = await createSampleTransaccionesSource().load(OCTOBER);
-    assert.equal(headerCurrency(movements), "DOP");
-    const usd: Movement[] = movements.filter((row) => row.money.currency === "USD");
-    assert.equal(headerCurrency(usd), "USD");
-    assert.deepEqual(inHeaderOrder([{ amount: "24.00", currency: "USD" }, { amount: "1.00", currency: "DOP" }], "DOP").map((money) => money.currency), ["DOP", "USD"]);
-  });
-
-  test("a row offers what its state allows and the source serves", async () => {
-    const sample = createSampleTransaccionesSource();
-    const { movements } = await sample.load(OCTOBER);
-    const byId = new Map(movements.map((row) => [row.id, row]));
-    assert.deepEqual(rowActions(byId.get("mv-ferreteria")!, sample), ["igualar", "rechazar", "sin_comprobante"]);
-    assert.deepEqual(rowActions(byId.get("mv-colmado")!, sample), ["sin_comprobante"]);
-    assert.deepEqual(rowActions(byId.get("mv-ferreteria")!, createBankTransaccionesSource(async <T,>() => ({}) as T)), ["igualar", "rechazar"]);
-    assert.deepEqual(rowActions(byId.get("doc-taller")!, sample), []);
-  });
-});
-
-describe("sample source", () => {
-  test("the sample server owns the totals: exact, one per currency, and the counts move with a decision", async () => {
-    const sample = createSampleTransaccionesSource();
-    const before = await sample.load(OCTOBER);
-    assert.deepEqual(before.totals.porIgualar?.count, 8);
-    assert.deepEqual(before.totals.igualadas, { count: 13, of: 20 });
-    assert.deepEqual(before.totals.entradas, [{ currency: "DOP", amount: "90580.68" }]);
-    assert.deepEqual(before.totals.salidas, [{ currency: "DOP", amount: "64311.43" }, { currency: "USD", amount: "24.00" }]);
-    await sample.decide({ kind: "igualar", movementId: "mv-ferreteria", suggestionId: "sg-ferreteria" }, "k1");
-    const after = await sample.load(OCTOBER);
-    assert.equal(after.totals.porIgualar?.count, 7);
-    assert.deepEqual(after.totals.igualadas, { count: 14, of: 20 });
-    assert.equal(after.movements.find((row) => row.id === "mv-ferreteria")?.match.state, "igualada");
-  });
-
-  test("Deshacer puts the row back where it stood", async () => {
-    const sample = createSampleTransaccionesSource();
-    await sample.load(OCTOBER);
-    const decision = { kind: "sin_comprobante" as const, movementId: "mv-colmado", reason: "compra_informal" as const };
-    await sample.decide(decision, "k1");
-    assert.deepEqual((await sample.load(OCTOBER)).movements.find((row) => row.id === "mv-colmado")?.match, { state: "no_lleva", reason: "compra_informal" });
-    await sample.undo!(decision);
-    assert.equal((await sample.load(OCTOBER)).movements.find((row) => row.id === "mv-colmado")?.match.state, "falta_comprobante");
-  });
-
-  test("a pair that is no longer offered is refused", async () => {
-    const sample = createSampleTransaccionesSource();
-    await sample.load(OCTOBER);
-    await assert.rejects(sample.decide({ kind: "igualar", movementId: "mv-colmado", suggestionId: "sg-ferreteria" }, "k"));
+  test("it pages with a cursor, and refuses one it did not hand out", async () => {
+    const bank = createSampleBankServer();
+    const first = await read(bank, "todas", "&limit=5");
+    assert.equal(first.movements.length, 5);
+    assert.ok(first.nextCursor);
+    const second = await read(bank, "todas", `&limit=5&cursor=${first.nextCursor}`);
+    assert.equal(new Set([...first.movements, ...second.movements].map((row) => row.id)).size, 10);
+    await assert.rejects(read(bank, "todas", "&cursor=nope"), /invalid_cursor/);
   });
 });
 
 describe("table density", () => {
-  const original = (globalThis as { window?: unknown }).window;
-  afterEach(() => {
-    (globalThis as { window?: unknown }).window = original;
-    resetTableDensity();
-  });
-  const withStorage = (storage: Partial<Storage>) => {
-    (globalThis as { window?: unknown }).window = { localStorage: storage };
+  afterEach(() => resetTableDensity());
+  const profile = (stored: unknown, write: DensityProfile["write"] = async () => undefined) => {
+    const writes: string[] = [];
+    return { writes, profile: { read: async () => stored, write: async (next: Parameters<DensityProfile["write"]>[0]) => { writes.push(next); await write(next); } } satisfies DensityProfile };
   };
-
-  test("Normal is the default for everyone", () => {
+  test("Normal is the default for everyone until the profile answers", () => {
     assert.equal(DEFAULT_DENSITY, "normal");
-    withStorage({ getItem: () => null, setItem: () => undefined });
-    assert.equal(densityPreference.read(), "normal");
   });
 
-  test("the browser remembers the choice, and an unknown value reads as Normal", () => {
-    const saved = new Map<string, string>();
-    withStorage({ getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => void saved.set(key, value) });
-    densityPreference.write("compacto");
-    assert.equal(densityPreference.read(), "compacto");
-    saved.set("cuadrao:table_density", "gigante");
-    assert.equal(densityPreference.read(), "normal");
-  });
-
-  test("storage that throws reads as Normal and a write never throws", () => {
-    withStorage({ getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); } });
-    assert.equal(densityPreference.read(), "normal");
-    assert.doesNotThrow(() => densityPreference.write("amplio"));
+  test("a choice is written to the profile; a refused write puts the kept choice back and says so", async () => {
+    const saved = profile("normal");
+    resetTableDensity(saved.profile);
+    assert.equal(await setTableDensity("compacto"), true);
+    assert.deepEqual(saved.writes, ["compacto"]);
+    const refused = profile("normal", async () => { throw refusal(422, "validation_error"); });
+    resetTableDensity(refused.profile);
+    assert.equal(await setTableDensity("amplio"), false);
   });
 });
