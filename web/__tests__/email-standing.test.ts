@@ -35,6 +35,18 @@ describe("where an email stands in the Bandeja", () => {
   });
 });
 
+describe("the server's standing, when it sends one", () => {
+  test("the server's word wins over the browser's rule, including an email whose own text was saved", () => {
+    assert.equal(emailStanding(email({ standing: null, original_document_id: "rcpt-text", parts: [] })), null, "its text is already a receipt row");
+    assert.equal(emailStanding(email({ standing: "reading" })), "reading");
+    assert.equal(emailStanding(email({ standing: "no_receipt", state: "captured" })), "no_receipt");
+  });
+
+  test("an older server that sends no standing still gets the browser's rule", () => {
+    assert.equal(emailStanding(email({ state: "rejected", parts: [] })), "no_receipt");
+  });
+});
+
 describe("the Bandeja counts with emails", () => {
   const inbox = [{ status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }, { status: "queued", read_pending: true }];
   const emails = [email({ id: "a", state: "rejected", parts: [] }), email({ id: "b", state: "processing", parts: [] }), email({ id: "c" }), email({ id: "d", parts: [part({ repeat_of_upload: true })] })];

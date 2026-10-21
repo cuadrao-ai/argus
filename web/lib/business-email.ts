@@ -28,6 +28,8 @@ export type BusinessEmailDelivery = {
   sent_at: string | null;
   error_code: string | null;
   parts: BusinessEmailPart[];
+  /** Where the server says the email stands; absent from servers older than #1341. */
+  standing?: EmailStanding | null;
 };
 
 export type BusinessEmailDetail = BusinessEmailDelivery & { text_body: string | null };
@@ -47,6 +49,8 @@ const isRepeat = (part: BusinessEmailPart) => Boolean(part.repeat_of_delivery_id
  * none (null). A repeat of a file already saved is not a problem either.
  */
 export function emailStanding(delivery: BusinessEmailDelivery): EmailStanding | null {
+  // The server owns the answer; the rule below only serves a server that does not send one yet.
+  if (delivery.standing !== undefined) return delivery.standing;
   const { parts, state } = delivery;
   if (parts.some((part) => part.state === "captured" && part.document_id && !isRepeat(part))) return null;
   if (state === "rejected") return "no_receipt";
