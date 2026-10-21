@@ -233,10 +233,18 @@ top right is who you are.
 - **Screen icons** are Phosphor: outline when idle, filled on the screen you
   are on. Becoming the current screen crossfades the two weights in 120ms (the
   outline leaves 60ms later, so the icon never dims) and settles the icon from
-  92% to full size in 180ms, ease out, no overshoot. A pointer hover lifts an
-  idle icon 1px in 80ms; a press shrinks it to 92%. Nothing plays on first
-  paint or while the rail opens or closes. Reduced motion swaps the weight at
-  once and moves nothing. The rail and the phone tabs share one owner:
+  92% to full size in 180ms, ease out, no overshoot; a press shrinks it to 92%.
+  Each icon also acts out its screen in one short move: Inicio's four cards
+  shrink and settle back corner to corner (360ms, 50ms apart); a receipt drops
+  into the Bandeja, bounces once as the tray dips 1px, then slides in behind
+  the lip (560ms); Transacciones' arrows slide past each other and settle
+  (500ms, the second 60ms later). The move plays on pointer hover over the
+  row's soft fill (Inicio and Transacciones again on leave), on keyboard
+  focus, and when the icon becomes the current screen, which is the only
+  trigger on phones. A move under way finishes rather than restarting, and
+  every move ends at rest. At rest the icons are Phosphor's, pixel for pixel.
+  Nothing plays on first paint or while the rail opens or closes. Reduced
+  motion swaps the weight at once and moves nothing. The rail and the phone tabs share one owner:
   `components/business-app/nav-glyphs.tsx` and its stylesheet.
 - **Top bar:** spans the one canvas and never changes per screen. Search on the left, always
   visible (its placeholder says what it finds). On the right: **Agregar ▾**,
