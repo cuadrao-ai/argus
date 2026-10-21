@@ -197,7 +197,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     const page = await mount(() => <BusinessAccessPanel />, { revokeAccessGrant: async (id: string) => { revoked.push(id); } });
     await page.settle(() => page.buttons("Quitar acceso").length === 1);
     const remove = page.buttons("Quitar acceso")[0];
-    assert.match(remove.className, /text-\[#a8434c\]/);
+    assert.match(remove.className, /text-\[#9e2f39\]/, "the destructive red DESIGN.md names");
     await page.click(remove);
     const dialog = document.querySelector('[role="alertdialog"]');
     assert.ok(dialog, "removing access is a full-stop alert");
@@ -302,13 +302,13 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     await page.close();
   });
 
-  test("Correos recibidos says so when no email has arrived", async () => {
-    const BusinessEmailDeliveries = (await import("@/components/business-app/BusinessEmailDeliveries")).default;
-    const page = await mount(() => <BusinessEmailDeliveries />, { emailDeliveries: async () => [] });
+  test("the email Historial says so when no email has arrived", async () => {
+    const { EmailHistory } = await import("@/components/business-app/BusinessEmailDeliveries");
+    const page = await mount(() => <EmailHistory />, { emailDeliveries: async () => [] });
     await page.settle(() => (page.host.textContent ?? "").includes("Todavía no has recibido correos."));
     // The section is named by its visible heading, and the empty line sits inside it.
-    const section = [...page.host.querySelectorAll("section[aria-labelledby]")].find((item) => document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent === "Correos recibidos");
-    assert.ok(section, "a section named Correos recibidos");
+    const section = [...page.host.querySelectorAll("section[aria-labelledby]")].find((item) => document.getElementById(item.getAttribute("aria-labelledby")!)?.textContent === "Historial");
+    assert.ok(section, "a section named Historial");
     assert.ok((section.textContent ?? "").includes("Todavía no has recibido correos."));
     await page.close();
   });

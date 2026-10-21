@@ -50,8 +50,8 @@ the code, named after it, and every screen uses that owner.
   rounding or a float. Lists, rows and column totals always show the exact
   amount. Owner: `formatAmount` and `formatMoney` in `business-format.ts`.
 - **Currency in the header.** A list of amounts in one currency names it once,
-  in its header: "Por cobrar · RD$". Its rows and its total show the number
-  only. A row in another currency shows its own symbol, such as "US$ 50.00".
+  in its header, on the total: "Por cobrar" over "RD$ 33,540.00". Its rows show
+  the number only. A row in another currency shows its own symbol, such as "US$ 50.00".
   Totals in different currencies are never added together or converted: the
   header lists one total per currency, the header's currency first. Owner:
   `openItemsHeaderCurrency` in `business-month-close.ts`. A single amount with
@@ -174,7 +174,7 @@ Sheet rules:
 Which container, screen by screen (Lucas, October 20, 2026):
 
 - **Pages:** Inicio, Bandeja, Gastos, Novedades, Acceso.
-- **Record tray:** a receipt, draft or expense opens beside its list on
+- **Record tray:** a receipt, draft, email or expense opens beside its list on
   desktop, without a scrim, so another row can be opened straight away. On a
   phone it is a full page with a way back. It is the one sheet that is not
   modal.
@@ -198,8 +198,8 @@ top right is who you are.
   stays where it is, and the open header stays until the rail has closed.
 - **Top bar:** lined up with the content column. Search on the left, always
   visible (its placeholder says what it finds). On the right: **Agregar ▾**,
-  the one global action, whose menu holds Exportar registros, Copiar
-  dirección de reenvío and Ver correos; the **Ocultar montos** eye, which
+  the one global action, whose menu holds Exportar registros and Copiar
+  dirección de reenvío; the **Ocultar montos** eye, which
   blurs every amount for screen sharing; then the account. No screen repeats
   these buttons. Phones keep Agregar ▾ at the top of each screen instead.
   Content scrolls under the bar through a soft fade in the surface's own
@@ -235,12 +235,15 @@ news at four volumes:
 
 | Surface | When | How it leaves |
 | --- | --- | --- |
-| **Toast** | Something the owner just did finished: a save, a copy, a download. | On its own after 4 seconds; 8 with **Deshacer**, which every destructive action offers. Errors stay. |
+| **Toast** | Confirmations only: something the owner just did finished, such as a save, a copy or a download. Never an error. | On its own after 4 seconds; 8 with **Deshacer**, which every destructive action offers. |
 | **Banner** | A condition of the whole app: the service is degraded, access changed, offline. | Docked at the top of the app, never inserted mid-page. Stays until the owner closes it or the condition ends. |
 | **Alert** | A choice that must come before anything else: delete, close a month, remove access. | Only by choosing. Never two at once. |
 | **Badge** | Something waiting quietly: receipts to review, new since the last visit. | When it is cleared. |
 
-Up to three toasts stack and breathe; an alert never stacks.
+One toast at a time (Lucas, October 21, 2026): the newest replaces the one on
+screen, Deshacer included, because stacked undos act on work the owner has
+moved past. Marks in a row share one toast ("3 facturas cobradas") with one
+Deshacer for all of them. An alert never stacks.
 
 ### Toasts and saves
 
@@ -259,8 +262,8 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 | Type | Example | Surface |
 | --- | --- | --- |
 | Validation | A typo in an RNC | Inline under the field, as the owner types. The action stays disabled until the value is valid. |
-| Network | The connection dropped | A toast that says so in human words ("Sin conexión. Reintentando en 5 segundos.") and retries by itself. |
-| Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. Never a modal. |
+| Network | The connection dropped | The banner docked at the top ("Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva."). It moves the bar and the page down, never covers them, and leaves when the connection is back. |
+| Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
 | Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
 
 - Every error has a way out: Reintentar, Actualizar or "Escríbenos a
@@ -370,6 +373,14 @@ frame, such as readable names, tax numbers or amounts.
 
 The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting.
 
+Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
+
+- A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
+- A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
+- Overdue rows come first, oldest first, then the nearest due. Four rows show, then "Ver las N".
+- The check removes the row and offers Deshacer, which sets it back to pendiente. A failed mark puts the row back with an error toast.
+- A Por pagar row opens its expense. A Por cobrar row is plain until an invoice has a record screen.
+
 **Behavior rules (pending from Product).**
 
 ### Bandeja
@@ -379,18 +390,25 @@ Bandeja is the one place receipts wait. Novedades folded into it on October 20,
 is now the top group.
 
 - A segmented control splits the same rows: **Por revisar** (the shared count
-  Inicio and the sidebar show), **Con problema**, **Todo**, and **Correos**,
-  the emails that brought receipts in, with the receiving address and a
-  refresh on top. Email is a main way in, so it lives in the list, not in a
-  sheet. Phones use the short names Revisar and Problemas so all four fit.
+  Inicio and the sidebar show), **Con problema** and **Todo**, everything
+  that arrived. Phones use the short names Revisar and Problemas.
+- An email is only how a receipt arrived (Lucas, October 20, 2026). Once it
+  saves a receipt, that receipt is the row. An email is a row of its own only
+  while it is read (in Por revisar, like a receipt being read) or when it
+  brought no receipt (in Con problema and Todo, counted there): "Correo de"
+  the sender, the subject in quotes, and why. A repeat of a saved file is no
+  row. Reintentar sits on that row when the server allows a retry.
+- The full email history lives in Negocio > Correo de recibos, under the
+  receiving address, as a quiet Historial with its refresh.
 - What arrived since the last visit sits on top under "Nuevo desde tu última
   visita". The server's unread flag decides it.
 - A row is one quiet line: name and total, then the state, the time and the
   marks. A problem says itself in red, in a few words. Fixes (Reintentar,
   Subir otro archivo, Escribir datos) live in the record, not in the row.
 - Typed notes are rows like receipts.
-- Opening an email shows it in the drawer with a way back; opening its
-  receipt puts the email away and opens the receipt beside the list.
+- An email opens like a record: beside the list on a desktop, a full page
+  with a way back on a phone. A receipt that came by email says "Llegó por
+  correo · Ver correo", which opens the same email.
 - Bandeja follows [Growing lists](#growing-lists).
 
 **Behavior rules (pending from Product).** Product may add a "Falta información"

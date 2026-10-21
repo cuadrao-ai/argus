@@ -8,14 +8,21 @@ import { StatusPill as FoundationStatusPill } from "./foundation/StatusPill";
 
 export const cardClass =
   "rounded-[20px] border border-black/[0.06] bg-white p-5 dark:border-white/[0.06] dark:bg-[#1f2225]";
+/**
+ * The one owner of button looks (Lucas, October 21, 2026). Four levels, never a fifth:
+ * primary is the screen's one main action in Cuadrao green; secondary is an outlined
+ * alternative such as Listo or Volver; quiet is a green text action inside content;
+ * danger is the red confirm of a delete. All are fully round with a 44px target.
+ */
 export const pillButtonClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black/25 disabled:opacity-40 dark:focus-visible:ring-white/30";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-[opacity,background-color] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40";
 
-export const primaryButtonClass = `${pillButtonClass} bg-black text-white dark:bg-white dark:text-black`;
-export const secondaryButtonClass = `${pillButtonClass} border border-black/10 bg-white text-black dark:border-white/10 dark:bg-[#1f2225] dark:text-white`;
+export const primaryButtonClass = `${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
+export const secondaryButtonClass = `${pillButtonClass} border border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] hover:opacity-100 dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]`;
+export const quietButtonClass = "inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[15px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-40";
 /** A destructive action: red, and always behind a confirmation. */
-export const dangerButtonClass = `${pillButtonClass} border border-[#a8434c]/40 bg-white text-[#a8434c] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
-export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#a8434c] text-white dark:bg-[#ec9aa0] dark:text-black`;
+export const dangerButtonClass = `${pillButtonClass} border border-[#9e2f39]/40 bg-white text-[#9e2f39] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
+export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#9e2f39] text-white dark:bg-[#ec9aa0] dark:text-[#172b26]`;
 
 export function PanelHeading({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (

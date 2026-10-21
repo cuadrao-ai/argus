@@ -13,7 +13,7 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { referenceCode, sessionEndedLoginPath, type FailureClass } from "@/lib/failure-screen";
 import type { ReceiptLimits, ReceiptSummary } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { pillButtonClass, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { pillButtonClass, primaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 import { receiptFileAccept, receiptFormatLabel, receiptFormatLabels } from "./receipt-file";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -264,18 +264,14 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
       summary={batchSummary || undefined}
       snaps={["peek", "half", "full"]}
       initialSnap="half"
-      footer={entries.length === 0 && typed.length === 0 ? undefined : (
-        <div className="flex flex-wrap items-center justify-end gap-2" data-testid="receipt-intake-footer">
-          {saved.length > 0 && !unfinished && !uploading ? (
-            <button type="button" className={primaryButtonClass} onClick={() => { queue.clear(target); onReview(saved); }}>
-              {t("business.intake.review_saved", "Review saved receipts")}
-            </button>
-          ) : null}
-          <button type="button" className={secondaryButtonClass} onClick={onClose}>
-            {t("business.intake.done", "Done")}
+      // The X closes; the footer holds only the next step, once there is one.
+      footer={saved.length > 0 && !unfinished && !uploading ? (
+        <div className="flex justify-end" data-testid="receipt-intake-footer">
+          <button type="button" className={`${primaryButtonClass} w-full tablet:w-auto`} onClick={() => { queue.clear(target); onReview(saved); }}>
+            {t("business.intake.review_saved", "Review saved receipts")}
           </button>
         </div>
-      )}
+      ) : undefined}
     >
       <div className="space-y-5 px-4 pb-6">
         {writing ? (
