@@ -1,9 +1,10 @@
 """Receipt attention after canonical draft projection. Seen state is per person.
 
-Two counts with different meanings come from here and nowhere else: ``unread``
-is new activity this person has not opened; ``pending_review`` is every row the
-Bandeja lists, opened or not, emails that are a row of their own included. The
-Bandeja and the Resumen both read them."""
+The Bandeja's counts come from here and nowhere else: ``unread`` is new
+activity this person has not opened; ``pending_review`` is every row the
+Bandeja lists, opened or not, emails that are a row of their own included;
+``ready_to_review`` is the "por revisar" number, the rows a person can review
+now. The Bandeja and the Resumen all read them."""
 
 from __future__ import annotations
 
@@ -91,6 +92,19 @@ def awaiting_owner(view: Mapping[str, Any]) -> bool:
     return not view.get("email_original") and view["status"] not in CLOSED
 
 
+def ready_to_review(view: Mapping[str, Any]) -> bool:
+    """A receipt row a person can review now: the web's ``porRevisar``. Not one
+    still being read, and not one the reader found unreadable."""
+
+    return (
+        awaiting_owner(view)
+        and view["status"] not in ("queued", "preparing")
+        and not view.get("read_pending")
+        and (view.get("activity") or {}).get("state") != "reading"
+        and view.get("attention") != "unreadable"
+    )
+
+
 def inbox_counts(
     views: Iterable[Mapping[str, Any]],
     notes: int = 0,
@@ -100,11 +114,13 @@ def inbox_counts(
     ``notes``, the saved notes awaiting review that no receipt carries, plus
     ``emails``, the standing of each email that is a row of its own. An email
     still being read waits like a receipt being read; one that brought no
-    receipt also needs attention."""
+    receipt also needs attention. ``ready_to_review_count`` is the receipts
+    ready for review plus those notes; an email is never ready to review."""
 
     pending = [view for view in views if awaiting_owner(view)]
     return {
         "pending_review_count": len(pending) + notes + len(emails),
+        "ready_to_review_count": sum(map(ready_to_review, pending)) + notes,
         "needs_attention_count": emails.count("no_receipt")
         + sum(view["status"] == "needs_attention" for view in pending),
     }
