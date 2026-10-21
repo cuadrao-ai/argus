@@ -40,7 +40,7 @@ import {
   type OpenItems,
   type OpenItemsList,
 } from "@/lib/business-month-close";
-import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, type Lateness } from "./business-format";
+import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, UNKNOWN_VALUE, type Lateness } from "./business-format";
 import { cardClass, primaryButtonClass, quietButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
@@ -820,7 +820,7 @@ export function BusinessMonthCloseView({
       <div data-testid={testId} data-layout="summary" data-state={state} data-amount={known ? value : undefined} className="min-w-0">
         <p className="text-[13px] text-[#56635e] dark:text-white/70">{label}</p>
         <p className={`mt-1 font-display text-[22px] font-medium leading-tight tracking-tight text-black dark:text-white ${known ? "cuadrao-amount tabular-nums" : ""}`}>
-          {known ? headline(value, headlineRow) : "—"}
+          {known ? headline(value, headlineRow) : <><span aria-hidden="true">{UNKNOWN_VALUE}</span><span className="sr-only">{t("business.dossier.unknown_amount", "Amount unknown")}</span></>}
         </p>
         {why ? <p className="mt-1 text-[12px] text-[#56635e] dark:text-white/70">{why}</p> : null}
       </div>

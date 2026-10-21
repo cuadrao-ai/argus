@@ -152,11 +152,11 @@ test.describe("Business pilot walkthrough on a phone", () => {
   test("8 Spanish: navigation, overview and receipt review", async ({ page }) => {
     await openPreview(page, PREVIEW, "es-419");
     await expect(page.locator("#business-overview-title")).toHaveText(/^Hola/);
-    await page.getByTestId("chat-shell-menu-trigger").click();
-    await expect(page.getByTestId("business-sidebar-nav")).toContainText("Bandeja");
-    await page.getByTestId("business-sidebar-nav").getByRole("button", { name: /^Bandeja/ }).click();
+    const tabs = page.getByTestId("business-bottom-tabs");
+    await expect(tabs).toContainText("Bandeja");
+    await tabs.getByRole("button", { name: /^Bandeja/ }).click();
     await panel(page).getByRole("button", { name: /Ferretería La Esquina/ }).click();
-    await expect(heading(page, "Revisar recibo")).toBeVisible();
-    await expect(panel(page)).toContainText("Pagado desde");
+    await expect(page.getByTestId("business-record-review").getByRole("heading", { name: "Ferretería La Esquina", level: 2 })).toBeVisible();
+    await expect(page.getByTestId("business-record-review")).toContainText("Pagado desde");
   });
 });

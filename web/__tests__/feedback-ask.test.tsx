@@ -104,8 +104,8 @@ const TURNS: { label: string; messages: Message[]; follows: string | undefined }
 ];
 
 const LOCALES: { language: Language; question: string; answers: string[]; dismiss: string }[] = [
-  { language: "en", question: "How is Argus doing?", answers: ["Bad", "Okay", "Good"], dismiss: "Don&#x27;t ask again in this chat" },
-  { language: "es-419", question: "¿Qué tal lo está haciendo Argus?", answers: ["Mal", "Regular", "Bien"], dismiss: "No volver a preguntar en este chat" },
+  { language: "en", question: "How is Cuadrao doing?", answers: ["Bad", "Okay", "Good"], dismiss: "Don&#x27;t ask again in this chat" },
+  { language: "es-419", question: "¿Qué tal lo está haciendo Cuadrao?", answers: ["Mal", "Regular", "Bien"], dismiss: "No volver a preguntar en este chat" },
 ];
 
 const HIDDEN: { label: string; props: Partial<AskProps> }[] = [

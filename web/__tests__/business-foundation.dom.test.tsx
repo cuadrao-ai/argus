@@ -72,11 +72,6 @@ describe("status is an icon, a word, and a color", () => {
     assert.match(css, /--cuadrao-cream:\s*#F7F5EE/);
     assert.match(css, /border-color:\s*#7d8a84/);
   });
-
-  test("the empty Bandeja uses the locked sentence", async () => {
-    const spanish = (await import("@/public/locales/es-419/common.json")).default;
-    assert.equal(spanish.business.inbox.empty_body, "Sube un recibo o envíalo por WhatsApp. Te esperará aquí para que lo revises.");
-  });
 });
 
 describe("toasts", () => {

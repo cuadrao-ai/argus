@@ -221,6 +221,3 @@ export function sumByCurrency(items: readonly Money[]): Money[] {
 export function magnitude(money: Money): Money {
   return { ...money, amount: money.amount.trim().replace(/^[-+]/, "") };
 }
-
-/** The unknown mark: a value the system does not know. Screen readers hear "sin dato". */
-export const UNKNOWN = "—";

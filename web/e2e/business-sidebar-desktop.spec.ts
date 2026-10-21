@@ -40,7 +40,7 @@ async function railGeometry(page: Page) {
     const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
     const aside = nav.closest("aside") as HTMLElement;
     const box = (element: Element) => element.getBoundingClientRect();
-    const labels = /^(Inicio|Bandeja|Gastos)/;
+    const labels = /^(Inicio|Bandeja|Transacciones)/;
     const rows = [...aside.querySelectorAll<HTMLButtonElement>("button")].filter((button) => labels.test(button.textContent?.trim() ?? ""));
     const active = rows.find((row) => row.getAttribute("aria-current") === "page") ?? null;
     return {
@@ -82,7 +82,7 @@ for (const width of [1440, 1024]) {
           navTop: 64,
           navGapAboveFirstRow: 10,
           rowHeights: [44, 44, 44],
-          rowLabels: ["Inicio", "Bandeja", "Gastos"],
+          rowLabels: ["Inicio", "Bandeja", "Transacciones"],
           brandBottomGap: 0,
           accountInRail: false,
           accountInHeader: true,
@@ -119,8 +119,8 @@ for (const width of [1440, 1024]) {
       await expect(page.locator("aside").getByTestId("business-switcher")).toHaveCount(0);
       await expect(page.getByTestId("sidebar-rail-toggle")).toHaveCount(1);
       await expect(page.getByTestId("sidebar-rail-toggle")).toHaveAttribute("aria-label", "Expandir");
-      await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos" }).hover();
-      await expect(page.getByRole("tooltip").filter({ hasText: "Gastos" })).toBeVisible();
+      await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Transacciones" }).hover();
+      await expect(page.getByRole("tooltip").filter({ hasText: "Transacciones" })).toBeVisible();
       if (SHOTS && width === 1440) {
         await page.screenshot({ path: "test-results/sidebar-fix/biz-1440-collapsed-local-fixture.png" });
       }
@@ -138,7 +138,7 @@ test.describe("Business rail row states", () => {
     await installBusiness(page, null);
     await page.goto("/biz");
     await expect(page.getByTestId("business-current-name")).toBeVisible();
-    const gastos = page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos" });
+    const gastos = page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Transacciones" });
     const resting = await gastos.evaluate((row) => ({ color: getComputedStyle(row).color, weight: getComputedStyle(row).fontWeight }));
     await gastos.hover();
     await expect.poll(() => gastos.evaluate((row) => getComputedStyle(row).backgroundColor)).toMatch(/^(rgba\(227, 235, 225, 0\.5\)|lab\(92\.2\d* -4\.09\d* 3\.89\d* \/ 0\.5\))$/);

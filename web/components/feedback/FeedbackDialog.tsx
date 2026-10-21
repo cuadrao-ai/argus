@@ -10,15 +10,18 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useConversationSurface } from "@/components/chat/ChatWorkspace";
+import { primaryButtonClass, quietButtonClass } from "@/components/business-app/business-ui";
+import { showToast } from "@/components/business-app/foundation/toasts";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { fieldClass, fieldErrorClass, fieldHintClass, fieldLabelClass } from "@/components/ui/form-field";
 import {
   AlertCircle,
   Bug,
   Check,
+  CircleCheck,
   ChevronDown,
   Lightbulb,
   MessageCircle,
-  Send,
 } from "lucide-react";
 import { postFeedback } from "@/lib/argus-api";
 import { feedbackContextForSubmission } from "@/lib/feedback-context";
@@ -39,6 +42,8 @@ type FeedbackTypeOption = {
   icon: ReactNode;
 };
 
+const counterClass = "mt-1 text-right text-[13px] tabular-nums text-[#56635e] dark:text-white/55";
+
 export default function FeedbackDialog({
   isOpen,
   onClose,
@@ -51,6 +56,8 @@ export default function FeedbackDialog({
   // The actions sit outside the form so they can stay pinned, so they submit
   // it by name instead of by containment.
   const formId = useId();
+  const typeMenuId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const [type, setType] = useState<FeedbackType>(initialType);
   const [message, setMessage] = useState("");
   const [bugTitle, setBugTitle] = useState("");
@@ -187,6 +194,12 @@ export default function FeedbackDialog({
           tags: selectedTags,
         }),
       });
+      // Business shows the one toast presenter; the older chat surface has none, so it confirms in the panel.
+      if (isBusiness) {
+        showToast({ kind: "success", text: t("feedback.success_detail", "Feedback submitted.") });
+        onClose();
+        return;
+      }
       setIsSuccess(true);
       setTimeout(() => onClose(), 2000);
     } catch {
@@ -206,10 +219,10 @@ export default function FeedbackDialog({
     : type === "bug"
       ? t("feedback.subheading.bug", "File a bug report.")
       : type === "feature"
-        ? t("feedback.subheading.feature", "Request a feature for Argus.")
+        ? t("feedback.subheading.feature", "Request a feature for Cuadrao.")
         : isBusiness
           ? t("feedback.subheading.business_general", "Tell us how Cuadrao is working for you. We read every comment.")
-          : t("feedback.subheading.general", "Share feedback about your Argus experience.");
+          : t("feedback.subheading.general", "Share feedback about your Cuadrao experience.");
 
   return (
     <AdaptivePanel
@@ -219,93 +232,93 @@ export default function FeedbackDialog({
       width="lg"
       initialFocusRef={isRating ? undefined : messageRef}
       footer={
-        <>
-        {isSuccess ? null : (
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-11 rounded-full border border-black/10 px-6 text-[14px] font-medium text-black transition-colors hover:bg-black/5 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
-            >
-              {t("common.cancel", "Cancel")}
-            </button>
+        isSuccess ? null : (
+          <div className="flex justify-end">
             <button
               type="submit"
               form={formId}
               disabled={!canSubmit() || isSubmitting}
-              className="flex min-h-11 items-center gap-2 rounded-full bg-black px-6 text-[14px] font-medium text-white transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40 dark:bg-white dark:text-black"
+              className={`${primaryButtonClass} max-tablet:w-full`}
             >
               {isSubmitting ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              ) : (
-                t("feedback.submit", "Submit feedback")
-              )}
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" aria-hidden="true" />
+              ) : null}
+              {t("feedback.submit", "Submit feedback")}
             </button>
           </div>
-        )}
-        </>
+        )
       }
     >
-      <p className="px-5 pt-4 text-[13px] leading-relaxed text-black/50 dark:text-white/50">
+      <p className={`px-5 pt-4 ${fieldHintClass}`}>
         {subheading}
       </p>
         <div className="argus-thin-scrollbar flex-1 overflow-y-auto p-5 sm:p-6">
           {isSuccess ? (
-            <div className="py-12 text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#5ba897]/10">
-                <Send className="h-7 w-7 text-[#5ba897]" />
-              </div>
-              <p className="font-display text-[18px] font-medium text-black dark:text-white">
-                {t("feedback.success_detail", "Feedback submitted.")}
-              </p>
-            </div>
+            <p role="status" className="flex items-start gap-2 rounded-item bg-[#e3ebe1] px-4 py-3 text-[16px] text-[#2f5a49] dark:bg-[#8fcbb0]/10 dark:text-[#8fcbb0]">
+              <CircleCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              {t("feedback.success_detail", "Feedback submitted.")}
+            </p>
           ) : (
             <form
+              ref={formRef}
               id={formId}
               onSubmit={handleSubmit}
-              className="flex flex-col gap-6"
+              noValidate
+              className="flex flex-col gap-[21px]"
             >
               {!isRating && (
                 <div className="relative">
-                  <label className="mb-2 block text-[13px] font-medium uppercase tracking-wide text-black/60 dark:text-white/60">
+                  <span id={`${typeMenuId}-label`} className={fieldLabelClass}>
                     {t("feedback.type_label", "Feedback type")}
-                  </label>
+                  </span>
                   <button
                     type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={dropdownOpen}
+                    aria-controls={typeMenuId}
+                    aria-labelledby={`${typeMenuId}-label ${typeMenuId}-value`}
                     onClick={() => setDropdownOpen((open) => !open)}
-                    className="flex w-full items-center justify-between rounded-xl border border-black/10 bg-white px-4 py-3 text-[14px] text-black transition-colors hover:border-black/20 dark:border-white/10 dark:bg-[#25282d] dark:text-white dark:hover:border-white/20"
+                    className={`${fieldClass} flex items-center justify-between gap-3 text-left`}
                   >
-                    <span className="flex items-center gap-3">
-                      <span className="text-black/40 dark:text-white/40">
+                    <span id={`${typeMenuId}-value`} className="flex items-center gap-3">
+                      <span className="text-[#56635e] dark:text-white/60" aria-hidden="true">
                         {currentType.icon}
                       </span>
-                      <span className="font-medium">{currentType.label}</span>
+                      <span>{currentType.label}</span>
                     </span>
                     <ChevronDown
-                      className={`h-4 w-4 text-black/40 transition-transform dark:text-white/40 ${
+                      aria-hidden="true"
+                      className={`h-4 w-4 shrink-0 text-[#56635e] transition-transform duration-200 ease-out dark:text-white/60 ${
                         dropdownOpen ? "rotate-180" : ""
                       }`}
                     />
                   </button>
 
                   {dropdownOpen && (
-                    <div className="absolute left-0 top-[calc(100%+8px)] z-10 w-full overflow-hidden rounded-xl border border-black/10 bg-white py-1 dark:border-white/10 dark:bg-[#25282d]">
+                    <div
+                      id={typeMenuId}
+                      role="listbox"
+                      aria-labelledby={`${typeMenuId}-label`}
+                      className="absolute left-0 top-[calc(100%+8px)] z-10 w-full origin-top rounded-surface border border-[#DCE0DA] bg-[var(--cuadrao-menu-surface)] p-1 dark:border-white/10"
+                    >
                       {typeOptions.map((option) => (
                         <button
                           key={option.value}
                           type="button"
+                          role="option"
+                          aria-selected={type === option.value}
                           onClick={() => {
                             setType(option.value);
                             setDropdownOpen(false);
                           }}
-                          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
+                          className="flex min-h-11 w-full items-center gap-3 rounded-item px-3 text-left text-[16px] text-[#172b26] transition-colors hover:bg-[#F7F5EE] dark:text-white dark:hover:bg-white/[0.06]"
                         >
-                          <span className="text-black/40 dark:text-white/40">
+                          <span className="text-[#56635e] dark:text-white/60" aria-hidden="true">
                             {option.icon}
                           </span>
-                          <span className="flex-1 font-medium">{option.label}</span>
+                          <span className="flex-1">{option.label}</span>
                           {type === option.value && (
-                            <Check className="h-4 w-4 text-[#4f55f1]" />
+                            <Check className="h-4 w-4 text-[var(--cuadrao-green)]" aria-hidden="true" />
                           )}
                         </button>
                       ))}
@@ -317,96 +330,106 @@ export default function FeedbackDialog({
               {isBug && !isRating ? (
                 <>
                   <div>
-                    <label className="mb-2 block text-[13px] font-medium text-black/60 dark:text-white/60">
+                    <label htmlFor={`${formId}-bug-title`} className={fieldLabelClass}>
                       {t("feedback.bug.title_field", "Title")} *
                     </label>
                     <input
+                      id={`${formId}-bug-title`}
                       value={bugTitle}
                       onChange={(event) => setBugTitle(event.target.value.slice(0, 100))}
                       placeholder={t("feedback.bug.title_placeholder", "Brief description of the issue")}
-                      className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-[14px] text-black outline-none transition-colors placeholder:text-black/30 focus:border-[#4f55f1] dark:border-white/10 dark:bg-[#25282d] dark:text-white dark:placeholder:text-white/30"
+                      className={fieldClass}
                     />
-                    <div className="mt-1 text-right text-[11px] text-black/30 dark:text-white/30">
+                    <div className={counterClass}>
                       {bugTitle.length}/100
                     </div>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-[13px] font-medium text-black/60 dark:text-white/60">
+                    <label htmlFor={`${formId}-steps`} className={fieldLabelClass}>
                       {t("feedback.bug.steps_field", "Steps to reproduce")} *
                     </label>
                     <textarea
+                      id={`${formId}-steps`}
                       value={steps}
                       onChange={(event) => setSteps(event.target.value.slice(0, 1000))}
                       placeholder={t(
                         "feedback.bug.steps_placeholder",
                         "1. Go to [Page/View]\n2. Click on [Button/Action]\n3. See [Error/Behavior]",
                       )}
-                      className="min-h-[100px] w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-[14px] text-black outline-none transition-colors placeholder:text-black/30 focus:border-[#4f55f1] dark:border-white/10 dark:bg-[#25282d] dark:text-white dark:placeholder:text-white/30"
+                      className={`${fieldClass} min-h-[100px] resize-y`}
                     />
-                    <div className="mt-1 text-right text-[11px] text-black/30 dark:text-white/30">
+                    <div className={counterClass}>
                       {steps.length}/1000
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-[21px] md:grid-cols-2 md:gap-[13px]">
                     <div>
-                      <label className="mb-2 block text-[13px] font-medium text-black/60 dark:text-white/60">
+                      <label htmlFor={`${formId}-expected`} className={fieldLabelClass}>
                         {t("feedback.bug.expected_field", "Expected outcome")}
                       </label>
                       <textarea
+                        id={`${formId}-expected`}
                         value={expected}
                         onChange={(event) => setExpected(event.target.value.slice(0, 500))}
-                        className="min-h-[80px] w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-3 text-[14px] text-black outline-none transition-colors focus:border-[#4f55f1] dark:border-white/10 dark:bg-[#25282d] dark:text-white"
+                        className={`${fieldClass} min-h-[80px] resize-none`}
                       />
                     </div>
                     <div>
-                      <label className="mb-2 block text-[13px] font-medium text-black/60 dark:text-white/60">
+                      <label htmlFor={`${formId}-actual`} className={fieldLabelClass}>
                         {t("feedback.bug.actual_field", "Actual outcome")}
                       </label>
                       <textarea
+                        id={`${formId}-actual`}
                         value={actual}
                         onChange={(event) => setActual(event.target.value.slice(0, 500))}
-                        className="min-h-[80px] w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-3 text-[14px] text-black outline-none transition-colors focus:border-[#4f55f1] dark:border-white/10 dark:bg-[#25282d] dark:text-white"
+                        className={`${fieldClass} min-h-[80px] resize-none`}
                       />
                     </div>
                   </div>
                 </>
               ) : (
-                <div className={isRating ? "space-y-6" : ""}>
+                <div className={isRating ? "space-y-[21px]" : ""}>
                   {isRating && (
-                    <div>
-                      <label className="mb-3 block text-[13px] font-medium text-black/60 dark:text-white/60">
+                    <fieldset>
+                      <legend className={`mb-[13px] ${fieldLabelClass}`}>
                         {rating === "positive"
                           ? t("feedback.rating_positive_prompt", "What went well?")
                           : t("feedback.rating_negative_prompt", "What went wrong?")}
-                      </label>
+                      </legend>
                       <div className="flex flex-wrap gap-2">
-                        {ratingTags.map((tag) => (
-                          <button
-                            key={tag.key}
-                            type="button"
-                            onClick={() => toggleTag(tag.key)}
-                            className={`rounded-full border px-4 py-2 text-[13px] font-medium transition-all ${
-                              selectedTags.includes(tag.key)
-                                ? "border-transparent bg-black text-white dark:bg-white dark:text-black"
-                                : "border-black/10 bg-white text-black/70 hover:border-black/20 dark:border-white/10 dark:bg-[#25282d] dark:text-white/70 dark:hover:border-white/30"
-                            }`}
-                          >
-                            {tag.label}
-                          </button>
-                        ))}
+                        {ratingTags.map((tag) => {
+                          const selected = selectedTags.includes(tag.key);
+                          return (
+                            <button
+                              key={tag.key}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => toggleTag(tag.key)}
+                              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-[15px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] ${
+                                selected
+                                  ? "border-[#2f5a49] bg-[#e3ebe1] text-[#2f5a49] dark:border-[#8fcbb0] dark:bg-[#8fcbb0]/10 dark:text-[#8fcbb0]"
+                                  : "border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] dark:border-white/20 dark:bg-transparent dark:text-white dark:hover:bg-white/[0.06]"
+                              }`}
+                            >
+                              {selected && <Check className="h-4 w-4" aria-hidden="true" />}
+                              {tag.label}
+                            </button>
+                          );
+                        })}
                       </div>
-                    </div>
+                    </fieldset>
                   )}
 
                   <div>
-                    <label className="mb-2 block text-[13px] font-medium text-black/60 dark:text-white/60">
+                    <label htmlFor={`${formId}-message`} className={fieldLabelClass}>
                       {isRating
                         ? t("feedback.additional_details", "Additional details")
                         : `${t("feedback.details", "Details")} *`}
                     </label>
                     <textarea
+                      id={`${formId}-message`}
                       ref={messageRef}
                       autoFocus={!isRating}
                       value={message}
@@ -416,9 +439,9 @@ export default function FeedbackDialog({
                           ? t("feedback.rating_placeholder", "Tell us more about your experience...")
                           : t("feedback.details_placeholder", "What's on your mind?")
                       }
-                      className="min-h-[140px] w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-[14px] text-black outline-none transition-colors placeholder:text-black/30 focus:border-[#4f55f1] dark:border-white/10 dark:bg-[#25282d] dark:text-white dark:placeholder:text-white/30"
+                      className={`${fieldClass} min-h-[140px] resize-y`}
                     />
-                    <div className="mt-1 text-right text-[11px] text-black/30 dark:text-white/30">
+                    <div className={counterClass}>
                       {message.length}/1000
                     </div>
                   </div>
@@ -426,7 +449,7 @@ export default function FeedbackDialog({
               )}
 
               {hasConversationContext && (
-                <label className="mt-1 flex cursor-pointer items-start gap-3 max-tablet:min-h-11 max-tablet:items-center">
+                <label className="flex min-h-11 cursor-pointer items-center gap-3">
                   <input
                     id="include-conversation-context"
                     type="checkbox"
@@ -434,11 +457,9 @@ export default function FeedbackDialog({
                     onChange={(event) =>
                       setIncludeConversationContext(event.target.checked)
                     }
-                    className="mt-0.5 h-4 w-4 accent-[#4f55f1]"
+                    className="h-5 w-5 shrink-0 accent-[var(--cuadrao-green)]"
                   />
-                  <span
-                    className="select-none text-[13px] leading-snug text-black/60 dark:text-white/60"
-                  >
+                  <span className="select-none text-[15px] leading-snug text-[#172b26] dark:text-white">
                     {t(
                       "feedback.include_conversation_context",
                       "Include approved context from this conversation",
@@ -448,13 +469,23 @@ export default function FeedbackDialog({
               )}
 
               {error && (
-                <p className="flex items-center gap-2 rounded-lg bg-[#d66d75]/10 px-4 py-2 text-[13px] font-medium text-[#d66d75]">
-                  <AlertCircle className="h-4 w-4" />
-                  {error}
-                </p>
+                <div role="alert" className="rounded-item bg-[#f6dfe0] px-4 py-3 dark:bg-[#ec9aa0]/10">
+                  <p className={`flex items-start gap-2 ${fieldErrorClass}`}>
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    {error}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => formRef.current?.requestSubmit()}
+                    className={`${quietButtonClass} ml-6`}
+                  >
+                    {t("common.retry", "Retry")}
+                  </button>
+                </div>
               )}
 
-              <p className="text-[12px] leading-relaxed text-black/45 dark:text-white/45">
+              <p className={fieldHintClass}>
                 {hasConversationContext && includeConversationContext
                   ? t(
                       "feedback.footer_note_conversation",
@@ -467,7 +498,7 @@ export default function FeedbackDialog({
                 {!isBusiness && (
                 <button
                   type="button"
-                  className="font-medium text-black underline underline-offset-2 hover:text-black/70 dark:text-white dark:hover:text-white/70"
+                  className="font-medium text-[var(--cuadrao-green)] underline underline-offset-2"
                 >
                   {t("common.learn_more", "Learn more")}
                 </button>

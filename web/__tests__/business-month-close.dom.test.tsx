@@ -378,7 +378,7 @@ describe("month close layouts", () => {
     host.remove();
   });
 
-  test("unknown figures say — and never a zero, and unrendered blockers stay off the screen", async () => {
+  test("unknown figures say a short dash and never a zero, and unrendered blockers stay off the screen", async () => {
     const snapshot: MonthCloseSnapshot = {
       month: "2026-10",
       from: "2026-10-01",
@@ -404,10 +404,12 @@ describe("month close layouts", () => {
       const card = host.querySelector(`[data-testid="${id}"]`);
       assert.equal(card?.getAttribute("data-state"), "pending");
       assert.equal(card?.getAttribute("data-amount"), null);
-      assert.match(card?.textContent ?? "", /—/);
+      assert.ok((card?.textContent ?? "").includes("-"));
+      assert.ok(!(card?.textContent ?? "").includes("—"), "never the long dash");
       assert.doesNotMatch(card?.textContent ?? "", /RD\$/);
       assert.doesNotMatch(card?.textContent ?? "", /0[,.]00/);
     }
+    assert.ok(!(host.textContent ?? "").includes("\u2014"), "the month close never shows the long dash");
     assert.equal(host.textContent?.includes("Sube el estado de cuenta"), false);
     assert.equal(host.textContent?.includes("sin comprobante"), false);
     assert.equal(host.querySelectorAll('[data-primary="true"]').length, 0);
@@ -921,6 +923,7 @@ describe("open items across months", () => {
     assert.ok(host.querySelector('[data-testid="month-close-empty"]'));
     assert.match(host.querySelector('[data-document-id="inv-sept"]')?.textContent ?? "", /Clínica Aurora/);
     assert.match(host.querySelector('[data-document-id="inv-sept"]')?.textContent ?? "", /12 sept/);
+    assert.ok(!(host.textContent ?? "").includes("\u2014"), "Pendiente hoy never shows the long dash");
     await act(async () => root.unmount());
     host.remove();
   });

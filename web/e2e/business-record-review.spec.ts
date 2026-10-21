@@ -336,7 +336,7 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   });
 }
 
-test("landing on a record, then opening Bandeja, Gastos and Inicio, each loads from the Business-scoped source", async ({ page }) => {
+test("landing on a record, then opening Bandeja, Transacciones and Inicio, each loads from the Business-scoped source", async ({ page }) => {
   // The workspace derives its data source from the latch and the panel kind: the
   // first fetch after leaving the record is already scoped, so every panel loads.
   await openRecord(page, dossierFixtureIds.ready);
@@ -346,9 +346,9 @@ test("landing on a record, then opening Bandeja, Gastos and Inicio, each loads f
   await expect(panel.getByRole("heading", { name: "Bandeja", exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
-  await nav.getByRole("button", { name: /^Gastos/ }).click();
-  await expect(panel.getByRole("heading", { name: "Gastos", exact: true })).toBeVisible();
-  await expect(panel.getByRole("listitem").filter({ hasText: "Nube Hosting" })).toBeVisible();
+  await nav.getByRole("button", { name: /^Transacciones/ }).click();
+  await expect(panel.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
+  await expect(panel.locator("[data-record-id]").filter({ hasText: "Nube Hosting" })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
   await nav.getByRole("button", { name: /^Inicio/ }).click();
   // The home is scoped to the Business from the first fetch: its checklist carries real counts.
@@ -383,6 +383,6 @@ test("after approving from the inbox, the home checklist and the inbox count cha
   await nav.getByRole("button", { name: /^Inicio/ }).click();
   await expect(panel.getByTestId("month-close-task-review")).toContainText(`Revisa ${before - 1} recibo`);
   await expect(inbox).toHaveAccessibleName(`Bandeja ${badge - 1}`);
-  await nav.getByRole("button", { name: /^Gastos/ }).click();
-  await expect(panel.getByRole("listitem").filter({ hasText: "Ferretería La Esquina" })).toBeVisible();
+  await nav.getByRole("button", { name: /^Transacciones/ }).click();
+  await expect(panel.locator("[data-record-id]").filter({ hasText: "Ferretería La Esquina" })).toBeVisible();
 });

@@ -194,10 +194,10 @@ describe("legal page cookie and storage disclosure", () => {
     // /auth/login, /auth/logout, /auth/session, /auth/signup, /auth/guest,
     // /auth/guest/signup.
     expect(await renderLegal("en", "privacy")).toContain(
-      "limited to Argus authentication routes",
+      "limited to Cuadrao authentication routes",
     );
     expect(await renderLegal("es-419", "privacy")).toContain(
-      "se limitan a las rutas de autenticación de Argus",
+      "se limitan a las rutas de autenticación de Cuadrao",
     );
     for (const locale of Object.keys(CATALOGS) as Locale[]) {
       const body =
@@ -214,7 +214,7 @@ describe("legal page cookie and storage disclosure", () => {
     expect(markup).toContain("does not use advertising cookies");
     expect(markup).toContain("cross-site tracking");
     expect(markup).toContain(
-      "run on Argus servers and store nothing in your browser",
+      "run on Cuadrao servers and store nothing in your browser",
     );
   });
 
@@ -270,7 +270,7 @@ describe("legal page cookie and storage disclosure", () => {
     expect(enBody).toContain("start as a guest or create an account");
     expect(esBody).toContain("empiezas como invitado o creas una cuenta");
     expect(await renderLegal("en", "privacy")).toContain(
-      "Argus may receive it when you start as a guest or create an account",
+      "Cuadrao may receive it when you start as a guest or create an account",
     );
   });
 });

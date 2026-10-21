@@ -208,8 +208,8 @@ describe("Business hits open the panel that holds them", () => {
     const { groups, opened } = await businessSearch({ expenses: [], receipts: [receipt, pdf], accounts: [] });
     const receipts = groups.find((group) => group.id === "receipts")!;
     expect(receipts.hits.map((hit) => [hit.title, hit.icon, hit.amount])).toEqual([
-      ["IMG_2214.jpg", ImageIcon, "—"],
-      ["factura.pdf", FileText, "—"],
+      ["IMG_2214.jpg", ImageIcon, "-"],
+      ["factura.pdf", FileText, "-"],
     ]);
     expect(receipts.hits[0].detail).toContain("Ready to review");
     expect(receipts.hits[0].badge).toBe("Receipt");

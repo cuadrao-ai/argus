@@ -132,6 +132,22 @@ describe("the gate", () => {
     assert.match(summary.querySelector('[data-total="salidas"]')?.textContent ?? "", /RD\$\s?\d/);
   });
 
+  test("the Comprobante column is never an empty cell: a gasto without a receipt and a venta both read as a short dash", async () => {
+    const page = await mount({ enabled: false });
+    await page.settle(() => page.records().length > 0, "the saved records");
+    const proof = (kind: string, withIcon: boolean) => page.records().filter((node) => node.dataset.kind === kind && Boolean(node.querySelector('[data-testid="record-proof"]')) === withIcon).map((node) => node.querySelector<HTMLElement>('[data-col="comprobante"]'));
+    const noReceipt = proof("gasto", false).filter(Boolean)[0];
+    assert.ok(noReceipt, "a gasto without a receipt has a Comprobante cell");
+    assert.ok(!page.body().includes("\u2014"), "the records table never shows the long dash");
+    assert.equal(noReceipt!.querySelector('[aria-hidden="true"]')?.textContent, "-");
+    assert.match(noReceipt!.textContent ?? "", /Sin recibo/);
+    const venta = proof("venta", false).filter(Boolean)[0];
+    assert.ok(venta, "a venta has a Comprobante cell");
+    assert.equal(venta!.querySelector('[aria-hidden="true"]')?.textContent, "-");
+    assert.match(venta!.textContent ?? "", /sin dato/);
+    for (const cell of page.host.querySelectorAll('td[data-col="comprobante"]')) assert.ok(cell.querySelector('[data-testid="record-proof"]') || (cell.textContent ?? "").trim() !== "", "a cell holds the receipt icon or a dash");
+  });
+
   test("a saved record with a receipt shows the receipt icon and opens in the record tray beside the list", async () => {
     const page = await mount({ enabled: false });
     await page.settle(() => page.records().length > 0, "the saved records");
@@ -268,10 +284,11 @@ describe("Transacciones table", () => {
     await page.ready();
     await page.click(page.segment("todas"));
     const cell = (id: string, col: string) => page.row(id)!.querySelector<HTMLElement>(`[data-col="${col}"]`)!;
-    assert.equal(cell("mv-colmado", "categoria").querySelector('[aria-hidden="true"]')?.textContent, "—");
+    assert.equal(cell("mv-colmado", "categoria").querySelector('[aria-hidden="true"]')?.textContent, "-");
     assert.match(cell("mv-colmado", "categoria").textContent ?? "", /sin dato/);
+    assert.ok(!page.body().includes("\u2014"), "the movements table never shows the long dash");
     assert.match(cell("mv-verificacion", "monto").textContent ?? "", /0\.00/);
-    assert.doesNotMatch(cell("mv-verificacion", "monto").textContent ?? "", /—/);
+    assert.doesNotMatch(cell("mv-verificacion", "monto").textContent ?? "", /[-—]/);
     assert.match(cell("mv-ferreteria", "monto").textContent ?? "", /−3,450\.00/);
     assert.match(cell("mv-caribe", "monto").textContent ?? "", /\+42,940\.68/);
     assert.match(cell("mv-nube", "monto").textContent ?? "", /−US\$ 24\.00/);
@@ -287,7 +304,7 @@ describe("Transacciones table", () => {
     const page = await mount({ transacciones: live });
     await page.ready();
     const summary = document.querySelector<HTMLElement>('[data-testid="transacciones-summary"]')!;
-    assert.match(summary.querySelector('[data-total="entradas"]')?.textContent ?? "", /—/);
+    assert.match(summary.querySelector('[data-total="entradas"]')?.textContent ?? "", /^Entradas-sin dato$/);
     assert.match(summary.querySelector('[data-total="por_igualar"]')?.textContent ?? "", /1/);
     const row = page.row("l1")!;
     assert.match(row.querySelector('[data-col="contraparte"]')?.textContent ?? "", /COMPRA POS COLMADO/);

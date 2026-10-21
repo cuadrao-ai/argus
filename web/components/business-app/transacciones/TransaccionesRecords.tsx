@@ -4,22 +4,22 @@ import { useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
 import { currencySymbol } from "@/lib/money-entry";
 import { useBusiness } from "../BusinessWorkspace";
-import { formatRelativeDay, todayIso } from "../business-format";
+import { formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { RecordMarks } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
-import { headerCurrency, UNKNOWN, type RecordRow } from "./transacciones-model";
+import { headerCurrency, type RecordRow } from "./transacciones-model";
 import { AccountLabel, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
 import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
-const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN;
+const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
 
-/** The proof column for a saved record: the receipt icon when a file backs it, nothing when none does, unknown when no read says. */
+/** The proof column for a saved record: the receipt icon when a file backs it, a dash that says "no receipt" when none does, a dash that says "no data" when no read says. An empty cell is a question. */
 function Proof({ row }: { row: RecordRow }) {
   const { t } = useTransaccionesWords();
   if (row.hasProof === null) return <Unknown />;
-  if (!row.hasProof) return <span className="sr-only">{t("business.expenses.no_receipt")}</span>;
+  if (!row.hasProof) return <Unknown meaning={t("business.expenses.no_receipt")} />;
   return (
     <span data-testid="record-proof" role="img" aria-label={t("business.transactions.records.proof")} className="inline-flex h-8 w-8 items-center justify-center text-[#56635e] dark:text-white/65">
       <FileText className="h-4 w-4" aria-hidden="true" />

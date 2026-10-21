@@ -5,12 +5,12 @@ import { useTranslation } from "react-i18next";
 import { referenceCode } from "@/lib/failure-screen";
 import { useBusiness } from "../BusinessWorkspace";
 import { useMonthCloseSource } from "../BusinessMonthClosePanel";
-import { formatMoney } from "../business-format";
+import { formatMoney, UNKNOWN_VALUE } from "../business-format";
 import { showToast } from "../foundation/toasts";
 import { createBankTransaccionesSource, createRecordsTransaccionesSource } from "./transacciones-adapter";
 import { useIgualarEnabled } from "./transacciones-gate";
 import { createSampleTransaccionesSource } from "./transacciones-sample";
-import { magnitude, suggestionRun, UNKNOWN, type Decision, type Movement, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
+import { magnitude, suggestionRun, type Decision, type Movement, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
 
 const OverrideContext = createContext<TransaccionesSource | null>(null);
 
@@ -55,7 +55,7 @@ export type TrayState = Readonly<{ movementId: string; mode: "record" | "reasons
 
 export type DecisionFailure = Readonly<{ movementId: string; decision: Decision; reference: string }>;
 
-export const movementName = (movement: Movement) => movement.counterparty ?? movement.bankText ?? UNKNOWN;
+export const movementName = (movement: Movement) => movement.counterparty ?? movement.bankText ?? UNKNOWN_VALUE;
 
 const newKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k-${Date.now()}-${Math.random()}`);
 

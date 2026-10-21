@@ -40,8 +40,8 @@ const esCatalog = JSON.parse(
 ) as Record<string, unknown>;
 
 const RAW_SERVER_DETAIL = "Argus could not start this turn. Please try again.";
-const EN_COPY = "Argus could not start this turn. Try again in a moment.";
-const ES_COPY = "Argus no pudo iniciar este turno. Inténtalo de nuevo en un momento.";
+const EN_COPY = "Cuadrao could not start this turn. Try again in a moment.";
+const ES_COPY = "Cuadrao no pudo iniciar este turno. Inténtalo de nuevo en un momento.";
 const EM_DASH = "\u2014";
 
 function catalogString(

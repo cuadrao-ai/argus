@@ -1435,7 +1435,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(palette).toContain("md:flex-row");
     expect(palette).not.toContain("hidden w-[44%]");
     expect(palette).toContain('"command_palette.search_placeholder"');
-    expect(palette).toContain('"Search Argus..."');
+    expect(palette).toContain('"Search Cuadrao..."');
     expect(palette).toContain("maxLength={512}");
     expect(palette).toContain("loadMoreSearch");
     expect(api).toContain("cursor?: string");
@@ -2233,10 +2233,10 @@ describe("Argus Alpha frontend contract", () => {
     expect(loadMoreControl).toContain('"command_palette.load_more_error"');
     expect(loadMoreControl).toContain('"command_palette.retry_load_more"');
     expect(en.command_palette.load_more_error).toBe(
-      "Argus couldn’t load more results. Your current results are still available.",
+      "Cuadrao couldn’t load more results. Your current results are still available.",
     );
     expect(es.command_palette.load_more_error).toBe(
-      "Argus no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
+      "Cuadrao no pudo cargar más resultados. Tus resultados actuales siguen disponibles.",
     );
     expect(en.command_palette.retry_load_more).toBe("Try loading more");
     expect(es.command_palette.retry_load_more).toBe(
@@ -2318,7 +2318,7 @@ describe("Argus Alpha frontend contract", () => {
     expect(dialog).toContain('type === "bug"');
     expect(dialog).toContain('const title = "Provide feedback";');
     expect(dialog).toContain('"File a bug report."');
-    expect(dialog).toContain('"Share feedback about your Argus experience."');
+    expect(dialog).toContain('"Share feedback about your Cuadrao experience."');
     expect(dialog).toContain('"What worked well in this response?"');
     expect(dialog).toContain('"What should be improved in this response?"');
     expect(dialog).toContain(

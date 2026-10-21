@@ -9,7 +9,7 @@ import type { BusinessDataSource } from "./business-data";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
-import { formatDay, formatMoney, formatTimestamp } from "./business-format";
+import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import { cardClass, useCategoryLabel } from "./business-ui";
 import { StatusPill } from "./foundation/StatusPill";
 import { useReceiptStateWord } from "./receipt-state-word";
@@ -21,8 +21,6 @@ export type BusinessSearchRecord =
   | { kind: "note"; note: BusinessCapture }
   | { kind: "email"; email: BusinessSearchEmail }
   | { kind: "sender"; sender: BusinessSearchSender };
-
-const UNKNOWN = "—";
 
 /**
  * The record behind a search hit, beside the results. What the hit already
@@ -36,16 +34,16 @@ export default function BusinessSearchDossier({ record, source, accounts }: { re
   if (record.kind === "email") {
     const { email } = record;
     return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-      <h2 className="font-display text-2xl font-medium">{email.subject ?? UNKNOWN}</h2>
-      <Field label={t("business.search.email_from", "From")}>{email.sender ?? UNKNOWN}</Field>
-      <Field label={t("business.search.email_received", "Received")}>{email.received_at ? formatTimestamp(email.received_at, locale) : UNKNOWN}</Field>
+      <h2 className="font-display text-2xl font-medium">{email.subject ?? UNKNOWN_VALUE}</h2>
+      <Field label={t("business.search.email_from", "From")}>{email.sender ?? UNKNOWN_VALUE}</Field>
+      <Field label={t("business.search.email_received", "Received")}>{email.received_at ? formatTimestamp(email.received_at, locale) : UNKNOWN_VALUE}</Field>
       <Field label={t("business.search.email_state", "Status")}>{t(`business.email.state.${email.state}`, email.state)}</Field>
     </section>;
   }
   if (record.kind === "sender") {
     const { sender } = record;
     return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-      <h2 className="font-display text-2xl font-medium break-all">{sender.value || UNKNOWN}</h2>
+      <h2 className="font-display text-2xl font-medium break-all">{sender.value || UNKNOWN_VALUE}</h2>
       <Field label={t("business.search.sender_type", "Type")}>{t(`business.search.sender_kind.${sender.kind}`, sender.kind)}</Field>
       <Field label={t("business.search.email_state", "Status")}>{t(`business.search.sender_status.${sender.status}`, sender.status)}</Field>
     </section>;

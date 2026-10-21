@@ -13,7 +13,7 @@ import { bandejaReceipts } from "./bandeja-order";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
 import { isStillReading, needsAttention, porRevisar } from "@/lib/business-review-count";
 import { bandejaEmails, inboxCount, openNotesByDraft, problemCount, type BandejaEmail, type OpenNote } from "./inbox-count";
-import { formatMoney, formatRelativeTime } from "./business-format";
+import { formatMoney, formatRelativeTime, UNKNOWN_VALUE } from "./business-format";
 import { cardClass, PanelHeading, primaryButtonClass, quietButtonClass, recordFiscalMark } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import BusinessAddMenu from "./BusinessAddMenu";
@@ -83,7 +83,7 @@ export function ReceiptRow({ receipt, open = false, onOpen }: { receipt: Receipt
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt")}</span>
-            <span className={`shrink-0 text-right text-[15px] font-medium tabular-nums text-[#172b26] dark:text-white ${money ? "cuadrao-amount" : ""}`}>{money || "—"}</span>
+            <span className={`shrink-0 text-right text-[15px] font-medium tabular-nums text-[#172b26] dark:text-white ${money ? "cuadrao-amount" : ""}`}>{money || UNKNOWN_VALUE}</span>
           </span>
           <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px]">
             {receipt.channel === "whatsapp" ? <MessageCircle className="h-3.5 w-3.5 shrink-0 text-[#56635e]" aria-label="WhatsApp" /> : receipt.channel === "email" ? <Mail className="h-3.5 w-3.5 shrink-0 text-[#56635e]" data-testid="inbox-channel-email" aria-label={t("business.dossier.email", "Email")} /> : null}
@@ -112,7 +112,7 @@ function NoteRow({ note, open, onOpen }: { note: OpenNote; open: boolean; onOpen
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{note.text.trim()}</span>
-            <span className="shrink-0 text-right text-[15px] tabular-nums text-[#56635e]">—</span>
+            <span className="shrink-0 text-right text-[15px] tabular-nums text-[#56635e]"><span aria-hidden="true">{UNKNOWN_VALUE}</span><span className="sr-only">{t("business.dossier.unknown_amount", "Amount unknown")}</span></span>
           </span>
           <span className="mt-0.5 block truncate text-[13px] text-[#56635e] dark:text-white/65">
             {[t("business.inbox.row_note", "Typed note"), formatRelativeTime(note.receivedAt, locale), note.earlier ? t("business.inbox.note_more", "{{count}} earlier notes", { count: note.earlier }) : null].filter(Boolean).join(" · ")}

@@ -52,7 +52,7 @@ test.describe("Business search in the omnisearch", () => {
     await page.keyboard.press("Enter");
 
     await expect(input).toHaveCount(0);
-    await expect(panelHeading(page, "Gastos")).toBeVisible();
+    await expect(panelHeading(page, "Transacciones")).toBeVisible();
     const tray = page.getByTestId("side-drawer");
     await expect(tray.getByRole("heading", { name: "Nube Hosting" })).toBeVisible();
     const download = page.waitForEvent("download");
@@ -78,7 +78,7 @@ test.describe("Business search in the omnisearch", () => {
     await expect(page.getByLabel("Pagado desde")).toBeVisible();
   });
 
-  test("an expense without a receipt opens its row in Gastos", async ({ page }) => {
+  test("an expense without a receipt opens its row in Transacciones", async ({ page }) => {
     await openPreview(page);
     const input = await openSearch(page, "Busca comercio, monto o nota");
 
@@ -86,8 +86,8 @@ test.describe("Business search in the omnisearch", () => {
     await results(page).getByRole("button", { name: /Estación Ruta 3/ }).click();
     await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
 
-    await expect(panelHeading(page, "Gastos")).toBeVisible();
-    await expect(page.locator('li[aria-current="true"]')).toContainText("Estación Ruta 3");
+    await expect(panelHeading(page, "Transacciones")).toBeVisible();
+    await expect(page.locator('tr[aria-selected="true"]')).toContainText("Estación Ruta 3");
   });
 
   test("owner-funded expense keeps its Spanish funding, date and category in search and its list", async ({ page }) => {
@@ -102,13 +102,14 @@ test.describe("Business search in the omnisearch", () => {
     if (process.env.CUADRAO_RECORD_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_RECORD_EVIDENCE_DIR}/owner-funded-search-spanish.png`, fullPage: true });
     await hit.click();
     await page.getByRole("button", { name: "Abrir registro", exact: true }).click();
-    const row = page.locator('li[aria-current="true"]');
+    const row = page.locator('tr[aria-selected="true"]');
     await expect(row).toContainText("Comedor Doña Ana");
     await expect(row).toContainText("Dinero del dueño");
     await expect(row).toContainText("Comidas");
     const date = detail.match(/\d{1,2} [a-z]+ \d{4}/)?.[0];
     expect(date).toBeTruthy();
-    await expect(row).toContainText(date!);
+    // The list names a day of this year without the year.
+    await expect(row).toContainText(date!.replace(/ \d{4}$/, ""));
     await expect(row).not.toContainText("Cuenta corriente");
     if (process.env.CUADRAO_RECORD_EVIDENCE_DIR) await page.screenshot({ path: `${process.env.CUADRAO_RECORD_EVIDENCE_DIR}/owner-funded-expenses-spanish.png`, fullPage: true });
   });

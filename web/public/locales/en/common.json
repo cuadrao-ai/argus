@@ -99,59 +99,59 @@
     },
     "privacy": {
       "title": "Privacy Policy",
-      "intro": "This policy explains what Argus does with your account data, conversations, feedback, and the requests it sends to outside providers while the product is in early access.",
+      "intro": "This policy explains what Cuadrao does with your account data, conversations, feedback, and the requests it sends to outside providers while the product is in early access.",
       "sections": {
         "data_collect": {
           "title": "Data we collect",
-          "body": "Argus may collect account details, authentication state, conversations, investing ideas you submit, saved product records, feedback, support requests, browser and device basics, usage events, logs, and error diagnostics."
+          "body": "Cuadrao may collect account details, authentication state, conversations, investing ideas you submit, saved product records, feedback, support requests, browser and device basics, usage events, logs, and error diagnostics."
         },
         "data_use": {
           "title": "How we use data",
-          "body": "We use data to run the product, authenticate users, save and restore conversations, generate and review historical simulations, debug failures, protect the service, respond to support, and improve Argus while it is in early access."
+          "body": "We use data to run the product, authenticate users, save and restore conversations, generate and review historical simulations, debug failures, protect the service, respond to support, and improve Cuadrao while it is in early access."
         },
         "ai_market_data": {
           "title": "AI and market data providers",
-          "body": "Conversation content and prompts may be sent to OpenRouter and model providers so Argus can interpret requests and draft responses. Market data and asset discovery may use providers such as Alpaca and Kraken. Provider availability can affect supported symbols, time windows, and results."
+          "body": "Conversation content and prompts may be sent to OpenRouter and model providers so Cuadrao can interpret requests and draft responses. Market data and asset discovery may use providers such as Alpaca and Kraken. Provider availability can affect supported symbols, time windows, and results."
         },
         "infrastructure": {
           "title": "Infrastructure and product services",
-          "body": "Argus uses Supabase for authentication and product persistence, Render for hosting, OpenRouter for model access, and Cloudflare for domain delivery and bot protection. Product analytics through PostHog run on Argus servers, and only when they are intentionally enabled. TradingView Lightweight Charts is used as a charting library with attribution; it is not the source of Argus market data."
+          "body": "Cuadrao uses Supabase for authentication and product persistence, Render for hosting, OpenRouter for model access, and Cloudflare for domain delivery and bot protection. Product analytics through PostHog run on Cuadrao servers, and only when they are intentionally enabled. TradingView Lightweight Charts is used as a charting library with attribution; it is not the source of Cuadrao market data."
         },
         "cookies": {
           "title": "Cookies and browser storage",
-          "body": "Argus stores a small amount of data in your browser. All of it either keeps the product working or remembers your settings, and none of it is advertising or tracking, which is why Argus does not show a cookie consent banner.",
+          "body": "Cuadrao stores a small amount of data in your browser. All of it either keeps the product working or remembers your settings, and none of it is advertising or tracking, which is why Cuadrao does not show a cookie consent banner.",
           "items": {
             "sign_in": {
               "label": "Sign-in cookies",
-              "body": "These keep you signed in as you move between pages. Supabase authentication sets them, and Argus refreshes them while you keep using the product. They stay after you close the browser, and signing out clears them. Signing in or resetting your password also sets a short-lived cookie that completes the exchange securely, discarded once it finishes. If you block them, signing in will not work."
+              "body": "These keep you signed in as you move between pages. Supabase authentication sets them, and Cuadrao refreshes them while you keep using the product. They stay after you close the browser, and signing out clears them. Signing in or resetting your password also sets a short-lived cookie that completes the exchange securely, discarded once it finishes. If you block them, signing in will not work."
             },
             "guest_handoff": {
               "label": "Guest handoff cookies",
-              "body": "If you start as a guest and then create an account, Argus sets two cookies so your temporary conversation can move onto the new account. Signing in to an account you already have uses a ten minute cookie. Creating a new account uses one that lasts as long as your guest workspace, up to seven days. Both are limited to Argus authentication routes, travel to the Argus API on its own domain, and are cleared as soon as the handoff finishes."
+              "body": "If you start as a guest and then create an account, Cuadrao sets two cookies so your temporary conversation can move onto the new account. Signing in to an account you already have uses a ten minute cookie. Creating a new account uses one that lasts as long as your guest workspace, up to seven days. Both are limited to Cuadrao authentication routes, travel to the Cuadrao API on its own domain, and are cleared as soon as the handoff finishes."
             },
             "security": {
               "label": "Security cookies",
-              "body": "Cloudflare Turnstile checks that sign-in and guest requests come from a person rather than a bot, and Cloudflare may set short-lived challenge cookies to do that. They are scoped to Argus and are not used to follow you across other sites."
+              "body": "Cloudflare Turnstile checks that sign-in and guest requests come from a person rather than a bot, and Cloudflare may set short-lived challenge cookies to do that. They are scoped to Cuadrao and are not used to follow you across other sites."
             },
             "preferences": {
               "label": "Preferences you set",
-              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Argus may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Argus never sends any of this to advertisers. When you create your account, we save with it when you confirmed you're 18 or older. We don't store your date of birth."
+              "body": "Your browser’s local storage holds your language, which starts from your browser’s own setting until you change it, along with your appearance and layout choices, tips you dismissed, the conversations you marked temporary, and the ad or link that brought you here. Language, appearance, layout, tips, and temporary-chat marks stay on your device. The campaign is stored there too, and Cuadrao may receive it when you start as a guest or create an account. This tab temporarily keeps your account identifier, the daily-limit reset time, and whether you closed the notice. That notice state clears when the limit resets, a question succeeds, you sign out or switch accounts, or you close the tab. This tab also keeps whether you accepted the current Cuadrao Business privacy notice, until that acceptance can be stored on the server. Closing the tab clears that copy. Cuadrao never sends any of this to advertisers. When you create your account, we save with it when you confirmed you're 18 or older. We don't store your date of birth."
             }
           },
-          "body_after": "Argus does not use advertising cookies, ad pixels, marketing trackers, or cross-site tracking, and it does not share browser data with advertising partners. Product analytics, when enabled, run on Argus servers and store nothing in your browser. You can clear or block this storage in your browser settings, though signing in will stop working if you block the sign-in cookies."
+          "body_after": "Cuadrao does not use advertising cookies, ad pixels, marketing trackers, or cross-site tracking, and it does not share browser data with advertising partners. Product analytics, when enabled, run on Cuadrao servers and store nothing in your browser. You can clear or block this storage in your browser settings, though signing in will stop working if you block the sign-in cookies."
         },
         "access_retention": {
           "title": "Access and retention",
-          "body": "Founder and administrator access is limited to operating, debugging, securing, and improving Argus during early access. We keep data while your account is active, while needed for support or security, or while required by operational records."
+          "body": "Founder and administrator access is limited to operating, debugging, securing, and improving Cuadrao during early access. We keep data while your account is active, while needed for support or security, or while required by operational records."
         },
         "your_controls": {
           "title": "Your controls",
-          "body_before_email": "You can archive or delete conversations in the app. While Argus is in early access, account deletion is handled by a person through the in-app request or by contacting",
+          "body_before_email": "You can archive or delete conversations in the app. While Cuadrao is in early access, account deletion is handled by a person through the in-app request or by contacting",
           "body_after_email": "."
         },
         "sale_personal_info": {
           "title": "Sale and sharing of personal information",
-          "body": "Argus does not sell or share your personal information, and it does not use it for targeted advertising. If that ever changes, this policy and the controls in the product will be updated before it takes effect."
+          "body": "Cuadrao does not sell or share your personal information, and it does not use it for targeted advertising. If that ever changes, this policy and the controls in the product will be updated before it takes effect."
         }
       }
     }
@@ -171,8 +171,8 @@
     "details": "Details",
     "rating_placeholder": "Tell us more about your experience...",
     "details_placeholder": "What's on your mind?",
-    "consent": "I consent to the Argus team processing this feedback and contacting me for follow-up details if necessary.",
-    "consent_feature": "I consent to the Argus team using this feature request and contacting me if follow-up would help.",
+    "consent": "I consent to the Cuadrao team processing this feedback and contacting me for follow-up details if necessary.",
+    "consent_feature": "I consent to the Cuadrao team using this feature request and contacting me if follow-up would help.",
     "include_conversation_context": "Include approved context from this conversation",
     "rating_positive_prompt": "What went well?",
     "rating_negative_prompt": "What went wrong?",
@@ -181,8 +181,8 @@
       "positive": "What worked well in this response?",
       "negative": "What should be improved in this response?",
       "bug": "File a bug report.",
-      "feature": "Request a feature for Argus.",
-      "general": "Share feedback about your Argus experience."
+      "feature": "Request a feature for Cuadrao.",
+      "general": "Share feedback about your Cuadrao experience."
     },
     "type": {
       "general": "General Feedback",
@@ -226,7 +226,7 @@
       }
     },
     "ask": {
-      "question": "How is Argus doing?",
+      "question": "How is Cuadrao doing?",
       "answers": {
         "negative": "Bad",
         "neutral": "Okay",
@@ -252,14 +252,14 @@
       "contribution": "Contribution: {{amount}} {{period}}",
       "contribution_without_period": "Contribution: {{amount}}"
     },
-    "welcome": "Welcome to Argus. Tell me an investing idea in plain language and I will help test it with Alpha-safe assumptions.",
+    "welcome": "Welcome to Cuadrao. Tell me an investing idea in plain language and I will help test it with Alpha-safe assumptions.",
     "input_placeholder": "Ask about any company or idea",
     "input_placeholder_prerail": "Describe an investing idea",
     "followup_placeholder": "Add a follow-up",
     "message_empty": "Message is empty",
     "send_message": "Send message",
-    "text_only_input": "Argus can only accept text here right now.",
-    "disclaimer": "Argus can make mistakes. For education only. Not financial advice.",
+    "text_only_input": "Cuadrao can only accept text here right now.",
+    "disclaimer": "Cuadrao can make mistakes. For education only. Not financial advice.",
     "trigger_create_strategy": "I want to create a new strategy.",
     "trigger_create_collection": "I want to create a new collection.",
     "greeting": {
@@ -298,7 +298,7 @@
       "manual_unread": "Marked unread",
       "mark_unread": "Mark as unread",
       "mark_read": "Mark as read",
-      "jump_working": "Jump to latest; Argus is working below",
+      "jump_working": "Jump to latest; Cuadrao is working below",
       "jump_new": "Jump to new activity",
       "jump_needs_input": "Jump to the latest question",
       "jump_needs_attention": "Jump to the latest recovery",
@@ -306,7 +306,7 @@
       "mark_unread_error": "Couldn’t mark this conversation as unread. Try again.",
       "mark_read_success": "Marked as read.",
       "mark_unread_success": "Marked as unread.",
-      "announce_working": "Argus is working on {{title}}.",
+      "announce_working": "Cuadrao is working on {{title}}.",
       "announce_needs_attention": "{{title}} needs attention.",
       "announce_needs_input": "{{title}} needs your input.",
       "announce_new_activity": "{{title}} is ready."
@@ -314,11 +314,11 @@
     "research_job": {
       "queued": {
         "title": "Research queued",
-        "body": "Argus is lining up a deeper look. You can keep chatting; the answer will appear here."
+        "body": "Cuadrao is lining up a deeper look. You can keep chatting; the answer will appear here."
       },
       "running": {
         "title": "Researching",
-        "body": "Argus is reading financial data and sources for this one. The answer will appear here."
+        "body": "Cuadrao is reading financial data and sources for this one. The answer will appear here."
       },
       "succeeded": {
         "title": "Research ready",
@@ -327,10 +327,10 @@
       },
       "failed": {
         "title": "Research didn't finish",
-        "body": "Argus couldn't complete this research run. Ask again, or test the idea directly."
+        "body": "Cuadrao couldn't complete this research run. Ask again, or test the idea directly."
       }
     },
-    "error_offline": "Argus can’t reach its service right now. Check your connection and try again in a moment.",
+    "error_offline": "Cuadrao can’t reach its service right now. Check your connection and try again in a moment.",
     "error_load": "Couldn’t load this conversation. Try again.",
     "opening_conversation": "Opening conversation…",
     "error_open_conversation": "Couldn’t open this conversation.",
@@ -368,9 +368,9 @@
       "artifact_action_retry_rebuilt_confirmation": "I still have that failed setup. I rebuilt the draft so you can review the card and retry when you are ready.",
       "artifact_action_retry_inactive": "That retry is no longer attached to an active failed run. Use the latest retry action or confirm the setup you want to run.",
       "execution_data_unavailable": "The setup is still here, but I could not get {{dataLabel}} for that run right now. Try again, change the dates, or choose a different supported asset.",
-      "backtest_capacity_exceeded": "Argus is already running as many backtests as it can right now, so this one did not start. Nothing broke and nothing was lost: your setup is exactly as you left it. Run it again in a few minutes.",
-      "guest_compute_claim_unavailable": "Argus could not start this turn. Try again in a moment.",
-      "registered_compute_claim_unavailable": "Argus could not start this turn. Try again in a moment.",
+      "backtest_capacity_exceeded": "Cuadrao is already running as many backtests as it can right now, so this one did not start. Nothing broke and nothing was lost: your setup is exactly as you left it. Run it again in a few minutes.",
+      "guest_compute_claim_unavailable": "Cuadrao could not start this turn. Try again in a moment.",
+      "registered_compute_claim_unavailable": "Cuadrao could not start this turn. Try again in a moment.",
       "daily_cap_reached": "You've reached today's question limit. It resets at {{time}}.",
       "guest_compute_claim_retry_in_one": "Retry in {{count}} second",
       "guest_compute_claim_retry_in_other": "Retry in {{count}} seconds",
@@ -405,8 +405,8 @@
         "keep_unchanged": "Keep idea unchanged",
         "cancel": "Cancel"
       },
-      "unsupported_recovery": "Argus can't run that rule directly yet. Which supported direction should I use: {{options}}?",
-      "unsupported_recovery_for_asset": "Argus can't run that rule directly yet for {{symbol}}. Which supported direction should I use: {{options}}?",
+      "unsupported_recovery": "Cuadrao can't run that rule directly yet. Which supported direction should I use: {{options}}?",
+      "unsupported_recovery_for_asset": "Cuadrao can't run that rule directly yet for {{symbol}}. Which supported direction should I use: {{options}}?",
       "unsupported_recovery_incomplete": "What rule should I test? Which supported direction should I use: {{options}}?",
       "unsupported_recovery_incomplete_for_asset": "What rule should I test for {{symbol}}? Which supported direction should I use: {{options}}?",
       "data_window_unavailable": "That date range is outside the available market history. Choose another date range.",
@@ -528,11 +528,11 @@
       "search_current_send_comparison": "Search for current {{assetKind}} comparable to {{query}}",
       "sources_panel_open_one": "{{count}} source ›",
       "sources_panel_open_other": "{{count}} sources ›",
-      "sources_panel_title": "Sources Argus read",
+      "sources_panel_title": "Sources Cuadrao read",
       "sources_panel_note": "Sources used to inform this answer. Links open in a new tab.",
-      "sources_panel_open_withheld": "Where Argus looked ›",
-      "sources_panel_title_withheld": "Where Argus looked",
-      "sources_panel_note_withheld": "Argus read these pages while answering and could not verify the answer with them. Links open in a new tab.",
+      "sources_panel_open_withheld": "Where Cuadrao looked ›",
+      "sources_panel_title_withheld": "Where Cuadrao looked",
+      "sources_panel_note_withheld": "Cuadrao read these pages while answering and could not verify the answer with them. Links open in a new tab.",
       "sources_panel_close": "Close sources",
       "sources_panel_external_link_new_tab": "Opens in a new tab",
       "allowance_banner": "Grounded search allowance used",
@@ -635,25 +635,25 @@
     "backtest_job": {
       "queued_title": "Backtest queued",
       "queued_status": "Queued",
-      "queued_body": "Argus has the request and will start shortly.",
+      "queued_body": "Cuadrao has the request and will start shortly.",
       "queued_detail": "You can leave this chat and come back; progress is saved.",
       "running_title": "Backtest running",
       "running_status": "Running",
-      "running_body": "Argus is calculating the result in the background.",
+      "running_body": "Cuadrao is calculating the result in the background.",
       "running_detail": "You can leave this chat and come back; progress is saved.",
       "succeeded_title": "Backtest finished",
       "succeeded_status": "Result ready",
-      "succeeded_body": "The result is ready. Argus is loading the saved card.",
+      "succeeded_body": "The result is ready. Cuadrao is loading the saved card.",
       "succeeded_detail": "The completed result will replace this progress card.",
       "failed_title": "Backtest could not finish",
       "failed_status": "Could not run",
-      "failed_body": "The run stopped before Argus could save a result. Adjust the idea if needed and try again.",
-      "failed_retryable_body": "The run stopped before Argus could save a result. You can retry this idea from the latest confirmation.",
+      "failed_body": "The run stopped before Cuadrao could save a result. Adjust the idea if needed and try again.",
+      "failed_retryable_body": "The run stopped before Cuadrao could save a result. You can retry this idea from the latest confirmation.",
       "failed_detail": "The conversation is saved, and this status will stay here.",
       "expired_title": "Backtest not completed",
       "expired_status": "Not completed",
       "expired_body": "This run did not complete. Start a fresh backtest when you are ready.",
-      "expired_detail": "Argus will not keep showing a running state for this job."
+      "expired_detail": "Cuadrao will not keep showing a running state for this job."
     },
     "result_card": {
       "ending_value": "Ending value",
@@ -748,7 +748,7 @@
         "event_count_other": "{{count}} displayed executed-fill events in this range.",
         "no_events": "No displayed executed-fill events in this range.",
         "event_sampling": "Showing {{shown}} of {{total}} supplied events.",
-        "marker_cap": "Argus stored {{included}} of {{total}} executed-fill groups for this result."
+        "marker_cap": "Cuadrao stored {{included}} of {{total}} executed-fill groups for this result."
       }
     },
     "strategy_type": {
@@ -766,7 +766,7 @@
       "no_results_title": "No supported matches",
       "no_results": "No supported asset or indicator matched \"{{query}}\". Try a ticker or official company name.",
       "unavailable_title": "Discovery is taking longer than expected",
-      "unavailable": "Try the ticker directly, or keep typing. Argus can still reason about your message.",
+      "unavailable": "Try the ticker directly, or keep typing. Cuadrao can still reason about your message.",
       "sections": {
         "results": "Search results",
         "assets": "Popular assets",
@@ -798,7 +798,7 @@
       "asset_count": "{{count}} assets",
       "selected_asset": "Selected asset",
       "period_adjustment": "I adjusted the test period to {{period}} because every asset and the benchmark need a shared data window.",
-      "period_adjustment_limited_by": "I adjusted the test period to {{period}} because Argus has price data for {{symbol}} only from {{date}}.",
+      "period_adjustment_limited_by": "I adjusted the test period to {{period}} because Cuadrao has price data for {{symbol}} only from {{date}}.",
       "undo": "Undo",
       "peer_add_failed": "Couldn't change that test. The card is unchanged.",
       "status": {
@@ -943,13 +943,13 @@
       "private_on": "Private chat: on",
       "private_off": "Private chat",
       "proposal_title": "Remember this saved decision?",
-      "proposal_benefit": "Argus would keep “{{label}}” so you can revisit and compare it later. You can inspect or remove it any time in Data Controls.",
+      "proposal_benefit": "Cuadrao would keep “{{label}}” so you can revisit and compare it later. You can inspect or remove it any time in Data Controls.",
       "proposal_confirm": "Remember",
       "proposal_decline": "No thanks",
       "proposal_error": "Could not update memory. Try again.",
       "proposal_saved": "Saved to memory. Manage it in Data Controls under Personalization."
     },
-    "send_busy": "Argus is still finishing the last message. Try again in a moment.",
+    "send_busy": "Cuadrao is still finishing the last message. Try again in a moment.",
     "copy_card": {
       "assets": "Assets",
       "period": "Period",
@@ -1094,7 +1094,7 @@
       "close_appearance": "Close appearance",
       "home_country": "Country and currency",
       "close_home_country": "Close country and currency",
-      "home_country_note": "When Argus looks things up, it uses your country as your location.",
+      "home_country_note": "When Cuadrao looks things up, it uses your country as your location.",
       "country": "Country",
       "currency": "Currency",
       "no_country": "No country",
@@ -1154,7 +1154,7 @@
         "errors": {
           "explain": "Could not load the explanation. Try again.",
           "edit": "Could not save that change. Try again.",
-          "restricted": "Argus keeps sensitive details out of memory.",
+          "restricted": "Cuadrao keeps sensitive details out of memory.",
           "delete": "Could not delete that memory. Try again.",
           "toggle": "Could not update memory settings. Try again.",
           "reset": "Could not reset memory. Try again.",
@@ -1193,7 +1193,7 @@
         "retry": "Try again",
         "close": "Close usage",
         "conversation_rule": "Conversation is free. Asking questions and reading answers never counts.",
-        "search_rule": "Searches with sources count once per search Argus runs for you. Answers from Argus data don’t count.",
+        "search_rule": "Searches with sources count once per search Cuadrao runs for you. Answers from Cuadrao data don’t count.",
         "simulation_rule": "New simulations count once. Retrying the same simulation doesn’t count again."
       },
       "shared_links": "Shared links",
@@ -1233,7 +1233,7 @@
   },
   "keyboard_shortcuts": {
     "title": "Keyboard shortcuts",
-    "description": "Quick ways to move through Argus.",
+    "description": "Quick ways to move through Cuadrao.",
     "close": "Close keyboard shortcuts",
     "menu_item": "Keyboard shortcuts",
     "groups": {
@@ -1264,7 +1264,7 @@
   },
   "command_palette": {
     "ask_argus": {
-      "label": "Ask Argus",
+      "label": "Ask Cuadrao",
       "hint": "Press Enter to start a new chat with this"
     },
     "answer_dossier": {
@@ -1288,7 +1288,7 @@
     "asset_rollup": {
       "results_involving_one": "{{count}} result involving {{symbol}}",
       "results_involving_other": "{{count}} results involving {{symbol}}",
-      "heading": "Your Argus history",
+      "heading": "Your Cuadrao history",
       "scope_registered": "Across your conversations",
       "scope_guest": "In this temporary conversation",
       "runs_involving_one": "{{count}} run involving {{symbol}}",
@@ -1353,7 +1353,7 @@
       "decision_filters": "Decision filters",
       "no_saved_ideas": "No saved ideas in this state"
     },
-    "load_more_error": "Argus couldn’t load more results. Your current results are still available.",
+    "load_more_error": "Cuadrao couldn’t load more results. Your current results are still available.",
     "load_older": "Load older",
     "match_count_one": "{{count}} match",
     "match_count_other": "{{count}} matches",
@@ -1399,7 +1399,7 @@
       "tested": "What you tested",
       "what_happened": "What happened"
     },
-    "read_error": "Argus couldn’t load these results.",
+    "read_error": "Cuadrao couldn’t load these results.",
     "rename_conversation": "Rename conversation",
     "result_count_one": "{{count}} result",
     "result_count_other": "{{count}} results",
@@ -1414,7 +1414,7 @@
     "retry_load_more": "Try loading more",
     "retry_search": "Try searching again",
     "save_decision": "Save decision",
-    "search_placeholder": "Search Argus...",
+    "search_placeholder": "Search Cuadrao...",
     "select_preview": "Select a result to preview its details.",
     "show_full_note": "Show full note",
     "show_less_note": "Show less",
@@ -1592,7 +1592,8 @@
       "changing": "Changing...",
       "changed": "Password changed. Sign in again on every browser.",
       "revocation_warning": "Password changed, but Cuadrao could not confirm every session was signed out. Retry Sign out all sessions.",
-      "error": "We couldn’t change the password. Check your current password and try again."
+      "error": "We couldn’t change the password. Check your current password and try again.",
+      "too_short": "Use at least 8 characters."
     },
     "sessions": {
       "title": "Sessions",
@@ -1632,8 +1633,8 @@
   },
   "receipt": {
     "thread": {
-      "notice": "Shared from Argus, snapshot from {{date}}. Your follow-ups start your own chat.",
-      "preview_notice": "Shared from Argus. Snapshot preview. Your follow-ups start your own chat.",
+      "notice": "Shared from Cuadrao, snapshot from {{date}}. Your follow-ups start your own chat.",
+      "preview_notice": "Shared from Cuadrao. Snapshot preview. Your follow-ups start your own chat.",
       "read_only": "Read-only snapshot",
       "carried": "From a shared conversation, {{date}}"
     },
@@ -1646,28 +1647,28 @@
       "placeholder": "Ask a follow-up...",
       "send": "Send follow-up",
       "starting": "Starting your chat",
-      "hint": "Your follow-up starts your own Argus chat."
+      "hint": "Your follow-up starts your own Cuadrao chat."
     },
     "calculation": {
-      "stamp": "Argus computed this on {{date}}",
-      "used": "What Argus used",
+      "stamp": "Cuadrao computed this on {{date}}",
+      "used": "What Cuadrao used",
       "framing": "This is arithmetic on the inputs shown, frozen on that date. It is not advice or a forecast, and it does not change if those inputs change.",
       "short": "Arithmetic on stated inputs. Not a tip.",
       "headline": "Arithmetic, not advice."
     },
-    "page_title": "Tested with Argus",
+    "page_title": "Tested with Cuadrao",
     "eyebrow": "Shared with you",
-    "provenance": "Tested with Argus",
-    "wordmark": "ARGUS",
+    "provenance": "Tested with Cuadrao",
+    "wordmark": "CUADRAO",
     "framing": {
       "headline": "This is a what if, not a tip.",
-      "detail": "Someone wondered how this idea would have gone, so Argus checked it against what the market actually did on those dates. No real money moved, nobody bought anything, and this says nothing about what happens next.",
+      "detail": "Someone wondered how this idea would have gone, so Cuadrao checked it against what the market actually did on those dates. No real money moved, nobody bought anything, and this says nothing about what happens next.",
       "short": "A what if, run on past market data. Not a tip."
     },
     "sections": {
       "result": "How it went",
       "what_was_tested": "What they tried",
-      "assumptions": "What Argus assumed",
+      "assumptions": "What Cuadrao assumed",
       "note": "They left a note",
       "chart": "How the test money moved"
     },
@@ -1735,7 +1736,7 @@
     "fine_print": {
       "heading": "The fine print",
       "settings": "Exact settings",
-      "assumed": "What Argus assumed"
+      "assumed": "What Cuadrao assumed"
     },
     "fields": {
       "asset": "What",
@@ -1755,13 +1756,13 @@
     "chart_unavailable": "No chart was saved with this one.",
     "cta": {
       "headline": "Got an idea? Try it.",
-      "detail": "Tell Argus an idea in your own words and it will show you how it would have gone. Free to try, no account needed.",
-      "action": "Continue with Argus"
+      "detail": "Tell Cuadrao an idea in your own words and it will show you how it would have gone. Free to try, no account needed.",
+      "action": "Continue with Cuadrao"
     },
     "tombstone": {
       "title": "This one is gone",
       "detail": "The person who shared it took the link down, or deleted the result behind it. There is nothing left to show.",
-      "cta_detail": "You can still try Argus for yourself."
+      "cta_detail": "You can still try Cuadrao for yourself."
     },
     "unavailable": {
       "title": "We could not load this one",
@@ -1782,7 +1783,7 @@
       "copy_failed": "Copying did not work. Select the link and copy it.",
       "created_note": "Your name is not on it, search engines cannot find it, and you can take it down any time from Data Controls.",
       "errors": {
-        "create": "Argus could not make that link. Try again.",
+        "create": "Cuadrao could not make that link. Try again.",
         "note_rejected": "That note cannot go public. Take out any keys or long codes.",
         "rate_limited": "You have made a lot of links just now. Try again shortly.",
         "account_conversion_required": "Create an account or sign in to share this answer.",
@@ -1808,7 +1809,7 @@
       "revoking": "Taking it down...",
       "confirm_revoke": "Sure?",
       "revoke_error": "That link did not come down. Try again.",
-      "cache_note": "The link dies on Argus right away. Chat apps sometimes keep an old preview card in threads where it was already pasted, and Argus cannot reach into those."
+      "cache_note": "The link dies on Cuadrao right away. Chat apps sometimes keep an old preview card in threads where it was already pasted, and Cuadrao cannot reach into those."
     },
     "strategy_facts": {
       "strategy_type": "Strategy",
@@ -1835,12 +1836,12 @@
       "answer": "Answer"
     },
     "research": {
-      "stamp": "Argus looked this up on {{date}}",
+      "stamp": "Cuadrao looked this up on {{date}}",
       "preview_stamp": "Looked up {{date}} · {{count}} sources",
       "sources": "Sources",
-      "next_step": "What Argus offered next",
-      "research_test_single": "Argus offered to test buying and holding {{symbols}}.",
-      "research_test_versus": "Argus offered to compare buying and holding {{symbols}}.",
+      "next_step": "What Cuadrao offered next",
+      "research_test_single": "Cuadrao offered to test buying and holding {{symbols}}.",
+      "research_test_versus": "Cuadrao offered to compare buying and holding {{symbols}}.",
       "framing": "This records what these sources reported on that date. It is not advice or a prediction. Things may have changed since. Nothing was bought or simulated here.",
       "short": "A dated research snapshot. Not a tip.",
       "headline": "Research from that date, not advice."
@@ -2090,8 +2091,8 @@
         "page_dated": "{{title}}, {{date}}",
         "computed": "Computed from the other inputs",
         "not_found": "Not found",
-        "market_data": "Argus market data",
-        "market_data_dated": "Argus market data, {{date}}",
+        "market_data": "Cuadrao market data",
+        "market_data_dated": "Cuadrao market data, {{date}}",
         "assumption": "Assumed in the answer"
       },
       "failure": {
@@ -2173,13 +2174,11 @@
           "reason": "We haven't checked it with the DGII yet."
         }
       },
-      "business_rnc": "RNC del negocio",
       "business_name": "Business name",
       "tax_id_type": "Tax id",
       "tax_id_rnc": "RNC",
       "tax_id_cedula": "Cédula",
       "tax_id_value": "Number",
-      "save_rnc": "Guardar RNC",
       "save_profile": "Save",
       "profile_failed": "No se pudo leer o guardar el RNC. Revisa el negocio abierto antes de intentar de nuevo.",
       "details": "Datos fiscales para 606 / 607",
@@ -2192,7 +2191,6 @@
       "purchases_failed": "No se pudieron cargar las compras originales.",
       "suggested": "Suggested",
       "save": "Guardar revisión fiscal",
-      "revision": "Datos fiscales de esta revisión",
       "approve_income": "Aprobar ingreso",
       "approve_refund": "Aprobar reembolso",
       "recorded_income": "Se registró un ingreso después de aprobar la revisión {{version}}.",
@@ -2220,7 +2218,6 @@
       "owner_only": "The Business owner can turn receipt reading on.",
       "reading_on": "Receipt reading is on.",
       "saved_prompt": "Your receipts are saved unread. Turn on receipt reading to prepare them for review.",
-      "saved_row": "Saved unread. Waiting for receipt reading.",
       "turn_off": "Turn reading off",
       "turn_on": "Turn receipt reading on"
     },
@@ -2279,7 +2276,10 @@
       "body": "Cuadrao keeps the receipts, invoices and data you upload to read them, organize them and prepare your reports. Only you and the people you invite to your business can see them. You can ask us to delete your data whenever you want.",
       "opt_in": "I understand and agree that Cuadrao uses my data for this.",
       "continue": "Continue",
-      "privacy_link": "View privacy notice"
+      "privacy_link": "View privacy notice",
+      "one_time": "We ask this once, for your business's data.",
+      "save_failed": "We couldn't save your acceptance. Nothing changed.",
+      "reference": "Ref. {{reference}}"
     },
     "export": {
       "start": "From",
@@ -2308,10 +2308,6 @@
       "fiscal_unknown": "Included once the month is closed",
       "fiscal_checking": "Checking…",
       "fiscal_profile": "Name and RNC on the 606"
-    },
-    "panel": {
-      "crashed": "This part couldn't be shown. Your receipts are saved.",
-      "retry": "Try again"
     },
     "transactions": {
       "title": "Transactions",
@@ -2584,30 +2580,17 @@
       "all_clear_title": "All approved. Squared away.",
       "email_error": "We couldn't load your emails",
       "error_body": "Your data is still saved. Check your connection and try again.",
-      "expenses_body": "Every receipt you approve in the Inbox becomes an expense for its month.",
-      "expenses_error": "We couldn't load your expenses",
-      "expenses_filtered_body": "There may be expenses in other months.",
-      "expenses_filtered_title": "No expenses in this period",
-      "expenses_title": "Your approved expenses show here",
       "inbox_body": "Upload, type or forward them by email. You review and approve them so they count in your numbers.",
       "inbox_error": "We couldn't load your inbox",
       "inbox_title": "Your receipts land here",
       "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
       "notes_error": "We couldn't load your notes",
       "overview_error": "We couldn't load your business",
-      "see_all_periods": "See all periods",
-      "updates_body": "When Cuadrao reads, saves or needs something from a receipt, it shows up here.",
-      "updates_error": "We couldn't load updates",
-      "updates_title": "See what happened to your receipts"
+      "see_all_periods": "See all periods"
     },
     "expenses": {
       "title": "Expenses",
-      "subtitle": "Saved expenses from {{from}} to {{to}}.",
-      "error": "We couldn't load your expenses. Try again.",
-      "empty": "No expenses saved in this period.",
       "no_merchant": "Expense",
-      "view_receipt": "Receipt",
-      "view_detail": "Detail",
       "detail_title": "Saved expense",
       "no_receipt": "No receipt attached",
       "recorded_on": "Recorded on {{when}}",
@@ -2681,10 +2664,6 @@
     },
     "actions": {
       "add": "Add",
-      "record_expense": "Record expense",
-      "review_receipts": "Review receipts",
-      "review_inbox_one": "Review {{count}} receipt",
-      "review_inbox_other": "Review {{count}} receipts",
       "ask_spending": "What did I spend this month?",
       "attach_receipt": "Add a receipt"
     },
@@ -2696,7 +2675,6 @@
       "label": "Business",
       "overview": "Home",
       "inbox": "Inbox",
-      "expenses": "Expenses",
       "transactions": "Transactions",
       "business": "Business"
     },
@@ -2726,7 +2704,6 @@
       "close_after_steps_one": "When you finish the last step, you can close {{month}}.",
       "close_after_steps_other": "When you finish the {{count}} steps, you can close {{month}}.",
       "close_named": "Close {{month}}",
-      "close_with_open_tasks": "You can close now. Whatever is left stays as it is.",
       "figure_unknown": "Can't be calculated yet.",
       "net_waits_one": "{{count}} document left to mark",
       "net_waits_other": "{{count}} documents left to mark",
@@ -2825,15 +2802,10 @@
       "load_more": "Load more",
       "reveal_more": "Show more",
       "title": "Inbox",
-      "venta": "Venta",
       "review_receipts": "Revisar recibos",
-      "error": "We couldn't load your inbox. Try again.",
-      "notes_error": "We couldn't load your notes. Try again.",
       "notes_latest": "Showing the latest 50 saved notes. Older open notes are reachable through search.",
       "note_more_one": "{{count}} earlier note",
       "note_more_other": "{{count}} earlier notes",
-      "empty_body": "Upload a receipt or send one by WhatsApp. It will wait here for your review.",
-      "all_reviewed": "All reviewed",
       "row_reading": "Reading…",
       "row_saved": "Saved, not read",
       "row_ready": "Ready to review",
@@ -2931,12 +2903,9 @@
       "retry_consent": "Trying again sends this receipt to our AI provider.",
       "prepare_failed": "We couldn't start preparation. Your receipt is saved. Try again.",
       "reading_off": "Turn on Read my receipts with AI in your WhatsApp settings, then try again.",
-      "stale": "This receipt changed since you opened it. Review the current details before confirming.",
-      "confirm_failed": "We couldn't confirm this expense. Nothing was saved twice. Try again.",
       "needed": "Needed",
       "saved_title": "Saved expense",
       "title": "Review receipt",
-      "consent": "Cuadrao can read this receipt with AI and fill in the details for you to check. The receipt is sent to our AI provider only if you choose this. You can also fill in the details yourself.",
       "prepare": "Prepare with AI",
       "preparing": "Reading your receipt. You can leave this page; the result will wait in your inbox.",
       "poll_stopped": "Still reading. Check the current record to see the latest state.",
@@ -2972,7 +2941,6 @@
       "too_large": "This file is larger than {{size}} MB. Use a smaller photo or PDF.",
       "heic": "This is an iPhone HEIC photo. Upload it from your iPhone's browser, which converts it, or export it as JPG first.",
       "title": "Upload receipt",
-      "type_label": "What you are uploading",
       "type_recibo": "Purchase",
       "type_recibo_help": "Something the business paid for.",
       "type_venta": "Sale",
@@ -3021,34 +2989,19 @@
       "other_ways": "Other ways to add receipts",
       "email_way": "Forward them by email",
       "review_saved": "Review saved receipts",
-      "save_pending": "Save remaining files",
       "choose_multiple": "Choose files",
       "remove_file": "Remove {{name}} from this upload list",
-      "retry_consent": "Retries keep the AI choice from the first attempt.",
       "keep_open": "You can close this panel and come back to your uploads. Keep this page open until every file is saved.",
       "open_queue": "Uploads ({{count}})",
-      "queue_status": {
-        "queued": "Ready to upload",
-        "uploading": "Saving…",
-        "saved": "Saved to Inbox",
-        "failed": "Not saved. Try again.",
-        "rejected": "Cannot upload"
-      },
-      "saving": "Saving…",
       "save": "Save to Inbox",
       "formats": "{{formats}}, up to {{size}} MB. The original stays private to you.",
-      "replace": "Choose another",
       "choose": "Choose file",
       "choose_another": "Choose another file",
-      "camera": "Take photo",
-      "failed": "We couldn't read the receipt. Try again.",
-      "consent": "Prepare it with AI after saving. The receipt is sent to our AI provider to fill in the details for your review. Leave this off to fill them in yourself."
+      "camera": "Take photo"
     },
     "period": {
       "all": "All",
       "custom": "Custom",
-      "from": "From",
-      "to": "Through",
       "apply": "Show",
       "outside_one": "{{count}} expense saved outside this period, on {{date}}.",
       "outside_other": "{{count}} expenses saved outside this period, the latest on {{date}}.",
@@ -3066,24 +3019,10 @@
       "greeting": "Welcome, {{name}}",
       "greeting_unnamed": "Welcome",
       "title": "My business",
-      "error": "We couldn't load your business records. Your saved receipts and expenses are safe. Try again.",
-      "in_inbox": "In your inbox",
-      "open_inbox": "Open inbox",
-      "por_revisar": "to review",
-      "por_revisar_none": "Nothing to review",
       "problem_one": "{{count}} with a problem",
       "problem_other": "{{count}} with a problem",
       "reading_one": "{{count}} still reading",
-      "reading_other": "{{count}} still reading",
-      "confirmed": "Saved expenses, {{period}}",
-      "no_expenses": "No expenses saved in this period yet.",
-      "expense_count_one": "{{count}} expense",
-      "expense_count_other": "{{count}} expenses",
-      "separate_currencies": "Each currency is totaled on its own. No conversion.",
-      "attention_one": "{{count}} receipt needs your attention",
-      "attention_other": "{{count}} receipts need your attention",
-      "coverage": "Covers {{from}} to {{to}}. Last receipt {{received}}. Totals include saved expenses only, not receipts waiting for review.",
-      "never": "none yet"
+      "reading_other": "{{count}} still reading"
     },
     "composer": {
       "placeholder_ask": "Ask about your saved expenses",
@@ -3183,30 +3122,21 @@
       "datos_body": "They appear on your 606 and 607 and on what you export."
     },
     "switcher": {
-      "label": "Business",
       "change": "Switch Business",
       "choose": "Choose a Business",
-      "own": "Your Business",
       "client": "Client",
       "client_cue": "Client: {{name}}",
       "role_owner": "Owner",
       "role_accountant": "Accountant",
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
-      "lost": "You no longer have access to this Business.",
-      "team": "Team and access",
       "settings": "Business settings"
     },
     "marks": {
-      "real_expenses": "Actual expenses",
-      "fiscal_expenses": "With fiscal value",
-      "without_fiscal": "No fiscal receipt number: {{amount}} does not go into the 606",
       "no_fiscal_chip": "No fiscal receipt number",
       "personal_chip": "Personal",
       "marked_by": "Marked by {{name}}",
       "mark_personal": "Personal",
-      "mark_personal_label": "Mark as personal",
-      "unmark_personal_label": "No longer personal",
       "marked_personal": "Marked as personal. It does not count in the Business totals.",
       "unmarked_personal": "No longer personal. It counts in the totals again.",
       "undo": "Undo",
@@ -3220,7 +3150,6 @@
       "included_606_by": "Included in the 606 by {{name}}",
       "excluded_606_by": "Left out of the 606 by {{name}}",
       "decide_failed": "We could not save the answer. Try again.",
-      "none_fiscal": "None with fiscal value in this period.",
       "personal_help": "It does not count in the Business totals.",
       "sin_comprobante_chip": "No comprobante",
       "missing_ncf_chip": "NCF missing"

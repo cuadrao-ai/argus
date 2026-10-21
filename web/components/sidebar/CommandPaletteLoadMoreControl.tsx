@@ -30,7 +30,7 @@ export default function CommandPaletteLoadMoreControl({
         >
           {errorLabel ?? t(
             "command_palette.load_more_error",
-            "Argus couldn’t load more results. Your current results are still available.",
+            "Cuadrao couldn’t load more results. Your current results are still available.",
           )}
         </p>
       )}

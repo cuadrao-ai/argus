@@ -101,7 +101,7 @@ describe("Inicio month close source", () => {
       assert.match(load?.url ?? "", /\/business\/month-close\?month=\d{4}-\d{2}$/);
       assert.equal(first.host.querySelector('[data-testid="month-close-sample"]'), null);
       assert.equal(first.host.textContent?.includes("Farmacia Central"), false);
-      assert.match(first.host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /—/);
+      assert.match(first.host.querySelector('[data-testid="month-close-income"]')?.textContent ?? "", /^Ingresos-/);
       assert.equal(first.host.querySelector('[data-testid="month-close-income"]')?.getAttribute("data-amount"), null);
       await first.act(async () => first.root.unmount());
       first.host.remove();

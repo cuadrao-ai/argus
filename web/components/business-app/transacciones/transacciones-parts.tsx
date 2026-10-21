@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { Banknote, CreditCard, Landmark, type LucideIcon } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { formatAmount, formatMoney } from "../business-format";
-import { magnitude, signOf, UNKNOWN, type AccountKind, type MatchState, type Money, type MovementAccount } from "./transacciones-model";
+import { formatAmount, formatMoney, UNKNOWN_VALUE } from "../business-format";
+import { magnitude, signOf, type AccountKind, type MatchState, type Money, type MovementAccount } from "./transacciones-model";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const line = { fill: "none", stroke: "currentColor", strokeWidth: 1.4, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -32,13 +32,13 @@ export function StateIcon({ state }: { state: MatchState }) {
   );
 }
 
-/** Unknown is a dash on screen and "sin dato" to a screen reader; never a zero. */
-export function Unknown() {
+/** Unknown is a plain dash on screen and its meaning ("sin dato" unless a cell says better) to a screen reader; never a zero. */
+export function Unknown({ meaning }: { meaning?: string }) {
   const { t } = useTransaccionesWords();
   return (
     <span>
-      <span aria-hidden="true">{UNKNOWN}</span>
-      <span className="sr-only">{t("business.transactions.unknown", "sin dato")}</span>
+      <span aria-hidden="true">{UNKNOWN_VALUE}</span>
+      <span className="sr-only">{meaning ?? t("business.transactions.unknown", "sin dato")}</span>
     </span>
   );
 }

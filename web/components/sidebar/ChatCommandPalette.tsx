@@ -568,7 +568,7 @@ function ChatCommandPaletteSurface({
         ? commandPaletteAssetRollupFromSearch(assetRollup, {
             heading: t(
               "command_palette.asset_rollup.heading",
-              "Your Argus history",
+              "Your Cuadrao history",
             ),
             scope: isGuest
               ? t(
@@ -1429,7 +1429,7 @@ function ChatCommandPaletteSurface({
             onChange={(event) => changeQuery(event.target.value)}
             placeholder={workspaceSearch?.copy.placeholder ?? t(
               "command_palette.search_placeholder",
-              "Search Argus...",
+              "Search Cuadrao...",
             )}
             className="min-h-11 w-full bg-transparent font-display text-[16px] font-medium text-black outline-none placeholder:text-black/35 dark:text-white dark:placeholder:text-white/35"
           />
@@ -1539,7 +1539,7 @@ function ChatCommandPaletteSurface({
                 <p className="text-[14px] text-black/50 dark:text-white/50">
                   {workspaceSearch?.copy.readError ?? t(
                     "command_palette.read_error",
-                    "Argus couldn’t load these results.",
+                    "Cuadrao couldn’t load these results.",
                   )}
                 </p>
                 <button

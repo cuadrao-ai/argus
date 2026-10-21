@@ -68,8 +68,10 @@ the code, named after it, and every screen uses that owner.
   minutos", "ayer", "hace 3 días". From 7 days on it reads as a short date,
   "12 oct", with the year only when it is not this year: "24 dic 2025". Owner:
   `formatRelativeTime` for timestamps and `formatRelativeDay` for calendar days.
-- **Unknown is "—".** An amount the system does not know shows "—", never 0
-  or RD$0.00. A real zero shows as RD$0.00.
+- **Unknown is "-".** An amount the system does not know shows a plain short
+  dash ("-"), never the long one, never 0 or RD$0.00. A real zero shows as
+  RD$0.00. A negative amount keeps its minus sign in front of the number, so a
+  lone dash is never a sign. Owner: `UNKNOWN_VALUE` in `business-format.ts`.
 - **Ocultar montos.** Every amount carries the `cuadrao-amount` class, so
   Ocultar montos hides it, headline figures included.
 
@@ -412,8 +414,10 @@ table only.
   80ms; every transition stays under 150ms, with no bounce.
 - The header pins on vertical scroll. The first column pins on horizontal
   scroll, and a column that is the point of the screen may pin right.
-- An empty cell is "—" when missing (read as "sin dato"), a real 0.00 only
-  when zero is known, and a skeleton only while loading.
+- An empty cell is "-" when missing (read as "sin dato", or as what it means,
+  such as "Sin recibo" in Comprobante), a real 0.00 only when zero is known,
+  and a skeleton only while loading. A blank cell is a question, so no cell is
+  left empty.
 - Long text truncates to one line with a tooltip. Numbers never truncate.
 - Row actions appear on hover and on keyboard focus, each with its key, over
   text columns and never over a number. Touch gets a kebab. Every action is
@@ -569,7 +573,7 @@ Lucas decided these on October 21, 2026:
   Deshacer, offered only when the server can take a decision back. A failed
   decision says so in the tray with Reintentar and its reference.
 - The totals (Entradas, Salidas, Por igualar, Igualadas) are the server's,
-  exact, one per currency. A total the server does not serve reads "—".
+  exact, one per currency. A total the server does not serve reads "-".
 - The ledger fills the one canvas, as in [Widths](#widths).
 
 ## 7. Voice
