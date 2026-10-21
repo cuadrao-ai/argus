@@ -231,7 +231,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     }
   };
 
-  const captureDialog = <ManualCaptureDialog isOpen={captureOpen} target={captureTarget} revision={captureRevision} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
+  const captureDialog = <ManualCaptureDialog key="capture" isOpen={captureOpen} target={captureTarget} revision={captureRevision} onClose={() => setCaptureOpen(false)} onPending={setCapturePending} onRetained={setCaptureRetained} onUnavailable={() => { setUnavailable(true); setDossier(null); }} onSaved={(saved) => { setDossier(saved); setCaptureOpen(false); setUnavailable(false); reload(); }} />;
   const captureRecovery = captureRetained && !captureOpen ? <button type="button" className={`${secondaryButtonClass} mb-4`} onClick={() => setCaptureOpen(true)}>{capturePending ? t("business.capture.reopen", "Reopen unconfirmed note") : t("business.capture.reopen_retained", "Reopen retained note")}</button> : null;
   if (unavailable || !dossier && problem) return (<>
     {captureRecovery}
@@ -281,7 +281,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const approvalLabel = dossier.facts.kind.value === "income" ? t("business.dgii.approve_income", "Aprobar ingreso") : dossier.facts.kind.value === "refund" ? t("business.dgii.approve_refund", "Aprobar reembolso") : (spanishReview ? "Aprobar" : t("business.dossier.approve", "Approve expense"));
 
   const canMove = mutable && !dirty && !editing.length && !advancing && !settling;
-  return (<ContentFade><>
+  return (<><ContentFade><>
     <ReceiptShortcutRegistration actions={{
       ...(canApprove && supportedKind && approvable ? { approve: () => requestApproval(), ...(receipt ? { approve_next: () => requestApproval(true) } : {}) } : {}),
       ...(canMove && receipt ? receiptNavigationActions(receipt.id, records.inbox, (id) => { handTitleFocus(id); openPanel({ kind: "receipt", receiptId: id }); }) : {}),
@@ -344,8 +344,6 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
             <button type="button" disabled={busy || checking} onClick={() => void refresh()} className={`${secondaryButtonClass} mt-4`}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("business.dossier.refresh", "Check current record")}</button>
           </div>
     </ReceiptReviewFrame>
-    {/* The note dialog keeps the third place in every branch, so a refused save keeps its message. */}
-    {captureDialog}
     {rncConfirmation ? <ConfirmDialog
       isOpen
       title={t(`business.dgii.rnc_check.${rncConfirmation.status}.approval_title`)}
@@ -363,5 +361,8 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
     /> : null}
     {receipt ? <ReceiptSeenBoundary receipt={receipt} hydrated={dossier.draft_id === receipt.draft_id && dossier.version === receipt.version} /> : null}
   </></ContentFade>
+    {/* Every branch returns a fragment holding the keyed note dialog, so a denied save that hides the record keeps the typed text. */}
+    {captureDialog}
+  </>
   );
 }

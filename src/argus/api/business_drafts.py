@@ -41,6 +41,7 @@ from argus.domain.business.contracts.facts import (
     Known,
 )
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
+from argus.domain.business.search import SearchQuery
 from argus.domain.business.service import BusinessService
 from argus.domain.business.transactions import (
     GrantImportStore,
@@ -629,16 +630,23 @@ def expense_detail(context: BusinessContext, expense_id: str) -> dict:
     return item
 
 
-def search_with_drafts(context: BusinessContext, q: str, limit: int) -> dict:
-    """The search result with its receipts overlaid and its expenses linked to
-    their receipts; accounts as found."""
+def search_with_drafts(
+    context: BusinessContext,
+    query: SearchQuery,
+    numbers: dict[str, tuple[str, ...]] | None = None,
+) -> dict:
+    """Every match, unpaged: receipts overlaid and email-flagged as the Bandeja
+    lists them, expenses and ventas linked to their receipts, accounts as found."""
 
-    receipts = context.service.receipts(context.scope)
+    from argus.api.routers.business import _email_flagged
+
+    receipts = _email_flagged(context, context.service.receipts(context.scope))
     views = {
         item["id"]: item for item in bridged(context, [r.summary() for r in receipts])
     }
-    found = context.service.search(context.scope, q, limit, views)
+    found = context.service.search(context.scope, query, views, numbers)
     found["expenses"] = _with_records(context, found["expenses"])
+    found["ventas"] = _with_records(context, found["ventas"])
     return found
 
 

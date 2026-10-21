@@ -391,9 +391,45 @@ class UpdatePage(_Wire):
     items: list[BusinessUpdate]
 
 
+class EmailDeliveryHit(_Wire):
+    """One email delivery; ``/business/email/deliveries/{id}`` opens it."""
+
+    id: str
+    sender: str | None
+    subject: str | None
+    received_at: datetime
+    state: Literal["received", "processing", "partial", "captured", "rejected"]
+    inbox_group: Literal["bandeja", "remitentes_nuevos"] | None
+
+
+class EmailSenderHit(_Wire):
+    """One sender rule, as ``/business/email/senders`` lists it."""
+
+    id: str
+    kind: Literal["address", "domain"]
+    value: str
+    status: Literal["authorized", "blocked"]
+
+
+class SearchCursors(_Wire):
+    """Per list, the cursor to its next page; null when it has no more."""
+
+    expenses: str | None
+    ventas: str | None
+    receipts: str | None
+    accounts: str | None
+    email_deliveries: str | None
+    email_senders: str | None
+
+
 class BusinessSearch(_Wire):
-    """Each list is capped at the request's ``limit``; nothing is paged."""
+    """A page of each list, or only of the ``kind`` asked for."""
 
     expenses: list[BusinessExpense]
+    # Saved ventas (income); ``merchant`` is the client, as on a venta's receipt.
+    ventas: list[BusinessExpense]
     receipts: list[ReceiptSummary]
     accounts: list[BusinessAccount]
+    email_deliveries: list[EmailDeliveryHit]
+    email_senders: list[EmailSenderHit]
+    next_cursors: SearchCursors

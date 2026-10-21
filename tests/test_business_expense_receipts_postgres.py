@@ -21,6 +21,7 @@ from argus.domain.business.contracts.actions import (
     ReviewDraft,
 )
 from argus.domain.business.contracts.facts import BusinessFactPatch
+from argus.domain.business.search import parse
 
 from tests import test_business_attachment_preparation_postgres as bridge
 from tests import test_business_single_candidate_postgres as single
@@ -79,7 +80,7 @@ def test_an_expense_approved_from_a_draft_names_its_receipt(actions):  # noqa: A
         cid,
         str(result.draft_id),
     )
-    [hit] = search_with_drafts(web, "Brisa", 5)["expenses"]
+    [hit] = search_with_drafts(web, parse("Brisa"))["expenses"]
     assert (hit["id"], hit["receipt_id"]) == (str(approved.activity_id), cid)
     # One expense on its own: the same records, with when it was recorded.
     detail = expense_detail(web, str(approved.activity_id))
@@ -179,7 +180,7 @@ def test_an_expense_recorded_from_a_note_names_its_draft_and_no_receipt(actions)
     assert detail["recorded_at"] is not None
     [hit] = [
         e
-        for e in search_with_drafts(web, "Ruta 3", 5)["expenses"]
+        for e in search_with_drafts(web, parse("Ruta 3"))["expenses"]
         if e["id"] == expense_id
     ]
     assert (hit["draft_id"], hit["receipt_id"]) == (str(created.draft_id), None)

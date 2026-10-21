@@ -10075,18 +10075,48 @@ accept path recorded.
   (`receipt_ready`, `receipt_needs_attention`, `expense_confirmed`), newest
   first, each with the receipt's `error_code` and `attention`. Nothing is
   stored for them.
-- GET `/api/v1/business/search?q&limit` returns `{expenses: BusinessExpense[],
-  receipts: ReceiptSummary[], accounts: BusinessAccount[]}`. `q` is 1 to 512
-  characters and `limit` is 1 to 20 (default 5), applied to each list. Nothing
-  is paged and there is no index of its own. Expenses and accounts are the
-  space's hits from the canonical financial search (`financial_search.hits`
-  with the Business scope) and match as `/financial-search` matches: an
-  expense on its note (the merchant), kind and category, an account on its
-  nickname, type and currency. A Business space has no plans, so no plan hits.
-  Receipts match by the same rule on the reviewed merchant, the filename and
-  the reviewed amount as written. Expenses and receipts are newest first. A
-  receipt whose expense is among the returned expenses is left out, because the
-  expense's `receipt_id` opens it and its source.
+- GET `/api/v1/business/search?q&limit&kind&cursor` returns
+  `{expenses: BusinessExpense[], ventas: BusinessExpense[], receipts:
+  ReceiptSummary[], accounts: BusinessAccount[], email_deliveries:
+  EmailDeliveryHit[], email_senders: EmailSenderHit[], next_cursors}`. `q` is
+  1 to 512 characters and `limit` is 1 to 20 (default 5), applied to each
+  list. There is no index of its own: every request reads the records from
+  their owners. Expenses, ventas and accounts are the space's hits from the
+  canonical financial search (`financial_search.hits` with the Business scope)
+  and match as `/financial-search` matches: an expense or a venta on its note
+  (the merchant or the client), kind and category, an account on its nickname,
+  type and currency. A Business space has no plans, so no plan hits. Ventas are
+  saved income (an approved Venta); `merchant` is the client, as on a Venta's
+  receipt. Receipts match by the same rule on the reviewed merchant, the
+  filename and the reviewed amount as written.
+  An expense, a venta or a receipt also matches by value. Its amount matches
+  when the canonical amount reader reads `q` as exactly one amount (`3450`,
+  `3,450.00`, `$ 3450`, `RD$3,450.00`) equal to it, in its currency when `q`
+  names one; a signed amount, an ambiguous one (`3,450`) or one inside words
+  (`taller 3450`) is no amount. The RNC, NCF and e-CF its bridge draft knows
+  match when their digits equal all of `q`'s digits (`B0100000001`,
+  `b01-0000-0001`, `199-99002-1`); part of a number never matches. A receipt
+  takes the numbers of the draft it is linked to, and the latest draft of a
+  saved record speaks for it.
+  Email deliveries match on sender and subject, among the Business's newest
+  200; sender rules match on their address. Both lists are empty while email
+  receiving is off. `EmailDeliveryHit` is `{id, sender, subject, received_at,
+  state, inbox_group}`; GET `/business/email/deliveries/{id}` opens it.
+  `EmailSenderHit` is `{id, kind, value, status}`, as
+  `/business/email/senders` lists it.
+  Expenses and ventas are newest first, receipts as the Bandeja lists them,
+  deliveries newest first and senders in the order they were added. A receipt
+  whose expense or venta is a hit on any page is left out, because the
+  record's `receipt_id` opens it and its source.
+  `next_cursors` names every list; each value is the cursor to that list's
+  next page, or null. Load more sends the same `q` and `limit` with `kind`
+  (`expenses`, `ventas`, `receipts`, `accounts`, `email_deliveries` or
+  `email_senders`) and that list's `cursor`; the answer fills only that list.
+  `kind` without a cursor returns the first page of that list alone. A cursor
+  is bound to its Business, its member, `q` and its list: any other use, or
+  one with no `kind`, answers 422 `business_search_invalid_cursor`. When the
+  list's records changed since the cursor was issued it answers 409
+  `business_search_stale_cursor`; search again from the first page.
 
 Another person's receipt id answers 404 `receipt_not_found` on every receipt
 route. 
