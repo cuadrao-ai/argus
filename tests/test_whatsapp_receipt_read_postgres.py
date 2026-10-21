@@ -210,7 +210,7 @@ async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(a
     path refuses with ``CaptureFailed``), and the draft records exactly
     ``business_permission_denied``."""
 
-    destination, documents, extractor, owner = _rig(actions, {"on": True})
+    destination, documents, extractor, owner = _rig(actions)
     connection_id = await _capture(destination, owner)
     _, context, _ = actions
     with documents.business_actions.authority.pool.connection() as db:
