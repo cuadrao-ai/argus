@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
+import localization_base_copy as base_copy
 import localization_guard as guard
 
 
@@ -113,6 +114,51 @@ class LocalizationGuardTests(unittest.TestCase):
         self.source.write_text('Text(' + raw + ')')
         self.assertEqual(guard.check(self.root), [])
         self.assertLeaks('Text("New unapproved label")')
+
+
+class BaseCopyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            cls.base = base_copy.load_base(guard.ROOT)
+        except base_copy.BaseUnavailable as error:
+            raise unittest.SkipTest(str(error))
+        cls.catalog = json.loads((guard.ROOT / guard.CATALOG).read_text())
+
+    def kinds(self, catalog):
+        return {finding.key: finding for finding in base_copy.compare(catalog, self.base)}
+
+    def test_catalog_keeps_every_spanish_value_the_base_shipped(self):
+        replaced = [finding for finding in self.kinds(self.catalog).values() if finding.kind in ('replaced', 'ambiguous')]
+        self.assertEqual(replaced, [])
+
+    def test_english_copied_over_base_spanish_is_reported(self):
+        catalog = json.loads(json.dumps(self.catalog))
+        for key in ('copy.guestReceipts.afcc90c7b0', 'destination.home'):
+            entry = catalog['strings'][key]['localizations']
+            entry['es-419']['stringUnit']['value'] = entry['en']['stringUnit']['value']
+        findings = self.kinds(catalog)
+        self.assertEqual(findings['copy.guestReceipts.afcc90c7b0'].kind, 'replaced')
+        self.assertEqual(findings['copy.guestReceipts.afcc90c7b0'].base_es, 'Aún no hay recibos.')
+        self.assertEqual(findings['destination.home'].kind, 'replaced')
+
+    def test_english_only_base_label_stays_pending(self):
+        self.assertEqual(self.kinds(self.catalog)['copy.cuadraoSpendingTrends.aee00efaba'].kind, 'todo')
+
+    def test_inline_pair_forms_are_read(self):
+        source = '''
+            Text(spanish ? "Hola \\(name)" : "Hello \\(name)")
+            let note = es ? (count == 1 ? "1 recibo" : "\\(count) recibos") : (count == 1 ? "1 receipt" : "\\(count) receipts")
+            Label(text("Permiso guardado", "Permission saved"), systemImage: "checkmark")
+            .init(spanish: "Servicios de casa", english: "Household bills")
+            Text(spanish ? "\\(elapsed) \\(elapsed == 1 ? "día" : "días")" : "\\(elapsed) \\(elapsed == 1 ? "day" : "days")")
+        '''
+        pairs = {(pair.es, pair.en) for pair in base_copy.pairs('Screen.swift', source)}
+        self.assertEqual(pairs, {
+            ('Hola %1$@', 'Hello %1$@'), ('1 recibo', '1 receipt'), ('%1$@ recibos', '%1$@ receipts'),
+            ('Permiso guardado', 'Permission saved'), ('Servicios de casa', 'Household bills'),
+            ('%1$@ %2$@', '%1$@ %2$@'), ('día', 'day'), ('días', 'days'),
+        })
 
 
 if __name__ == '__main__':
