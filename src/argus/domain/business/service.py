@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 from argus.domain import financial_search
 from argus.domain.business import ledger
+from argus.domain.business import search as business_search
 from argus.domain.business.authority import ActionError
 from argus.domain.business.config import business_chat_enabled
 from argus.domain.business.document_type import DocumentType
@@ -402,48 +403,71 @@ class BusinessService:
         activities: list[dict[str, Any]],
         start: date,
         end: date,
+        kind: str = "expense",
     ) -> list[dict[str, Any]]:
-        ids = [item["activity_id"] for item in ledger.expense_activities(activities)]
+        ids = [item["activity_id"] for item in ledger.kind_activities(activities, kind)]
         with self.imports.store.transaction(scope.person_id, scope=scope.owner) as tx:
             receipt_of = receipt_ids(tx, self.documents.store, scope.person_id, ids)
         return [
-            _wire(item) for item in ledger.expenses(activities, receipt_of, start, end)
+            _wire(item)
+            for item in ledger.expenses(activities, receipt_of, start, end, kind=kind)
         ]
 
     def search(
         self,
         scope: BusinessScope,
-        q: str,
-        limit: int,
+        query: business_search.SearchQuery,
         views: Mapping[str, dict[str, Any]] | None = None,
-    ) -> dict[str, Any]:
-        """Expenses and accounts through the canonical financial search, plus
-        receipts matched by the same rule on merchant, filename and amount.
+        numbers: Mapping[str, tuple[str, ...]] | None = None,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Every match, unpaged: expenses, ventas (saved income) and accounts
+        through the canonical financial search, an expense or a venta also by
+        its amount or a fiscal number, and receipts by the same rules on
+        merchant, filename and amount.
 
         ``views`` are the receipt summaries as the API shows them (a linked draft
         owns merchant, amount and expense), so the match sees what the person
-        sees. A receipt whose expense is already a hit is left out: the expense
-        opens it.
+        sees. ``numbers`` are the fiscal numbers each record's draft carries, by
+        activity or receipt id. A receipt whose record is already a hit is left
+        out: the record opens it.
         """
 
-        query = financial_search.query_text(q)
+        known = numbers or {}
         found = financial_search.hits(
-            self.accounts, scope.person_id, scope=scope.owner, query=query
+            self.accounts, scope.person_id, scope=scope.owner, query=query.text
         )
-        activities = [
-            hit.activity.model_dump()
+        worded = {
+            hit.activity.activity_id
             for hit in found
             if isinstance(hit, financial_search.ActivityHit)
+        }
+        activities = [
+            item
+            for item in self._activities(scope)
+            if item["activity_id"] in worded
+            or business_search.exact(
+                query,
+                amount=item["amount"],
+                currency=item["currency"],
+                numbers=known.get(item["activity_id"], ()),
+            )
         ]
-        expenses = self._expenses(scope, activities, date.min, date.max)[:limit]
-        listed = {expense["id"] for expense in expenses}
+        expenses = self._expenses(scope, activities, date.min, date.max)
+        ventas = self._expenses(scope, activities, date.min, date.max, kind="income")
+        listed = {item["id"] for item in [*expenses, *ventas]}
         shown = views or {}
         receipts = [
             summary
             for receipt in self.receipts(scope)
             for summary in [shown.get(receipt.id) or receipt.summary()]
             if summary["expense_id"] not in listed
-            and financial_search.matches(query, _summary_text(summary))
+            and business_search.matches(
+                query,
+                _summary_text(summary),
+                amount=summary["amount"],
+                currency=summary["currency"],
+                numbers=known.get(receipt.id, ()),
+            )
         ]
         accounts = [
             {
@@ -457,8 +481,9 @@ class BusinessService:
         ]
         return {
             "expenses": expenses,
-            "receipts": receipts[:limit],
-            "accounts": accounts[:limit],
+            "ventas": ventas,
+            "receipts": receipts,
+            "accounts": accounts,
         }
 
     def record_expense(

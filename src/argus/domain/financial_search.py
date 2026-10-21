@@ -4,8 +4,9 @@ import base64
 import hashlib
 import json
 import unicodedata
+from collections.abc import Sequence
 from datetime import timedelta
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,7 @@ from argus.domain.recording.service import FinancialAccountService
 from argus.domain.search_text import normalize_search_text
 
 Kind = Literal["account", "activity", "expectation", "budget", "goal", "debt"]
+T = TypeVar("T")
 
 
 class AccountHit(BaseModel):
@@ -206,6 +208,19 @@ def search(
     )
     scope = digest([owner, query, kind, currency])
     snapshot = digest([item.model_dump(mode="json") for item in items])
+    shown, next_cursor = page(
+        items, scope=scope, snapshot=snapshot, limit=limit, cursor=cursor
+    )
+    return SearchPage(items=shown, next_cursor=next_cursor)
+
+
+def page(
+    items: Sequence[T], *, scope: str, snapshot: str, limit: int, cursor: str | None
+) -> tuple[list[T], str | None]:
+    """One page of ``items`` and the cursor to the next, if any. A cursor holds
+    the ``scope`` it was issued for and the ``snapshot`` of the items then:
+    another scope is invalid, a changed snapshot is stale."""
+
     offset = 0
     if cursor:
         try:
@@ -227,4 +242,4 @@ def search(
         next_cursor = base64.urlsafe_b64encode(
             json.dumps({"scope": scope, "snapshot": snapshot, "offset": end}).encode()
         ).decode()
-    return SearchPage(items=items[offset:end], next_cursor=next_cursor)
+    return list(items[offset:end]), next_cursor

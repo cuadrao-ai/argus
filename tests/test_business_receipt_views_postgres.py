@@ -27,6 +27,7 @@ from argus.domain.business.contracts.actions import (
 )
 from argus.domain.business.contracts.facts import BusinessFactPatch
 from argus.domain.business.scope import BusinessScope
+from argus.domain.business.search import parse
 from argus.domain.ingestion.connections_postgres import PostgresConnectionRepository
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
@@ -136,7 +137,7 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
     counts = overview_with_drafts(web, date(2026, 10, 1), date(2026, 10, 31))
     assert (counts["awaiting_review"], counts["needs_attention"]) == (1, 0)
     assert [item["id"] for item in receipt_summaries(web, "inbox")] == [cid]
-    [hit] = search_with_drafts(web, "Brisa", 5)["receipts"]
+    [hit] = search_with_drafts(web, parse("Brisa"))["receipts"]
     assert (hit["id"], hit["status"], hit["merchant"]) == (
         cid,
         "review_ready",
@@ -192,7 +193,7 @@ def test_a_linked_draft_owns_the_receipt_in_the_list_and_the_detail(actions):  #
         str(approved.activity_id),
     )
     # The expense is the search hit now; the receipt is not listed twice.
-    found = search_with_drafts(web, "Brisa", 5)
+    found = search_with_drafts(web, parse("Brisa"))
     assert [e["id"] for e in found["expenses"]] == [str(approved.activity_id)]
     assert found["receipts"] == []
 
