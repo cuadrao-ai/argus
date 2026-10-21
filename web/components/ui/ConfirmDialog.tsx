@@ -17,6 +17,8 @@ type ConfirmDialogProps = {
   showKeyboardHints?: boolean;
   /** `danger` for a delete; `primary` for a full stop that removes nothing, such as closing a month. */
   tone?: "danger" | "primary";
+  /** The confirm failed: says so inside the alert, and the confirm button tries again. */
+  error?: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -55,6 +57,7 @@ function ConfirmDialogSurface({
   isBusy = false,
   showKeyboardHints = false,
   tone = "danger",
+  error = null,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -152,6 +155,11 @@ function ConfirmDialogSurface({
         >
           {description}
         </p>
+        {error ? (
+          <p role="alert" data-testid="confirm-dialog-error" className="mt-3 text-[13px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
+            {error}
+          </p>
+        ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"

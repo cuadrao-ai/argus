@@ -22,6 +22,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const { source, chosen, reload } = useBusiness();
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [retry, setRetry] = useState<(() => void) | null>(null);
   const canPrepare = dossier.capabilities.includes("prepare");
   const owner = !chosen || chosen.role === "owner";
   // The server reads the marks; the card shows them as given.
@@ -31,6 +32,11 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const answeredBy = dossier.include_606_by ?? "";
   const markedBy = dossier.personal_marked_by ?? null;
 
+  // A failed change says so here, beside the work, with Reintentar.
+  const fail = (text: string, again: () => void) => {
+    setProblem(text);
+    setRetry(() => again);
+  };
   const run = async (call: () => Promise<BusinessDossier>, failure: string) => {
     setWorking(true);
     setProblem(null);
@@ -38,7 +44,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
       onChanged(await call());
       reload();
     } catch {
-      setProblem(failure);
+      fail(failure, () => void run(call, failure));
     } finally {
       setWorking(false);
     }
@@ -46,6 +52,7 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
   const disabled = busy || working;
   // Flips first; a refusal rolls the switch back and says so. A done change offers Deshacer.
   const markPersonal = async (next: boolean) => {
+    setProblem(null);
     try {
       const marked = await source.markPersonal(dossier.draft_id, dossier.version, next, crypto.randomUUID());
       onChanged(marked);
@@ -53,12 +60,10 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
       showToast({
         kind: "success",
         text: next ? t("business.marks.marked_personal", "Marked as personal. It does not count in the Business totals.") : t("business.marks.unmarked_personal", "No longer personal. It counts in the totals again."),
-        action: { label: t("business.marks.undo", "Undo"), run: () => {
-          void source.markPersonal(dossier.draft_id, marked.version, !next, crypto.randomUUID()).then((back) => { onChanged(back); reload(); }).catch(() => showToast({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") }));
-        } },
+        action: { label: t("business.marks.undo", "Undo"), run: () => void run(() => source.markPersonal(dossier.draft_id, marked.version, !next, crypto.randomUUID()), t("business.marks.mark_failed", "We could not save the change. Try again.")) },
       });
     } catch (error) {
-      showToast({ kind: "error", text: t("business.marks.mark_failed", "We could not save the change. Try again.") });
+      fail(t("business.marks.mark_failed", "We could not save the change. Try again."), () => void markPersonal(next).catch(() => undefined));
       throw error;
     }
   };
@@ -99,7 +104,12 @@ export default function ReceiptMarksCard({ dossier, busy = false, onChanged }: {
           )}
         </div>
       ) : null}
-      {problem ? <p role="alert" className="mt-3 text-[13px] text-black/70 dark:text-white/70">{problem}</p> : null}
+      {problem ? (
+        <p role="alert" data-testid="receipt-marks-problem" className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
+          {problem}
+          {retry ? <button type="button" disabled={disabled} onClick={retry} className="inline-flex min-h-11 items-center rounded-full font-medium text-[var(--cuadrao-green)] underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:opacity-50">{t("common.retry", "Retry")}</button> : null}
+        </p>
+      ) : null}
     </div>
   );
 }

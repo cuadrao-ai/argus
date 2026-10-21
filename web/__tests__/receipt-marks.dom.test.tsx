@@ -190,7 +190,7 @@ describe("the receipt page's marks card", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("a saved Personal change offers Deshacer, which puts it back; a refused one rolls the switch back with an error toast", async () => {
+  test("a saved Personal change offers Deshacer, which puts it back; a refused one rolls the switch back and says so in the card with Reintentar", async () => {
     const page = await mountCard(dossier({}, false, true), "owner");
     await page.act(async () => { page.toggle().click(); });
     await page.settle();
@@ -216,9 +216,10 @@ describe("the receipt page's marks card", () => {
     assert.deepEqual(refused.calls, ["mark:true:3"]);
     assert.equal(refused.changed.length, 0);
     assert.equal(refused.toggle().getAttribute("aria-checked"), "false", "a refusal rolls the switch back");
-    const error = refused.host.querySelector('[data-testid="toast-viewport"]')!;
+    const error = refused.host.querySelector('[data-testid="receipt-marks-problem"]')!;
+    assert.equal(error.getAttribute("role"), "alert", "a refusal says so in the card, not in a toast");
     assert.ok(error.textContent?.includes("No pudimos guardar el cambio."), error.textContent ?? "");
-    assert.equal([...error.querySelectorAll("button")].some((b) => b.textContent === "Deshacer"), false, "nothing to undo");
+    assert.ok([...error.querySelectorAll("button")].some((b) => b.textContent === "Reintentar"), "with Reintentar");
     await refused.act(async () => refused.root.unmount());
     clearToasts();
   });

@@ -1,6 +1,7 @@
 "use client";
 
 import { Avatar } from "@/components/ui/Avatar";
+import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
 import { useCallback, useMemo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useReceiptFollowup, readReceiptFollowup } from "./useReceiptFollowup";
@@ -564,6 +565,9 @@ export default function ChatInterface() {
   }, [closeDrawer, setIsSidebarOpen, sidebarMode]);
   const layout = businessShellLayout(workspace?.id, mobileShell.isBelowTablet, mobileShell.isBelowDesktop, isSidebarOpen);
   // The fades under the top bar and above the composer take the surface's own color.
+  // An app-wide problem docks a banner at the top; the bar, its fade and the page move down by it.
+  const online = useOnline();
+  const bannerSpace = workspace && !online ? BANNER_HEIGHT_PX : 0;
   const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
@@ -2158,15 +2162,16 @@ export default function ChatInterface() {
         onConfirm={() => void handleConfirmHeaderDelete()}
       />
 
-      <section className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
+      <section style={{ "--cuadrao-banner-space": `${bannerSpace}px` } as React.CSSProperties} className={`relative z-10 flex h-full flex-1 flex-col overflow-hidden dark:bg-[#141517] ${layout.businessShell ? "bg-[#F7F5EE]" : "bg-[#f9f9f9]"}`}>
+        {bannerSpace ? <ConnectionBanner /> : null}
         {/* ── Unified View Header (SOTA: Absolute to content panel for perfect centering) ── */}
         {/* Content scrolls under the bar through a soft fade, on every screen the bar is on. */}
         {currentView === "workspace" || (currentView === "chat" && !showEmptyChatSurface) ? (
-          <div data-testid="header-fade" className={`pointer-events-none absolute inset-x-0 top-0 z-[40] h-32 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
+          <div data-testid="header-fade" className={`pointer-events-none absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[40] h-32 backdrop-blur-[0.8px] [mask-image:linear-gradient(to_bottom,black_48%,transparent_100%)] ${surfaceFade}`} />
         ) : null}
         {currentView !== "settings" && (
           // A workspace with a search field in its bar lines the bar up with its centred content column (48rem), so search and avatar sit on the column's edges.
-          <header className={`absolute inset-x-0 top-0 z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-48rem)/2))]" : "tablet:px-8"}`}>
+          <header className={`absolute inset-x-0 top-[var(--cuadrao-banner-space,0px)] z-[50] flex h-20 items-center justify-between gap-2 px-4 pointer-events-none tablet:gap-4 ${workspace?.headerSearch ? "tablet:px-[max(2rem,calc((100%-48rem)/2))]" : "tablet:px-8"}`}>
             {mobileShell.isBelowTablet && (
               <div className="pointer-events-auto shrink-0">
                 <ChatShellMenuTrigger
