@@ -1,27 +1,60 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import english from "../public/locales/en/common.json";
 import spanish from "../public/locales/es-419/common.json";
-import { ALL_LANGUAGES, LANGUAGE_DETECTION_CACHES, commitShellLanguage, defaultLanguage, documentLanguage, fallbackChain, landingLanguageChoices, languageDetectionOrder } from "../lib/language-features";
+import { ALL_LANGUAGES, commitShellLanguage, defaultLanguage, documentLanguage, fallbackChain, landingLanguageChoices, resolveLanguage } from "../lib/language-features";
 
 const root = join(import.meta.dir, "..");
 
-describe("the language a visitor sees first", () => {
+describe("the one precedence that picks the shown language", () => {
   test("Spanish is the default on a Business build that ships it; English elsewhere", () => {
     expect(defaultLanguage(true, true)).toBe("es-419");
     expect(defaultLanguage(true, false)).toBe("en");
     expect(defaultLanguage(false, true)).toBe("en");
     expect(defaultLanguage(false, false)).toBe("en");
+    expect(resolveLanguage({}, true, true)).toBe("es-419");
+    expect(resolveLanguage({}, false, true)).toBe("en");
   });
 
-  test("a saved choice on the device wins on both builds; only a consumer build then reads the browser", () => {
-    expect(languageDetectionOrder(true)).toEqual(["localStorage"]);
-    expect(languageDetectionOrder(false)).toEqual(["localStorage", "navigator"]);
-    expect([...LANGUAGE_DETECTION_CACHES]).toEqual(["localStorage"]);
+  test("the account wins over the device choice and the browser, on both builds", () => {
+    for (const businessBuild of [true, false]) {
+      expect(resolveLanguage({ account: "en", device: "es-419", browser: "es-MX" }, businessBuild, true)).toBe("en");
+      expect(resolveLanguage({ account: "es-419", device: "en", browser: "en-US" }, businessBuild, true)).toBe("es-419");
+    }
   });
 
-  test("the account language wins over the shell language on both builds", async () => {
+  test("before sign-in the device choice wins, whatever the browser says", () => {
+    for (const businessBuild of [true, false]) {
+      expect(resolveLanguage({ device: "en", browser: "es-MX" }, businessBuild, true)).toBe("en");
+      expect(resolveLanguage({ device: "es-419", browser: "en-US" }, businessBuild, true)).toBe("es-419");
+    }
+  });
+
+  test("an English browser stays Spanish on Business; only a consumer build lets the browser decide", () => {
+    expect(resolveLanguage({ browser: "en-US" }, true, true)).toBe("es-419");
+    expect(resolveLanguage({ browser: "en-US" }, false, true)).toBe("en");
+    expect(resolveLanguage({ browser: "es-MX" }, false, true)).toBe("es-419");
+    expect(resolveLanguage({ browser: "fr-FR" }, false, true)).toBe("en");
+  });
+
+  test("a consumer browser that lists Spanish after an unsupported language still gets Spanish", async () => {
+    const { GlobalRegistrator } = await import("@happy-dom/global-registrator");
+    GlobalRegistrator.register({ url: "http://localhost/" });
+    try {
+      Object.defineProperty(window.navigator, "language", { configurable: true, value: "fr-FR" });
+      Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["fr-FR", "es-ES"] });
+      const { browserLanguageSources } = await import("../lib/language-features");
+      expect(resolveLanguage(browserLanguageSources(), false, true)).toBe("es-419");
+      expect(resolveLanguage(browserLanguageSources(), true, true)).toBe("es-419");
+      Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["fr-FR", "de-DE"] });
+      expect(resolveLanguage(browserLanguageSources(), false, true)).toBe("en");
+    } finally {
+      await GlobalRegistrator.unregister();
+    }
+  });
+
+  test("the shell moves to what the account resolves to and otherwise keeps what it shows", async () => {
     const shellAt = (language: string) => {
       const calls: string[] = [];
       return {
@@ -36,48 +69,44 @@ describe("the language a visitor sees first", () => {
     };
     for (const businessBuild of [true, false]) {
       const toEnglish = shellAt("es-419");
-      await commitShellLanguage(toEnglish.shell, businessBuild, "en");
+      await commitShellLanguage(toEnglish.shell, businessBuild, "en", true);
       expect(toEnglish.calls).toEqual(["en"]);
       const toSpanish = shellAt("en");
-      await commitShellLanguage(toSpanish.shell, businessBuild, "es-419");
+      await commitShellLanguage(toSpanish.shell, businessBuild, "es-419", true);
       expect(toSpanish.calls).toEqual(["es-419"]);
       const noAccount = shellAt("es-419");
-      await commitShellLanguage(noAccount.shell, businessBuild, null);
-      await commitShellLanguage(noAccount.shell, businessBuild, undefined);
-      await commitShellLanguage(noAccount.shell, businessBuild, "");
+      await commitShellLanguage(noAccount.shell, businessBuild, null, true);
+      await commitShellLanguage(noAccount.shell, businessBuild, undefined, true);
+      await commitShellLanguage(noAccount.shell, businessBuild, "", true);
       expect(noAccount.calls).toEqual([]);
       const same = shellAt("en");
-      await commitShellLanguage(same.shell, businessBuild, "en");
+      await commitShellLanguage(same.shell, businessBuild, "en", true);
       expect(same.calls).toEqual([]);
     }
   });
 
-  test("the document language follows the shown language; Business spells Spanish es", () => {
-    expect(documentLanguage(undefined, true, true)).toBe("es");
-    expect(documentLanguage("en", true, true)).toBe("en");
-    expect(documentLanguage("es-419", true, true)).toBe("es");
-    expect(documentLanguage(undefined, false, true)).toBe("en");
-    expect(documentLanguage("es-419", false, true)).toBe("es-419");
-    expect(documentLanguage("en", false, true)).toBe("en");
+  test("the document spells the resolved language; Business spells Spanish es", () => {
+    expect(documentLanguage("es-419", true)).toBe("es");
+    expect(documentLanguage("en", true)).toBe("en");
+    expect(documentLanguage("es-419", false)).toBe("es-419");
+    expect(documentLanguage("en", false)).toBe("en");
   });
 
-  test("i18n reads the default and the order from one owner, and the auth page saves a chosen language on the account at sign-in", () => {
-    const i18n = readFileSync(join(root, "lib/i18n.ts"), "utf-8");
-    expect(i18n).toContain("fallbackLng: (code?: string) => fallbackChain(code, DEFAULT_LANGUAGE)");
-    expect(i18n).toContain("order: [...LANGUAGE_DETECTION_ORDER]");
-    expect(i18n).toContain("caches: [...LANGUAGE_DETECTION_CACHES]");
-    expect(i18n).not.toContain("lng:");
-    expect(i18n).not.toContain("fallbackLng: 'en'");
-    expect(i18n).not.toContain("caches: ['localStorage']");
+  test("every reader goes through resolveLanguage and nothing else reads the device key", () => {
+    for (const reader of ["lib/i18n.ts", "app/layout.tsx", "components/I18nProvider.tsx"]) {
+      expect(readFileSync(join(root, reader), "utf-8")).toContain("resolveLanguage(");
+    }
+    const readers = sourceFiles(["app", "components", "lib"]).filter((file) => readFileSync(file, "utf-8").includes("LANGUAGE_STORAGE_KEY"));
+    expect(readers.map((file) => file.slice(root.length + 1)).sort()).toEqual(["lib/browser-storage.ts", "lib/language-features.ts"]);
+  });
+
+  test("the auth page switches at once and saves the chosen language on the account at sign-in", () => {
     const page = readFileSync(join(root, "app/page.tsx"), "utf-8");
-    // The footer link shows the other language by its own name and switches at once.
     expect(page).toContain('data-testid="auth-language-switch"');
     expect(page).toContain("onClick={() => void chooseLanguage(language.code)}");
     expect(page).toContain("await i18n.changeLanguage(code);");
-    // After a successful login the choice is saved on the account, before leaving the page.
     const login = page.slice(page.indexOf("await loginWithEmail({"), page.indexOf("router.replace(postAuthPath());", page.indexOf("await loginWithEmail({")));
     expect(login).toContain("saveProfileLanguage(i18n, chosenLanguage");
-    // Signup already sends the shown language with the account.
     expect(page).toContain("language: normalizeApiLanguage(i18n.resolvedLanguage ?? i18n.language)");
     expect(page).toContain("landingLanguageChoices(shownLanguage)");
   });
@@ -109,3 +138,16 @@ describe("what a reader sees for a key the shown language lacks", () => {
     expect([...es].filter((key) => !en.has(key))).toEqual([]);
   });
 });
+
+function sourceFiles(dirs: string[]): string[] {
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.(ts|tsx)$/.test(entry)) files.push(path);
+    }
+  };
+  for (const dir of dirs) walk(join(root, dir));
+  return files;
+}

@@ -165,3 +165,34 @@ test("an en-US browser with nothing stored sees a Spanish sign-in and can choose
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   await expect(switcher.getByRole("button")).toHaveText(["Español"]);
 });
+
+test("Preferencias > Idioma switches a Spanish account to English in place and saves it on the account", async ({ page }) => {
+  await setup(page, "es-419");
+  const patches: Record<string, unknown>[] = [];
+  let account: Record<string, unknown> | null = null;
+  // The PATCH answers with the same account the fixture served, as the API would.
+  await page.route("**/api/v1/me", async (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const patch = route.request().postDataJSON() as Record<string, unknown>;
+    patches.push(patch);
+    return route.fulfill({ json: { ...account, user: { ...(account?.user as object), ...patch } } });
+  });
+  page.on("response", async (response) => {
+    if (response.request().method() === "GET" && new URL(response.url()).pathname.endsWith("/api/v1/me")) account = await response.json();
+  });
+  await page.goto("/biz");
+  await expect(page.locator("#business-overview-title")).toHaveText("Hola");
+  const loaded = await page.evaluate(() => performance.getEntriesByType("navigation").length);
+
+  await page.getByTestId("header-profile-trigger").click();
+  await page.getByRole("button", { name: "Preferencias", exact: true }).click();
+  await page.getByRole("button", { name: "Idioma de la app", exact: true }).click();
+  await page.getByRole("button", { name: "English", exact: true }).click();
+
+  await expect(page.locator("#business-overview-title")).toHaveText(en("business.overview.greeting_unnamed"));
+  await expect(page.getByTestId("business-sidebar-nav")).toContainText(en("business.nav.inbox"));
+  expect(patches).toEqual([{ language: "en", locale: "en-US" }]);
+  expect(await page.evaluate(() => performance.getEntriesByType("navigation").length)).toBe(loaded);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("main[lang]")).toHaveCount(0);
+});

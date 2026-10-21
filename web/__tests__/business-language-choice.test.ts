@@ -3,8 +3,12 @@ import { join } from "node:path";
 
 const webRoot = join(import.meta.dir, "..");
 
+/** Boots the real i18n wiring in a browser-like page and reports what the client and the server layout each resolve. */
 const probe = `
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+const { documentLanguage, resolveLanguage } = await import("./lib/language-features.ts");
+const { businessPilotEnabled } = await import("./lib/private-alpha-flags.ts");
+const serverLang = documentLanguage(resolveLanguage({}), businessPilotEnabled);
 GlobalRegistrator.register({ url: "http://localhost/biz" });
 const navigatorLanguage = process.env.PROBE_NAVIGATOR;
 Object.defineProperty(window.navigator, "language", { configurable: true, value: navigatorLanguage });
@@ -23,11 +27,15 @@ if (!i18n.isInitialized) {
     });
   });
 }
-console.log(JSON.stringify({ language: i18n.resolvedLanguage ?? i18n.language }));
+const language = i18n.resolvedLanguage ?? i18n.language;
+const clientLang = documentLanguage(resolveLanguage({ device: language }), businessPilotEnabled);
+console.log(JSON.stringify({ language, serverLang, clientLang }));
 process.exit(0);
 `;
 
-function shownLanguage(build: "business" | "consumer", navigator: string, stored: string): string {
+type Shown = { language: string; serverLang: string; clientLang: string };
+
+function shown(build: "business" | "consumer", navigator: string, stored: string): Shown {
   const result = Bun.spawnSync({
     cmd: ["bun", "-e", probe],
     cwd: webRoot,
@@ -43,25 +51,27 @@ function shownLanguage(build: "business" | "consumer", navigator: string, stored
   });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
   const lines = result.stdout.toString().trim().split("\n");
-  return JSON.parse(lines[lines.length - 1]).language;
+  return JSON.parse(lines[lines.length - 1]);
 }
 
 describe("the language i18n starts in, through the real wiring", () => {
-  test("Business: an English browser with nothing stored starts in Spanish", () => {
-    expect(shownLanguage("business", "en-US", "")).toBe("es-419");
+  test("Business: an English browser with nothing stored starts in Spanish, and the server layout agrees", () => {
+    const result = shown("business", "en-US", "");
+    expect(result.language).toBe("es-419");
+    expect(result.serverLang).toBe("es");
+    expect(result.clientLang).toBe(result.serverLang);
   });
 
   test("Business: the device choice wins before sign-in, whatever the browser says", () => {
-    expect(shownLanguage("business", "en-US", "en")).toBe("en");
-    expect(shownLanguage("business", "es-MX", "en")).toBe("en");
+    expect(shown("business", "en-US", "en").language).toBe("en");
+    expect(shown("business", "es-MX", "en").language).toBe("en");
+    expect(shown("business", "en-US", "es-419").language).toBe("es-419");
   });
 
-  test("Business: a stored Spanish choice stays Spanish in an English browser", () => {
-    expect(shownLanguage("business", "en-US", "es-419")).toBe("es-419");
-  });
-
-  test("consumer: the browser language still decides when nothing is stored", () => {
-    expect(shownLanguage("consumer", "en-US", "")).toBe("en");
-    expect(shownLanguage("consumer", "es-MX", "")).toBe("es-419");
+  test("consumer: the browser language still decides when nothing is stored, and the server layout agrees for an English browser", () => {
+    const english = shown("consumer", "en-US", "");
+    expect(english.language).toBe("en");
+    expect(english.clientLang).toBe(english.serverLang);
+    expect(shown("consumer", "es-MX", "").language).toBe("es-419");
   });
 });

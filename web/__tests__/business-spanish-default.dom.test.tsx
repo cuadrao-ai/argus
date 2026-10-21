@@ -26,8 +26,28 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
+describe("the device remembers what the shell shows", () => {
+  test("a language change updates the document and the device, and the next start reads it back", async () => {
+    const { rememberShownLanguage, resolveLanguage, browserLanguageSources } = await import("@/lib/language-features");
+    window.localStorage.removeItem("i18nextLng");
+    assert.equal(resolveLanguage(browserLanguageSources(), true, true), "es-419");
+    rememberShownLanguage("en");
+    assert.equal(window.localStorage.getItem("i18nextLng"), "en");
+    assert.equal(resolveLanguage(browserLanguageSources(), true, true), "en");
+    assert.equal(resolveLanguage({ ...browserLanguageSources(), account: "es-419" }, true, true), "es-419");
+    window.localStorage.removeItem("i18nextLng");
+  });
+
+  test("the provider writes the device on every language change", () => {
+    const provider = readFileSync(join(root, "components/I18nProvider.tsx"), "utf-8");
+    const onChange = provider.slice(provider.indexOf("const syncDocumentLanguage"), provider.indexOf("const handleInitialized"));
+    assert.match(onChange, /rememberShownLanguage\(shown\)/);
+    assert.match(provider, /i18n\.on\('languageChanged', syncDocumentLanguage\)/);
+  });
+});
+
 describe("Business stays in Spanish for an en-US browser", () => {
-  test("the signed-in shell and the document language do not take the account's English", () => {
+  test("the shell and the document language are set in one place each", () => {
     const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
     const session = readFileSync(join(root, "components/chat/useInitialChatSession.ts"), "utf-8");
     const provider = readFileSync(join(root, "components/I18nProvider.tsx"), "utf-8");
