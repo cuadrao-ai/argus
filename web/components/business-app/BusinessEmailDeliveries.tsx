@@ -264,7 +264,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
   const words = useEmailWords();
   const tray = useRecordTray();
   const delivery = records.emails?.find((item) => item.id === emailId) ?? null;
-  const known = records.emails !== null || records.emailsError;
+  const known = records.emails !== null || Boolean(records.emailsFailure);
   return (
     <section data-testid="email-record" aria-labelledby="email-record-title">
       {tray ? null : (
@@ -288,7 +288,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
           />
         </>
       ) : known ? (
-        <p role="alert" className="text-[14px] text-[#56635e] dark:text-white/70">{records.emailsError ? t("business.empty.email_error", "We couldn't load your emails") : t("business.email.not_found", "We couldn't find this email.")}</p>
+        <p role="alert" className="text-[14px] text-[#56635e] dark:text-white/70">{records.emailsFailure ? t("business.empty.email_error", "We couldn't load your emails") : t("business.email.not_found", "We couldn't find this email.")}</p>
       ) : (
         <Settle pending layout="rows" rows={3} />
       )}
@@ -320,8 +320,8 @@ export function EmailHistory() {
         </button>
       </div>
       {emailRefresh.stalled ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
-      {records.emails === null && !records.emailsError ? <Settle pending layout="rows" rows={2} /> : null}
-      {records.emails === null && records.emailsError ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: emailRefresh.refresh }} /> : null}
+      {records.emails === null && !records.emailsFailure ? <Settle pending layout="rows" rows={2} /> : null}
+      {records.emails === null && records.emailsFailure ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: emailRefresh.refresh }} /> : null}
       {records.emails ? (records.emails.length ? (
         <ul className={`${cardClass} divide-y divide-[#EEF0EC] p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
           {records.emails.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}

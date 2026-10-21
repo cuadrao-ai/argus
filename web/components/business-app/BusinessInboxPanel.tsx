@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -13,8 +13,10 @@ import { bandejaReceipts } from "./bandeja-order";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
 import { isStillReading, needsAttention, porRevisar } from "@/lib/business-review-count";
 import { bandejaEmails, inboxCount, openNotesByDraft, problemCount, type BandejaEmail, type OpenNote } from "./inbox-count";
+import { sourceLoad, type BandejaSource, type LoadFailure } from "./bandeja-sources";
+import { useOnline } from "@/components/ui/ConnectionBanner";
 import { formatMoney, formatRelativeTime, UNKNOWN_VALUE } from "./business-format";
-import { cardClass, PanelHeading, primaryButtonClass, quietButtonClass, recordFiscalMark } from "./business-ui";
+import { canAddRecords, cardClass, PanelHeading, primaryButtonClass, quietButtonClass, recordFiscalMark } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
 import BusinessAddMenu from "./BusinessAddMenu";
 import { EmptyState } from "./foundation/EmptyState";
@@ -207,29 +209,68 @@ function EmptyInbox({ upload }: { upload: { label: string; run: () => void } | n
 const INBOX_PAGE = 8;
 
 /**
+ * One line for every list that did not load, with one Reintentar that asks
+ * again for only those lists. Offline is the connection banner's to say: the
+ * line stays away and the lists are asked again when the connection is back.
+ */
+function SourcesFailed({ failed, retry }: { failed: readonly { source: BandejaSource; failure: LoadFailure }[]; retry: () => void }) {
+  const { t } = useTranslation();
+  const online = useOnline();
+  const wasOnline = useRef(online);
+  useEffect(() => {
+    if (online && !wasOnline.current && failed.length) retry();
+    wasOnline.current = online;
+  }, [online, failed.length, retry]);
+  const said = failed.filter((item) => !item.failure.offline);
+  if (!said.length) return null;
+  const notes = said.some((item) => item.source === "notes");
+  const emails = said.some((item) => item.source === "emails");
+  const reference = said.find((item) => item.failure.reference)?.failure.reference;
+  return (
+    <div role="alert" data-testid="bandeja-sources-failed" className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 py-1 pl-3.5 pr-2 text-[14px] text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
+      <p className="min-w-0 py-2">
+        {notes && emails ? t("business.inbox.failed_notes_emails", "We couldn't load your notes or your emails.") : notes ? t("business.inbox.failed_notes", "We couldn't load your notes.") : t("business.inbox.failed_emails", "We couldn't load your emails.")}
+        {reference ? <span className="ml-2 text-[12px] tabular-nums opacity-80">{t("common.reference", { reference, defaultValue: "Ref. {{reference}}" })}</span> : null}
+      </p>
+      <button type="button" onClick={retry} className={`${quietButtonClass} px-3`}>{t("common.retry", "Retry")}</button>
+    </div>
+  );
+}
+
+/**
  * The one place receipts wait. Three segments split the same rows: what to
  * review, what has a problem, and everything that arrived. What arrived since
  * the last visit sits on top. An email is only how a receipt arrived: it is a
  * row of its own only while it is read or when it brought no receipt.
+ * The rows come from three lists. While one is loading nothing claims to be
+ * empty; when one failed the screen says so once and claims no empty state.
  */
 export default function BusinessInboxPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
-  const { records, openPanel, actions, panel, chosen, revision, reload } = useBusiness();
-  const receipts = records.inbox ? bandejaReceipts(records.inbox) : null;
-  const notes = records.notes === null ? null : openNotesByDraft(records.notes);
+  const { records, openPanel, actions, panel, chosen, revision, reload, retrySources } = useBusiness();
+  const loads = { receipts: sourceLoad(records.inbox, null), notes: sourceLoad(records.notes, records.notesFailure), emails: sourceLoad(records.emails, records.emailsFailure) };
+  const failed = (["notes", "emails"] as const).flatMap((source) => {
+    const load = loads[source];
+    return load.state === "failed" ? [{ source, failure: load.failure }] : [];
+  });
+  const retryFailed = () => retrySources(failed.map((item) => item.source));
+  const pending = Object.values(loads).some((load) => load.state === "loading");
+  const receipts = bandejaReceipts(records.inbox ?? []);
+  const notes = openNotesByDraft(records.notes ?? []);
+  const emails = bandejaEmails(records.emails ?? []);
   const uploadAction = actions.create.find((action) => action.id === "upload_receipt");
-  const upload = chosen?.role === "owner" ? uploadAction : null;
-  const emails = records.emails ? bandejaEmails(records.emails) : [];
+  const upload = canAddRecords(chosen) ? uploadAction : null;
   const [list, setList] = useState<ListKey>("review");
-  const empty = receipts !== null && notes !== null && receipts.length === 0 && notes.length === 0 && emails.length === 0 && !records.notesError && !records.error;
-  // A count waits for its lists, never a 0.
-  const counts = { review: inboxCount(records) ?? undefined, problem: problemCount(records) ?? undefined };
-  const rows = receipts && notes ? bandejaRows(list, receipts, notes, emails) : null;
+  const empty = !pending && !failed.length && receipts.length === 0 && notes.length === 0 && emails.length === 0;
+  // A count waits for the receipts; then it is the server's, or "-" when the server sent none. Never a 0 it does not know.
+  const shown = (count: number | null) => (loads.receipts.state === "ready" ? count ?? UNKNOWN_VALUE : undefined);
+  const counts = { review: shown(inboxCount(records)), problem: shown(problemCount(records)) };
+  const rows = pending ? null : bandejaRows(list, receipts, notes, emails);
   const fresh = rows?.filter(itemNew) ?? [];
   const earlier = rows?.filter((row) => !itemNew(row)) ?? [];
   const openReview = () => {
-    const next = porRevisar(receipts ?? [])[0];
+    const next = porRevisar(receipts)[0];
     if (next) openPanel({ kind: "receipt", receiptId: next.id, list: "inbox" });
   };
   const renderRow = (row: BandejaItem) => {
@@ -248,7 +289,6 @@ export default function BusinessInboxPanel() {
   return (
     <section className="@container">
       {isBelowTablet && !empty ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
-      <ReceiptReadingControl hideWhenEnabled />
       <PanelHeading
         title={t("business.inbox.title", "Inbox")}
         action={
@@ -259,12 +299,13 @@ export default function BusinessInboxPanel() {
           ) : null
         }
       />
+      <ReceiptReadingControl />
       {records.error ? (
         <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : (
         <>
           <div className="mb-4">
-            {/* A phone fits all three only with their short names. Counts wait for the list, never a 0. */}
+            {/* A phone fits all three only with their short names. */}
             <SegmentedControl
               testId="bandeja-segments"
               label={t("business.inbox.segments", "Show")}
@@ -278,19 +319,18 @@ export default function BusinessInboxPanel() {
               ]}
             />
           </div>
-          <Settle pending={receipts === null || notes === null} layout="inbox">
+          <SourcesFailed failed={failed} retry={retryFailed} />
+          <Settle pending={rows === null} layout="inbox">
             {rows === null ? null : empty ? (
               <EmptyInbox key={`${chosen?.space_id ?? "own"}:${revision}`} upload={upload ? { label: upload.label, run: upload.run } : null} />
             ) : (
               <>
-                {records.notesError ? <p role="alert" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.empty.notes_error", "We couldn't load your notes")}</p> : null}
-                {records.emailsError ? <p role="alert" data-testid="bandeja-emails-error" className="mb-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.empty.email_error", "We couldn't load your emails")}</p> : null}
                 {rows.length ? (
                   <div className={`${cardClass} p-2`} data-testid="business-inbox-receipts">
                     {group(t("business.inbox.group_new", "New since your last visit"), fresh, "bandeja-new")}
                     {group(t("business.inbox.group_earlier", "Earlier"), earlier, "bandeja-earlier")}
                   </div>
-                ) : (
+                ) : failed.length ? null : (
                   <div className={cardClass} data-testid="bandeja-segment-empty">
                     <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
                       title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}

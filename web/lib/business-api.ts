@@ -67,8 +67,8 @@ export type ReceiptActivityCounts = {
   presentation: "working" | "unread" | "none";
   pending_review_count: number;
   needs_attention_count: number;
-  /** Rows a person can review now: the Bandeja's Por revisar. Absent from servers that do not send it yet. */
-  ready_to_review_count?: number;
+  /** Rows a person can review now: the Bandeja's Por revisar. */
+  ready_to_review_count: number;
 };
 export type ReceiptReading = { scope_version: number; enabled: boolean; available: boolean; can_change: boolean; disclosure: string; disclosure_token: string | null; route: { gateway: string; interpretation: { model: string }[]; reply: unknown[] } | null; consented_at: string | null; revoked_at: string | null };
 

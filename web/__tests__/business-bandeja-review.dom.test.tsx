@@ -16,7 +16,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
-const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0 };
+const none: ReceiptActivityCounts = { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 };
 
 async function mount(overrides: Partial<BusinessDataSource> = {}, grant: string | null = null) {
   const { act } = await import("react");
@@ -105,7 +105,7 @@ test("still-reading and unreadable receipts stay off the por revisar number", as
   const reading: ReceiptSummary = { ...ready, id: "rcpt-reading", status: "queued", read_pending: true, merchant: "En lectura", activity: { state: "reading", unread: true, completion_cursor: null } };
   const items = [ready, reading, blurry];
   const page = await mount({
-    receiptPage: async (view) => ({ items: view === "all" ? items : items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1 } }),
+    receiptPage: async (view) => ({ items: view === "all" ? items : items, activity: { ...none, pending_review_count: 3, reading_count: 1, needs_attention_count: 1, ready_to_review_count: 1 } }),
   });
   try {
     const segment = (key: string) => page.host.querySelector(`[data-testid="bandeja-segments"] [data-segment="${key}"]`)?.textContent;

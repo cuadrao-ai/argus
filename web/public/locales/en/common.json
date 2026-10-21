@@ -38,6 +38,7 @@
     "pin": "Pin",
     "recents": "Recents",
     "rename": "Rename",
+    "reference": "Ref. {{reference}}",
     "restore": "Restore",
     "retry": "Retry",
     "run_simulation": "Run simulation",
@@ -2112,11 +2113,15 @@
       "error": "Receipt reading could not be updated. Try again.",
       "mark_read": "Mark as read",
       "open_settings": "Open receipt reading settings",
-      "owner_only": "The Business owner can turn receipt reading on.",
+      "owner_only": "Your receipts are saved unread. The Business owner can turn reading on.",
       "reading_on": "Receipt reading is on.",
       "saved_prompt": "Your receipts are saved unread. Turn on receipt reading to prepare them for review.",
-      "turn_off": "Turn reading off",
-      "turn_on": "Turn receipt reading on"
+      "sheet_title": "Receipt reading",
+      "switch_label": "Read my receipts with AI",
+      "turn_on": "Turn receipt reading on",
+      "turned_off": "Receipt reading is off.",
+      "turned_on": "Receipt reading is on.",
+      "unavailable": "AI reading can't be turned on right now."
     },
     "bank": {
       "empty": {
@@ -2131,6 +2136,7 @@
         "unsupported_layout": "This file does not match a supported statement."
       },
       "import": {
+      "change": "Change",
         "account": "Bank account",
         "choose_file": "Choose a statement file",
         "column_amount": "Amount column",
@@ -2481,7 +2487,6 @@
       "inbox_error": "We couldn't load your inbox",
       "inbox_title": "Your receipts land here",
       "month_body": "Add this month's receipts and invoices to see your income, expenses and ITBIS.",
-      "notes_error": "We couldn't load your notes",
       "overview_error": "We couldn't load your business",
       "see_all_periods": "See all periods"
     },
@@ -2727,6 +2732,9 @@
     "email": {
       "no_address": "This business has no receiving address yet.",
       "activate": "Get a receiving address",
+      "failed_emails": "We couldn't load your emails.",
+      "failed_notes": "We couldn't load your notes.",
+      "failed_notes_emails": "We couldn't load your notes or your emails.",
       "activate_failed": "Email receiving is not available for this business yet.",
       "forward_to": "Forward receipts to this address:",
       "copy": "Copy address",

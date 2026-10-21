@@ -29,7 +29,7 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 function context(source: BusinessDataSource, inbox: ReceiptSummary[] = []): BusinessContextValue {
   return {
     source,
-    records: { workspace: null, overview: null, inbox, notes: [], notesError: false, notesTruncated: false, error: false },
+    records: { workspace: null, overview: null, inbox, notes: [], notesTruncated: false, emails: [], error: false },
     spaces: [],
     chosen: { space_id: "own", grant_id: "own", name: "Colmado", role: "owner", capabilities: ["prepare", "approve"], access_seen: true },
     chooseBusiness: () => {},

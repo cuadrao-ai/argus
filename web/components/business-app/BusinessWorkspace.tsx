@@ -63,6 +63,7 @@ import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/bu
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass } from "./business-ui";
+import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -87,14 +88,14 @@ type Records = {
   overview: BusinessOverview | null;
   inbox: ReceiptSummary[] | null;
   receiptActivity?: ReceiptActivityCounts | null;
-  /** Saved notes, newest first; null until loaded. A notes outage never hides receipts. */
+  /** Saved notes, newest first; null until loaded or after a failed load. A notes outage never hides receipts, and never reads as no notes. */
   notes: BusinessCapture[] | null;
-  notesError: boolean;
+  notesFailure?: LoadFailure | null;
   /** The captures list stops at the server's page size; older open notes are found through search. */
   notesTruncated: boolean;
   /** Received emails, newest first; null until loaded. An email outage never hides receipts. */
   emails: BusinessEmailDelivery[] | null;
-  emailsError: boolean;
+  emailsFailure?: LoadFailure | null;
   error: boolean;
   closed?: boolean;
   serverReference?: string | null;
@@ -127,6 +128,8 @@ export type BusinessContextValue = Readonly<{
   openExport: () => void;
   /** Asks the server for the emails again; the Negocio history shows it working. */
   emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
+  /** Asks again for only the lists named; the rest stay as they are. */
+  retrySources: (sources: readonly BandejaSource[]) => void;
 }>;
 
 /** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
@@ -178,10 +181,10 @@ const EMPTY_RECORDS: Records = {
   inbox: null,
   receiptActivity: null,
   notes: null,
-  notesError: false,
+  notesFailure: null,
   notesTruncated: false,
   emails: null,
-  emailsError: false,
+  emailsFailure: null,
   error: false,
   closed: false,
   serverReference: null,
@@ -257,6 +260,7 @@ function BusinessWorkspaceContent({
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
+  const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
   // The chosen Business: a grant id the client remembers, proven by the server on every request.
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
@@ -400,8 +404,8 @@ function BusinessWorkspaceContent({
 
   const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant });
   const workspaceRecords = useMemo<Records>(
-    () => ({ ...records, emails: emailDeliveries.items, emailsError: emailDeliveries.failed }),
-    [records, emailDeliveries.items, emailDeliveries.failed],
+    () => ({ ...records, emails: emailDeliveries.items, emailsFailure: emailDeliveries.failure }),
+    [records, emailDeliveries.items, emailDeliveries.failure],
   );
   const emailRefresh = useMemo(
     () => ({ refresh: emailDeliveries.refresh, refreshing: emailDeliveries.refreshing, stalled: emailDeliveries.stalled }),
@@ -429,16 +433,22 @@ function BusinessWorkspaceContent({
       return source.captures("", NOTES_PAGE, "inbox");
     }).then(
       (notes) => {
-        if (!cancelled) setRecords((current) => ({ ...current, notes, notesError: false, notesTruncated: notes.length >= NOTES_PAGE }));
+        if (!cancelled) setRecords((current) => ({ ...current, notes, notesFailure: null, notesTruncated: notes.length >= NOTES_PAGE }));
       },
-      () => {
-        if (!cancelled) setRecords((current) => ({ ...current, notes: [], notesError: true, notesTruncated: false }));
+      (error: unknown) => {
+        if (!cancelled) setRecords((current) => ({ ...current, notes: null, notesFailure: loadFailure(error), notesTruncated: false }));
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [onRecord, revision, source, i18n]);
+  }, [onRecord, revision, notesAttempt, source, i18n]);
+
+  const retryEmails = emailDeliveries.refresh;
+  const retrySources = useCallback((sources: readonly BandejaSource[]) => {
+    if (sources.includes("notes")) setNotesAttempt((value) => value + 1);
+    if (sources.includes("emails")) retryEmails();
+  }, [retryEmails]);
 
   // The shell may replace the route while leaving a conversation; writing again
   // once that navigation lands keeps the panel in the address bar.
@@ -488,8 +498,9 @@ function BusinessWorkspaceContent({
       clearAttachedReceipt: () => setAttachedReceipt(null),
       openExport,
       emailRefresh,
+      retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, retrySources, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;

@@ -1,6 +1,5 @@
 import type { BusinessCapture, ReceiptActivityCounts } from "@/lib/business-api";
 import { emailStanding, type BusinessEmailDelivery, type EmailStanding } from "@/lib/business-email";
-import { countNeedsAttention, countPorRevisar, countStillReading, type ReviewCountItem } from "@/lib/business-review-count";
 
 export type OpenNote = { draftId: string; text: string; receivedAt: string; revision: number; earlier: number };
 
@@ -35,53 +34,23 @@ export function bandejaEmails(deliveries: readonly BusinessEmailDelivery[]): Ban
   });
 }
 
-type CountRecords = {
-  inbox?: readonly ReviewCountItem[] | null;
-  notes?: readonly BusinessCapture[] | null;
-  emails?: readonly BusinessEmailDelivery[] | null;
-  emailsError?: boolean;
-  receiptActivity?: ReceiptActivityCounts | null;
-};
+type CountRecords = { receiptActivity?: ReceiptActivityCounts | null };
 
-/**
- * The server counts every row, past any page the browser loaded. Its email
- * part is only trusted once it says where each email stands (#1341); before
- * that, the emails are counted from the list.
- */
-function serverCountsEmails(records: CountRecords): boolean {
-  return Boolean(records.receiptActivity) && (records.emails ?? []).every((email) => email.standing !== undefined);
-}
+// The Bandeja's numbers are the server's: it counts every receipt, note and
+// email past any page the browser loaded. Without its answer a number is
+// unknown, never 0 and never a count of the rows that happened to load.
 
-/** The emails as far as they are known: an outage counts as none, so it never hides the receipts' own count. */
-function knownEmails(records: CountRecords): BandejaEmail[] | null {
-  const emails = records.emails ?? (records.emailsError ? [] : null);
-  return emails ? bandejaEmails(emails) : null;
-}
-
-/**
- * The one "por revisar" number: receipts ready for review plus typed notes
- * awaiting it. Inicio, the sidebar badge, the phone tab and the Bandeja's
- * segment all show this count. An email being read waits, like a receipt being read.
- */
+/** The one "por revisar" number Inicio, the sidebar badge, the phone tab and the Bandeja's segment show. */
 export function inboxCount(records: CountRecords): number | null {
-  const ready = records.receiptActivity?.ready_to_review_count;
-  if (typeof ready === "number") return ready;
-  if (!records.inbox) return null;
-  return countPorRevisar(records.inbox) + (records.notes ? openNotesByDraft(records.notes).length : 0);
+  return records.receiptActivity?.ready_to_review_count ?? null;
 }
 
 /** The one "con problema" number: receipts that need a fix plus emails that brought no receipt. */
 export function problemCount(records: CountRecords): number | null {
-  if (records.receiptActivity && records.emails && serverCountsEmails(records)) return records.receiptActivity.needs_attention_count;
-  const emails = knownEmails(records);
-  if (!records.inbox || !emails) return null;
-  return countNeedsAttention(records.inbox) + emails.filter((email) => email.standing === "no_receipt").length;
+  return records.receiptActivity?.needs_attention_count ?? null;
 }
 
 /** Receipts and emails still being read. */
 export function readingCount(records: CountRecords): number | null {
-  if (records.receiptActivity && records.emails && serverCountsEmails(records)) return records.receiptActivity.reading_count;
-  const emails = knownEmails(records);
-  if (!records.inbox || !emails) return null;
-  return countStillReading(records.inbox) + emails.filter((email) => email.standing === "reading").length;
+  return records.receiptActivity?.reading_count ?? null;
 }

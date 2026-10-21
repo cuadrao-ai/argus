@@ -41,7 +41,7 @@ import {
   type OpenItemsList,
 } from "@/lib/business-month-close";
 import { formatAmount, formatDay, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, UNKNOWN_VALUE, type Lateness } from "./business-format";
-import { cardClass, primaryButtonClass, quietButtonClass } from "./business-ui";
+import { canAddRecords, cardClass, primaryButtonClass, quietButtonClass } from "./business-ui";
 import { useBusiness } from "./BusinessWorkspace";
 import { dismissToast, showToast, useToasts } from "./foundation/toasts";
 import { EmptyState } from "./foundation/EmptyState";
@@ -1056,7 +1056,7 @@ export function useMonthCloseSource(): MonthCloseSource {
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null; header?: (switcher: ReactNode) => ReactNode }) {
   const { chosen, actions, openPanel } = useBusiness();
-  const add = chosen?.role === "owner" ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
+  const add = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   // An open item carries only its activity id. A receipt's is its saved expense's id; an invoice has no record screen yet.
   const openDocument = (document: MonthCloseDocument) => (document.kind === "receipt" ? () => openPanel({ kind: "expense", expenseId: document.id }) : null);
   return (

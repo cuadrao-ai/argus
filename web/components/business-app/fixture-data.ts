@@ -9,6 +9,8 @@ import type {
 import { createDossierFixtures, dossierFixtureIds } from "./dossier-fixtures";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import { normalizeSearchText } from "@/lib/search-text";
+import { emailStanding } from "@/lib/business-email";
+import { countNeedsAttention, countPorRevisar, countStillReading } from "@/lib/business-review-count";
 import type { BusinessDataSource } from "./business-data";
 import { createFixtureSearch, SAMPLE_VENTAS } from "./search-fixtures";
 
@@ -453,13 +455,15 @@ export function createFixtureBusinessDataSource(
         : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
     },
     // The sample's stand-in for the server's one count projection: every row
-    // the Bandeja lists (never the email itself) plus notes no receipt carries.
+    // the Bandeja lists (never the email itself), notes no receipt carries,
+    // and each email that is a row of its own.
     receiptPage: async (view) => {
       await delay();
       const items = view === "all" ? receipts : receipts.filter((item) => item.status !== "confirmed" && item.status !== "dismissed");
       const pending = receipts.filter((item) => !item.email_original && item.status !== "confirmed" && item.status !== "dismissed");
       const notes = new Set((await dossierSource.captures("", 50, "inbox")).map((note) => note.draft_id)).size;
-      const reading = receipts.filter((item) => item.read_pending).length;
+      const standings = SAMPLE_EMAILS.map((email) => emailStanding(email)).filter((standing) => standing !== null);
+      const reading = countStillReading(receipts) + standings.filter((standing) => standing === "reading").length;
       const unread = receipts.filter((item) => item.activity?.unread).length;
       return {
         items,
@@ -467,8 +471,9 @@ export function createFixtureBusinessDataSource(
           reading_count: reading,
           unread_count: unread,
           presentation: reading ? "working" : unread ? "unread" : "none",
-          pending_review_count: pending.length + notes,
-          needs_attention_count: pending.filter((item) => item.status === "needs_attention").length,
+          pending_review_count: pending.length + notes + standings.length,
+          needs_attention_count: countNeedsAttention(receipts) + standings.filter((standing) => standing === "no_receipt").length,
+          ready_to_review_count: countPorRevisar(receipts) + notes,
         },
       };
     },

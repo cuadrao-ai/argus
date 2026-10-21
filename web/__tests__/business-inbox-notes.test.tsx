@@ -29,10 +29,11 @@ describe("notes awaiting review in the Inbox", () => {
 });
 
 describe("the inbox count on the Overview card and the sidebar badge", () => {
-  test("is countPorRevisar of the receipt list, and unknown until that list arrives", () => {
-    assert.equal(inboxCount({ inbox: [{ status: "review_ready" }, { status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }] }), 2);
-    assert.equal(inboxCount({ inbox: [] }), 0);
-    assert.equal(inboxCount({ inbox: null }), null);
+  test("is the server's ready_to_review_count, and unknown until the server answers", () => {
+    const activity = { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 3, needs_attention_count: 1, ready_to_review_count: 2 };
+    assert.equal(inboxCount({ receiptActivity: activity }), 2);
+    assert.equal(inboxCount({ receiptActivity: { ...activity, ready_to_review_count: 0 } }), 0);
+    assert.equal(inboxCount({ receiptActivity: null }), null);
     assert.equal(inboxCount({}), null);
   });
 });

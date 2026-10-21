@@ -38,6 +38,7 @@
     "pin": "Anclar",
     "recents": "Recientes",
     "rename": "Renombrar",
+    "reference": "Ref. {{reference}}",
     "restore": "Restaurar",
     "retry": "Reintentar",
     "run_simulation": "Ejecutar simulación",
@@ -2112,11 +2113,15 @@
       "error": "No se pudo actualizar la lectura de recibos. Inténtalo de nuevo.",
       "mark_read": "Marcar como leído",
       "open_settings": "Abrir configuración de lectura",
-      "owner_only": "El dueño del negocio puede activar la lectura de recibos.",
+      "owner_only": "Tus recibos se guardan sin leer. El dueño del negocio puede activar la lectura.",
       "reading_on": "La lectura de recibos está activada.",
       "saved_prompt": "Tus recibos están guardados sin leer. Activa la lectura para prepararlos para revisión.",
-      "turn_off": "Desactivar lectura",
-      "turn_on": "Activar lectura de recibos"
+      "sheet_title": "Lectura de recibos",
+      "switch_label": "Leer mis recibos con IA",
+      "turn_on": "Activar lectura de recibos",
+      "turned_off": "Lectura de recibos desactivada.",
+      "turned_on": "Lectura de recibos activada.",
+      "unavailable": "Ahora no se puede activar la lectura con IA."
     },
     "bank": {
       "empty": {
@@ -2131,6 +2136,7 @@
         "unsupported_layout": "[placeholder] business.bank.error.unsupported_layout"
       },
       "import": {
+      "change": "Cambiar",
         "account": "[placeholder] business.bank.import.account",
         "choose_file": "[placeholder] business.bank.import.choose_file",
         "column_amount": "[placeholder] business.bank.import.column_amount",
@@ -2526,7 +2532,6 @@
       "inbox_error": "No pudimos cargar tu bandeja",
       "inbox_title": "Aquí llegan tus recibos",
       "month_body": "Agrega los recibos y facturas de este mes para ver tus ingresos, gastos e ITBIS.",
-      "notes_error": "No pudimos cargar tus notas",
       "overview_error": "No pudimos cargar tu negocio",
       "see_all_periods": "Ver todos los períodos"
     },
@@ -2601,6 +2606,9 @@
       "nothing_to_review": "Nada por revisar",
       "see_all_body": "Todos tus recibos están en Todo.",
       "see_all": "Ver todo",
+      "failed_emails": "No pudimos cargar tus correos.",
+      "failed_notes": "No pudimos cargar tus notas.",
+      "failed_notes_emails": "No pudimos cargar tus notas ni tus correos.",
       "segment_review_short": "Revisar",
       "segment_problem_short": "Problemas",
       "email_row_title": "Correo de {{sender}}",

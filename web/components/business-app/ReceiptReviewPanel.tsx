@@ -23,7 +23,7 @@ import type { ReceiptDetail, ReceiptReviewFields } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
 import { formatDay, formatMoney, RECEIPT_CATEGORY_IDS } from "./business-format";
-import { primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
+import { canAddRecords, primaryButtonClass, secondaryButtonClass, StatusPill, useAttentionLabel, useCategoryLabel, useTerminalRead } from "./business-ui";
 import { ContentFade, Settle } from "./business-skeletons";
 
 type Draft = Record<keyof ReceiptReviewFields, string>;
@@ -132,7 +132,7 @@ function ReceiptEntry({ receiptId }: { receiptId: string }) {
   }
   if (!detail || !draft) return <Settle pending layout="detail" />;
   const terminal = terminalRead(detail.attention, detail.error_code);
-  const uploadAnother = chosen?.role === "owner" || chosen?.capabilities.includes("prepare") ? actions.create.find((action) => action.id === "upload_receipt") : null;
+  const uploadAnother = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : null;
   if (detail.draft_id && !unprepared) return <ReceiptDossierReview draftId={detail.draft_id} onUnprepared={retainReceipt} receipt={detail} />;
   const frame = (children: React.ReactNode, source: React.ReactNode = <ReceiptSourcePreview detail={detail} />, reading = false) => (
     <ContentFade><ReceiptReviewFrame

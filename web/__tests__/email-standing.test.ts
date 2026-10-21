@@ -47,39 +47,20 @@ describe("the server's standing, when it sends one", () => {
   });
 });
 
-describe("the Bandeja counts with emails", () => {
-  const inbox = [{ status: "review_ready" }, { status: "needs_attention", attention: "unreadable" }, { status: "queued", read_pending: true }];
-  const emails = [email({ id: "a", state: "rejected", parts: [] }), email({ id: "b", state: "processing", parts: [] }), email({ id: "c" }), email({ id: "d", parts: [part({ repeat_of_upload: true })] })];
-
-  test("an email that brought nothing is a problem, an email being read is reading, and Por revisar stays receipts and notes", () => {
-    assert.equal(problemCount({ inbox, emails }), 2);
-    assert.equal(readingCount({ inbox, emails }), 2);
-    assert.equal(inboxCount({ inbox, emails, notes: [] }), 1);
-  });
-
-  test("a count is absent until both lists are known, never 0, and an email outage counts the receipts alone", () => {
-    assert.equal(problemCount({ inbox, emails: null }), null);
-    assert.equal(problemCount({ inbox: null, emails }), null);
-    assert.equal(readingCount({ inbox, emails: null }), null);
-    assert.equal(problemCount({ inbox, emails: null, emailsError: true }), 1);
-  });
-});
-
-describe("the Bandeja counts from the server when it has them", () => {
-  const inbox = [{ status: "review_ready" }];
+describe("the Bandeja counts are the server's", () => {
   const activity = { reading_count: 3, unread_count: 0, presentation: "working" as const, pending_review_count: 40, needs_attention_count: 7, ready_to_review_count: 30 };
-  const serverEmails = [email({ id: "a", standing: "no_receipt" })];
 
-  test("past one page of rows, the numbers are the server's, not the loaded lists'", () => {
-    assert.equal(inboxCount({ inbox, notes: [], emails: serverEmails, receiptActivity: activity }), 30);
-    assert.equal(problemCount({ inbox, emails: serverEmails, receiptActivity: activity }), 7);
-    assert.equal(readingCount({ inbox, emails: serverEmails, receiptActivity: activity }), 3);
+  test("past one page of rows, every number is the server's, emails and notes included", () => {
+    assert.equal(inboxCount({ receiptActivity: activity }), 30);
+    assert.equal(problemCount({ receiptActivity: activity }), 7);
+    assert.equal(readingCount({ receiptActivity: activity }), 3);
   });
 
-  test("a server that does not count emails yet keeps the lists for the email part", () => {
-    const older = { ...activity, ready_to_review_count: undefined };
-    const browserEmails = [email({ id: "a", state: "rejected", parts: [] })];
-    assert.equal(inboxCount({ inbox, notes: [], emails: browserEmails, receiptActivity: older }), 1);
-    assert.equal(problemCount({ inbox: [{ status: "needs_attention" }], emails: browserEmails, receiptActivity: older }), 2);
+  test("without the server's answer a number is unknown, never 0", () => {
+    for (const records of [{}, { receiptActivity: null }]) {
+      assert.equal(inboxCount(records), null);
+      assert.equal(problemCount(records), null);
+      assert.equal(readingCount(records), null);
+    }
   });
 });

@@ -95,7 +95,8 @@ async function mount({ strict = false, role = "owner", refuse = null, unrecorded
     receiptPage: async (view: "inbox" | "all") => {
       pageReads += 1;
       const rows = view === "all" ? receipts : pending();
-      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: pending().filter((item) => !item.email_original).length, needs_attention_count: 0 } };
+      const waiting = pending().filter((item) => !item.email_original).length;
+      return { items: rows as ReceiptSummary[], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: waiting, needs_attention_count: 0, ready_to_review_count: waiting } };
     },
     receipt: async (id: string) => {
       if (id === "rcpt-dos") {

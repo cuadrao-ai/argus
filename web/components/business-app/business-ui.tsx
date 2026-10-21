@@ -167,6 +167,11 @@ export function useChannelLabel() {
     channel === "whatsapp" ? "WhatsApp" : channel === "email" ? t("business.dossier.email", "Email") : t("business.dossier.web", "Web upload");
 }
 
+/** The person may add receipts and notes to the Business they are in: the server's prepare capability, the owner's included. */
+export function canAddRecords(chosen: { capabilities: readonly string[] } | null | undefined): boolean {
+  return Boolean(chosen?.capabilities.includes("prepare"));
+}
+
 /** The owner is looking: their own Business, not a client's opened through a grant. */
 export function useOwnerView(): boolean {
   const business = useContext(BusinessContext);

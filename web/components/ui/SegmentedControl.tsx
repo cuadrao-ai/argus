@@ -4,8 +4,8 @@ import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type PointerEve
 import type { LucideIcon } from "lucide-react";
 import { createSpringDriver, LEAD, TRAIL } from "./spring";
 
-/** `count` follows the label in a lighter weight: how many rows the segment holds. */
-export type Segment<K extends string> = { key: K; label: string; count?: number | null; icon?: LucideIcon };
+/** `count` follows the label in a lighter weight: how many rows the segment holds, or the screen's mark for a count it does not know ("-"), never a 0. */
+export type Segment<K extends string> = { key: K; label: string; count?: number | string | null; icon?: LucideIcon };
 
 type Edges = { l: number; r: number };
 

@@ -491,7 +491,7 @@ function IntakeForm({ limits, target, queue, onClose, onReview }: IntakeProps & 
           </section>
         ) : null}
 
-        <ReceiptReadingControl />
+        <ReceiptReadingControl showWhenOn />
         {unfinished ? (
           <p className={`text-[13px] ${MUTED}`}>
             {t("business.intake.keep_open", "You can close this panel and come back to your uploads. Keep this page open until every file is saved.")}
