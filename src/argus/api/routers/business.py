@@ -1014,11 +1014,15 @@ def list_expenses(
     request: Request,
     start: date = Query(alias="from"),  # noqa: B008
     end: date | None = Query(default=None, alias="to"),  # noqa: B008
+    kind: Literal["expense", "income"] = "expense",
     context: BusinessContext = Depends(require_business),  # noqa: B008
 ) -> dict[str, Any]:
+    """The period's saved records of one kind: expenses, or ventas as `income`.
+    A venta's `merchant` is its client. Each item keeps its own currency."""
+
     _period(request, start, end)
     try:
-        return {"items": expenses_with_receipts(context, start, end)}
+        return {"items": expenses_with_receipts(context, start, end, kind=kind)}
     except Exception as error:
         raise _problem(request, error) from None
 

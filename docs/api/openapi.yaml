@@ -2753,6 +2753,15 @@ paths:
           - type: string
             format: date
           - type: 'null'
+      - name: kind
+        in: query
+        required: false
+        schema:
+          enum:
+          - expense
+          - income
+          type: string
+          default: expense
       - name: X-Business-Grant
         in: header
         required: false
