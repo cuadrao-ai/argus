@@ -42,60 +42,38 @@ async function renderAuthForm(mode: AuthFormMode) {
 describe("auth form legal links", () => {
   afterEach(clearLegalEnv);
 
-  test("no link and no dangling acceptance line while the Cuadrao URLs are unpublished", async () => {
+  test("with nothing set, the acceptance sentence links the published Cuadrao pages", async () => {
     clearLegalEnv();
-    for (const mode of ["login", "signup"] as const) {
-      const html = await renderAuthForm(mode);
-      expect(html).not.toContain('href="/terms"');
-      expect(html).not.toContain('href="/privacy"');
-      expect(html).not.toContain("aceptas nuestros");
-    }
-  });
-
-  test("blank values count as unpublished", () => {
-    process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "   ";
-    expect(cuadraoLegalLinks()).toEqual({
-      terms: undefined,
-      privacy: undefined,
-      dataDeletion: undefined,
-    });
-  });
-
-  test("published URLs render as the only legal links", async () => {
-    process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "https://cuadrao.example/terminos";
-    process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = "https://cuadrao.example/privacidad";
     const html = await renderAuthForm("signup");
-    expect(html).toContain('href="https://cuadrao.example/terminos"');
-    expect(html).toContain('href="https://cuadrao.example/privacidad"');
+    expect(html).toContain('href="https://cuadrao.ai/terminos"');
+    expect(html).toContain('href="https://cuadrao.ai/privacidad"');
     expect(html).toContain("Al registrarte, aceptas nuestros");
     expect(html).not.toContain('href="/terms"');
     expect(html).not.toContain('href="/privacy"');
   });
 
-  test("one published URL renders no acceptance sentence at all", async () => {
-    process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = "https://cuadrao.example/privacidad";
-    for (const mode of ["login", "signup"] as const) {
-      const html = await renderAuthForm(mode);
-      expect(html).not.toContain("cuadrao.example");
-      expect(html).not.toContain("aceptas nuestros");
-      expect(html).not.toContain('href="/terms"');
-      expect(html).not.toContain('href="/privacy"');
-    }
-    delete process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL;
-    process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "https://cuadrao.example/terminos";
-    const html = await renderAuthForm("login");
-    expect(html).not.toContain("cuadrao.example");
-    expect(html).not.toContain("aceptas nuestros");
+  test("blank values fall back to the published pages, and data deletion stays unset", () => {
+    process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "   ";
+    process.env.NEXT_PUBLIC_CUADRAO_DATA_DELETION_URL = " ";
+    expect(cuadraoLegalLinks()).toEqual({
+      terms: "https://cuadrao.ai/terminos",
+      privacy: "https://cuadrao.ai/privacidad",
+      dataDeletion: undefined,
+    });
   });
 
-  test("acceptanceLinks is null unless both URLs are published", () => {
-    expect(acceptanceLinks()).toBeNull();
-    process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "https://cuadrao.example/terminos";
-    expect(acceptanceLinks()).toBeNull();
+  test("a setting overrides its published page, one document at a time", async () => {
     process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = "https://cuadrao.example/privacidad";
     expect(acceptanceLinks()).toEqual({
-      terms: "https://cuadrao.example/terminos",
+      terms: "https://cuadrao.ai/terminos",
       privacy: "https://cuadrao.example/privacidad",
     });
+    process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = "https://cuadrao.example/terminos";
+    process.env.NEXT_PUBLIC_CUADRAO_DATA_DELETION_URL = "https://cuadrao.example/borrar";
+    expect(cuadraoLegalLinks().dataDeletion).toBe("https://cuadrao.example/borrar");
+    const html = await renderAuthForm("signup");
+    expect(html).toContain('href="https://cuadrao.example/terminos"');
+    expect(html).toContain('href="https://cuadrao.example/privacidad"');
+    expect(html).not.toContain("cuadrao.ai/");
   });
 });

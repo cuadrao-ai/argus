@@ -29,12 +29,6 @@ export default function BusinessApp({ sample, transferId, lifecycle, manageLifec
   const [lifecycleActor, setLifecycleActor] = useState<string | null | undefined>(undefined);
   const [owner, setOwner] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    const root = document.documentElement;
-    const previous = root.lang;
-    root.lang = "es";
-    return () => { root.lang = previous; };
-  }, []);
-  useEffect(() => {
     if (sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return;
     const client = getSupabaseClient();
     if (!client) return;

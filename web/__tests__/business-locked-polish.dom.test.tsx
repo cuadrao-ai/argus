@@ -243,7 +243,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         accessible.querySelectorAll('[aria-hidden="true"]').forEach((element) => element.remove());
         return accessible.getAttribute("aria-label") ?? accessible.textContent?.replace(/\d+$/, "").trim();
       });
-      assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos"]);
+      assert.deepEqual(names, ["Inicio", "Bandeja", "Transacciones"]);
       assert.ok(items.every((button) => button.querySelector("svg")), "each name sits with its icon");
       await page.close();
     }
@@ -291,13 +291,13 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
     }
   });
 
-  test("phone tabs name Inicio, Bandeja and Gastos and do not include a menu button", async () => {
+  test("phone tabs name Inicio, Bandeja and Transacciones and do not include a menu button", async () => {
     const BusinessBottomTabs = (await import("@/components/business-app/BusinessBottomTabs")).default;
     const page = await mount(() => <BusinessBottomTabs shell={shell({ isBelowTablet: true })} />);
     const tabs = page.host.querySelector('[data-testid="business-bottom-tabs"]');
     assert.ok(tabs);
     const names = [...tabs.querySelectorAll("button")].map((button) => button.textContent?.trim());
-    assert.deepEqual(names, ["Inicio", "Bandeja", "Gastos"]);
+    assert.deepEqual(names, ["Inicio", "Bandeja", "Transacciones"]);
     assert.equal(page.host.querySelector('[data-testid="chat-shell-menu-trigger"]'), null);
     await page.close();
   });
@@ -336,7 +336,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
   test("the Business screens have no empty heading and no English label for a Spanish reader", async () => {
     const BusinessOverviewPanel = (await import("@/components/business-app/BusinessOverviewPanel")).default;
     const BusinessInboxPanel = (await import("@/components/business-app/BusinessInboxPanel")).default;
-    const BusinessExpensesPanel = (await import("@/components/business-app/BusinessExpensesPanel")).default;
+    const TransaccionesPanel = (await import("@/components/business-app/transacciones/TransaccionesPanel")).default;
     const BusinessAccessPanel = (await import("@/components/business-app/BusinessAccessPanel")).default;
     const BusinessSidebarNav = (await import("@/components/business-app/BusinessSidebarNav")).default;
     const BusinessCreateMenu = (await import("@/components/business-app/BusinessCreateMenu")).default;
@@ -347,7 +347,7 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         <BusinessCreateMenu shell={shell} compact />
         <BusinessOverviewPanel />
         <BusinessInboxPanel />
-        <BusinessExpensesPanel />
+        <TransaccionesPanel />
         <BusinessAccessPanel />
       </>
     ));

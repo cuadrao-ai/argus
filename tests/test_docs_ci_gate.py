@@ -106,10 +106,24 @@ def test_aggregate_rejects_invalid_flag(tmp_path, flag):
     assert aggregate(tmp_path, flag).returncode != 0
 
 
+HEAVY_JOBS = {"BACKEND_CHECKS", "FRONTEND_CHECKS", "MARKETING_CHECKS", "GUEST_RELEASE_GATES"}
+
+
+def selected(job, flag):
+    """A docs-only run selects docs-checks; any other run selects every heavy job."""
+    return job in {"DOCS_CHANGE_GATE", "OWNERSHIP_GATE"} or (
+        job == "DOCS_CHECKS" if flag == "true" else job in HEAVY_JOBS
+    )
+
+
 def aggregate(tmp_path, flag="true", **overrides):
     step = WORKFLOW["jobs"]["ci"]["steps"][0]
-    env = {key: "success" for key in step["env"]}
-    env.update(DOCS_ONLY=flag, **overrides)
+    env = {
+        key: "success" if selected(key, flag) else "skipped"
+        for key in step["env"]
+    }
+    heavy = "false" if flag == "true" else "true"
+    env.update(DOCS_ONLY=flag, RUN_HEAVY=heavy, RUN_MARKETING=heavy, **overrides)
     return bash(step["run"], tmp_path, env)
 
 
@@ -122,14 +136,14 @@ def aggregate(tmp_path, flag="true", **overrides):
         "DOCS_CHECKS",
         "BACKEND_CHECKS",
         "FRONTEND_CHECKS",
+        "MARKETING_CHECKS",
         "GUEST_RELEASE_GATES",
     ],
 )
 @pytest.mark.parametrize("state", ["success", "failure", "cancelled", "skipped"])
 def test_aggregate_preserves_dependency_policy(tmp_path, flag, job, state):
-    required = job in {"DOCS_CHANGE_GATE", "OWNERSHIP_GATE"} or (
-        job == "DOCS_CHECKS" and flag == "true"
-    )
+    # Only an unselected job may skip; failure and cancellation never pass.
+    required = selected(job, flag)
     expected = state == "success" or (state == "skipped" and not required)
     result = aggregate(tmp_path, flag, **{job: state})
     assert (result.returncode == 0) == expected, result.stdout + result.stderr
@@ -167,7 +181,10 @@ def test_aggregate_rejects_missing_flag(tmp_path, monkeypatch):
     monkeypatch.delenv("DOCS_ONLY", raising=False)
     step = WORKFLOW["jobs"]["ci"]["steps"][0]
     env = {key: "success" for key in step["env"] if key != "DOCS_ONLY"}
-    assert bash(step["run"], tmp_path, env).returncode != 0
+    env.update(RUN_HEAVY="true", RUN_MARKETING="true")
+    result = bash(step["run"], tmp_path, env)
+    assert result.returncode != 0
+    assert "Invalid DOCS_ONLY" in result.stdout
 
 
 def test_folder_selection_obeys_pytest_exclusions(selector_repo):

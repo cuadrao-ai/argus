@@ -1,11 +1,11 @@
 "use client";
 
-import type { ReactNode, RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { Check } from "lucide-react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import { formatDay } from "../business-format";
+import { formatDay, formatTimestamp } from "../business-format";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
-import { NO_COMPROBANTE_REASONS, type DocumentSummary, type Movement } from "./transacciones-model";
+import { NO_COMPROBANTE_REASONS, type DocumentSummary, type HistoryEntry, type Movement } from "./transacciones-model";
 import { AccountLabel, KeyHint, PlainAmount, SignedAmount, StateIcon, Unknown } from "./transacciones-parts";
 import { useRowCommands, type Command } from "./transacciones-commands";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -25,11 +25,11 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
   const tray = controller.tray!;
   const run = tray.run;
   const step = run ? run.indexOf(movement.id) + 1 : 0;
-  const failure = controller.failure?.movementId === movement.id ? controller.failure : null;
+  const failure = controller.failure?.movement.id === movement.id ? controller.failure : null;
   const busy = controller.busy === movement.id;
   const match = movement.match;
-  const document: DocumentSummary | null = match.state === "sugerencia" ? match.suggestion.document : match.state === "igualada" || match.state === "igualada_en_parte" || match.state === "sin_movimiento" ? match.document : null;
-  const documentKind = match.state === "sugerencia" ? match.suggestion.documentKind : document?.kind ?? null;
+  const document: DocumentSummary | null = match.state === "sugerencia" ? match.suggestion.document : match.state === "igualada" || match.state === "sin_movimiento" ? match.document : null;
+  const documentKind = document?.kind ?? null;
   const footer = tray.mode === "record" && commands.length ? (
     <div className="flex flex-wrap items-center gap-2" data-testid="transacciones-tray-actions">
       {commands.map((command) => (
@@ -59,10 +59,12 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
           <p className="mt-1 text-[17px] font-medium"><SignedAmount money={movement.money} header={null} /></p>
         </div>
         {failure ? (
-          <div role="alert" data-testid="transacciones-decision-error" className="rounded-[12px] border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
-            <p>{t("business.transactions.error.decision")}</p>
-            <p className="mt-1 text-[12px] tabular-nums opacity-80">{t("business.transactions.error.reference", { reference: failure.reference })}</p>
-            <button type="button" onClick={controller.retry} disabled={busy} className={`${quietButtonClass} -ml-1 mt-1`}>{t("common.retry", "Reintentar")}</button>
+          <div role="alert" data-testid="transacciones-decision-error" className="rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
+            <p>{t(`business.transactions.error.codes.${failure.problem.code}`)}</p>
+            {failure.problem.action === "retry" ? <p className="mt-1 text-[12px] tabular-nums opacity-80">{t("business.transactions.error.reference", { reference: failure.reference })}</p> : null}
+            {failure.problem.action === "none" ? null : (
+              <button type="button" data-recover={failure.problem.action} onClick={controller.recover} disabled={busy} className={`${quietButtonClass} -ml-1 mt-1`}>{failure.problem.action === "retry" ? t("common.retry", "Reintentar") : t("business.transactions.error.reload")}</button>
+            )}
           </div>
         ) : null}
         {tray.mode === "reasons" ? (
@@ -94,6 +96,7 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
             <Fact label={t("business.transactions.tray.total")} strong>{document?.total ? <PlainAmount money={document.total} /> : <Unknown />}</Fact>
           </Facts>
         ) : null}
+        <History controller={controller} movement={movement} />
         {match.state === "sugerencia" && match.suggestion.reasons.length ? (
           <section>
             <h4 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/65">{t("business.transactions.why.title")}</h4>
@@ -109,11 +112,41 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
   );
 }
 
+/** What the line went through: each outcome it had, ended ones included, as the server keeps them. Quiet while it reads, and absent when it cannot. */
+function History({ controller, movement }: { controller: TransaccionesController; movement: Movement }) {
+  const { t, locale } = useTransaccionesWords();
+  const [entries, setEntries] = useState<readonly HistoryEntry[] | null>(null);
+  const bankLine = movement.bankText !== null;
+  const state = movement.match.state;
+  useEffect(() => {
+    let cancelled = false;
+    setEntries(null);
+    if (!bankLine) return undefined;
+    controller.source.history(movement.id).then((read) => { if (!cancelled) setEntries(read); }, () => undefined);
+    return () => { cancelled = true; };
+  }, [bankLine, controller.source, movement.id, state]);
+  if (!entries?.some((entry) => entry.until !== null)) return null;
+  return (
+    <section data-testid="transacciones-history">
+      <h4 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/65">{t("business.transactions.history.title")}</h4>
+      <ol className="space-y-1.5 text-[13px] text-[#56635e] dark:text-white/65">
+        {entries.map((entry) => (
+          <li key={entry.id}>
+            {entry.outcome === "match" ? t(`business.transactions.history.match_${entry.documentKind ?? "recibo"}`) : t("business.transactions.history.no_receipt", { reason: entry.reason ? t(`business.transactions.reasons.${entry.reason}`) : "" })}
+            {" "}
+            <span className="tabular-nums">{entry.until ? t("business.transactions.history.between", { from: formatTimestamp(entry.from, locale), until: formatTimestamp(entry.until, locale) }) : t("business.transactions.history.since", { from: formatTimestamp(entry.from, locale) })}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function Facts({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
       <h4 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/65">{title}</h4>
-      <dl className="divide-y divide-[#DCE0DA] rounded-[12px] border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">{children}</dl>
+      <dl className="divide-y divide-[#DCE0DA] rounded-item border border-[#DCE0DA] dark:divide-white/10 dark:border-white/10">{children}</dl>
     </section>
   );
 }

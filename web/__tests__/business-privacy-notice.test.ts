@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
+import { createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { describe, test } from "bun:test";
 import en from "../public/locales/en/common.json";
 import es from "../public/locales/es-419/common.json";
 import {
-  BUSINESS_CONSENT_I18N_KEYS,
+  BUSINESS_CONSENT_WORDING_KEYS,
   canEnterBusiness,
   consentCopyVersion,
-  privacyNoticePublished,
+  sha256Hex,
 } from "../lib/business-privacy-notice";
+
+/** The version every acceptance saved so far carries; the same words must keep it. */
+const TODAYS_VERSION = "75cfe4cb3fa507c5";
 
 const SPANISH = {
   title: "Antes de empezar",
@@ -17,6 +21,9 @@ const SPANISH = {
   opt_in: "Entiendo y acepto que Cuadrao use mis datos para esto.",
   continue: "Continuar",
   privacy_link: "Ver aviso de privacidad",
+  one_time: "Te lo pedimos una sola vez, para los datos de tu negocio.",
+  save_failed: "No pudimos guardar tu aceptación. No cambió nada.",
+  reference: "Ref. {{reference}}",
 };
 
 const ENGLISH = {
@@ -25,42 +32,60 @@ const ENGLISH = {
   opt_in: "I understand and agree that Cuadrao uses my data for this.",
   continue: "Continue",
   privacy_link: "View privacy notice",
+  one_time: "We ask this once, for your business's data.",
+  save_failed: "We couldn't save your acceptance. Nothing changed.",
+  reference: "Ref. {{reference}}",
 };
+
+type ConsentBlock = Record<string, string>;
+const blocks = [es.business.consent, en.business.consent] as ConsentBlock[];
+
+function versionWith(block: ConsentBlock, key: string): string {
+  const before = block[key];
+  block[key] = `${before} `;
+  try {
+    return consentCopyVersion();
+  } finally {
+    block[key] = before;
+  }
+}
 
 describe("business consent copy", () => {
   test("the screen says exactly the approved words, and nothing else", () => {
     assert.deepEqual(es.business.consent, SPANISH);
     assert.deepEqual(en.business.consent, ENGLISH);
-    assert.deepEqual(BUSINESS_CONSENT_I18N_KEYS, Object.keys(SPANISH).map((key) => `business.consent.${key}`));
   });
 
-  test("the wording version names what the screen shows, so any edit asks everyone again", async () => {
-    const version = await consentCopyVersion();
-    assert.match(version, /^[0-9a-f]{16}$/);
-    assert.equal(await consentCopyVersion(), version);
-    for (const catalog of [es, en]) {
-      const before = catalog.business.consent.opt_in;
-      catalog.business.consent.opt_in = `${before} `;
-      try {
-        assert.notEqual(await consentCopyVersion(), version);
-      } finally {
-        catalog.business.consent.opt_in = before;
+  test("today's words keep today's version, so nobody who accepted is asked again", () => {
+    assert.equal(consentCopyVersion(), TODAYS_VERSION);
+  });
+
+  test("any edit to the accepted words, in either language, is a new version", () => {
+    const wording = BUSINESS_CONSENT_WORDING_KEYS.map((key) => key.replace("business.consent.", ""));
+    assert.deepEqual(wording, ["title", "body", "opt_in", "continue"]);
+    for (const block of blocks) {
+      for (const key of wording) assert.notEqual(versionWith(block, key), TODAYS_VERSION, `${key} is accepted wording`);
+      for (const key of Object.keys(block).filter((name) => !wording.includes(name))) {
+        assert.equal(versionWith(block, key), TODAYS_VERSION, `${key} explains the screen and is not accepted`);
       }
     }
+  });
 
-    const link = es.business.consent.privacy_link;
-    es.business.consent.privacy_link = `${link} `;
+  test("the version needs no secure context: the LAN dev link has no crypto.subtle", () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+    Object.defineProperty(globalThis, "crypto", { configurable: true, value: { getRandomValues: crypto.getRandomValues.bind(crypto) } });
     try {
-      assert.equal(await consentCopyVersion(), version, "a hidden link is not part of what was accepted");
+      assert.equal(globalThis.crypto.subtle, undefined);
+      assert.equal(consentCopyVersion(), TODAYS_VERSION);
     } finally {
-      es.business.consent.privacy_link = link;
+      if (original) Object.defineProperty(globalThis, "crypto", original);
     }
-    const business = es.business as Record<string, unknown>;
-    business.privacy_notice = { title: "Aviso", close: "Cerrar", paragraphs: ["Texto."] };
-    try {
-      assert.notEqual(await consentCopyVersion(), version, "publishing the notice asks again");
-    } finally {
-      delete business.privacy_notice;
+  });
+
+  test("sha256Hex is SHA-256 of the UTF-8 text across block boundaries", () => {
+    for (let length = 0; length < 260; length += 1) {
+      const text = `${randomBytes(length).toString("base64").slice(0, length)}ñé😀`;
+      assert.equal(sha256Hex(text), createHash("sha256").update(text, "utf8").digest("hex"), `length ${length}`);
     }
   });
 
@@ -80,20 +105,7 @@ describe("business consent copy", () => {
   });
 });
 
-describe("business privacy notice", () => {
-  test("the notice is a draft until its text is in the catalog, and nothing links to a draft", () => {
-    assert.equal(privacyNoticePublished("es-419"), false);
-    assert.equal(privacyNoticePublished("en"), false);
-    const business = es.business as Record<string, unknown>;
-    business.privacy_notice = { title: "Aviso", close: "Cerrar", paragraphs: ["Texto."] };
-    try {
-      assert.equal(privacyNoticePublished("es-419"), true);
-      assert.equal(privacyNoticePublished("en"), false);
-    } finally {
-      delete business.privacy_notice;
-    }
-  });
-
+describe("business consent entry", () => {
   test("a client Business stays closed without acceptance", () => {
     assert.equal(canEnterBusiness(false, null), true);
     assert.equal(canEnterBusiness(false, "44444444-4444-4444-8444-444444444444"), false);

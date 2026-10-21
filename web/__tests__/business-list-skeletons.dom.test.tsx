@@ -6,7 +6,6 @@ import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
 import BusinessAccessPanel from "@/components/business-app/BusinessAccessPanel";
-import BusinessExpensesPanel from "@/components/business-app/BusinessExpensesPanel";
 import { BusinessContext, type BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import { liveBusinessDataSource } from "@/components/business-app/business-data";
 import { SKELETON_DELAY_MS } from "@/components/business-app/business-skeletons";
@@ -51,18 +50,6 @@ type Screen = {
 };
 
 const screens: Screen[] = [
-  {
-    name: "Gastos",
-    Panel: BusinessExpensesPanel,
-    path: "/business/expenses",
-    layout: "expenses",
-    title: spanish.business.expenses.title,
-    errorTitle: spanish.business.empty.expenses_error,
-    errorTestId: "business-expenses-error",
-    loaded: async () => ({ items: await fixture.expenses("2000-01-01", null) }),
-    rows: "[data-expense-id]",
-    empty: { body: { items: [] }, kind: "filtered", title: spanish.business.empty.expenses_filtered_title },
-  },
   {
     name: "Acceso",
     Panel: BusinessAccessPanel,

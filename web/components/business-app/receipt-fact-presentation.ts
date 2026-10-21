@@ -1,6 +1,11 @@
 import type { BusinessAccount } from "@/lib/business-api";
 import type { BusinessFacts, BusinessFactField, BusinessFiscalField } from "@/lib/business-dossier";
-import { formatDay, formatMoney } from "./business-format";
+import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
+
+/** An amount in the record's own currency; with no known currency it is unknown, never a bare number. */
+function moneyOrUnknown(amount: string, facts: BusinessFacts, locale: string): string {
+  return facts.currency.state === "known" ? formatMoney(amount, facts.currency.value, locale) : UNKNOWN_VALUE;
+}
 
 export function presentBusinessFact(
   key: BusinessFactField,
@@ -21,9 +26,9 @@ export function presentBusinessFact(
   if (key === "business_share") {
     const share = facts.business_share;
     if (share.state !== "known") return labels.unknown;
-    return share.value.kind === "partial" ? formatMoney(share.value.amount, facts.currency.state === "known" ? facts.currency.value : null, locale) || share.value.amount : labels.value?.(key, share.value.kind) ?? share.value.kind;
+    return share.value.kind === "partial" ? moneyOrUnknown(share.value.amount, facts, locale) : labels.value?.(key, share.value.kind) ?? share.value.kind;
   }
-  if (key === "amount") return facts.currency.state === "known" ? formatMoney(String(fact.value), facts.currency.value, locale) : String(fact.value);
+  if (key === "amount") return moneyOrUnknown(String(fact.value), facts, locale);
   if (key === "occurred_on") return formatDay(String(fact.value), locale);
   return labels.value?.(key, String(fact.value)) ?? String(fact.value);
 }
@@ -36,5 +41,5 @@ export function presentFiscalFact(key: BusinessFiscalField, facts: BusinessFacts
   if (fact.state !== "known") return fact.state === "owner_does_not_know" ? labels.ownerUnknown : labels.unknown;
   // The 606 answer reads as the Sí or No the accountant chose.
   if (typeof fact.value === "boolean") return (fact.value ? labels.yes : labels.no) ?? String(fact.value);
-  return key === "itbis" && facts.currency.state === "known" ? formatMoney(fact.value, facts.currency.value, locale) : fact.value;
+  return key === "itbis" ? moneyOrUnknown(fact.value, facts, locale) : fact.value;
 }

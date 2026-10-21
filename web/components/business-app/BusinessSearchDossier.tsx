@@ -9,11 +9,12 @@ import type { BusinessDataSource } from "./business-data";
 import ReceiptMessages from "./ReceiptMessages";
 import ReceiptRecordFacts from "./ReceiptRecordFacts";
 import ReceiptSourcePreview from "./ReceiptSourcePreview";
-import { formatDay, formatMoney, formatTimestamp } from "./business-format";
+import { formatDay, formatMoney, formatTimestamp, UNKNOWN_VALUE } from "./business-format";
 import { cardClass, useCategoryLabel } from "./business-ui";
 import { StatusPill } from "./foundation/StatusPill";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type BusinessSearchRecord =
   | { kind: "receipt"; receipt: ReceiptSummary }
@@ -22,8 +23,6 @@ export type BusinessSearchRecord =
   | { kind: "email"; email: BusinessSearchEmail }
   | { kind: "sender"; sender: BusinessSearchSender };
 
-const UNKNOWN = "—";
-
 /**
  * The record behind a search hit, beside the results. What the hit already
  * carries renders at once; the saved receipt or draft fills in when it loads.
@@ -31,21 +30,21 @@ const UNKNOWN = "—";
 export default function BusinessSearchDossier({ record, source, accounts }: { record: BusinessSearchRecord; source: BusinessDataSource; accounts: readonly BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
   const stateWord = useReceiptStateWord();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   if (record.kind === "note") return <NotePreview note={record.note} source={source} accounts={accounts} />;
   if (record.kind === "email") {
     const { email } = record;
     return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-      <h2 className="font-display text-2xl font-medium">{email.subject ?? UNKNOWN}</h2>
-      <Field label={t("business.search.email_from", "From")}>{email.sender ?? UNKNOWN}</Field>
-      <Field label={t("business.search.email_received", "Received")}>{email.received_at ? formatTimestamp(email.received_at, locale) : UNKNOWN}</Field>
+      <h2 className="font-display text-2xl font-medium">{email.subject ?? UNKNOWN_VALUE}</h2>
+      <Field label={t("business.search.email_from", "From")}>{email.sender ?? UNKNOWN_VALUE}</Field>
+      <Field label={t("business.search.email_received", "Received")}>{email.received_at ? formatTimestamp(email.received_at, locale) : UNKNOWN_VALUE}</Field>
       <Field label={t("business.search.email_state", "Status")}>{t(`business.email.state.${email.state}`, email.state)}</Field>
     </section>;
   }
   if (record.kind === "sender") {
     const { sender } = record;
     return <section aria-label={t("business.search.region", "Business records")} className="space-y-5">
-      <h2 className="font-display text-2xl font-medium break-all">{sender.value || UNKNOWN}</h2>
+      <h2 className="font-display text-2xl font-medium break-all">{sender.value || UNKNOWN_VALUE}</h2>
       <Field label={t("business.search.sender_type", "Type")}>{t(`business.search.sender_kind.${sender.kind}`, sender.kind)}</Field>
       <Field label={t("business.search.email_state", "Status")}>{t(`business.search.sender_status.${sender.status}`, sender.status)}</Field>
     </section>;
@@ -86,14 +85,14 @@ function ReceiptPreview({ receiptId, source }: { receiptId: string; source: Busi
   if (!detail) return <Settle pending layout="rows" rows={3} />;
   return <>
     <Field label={t("business.review.source", "Original receipt")}><span className="break-all">{detail.filename ?? detail.media_type}</span></Field>
-    {detail.evidence?.lines.length ? <div className={cardClass}><h3 className="mb-3 text-sm font-medium">{t("business.review.evidence", "What the receipt says")}</h3><ul className="space-y-2 text-sm">{detail.evidence.lines.map((line, index) => <li key={index} className="flex justify-between gap-3"><span>{line.description}</span><span>{formatMoney(line.amount, detail.evidence?.currency ?? null, i18n.resolvedLanguage ?? "en")}</span></li>)}</ul></div> : null}
+    {detail.evidence?.lines.length ? <div className={cardClass}><h3 className="mb-3 text-sm font-medium">{t("business.review.evidence", "What the receipt says")}</h3><ul className="space-y-2 text-sm">{detail.evidence.lines.map((line, index) => <li key={index} className="flex justify-between gap-3"><span>{line.description}</span><span>{formatMoney(line.amount, detail.evidence?.currency ?? null, i18n.resolvedLanguage ?? resolveLanguage({}))}</span></li>)}</ul></div> : null}
     <ReceiptSourcePreview detail={detail} />
   </>;
 }
 
 function NotePreview({ note, source, accounts }: { note: BusinessCapture; source: BusinessDataSource; accounts: readonly BusinessAccount[] }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [dossier, setDossier] = useState<BusinessDossier | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {

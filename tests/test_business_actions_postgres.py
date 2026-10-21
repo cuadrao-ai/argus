@@ -940,6 +940,7 @@ def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch)
             "assistant_available",
             "chat_available",
             "receipt_limits",
+            "logo_url",
         }
         assert response.json()["chat_available"] is False
         assert [a["id"] for a in response.json()["accounts"]] == [account_ids[0]]

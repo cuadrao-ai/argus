@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { cuadraoLegalLinks } from "../lib/cuadrao-legal-links";
+
 const enabled = process.env.NEXT_PUBLIC_BUSINESS_ONLY_WEB !== "false";
 
 test.describe("business-only web", () => {
@@ -31,35 +33,31 @@ test.describe("business-only web", () => {
     });
   });
 
-  test("auth callback, account security, privacy, and terms stay put", async ({
-    page,
-  }, testInfo) => {
-    for (const path of [
-      "/auth/recovery",
-      "/account/security",
-      "/privacy",
-      "/terms",
-    ]) {
+  test("auth callback and account security stay put", async ({ page }) => {
+    for (const path of ["/auth/recovery", "/account/security"]) {
       const response = await page.goto(path, { waitUntil: "commit" });
       expect(response?.request().redirectedFrom()).toBeNull();
       expect(new URL(response!.url()).pathname).toBe(path);
     }
+  });
 
-    await page.goto("/privacy");
-    await expect(
-      page.getByRole("heading", { name: "Privacy Policy" }),
-    ).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("privacy.png"),
-      fullPage: true,
-    });
-    await page.goto("/terms");
-    await expect(
-      page.getByRole("heading", { name: "Terms of Use" }),
-    ).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath("terms.png"),
-      fullPage: true,
-    });
+  test("privacy and terms stay reachable and leave for the published pages", async ({
+    page,
+  }) => {
+    const { terms, privacy } = cuadraoLegalLinks();
+    const published = [privacy, terms].map((url) => new URL(url));
+    await page.route(
+      (url) => published.some((target) => target.origin === url.origin),
+      (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>published</title>" }),
+    );
+
+    for (const [path, target] of [
+      ["/privacy", privacy],
+      ["/terms", terms],
+    ] as const) {
+      await page.goto(path);
+      await page.waitForURL(target);
+      expect(page.url(), path).toBe(new URL(target).href);
+    }
   });
 });

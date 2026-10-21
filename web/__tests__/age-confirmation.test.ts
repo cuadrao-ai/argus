@@ -4,11 +4,6 @@ import { registerGuestAccount } from "../lib/guest-api";
 import en from "../public/locales/en/common.json";
 import es from "../public/locales/es-419/common.json";
 
-const disclosure = {
-  en: "When you create your account, we save with it when you confirmed you're 18 or older. We don't store your date of birth.",
-  es: "Al crear tu cuenta, guardamos con ella cuándo confirmaste que tienes 18 años o más. No guardamos tu fecha de nacimiento.",
-} as const;
-
 test("web signup and guest signup post without an age confirmation", async () => {
   const originalFetch = globalThis.fetch;
   const calls: { path: string; body: Record<string, unknown> }[] = [];
@@ -27,11 +22,9 @@ test("web signup and guest signup post without an age confirmation", async () =>
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test("the age checkbox strings are gone and the privacy disclosure stays", () => {
+test("the age checkbox strings are gone", () => {
   expect(en.auth).not.toHaveProperty("age_confirmation");
   expect(es.auth).not.toHaveProperty("age_confirmation");
-  expect(en.legal.privacy.sections.cookies.items.preferences.body).toContain(disclosure.en);
-  expect(es.legal.privacy.sections.cookies.items.preferences.body).toContain(disclosure.es);
 });
 
 test("an age error code from the server reads as the generic auth error", async () => {

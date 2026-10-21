@@ -25,7 +25,6 @@ from argus.api.browser_cookies import COOKIE_REGISTRY, set_browser_cookie
 from starlette.responses import Response
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-LOCALES = REPO_ROOT / "web" / "public" / "locales"
 
 
 @pytest.fixture
@@ -101,12 +100,51 @@ def test_observed_cookies_are_all_registered(recorded_cookies):
     )
 
 
-@pytest.mark.parametrize("locale", ["en", "es-419"])
-def test_every_registered_cookie_has_a_disclosure_item(locale: str):
-    catalog = json.loads((LOCALES / locale / "common.json").read_text("utf-8"))
-    items = catalog["legal"]["privacy"]["sections"]["cookies"]["items"]
-    for name, item_key in COOKIE_REGISTRY.items():
-        assert item_key in items, (
-            f"{locale}: cookie {name!r} maps to disclosure item {item_key!r}, "
-            "which does not exist in the privacy copy"
-        )
+# The published privacy policy (cuadrao.ai/privacidad, source in marketing/content)
+# discloses cookies by purpose: only those needed for security and operation, never
+# analytics or advertising. Each registered cookie's concept must be one of those.
+NECESSARY_CONCEPTS = frozenset({"sign_in", "guest_handoff", "security"})
+POLICY_DIR = REPO_ROOT / "marketing" / "content"
+
+
+def _published_cookie_disclosure(policy_file: str) -> str:
+    policy = json.loads((POLICY_DIR / policy_file).read_text("utf-8"))["privacidad"]
+    texts = [block.get("text", "") for block in policy["blocks"]]
+    found = [text for text in texts if text.startswith("**Cookies:**")]
+    assert len(found) == 1, f"{policy_file}: expected one cookies paragraph"
+    return found[0]
+
+
+@pytest.mark.parametrize(
+    ("policy_file", "necessary_only", "no_tracking"),
+    [
+        (
+            "legal-es.json",
+            "solo usamos las cookies necesarias para la seguridad y el funcionamiento",
+            "No usamos cookies de analítica ni de publicidad",
+        ),
+        (
+            "legal-en.json",
+            "we use only the cookies needed for the site's security and operation",
+            "We don't use analytics or advertising cookies",
+        ),
+    ],
+)
+def test_published_policy_discloses_necessary_cookies_only(
+    policy_file: str, necessary_only: str, no_tracking: str
+):
+    text = _published_cookie_disclosure(policy_file)
+    assert necessary_only in text
+    assert no_tracking in text
+
+
+def test_every_registered_cookie_is_a_necessary_cookie_the_policy_covers():
+    outside = {
+        name: concept
+        for name, concept in COOKIE_REGISTRY.items()
+        if concept not in NECESSARY_CONCEPTS
+    }
+    assert not outside, (
+        f"cookies {outside} are not security or operation cookies, so the "
+        "published privacy policy does not cover them. Update the policy first."
+    )

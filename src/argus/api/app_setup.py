@@ -88,6 +88,9 @@ async def lifespan(app: FastAPI):
     )
 
     start_financial_accounts(app)
+    from argus.api.profile_images import start_profile_images, stop_profile_images
+
+    start_profile_images(app)
     from argus.api.ingestion import start_ingestion, stop_ingestion
 
     start_ingestion(app)
@@ -126,6 +129,7 @@ async def lifespan(app: FastAPI):
         await stop_worker(app)
         stop_ingestion(app)
         stop_bank_matching(app)
+        stop_profile_images(app)
         stop_financial_accounts(app)
         if checkpointer_cm is not None:
             await checkpointer_cm.__aexit__(None, None, None)

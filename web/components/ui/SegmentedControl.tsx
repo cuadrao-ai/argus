@@ -4,8 +4,8 @@ import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type PointerEve
 import type { LucideIcon } from "lucide-react";
 import { createSpringDriver, LEAD, TRAIL } from "./spring";
 
-/** `count` follows the label in a lighter weight: how many rows the segment holds. */
-export type Segment<K extends string> = { key: K; label: string; count?: number | null; icon?: LucideIcon };
+/** `count` follows the label in a lighter weight: how many rows the segment holds, or the screen's mark for a count it does not know ("-"), never a 0. */
+export type Segment<K extends string> = { key: K; label: string; count?: number | string | null; icon?: LucideIcon };
 
 type Edges = { l: number; r: number };
 
@@ -114,13 +114,13 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
       role="radiogroup"
       aria-label={label}
       data-testid={testId}
-      className={`relative gap-0.5 ${stacked ? "rounded-[20px]" : "rounded-full"} bg-[#EDECE6] p-1 dark:bg-white/[0.06] ${fill ? "flex w-full" : "inline-flex max-w-full overflow-x-auto [scrollbar-width:none]"}`}
+      className={`relative gap-0.5 ${stacked ? "rounded-surface" : "rounded-full"} bg-[#EDECE6] p-1 dark:bg-white/[0.06] ${fill ? "flex w-full" : "inline-flex max-w-full overflow-x-auto [scrollbar-width:none]"}`}
     >
       <span
         ref={thumb}
         aria-hidden="true"
         data-segment-thumb
-        className={`pointer-events-none absolute bottom-1 left-0 top-1 ${stacked ? "rounded-[16px]" : "rounded-full"} bg-white transition-opacity duration-150 ease-out will-change-transform dark:bg-[#2a2d31] ${value === null ? "opacity-0" : "opacity-100"}`}
+        className={`pointer-events-none absolute bottom-1 left-0 top-1 ${stacked ? "rounded-item" : "rounded-full"} bg-white transition-opacity duration-150 ease-out will-change-transform dark:bg-[#2a2d31] ${value === null ? "opacity-0" : "opacity-100"}`}
       />
       {segments.map((segment, index) => {
         const checked = segment.key === value;
@@ -139,7 +139,7 @@ export function SegmentedControl<K extends string>({ label, segments, value, onC
             onPointerCancel={settle}
             onClick={() => onChange(segment.key)}
             onKeyDown={(event) => move(event, index)}
-            className={`relative min-h-11 ${stacked ? "flex flex-col items-center justify-center gap-1 rounded-[16px] py-2 text-[12px] leading-4" : "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px]"} px-4 font-medium transition-colors duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] disabled:opacity-50 motion-reduce:transition-none ${fill ? "min-w-0 flex-auto px-2" : "shrink-0"} ${
+            className={`relative min-h-11 ${stacked ? "flex flex-col items-center justify-center gap-1 rounded-item py-2 text-[12px] leading-4" : "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-[14px]"} px-4 font-medium transition-colors duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] disabled:opacity-50 motion-reduce:transition-none ${fill ? "min-w-0 flex-auto px-2" : "shrink-0"} ${
               checked ? "text-[#172b26] dark:text-white" : "text-[#56635e] hover:text-[#172b26] dark:text-white/60 dark:hover:text-white"
             }`}
           >

@@ -365,6 +365,7 @@ def test_unchanged_account_deletion_caller_removes_every_owner_prefix():
         objects.objects[path] = ORIGINAL
     service = object.__new__(AccountDeletionService)
     service._sources = objects
+    service._profile_images = None
     service._record_step = Mock()
     service._renew = Mock()
     service._business = Mock()

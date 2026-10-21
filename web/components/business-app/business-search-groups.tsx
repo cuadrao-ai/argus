@@ -14,11 +14,8 @@ import {
 import type { BusinessDataSource } from "./business-data";
 import BusinessSearchDossier, { type BusinessSearchRecord } from "./BusinessSearchDossier";
 import { expensePanel } from "./business-expense-target";
-import { formatDay, formatMoney } from "./business-format";
+import { formatDay, formatMoney, UNKNOWN_VALUE } from "./business-format";
 import type { BusinessPanelState } from "./BusinessWorkspace";
-
-/** What a row shows for a value the record does not have. */
-export const UNKNOWN = "—";
 
 type Items = {
   expenses: BusinessExpense;
@@ -89,15 +86,15 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
     const loadMore = pager(source, query, kind, found.next_cursors[kind], toHits);
     return { id: kind, label, hits: toHits(found[kind] as Items[K][]), ...(loadMore ? { loadMore } : {}) };
   };
-  const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN;
+  const money = (amount: string | null, currency: string | null) => formatMoney(amount, currency, locale) || UNKNOWN_VALUE;
 
   const expenseHit = (kind: "expenses" | "ventas") => (expense: BusinessExpense): WorkspaceSearchHit => {
     const sale = kind === "ventas";
     return {
       id: expense.id,
       icon: sale ? HandCoins : Banknote,
-      title: expense.merchant ?? (sale ? UNKNOWN : t("business.expenses.no_merchant", "Expense")),
-      detail: line(expense.occurred_on ? formatDay(expense.occurred_on, locale) : UNKNOWN, sale && !expense.category_id ? null : categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
+      title: expense.merchant ?? (sale ? UNKNOWN_VALUE : t("business.expenses.no_merchant", "Expense")),
+      detail: line(expense.occurred_on ? formatDay(expense.occurred_on, locale) : UNKNOWN_VALUE, sale && !expense.category_id ? null : categoryLabel(expense.category_id), expense.funding === "owner_funds" ? t("business.dossier.owner_funds", "Owner's money") : expense.account_id ? nickname.get(expense.account_id) : null),
       amount: money(expense.amount, expense.currency),
       badge: sale ? t("business.search.badge_venta", "Sale") : t("business.search.badge_expense", "Expense"),
       preview: preview({ kind: "expense", expense }),
@@ -109,7 +106,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
     expenses: group("expenses", t("business.expenses.title", "Expenses"), (items) => items.map(expenseHit("expenses"))),
     ventas: group("ventas", t("business.search.ventas", "Sales"), (items) => items.map(expenseHit("ventas"))),
     receipts: group("receipts", t("business.search.receipts", "Receipts"), (items) =>
-      items.filter((receipt) => !receipt.email_original).map((receipt) => ({
+      items.map((receipt) => ({
         id: receipt.id,
         icon: receipt.media_type === "application/pdf" ? FileText : ImageIcon,
         title: receipt.merchant ?? receipt.filename ?? t("business.receipt.untitled", "Receipt"),
@@ -135,8 +132,8 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
       items.map((email) => ({
         id: email.id,
         icon: Mail,
-        title: email.subject ?? UNKNOWN,
-        detail: line(email.sender ?? UNKNOWN, email.received_at ? formatDay(email.received_at, locale) : UNKNOWN, t(`business.email.state.${email.state}`, email.state)),
+        title: email.subject ?? UNKNOWN_VALUE,
+        detail: line(email.sender ?? UNKNOWN_VALUE, email.received_at ? formatDay(email.received_at, locale) : UNKNOWN_VALUE, t(`business.email.state.${email.state}`, email.state)),
         amount: null,
         badge: t("business.search.badge_email", "Email"),
         preview: preview({ kind: "email", email }),
@@ -147,7 +144,7 @@ export function searchKindGroups(ctx: SearchGroupContext, query: string, found: 
       items.map((sender) => ({
         id: sender.id,
         icon: AtSign,
-        title: sender.value || UNKNOWN,
+        title: sender.value || UNKNOWN_VALUE,
         detail: line(t(`business.search.sender_kind.${sender.kind}`, sender.kind), t(`business.search.sender_status.${sender.status}`, sender.status)),
         amount: null,
         badge: t("business.search.badge_sender", "Sender"),

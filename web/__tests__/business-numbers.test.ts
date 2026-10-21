@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import i18next from "i18next";
 import spanish from "../public/locales/es-419/common.json";
-import { formatAmount, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, formatRelativeTime, formatShortDay } from "../components/business-app/business-format";
+import { formatAmount, formatHeadlineMoney, formatLateness, formatMoney, formatRelativeDay, formatRelativeTime, formatShortDay, UNKNOWN_VALUE } from "../components/business-app/business-format";
 
 const now = new Date(2026, 9, 20, 12, 0, 0);
 const ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
@@ -36,6 +36,15 @@ describe("headline figures", () => {
     expect(formatHeadlineMoney("58450.00", "DOP", "es-419").short).toBe("RD$ 58.5 mil");
     expect(formatHeadlineMoney("999960.00", "DOP", "es-419").short).toBe("RD$ 1 M");
     expect(formatHeadlineMoney("-58400.00", "DOP", "es-419")).toEqual({ short: "-RD$ 58.4 mil", exact: "-RD$ 58,400.00" });
+  });
+});
+
+describe("unknown values", () => {
+  test("an unknown value is a plain short dash, which a negative amount's minus sign never becomes", () => {
+    expect(UNKNOWN_VALUE).toBe("-");
+    expect(UNKNOWN_VALUE).not.toBe("\u2014");
+    expect(formatMoney(null, "DOP", "es-419")).toBe("");
+    expect(formatMoney("-12.50", "DOP", "es-419")).toBe("-RD$ 12.50");
   });
 });
 

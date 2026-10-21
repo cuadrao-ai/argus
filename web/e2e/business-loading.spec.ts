@@ -42,12 +42,10 @@ for (const width of [1280, 390]) {
     await capture("overview");
     await expect(cards).toBeVisible();
     const skeleton = page.getByTestId("business-loading");
-    for (const name of ["inbox", "expenses"]) {
-      await page.goto(`/dev/business-preview?view=${name}`);
-      await expect(skeleton).toBeVisible();
-      await capture(name);
-      await expect(skeleton).toHaveCount(0);
-    }
+    await page.goto("/dev/business-preview?view=inbox");
+    await expect(skeleton).toBeVisible();
+    await capture("inbox");
+    await expect(skeleton).toHaveCount(0);
     await page.goto("/dev/business-preview?receipt=rcpt-ferreteria");
     // Beside the record tray the list behind it keeps its own placeholder, so name the detail one.
     const detailSkeleton = skeleton.and(page.locator('[data-layout="detail"]'));
@@ -69,7 +67,6 @@ for (const width of [1280, 390]) {
 }
 
 const listScreens = [
-  { view: "expenses", query: "expenses", title: "Gastos", rows: "[data-expense-id]", oneLineWidths: [1440, 390] },
   { view: "access", query: "business&tab=equipo", title: "Negocio", rows: '[data-testid="business-access-grants"] > li', oneLineWidths: [1440, 390] },
 ];
 
@@ -113,4 +110,26 @@ for (const width of [1440, 390]) {
       }
     });
   }
+}
+
+for (const width of [1440, 390]) {
+  test(`Transacciones loads its saved records on the one canvas at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+    await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
+    await page.goto("/dev/business-preview?view=transactions");
+    await expect(page.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
+    await expect(page.locator("[data-record-id]").first()).toBeVisible();
+    await expect(page.getByTestId("transacciones-loading")).toHaveCount(0);
+    await expect(page.locator(".animate-spin")).toHaveCount(0);
+    await expect(page.getByTestId("business-primary-upload").first()).toHaveAttribute("data-primary", "true");
+    if (width >= 1024) {
+      // An empty cell is a question: a record with no receipt or no read says "-" in Comprobante.
+      const cells = await page.locator('td[data-col="comprobante"]').evaluateAll((nodes) => nodes.map((node) => ({ icon: node.querySelector('[data-testid="record-proof"]') !== null, text: node.textContent?.trim() ?? "" })));
+      expect(cells.length).toBeGreaterThan(0);
+      for (const cell of cells) expect(cell.icon || cell.text.startsWith("-")).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (evidence) await page.screenshot({ path: `${evidence}/transactions-${width}-loaded.png`, fullPage: true });
+  });
 }

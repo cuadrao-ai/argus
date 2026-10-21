@@ -9,6 +9,7 @@ import { SURFACE_CARD } from "./foundation/surfaces";
 import { quietButtonClass, useCategoryLabel } from "./business-ui";
 import { presentBusinessFact, presentFiscalFact } from "./receipt-fact-presentation";
 import FiscalRevision from "./FiscalRevision";
+import { resolveLanguage } from "@/lib/language-features";
 
 /** One thing that happened to the record, as the rail shows it. Only an approval changes the status, so only it gets a status dot. */
 type HistoryEvent = { id: string; at: string; line: string | null; who: string | null; approved?: boolean; testId?: string; detail?: ReactNode };
@@ -39,7 +40,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
   approval?: BusinessDossier["approval_result"];
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const categoryLabel = useCategoryLabel();
   const [open, setOpen] = useState(false);
   const titleId = useId();
@@ -137,7 +138,7 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       <h3 id={titleId} className="font-display text-[18px] font-medium leading-6 text-[#172b26] dark:text-white">{t("business.history.title", "History")}</h3>
       <ol ref={list} className="mt-4">
         {shown.map((event, index) => (
-          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
+          <li key={event.id} tabIndex={-1} data-testid={event.testId ?? "history-event"} data-approved={event.approved ? "true" : undefined} className="relative rounded-item pb-4 pl-6 last:pb-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49]">
             {index < shown.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-[5px] top-3 w-px bg-[#DCE0DA] dark:bg-white/15" /> : null}
             <span aria-hidden="true" data-testid="history-dot" className="absolute left-0 top-[5px] h-3 w-3 rounded-full" style={{ backgroundColor: event.approved ? BUSINESS_STATUS.approved.ink : MUTED_TEXT }} />
             <p className="break-words text-[15px] leading-[22px] text-[#172b26] dark:text-white">{event.line}</p>

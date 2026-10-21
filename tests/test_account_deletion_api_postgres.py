@@ -22,12 +22,15 @@ from argus.api.auth_sessions import auth_session_is_active
 from argus.api.main import app
 from argus.api.routers import account as account_route
 from argus.api.schemas import User
+from argus.domain.profile_images import business, person
 from argus.observability.posthog_deletion import EventDeletionResult
 from fastapi.testclient import TestClient
 
 from tests.document_sources_support import LOCAL_STORAGE, source_objects, stored_paths
 from tests.household.financial_fixtures import DSN, NOW
-from tests.household.financial_fixtures import lane as lane  # noqa: F401 - fixture
+from tests.household.financial_fixtures import lane as lane  # - fixture
+from tests.profile_images.pictures import png
+from tests.profile_images_support import photo_paths, profile_images
 from tests.test_account_deletion_fk_census_postgres import (
     _invite_code_secret,  # noqa: F401 - autouse fixture (#794 invite codes)
 )
@@ -67,13 +70,13 @@ def _session(user_id: str) -> str:
 
 
 @pytest.fixture
-def route(world, monkeypatch):  # noqa: ANN001, ANN201, F811
+def route(world, monkeypatch):  # noqa: F811
     """The API wired to the disposable database, with GoTrue's /user stood in
     by a mock that refuses what GoTrue refuses: a banned account (the run and
     every placeholder are banned) or a token with no subject."""
     placeholders: set[str] = set()
 
-    def gotrue_user(raw):  # noqa: ANN001, ANN202
+    def gotrue_user(raw):
         sub = jwt.decode(raw, options={"verify_signature": False}).get("sub")
         if not sub or sub in BANNED or sub in placeholders:
             raise RuntimeError("User is banned or token invalid")
@@ -106,7 +109,7 @@ def route(world, monkeypatch):  # noqa: ANN001, ANN201, F811
             c.execute("delete from auth.sessions where id = any(%s::uuid[])", (sessions,))
 
 
-def _lock(lane, world, route):  # noqa: ANN001, ANN202, F811
+def _lock(lane, world, route):  # noqa: F811
     """A's first pass: the run opens, the account locks, the data moves, and
     the Admin API delete fails. Returns A's live session."""
     a = world["a"]
@@ -131,7 +134,7 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_a_locked_person_retries_and_the_run_finishes(lane, world, route):  # noqa: ANN001, F811
+def test_a_locked_person_retries_and_the_run_finishes(lane, world, route):  # noqa: F811
     a = world["a"]
     session = _lock(lane, world, route)
     token = _token(a, session)
@@ -158,7 +161,7 @@ def test_a_locked_person_retries_and_the_run_finishes(lane, world, route):  # no
         ).fetchone()
 
 
-def _refused(route, token: str) -> None:  # noqa: ANN001
+def _refused(route, token: str) -> None:
     with patch.object(
         account_route,
         "account_deletion_service",
@@ -170,7 +173,7 @@ def _refused(route, token: str) -> None:  # noqa: ANN001
     assert response.status_code == 401, response.text
 
 
-def _still_locked_then_finish(lane, world) -> None:  # noqa: ANN001, F811
+def _still_locked_then_finish(lane, world) -> None:  # noqa: F811
     """Nothing moved for the refused token; the run then finishes as usual."""
     with psycopg.connect(DSN) as c:
         assert c.execute(
@@ -185,7 +188,7 @@ def _still_locked_then_finish(lane, world) -> None:  # noqa: ANN001, F811
         world["placeholders"] += admin.created
 
 
-def test_a_placeholder_never_gets_in(lane, world, route):  # noqa: ANN001, F811
+def test_a_placeholder_never_gets_in(lane, world, route):  # noqa: F811
     """A placeholder with a live session, and even a run row in its name,
     is refused: the lock door is closed to placeholders."""
     placeholder = str(uuid.uuid4())
@@ -223,7 +226,7 @@ def test_a_placeholder_never_gets_in(lane, world, route):  # noqa: ANN001, F811
             )
 
 
-def test_someone_elses_session_never_unlocks_a_locked_person(lane, world, route):  # noqa: ANN001, F811
+def test_someone_elses_session_never_unlocks_a_locked_person(lane, world, route):  # noqa: F811
     """A's run is in flight; a token for A that names B's live session is
     refused, so the lock door needs the person's own session."""
     _lock(lane, world, route)
@@ -234,7 +237,7 @@ def test_someone_elses_session_never_unlocks_a_locked_person(lane, world, route)
 
 
 @pytest.mark.parametrize("shape", ["no_sub", "no_exp"])
-def test_a_token_missing_its_subject_or_expiry_is_refused(lane, world, route, shape):  # noqa: ANN001, F811
+def test_a_token_missing_its_subject_or_expiry_is_refused(lane, world, route, shape):  # noqa: F811
     """No subject: nothing names the person. No expiry: the token would never
     lapse. Both are refused, with A's own live session in the token."""
     session = _lock(lane, world, route)
@@ -246,7 +249,7 @@ def test_a_token_missing_its_subject_or_expiry_is_refused(lane, world, route, sh
     _still_locked_then_finish(lane, world)
 
 
-def test_a_session_past_its_not_after_never_unlocks(lane, world, route):  # noqa: ANN001, F811
+def test_a_session_past_its_not_after_never_unlocks(lane, world, route):  # noqa: F811
     """Note 6: GoTrue's time-boxed session ends at not_after. The lock door
     is verified locally, so it must refuse an ended session itself."""
     from argus.api.auth_sessions import deletion_in_flight
@@ -272,17 +275,31 @@ def test_a_session_past_its_not_after_never_unlocks(lane, world, route):  # noqa
 
 @pytest.mark.skipif(not LOCAL_STORAGE, reason="Local Supabase Storage required")
 def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
 ) -> None:
     """#778 at the route: Storage down is a pending third party (202, locked);
-    the retry answers 200 with the person's folder gone and B's file kept."""
+    the retry answers 200 with the person's folder gone and B's file kept.
+    The profile photo is one more object the same step erases."""
     a, b = world["a"], world["b"]
     objects = source_objects()
     mine, theirs = f"{a}/{uuid.uuid4()}/{'a' * 64}", f"{b}/{uuid.uuid4()}/{'b' * 64}"
     for path in (mine, theirs):
         objects.put(path, b"%PDF-fixture", "application/pdf")
+    photos = profile_images()
+    with psycopg.connect(DSN) as c:
+        spaces = {
+            who: c.execute(
+                "insert into public.spaces (kind, name, created_by) values ('business', %s, %s)"
+                " returning id::text",
+                (f"Colmado {who[:4]}", who),
+            ).fetchone()[0]
+            for who in (a, b)
+        }
+    for who in (a, b):
+        photos.replace(person(who), png(), "image/png")
+        photos.replace(business(spaces[who]), png(), "image/png")
     session = _session(a)
     route["sessions"].append(session)
     token = _token(a, session)
@@ -309,7 +326,9 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
             with patch.object(
                 account_route,
                 "account_deletion_service",
-                return_value=_service(lane, admin, source_objects=objects),
+                return_value=_service(
+                    lane, admin, source_objects=objects, profile_images=photos
+                ),
             ):
                 second = route["client"].post(
                     URL, json={"confirm": True}, headers=_bearer(token)
@@ -321,12 +340,22 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
         with psycopg.connect(DSN) as c:
             assert stored_paths(c, f"{a}/") == []
             assert stored_paths(c, f"{b}/") == [theirs]
+            assert photo_paths(c, f"people/{a}/") == []
+            assert photo_paths(c, f"people/{b}/") == [person(b).path]
+            assert photo_paths(c, f"business/{spaces[a]}/") == []
+            assert photo_paths(c, f"business/{spaces[b]}/") == [business(spaces[b]).path]
+            assert c.execute(
+                "select count(*) from public.profile_photos where user_id = %s", (a,)
+            ).fetchone() == (0,)
     finally:
         objects.delete(f"{a}/")
         objects.delete(f"{b}/")
+        for who in (a, b):
+            photos.remove(person(who))
+            photos.remove(business(spaces[who]))
 
 
-def _deployed(monkeypatch, *, posthog_token: str | None) -> None:  # noqa: ANN001
+def _deployed(monkeypatch, *, posthog_token: str | None) -> None:
     """A hosted deployment: not a local or test environment, no PostHog
     deletion adapter, and the server's event token set or not."""
     for name in ("ARGUS_ENV", "ARGUS_APP_ENV", "ENVIRONMENT"):
@@ -339,13 +368,13 @@ def _deployed(monkeypatch, *, posthog_token: str | None) -> None:  # noqa: ANN00
         monkeypatch.setenv("POSTHOG_PROJECT_TOKEN", posthog_token)
 
 
-def _delete_as_deployed(  # noqa: ANN202
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
+def _delete_as_deployed(
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
     *,
-    analytics=None,  # noqa: ANN001
-    admin=None,  # noqa: ANN001
+    analytics=None,
+    admin=None,
 ) -> tuple:
     """One POST through the route with the analytics step chosen from the
     environment the way the runtime chooses it (or the adapter given);
@@ -391,10 +420,10 @@ def _delete_as_deployed(  # noqa: ANN202
 
 
 def test_without_posthog_events_the_analytics_step_is_not_applicable(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
 ) -> None:
     """Decision 1B: a deployment that sends no PostHog events has nothing at
     PostHog to delete. The step records not_applicable with its reason, never
@@ -413,10 +442,10 @@ def test_without_posthog_events_the_analytics_step_is_not_applicable(
 
 
 def test_with_posthog_events_and_no_adapter_the_analytics_step_stays_pending(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
 ) -> None:
     """Unchanged where the server sends events: nothing was deleted at
     PostHog, so the step stays pending and the account stays locked."""
@@ -432,7 +461,7 @@ def test_with_posthog_events_and_no_adapter_the_analytics_step_stays_pending(
 
 
 @contextmanager
-def _operator_pass(lane, world):  # noqa: ANN001, ANN202, F811
+def _operator_pass(lane, world):  # noqa: F811
     """A sweep or force run from an operator's environment eight days on,
     with the analytics step chosen from that environment."""
     from argus.observability.analytics_deletion import (
@@ -470,10 +499,10 @@ def _auth_user_exists(user_id: str) -> bool:
 
 
 def test_a_sweep_without_the_token_never_finishes_a_pending_analytics_step(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
 ) -> None:
     """The API, which sends events, left the step pending. A sweep from an
     environment without the token must not decide there were none."""
@@ -498,10 +527,10 @@ class _AuthDownOnLock(SqlAuthAdmin):
 
 
 def test_a_sweep_without_the_token_never_decides_a_step_the_api_never_reached(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
 ) -> None:
     """The API, which sends events, opened the run and stopped before the
     analytics step. The sweep's own environment still never decides."""
@@ -521,10 +550,10 @@ def test_a_sweep_without_the_token_never_decides_a_step_the_api_never_reached(
 
 @pytest.mark.parametrize("configured_adapter", [False, True])
 def test_forcing_the_analytics_step_without_the_token_keeps_it_pending(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
     configured_adapter: bool,
 ) -> None:
     _deployed(monkeypatch, posthog_token="ph_project_token")
@@ -562,7 +591,7 @@ def test_forcing_the_analytics_step_without_the_token_keeps_it_pending(
 class _SubmittedAtPostHog:
     """The deletion adapter after PostHog accepted the request."""
 
-    def advance(self, distinct_id, submission_id, request_id):  # noqa: ANN001, ANN201
+    def advance(self, distinct_id, submission_id, request_id):
         return EventDeletionResult(
             outcome="pending",
             request_id="posthog-request-1",
@@ -572,10 +601,10 @@ class _SubmittedAtPostHog:
 
 
 def test_a_later_pass_without_the_adapter_keeps_the_submitted_request(
-    lane,  # noqa: ANN001, F811
-    world,  # noqa: ANN001, F811
-    route,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+    monkeypatch,
 ) -> None:
     _deployed(monkeypatch, posthog_token=None)
     response, steps = _delete_as_deployed(
@@ -630,7 +659,7 @@ def test_sweep_with_adapter_records_origin_and_bounded_attempts(
     world,  # noqa: F811
     route,
     monkeypatch,
-    outcome,  # noqa: F811
+    outcome,
 ):
     _deployed(monkeypatch, posthog_token="synthetic-event-token")
     response, _ = _delete_as_deployed(lane, world, route)

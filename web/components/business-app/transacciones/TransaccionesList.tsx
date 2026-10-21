@@ -3,7 +3,7 @@
 import { MoreVertical } from "lucide-react";
 import ActionMenu from "../ActionMenu";
 import { formatRelativeDay, todayIso } from "../business-format";
-import { headerCurrency, segmentSections, type Movement, type Segment } from "./transacciones-model";
+import { headerCurrency, segmentSections, type IgualarView } from "./transacciones-model";
 import { SignedAmount, StateIcon } from "./transacciones-parts";
 import { useRowCommands } from "./transacciones-commands";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -14,23 +14,22 @@ import { movementName, type TransaccionesController } from "./useTransacciones";
  * density. The state icon and the name, then the date and the reason; at the
  * right the amount and the state word; then a 44px kebab.
  */
-export function TransaccionesList({ controller, movements, segment, rowRef }: {
+export function TransaccionesList({ controller, view, rowRef }: {
   controller: TransaccionesController;
-  movements: readonly Movement[];
-  segment: Segment;
+  view: IgualarView;
   rowRef: (id: string, node: HTMLElement | null) => void;
 }) {
   const { t, locale, stateWord, detail } = useTransaccionesWords();
   const commandsOf = useRowCommands(controller);
-  const header = headerCurrency(movements);
+  const header = headerCurrency(view.movements, view.accountCurrency);
   const today = todayIso();
   return (
-    <div data-testid="transacciones-list" className="overflow-hidden rounded-[20px] border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
-      {segmentSections(movements, segment).map((section) => (
+    <div data-testid="transacciones-list" className="overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
+      {segmentSections(view).map((section) => (
         <section key={section.group ?? "all"} aria-label={section.group ? t(`business.transactions.groups.${section.group}`) : undefined}>
           {section.group ? (
             <h3 className="border-b border-[#DCE0DA] bg-[#F7F5EE] px-4 py-2 text-[13px] font-medium text-[#56635e] dark:border-white/10 dark:bg-[#191c1f] dark:text-white/65">
-              {t(`business.transactions.groups.${section.group}`)}<span className="ml-2 font-normal tabular-nums">{section.rows.length}</span>
+              {t(`business.transactions.groups.${section.group}`)}{section.count !== null ? <span className="ml-2 font-normal tabular-nums">{section.count}</span> : null}
             </h3>
           ) : null}
           <ul>
@@ -40,7 +39,7 @@ export function TransaccionesList({ controller, movements, segment, rowRef }: {
               const selected = controller.tray?.movementId === movement.id;
               return (
                 <li key={movement.id} data-movement-id={movement.id} data-state={movement.match.state} aria-current={selected ? "true" : undefined} className="flex min-h-16 items-center border-b border-[#DCE0DA] last:border-b-0 aria-[current=true]:bg-[#eef3ec] dark:border-white/10 dark:aria-[current=true]:bg-[#24302b]">
-                  <button ref={(node) => rowRef(movement.id, node)} type="button" onClick={() => controller.open(movement.id)} className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-4 pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]">
+                  <button ref={(node) => rowRef(movement.id, node)} type="button" onClick={() => controller.open(movement.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-item py-2.5 pl-4 pr-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]">
                     <StateIcon state={movement.match.state} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-medium text-[#172b26] dark:text-white">{name}</span>

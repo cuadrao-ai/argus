@@ -18,6 +18,8 @@ const ENV_NAMES = [
 ] as const;
 const TERMS = "https://cuadrao.example/terminos";
 const PRIVACY = "https://cuadrao.example/privacidad";
+const PUBLISHED_TERMS = "https://cuadrao.ai/terminos";
+const PUBLISHED_PRIVACY = "https://cuadrao.ai/privacidad";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
@@ -81,25 +83,26 @@ const SURFACES = [
 
 describe("the signed-out front door legal links", () => {
   for (const [name, query] of SURFACES) {
-    test(`${name}: no /terms or /privacy link and no acceptance sentence while the Cuadrao URLs are unpublished`, async () => {
+    test(`${name}: no /terms or /privacy link, only the Cuadrao pages`, async () => {
       const page = await mountFrontDoor(query);
       assert.ok(page.host.querySelector("[data-auth-brand]"), "the front door rendered");
       assert.equal(page.host.querySelector('a[href="/terms"], a[href="/privacy"]'), null);
-      assert.ok(!page.host.textContent!.includes("aceptas nuestros"));
-      await page.act(async () => page.root.unmount());
-    });
-
-    test(`${name}: one published URL renders no acceptance sentence`, async () => {
-      process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = PRIVACY;
-      const page = await mountFrontDoor(query);
-      assert.ok(page.host.querySelector("[data-auth-brand]"), "the front door rendered");
-      assert.equal(page.host.querySelector('a[href^="https://cuadrao.example"]'), null);
-      assert.ok(!page.host.textContent!.includes("aceptas nuestros"));
+      for (const link of page.host.querySelectorAll("a[href^='http']")) {
+        assert.ok([PUBLISHED_TERMS, PUBLISHED_PRIVACY].includes(link.getAttribute("href")!), link.getAttribute("href")!);
+      }
       await page.act(async () => page.root.unmount());
     });
   }
 
-  test("intro: both URLs published render the base sentence linking to them", async () => {
+  test("intro: with nothing set, the sentence links the published pages", async () => {
+    const page = await mountFrontDoor("");
+    const links = [...page.host.querySelectorAll("a")];
+    assert.deepEqual(links.map((link) => link.getAttribute("href")), [PUBLISHED_TERMS, PUBLISHED_PRIVACY]);
+    assert.match(links[0]!.parentElement!.textContent!, /^Al registrarte, aceptas nuestros .+ y .+\.$/);
+    await page.act(async () => page.root.unmount());
+  });
+
+  test("intro: set URLs replace the published ones", async () => {
     process.env.NEXT_PUBLIC_CUADRAO_TERMS_URL = TERMS;
     process.env.NEXT_PUBLIC_CUADRAO_PRIVACY_URL = PRIVACY;
     const page = await mountFrontDoor("");

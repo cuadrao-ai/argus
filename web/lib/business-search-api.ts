@@ -66,15 +66,6 @@ export function isMissingEndpoint(error: unknown): boolean {
   return status === 404 || status === 405 || status === 501;
 }
 
-/**
- * An amount typed with thousands separators and no decimals ("3,450", "RD$ 3,450")
- * is ambiguous to the backend, which reads the digits ("3450"). Anything else goes as typed.
- */
-export function normalizeSearchQuery(query: string): string {
-  const text = query.trim();
-  return /^(?:(?:RD|US)?\$\s*)?\d{1,3}(?:,\d{3})+$/i.test(text) ? text.replaceAll(",", "") : text;
-}
-
 function list<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
@@ -107,13 +98,13 @@ const PAGE = 5;
 
 /** Page 1 of every list. */
 export async function searchBusiness(q: string, limit = PAGE): Promise<BusinessSearchResult> {
-  const query = new URLSearchParams({ q: normalizeSearchQuery(q), limit: String(limit) });
+  const query = new URLSearchParams({ q, limit: String(limit) });
   return parseBusinessSearch(await apiFetch<unknown>(`/business/search?${query}`));
 }
 
 /** The next page of one list; the other lists come back empty. */
 export async function searchBusinessMore(q: string, kind: BusinessSearchKind, cursor: string, limit = PAGE): Promise<BusinessSearchResult> {
-  const query = new URLSearchParams({ q: normalizeSearchQuery(q), limit: String(limit), kind, cursor });
+  const query = new URLSearchParams({ q, limit: String(limit), kind, cursor });
   return parseBusinessSearch(await apiFetch<unknown>(`/business/search?${query}`));
 }
 

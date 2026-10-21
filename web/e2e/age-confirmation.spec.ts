@@ -1,7 +1,5 @@
 import { expect, test, type Route } from "@playwright/test";
 
-const disclosure = "When you create your account, we save with it when you confirmed you're 18 or older. We don't store your date of birth.";
-
 function cors(route: Route) {
   return {
     "Access-Control-Allow-Origin": route.request().headers().origin ?? "*",
@@ -31,9 +29,4 @@ test("signup has no age checkbox and posts without an age confirmation", async (
   await expect.poll(() => signupBodies.length).toBe(1);
   expect(signupBodies[0]).not.toHaveProperty("age_confirmed_at");
   await expect(page.getByTestId("auth-check-email")).toBeVisible();
-});
-
-test("privacy keeps the age confirmation disclosure", async ({ page }) => {
-  await page.goto("/privacy");
-  await expect(page.getByText(disclosure)).toBeVisible();
 });

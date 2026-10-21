@@ -163,37 +163,40 @@ describe("a record in the desktop tray", () => {
     assert.ok(page.tray(), "the tray is still open");
   });
 
-  test("an expense opens beside Gastos, and the close control returns to Gastos with focus on its row", async () => {
+  test("an expense opens beside Transacciones, and the close control returns to Transacciones with focus on its row", async () => {
     const page = await mount();
-    await page.open({ kind: "expenses" });
-    await page.settle(() => page.row("Estación Ruta 3") !== null, "the Gastos rows");
-    await openRow(page, "Estación Ruta 3");
-    assert.ok(page.host.querySelector('[data-expense-id="exp-gas"]'), "the Gastos list is still on the page");
-    assert.equal(page.row("Estación Ruta 3")?.getAttribute("aria-current"), "true");
-    assert.equal([...page.tray()!.querySelectorAll("button")].find((button) => button.textContent === "Gastos"), undefined, "no way back inside the tray");
+    await page.open({ kind: "transactions" });
+    const saved = (text: string) => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(text)) ?? null;
+    await page.settle(() => saved("Estación Ruta 3") !== null, "the saved records");
+    await page.click(saved("Estación Ruta 3"));
+    await page.settle(() => page.recordTitle() === "Estación Ruta 3", "Estación Ruta 3 in the tray");
+    assert.ok(page.host.querySelector('[data-record-id="exp-gas"]'), "the list is still on the page");
+    assert.equal(saved("Estación Ruta 3")?.getAttribute("aria-selected"), "true");
+    assert.equal([...page.tray()!.querySelectorAll("button")].find((button) => button.textContent === "Transacciones"), undefined, "no way back inside the tray");
     await page.click(page.tray()!.querySelector<HTMLElement>('button[aria-label="Cerrar"]'));
     await page.settle(() => page.tray() === null, "the tray to close");
-    assert.deepEqual(page.panel(), { kind: "expenses" });
-    assert.equal(document.activeElement, page.row("Estación Ruta 3")?.querySelector("button"));
+    assert.deepEqual(page.panel(), { kind: "transactions" });
+    assert.equal(document.activeElement, saved("Estación Ruta 3"));
   });
 
-  test("a receipt opened from Gastos sits beside Gastos, and the sidebar marks Gastos", async () => {
+  test("a receipt opened from Transacciones sits beside it, and the sidebar marks Transacciones", async () => {
     const page = await mount();
-    await page.open({ kind: "expenses" });
-    await page.settle(() => page.row("Nube Hosting") !== null, "the Gastos rows");
-    await page.click(page.row("Nube Hosting")?.querySelector("button"));
+    await page.open({ kind: "transactions" });
+    const saved = (text: string) => [...page.host.querySelectorAll<HTMLElement>("[data-record-id]")].find((item) => item.textContent?.includes(text)) ?? null;
+    await page.settle(() => saved("Nube Hosting") !== null, "the saved records");
+    await page.click(saved("Nube Hosting"));
     await page.settle(() => page.tray()?.querySelector('[data-testid="business-record-review"]') != null, "the receipt in the tray");
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "expenses" });
-    assert.ok(page.host.querySelector('[data-expense-id="exp-hosting"]'), "the Gastos list is still on the page");
-    assert.equal(page.row("Nube Hosting")?.getAttribute("aria-current"), "true");
-    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Gastos"), true);
+    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
+    assert.ok(page.host.querySelector('[data-record-id="exp-hosting"]'), "the list is still on the page");
+    assert.equal(saved("Nube Hosting")?.getAttribute("aria-selected"), "true");
+    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Transacciones"), true);
   });
 
-  test("a link to a recorded receipt opens it beside Gastos once it has loaded", async () => {
+  test("a link to a recorded receipt opens it beside Transacciones once it has loaded", async () => {
     const page = await mount();
     await page.open({ kind: "receipt", receiptId: "rcpt-confirmed" });
-    await page.settle(() => page.host.querySelector('[data-expense-id="exp-hosting"]') !== null, "the Gastos list beside the receipt");
-    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "expenses" });
+    await page.settle(() => page.host.querySelector('[data-record-id="exp-hosting"]') !== null, "the list beside the receipt");
+    assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
     assert.ok(page.tray());
   });
 });

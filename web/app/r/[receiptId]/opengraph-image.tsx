@@ -25,7 +25,7 @@ export const revalidate = 0;
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "Tested with Argus";
+export const alt = "Tested with Cuadrao";
 
 // The whole of what may appear on the card. Adding to this list is a deliberate
 // change to what Argus publishes, and it is asserted by test.

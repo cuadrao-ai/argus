@@ -53,7 +53,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(fact(page, "funding")).toHaveAttribute("data-standing", "empty");
       await expect(fact(page, "funding")).toContainText("Necesita una decisión antes de aprobar");
       await expect(fact(page, "currency")).toHaveAttribute("data-standing", "default");
-      await expect(page.getByTestId("receipt-review-questions")).toContainText("How was this paid?");
+      await expect(page.getByTestId("receipt-review-questions")).toContainText("¿Cómo se pagó?");
       await capture(page, `unknown-funding-${viewport.width}`);
       const approve = approveButton(page);
       await expect(approve).toBeDisabled();
@@ -261,9 +261,9 @@ test.describe("Server authority and uncertain outcomes", () => {
       await expect(saveButton(page)).toBeDisabled();
       await expect(approveButton(page)).toBeDisabled();
       await expect(recordArea(page).getByRole("alert")).toContainText("Tus cambios se conservan");
-      await expect(page.getByTestId("receipt-current-facts").last()).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Other human correction");
+      await expect(page.getByTestId("receipt-current-facts").last()).toContainText(scenario === "saveUnknown" ? "My retained correction" : "Corrección de otra persona");
       const history = await openHistory(page);
-      await expect(history).toContainText(`Comercio o persona cambiado de Ferretería La Esquina a ${scenario === "saveUnknown" ? "My retained correction" : "Other human correction"}`);
+      await expect(history).toContainText(`Comercio o persona cambiado de Ferretería La Esquina a ${scenario === "saveUnknown" ? "My retained correction" : "Corrección de otra persona"}`);
       if (scenario === "saveConcurrent") await expect(history).toContainText("Elena Reyes");
       await page.getByRole("button", { name: "Consultar registro actual", exact: true }).click();
       await expect(merchant).toHaveValue("My retained correction");
@@ -336,7 +336,7 @@ for (const scenario of ["stale", "denied", "outcomeUnknown"] as const) {
   });
 }
 
-test("landing on a record, then opening Bandeja, Gastos and Inicio, each loads from the Business-scoped source", async ({ page }) => {
+test("landing on a record, then opening Bandeja, Transacciones and Inicio, each loads from the Business-scoped source", async ({ page }) => {
   // The workspace derives its data source from the latch and the panel kind: the
   // first fetch after leaving the record is already scoped, so every panel loads.
   await openRecord(page, dossierFixtureIds.ready);
@@ -346,9 +346,9 @@ test("landing on a record, then opening Bandeja, Gastos and Inicio, each loads f
   await expect(panel.getByRole("heading", { name: "Bandeja", exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
-  await nav.getByRole("button", { name: /^Gastos/ }).click();
-  await expect(panel.getByRole("heading", { name: "Gastos", exact: true })).toBeVisible();
-  await expect(panel.getByRole("listitem").filter({ hasText: "Nube Hosting" })).toBeVisible();
+  await nav.getByRole("button", { name: /^Transacciones/ }).click();
+  await expect(panel.getByRole("heading", { name: "Transacciones", exact: true })).toBeVisible();
+  await expect(panel.locator("[data-record-id]").filter({ hasText: "Nube Hosting" })).toBeVisible();
   await expect(panel).not.toContainText("No pudimos cargar");
   await nav.getByRole("button", { name: /^Inicio/ }).click();
   // The home is scoped to the Business from the first fetch: its checklist carries real counts.
@@ -374,7 +374,7 @@ test("after approving from the inbox, the home checklist and the inbox count cha
   expect(badge).toBeGreaterThan(0);
   await inbox.click();
   await panel.getByRole("button", { name: /Ferretería La Esquina.*Listo para revisar/ }).first().click();
-  await page.getByLabel(/Pagado desde/).selectOption({ label: "Operating account · DOP" });
+  await page.getByLabel(/Pagado desde/).selectOption({ label: "Cuenta corriente · DOP" });
   await saveButton(page).click();
   await approveButton(page).click();
   await confirmRncWarning(page);
@@ -383,6 +383,6 @@ test("after approving from the inbox, the home checklist and the inbox count cha
   await nav.getByRole("button", { name: /^Inicio/ }).click();
   await expect(panel.getByTestId("month-close-task-review")).toContainText(`Revisa ${before - 1} recibo`);
   await expect(inbox).toHaveAccessibleName(`Bandeja ${badge - 1}`);
-  await nav.getByRole("button", { name: /^Gastos/ }).click();
-  await expect(panel.getByRole("listitem").filter({ hasText: "Ferretería La Esquina" })).toBeVisible();
+  await nav.getByRole("button", { name: /^Transacciones/ }).click();
+  await expect(panel.locator("[data-record-id]").filter({ hasText: "Ferretería La Esquina" })).toBeVisible();
 });

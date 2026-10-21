@@ -46,7 +46,7 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await expect(page.getByRole("button", { name: "Cerrar búsqueda", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   const command = await page.evaluate(() => /Mac/.test(navigator.userAgent));
-  for (const [index, view] of ["overview", "inbox", "expenses"].entries()) {
+  for (const [index, view] of ["overview", "inbox", "transactions"].entries()) {
     await chord(page, `${command ? "Alt" : "Shift"}+Digit${index + 1}`);
     await expect(page.getByTestId("business-sidebar-nav").getByRole("button").nth(index)).toHaveAttribute("aria-current", "page");
     if (view !== "overview") await expect(page).toHaveURL(new RegExp(`view=${view}`));
@@ -57,11 +57,11 @@ test("desktop navigation, searchable platform sheet, strict input and overlay bl
   await chord(page, "Shift+Semicolon");
   await expect(page.getByRole("button", { name: "Perfil", exact: true })).toBeVisible();
   await chord(page, command ? "Alt+Digit1" : "Shift+Digit1");
-  await expect(page).toHaveURL(/view=expenses/);
+  await expect(page).toHaveURL(/view=transactions/);
   await page.keyboard.press("Escape");
   await chord(page, "Shift+Backslash");
-  await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Gastos", exact: true }).focus();
-  await expect(page.getByRole("tooltip", { name: /^Gastos ·/ })).toBeVisible();
+  await page.getByTestId("business-sidebar-nav").getByRole("button", { name: "Transacciones", exact: true }).focus();
+  await expect(page.getByRole("tooltip", { name: /^Transacciones ·/ })).toBeVisible();
   await screenshot(page, "after-collapsed-focus-1280");
   await page.keyboard.press("?");
   await expect(sheet).toHaveCount(0);

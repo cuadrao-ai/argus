@@ -222,7 +222,7 @@ export function BottomSheetSurface({
         aria-describedby={description ? descriptionId : undefined}
         data-snap={snap}
         style={height === null ? { maxHeight: `${Math.round(viewport * FIT_MAX_SHARE)}px` } : { height: `${height}px` }}
-        className={`argus-sheet relative flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-[20px] border-t border-black/[0.06] bg-white dark:border-white/10 dark:bg-[#1f2225] ${dragging ? "" : "transition-[height] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.08)] motion-reduce:transition-none"} ${hasBelow ? "" : "argus-sheet-enter"}`}
+        className={`argus-sheet relative flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-surface border-t border-black/[0.06] bg-white dark:border-white/10 dark:bg-[#1f2225] ${dragging ? "" : "transition-[height] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.08)] motion-reduce:transition-none"} ${hasBelow ? "" : "argus-sheet-enter"}`}
       >
         <div
           onPointerDown={handleDragStart}

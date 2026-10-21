@@ -233,7 +233,7 @@ describe("the receipt page's marks card", () => {
   });
 
   test("the accountant with prepare marks Personal too, and sees Sí and No, 44px each, only for a personal receipt with a fiscal number", async () => {
-    const page = await mountCard(dossier({}, true, true, null), "accountant");
+    const page = await mountCard(dossier({ fiscal_inclusion_available: true }, true, true, null), "accountant");
     assert.equal(page.toggle().getAttribute("aria-checked"), "true", "the accountant holds the Personal switch too");
     assert.ok(!page.host.textContent?.includes("Solo el dueño"));
     assert.ok(page.host.textContent?.includes("¿Incluir en 606?"));
@@ -253,6 +253,16 @@ describe("the receipt page's marks card", () => {
     const notPersonal = await mountCard(dossier({}, false, true, null), "accountant");
     assert.equal(notPersonal.host.querySelector('[data-testid="receipt-606"]'), null);
     await notPersonal.act(async () => notPersonal.root.unmount());
+  });
+
+  test("the 606 question shows only when the server says the caller may answer it, whatever the role reads like", async () => {
+    const refused = await mountCard(dossier({ fiscal_inclusion_available: false }, true, true, null), "accountant");
+    assert.equal(refused.host.querySelector('[data-testid="receipt-606-yes"]'), null, "a prepare-holder the server does not let answer gets no buttons");
+    assert.equal(refused.host.querySelector('[data-testid="receipt-606-state"]')?.textContent, "Pendiente del contador");
+    await refused.act(async () => refused.root.unmount());
+    const older = await mountCard(dossier({}, true, true, null), "accountant");
+    assert.equal(older.host.querySelector('[data-testid="receipt-606-yes"]'), null, "a server that sends no flag answers no");
+    await older.act(async () => older.root.unmount());
   });
 });
 

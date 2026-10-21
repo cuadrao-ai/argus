@@ -119,8 +119,8 @@ describe("keyboard shortcuts overlay", () => {
     expect(profileMenu.match(/min-w-\[248px\]/g)).toHaveLength(3);
     expect(profileMenu).toContain("min-h-[38px]");
     expect(profileMenu).toContain("keyboard_shortcuts.menu_item");
-    expect(profileMenu).toContain('href="/terms"');
-    expect(profileMenu).toContain('href="/privacy"');
+    expect(profileMenu).not.toContain('href="/terms"');
+    expect(profileMenu).not.toContain('href="/privacy"');
     expect(profileMenu).not.toContain("settings.help.release_notes");
     expect(profileMenu).toContain('className="whitespace-nowrap"');
     expect(sidebarNavButton).toContain("KeyboardShortcutKeycap");

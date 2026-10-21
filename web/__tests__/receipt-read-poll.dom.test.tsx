@@ -36,7 +36,7 @@ function fakeClock() {
 }
 
 const receipt = (over: Partial<ReceiptDetail>): ReceiptDetail =>
-  ({ id: "r1", status: "queued", read_pending: true, version: 1, merchant: null, amount: null, ...over } as unknown as ReceiptDetail);
+  ({ id: "r1", status: "queued", bandeja: { por_revisar: false, con_problema: false, leyendo: true }, version: 1, merchant: null, amount: null, ...over } as unknown as ReceiptDetail);
 
 async function mount(answers: (() => Promise<ReceiptDetail>)[], initialPending = true) {
   const { act, useState } = await import("react");
@@ -54,7 +54,7 @@ async function mount(answers: (() => Promise<ReceiptDetail>)[], initialPending =
       source,
       receiptId: "r1",
       pending,
-      onSettled: (next) => { seen.settled.push(next); setPending(next.read_pending === true); },
+      onSettled: (next) => { seen.settled.push(next); setPending(next.bandeja?.leyendo === true); },
       onStalled: () => { seen.stalled += 1; },
       clock: timer.clock,
     });
@@ -71,9 +71,9 @@ async function mount(answers: (() => Promise<ReceiptDetail>)[], initialPending =
 describe("the review page while a read is pending", () => {
   test("asks again every interval and fills in the moment the server says the read settled", async () => {
     const page = await mount([
-      () => Promise.resolve(receipt({ read_pending: true })),
-      () => Promise.resolve(receipt({ read_pending: true })),
-      () => Promise.resolve({ ...receipt({}), read_pending: false, status: "review_ready", merchant: "Hotel Brisa" } as ReceiptDetail),
+      () => Promise.resolve(receipt({})),
+      () => Promise.resolve(receipt({})),
+      () => Promise.resolve({ ...receipt({}), bandeja: { por_revisar: true, con_problema: false, leyendo: false }, status: "review_ready", merchant: "Hotel Brisa" } as ReceiptDetail),
     ]);
     assert.equal(page.asked(), 0);
     await page.tick();
@@ -95,7 +95,7 @@ describe("the review page while a read is pending", () => {
   test("a failed ask counts as one ask and the next still happens", async () => {
     const page = await mount([
       () => Promise.reject(new Error("network")),
-      () => Promise.resolve({ ...receipt({}), read_pending: false, status: "saved" } as ReceiptDetail),
+      () => Promise.resolve({ ...receipt({}), bandeja: { por_revisar: false, con_problema: false, leyendo: false }, status: "saved" } as ReceiptDetail),
     ]);
     await page.tick();
     assert.equal(page.seen.settled.length, 0);
@@ -105,7 +105,7 @@ describe("the review page while a read is pending", () => {
   });
 
   test("stops after the bound and says so once; never decides on its own that the read finished", async () => {
-    const page = await mount([() => Promise.resolve(receipt({ read_pending: true }))]);
+    const page = await mount([() => Promise.resolve(receipt({}))]);
     for (let i = 0; i < page.READ_POLL_LIMIT; i += 1) await page.tick();
     assert.equal(page.asked(), page.READ_POLL_LIMIT);
     assert.equal(page.seen.stalled, 1);
@@ -118,7 +118,7 @@ describe("the review page while a read is pending", () => {
   });
 
   test("nothing is asked while no read is pending, and unmount cancels a scheduled ask", async () => {
-    const quiet = await mount([() => Promise.resolve(receipt({ read_pending: true }))], false);
+    const quiet = await mount([() => Promise.resolve(receipt({}))], false);
     await quiet.tick();
     assert.equal(quiet.asked(), 0);
     await quiet.setPending(true);

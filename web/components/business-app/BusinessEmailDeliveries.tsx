@@ -15,6 +15,7 @@ import { Settle } from "./business-skeletons";
 import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
+import { resolveLanguage } from "@/lib/language-features";
 
 export type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
 
@@ -105,11 +106,11 @@ export function BusinessEmailAddress() {
 /** One received email: subject and where it stands, then who sent it, when, and how many files. */
 export function EmailDeliveryRow({ delivery, onOpen }: { delivery: BusinessEmailDelivery; onOpen: () => void }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   return (
     <li>
-      <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-[12px] px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
+      <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-item bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{delivery.subject || t("business.email.no_subject", "No subject")}</span>
@@ -147,7 +148,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
   inbox?: ReceiptSummary[] | null;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const waiting = delivery.waiting;
   const [body, setBody] = useState<Load<BusinessEmailDetail>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -163,14 +164,14 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
     const receipt = inbox?.find((item) => item.id === documentId);
     return receipt && savedUnread(receipt) ? receipt : null;
   };
-  const captured = delivery.parts.filter((part) => part.state === "captured" && part.document_id);
+  const savedCount = delivery.saved_receipt_count;
   const resumeAt = waiting ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(waiting.retry_at)) : null;
   const reason = waiting
     ? t("business.email.waiting_resume", "This email is waiting. Processing resumes automatically from {{time}} UTC. You do not need to send it again.", { time: resumeAt })
     : delivery.error_code
       ? t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."))
-      : delivery.state === "captured"
-        ? t("business.email.saved_line", { count: captured.length, defaultValue: "{{count}} receipts went to the Bandeja." })
+      : delivery.state === "captured" && savedCount !== undefined
+        ? t("business.email.saved_line", { count: savedCount, defaultValue: "{{count}} receipts went to the Bandeja." })
         : null;
 
   return (
@@ -227,7 +228,7 @@ export function EmailDeliveryDetail({ delivery, loadDetail, openReceipt, retryDe
             setRetry("sending");
             try { await retryDelivery(delivery.id); setRetry("accepted"); } catch { setRetry("error"); }
           }}>{retry === "sending" ? t("business.email.retrying", "Requesting…") : t("business.email.retry", "Try again")}</button> : null}
-          {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{captured.length ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
+          {delivery.original_document_id ? <button type="button" className={secondaryButtonClass} onClick={() => openReceipt(delivery.original_document_id!)}>{savedCount ? t("business.email.original", "Open the original email") : t("business.email.open_receipt", "Open receipt")}</button> : null}
         </div>
       ) : null}
       {retry === "accepted" ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.retry_accepted", "Retry requested. The status updates after processing.")}</p> : null}
@@ -242,13 +243,10 @@ export function useEmailWords() {
   return {
     title: (delivery: BusinessEmailDelivery) => delivery.sender ? t("business.inbox.email_row_title", { sender: delivery.sender, defaultValue: "Email from {{sender}}" }) : t("business.inbox.email_row_unknown", "Email with no sender"),
     subject: (delivery: BusinessEmailDelivery) => delivery.subject ? t("business.inbox.email_subject", { subject: delivery.subject, defaultValue: "“{{subject}}”" }) : t("business.email.no_subject", "No subject"),
-    // The email's own failure when it says more than "some parts", then the first file's, then a missing file.
+    // The server names why; a code without copy of its own, or no code from an older server, says it plainly.
     noReceipt: (delivery: BusinessEmailDelivery) => {
-      if (delivery.error_code && delivery.error_code !== "email_parts_rejected") return t(`business.email.error.${delivery.error_code}`, t("business.email.error.other", "Part of this email could not be saved."));
-      const rejected = delivery.parts.find((part) => part.state === "rejected");
-      if (rejected) return t(`business.email.part_error.${rejected.error_code ?? "other"}`, t("business.email.part_error.other", "It isn't a file we can save as a receipt."));
-      if (!delivery.parts.length) return t("business.email.no_attachment", "It had no attachment");
-      return t("business.email.part_error.other", "It isn't a file we can save as a receipt.");
+      const other = t("business.email.no_receipt_reason.other", "It brought no receipt we could save");
+      return delivery.no_receipt_reason ? t(`business.email.no_receipt_reason.${delivery.no_receipt_reason}`, other) : other;
     },
   };
 }
@@ -264,7 +262,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
   const words = useEmailWords();
   const tray = useRecordTray();
   const delivery = records.emails?.find((item) => item.id === emailId) ?? null;
-  const known = records.emails !== null || records.emailsError;
+  const known = records.emails !== null || Boolean(records.emailsFailure);
   return (
     <section data-testid="email-record" aria-labelledby="email-record-title">
       {tray ? null : (
@@ -277,7 +275,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
         <>
           <header>
             <h2 id="email-record-title" className="break-words font-display text-[22px] font-medium leading-7 text-[#172b26] dark:text-white"><WrappingAddress address={words.title(delivery)} /></h2>
-            <p className="mt-1 break-words text-[14px] text-[#56635e] dark:text-white/70">{[words.subject(delivery), formatRelativeTime(delivery.received_at, i18n.resolvedLanguage ?? "en")].join(" · ")}</p>
+            <p className="mt-1 break-words text-[14px] text-[#56635e] dark:text-white/70">{[words.subject(delivery), formatRelativeTime(delivery.received_at, i18n.resolvedLanguage ?? resolveLanguage({}))].join(" · ")}</p>
           </header>
           <EmailDeliveryDetail
             delivery={delivery}
@@ -288,7 +286,7 @@ export function EmailRecord({ emailId }: { emailId: string }) {
           />
         </>
       ) : known ? (
-        <p role="alert" className="text-[14px] text-[#56635e] dark:text-white/70">{records.emailsError ? t("business.empty.email_error", "We couldn't load your emails") : t("business.email.not_found", "We couldn't find this email.")}</p>
+        <p role="alert" className="text-[14px] text-[#56635e] dark:text-white/70">{records.emailsFailure ? t("business.empty.email_error", "We couldn't load your emails") : t("business.email.not_found", "We couldn't find this email.")}</p>
       ) : (
         <Settle pending layout="rows" rows={3} />
       )}
@@ -320,8 +318,8 @@ export function EmailHistory() {
         </button>
       </div>
       {emailRefresh.stalled ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.poll_stopped", "Some emails are still being read. Use Refresh to see the latest state.")}</p> : null}
-      {records.emails === null && !records.emailsError ? <Settle pending layout="rows" rows={2} /> : null}
-      {records.emails === null && records.emailsError ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: emailRefresh.refresh }} /> : null}
+      {records.emails === null && !records.emailsFailure ? <Settle pending layout="rows" rows={2} /> : null}
+      {records.emails === null && records.emailsFailure ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: emailRefresh.refresh }} /> : null}
       {records.emails ? (records.emails.length ? (
         <ul className={`${cardClass} divide-y divide-[#EEF0EC] p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
           {records.emails.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}

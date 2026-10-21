@@ -430,7 +430,7 @@ function ProfileDetailsDialogSurface({
               >
                 {t(
                   "settings.profile.preferred_name",
-                  "What should Argus call you?",
+                  "What should Cuadrao call you?",
                 )}
               </label>
               {editingPreferredName ? (

@@ -24,7 +24,7 @@ export function HeaderSearch({ onOpen }: { onOpen: () => void }) {
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span aria-hidden="true" className="hidden min-w-0 flex-1 truncate @[12rem]:block">{label}</span>
-        <kbd aria-hidden="true" className="hidden shrink-0 rounded-[6px] border border-[#DCE0DA] px-1.5 font-sans text-[12px] text-[#56635e] @[16rem]:inline-flex dark:border-white/15 dark:text-white/60">{command ? "⌘K" : "Ctrl K"}</kbd>
+        <kbd aria-hidden="true" className="hidden shrink-0 rounded-mark border border-[#DCE0DA] px-1.5 font-sans text-[12px] text-[#56635e] @[16rem]:inline-flex dark:border-white/15 dark:text-white/60">{command ? "⌘K" : "Ctrl K"}</kbd>
       </button>
     </div>
   );

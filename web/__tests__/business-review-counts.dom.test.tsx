@@ -115,7 +115,8 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       await page.source.captureNote({ text: "Pagué 850 en la ferretería" }, "note-1113");
       page.api().reload();
     });
-    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-note"]').length === 1);
+    // The note row comes from the notes list, the number from the server's next count.
+    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-note"]').length === 1 && page.segment("review")?.textContent === "Por revisar5");
     assert.equal(page.host.querySelectorAll('[data-testid="bandeja-note"]').length, 1);
     assert.equal(page.rows(), 5);
     assert.equal(page.segment("review")?.textContent, "Por revisar5");
@@ -128,7 +129,8 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       await page.source.captureNote({ text: "Pagué 850 en la ferretería" }, "note-1113");
       page.api().reload();
     });
-    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-note"]').length === 1);
+    // The note row comes from the notes list, the number from the server's next count.
+    await page.settle(() => page.host.querySelectorAll('[data-testid="bandeja-note"]').length === 1 && page.segment("review")?.textContent === "Por revisar5");
     assert.equal(page.segment("review")?.textContent, "Por revisar5");
     assert.equal(page.reviewCount(), "5");
     assert.equal(page.text('[data-testid="business-inbox-count"]'), "5");
@@ -163,7 +165,7 @@ describe("the Bandeja and the Resumen on one saved state", () => {
       const receipt = await page.source.receipt("rcpt-ferreteria");
       const saved = await page.source.saveReview(receipt.id, receipt.version, { account_id: "acct-ops" });
       const record = await page.source.dossier(saved.draft_id!);
-      await page.source.approveDraft(record.draft_id, record.version, "approve-1113");
+      await page.source.approveDraft(record.draft_id, record.version, "approve-1113", "record_expense");
       page.api().reload();
     });
     await page.settle(() => page.reviewCount() === "3");
@@ -198,11 +200,12 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await accountant.act(async () => accountant.root.unmount());
   });
 
-  test("a missing activity object does not invent a zero", async () => {
+  test("a missing activity object does not invent a zero, nor a count of the rows that loaded", async () => {
     const page = await mount({ activity: () => null });
-    assert.equal(page.reviewCount(), "4");
-    assert.equal(page.text('[data-testid="business-inbox-count"]'), "4");
-    assert.equal(page.segment("review")?.textContent, "Por revisar4");
+    assert.notEqual(page.reviewCount(), "0");
+    assert.notEqual(page.reviewCount(), "4");
+    assert.equal(page.text('[data-testid="business-inbox-count"]'), null);
+    assert.equal(page.segment("review")?.textContent, "Por revisar-");
     await page.act(async () => page.root.unmount());
   });
 });

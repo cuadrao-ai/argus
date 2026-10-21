@@ -46,7 +46,7 @@ async function mountRail(options: { storedMode?: string; panel?: BusinessPanelSt
   const business = {
     panel: { kind: options.panel ?? "overview" },
     openPanel: (panel: BusinessPanelState) => opened.push(panel.kind),
-    records: { inbox: [{ status: "needs_review" }, { status: "needs_review" }, { status: "needs_review" }] },
+    records: { inbox: [{ status: "needs_review" }, { status: "needs_review" }, { status: "needs_review" }], receiptActivity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 3, needs_attention_count: 0, ready_to_review_count: 3 } },
   } as unknown as BusinessContextValue;
   const rail: { closeRailForDialog?: () => void } = {};
   // A desktop Business keeps the person's account at the top right of the canvas.
@@ -139,14 +139,14 @@ test("a saved collapsed or hover preference does not collapse the Business rail"
   }
 });
 
-test("the labeled rail stacks Inicio to Gastos under the business card, with the Cuadrao mark at the foot", async () => {
+test("the labeled rail stacks Inicio to Transacciones under the business card, with the Cuadrao mark at the foot", async () => {
   await mountRail();
   assert.match(aside().className, /\bw-60\b/);
   assert.match(aside().className, /bg-\[var\(--cuadrao-cream\)\]/);
   assert.match(aside().className, /\bborder-r\b/);
   assert.deepEqual(
     rows().map((button) => button.textContent?.replace(/Ctrl.*$|⌘.*$/, "").replace(/\d+$/, "").trim()),
-    ["Inicio", "Bandeja", "Gastos"],
+    ["Inicio", "Bandeja", "Transacciones"],
   );
   for (const button of rows()) {
     assert.match(button.className, /\bh-11\b/, button.textContent ?? "");
@@ -154,7 +154,7 @@ test("the labeled rail stacks Inicio to Gastos under the business card, with the
     assert.equal(visibleLabel(button), true, button.textContent ?? "");
   }
   const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
-  assert.ok(nav.contains(row("Gastos")!));
+  assert.ok(nav.contains(row("Transacciones")!));
   // The smallest box holding the toggle that also holds the business card: the header row.
   let header = document.querySelector('[data-testid="sidebar-rail-toggle"]')?.parentElement ?? null;
   while (header && header.tagName !== "ASIDE" && !header.querySelector('[data-testid="business-switcher"]')) header = header.parentElement;
@@ -178,7 +178,7 @@ test("the active fill is the row itself, in the approved green", async () => {
   assert.match(active[0].className, /text-\[#2f5a49\]/);
   assert.match(active[0].className, /font-medium/);
   assert.match(active[0].className, /\bh-11\b/);
-  assert.match(active[0].className, /rounded-\[12px\]/);
+  assert.match(active[0].className, /rounded-item/);
   for (const button of rows().filter((candidate) => candidate !== active[0])) {
     assert.doesNotMatch(button.className, /bg-\[#e3ebe1\] /);
   }

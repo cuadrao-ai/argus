@@ -1,6 +1,7 @@
 import { clearArgusSessionCookies } from "./argus-api";
 import { classifyFailure, emailRetrySeconds } from "./failure-screen";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
+import { PASSWORD_MIN_LENGTH } from "./password-strength";
 import { getSupabaseClient } from "./supabase-client";
 
 export type AuthSecurityPort = {
@@ -107,7 +108,7 @@ export function createAuthSecurityActions(
     async resetRecoveredPassword(
       newPassword: string,
     ): Promise<SessionActionResult> {
-      if (newPassword.length < 8) throw new Error("Password is too short.");
+      if (newPassword.length < PASSWORD_MIN_LENGTH) throw new Error("Password is too short.");
       const { error } = await auth.updateUser({ password: newPassword });
       throwOnAuthError(error);
       return signOut("global");
@@ -121,7 +122,7 @@ export function createAuthSecurityActions(
       newPassword: string;
     }): Promise<SessionActionResult> {
       if (!currentPassword) throw new Error("Current password is required.");
-      if (newPassword.length < 8) throw new Error("Password is too short.");
+      if (newPassword.length < PASSWORD_MIN_LENGTH) throw new Error("Password is too short.");
       // One native request: the provider verifies current_password under
       // security_update_password_require_current_password, and recovery
       // sessions are natively exempt. A rejected update leaves the current

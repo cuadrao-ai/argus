@@ -1,42 +1,44 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CuadraoLockup } from "@/components/CuadraoLockup";
-import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import { normalizeEnabledLanguage } from "@/lib/language-features";
-import { noticeParagraphs, privacyNoticePublished, type PrivacyNoticeLocale } from "@/lib/business-privacy-notice";
+import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
+import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
 import { BusinessSkeleton } from "./business-skeletons";
 import { primaryButtonClass, quietButtonClass } from "./business-ui";
 
-export function BusinessConsentScreen({
-  failed,
-  onContinue,
-}: {
-  failed: boolean;
-  onContinue: () => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const locale = normalizeEnabledLanguage(i18n.resolvedLanguage ?? i18n.language) as PrivacyNoticeLocale;
-  const published = privacyNoticePublished(locale);
+/** Where the one save stands. A failed save keeps the box ticked and offers one honest retry. */
+export type ConsentSave = { kind: "idle" } | { kind: "saving" } | { kind: "failed"; reference: string };
+
+export function BusinessConsentScreen({ save, onContinue }: { save: ConsentSave; onContinue: () => void }) {
+  const { t } = useTranslation();
+  const online = useOnline();
+  const privacyUrl = cuadraoLegalLinks().privacy;
   const checkboxId = useId();
   const errorId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const privacyRef = useRef<HTMLButtonElement>(null);
   const [optedIn, setOptedIn] = useState(false);
-  const [noticeOpen, setNoticeOpen] = useState(false);
+  const saving = save.kind === "saving";
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
 
   return (
-    <main data-testid="business-consent-screen" className="min-h-[100dvh] w-full bg-[#F7F5EE] dark:bg-background">
+    <main
+      data-testid="business-consent-screen"
+      style={{ paddingTop: online ? undefined : BANNER_HEIGHT_PX }}
+      className="relative min-h-[100dvh] w-full bg-[#F7F5EE] dark:bg-background"
+    >
+      {online ? null : <ConnectionBanner />}
       <div className="mx-auto flex w-full max-w-xl flex-col px-4 pb-12 pt-10 tablet:px-6 tablet:pt-20">
         <CuadraoLockup width={112} />
         <h1 ref={headingRef} tabIndex={-1} className="mt-10 font-display text-[28px] font-medium tracking-tight text-black outline-none dark:text-white">
           {t("business.consent.title")}
         </h1>
+        <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/65">{t("business.consent.one_time")}</p>
         <p className="mt-4 text-[16px] leading-relaxed text-black dark:text-white">{t("business.consent.body")}</p>
         <label htmlFor={checkboxId} className="mt-8 flex min-h-11 cursor-pointer items-start gap-3 text-[16px] leading-relaxed text-black dark:text-white">
           <input
@@ -44,59 +46,56 @@ export function BusinessConsentScreen({
             type="checkbox"
             className="mt-1 h-5 w-5 shrink-0 accent-[var(--cuadrao-green)]"
             checked={optedIn}
+            disabled={saving}
             onChange={(event) => setOptedIn(event.target.checked)}
           />
           <span>{t("business.consent.opt_in")}</span>
         </label>
-        {failed ? (
-          <p id={errorId} role="alert" className="mt-3 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
-            {t("settings.data.personalization.errors.edit")}
-          </p>
+        {save.kind === "failed" ? (
+          <div
+            id={errorId}
+            role="alert"
+            data-testid="business-consent-error"
+            className="mt-4 rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[14px] text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]"
+          >
+            <p>{t("business.consent.save_failed")}</p>
+            <p className="mt-1 text-[12px] tabular-nums opacity-80">{t("business.consent.reference", { reference: save.reference })}</p>
+            <button type="button" data-testid="business-consent-retry" className={`${quietButtonClass} -ml-1 mt-1`} disabled={!optedIn} onClick={onContinue}>
+              {t("common.retry")}
+            </button>
+          </div>
         ) : null}
         <div className="mt-8 flex flex-col items-start gap-4">
           <button
             type="button"
             data-testid="business-consent-continue"
-            className={`${primaryButtonClass} w-full tablet:w-auto`}
+            className={`${primaryButtonClass} w-full aria-busy:cursor-progress tablet:w-auto`}
             disabled={!optedIn}
-            aria-describedby={failed ? errorId : undefined}
-            onClick={onContinue}
+            aria-busy={saving || undefined}
+            aria-describedby={save.kind === "failed" ? errorId : undefined}
+            onClick={() => {
+              if (!saving) onContinue();
+            }}
           >
+            {saving ? <Loader2 data-testid="business-consent-saving" className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
             {t("business.consent.continue")}
           </button>
-          {published ? (
-            <button
-              ref={privacyRef}
-              type="button"
-              data-testid="business-consent-privacy"
-              className={quietButtonClass}
-              onClick={() => setNoticeOpen(true)}
-            >
-              {t("business.consent.privacy_link")}
-            </button>
-          ) : null}
+          <a
+            href={privacyUrl}
+            target="_blank"
+            rel="noreferrer"
+            data-testid="business-consent-privacy"
+            className={quietButtonClass}
+          >
+            {t("business.consent.privacy_link")}
+          </a>
         </div>
       </div>
-      {noticeOpen ? (
-        <AdaptivePanel
-          title={t("business.privacy_notice.title")}
-          closeLabel={t("business.privacy_notice.close")}
-          onClose={() => setNoticeOpen(false)}
-          returnFocusRef={privacyRef}
-          width="lg"
-        >
-          <div className="space-y-4 px-4 pb-6 text-[16px] leading-relaxed text-black dark:text-white" data-testid="business-privacy-notice">
-            {noticeParagraphs(locale).map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-        </AdaptivePanel>
-      ) : null}
     </main>
   );
 }
 
-/** Inicio's layout while the gate checks or saves, so /biz never paints blank. */
+/** Inicio's layout while the gate checks, so /biz never paints blank. */
 export function BusinessConsentLoading() {
   return (
     <main data-testid="business-consent-loading" className="mx-auto w-full max-w-3xl px-4 pb-12 pt-10 tablet:px-6 tablet:pt-20">

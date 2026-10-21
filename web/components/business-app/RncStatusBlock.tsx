@@ -20,7 +20,7 @@ export default function RncStatusBlock({ fact, onEditRnc }: {
   const label = t(`business.dgii.rnc_check.${status}.label`);
   return <div data-testid="rnc-status" data-rnc-status={status}>
     {fact?.state === "known" && fact.value.trim() ? <p className="mb-1.5 tabular-nums">{formatRnc(fact.value)}</p> : null}
-    <span role="status" aria-label={t("business.dgii.rnc_check.aria", { label })} className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[12px] font-medium" style={TONES[status]}>
+    <span role="status" aria-label={t("business.dgii.rnc_check.aria", { label })} className="inline-flex items-center gap-1.5 rounded-mark px-2 py-1 text-[12px] font-medium" style={TONES[status]}>
       <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{label}
     </span>
     <p className="mt-1 text-[14px] leading-5 text-black/55 dark:text-white/55">{t(`business.dgii.rnc_check.${status}.reason`)}</p>

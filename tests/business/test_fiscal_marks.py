@@ -5,9 +5,12 @@ grant's refusal is a 403."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 from argus.domain.business.actions.dossier import blockers
+from argus.domain.business.actions.marks import fiscal_inclusion_available
 from argus.domain.business.contracts.facts import (
     BusinessFacts,
     FiscalFacts,
@@ -145,6 +148,52 @@ def test_the_606_answer_applies_only_to_a_personal_receipt_with_a_fiscal_number(
         )
         is None
     )
+
+
+def _tx(actor_id, owner_id, kind="member", capabilities=("read", "prepare")):  # noqa: ANN001
+    return SimpleNamespace(
+        context=SimpleNamespace(
+            actor=SimpleNamespace(actor_id=actor_id, actor_kind=kind), owner_id=owner_id
+        ),
+        authorization=SimpleNamespace(capabilities=frozenset(capabilities)),
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "open_to_the_accountant"),
+    [("open", True), ("accepted", True), ("accepting", False), ("dismissed", False)],
+)
+def test_the_606_gate_opens_only_on_an_open_or_accepted_draft(
+    state: str, open_to_the_accountant: bool
+):
+    """``fiscal_inclusion_available`` reads the gate ``decide_606`` enforces:
+    the accountant, on an open or accepted draft whose question applies."""
+
+    owner, accountant = uuid4(), uuid4()
+    personal = facts(
+        business_share=known(WholeBusinessShare(kind="none")),
+        fiscal=FiscalFacts(ncf=known("B0100000001")),
+    )
+    accountant_tx = _tx(accountant, owner)
+    assert fiscal_inclusion_available(accountant_tx, personal, state) is (
+        open_to_the_accountant
+    )
+    # The owner, a non-member, a read-only grant, or a draft the question
+    # does not apply to: closed whatever the state.
+    assert fiscal_inclusion_available(_tx(owner, owner), personal, state) is False
+    assert (
+        fiscal_inclusion_available(
+            _tx(accountant, owner, kind="extractor"), personal, state
+        )
+        is False
+    )
+    assert (
+        fiscal_inclusion_available(
+            _tx(accountant, owner, capabilities=("read",)), personal, state
+        )
+        is False
+    )
+    assert fiscal_inclusion_available(accountant_tx, facts(), state) is False
 
 
 def test_approval_admits_a_personal_receipt_and_still_refuses_a_partial_share():

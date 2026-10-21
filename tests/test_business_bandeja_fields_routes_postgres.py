@@ -27,7 +27,7 @@ from tests.test_business_reading_setting_postgres import (  # noqa: F401
     web,
 )
 from tests.test_business_review_counts_routes_postgres import EXPENSE, _review
-from tests.test_business_scope_switch_routes_postgres import API, PERIOD, _as, _note
+from tests.test_business_scope_switch_routes_postgres import API, _as, _note
 from tests.test_business_scope_switch_routes_postgres import (
     pytestmark as _local_supabase,
 )
@@ -315,62 +315,124 @@ def test_the_dossier_names_its_approve_action_and_the_606_gate_agrees_with_the_a
     )
 
 
-def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:  # noqa: ANN001, F811
-    alice = world.alice
-    purchase = _note(world, alice, "Compra en Ferretería Prueba")
-    assert purchase.status_code == 200, purchase.text
-    reviewed = _review_with(
-        world,
-        purchase.json()["draft_id"],
-        EXPENSE,
-        _fiscal(SUPPLIER, PURCHASE_NCF),
-        alice.headers,
+def _account(world, person, currency: str) -> str:  # noqa: ANN001, F811
+    account = world.client.post(
+        f"{API}/business/accounts",
+        json={"nickname": f"Cuenta {currency}", "type": "checking", "currency": currency},
+        headers={**person.headers, "Idempotency-Key": str(uuid4())},
     )
+    assert account.status_code == 201, account.text
+    return account.json()["id"]
+
+
+def _naming(dgii: dict, activity_id: str) -> dict:
+    """The same declaration, its refund naming ``activity_id`` as the purchase."""
+
+    return {
+        **dgii,
+        "declaration": {**dgii["declaration"], "purchase_activity_id": activity_id},
+    }
+
+
+def _approved_purchase(world, person, facts: dict, dgii: dict) -> str:  # noqa: ANN001, F811
+    """An approved expense's activity id: what a credit note's declaration names."""
+
+    note = _note(world, person, f"Compra en {facts['counterparty']}")
+    assert note.status_code == 200, note.text
+    draft = note.json()["draft_id"]
+    reviewed = _review_with(world, draft, facts, dgii, person.headers)
     approved = _post(
         world,
-        f"/business/drafts/{purchase.json()['draft_id']}/approve",
+        f"/business/drafts/{draft}/approve",
         {"version": reviewed["version"], "action": "record_expense"},
-        alice.headers,
+        person.headers,
     )
     assert approved.status_code == 200, approved.text
-    [expense] = _get(world, "/business/expenses", alice.headers, **PERIOD)["items"]
+    return approved.json()["approval_result"]["activity_id"]
+
+
+def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:  # noqa: ANN001, F811
+    """The candidates are exactly the purchases the refund approval accepts:
+    the same supplier, currency and 30-day window, and never a purchase paid
+    from the owner's own money, which the money write refuses to refund."""
+
+    alice = world.alice
+    accounts = {currency: _account(world, alice, currency) for currency in ("DOP", "USD")}
+    from_account = {"kind": "business_account", "account_id": accounts["DOP"]}
+    paid = _approved_purchase(
+        world,
+        alice,
+        {**EXPENSE, "funding": from_account},
+        _fiscal(SUPPLIER, PURCHASE_NCF),
+    )
+    owner_paid = _approved_purchase(
+        world, alice, EXPENSE, _fiscal(SUPPLIER, "B0100000003")
+    )
+    _approved_purchase(
+        world,
+        alice,
+        {
+            **EXPENSE,
+            "currency": "USD",
+            "funding": {"kind": "business_account", "account_id": accounts["USD"]},
+        },
+        _fiscal(SUPPLIER, "B0100000004"),
+    )
 
     credit = _note(world, alice, "Nota de crédito de Ferretería Prueba")
     assert credit.status_code == 200, credit.text
     draft = credit.json()["draft_id"]
-    refund = {**EXPENSE, "kind": "refund", "amount": "100", "occurred_on": "2026-10-20"}
-    dossier = _review_with(
-        world,
-        draft,
-        refund,
-        _fiscal(SUPPLIER, CREDIT_NCF, actual_refund=True),
-        alice.headers,
+    refund = {
+        **EXPENSE,
+        "kind": "refund",
+        "amount": "100",
+        "occurred_on": "2026-10-20",
+        "funding": from_account,
+    }
+    declaration = _fiscal(
+        SUPPLIER,
+        CREDIT_NCF,
+        actual_refund=True,
+        modified_ncf=PURCHASE_NCF,
+        payment_method="06",
     )
+    dossier = _review_with(world, draft, refund, declaration, alice.headers)
+    # The DOP purchase from the account, and only it: not the owner-funded one
+    # of the same supplier and day, not the USD one.
     [candidate] = dossier["refund_candidates"]
-    assert candidate["id"] == expense["id"]
+    assert candidate["id"] == paid
     assert candidate["merchant"] == EXPENSE["counterparty"]
     assert candidate["occurred_on"] == EXPENSE["occurred_on"]
     assert Decimal(candidate["amount"]) == Decimal(EXPENSE["amount"])
     assert candidate["currency"] == "DOP"
-    # The same list on a reload, and the candidate is a record the 606 will accept.
+    assert (dossier["approval_available"], dossier["approval_action"]) == (
+        True,
+        "record_refund",
+    )
+    # The same list on a reload.
     assert _get(world, f"/business/drafts/{draft}/dossier", alice.headers)[
         "refund_candidates"
     ] == [candidate]
 
+    # The 30 days up to the note's date: the purchase of 2026-10-09 is a
+    # candidate for a note of 2026-11-08, not of 2026-11-09, and not of a
+    # note dated before it.
+    for day, listed in (
+        ("2026-11-08", True),
+        ("2026-11-09", False),
+        ("2026-10-08", False),
+    ):
+        dated = _review_with(
+            world, draft, {**refund, "occurred_on": day}, declaration, alice.headers
+        )
+        assert [item["id"] for item in dated["refund_candidates"]] == (
+            [paid] if listed else []
+        ), day
     # Another supplier's credit note refunds none of this supplier's purchases.
     elsewhere = _review_with(
         world, draft, refund, _fiscal(EDITED_SUPPLIER, CREDIT_NCF), alice.headers
     )
     assert elsewhere["refund_candidates"] == []
-    # Past the 30 days the 606 allows, the purchase is no candidate either.
-    late = _review_with(
-        world,
-        draft,
-        {**refund, "occurred_on": "2026-11-10"},
-        _fiscal(SUPPLIER, CREDIT_NCF),
-        alice.headers,
-    )
-    assert late["refund_candidates"] == []
     # An ordinary expense with an ordinary invoice refunds nothing.
     plain = _review_with(
         world,
@@ -380,3 +442,40 @@ def test_the_server_picks_the_purchases_a_credit_note_may_refund(world) -> None:
         alice.headers,
     )
     assert plain["refund_candidates"] == []
+
+    # Naming the owner-funded purchase is what the candidates spare the person:
+    # the approval refuses it. Naming the candidate records the refund.
+    refused = _review_with(
+        world,
+        draft,
+        refund,
+        _naming(declaration, owner_paid),
+        alice.headers,
+    )
+    assert refused["refund_candidates"] == [candidate]
+    denied = _post(
+        world,
+        f"/business/drafts/{draft}/approve",
+        {"version": refused["version"], "action": "record_refund"},
+        alice.headers,
+    )
+    assert (denied.status_code, denied.json()["code"]) == (
+        422,
+        "recorded_correction_unsupported",
+    )
+    named = _review_with(
+        world,
+        draft,
+        refund,
+        _naming(declaration, candidate["id"]),
+        alice.headers,
+    )
+    recorded = _post(
+        world,
+        f"/business/drafts/{draft}/approve",
+        {"version": named["version"], "action": "record_refund"},
+        alice.headers,
+    )
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["review_state"] == "accepted"
+    assert recorded.json()["approval_result"]["activity_id"]

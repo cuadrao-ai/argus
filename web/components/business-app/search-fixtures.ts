@@ -1,6 +1,5 @@
 import type { BusinessAccount, BusinessExpense, ReceiptSummary } from "@/lib/business-api";
 import {
-  normalizeSearchQuery,
   SEARCH_INVALID_CURSOR,
   SEARCH_STALE_CURSOR,
   type BusinessSearchEmail,
@@ -97,7 +96,7 @@ export function createFixtureSearch(env: Env): Search {
   };
 
   const lists = (query: string): Omit<BusinessSearchResult, "next_cursors"> => {
-    const text = normalizeSearchQuery(query);
+    const text = query.trim();
     const found = env.expenses().filter((item) => env.matches(text, [item.merchant, item.category_id, item.amount].join(" "))).sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
     const listed = new Set(found.map((item) => item.id));
     return {

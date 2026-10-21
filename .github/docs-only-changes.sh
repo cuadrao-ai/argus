@@ -1,19 +1,33 @@
 #!/bin/bash
-# Classify whether every changed file is under docs/.
-# Root-level *.md is not docs-only: backend tests read AGENTS.md and other
-# root markdown. Non-pull_request events always run heavy jobs.
+# Classify changed files for CI job selection. The name predates job selection;
+# the local smoke workflow calls it too, and reads only run_heavy.
+#
+# docs_only: every changed file is under docs/. Root-level *.md is not
+#   docs-only: backend tests read AGENTS.md and other root markdown.
+# run_heavy: backend-checks, frontend-checks and guest-release-gates. Backend
+#   tests scan `git ls-files` and web tests `git grep` the whole repository, so
+#   any change outside docs/ can affect them.
+# run_marketing: marketing-checks. Marketing is its own package; outside
+#   marketing/ it reads only supabase/functions/ (tests/test_ci_job_selection.py
+#   proves that against the tree). Paths not listed below select it.
+#
+# Non-pull_request events, an empty file list and unknown paths run every job.
+# A failed file listing exits non-zero, which fails the aggregate ci check.
 
 set -euo pipefail
 
 write_result() {
   local docs_only="$1"
   local run_heavy="$2"
+  local run_marketing="$3"
   printf 'docs_only=%s\n' "$docs_only"
   printf 'run_heavy=%s\n' "$run_heavy"
+  printf 'run_marketing=%s\n' "$run_marketing"
   if [ -n "${GITHUB_OUTPUT:-}" ]; then
     {
       printf 'docs_only=%s\n' "$docs_only"
       printf 'run_heavy=%s\n' "$run_heavy"
+      printf 'run_marketing=%s\n' "$run_marketing"
     } >> "$GITHUB_OUTPUT"
   fi
 }
@@ -24,11 +38,27 @@ is_docs_path() {
   [ "$path" = "docs" ] || [ "${path#docs/}" != "$path" ]
 }
 
+# Paths marketing-checks cannot read. Everything else, including .github/,
+# marketing/, supabase/functions/ and any new top-level path, selects it.
+skips_marketing() {
+  local path="${1#./}"
+  case "$path" in
+    supabase/functions/*) return 1 ;;
+    docs/*|web/*|src/*|tests/*|scripts/*|workflows/*|fixtures/*|supabase/*) return 0 ;;
+    ios/*|mobile/*|prototypes/*|.agent/*) return 0 ;;
+    pyproject.toml|poetry.lock|uv.lock|.python-version|render.yaml) return 0 ;;
+    AGENTS.md|CLAUDE.md|README.md|.env.example|.pre-commit-config.yaml|.mcp.json|.codex/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 classify_files() {
   local path
+  local docs_only="true"
+  local run_marketing="false"
   if [ "$#" -eq 0 ]; then
-    echo "No changed files given; fail closed to run_heavy=true."
-    write_result "false" "true"
+    echo "No changed files given; fail closed to run every job."
+    write_result "false" "true" "true"
     return
   fi
   echo "Changed files:"
@@ -37,11 +67,17 @@ classify_files() {
   done
   for path in "$@"; do
     if ! is_docs_path "$path"; then
-      write_result "false" "true"
-      return
+      docs_only="false"
+    fi
+    if ! skips_marketing "$path"; then
+      run_marketing="true"
     fi
   done
-  write_result "true" "false"
+  if [ "$docs_only" = "true" ]; then
+    write_result "true" "false" "false"
+  else
+    write_result "false" "true" "$run_marketing"
+  fi
 }
 
 collect_git_files() {
@@ -50,6 +86,19 @@ collect_git_files() {
     git fetch --no-tags --depth=1 origin "$base_ref" >/dev/null
   fi
   git diff --name-only --no-renames --diff-filter=ACDMRTUXB "${base_ref}...HEAD"
+}
+
+# Command substitution keeps a git failure fatal; process substitution would
+# hide it and classify whatever partial list was printed.
+classify_git_files() {
+  local listing
+  listing="$(collect_git_files "$1")"
+  if [ -n "$listing" ]; then
+    mapfile -t FILES <<< "$listing"
+  else
+    FILES=()
+  fi
+  classify_files "${FILES[@]+"${FILES[@]}"}"
 }
 
 MODE=""
@@ -79,7 +128,7 @@ Usage:
   .github/docs-only-changes.sh --files path [path ...]
   .github/docs-only-changes.sh --from-git <base-ref-or-sha>
 
-On pull_request CI, omit flags and set PR_BASE_SHA. Other events run heavy jobs.
+On pull_request CI, omit flags and set PR_BASE_SHA. Other events run every job.
 USAGE
       exit 0
       ;;
@@ -96,22 +145,20 @@ if [ "$MODE" = "files" ]; then
 fi
 
 if [ "$MODE" = "from-git" ]; then
-  mapfile -t FILES < <(collect_git_files "$FROM_GIT")
-  classify_files "${FILES[@]+"${FILES[@]}"}"
+  classify_git_files "$FROM_GIT"
   exit 0
 fi
 
 if [ "${GITHUB_EVENT_NAME:-}" != "pull_request" ]; then
-  echo "Event '${GITHUB_EVENT_NAME:-local}' is not pull_request; run_heavy=true."
-  write_result "false" "true"
+  echo "Event '${GITHUB_EVENT_NAME:-local}' is not pull_request; run every job."
+  write_result "false" "true" "true"
   exit 0
 fi
 
 if [ -z "${PR_BASE_SHA:-}" ]; then
   echo "PR_BASE_SHA is required for pull_request classification; fail closed." >&2
-  write_result "false" "true"
+  write_result "false" "true" "true"
   exit 0
 fi
 
-mapfile -t FILES < <(collect_git_files "$PR_BASE_SHA")
-classify_files "${FILES[@]+"${FILES[@]}"}"
+classify_git_files "$PR_BASE_SHA"

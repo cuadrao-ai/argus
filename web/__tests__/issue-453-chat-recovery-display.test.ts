@@ -85,11 +85,11 @@ for (const rawValue of [
 
     assert.equal(
       english,
-      "Argus can't run that rule directly yet for TSLA. Which supported direction should I use: Use a supported RSI threshold rule or Compare with buy and hold?",
+      "Cuadrao can't run that rule directly yet for TSLA. Which supported direction should I use: Use a supported RSI threshold rule or Compare with buy and hold?",
     );
     assert.equal(
       spanish,
-      "Argus todavía no puede ejecutar esa regla directamente para TSLA. ¿Qué camino quieres usar: Usar una regla RSI compatible o Comparar con comprar y mantener?",
+      "Cuadrao todavía no puede ejecutar esa regla directamente para TSLA. ¿Qué camino quieres usar: Usar una regla RSI compatible o Comparar con comprar y mantener?",
     );
     assert.ok(!english.includes(rawValue));
     assert.ok(!spanish.includes(rawValue));

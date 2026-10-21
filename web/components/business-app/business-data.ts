@@ -5,12 +5,12 @@ import { getChosenGrant } from "@/lib/business-grant";
 import * as searchApi from "@/lib/business-search-api";
 import type { BusinessSearchKind, BusinessSearchRecent, BusinessSearchResult } from "@/lib/business-search-api";
 import type { ArgusLanguage } from "@/lib/language-features";
-import type { BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
+import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch } from "@/lib/business-dossier";
 import { getFiscalProfile, setFiscalProfile, type FiscalProfile, type FiscalProfileInput } from "@/lib/business-dgii";
 import type {
   GrantedSpace,
   BusinessAccount,
-  BusinessCapture,
+  BusinessCapturePage,
   BusinessCaptureInput,
   BusinessConsent,
   BusinessExpense,
@@ -50,7 +50,7 @@ export type BusinessDataSource = Readonly<{
   dossier: (id: string) => Promise<BusinessDossier>;
   reviewDraft: (id: string, version: number, facts: BusinessFactPatch, key: string) => Promise<BusinessDossier>;
   setDocumentType: (id: string, version: number, documentType: "recibo" | "venta", key: string) => Promise<BusinessDossier>;
-  approveDraft: (id: string, version: number, key: string) => Promise<BusinessDossier>;
+  approveDraft: (id: string, version: number, key: string, action: BusinessApprovalAction) => Promise<BusinessDossier>;
   settleRemainder: (id: string, version: number, key: string) => Promise<BusinessDossier>;
   /** The owner marks the receipt as personal or takes the mark back. */
   markPersonal: (id: string, version: number, personal: boolean, key: string) => Promise<BusinessDossier>;
@@ -70,7 +70,7 @@ export type BusinessDataSource = Readonly<{
   /** A result was opened, so it ranks first next time. Best effort. */
   recordSearchOpen?: (kind: BusinessSearchKind, id: string) => Promise<void>;
   captureNote: (input: BusinessCaptureInput, key: string) => Promise<BusinessDossier>;
-  captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapture[]>;
+  captures: (query?: string, limit?: number, view?: "inbox" | "all") => Promise<BusinessCapturePage>;
   uploadReceipt: (file: File, consentToPrepare: boolean, key: string, documentType?: "recibo" | "venta" | null, onProgress?: api.UploadProgressListener) => Promise<ReceiptSummary>;
   prepareReceipt: (id: string) => Promise<ReceiptSummary>;
   rebindReceipt: (id: string) => Promise<ReceiptDetail>;

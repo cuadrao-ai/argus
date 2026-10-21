@@ -16,6 +16,7 @@ import { copyText } from "./foundation/CopyButton";
 import { showToast } from "./foundation/toasts";
 import { useReceiptStateWord } from "./receipt-state-word";
 import { useSourceForwardAddress } from "./useForwardAddress";
+import { resolveLanguage } from "@/lib/language-features";
 
 /**
  * Business expenses, sales, receipts, notes, accounts, emails and email
@@ -49,7 +50,7 @@ export function useBusinessSearch({
   const stateWord = useReceiptStateWord();
   const categoryLabel = useCategoryLabel();
   const forwardAddress = useSourceForwardAddress(owner ? source : null);
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
 
   const recentsServer = useMemo<WorkspaceRecentSearchesServer | undefined>(() => {
     const { searchRecents, addSearchRecent, removeSearchRecent, clearSearchRecents } = source;
@@ -77,7 +78,7 @@ export function useBusinessSearch({
         hits: [
           go("overview", House, t("business.nav.overview", "Home"), { kind: "overview" }),
           go("inbox", Inbox, t("business.nav.inbox", "Inbox"), { kind: "inbox" }),
-          go("expenses", ReceiptText, t("business.nav.expenses", "Expenses"), { kind: "expenses" }),
+          go("transactions", ReceiptText, t("business.nav.transactions", "Transactions"), { kind: "transactions" }),
           go("business", Building2, t("business.nav.business", "Business"), { kind: "business" }, t("business.search.keywords_business", "settings details tax")),
           go("team", Users, t("business.search.go_team", "Team and access"), { kind: "business", tab: "equipo" }, t("business.search.keywords_team", "accountant people")),
           go("correo", Mail, t("business.settings.tab_correo", "Receipt email"), { kind: "business", tab: "correo" }, t("business.search.keywords_correo", "emails history forwarding")),
@@ -127,7 +128,7 @@ export function useBusinessSearch({
           id: "captures",
           label: t("business.capture.notes", "Original notes"),
           ...(captures.status === "rejected" ? { error: t("business.capture.search_failed", "Notes are unavailable. Other record results are shown below.") } : {}),
-          hits: captures.status === "fulfilled" ? captures.value.map((note) => ({
+          hits: captures.status === "fulfilled" ? captures.value.items.map((note) => ({
             id: note.source_id,
             icon: FileText,
             title: note.text,

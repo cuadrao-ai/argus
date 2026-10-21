@@ -42,6 +42,7 @@ import {
   MapPin,
   PanelLeft,
   Shield,
+  ToggleRight,
   Trash2,
   User,
   FileText,
@@ -83,6 +84,8 @@ import {
 } from "@/lib/language-features";
 import { memoryAvailable as fetchMemoryAvailable } from "@/lib/memory-privacy";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
+import { setSwitchLabelsShown, useSwitchLabelsShown } from "@/lib/switch-labels";
+import { Switch } from "@/components/ui/Switch";
 import { businessPilotEnabledFromEnv, businessWhatsappPreferencesEnabledFromEnv, evidenceReceiptSharingEnabled } from "@/lib/private-alpha-flags";
 import { supportEmail } from "@/lib/support-email";
 import { navigateFromOverlay } from "@/lib/overlay-history";
@@ -123,25 +126,7 @@ type ProfileQuickJumpItem = {
   onSelect: () => void;
 };
 
-type HelpLegalLink = {
-  id: "terms" | "privacy";
-  href: string;
-  external: boolean;
-};
-
-function menuLegalLinks(business: boolean): HelpLegalLink[] {
-  if (!business) {
-    return [
-      { id: "terms", href: "/terms", external: false },
-      { id: "privacy", href: "/privacy", external: false },
-    ];
-  }
-  const published = cuadraoLegalLinks();
-  const links: HelpLegalLink[] = [];
-  if (published.terms) links.push({ id: "terms", href: published.terms, external: true });
-  if (published.privacy) links.push({ id: "privacy", href: published.privacy, external: true });
-  return links;
-}
+const LEGAL_LINK_IDS = ["terms", "privacy"] as const;
 
 export default function ProfileMenu({
   isOpen,
@@ -158,7 +143,8 @@ export default function ProfileMenu({
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
-  const legalLinks = menuLegalLinks(isBusiness);
+  const legalHref = cuadraoLegalLinks();
+  const switchLabelsShown = useSwitchLabelsShown();
   const { isBelowDesktop } = useResponsiveLayout();
   const asSheet = isBelowDesktop;
   const isDrawerPlacement = placement === "drawer";
@@ -174,22 +160,6 @@ export default function ProfileMenu({
     window.addEventListener("resize", place);
     return () => window.removeEventListener("resize", place);
   }, [isOpen, placement, anchorRef]);
-  const handlePageLinkClick = useCallback(
-    (event: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-      if (
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-      event.preventDefault();
-      navigateFromOverlay(href, onClose);
-    },
-    [onClose],
-  );
   const menuOverlayId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const languagePickerRef = useRef<HTMLDivElement>(null);
@@ -790,15 +760,11 @@ export default function ProfileMenu({
           id: "keyboard-shortcuts",
           onSelect: handleOpenKeyboardShortcuts,
         },
-        ...legalLinks.map((link) => ({
-          id: link.id,
+        ...LEGAL_LINK_IDS.map((id) => ({
+          id,
           onSelect: () => {
-            if (link.external) {
-              window.open(link.href, "_blank", "noopener,noreferrer");
-              onClose();
-              return;
-            }
-            navigateFromOverlay(link.href, onClose);
+            window.open(legalHref[id], "_blank", "noopener,noreferrer");
+            onClose();
           },
         })),
       ];
@@ -838,7 +804,7 @@ export default function ProfileMenu({
   }, [
     activeSubmenu,
     isBusiness,
-    legalLinks,
+    legalHref,
     handleOpenDeleteRequest,
     handleOpenKeyboardShortcuts,
     handleSubmenuToggle,
@@ -1229,6 +1195,15 @@ export default function ProfileMenu({
               </span>
               <span className="ml-auto flex shrink-0">{quickJumpBadge("language")}</span>
             </button>
+            {isBusiness && (
+              <div className="flex min-h-[38px] w-full items-center gap-2.5 py-0.5 pl-3.5 pr-1.5 text-[13px] text-black dark:text-white">
+                <ToggleRight className="h-3.5 w-3.5 text-black/60 dark:text-white/60" aria-hidden="true" />
+                <span className="whitespace-nowrap">{t("settings.app.switch_labels", "Words on switches")}</span>
+                <span className="ml-auto flex shrink-0">
+                  <Switch testId="settings-switch-labels" label={t("settings.app.switch_labels", "Words on switches")} checked={switchLabelsShown} onChange={setSwitchLabelsShown} />
+                </span>
+              </div>
+            )}
             {homeCountryAvailable && (
               <button
                 onClick={() => openModal("country")}
@@ -1293,7 +1268,7 @@ export default function ProfileMenu({
         </button>
         {activeSubmenu === "help" && (
           <div
-            className={`${submenuSurfaceClass("min-w-[248px]")} [&>a]:mx-1 [&>a]:my-0.5 [&>a]:w-[calc(100%-0.5rem)] [&>a]:rounded-[10px]`}
+            className={`${submenuSurfaceClass("min-w-[248px]")} [&>a]:mx-1 [&>a]:my-0.5 [&>a]:w-[calc(100%-0.5rem)] [&>a]:rounded-item`}
             style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }}
             onMouseEnter={handleSubmenuKeepAlive}
             onMouseLeave={handleSubmenuLeave}
@@ -1312,22 +1287,19 @@ export default function ProfileMenu({
               <span className="ml-auto flex shrink-0">{quickJumpBadge("keyboard-shortcuts")}</span>
             </button>
             )}
-            {legalLinks.length === 0 ? (
-              <p role="status" data-testid="help-legal-empty" className="min-h-[38px] px-3.5 py-2" />
-            ) : legalLinks.map((link) => (
+            {LEGAL_LINK_IDS.map((id) => (
               <a
-                key={link.id}
-                href={link.href}
-                target={link.external ? "_blank" : undefined}
-                rel={link.external ? "noreferrer" : undefined}
-                onClick={link.external ? undefined : (event) => handlePageLinkClick(event, link.href)}
+                key={id}
+                href={legalHref[id]}
+                target="_blank"
+                rel="noreferrer"
                 className="flex min-h-[38px] w-full items-center gap-2.5 px-3.5 py-2 text-[13px] text-black transition-colors hover:bg-black/5 dark:text-white dark:hover:bg-white/5"
               >
-                {link.id === "terms" ? <FileText className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+                {id === "terms" ? <FileText className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
                 <span className="whitespace-nowrap">
-                  {t(link.id === "terms" ? "settings.help.terms" : "settings.help.privacy", link.id === "terms" ? "Terms" : "Privacy")}
+                  {t(id === "terms" ? "settings.help.terms" : "settings.help.privacy", id === "terms" ? "Terms" : "Privacy")}
                 </span>
-                <span className="ml-auto flex shrink-0">{quickJumpBadge(link.id)}</span>
+                <span className="ml-auto flex shrink-0">{quickJumpBadge(id)}</span>
               </a>
             ))}
           </div>
@@ -1418,27 +1390,23 @@ export default function ProfileMenu({
         {t("settings.logout", "Log out")}
       </button>
 
-      {!isBusiness && <>
       {/* Footer links */}
       <div className={`my-1 border-t border-black/5 dark:border-white/5${rootRow}`} />
-      <div className={`flex items-center gap-1 px-3.5 py-1.5 text-[10px] text-black/25 dark:text-white/25${rootRow}`}>
-        <a
-          href="/terms"
-          onClick={(event) => handlePageLinkClick(event, "/terms")}
-          className="transition-colors hover:text-black dark:hover:text-white"
-        >
-          {t("settings.help.terms", "Terms")}
-        </a>
-        <span aria-hidden="true">·</span>
-        <a
-          href="/privacy"
-          onClick={(event) => handlePageLinkClick(event, "/privacy")}
-          className="transition-colors hover:text-black dark:hover:text-white"
-        >
-          {t("settings.help.privacy", "Privacy")}
-        </a>
+      <div data-testid="settings-legal-footer" className={`flex items-center gap-0.5 px-2.5 text-[12px] text-black/55 dark:text-white/55${rootRow}`}>
+        {LEGAL_LINK_IDS.map((id, index) => (
+          <span key={id} className="flex items-center gap-0.5">
+            {index > 0 ? <span aria-hidden="true">·</span> : null}
+            <a
+              href={legalHref[id]}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-11 items-center rounded-mark px-1 transition-colors hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:hover:text-white"
+            >
+              {t(id === "terms" ? "settings.help.terms" : "settings.help.privacy", id === "terms" ? "Terms" : "Privacy")}
+            </a>
+          </span>
+        ))}
       </div>
-      </>}
     </div>
   );
 

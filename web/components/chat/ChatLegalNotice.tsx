@@ -19,7 +19,7 @@ export default function ChatLegalNotice({
     >
       {t(
         "chat.disclaimer",
-        "Argus can make mistakes. For education only. Not financial advice.",
+        "Cuadrao can make mistakes. For education only. Not financial advice.",
       )}
     </p>
   );

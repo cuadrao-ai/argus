@@ -126,7 +126,7 @@ async function businessSearch(partial: Partial<BusinessSearchResult>, notes: Bus
   const found = { ...NO_RESULTS, ...partial };
   const opened: BusinessPanelState[] = [];
   const periods: string[] = [];
-  const source = { search: async () => found, captures: async () => { if (notes instanceof Error) throw notes; return notes; } } as unknown as BusinessDataSource;
+  const source = { search: async () => found, captures: async () => { if (notes instanceof Error) throw notes; return { items: notes }; } } as unknown as BusinessDataSource;
   const actions = { create: [{ id: "upload_receipt" as const, label: "Add", icon: Banknote, run: noop }], composer: [], starterEntries: [] };
   let built: WorkspaceSearch | null = null;
   function Probe() {
@@ -173,7 +173,7 @@ describe("Business hits open the panel that holds them", () => {
     expect(hit.detail).toContain("Caja");
     expect(hit.badge).toBe("Expense");
     hit.open?.();
-    expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-1", list: "expenses" }]);
+    expect(opened).toEqual([{ kind: "receipt", receiptId: "rcpt-1", list: "transactions" }]);
   });
 
   test("an expense without a receipt opens the draft that recorded it, or its own detail", async () => {
@@ -183,7 +183,7 @@ describe("Business hits open the panel that holds them", () => {
     groups[0].hits[0].open?.();
     groups[0].hits[1].open?.();
     expect(periods).toEqual([]);
-    expect(opened).toEqual([{ kind: "draft", draftId: "draft-2", list: "expenses" }, { kind: "expense", expenseId: "exp-3" }]);
+    expect(opened).toEqual([{ kind: "draft", draftId: "draft-2", list: "transactions" }, { kind: "expense", expenseId: "exp-3" }]);
   });
 
   test("a receipt opens its review and shows the file type it is", async () => {
@@ -208,8 +208,8 @@ describe("Business hits open the panel that holds them", () => {
     const { groups, opened } = await businessSearch({ expenses: [], receipts: [receipt, pdf], accounts: [] });
     const receipts = groups.find((group) => group.id === "receipts")!;
     expect(receipts.hits.map((hit) => [hit.title, hit.icon, hit.amount])).toEqual([
-      ["IMG_2214.jpg", ImageIcon, "—"],
-      ["factura.pdf", FileText, "—"],
+      ["IMG_2214.jpg", ImageIcon, "-"],
+      ["factura.pdf", FileText, "-"],
     ]);
     expect(receipts.hits[0].detail).toContain("Ready to review");
     expect(receipts.hits[0].badge).toBe("Receipt");

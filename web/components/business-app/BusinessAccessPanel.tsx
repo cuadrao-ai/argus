@@ -11,6 +11,7 @@ import { EmptyState } from "./foundation/EmptyState";
 import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
+import { resolveLanguage } from "@/lib/language-features";
 
 import BusinessLifecycleControls from "./BusinessLifecycleControls";
 
@@ -37,7 +38,7 @@ export function AccessList({
   onResend: (invite: BusinessAccessInvite) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const locale = i18n.resolvedLanguage ?? "en";
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const rowClass = "flex items-center gap-3 px-3 py-3";
   return (
     <>
@@ -219,7 +220,7 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder={t("business_access.email_label", "Email address")}
-                className="w-full rounded-[14px] border border-black/10 bg-white px-4 py-3 text-[15px] text-black outline-none focus:border-black/30 dark:border-white/10 dark:bg-[#1f2225] dark:text-white dark:focus:border-white/30"
+                className="w-full rounded-item border border-black/10 bg-white px-4 py-3 text-[15px] text-black outline-none focus:border-black/30 dark:border-white/10 dark:bg-[#1f2225] dark:text-white dark:focus:border-white/30"
               />
             </label>
             {giveError ? <p role="alert" className="mt-2 text-[13px] text-black/70 dark:text-white/70">{giveError}</p> : null}

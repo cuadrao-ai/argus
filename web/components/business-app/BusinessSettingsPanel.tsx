@@ -5,6 +5,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness, type BusinessTab } from "./BusinessWorkspace";
 import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
+import ReceiptReadingControl from "./ReceiptReadingControl";
 import { BusinessEmailAddress, EmailHistory } from "./BusinessEmailDeliveries";
 import { formatBusinessName } from "./business-format";
 import { PanelHeading } from "./business-ui";
@@ -14,8 +15,9 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 /**
  * Negocio: everything about the business itself, apart from the person's own
  * account (which lives at the top right). One page, three tabs: its name and
- * RNC, who has access, and the address that receives its receipts by email
- * with the history of every email that arrived under it.
+ * RNC with the receipt reading row, who has access, and the address that
+ * receives its receipts by email with the history of every email that arrived
+ * under it.
  */
 export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: BusinessTab }) {
   const { t } = useTranslation();
@@ -35,10 +37,13 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
         <SegmentedControl testId="business-settings-tabs" label={t("business.settings.title", "Business")} value={shown} onChange={(next) => openPanel({ kind: "business", tab: next })} segments={tabs} fill={isBelowTablet} />
       </div>
       {shown === "datos" ? (
-        <div className={SURFACE_CARD}>
-          <h2 className="font-display text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.settings.datos_title", "Name and RNC")}</h2>
-          <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("business.settings.datos_body", "They appear on your 606 and 607 and on what you export.")}</p>
-          <BusinessFiscalProfile />
+        <div className="space-y-6">
+          <div className={SURFACE_CARD}>
+            <h2 className="font-display text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.settings.datos_title", "Name and RNC")}</h2>
+            <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("business.settings.datos_body", "They appear on your 606 and 607 and on what you export.")}</p>
+            <BusinessFiscalProfile />
+          </div>
+          <div className={SURFACE_CARD}><ReceiptReadingControl variant="row" /></div>
         </div>
       ) : null}
       {shown === "equipo" ? <BusinessAccessPanel embedded /> : null}

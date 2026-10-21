@@ -91,6 +91,7 @@ from argus.api.business_spaces import (
     business_access,
     business_spaces,
     space_missing_problem,
+    space_payload,
 )
 from argus.api.dependencies import problem
 from argus.api.documents import (
@@ -103,10 +104,12 @@ from argus.api.documents import (
 from argus.api.email_intake import arrived_by_email, email_receipt_flags
 from argus.api.financial_accounts import domain_problem
 from argus.api.ingestion import ingestion_hub
+from argus.api.profile_images import picture_urls
 from argus.api.routers.business_bank import router as business_bank_router
 from argus.api.routers.business_bank_movements import (
     router as business_bank_movements_router,
 )
+from argus.api.routers.business_logo import router as business_logo_router
 from argus.api.routers.business_search import router as business_search_router
 from argus.domain.business.access import AccessList, AccessStore, InvalidEmail
 from argus.domain.business.actions import BusinessActions
@@ -154,6 +157,7 @@ router = APIRouter(
 )
 router.include_router(business_bank_router)
 router.include_router(business_bank_movements_router)
+router.include_router(business_logo_router)
 router.include_router(business_search_router)
 _CONFLICTS = frozenset(
     {
@@ -248,15 +252,6 @@ def _identity(scope: BusinessScope) -> dict[str, str]:
     return {"country": scope.country, "currency": scope.currency}
 
 
-def _space(space: Space) -> dict[str, Any]:
-    return {
-        "id": space.id,
-        "name": space.name,
-        "country": space.country,
-        "currency": space.currency,
-    }
-
-
 @router.get("/space", response_model=BusinessSpaceInfo)
 def get_space(
     request: Request,
@@ -267,12 +262,12 @@ def get_space(
     space = person.spaces.open_space(person.person_id)
     if space is None:
         raise space_missing_problem(request)
-    return _space(space)
+    return space_payload(space)
 
 
 def _naming(space: Space) -> dict[str, Any]:
     return {
-        **_space(space),
+        **space_payload(space),
         "name_required": space.name_required,
         "name_prompt_seen": space.name_prompt_seen,
     }
@@ -335,18 +330,21 @@ def list_spaces(
     access = _access_store(request)
     accept_business_invites(person.person_id)
     seen = access.seen_grants(person.person_id)
+    granted = access.spaces_for(person.person_id)
+    logos = picture_urls("business", [found.space_id for found in granted])
     return {
         "spaces": [
             {
                 "space_id": found.space_id,
                 "name": found.name
                 or (person.spaces.get(found.space_id) or Space("", "")).name,
+                "logo_url": logos[found.space_id],
                 "grant_id": found.grant_id,
                 "role": found.role,
                 "capabilities": list(found.capabilities),
                 "access_seen": found.role == "owner" or found.grant_id in seen,
             }
-            for found in access.spaces_for(person.person_id)
+            for found in granted
         ]
     }
 
@@ -416,7 +414,7 @@ def start_space(
     )
     _access_store(request).ensure_owner_grant(space.id, person.person_id)
     response.status_code = 201 if created else 200
-    return _space(space)
+    return space_payload(space)
 
 
 def _access_store(request: Request) -> AccessStore:
@@ -434,12 +432,15 @@ def _access_store(request: Request) -> AccessStore:
 
 
 def _access(found: AccessList) -> dict[str, Any]:
+    # A photo reaches the Business only once its person has acted on the grant.
+    photos = picture_urls("person", [g.grantee_id for g in found.grants if g.seen])
     return {
         "grants": [
             {
                 "id": grant.id,
                 "email": grant.email,
                 "display_name": grant.display_name,
+                "photo_url": photos.get(grant.grantee_id),
                 "capabilities": list(grant.capabilities),
                 "created_at": grant.created_at,
                 "owner": grant.owner,
@@ -616,7 +617,7 @@ def rename_space(
     space = person.spaces.rename(person.person_id, body.name)
     if space is None:
         raise space_missing_problem(request)
-    return _space(space)
+    return space_payload(space)
 
 
 @router.get("/workspace", response_model=BusinessWorkspace)
@@ -630,7 +631,11 @@ def get_workspace(
         store.ensure_owner_grant(
             context.scope.owner.space_id, context.scope.acting_person_id
         )
-    workspace = context.service.workspace(context.scope)
+    space_id = context.scope.owner.space_id
+    workspace = {
+        **context.service.workspace(context.scope),
+        "logo_url": picture_urls("business", [space_id])[space_id],
+    }
     if not context.scope.acting_as_owner:
         # Business chat is the owner's: the client's shell shows no composer.
         workspace = {**workspace, "chat_available": False}

@@ -1,18 +1,31 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { Switch } from "@/components/ui/Switch";
 import type { ReceiptReading } from "@/lib/business-api";
-import { normalizeEnabledLanguage } from "@/lib/language-features";
+import { normalizeEnabledLanguage, resolveLanguage } from "@/lib/language-features";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessConsent } from "./business-consent-context";
-import { secondaryButtonClass } from "./business-ui";
+import { quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { showToast } from "./foundation/toasts";
 
-export default function ReceiptReadingControl({ hideWhenEnabled = false }: { hideWhenEnabled?: boolean }) {
+/**
+ * The one notice about receipt reading and the one home of its switch. The
+ * notice is a line that says what is true; its action opens Lectura de
+ * recibos, where the switch sits beside the words the owner agrees to.
+ * Nothing shows while the setting is unknown, so a failed read never claims
+ * reading is off. `showWhenOn` keeps a quiet line with the way to turn it off.
+ * `variant="row"` is the same control as a settings row: its state in words
+ * (a dash while it is unknown) and, for whoever may change it, the button that
+ * opens the same sheet.
+ */
+export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice" }: { showWhenOn?: boolean; variant?: "notice" | "row" }) {
   const { source, reload, chosen } = useBusiness();
   const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
-  const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? "en");
+  const language = normalizeEnabledLanguage(i18n.resolvedLanguage ?? resolveLanguage({}));
   const businessKey = chosen?.space_id ?? "own";
   const generation = useRef(0);
   const mutation = useRef<AbortController | null>(null);
@@ -20,38 +33,113 @@ export default function ReceiptReadingControl({ hideWhenEnabled = false }: { hid
     generation.current += 1;
     return () => { generation.current += 1; mutation.current?.abort(); };
   }, [source, businessKey, language]);
-  const [reading, setReading] = useState<ReceiptReading | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [stored, setReading] = useState<ReceiptReading | null>(null);
+  const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
+  const titleId = useId();
   useEffect(() => {
     let current = true;
     const controller = new AbortController();
     setReading(null);
+    setOpen(false);
     setFailed(false);
-    setBusy(false);
-    source.receiptReading?.(language, controller.signal).then((value) => { if (current) setReading(value); }, () => { if (current) setFailed(true); });
+    source.receiptReading?.(language, controller.signal).then((value) => { if (current) setReading(value); }, () => undefined);
     return () => { current = false; controller.abort(); };
   }, [source, language, businessKey]);
-  if (!consent.accepted || !source.receiptReading || (hideWhenEnabled && (reading?.enabled || (!reading && !failed)))) return null;
-  const change = async () => {
-    if (!reading || !source.setReceiptReading || busy) return;
+  const reading = consent.accepted ? stored : null;
+  const isRow = variant === "row";
+  if (!reading || (reading.enabled && !showWhenOn && !isRow)) {
+    return isRow ? <ReadingRow titleId={titleId} title={t("business.activity.sheet_title", "Receipt reading")} reading={null} /> : null;
+  }
+
+  const change = async (enabled: boolean) => {
+    if (!source.setReceiptReading) return;
     const current = generation.current;
     const controller = new AbortController();
     mutation.current = controller;
-    setBusy(true);
     setFailed(false);
     try {
-      const next = await source.setReceiptReading(reading, !reading.enabled, language, controller.signal);
-      if (generation.current === current && !controller.signal.aborted) { setReading(next); reload(); }
-    } catch { if (generation.current === current && !controller.signal.aborted) setFailed(true); }
-    finally { if (generation.current === current) setBusy(false); if (mutation.current === controller) mutation.current = null; }
+      const next = await source.setReceiptReading(reading, enabled, language, controller.signal);
+      if (generation.current !== current || controller.signal.aborted) return;
+      setReading(next);
+      setOpen(false);
+      reload();
+      showToast({ kind: "success", text: next.enabled ? t("business.activity.turned_on", "Receipt reading is on.") : t("business.activity.turned_off", "Receipt reading is off.") });
+    } catch (error) {
+      if (generation.current === current && !controller.signal.aborted) setFailed(true);
+      throw error;
+    } finally {
+      if (mutation.current === controller) mutation.current = null;
+    }
   };
-  return <section className="mb-4 rounded-[14px] border border-black/10 p-4 dark:border-white/10" data-testid="receipt-reading-control">
-    <p className="text-[14px] text-black/75 dark:text-white/75">{reading?.enabled ? t("business.activity.reading_on", "Receipt reading is on.") : t("business.activity.saved_prompt", "Your receipts are saved unread. Turn on receipt reading to prepare them for review.")}</p>
-    {reading?.can_change ? <>
-      {!reading.enabled ? <p className="mt-2 text-[13px] text-black/60 dark:text-white/60">{reading.disclosure}</p> : null}
-      <button type="button" className={`${secondaryButtonClass} mt-3`} disabled={busy || (!reading.enabled && !reading.available)} onClick={() => void change()}>{reading.enabled ? t("business.activity.turn_off", "Turn reading off") : t("business.activity.turn_on", "Turn receipt reading on")}</button>
-    </> : reading ? <p className="mt-2 text-[13px] text-black/60 dark:text-white/60">{t("business.activity.owner_only", "The Business owner can turn receipt reading on.")}</p> : null}
-    {failed ? <p role="alert" className="mt-2 text-[13px]">{t("business.activity.error", "Receipt reading could not be updated. Try again.")}</p> : null}
-  </section>;
+
+  const line = reading.enabled
+    ? t("business.activity.reading_on", "Receipt reading is on.")
+    : reading.can_change
+      ? t("business.activity.saved_prompt", "Your receipts are saved unread. Turn on receipt reading to prepare them for review.")
+      : t("business.activity.owner_only", "Your receipts are saved unread. The Business owner can turn reading on.");
+  return (
+    <>
+      {isRow ? (
+        <ReadingRow
+          titleId={titleId}
+          title={t("business.activity.sheet_title", "Receipt reading")}
+          reading={reading}
+          changeLabel={t("business.activity.change", "Change")}
+          onChange={() => setOpen(true)}
+        />
+      ) : (
+        <div data-testid="receipt-reading-control" data-enabled={reading.enabled ? "true" : "false"} className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="min-w-[16rem] flex-1 text-[14px] text-[#56635e] dark:text-white/70">{line}</p>
+          {reading.can_change ? (
+            <button type="button" onClick={() => setOpen(true)} className={reading.enabled ? quietButtonClass : secondaryButtonClass}>
+              {reading.enabled ? t("business.activity.change", "Change") : t("business.activity.turn_on", "Turn receipt reading on")}
+            </button>
+          ) : null}
+        </div>
+      )}
+      {open ? (
+        <AdaptivePanel title={t("business.activity.sheet_title", "Receipt reading")} closeLabel={t("common.close", "Close")} onClose={() => setOpen(false)} width="sm">
+          <div data-testid="receipt-reading-sheet" className="flex flex-col gap-3 desktop:px-5">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.activity.switch_label", "Read my receipts with AI")}</span>
+              <Switch testId="receipt-reading-switch" label={t("business.activity.switch_label", "Read my receipts with AI")} checked={reading.enabled} disabled={!reading.enabled && !reading.available} onChange={change} />
+            </div>
+            {!reading.enabled && !reading.available ? <p className="text-[13px] text-[#56635e] dark:text-white/65">{t("business.activity.unavailable", "AI reading can't be turned on right now.")}</p> : null}
+            {failed ? (
+              <div role="alert" className="flex flex-wrap items-center justify-between gap-x-3 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">
+                <p>{t("business.activity.error", "Receipt reading could not be updated. Try again.")}</p>
+                <button type="button" onClick={() => void change(!reading.enabled).catch(() => undefined)} className={quietButtonClass}>{t("common.retry", "Retry")}</button>
+              </div>
+            ) : null}
+            <p className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{reading.disclosure}</p>
+          </div>
+        </AdaptivePanel>
+      ) : null}
+    </>
+  );
+}
+
+function ReadingRow({ titleId, title, reading, changeLabel, onChange }: { titleId: string; title: string; reading: ReceiptReading | null; changeLabel?: string; onChange?: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div data-testid="receipt-reading-row" data-enabled={reading ? (reading.enabled ? "true" : "false") : "unknown"} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0">
+        <p id={titleId} className="text-[16px] font-medium text-[#172b26] dark:text-white">{title}</p>
+        <p data-testid="receipt-reading-state" className="text-[14px] text-[#56635e] dark:text-white/70">
+          {reading ? (
+            reading.enabled ? t("business.activity.state_on", "On") : t("business.activity.state_off", "Off")
+          ) : (
+            <>
+              <span aria-hidden="true">-</span>
+              <span className="sr-only">{t("business.activity.state_unknown", "Not available")}</span>
+            </>
+          )}
+        </p>
+      </div>
+      {reading?.can_change && onChange ? (
+        <button type="button" onClick={onChange} aria-describedby={titleId} className={secondaryButtonClass}>{changeLabel}</button>
+      ) : null}
+    </div>
+  );
 }

@@ -49,7 +49,7 @@ test("raw capture and list adapters never bootstrap a Business", async () => {
   let starts = 0;
   const source = withBusinessSpace({ ...createFixtureBusinessDataSource(), ensureSpace: async () => { starts++; throw new Error("must not bootstrap"); } }, () => "es-419");
   const note = await source.captureNote({ text: "nota original" }, "note-once");
-  assert.equal((await source.captures("original"))[0].draft_id, note.draft_id);
+  assert.equal((await source.captures("original")).items[0].draft_id, note.draft_id);
   assert.equal(starts, 0);
 });
 
@@ -68,10 +68,15 @@ test("synthetic notes keep sparse facts, immutable sources, version-bound append
   assert.equal(appended.version, 2);
   assert.deepEqual(appended.sources[0], first.sources[0]);
   assert.equal((await source.captureNote(input, "one")).version, 2);
-  const hits = await source.captures();
+  const { items: hits, has_more } = await source.captures();
   assert.equal(new Set(hits.map((hit) => hit.source_id)).size, 2);
   assert.deepEqual(hits.map((hit) => hit.draft_id), [first.draft_id, first.draft_id]);
-  assert.equal((await source.captures("%_"))[0].text, "  mi dinero %_  ");
+  assert.deepEqual(hits.map((hit) => hit.earlier_count), [1, 0], "the newest note counts the one before it");
+  assert.equal(has_more, false);
+  assert.equal((await source.captures("", 1)).has_more, true, "a page smaller than the notes says more exist");
+  const searched = (await source.captures("%_")).items;
+  assert.equal(searched[0].text, "  mi dinero %_  ");
+  assert.equal(searched[0].earlier_count, 1, "counted over every note of the draft, not only the ones the search keeps");
   await assert.rejects(source.captureNote({ text: "changed" }, "one"), { code: "idempotency_conflict" });
   await assert.rejects(source.captureNote({ text: "stale", draft: { draft_id: first.draft_id, version: 1 } }, "three"), { code: "stale_version" });
 });
@@ -81,7 +86,7 @@ test("synthetic read-only and accepted dossiers reject append without changing t
   const readOnly = await source.dossier(dossierFixtureIds.readOnly);
   await assert.rejects(source.captureNote({ text: "no", draft: { draft_id: readOnly.draft_id, version: readOnly.version } }, "denied"), { code: "permission_denied" });
   assert.deepEqual((await source.dossier(readOnly.draft_id)).sources, readOnly.sources);
-  const accepted = await source.approveDraft(dossierFixtureIds.ready, 2);
+  const accepted = await source.approveDraft(dossierFixtureIds.ready, 2, "record_expense");
   await assert.rejects(source.captureNote({ text: "no", draft: { draft_id: accepted.draft_id, version: accepted.version } }, "closed"), { code: "business_draft_not_open" });
   assert.deepEqual((await source.dossier(accepted.draft_id)).sources, accepted.sources);
 });

@@ -10,7 +10,12 @@ from psycopg import Error as PostgresError
 from psycopg_pool import PoolTimeout
 
 from argus.api.business import BusinessPerson, require_business_person
-from argus.api.business_drafts import DraftContext, action_problem, require_drafts
+from argus.api.business_drafts import (
+    DraftContext,
+    action_problem,
+    require_drafts,
+    stored_drafts,
+)
 from argus.api.business_month_close_schemas import (
     MonthClose,
     OpenItems,
@@ -19,9 +24,12 @@ from argus.api.business_month_close_schemas import (
 )
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.domain.business import ledger
 from argus.domain.business.authority import ActionError
 from argus.domain.business.month_close import Settlement
+from argus.domain.business.month_close import open_items as open_items_of
 from argus.domain.business.month_close_store import (
+    empty_month,
     read_month,
     read_open,
     settle_document,
@@ -60,7 +68,7 @@ def month_summary(
     request: Request,
     response: Response,
     month: str,
-    context: Annotated[DraftContext, Depends(require_drafts)],
+    context: Annotated[DraftContext | None, Depends(stored_drafts)],
     person: Annotated[BusinessPerson, Depends(require_business_person)],
 ):
     response.headers.update(NO_STORE)
@@ -77,6 +85,8 @@ def month_summary(
             headers=NO_STORE,
         )
     try:
+        if context is None:
+            return empty_month(month)
         return read_month(
             context.service.authority, _owner(request, context, person), month
         )
@@ -101,7 +111,7 @@ def month_summary(
 def open_items(
     request: Request,
     response: Response,
-    context: Annotated[DraftContext, Depends(require_drafts)],
+    context: Annotated[DraftContext | None, Depends(stored_drafts)],
     person: Annotated[BusinessPerson, Depends(require_business_person)],
 ):
     response.headers.update(NO_STORE)
@@ -114,6 +124,8 @@ def open_items(
             detail="No query parameters are accepted.",
             headers=NO_STORE,
         )
+    if context is None:
+        return open_items_of((), ledger.today())
     try:
         return read_open(context.service.authority, _owner(request, context, person))
     except ActionError as error:

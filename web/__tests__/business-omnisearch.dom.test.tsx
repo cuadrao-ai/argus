@@ -83,7 +83,7 @@ test("on focus the search is not empty: it names what it reads and offers every 
   try {
     await view.openSearch();
     assert.equal(view.input().placeholder, "Busca comercio, monto o nota");
-    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "GastosPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "Correo de recibosPantalla"]);
+    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "TransaccionesPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "Correo de recibosPantalla"]);
     assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Exportar registrosAcción", "Copiar dirección de reenvíoAcción"]);
     assert.ok(!/Argus/.test(paletteText()), "no Argus words on a Business search");
   } finally { await view.unmount(); }
@@ -93,8 +93,8 @@ test("screens and actions match the query without accents or case, and open wher
   const view = await mount();
   try {
     await view.openSearch();
-    await type(view.input(), "gasto");
-    assert.deepEqual(rows("Ir a"), ["GastosPantalla"]);
+    await type(view.input(), "transaccion");
+    assert.deepEqual(rows("Ir a"), ["TransaccionesPantalla"]);
     await type(view.input(), "EXPORTAR");
     assert.deepEqual(rows("Acciones"), ["Exportar registrosAcción"]);
     await type(view.input(), "dirección");
@@ -153,8 +153,8 @@ test("record hits carry their kind, a receipt opens beside the Bandeja, and acco
     assert.deepEqual(view.opened, [{ kind: "receipt", receiptId: "rcpt-ferreteria", list: "inbox" }]);
 
     await view.openSearch();
-    await type(view.input(), "operating");
-    assert.deepEqual(rows("Cuentas"), ["Operating accountDOPCuenta"]);
+    await type(view.input(), "corriente");
+    assert.deepEqual(rows("Cuentas"), ["Cuenta corrienteDOPCuenta"]);
     assert.equal(group("Cuentas")!.querySelector("button"), null);
   } finally { await view.unmount(); }
 });
