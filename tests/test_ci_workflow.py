@@ -21,7 +21,7 @@ DOCS_READING_TESTS_SCRIPT = ROOT / ".github" / "docs-reading-tests.sh"
 RUNBOOK_PATH = ROOT / "docs" / "PRIVATE_LAUNCH_RUNBOOK.md"
 FAKE = Faker()
 
-_HEAVY_CI_JOBS = ("backend-checks", "frontend-checks", "marketing-checks")
+_HEAVY_CI_JOBS = ("backend-checks", "frontend-checks")
 MARKETING_RUNBOOK_PATH = ROOT / "docs" / "runbooks" / "cuadrao-marketing-launch.md"
 # A push or a ready pull request runs the full CI; the scheduled and manual
 # probe runs only the latest-CLI real-Postgres leg.
@@ -32,6 +32,8 @@ _DRAFT_OR_PUSH = (
 _LATEST_CLI_PROBE = (
     "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
 )
+# A manual run with full_run checked runs every job, as an integration push does.
+_FULL_RUN = "(github.event_name == 'workflow_dispatch' && inputs.full_run)"
 _DRAFT_OR_NON_PR = (
     "github.event.pull_request.draft == false || "
     "github.event_name != 'pull_request'"
@@ -59,7 +61,7 @@ def _classify_changed_files(*files: str) -> dict[str, str]:
         for line in result.stdout.splitlines()
         if "=" in line
         for key, value in (line.split("=", 1),)
-        if key in {"docs_only", "run_heavy"}
+        if key in {"docs_only", "run_heavy", "run_marketing"}
     }
 
 
@@ -255,7 +257,7 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
         "marketing-checks",
         "guest-release-gates",
     ]
-    assert jobs["ci"]["if"] == f"always() && ({_DRAFT_OR_PUSH})"
+    assert jobs["ci"]["if"] == f"always() && ({_DRAFT_OR_PUSH} || {_FULL_RUN})"
     aggregator_env = jobs["ci"]["steps"][0]["env"]
     assert aggregator_env["DOCS_CHANGE_GATE"] == (
         "${{ needs.docs-change-gate.result }}"
@@ -263,6 +265,12 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert aggregator_env["OWNERSHIP_GATE"] == "${{ needs.ownership-gate.result }}"
     assert aggregator_env["DOCS_ONLY"] == (
         "${{ needs.docs-change-gate.outputs.docs_only }}"
+    )
+    assert aggregator_env["RUN_HEAVY"] == (
+        "${{ needs.docs-change-gate.outputs.run_heavy }}"
+    )
+    assert aggregator_env["RUN_MARKETING"] == (
+        "${{ needs.docs-change-gate.outputs.run_marketing }}"
     )
     assert aggregator_env["DOCS_CHECKS"] == "${{ needs.docs-checks.result }}"
     assert aggregator_env["BACKEND_CHECKS"] == "${{ needs.backend-checks.result }}"
@@ -277,10 +285,13 @@ def test_ci_aggregator_requires_all_active_quality_jobs() -> None:
     assert "CI checks passed." in aggregator_run
     assert "require_success docs-change-gate" in aggregator_run
     assert "require_success ownership-gate" in aggregator_run
-    assert "require_success_or_skipped backend-checks" in aggregator_run
-    assert "require_success_or_skipped frontend-checks" in aggregator_run
-    assert "require_success_or_skipped marketing-checks" in aggregator_run
-    assert "require_success_or_skipped guest-release-gates" in aggregator_run
+    # A selected job must succeed; skipping is allowed only when unselected.
+    assert "require_success_or_skipped" not in aggregator_run
+    assert 'require_selected docs-checks "$DOCS_ONLY"' in aggregator_run
+    assert 'require_selected backend-checks "$RUN_HEAVY"' in aggregator_run
+    assert 'require_selected frontend-checks "$RUN_HEAVY"' in aggregator_run
+    assert 'require_selected marketing-checks "$RUN_MARKETING"' in aggregator_run
+    assert 'require_selected guest-release-gates "$RUN_HEAVY"' in aggregator_run
 
 
 def test_private_alpha_canary_workflow_is_manual_and_scheduled_only() -> None:
@@ -582,26 +593,32 @@ def test_docs_only_changes_script_classifies_docs_and_code_lists() -> None:
     assert _classify_changed_files(docs_path, nested_docs) == {
         "docs_only": "true",
         "run_heavy": "false",
+        "run_marketing": "false",
     }
     assert _classify_changed_files(code_path) == {
         "docs_only": "false",
         "run_heavy": "true",
+        "run_marketing": "false",
     }
     assert _classify_changed_files(docs_path, code_path) == {
         "docs_only": "false",
         "run_heavy": "true",
+        "run_marketing": "false",
     }
     assert _classify_changed_files("AGENTS.md") == {
         "docs_only": "false",
         "run_heavy": "true",
+        "run_marketing": "false",
     }
     assert _classify_changed_files(root_markdown) == {
         "docs_only": "false",
         "run_heavy": "true",
+        "run_marketing": "true",
     }
     assert _classify_changed_files() == {
         "docs_only": "false",
         "run_heavy": "true",
+        "run_marketing": "true",
     }
 
 
@@ -611,14 +628,17 @@ def test_docs_only_changes_script_treats_docs_api_as_docs_only() -> None:
     assert _classify_changed_files("docs/api/openapi.yaml") == {
         "docs_only": "true",
         "run_heavy": "false",
+        "run_marketing": "false",
     }
     assert _classify_changed_files(api_path) == {
         "docs_only": "true",
         "run_heavy": "false",
+        "run_marketing": "false",
     }
     assert _classify_changed_files("docs/PRODUCT.md", "docs/api/openapi.yaml") == {
         "docs_only": "true",
         "run_heavy": "false",
+        "run_marketing": "false",
     }
 
 
@@ -757,12 +777,15 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
 
     assert gate["if"] == f"{_DRAFT_OR_PUSH} || {_LATEST_CLI_PROBE}"
     assert gate["outputs"]["run_heavy"] == "${{ steps.classify.outputs.run_heavy }}"
+    assert gate["outputs"]["run_marketing"] == (
+        "${{ steps.classify.outputs.run_marketing }}"
+    )
     assert classify["run"] == ".github/docs-only-changes.sh"
     assert classify["env"]["PR_BASE_SHA"] == (
         "${{ github.event.pull_request.base.sha }}"
     )
     assert _job_needs(jobs["ownership-gate"]) == []
-    assert jobs["ownership-gate"]["if"] == _DRAFT_OR_PUSH
+    assert jobs["ownership-gate"]["if"] == f"{_DRAFT_OR_PUSH} || {_FULL_RUN}"
     ownership_steps = jobs["ownership-gate"]["steps"]
     checkout = next(step for step in ownership_steps if step.get("name") == "Checkout")
     assert checkout["with"]["fetch-depth"] == 0
@@ -782,13 +805,19 @@ def test_pull_request_heavy_jobs_use_the_shared_docs_change_gate() -> None:
     assert "if" not in evidence_step
 
     heavy_if = (
-        f"({_DRAFT_OR_PUSH}) && "
+        f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
         "needs.docs-change-gate.outputs.run_heavy == 'true'"
     )
     for job_name in _HEAVY_CI_JOBS:
         job = jobs[job_name]
         assert _job_needs(job) == ["docs-change-gate"]
         assert job["if"] == heavy_if
+    marketing = jobs["marketing-checks"]
+    assert _job_needs(marketing) == ["docs-change-gate"]
+    assert marketing["if"] == (
+        f"({_DRAFT_OR_PUSH} || {_FULL_RUN}) && "
+        "needs.docs-change-gate.outputs.run_marketing == 'true'"
+    )
     guest_job = jobs["guest-release-gates"]
     assert _job_needs(guest_job) == ["docs-change-gate"]
     assert guest_job["if"] == (
@@ -858,21 +887,20 @@ def test_ci_aggregator_requires_docs_checks_success_when_docs_only() -> None:
     env = _workflow()["jobs"]["ci"]["steps"][0]["env"]
 
     assert env["DOCS_ONLY"] == "${{ needs.docs-change-gate.outputs.docs_only }}"
-    assert 'if [ "$DOCS_ONLY" = true ]; then' in run
-    docs_only_branch = run.split('if [ "$DOCS_ONLY" = true ]; then', 1)[1].split(
-        "else", 1
-    )[0]
-    assert "require_success docs-checks" in docs_only_branch
-    assert "require_success_or_skipped docs-checks" not in docs_only_branch
+    # docs_only selects docs-checks; tests/test_docs_ci_gate.py executes both
+    # branches, so a docs-only run needs docs-checks success.
+    assert 'require_selected docs-checks "$DOCS_ONLY" "$DOCS_CHECKS"' in run
+    selected_branch = run.split("require_selected() {", 1)[1].split("elif", 1)[0]
+    assert 'if [ "$2" = true ]; then' in selected_branch
+    assert 'require_success "$1" "$3"' in selected_branch
 
 
 def test_ci_aggregator_allows_skipped_docs_checks_when_not_docs_only() -> None:
     run = _workflow()["jobs"]["ci"]["steps"][0]["run"]
-    not_docs_only_branch = run.split('if [ "$DOCS_ONLY" = true ]; then', 1)[1].split(
-        "else", 1
-    )[1]
-    assert "require_success_or_skipped docs-checks" in not_docs_only_branch
-    assert "require_success docs-checks" not in not_docs_only_branch.split("fi", 1)[0]
+    selected_branch = run.split("require_selected() {", 1)[1].split("}", 1)[0]
+    unselected_branch = selected_branch.split("elif", 1)[1]
+    assert '[ "$3" != skipped ]' in unselected_branch
+    assert '[ "$3" != success ]' in unselected_branch
 
 
 def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
@@ -884,8 +912,8 @@ def test_real_postgres_matrix_runs_on_pinned_and_latest_supabase_cli() -> None:
     assert guest_job["strategy"]["fail-fast"] is False
     assert guest_job["strategy"]["matrix"]["supabase-cli"] == (
         "${{ fromJSON((github.event_name == 'schedule' || "
-        "github.event_name == 'workflow_dispatch') && '[\"latest\"]' || "
-        "'[\"pinned\", \"latest\"]') }}"
+        "(github.event_name == 'workflow_dispatch' && !inputs.full_run)) && "
+        "'[\"latest\"]' || '[\"pinned\", \"latest\"]') }}"
     )
     by_name = {step.get("name"): step for step in guest_job["steps"]}
     always = (
