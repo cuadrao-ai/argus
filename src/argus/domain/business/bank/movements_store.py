@@ -7,7 +7,7 @@ statement still reaches its line. Storing an offer confirms nothing.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import date, timedelta
 from decimal import Decimal
@@ -28,6 +28,7 @@ from argus.domain.business.bank.model import (
 from argus.domain.business.bank.movements import (
     Account,
     Document,
+    Item,
     LiveOutcome,
     Movement,
     Segment,
@@ -116,7 +117,34 @@ def read_movements(
     unmoved = unmoved_documents(
         documents.values(), accounts.values(), taken, period_start, period_end
     )
-    items = [*movements, *unmoved]
+    return movements_page(
+        [*movements, *unmoved],
+        accounts.values(),
+        period_start=period_start,
+        period_end=period_end,
+        segment=segment,
+        sense=sense,
+        limit=limit,
+        cursor=cursor,
+        currency=currency,
+    )
+
+
+def movements_page(
+    items: list[Item],
+    accounts: Iterable[Account],
+    *,
+    period_start: date,
+    period_end: date,
+    segment: Segment,
+    sense: str | None,
+    limit: int,
+    cursor: str | None,
+    currency: str | None,
+) -> dict:
+    """The movements read's answer from a period's items and accounts; with
+    none of either, the empty period in the same shape."""
+
     shown, following = page(
         items, segment=segment, sense=sense, limit=limit, cursor=cursor, currency=currency
     )
@@ -127,7 +155,7 @@ def read_movements(
         "segment": segment,
         "sense": sense,
         "currency": currency,
-        "accounts": [coverage_payload(account) for account in accounts.values()],
+        "accounts": [coverage_payload(account) for account in accounts],
         "totals": [
             block for block in blocks if currency is None or block["currency"] == currency
         ],

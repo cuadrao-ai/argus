@@ -6,6 +6,7 @@ from argus.domain.business.contracts.dgii import DgiiDeclaration
 from argus.domain.business.contracts.facts import BusinessFacts
 from argus.domain.business.dgii_validation import FiscalRecord
 from argus.domain.business.ledger import occurred_on
+from argus.domain.recording.owner_funds import owner_funded
 
 
 def fiscal_snapshot(cursor, context, activities):
@@ -64,6 +65,7 @@ def fiscal_snapshot(cursor, context, activities):
                 source_ids=tuple(str(value) for value in row["source_ids"])
                 if row
                 else (),
+                owner_funded=owner_funded(activity),
             )
         )
     return tuple(records), profile["business_rnc"], profile["name"]

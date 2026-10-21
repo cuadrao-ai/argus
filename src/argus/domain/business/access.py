@@ -89,6 +89,9 @@ class AccessGrant:
     capabilities: tuple[str, ...]
     created_at: datetime
     owner: bool
+    #: The grantee dismissed the "you now have access" line (their access_seen
+    #: receipt), or is the owner. Until then the Business learns only their name.
+    seen: bool = False
 
 
 @dataclass(frozen=True)
@@ -309,13 +312,17 @@ class PostgresAccessStore:
         with connection.cursor(row_factory=dict_row) as cursor:
             grants = cursor.execute(
                 "select g.id::text, g.grantee_id::text, u.email, p.display_name, p.username,"
-                " g.capabilities, g.created_at from public.business_client_grants g"
+                " g.capabilities, g.created_at, g.grantee_id = %s::uuid or exists("
+                "  select 1 from public.business_action_receipts r"
+                "  where r.actor_id=g.grantee_id and r.turn_key is null"
+                "  and r.command->>'action'='access_seen' and r.command->>'grant_id'=g.id::text"
+                " ) as seen from public.business_client_grants g"
                 " join auth.users u on u.id=g.grantee_id"
                 " left join public.profiles p on p.id=g.grantee_id"
                 " where g.space_id=%s and g.revoked_at is null"
                 " and (g.expires_at is null or g.expires_at > now())"
                 " order by (g.grantee_id = %s::uuid) desc, g.created_at, g.id",
-                (space_id, owner_id),
+                (owner_id, space_id, owner_id),
             ).fetchall()
             invites = cursor.execute(
                 "select id::text, email, created_at, expires_at,"
@@ -335,6 +342,7 @@ class PostgresAccessStore:
                     tuple(row["capabilities"]),
                     row["created_at"],
                     row["grantee_id"] == owner_id,
+                    row["seen"],
                 )
                 for row in grants
             ),
@@ -848,6 +856,11 @@ class InMemoryAccessStore:
                     g["capabilities"],
                     g["created_at"],
                     g["grantee_id"] == owner_id,
+                    g["grantee_id"] == owner_id
+                    or any(
+                        c.action == "access_seen" and str(c.grant_id) == g["id"]
+                        for c in self.ledger
+                    ),
                 )
                 for g in grants
             ),

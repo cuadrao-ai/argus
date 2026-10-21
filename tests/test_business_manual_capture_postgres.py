@@ -288,7 +288,7 @@ def test_capture_unknown_outcome_is_not_reset(actions, settled):
 
 def test_capture_api_owner_scope_and_accountant_append(actions, users):
     from argus.api.business import BusinessPerson, require_business_person
-    from argus.api.business_drafts import DraftContext, require_drafts
+    from argus.api.business_drafts import DraftContext, require_drafts, stored_drafts
     from argus.api.routers.business_manual import router
     from argus.domain.business.spaces import PostgresSpaceStore
     from fastapi import FastAPI
@@ -299,7 +299,9 @@ def test_capture_api_owner_scope_and_accountant_append(actions, users):
     app = FastAPI()
     app.include_router(router)
     spaces = PostgresSpaceStore(service.authority.pool)
+    # Read ``actor`` at call time: the test rebinds it to the accountant below.
     app.dependency_overrides[require_drafts] = lambda: DraftContext(service, actor)
+    app.dependency_overrides[stored_drafts] = lambda: DraftContext(service, actor)
     app.dependency_overrides[require_business_person] = lambda: BusinessPerson(
         str(actor), spaces
     )

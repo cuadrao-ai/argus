@@ -243,6 +243,10 @@ class UserResponse(BaseModel):
     public_account_access_enabled: bool = Field(
         description="Server-authoritative permission to expose ordinary account creation."
     )
+    photo_url: str | None = Field(
+        default=None,
+        description="A signed URL to the person's 256 px profile photo, valid for about an hour; null without one.",
+    )
 
     @model_validator(mode="after")
     def _hide_registered_preferences_from_guests(self) -> UserResponse:

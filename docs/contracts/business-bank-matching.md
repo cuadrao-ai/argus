@@ -129,7 +129,7 @@ Query `period_start` and `period_end` as dates. `period_end` before `period_star
 
 ### GET /movements
 
-Transacciones. Every line of the period, newest first, with its state. The caller needs `read`. Scope and grants are the month-close rule: the caller's own Business, or the client named by `X-Business-Grant`. It needs the durable Business store.
+Transacciones. Every line of the period, newest first, with its state. The caller needs `read`. Scope and grants are the month-close rule: the caller's own Business, or the client named by `X-Business-Grant`. It needs the durable Business store; the in-memory app keeps none and answers the empty period in this same shape (no accounts, totals or items, every count zero, `next_cursor` null) once the caller's Business exists, while every decision route there stays 404 `business_unavailable`.
 
 Query: `period_start` and `period_end` as dates, inclusive. Optional `segment` of `por_igualar`, `igualadas`, or `todas` (default). Optional `sense` of `charge` or `deposit`. Optional `currency`, an ISO 4217 code in upper case (anything else is 422): the table follows that currency. Optional `limit` from 1 to 200, default 50. Optional `cursor` from the previous page's `next_cursor`.
 

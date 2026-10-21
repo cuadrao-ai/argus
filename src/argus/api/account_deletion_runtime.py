@@ -144,6 +144,9 @@ def build_service(
     from argus.domain.account_deletion.service import AccountDeletionService
     from argus.domain.ingestion.documents.objects import SupabaseSourceObjects
     from argus.domain.ingestion.secrets import SecretBox, SecretBoxUnavailable
+    from argus.domain.profile_images import ProfileImages
+    from argus.domain.profile_images.objects import SupabaseProfileImageObjects
+    from argus.domain.profile_images.store import PostgresProfileImageStore
     from argus.observability.analytics_deletion import (
         analytics_deletion_from_env,
         fake_analytics_allowed,
@@ -166,4 +169,8 @@ def build_service(
         # The recording fake finishes a run only in tests and local dev.
         allow_fake_analytics=fake_analytics_allowed(),
         source_objects=SupabaseSourceObjects(supabase_client.storage),
+        profile_images=ProfileImages(
+            PostgresProfileImageStore(pool),
+            SupabaseProfileImageObjects(supabase_client.storage),
+        ),
     )
