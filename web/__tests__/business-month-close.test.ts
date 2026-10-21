@@ -527,6 +527,14 @@ describe("open items", () => {
     expect(open.cuentas_por_pagar).toEqual({ count: 0, totals: [], items: [] });
   });
 
+  test("the reader keeps the due day and fiscal facts the server sends, so live rows show lateness and fiscal marks", () => {
+    const line = { ...item("act-9", "invoice", "DOP", "2026-09-12", 5900), due_on: "2026-09-20", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, sin_comprobante: false };
+    const open = readOpenItemsWire({ cuentas_por_cobrar: { count: 1, totals: [], items: [line] }, cuentas_por_pagar: { count: 0, totals: [], items: [] } });
+    expect(open.cuentas_por_cobrar.items[0]).toEqual(expect.objectContaining({ due_on: "2026-09-20", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, sin_comprobante: false, fiscal_known: true }));
+    const older = readOpenItemsWire({ cuentas_por_cobrar: { count: 1, totals: [], items: [item("act-8", "invoice", "DOP", "2026-09-12", 5900)] }, cuentas_por_pagar: { count: 0, totals: [], items: [] } });
+    expect(older.cuentas_por_cobrar.items[0]).toEqual(expect.objectContaining({ due_on: null, rnc: null, fiscal_known: false }));
+  });
+
   test("a refused open-items read is the same month close error", async () => {
     const client = createHttpMonthCloseClient(async () => {
       throw Object.assign(new Error("grant revoked"), { code: "business_grant_not_live" });

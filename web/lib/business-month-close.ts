@@ -821,6 +821,9 @@ type WireLine = {
   status: string;
   currency?: string;
   counterparty: string | null;
+  due_on: string | null;
+  /** Present when the server sends the document's fiscal facts; older servers omit them. */
+  fiscal?: { rnc: string | null; ncf: string | null; ecf: string | null; sin_comprobante: boolean };
 };
 
 const CURRENCY_CODE = /^[A-Z]{3}$/;
@@ -848,6 +851,10 @@ function readWireLine(value: unknown): WireLine {
     status: value.status,
     currency: lineCurrency(value.currency),
     counterparty: readNullableText(value.counterparty),
+    due_on: readDueOn(value.due_on),
+    fiscal: "rnc" in value || "ncf" in value || "ecf" in value
+      ? { rnc: readNullableText(value.rnc), ncf: readNullableText(value.ncf), ecf: readNullableText(value.ecf), sin_comprobante: value.sin_comprobante === true }
+      : undefined,
   };
 }
 
@@ -857,15 +864,16 @@ function wireDocument(line: WireLine): MonthCloseDocument {
     kind: line.document_kind,
     counterparty: line.counterparty ?? (line.document_kind === "invoice" ? "Factura" : "Gasto"),
     occurred_on: line.occurred_on,
-    due_on: null,
+    due_on: line.due_on,
     currency: line.currency ?? "DOP",
     amount: minorToAmount(line.total_minor),
     itbis: line.itbis_minor === null ? null : minorToAmount(line.itbis_minor),
-    rnc: null,
-    ncf: null,
-    ecf: null,
+    rnc: line.fiscal?.rnc ?? null,
+    ncf: line.fiscal?.ncf ?? null,
+    ecf: line.fiscal?.ecf ?? null,
     status: line.status as MonthCloseStatus,
-    fiscal_known: false,
+    fiscal_known: Boolean(line.fiscal),
+    ...(line.fiscal ? { sin_comprobante: line.fiscal.sin_comprobante } : {}),
   };
 }
 
@@ -1018,14 +1026,14 @@ export function createHttpMonthCloseClient(transport: MonthCloseTransport = (pat
       const request = monthCloseSettlementRequest(documentId, "cobrado", settledOn);
       const saved = await readTransport(transport, request);
       if (!isRecord(saved) || saved.status !== "cobrado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado", counterparty: null });
+      return wireDocument({ activity_id: documentId, document_kind: "invoice", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "cobrado", counterparty: null, due_on: null });
     },
     async markPagado(documentId, _scope, settledOn) {
       if (!settledOn) throw new MonthCloseError("unavailable", "settlement date is unknown");
       const request = monthCloseSettlementRequest(documentId, "pagado", settledOn);
       const saved = await readTransport(transport, request);
       if (!isRecord(saved) || saved.status !== "pagado") throw new MonthCloseError("unavailable", "month close status does not fit the document");
-      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado", counterparty: null });
+      return wireDocument({ activity_id: documentId, document_kind: "receipt", occurred_on: settledOn, total_minor: 0, itbis_minor: null, status: "pagado", counterparty: null, due_on: null });
     },
     async markPendiente(documentId) {
       const saved = await readTransport(transport, monthCloseReopenRequest(documentId));
