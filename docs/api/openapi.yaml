@@ -15495,6 +15495,8 @@ components:
           type: integer
         needs_attention:
           type: integer
+        ready_to_review_count:
+          type: integer
         last_received_at:
           anyOf:
           - type: string
@@ -15522,6 +15524,7 @@ components:
       - totals
       - awaiting_review
       - needs_attention
+      - ready_to_review_count
       - last_received_at
       - last_confirmed_at
     BusinessSearch:
@@ -25516,6 +25519,8 @@ components:
           type: integer
         needs_attention_count:
           type: integer
+        ready_to_review_count:
+          type: integer
       additionalProperties: false
       type: object
       required:
@@ -25524,6 +25529,7 @@ components:
       - presentation
       - pending_review_count
       - needs_attention_count
+      - ready_to_review_count
     ReceiptCardFacts:
       properties:
         execution_costs:

@@ -5,6 +5,7 @@ from argus.domain.business.receipt_activity import (
     aggregate_activity,
     inbox_counts,
     project_activity,
+    ready_to_review,
 )
 
 NOW = datetime(2026, 10, 14, tzinfo=timezone.utc)
@@ -94,15 +95,62 @@ def test_emails_that_are_a_row_of_their_own_add_to_the_bandeja_counts():
         receipt(id="c", status="confirmed"),
         receipt(id="d", email_original=True, status="needs_attention"),
     ]
-    assert inbox_counts(views) == {"pending_review_count": 2, "needs_attention_count": 1}
+    assert inbox_counts(views) == {
+        "pending_review_count": 2,
+        "needs_attention_count": 1,
+        "ready_to_review_count": 2,
+    }
     assert inbox_counts(views, notes=1, emails=["no_receipt", "no_receipt"]) == {
         "pending_review_count": 5,
         "needs_attention_count": 3,
+        "ready_to_review_count": 3,
     }
     assert inbox_counts(views, emails=["reading", "no_receipt", "reading"]) == {
         "pending_review_count": 5,
         "needs_attention_count": 2,
+        "ready_to_review_count": 2,
     }
+
+
+def test_ready_to_review_matches_the_web_por_revisar_cases():
+    """The cases of web/__tests__/business-review-count.test.ts, one for one."""
+
+    def review(**changes):
+        return receipt(**{"attention": None, **changes})
+
+    views = [
+        review(),
+        review(status="needs_attention", attention="duplicate"),
+        review(status="needs_attention", attention="several_purchases"),
+        review(status="saved"),
+        review(status="needs_attention", attention="unreadable"),
+        review(status="queued", read_pending=True),
+        review(status="preparing", activity={"state": "reading"}),
+        review(status="review_ready", activity={"state": "reading"}),
+        review(status="confirmed"),
+        review(status="dismissed"),
+        review(email_original=True, status="saved"),
+    ]
+    assert inbox_counts(views)["ready_to_review_count"] == 4
+    assert inbox_counts([])["ready_to_review_count"] == 0
+    assert not ready_to_review(
+        review(status="queued", read_pending=True, attention="unreadable")
+    )
+
+
+def test_each_fact_alone_keeps_a_receipt_out_of_ready_to_review():
+    assert ready_to_review(receipt(attention="duplicate"))
+    for changes in (
+        {"status": "queued"},
+        {"status": "preparing"},
+        {"read_pending": True},
+        {"activity": {"state": "reading"}},
+        {"attention": "unreadable"},
+        {"status": "confirmed"},
+        {"status": "dismissed"},
+        {"email_original": True},
+    ):
+        assert not ready_to_review(receipt(**changes)), changes
 
 
 def test_emails_being_read_count_as_reading_and_make_the_badge_work():
