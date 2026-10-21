@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import type { SidebarMode } from "@/components/sidebar/ChatSidebar";
-import { readStored, writeStored } from "@/lib/browser-storage";
+import { readStored, writeStored, type StorageKey } from "@/lib/browser-storage";
 import type { ResponsiveLayout } from "@/lib/responsive-layout";
 
 export type MobileShell = ResponsiveLayout & {
@@ -43,29 +43,33 @@ export function businessShellLayout(
 }
 
 /**
- * Rail open state and the saved rail preference. Business opens labeled and
- * only its toggle collapses it. The personal preference shares this origin's
- * storage, so a saved "collapsed" or "hover" must not reach the Business rail.
+ * Rail open state and the saved rail preference. Business keeps its own saved
+ * preference, opening labeled until the person picks another: the personal
+ * one shares this origin's storage and must not reach the Business rail.
  */
+export function sidebarModeKey(workspaceId: string | undefined): StorageKey {
+  return workspaceId === "business" ? "cuadrao:business_sidebar_mode" : "argus:sidebar_mode";
+}
+
 export function useSidebarRail(workspaceId: string | undefined) {
   const business = workspaceId === "business";
+  const key = sidebarModeKey(workspaceId);
   const [isSidebarOpen, setIsSidebarOpen] = useState(business);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>(business ? "expanded" : "collapsed");
 
   useEffect(() => {
-    if (business) return;
-    const saved = readStored("argus:sidebar_mode") as SidebarMode | null;
+    const saved = readStored(key) as SidebarMode | null;
     if (saved === "expanded" || saved === "collapsed" || saved === "hover") {
       setSidebarMode(saved);
       setIsSidebarOpen(saved === "expanded");
     }
-  }, [business]);
+  }, [key]);
 
   const chooseSidebarMode = useCallback((mode: SidebarMode) => {
     setSidebarMode(mode);
-    writeStored("argus:sidebar_mode", mode);
+    writeStored(key, mode);
     setIsSidebarOpen(mode === "expanded");
-  }, []);
+  }, [key]);
   const toggleSidebar = useCallback(() => setIsSidebarOpen((open) => !open), []);
   const closeRailForDialog = useCallback(() => {
     if (!business) setIsSidebarOpen(false);

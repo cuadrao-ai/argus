@@ -48,6 +48,7 @@ function openLayer(id: string): void {
 const pushOverlay = openLayer;
 const popOverlay = unregisterOverlayLayer;
 import { sidebarDrawerDragOutcome } from "../components/sidebar/SidebarDrawer";
+import { sidebarModeKey } from "../components/chat/useMobileShell";
 import ChatShellMenuTrigger from "../components/chat/ChatShellMenuTrigger";
 import SidebarHeader from "../components/sidebar/SidebarHeader";
 import SidebarShell from "../components/sidebar/SidebarShell";
@@ -413,15 +414,26 @@ describe("mobile top bar", () => {
     expect(chatInterface).toContain("<ChatShellMenuTrigger");
   });
 
+  test("a workspace with a top-bar search drops the sidebar's Buscar row from the tablet stop up, and a phone keeps its search", () => {
+    expect(chatInterface).toContain("!(workspace?.headerSearch && !mobileShell.isBelowTablet)");
+    expect(chatInterface).toContain("workspace?.headerSearch && !mobileShell.isBelowTablet ? (");
+  });
+
   test("the drawer does not carry guest settings", () => {
     expect(chatInterface).toContain("guestSettings={null}");
     expect(chatInterface).not.toContain('placement="drawer"');
   });
 
-  test("the rail preference entry is absent in drawer mode and in Business, not greyed", () => {
+  test("the rail preference entry is absent in drawer mode, not greyed, and present in Business", () => {
     expect(chatSidebar).toContain(
-      "const sidebarPreferenceHandler = isDrawer || business ? undefined : onOpenSidebarPreference;",
+      "const sidebarPreferenceHandler = isDrawer ? undefined : onOpenSidebarPreference;",
     );
+  });
+
+  test("Business saves its rail preference apart from the personal one", () => {
+    expect(sidebarModeKey("business")).toBe("cuadrao:business_sidebar_mode");
+    expect(sidebarModeKey(undefined)).toBe("argus:sidebar_mode");
+    expect(sidebarModeKey("personal")).toBe("argus:sidebar_mode");
   });
 });
 

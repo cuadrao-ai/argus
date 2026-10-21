@@ -1,16 +1,12 @@
 import { expect, type Page, type Route } from "@playwright/test";
 import { createFixtureBusinessDataSource } from "../../components/business-app/fixture-data";
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./breakpoint-fixture";
+import { monthCloseWire, OPEN_ITEMS_WIRE } from "./month-close-wire";
 
 type Source = ReturnType<typeof createFixtureBusinessDataSource>;
 /** A spec's own answer for one Business path: undefined falls through to the fixture data, null means the override fulfilled the route itself. */
 export type BusinessOverride = (parts: string[], route: Route, source: Source) => Promise<unknown> | undefined;
 
-const MONTH = {
-  month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed: false, reasons: [], missing_rnc: [], missing_ncf: [],
-  cuentas_por_cobrar: [], cuentas_por_pagar: [],
-  currencies: [{ currency: "DOP", income_before_itbis: "48500.00", expense_before_itbis: "12300.00", net_result: "36200.00", itbis_owed: "6516.00" }],
-};
 
 /** The signed-in Spanish Business on fixture data, every API call answered in the page. */
 export async function installReceiptBusiness(page: Page, override?: BusinessOverride, theme: "light" | "dark" = "light") {
@@ -40,9 +36,10 @@ export async function installReceiptBusiness(page: Page, override?: BusinessOver
       } else if (parts[0] === "receipts" && parts.length === 2) json = await source.receipt(parts[1]);
       else if (parts[0] === "drafts" && parts[2] === "dossier") json = await source.dossier(parts[1]);
       else if (parts[0] === "email" && parts.length === 1) json = await source.emailIntake();
-      else if (parts[0] === "month-close" && parts.length === 1) json = MONTH;
+      else if (parts[0] === "month-close" && parts.length === 1) json = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
+      else if (parts[0] === "open-items") json = OPEN_ITEMS_WIRE;
       else if (parts.join("/") === "fiscal-profile/fields") json = { "606": [], "607": [] };
-      else if (["captures", "updates", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
+      else if (["captures", "expenses"].includes(parts[0]) || parts.join("/") === "email/deliveries") json = { items: [] };
       else return route.fulfill({ status: 404, json: { code: "fixture_only" } });
       return route.fulfill({ json });
     } catch (error) {

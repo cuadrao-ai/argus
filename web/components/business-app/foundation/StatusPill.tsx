@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import type { ReceiptStatus } from "@/lib/business-api";
 import { BUSINESS_STATUS, statusNameForReceipt } from "./presentation";
 
-export function StatusPill({ status }: { status: ReceiptStatus }) {
+/** `label` names a finer state in the status's colour and mark, as a search preview names what its row says. */
+export function StatusPill({ status, label: stateLabel }: { status: ReceiptStatus; label?: string }) {
   const { t } = useTranslation();
   const name = statusNameForReceipt(status);
   const tone = BUSINESS_STATUS[name];
-  const label = t(tone.labelKey, tone.label);
+  const label = stateLabel || t(tone.labelKey, tone.label);
   const Icon = tone.icon;
   return (
     <span

@@ -35,27 +35,28 @@ for (const width of [1280, 390]) {
       await capture("initial-reduced-motion");
     }
     release();
-    await expect(page.getByTestId("inicio-por-revisar")).toBeVisible();
+    await expect(page.locator("#business-overview-title")).toBeVisible();
     const monthLoading = page.getByTestId("month-close-loading");
     const cards = page.getByTestId("month-close-cards");
     await expect(monthLoading.or(cards)).toBeVisible();
     await capture("overview");
     await expect(cards).toBeVisible();
     const skeleton = page.getByTestId("business-loading");
-    for (const name of ["inbox", "expenses", "updates"]) {
+    for (const name of ["inbox", "expenses"]) {
       await page.goto(`/dev/business-preview?view=${name}`);
       await expect(skeleton).toBeVisible();
       await capture(name);
       await expect(skeleton).toHaveCount(0);
     }
     await page.goto("/dev/business-preview?receipt=rcpt-ferreteria");
-    await expect(skeleton).toBeVisible();
+    // Beside the record tray the list behind it keeps its own placeholder, so name the detail one.
+    const detailSkeleton = skeleton.and(page.locator('[data-layout="detail"]'));
+    await expect(detailSkeleton).toBeVisible();
     let skeletonPreview = "";
     if (!baseline) {
-      await expect(skeleton).toHaveAttribute("data-layout", "detail");
-      const columns = await skeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+      const columns = await detailSkeleton.locator('[aria-hidden="true"] > .grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
       expect(columns).toBe(width === 390 ? 1 : 2);
-      skeletonPreview = await skeleton.getByTestId("business-skeleton-preview").evaluate((element) => getComputedStyle(element).minHeight);
+      skeletonPreview = await detailSkeleton.getByTestId("business-skeleton-preview").evaluate((element) => getComputedStyle(element).minHeight);
     }
     await capture("receipt");
     await expect(page.getByTestId("business-record-review")).toBeVisible();
@@ -68,9 +69,8 @@ for (const width of [1280, 390]) {
 }
 
 const listScreens = [
-  { view: "expenses", title: "Gastos", rows: "[data-expense-id]", oneLineWidths: [1440, 390] },
-  { view: "updates", title: "Novedades", rows: "section ul > li", oneLineWidths: [1440] },
-  { view: "access", title: "Acceso", rows: '[data-testid="business-access-grants"] > li', oneLineWidths: [1440, 390] },
+  { view: "expenses", query: "expenses", title: "Gastos", rows: "[data-expense-id]", oneLineWidths: [1440, 390] },
+  { view: "access", query: "business&tab=equipo", title: "Negocio", rows: '[data-testid="business-access-grants"] > li', oneLineWidths: [1440, 390] },
 ];
 
 for (const width of [1440, 390]) {
@@ -83,7 +83,7 @@ for (const width of [1440, 390]) {
         const original = window.setTimeout.bind(window);
         window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => original(handler, delay === 240 ? 1800 : delay, ...args)) as typeof window.setTimeout;
       });
-      await page.goto(`/dev/business-preview?view=${screen.view}`);
+      await page.goto(`/dev/business-preview?view=${screen.query}`);
       const skeleton = page.getByTestId("business-loading");
       await expect(skeleton).toBeVisible();
       await expect(skeleton).toHaveAttribute("data-layout", screen.view);

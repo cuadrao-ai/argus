@@ -27,9 +27,9 @@ function recording(startFails: number) {
       log.push("expenses");
       return base.expenses(from, to);
     },
-    updates: async () => {
-      log.push("updates");
-      return base.updates();
+    workspace: async () => {
+      log.push("workspace");
+      return base.workspace();
     },
   };
   return { source, log, release };
@@ -39,31 +39,31 @@ describe("Business calls wait for the space", () => {
   test("a panel opened before the space exists waits instead of failing", async () => {
     const { source, log, release } = recording(0);
     const spaced = withBusinessSpace(source, () => "es-419");
-    const reads = Promise.all([spaced.expenses("2026-10-01", "2026-10-31"), spaced.updates()]);
+    const reads = Promise.all([spaced.expenses("2026-10-01", "2026-10-31"), spaced.workspace()]);
     await Promise.resolve();
     expect(log).toEqual(["start:es-419"]);
     release();
     await reads;
-    expect(log).toEqual(["start:es-419", "started", "expenses", "updates"]);
+    expect(log).toEqual(["start:es-419", "started", "expenses", "workspace"]);
   });
 
   test("the space starts once for every later call", async () => {
     const { source, log, release } = recording(0);
     release();
     const spaced = withBusinessSpace(source, () => "en");
-    await spaced.updates();
-    await spaced.updates();
-    expect(log).toEqual(["start:en", "started", "updates", "updates"]);
+    await spaced.workspace();
+    await spaced.workspace();
+    expect(log).toEqual(["start:en", "started", "workspace", "workspace"]);
   });
 
   test("a failed start is retried by the next call", async () => {
     const { source, log, release } = recording(1);
     release();
     const spaced = withBusinessSpace(source, () => "es-419");
-    await expect(spaced.updates()).rejects.toThrow("start failed");
-    expect(log).not.toContain("updates");
-    await spaced.updates();
-    expect(log).toEqual(["start:es-419", "start:es-419", "started", "updates"]);
+    await expect(spaced.workspace()).rejects.toThrow("start failed");
+    expect(log).not.toContain("workspace");
+    await spaced.workspace();
+    expect(log).toEqual(["start:es-419", "start:es-419", "started", "workspace"]);
   });
 });
 
@@ -72,14 +72,14 @@ test("an old bootstrap cannot dispatch after logout and the new session starts a
   const { invalidateBrowserAuth } = await import("@/lib/browser-auth-generation");
   const { source, release } = recording(0);
   let reads = 0;
-  const spaced = withBusinessSpace({ ...source, updates: async () => { reads++; return []; } }, () => "en");
-  const pending = spaced.updates();
+  const spaced = withBusinessSpace({ ...source, workspace: async () => { reads++; return source.workspace(); } }, () => "en");
+  const pending = spaced.workspace();
   await Promise.resolve();
   expect(reads).toBe(0);
   invalidateBrowserAuth();
   release();
   await expect(pending).rejects.toThrow("Browser session changed");
   expect(reads).toBe(0);
-  await spaced.updates();
+  await spaced.workspace();
   expect(reads).toBe(1);
 });

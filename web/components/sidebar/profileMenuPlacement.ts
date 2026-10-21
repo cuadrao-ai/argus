@@ -44,6 +44,7 @@ export function profileMenuClass(
   if (placement === "header") {
     // Opened from the top-right profile control on desktop workspaces.
     return {
+      // The menu sets its right and top from the trigger; these are only the first frame's place.
       className: `fixed right-4 top-16 z-[60] min-w-[220px] tablet:right-8 ${MENU_SURFACE}`,
       left: undefined,
     };

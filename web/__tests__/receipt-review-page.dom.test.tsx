@@ -15,7 +15,8 @@ mock.module("next/navigation", () => ({
 }));
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  // Below the desktop stop a record is the whole page; record-tray.dom.test.tsx covers the desktop tray.
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 800, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 afterAll(async () => {
@@ -226,13 +227,15 @@ describe("one receipt review page", () => {
     const { dossierFixtureIds } = await import("@/components/business-app/dossier-fixtures");
     await page.open({ kind: "draft", draftId: dossierFixtureIds.ready }, () => page.host.querySelector('[data-testid="receipt-mark-personal"]') !== null);
     const toggle = () => page.host.querySelector('[data-testid="receipt-mark-personal"]') as HTMLButtonElement;
-    assert.equal(toggle().getAttribute("aria-pressed"), "false");
+    const saved = (on: boolean) => toggle().getAttribute("aria-checked") === String(on) && !toggle().hasAttribute("aria-busy");
+    const chip = () => page.host.querySelector('[data-testid="receipt-marks-card"] [data-mark="personal"]');
+    assert.equal(toggle().getAttribute("role"), "switch");
+    assert.equal(toggle().getAttribute("aria-checked"), "false");
+    assert.equal(chip(), null);
     await page.act(async () => toggle().click());
-    await page.wait(() => toggle().getAttribute("aria-pressed") === "true");
-    assert.equal(toggle().textContent, "Ya no es personal");
+    await page.wait(() => saved(true) && chip() !== null);
     await page.act(async () => toggle().click());
-    await page.wait(() => toggle().getAttribute("aria-pressed") === "false");
-    assert.equal(toggle().textContent, "Marcar como personal");
+    await page.wait(() => saved(false) && chip() === null);
     await page.act(async () => page.root.unmount());
   });
 });

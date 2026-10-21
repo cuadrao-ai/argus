@@ -4,7 +4,11 @@ import { createFixtureBusinessDataSource } from "../components/business-app/fixt
 import { fulfillAcceptedBusinessConsent, installBreakpointFixture } from "./support/breakpoint-fixture";
 import type { ReceiptSummary } from "../lib/business-api";
 
-const evidence = "../docs/reports/evidence/cuadrao-receipt-activity";
+const evidence = process.env.CUADRAO_ACTIVITY_EVIDENCE_DIR;
+
+async function capture(page: Page, name: string) {
+  if (evidence) await page.screenshot({ path: `${evidence}/${name}.png`, fullPage: true, animations: "disabled" });
+}
 
 async function mockInbox(page: Page, language: "en" | "es-419", collapsed: boolean) {
   await page.route("**/*", (route) => ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort("blockedbyclient"));
@@ -48,23 +52,26 @@ for (const options of [{ language: "en" as const, collapsed: false }, { language
   test(`owner opt-in and automatic receipt attention ${options.language} collapsed=${options.collapsed}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const state = await mockInbox(page, options.language, options.collapsed);
-    await mkdir(evidence, { recursive: true });
+    if (evidence) await mkdir(evidence, { recursive: true });
     await expect(page.getByTestId("receipt-reading-control")).toBeVisible();
     await expect(page.getByTestId("receipt-unread-dot")).toHaveCount(2);
     await expect(page.getByText(/Prepare with AI|Preparar con IA/)).toHaveCount(0);
-    await page.screenshot({ path: `${evidence}/saved-${options.language}.png`, fullPage: true, animations: "disabled" });
+    await capture(page, `saved-${options.language}`);
     await page.getByRole("button", { name: options.language === "en" ? "Turn receipt reading on" : "Activar lectura de recibos", exact: true }).click();
-    await expect(page.getByTestId("receipt-reading-ring")).toHaveCount(1);
+    // A receipt still being read leaves Por revisar and waits in Todo.
+    await expect(page.getByTestId("receipt-reading-ring")).toHaveCount(0);
     await expect(page.getByTestId("receipt-unread-dot")).toHaveCount(1);
+    await page.getByTestId("bandeja-segments").locator('[data-segment="all"]').click();
+    await expect(page.getByTestId("receipt-reading-ring")).toHaveCount(1);
     const nav = page.getByTestId("business-sidebar-nav");
     await expect(nav.locator('[data-sidebar-activity-overlay="true"]')).toHaveCount(1);
-    await page.screenshot({ path: `${evidence}/reading-${options.language}.png`, fullPage: true, animations: "disabled" });
+    await capture(page, `reading-${options.language}`);
     const before = state.reads;
     state.phase = "ready";
     await expect(page.getByTestId("receipt-reading-ring")).toHaveCount(0, { timeout: 12000 });
     await expect(page.getByTestId("receipt-unread-dot")).toHaveCount(2);
     expect(state.reads).toBeGreaterThan(before);
     await expect(nav.locator('[data-sidebar-activity-overlay="true"]')).toHaveCount(1);
-    await page.screenshot({ path: `${evidence}/ready-${options.language}.png`, fullPage: true, animations: "disabled" });
+    await capture(page, `ready-${options.language}`);
   });
 }

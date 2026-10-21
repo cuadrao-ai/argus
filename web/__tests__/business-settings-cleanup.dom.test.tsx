@@ -201,10 +201,12 @@ for (const succeeds of [true, false]) {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { writes.push(value); await pending; if (!succeeds) throw new Error("Clipboard refused"); } } });
     cleanups.push(async () => { Object.defineProperty(navigator, "clipboard", { configurable: true, value: originalClipboard }); });
     const { act } = await mount(<EmailReceivingAddress intake={{ enabled: true, receiving_address: address }} onActivate={async () => {}} />);
-    await act(async () => button("Copiar dirección")!.click());
-    assert.equal(document.querySelector('[role="status"]'), null);
+    const copy = document.querySelector('[data-testid="email-copy-address"]') as HTMLButtonElement;
+    const said = () => document.querySelector('[role="status"]')?.textContent;
+    await act(async () => copy.click());
+    assert.equal(said(), "", "nothing is announced before the clipboard answers");
     await act(async () => release());
     assert.deepEqual(writes, [address]);
-    assert.equal(document.querySelector('[role="status"]')?.textContent, succeeds ? spanish.business.email.copied : spanish.business.email.copy_failed);
+    assert.equal(said(), succeeds ? spanish.business.email.copied : spanish.business.overview.copy_forward_failed.replace("{{address}}", address));
   });
 }

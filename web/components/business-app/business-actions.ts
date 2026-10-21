@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   MessageSquareText,
-  PenLine,
+  Plus,
   ReceiptText,
   type LucideIcon,
 } from "lucide-react";
@@ -23,8 +23,6 @@ import type { IntakeTarget } from "./ReceiptIntakeDialog";
 
 export type BusinessActionId =
   | "upload_receipt"
-  | "record_expense"
-  | "capture_note"
   | "ask_spending";
 
 export type BusinessAction = Readonly<{
@@ -56,8 +54,6 @@ type ActionInput = {
   };
   bridge: ChatShellBridge | null;
   openIntake: (target: IntakeTarget) => void;
-  openRecordExpense: () => void;
-  openCapture?: () => void;
   openPanel: (panel: BusinessPanelState) => void;
 };
 
@@ -69,8 +65,6 @@ export function useBusinessActions({
   records,
   bridge,
   openIntake,
-  openRecordExpense,
-  openCapture,
 }: ActionInput): BusinessActions {
   const { t } = useTranslation();
   const consent = useBusinessConsent();
@@ -88,19 +82,13 @@ export function useBusinessActions({
       run: () => void,
     ): BusinessAction => ({ id, label, icon, run });
 
-    const uploadReceipt = action(
+    // One door for everything the business records: a file, a photo or typed text all become a Bandeja draft.
+    const add = action(
       "upload_receipt",
-      t("business.actions.upload_receipt", "Upload receipt"),
-      ReceiptText,
+      t("business.actions.add", "Add"),
+      Plus,
       () => openIntake("inbox"),
     );
-    const recordExpense = action(
-      "record_expense",
-      t("business.actions.record_expense", "Record expense"),
-      PenLine,
-      openRecordExpense,
-    );
-    const captureActions = records.workspace && !records.error && openCapture ? [action("capture_note", t("business.capture.write", "Save a note"), PenLine, openCapture)] : [];
     const askSpending = action(
       "ask_spending",
       t("business.actions.ask_spending", "What did I spend this month?"),
@@ -117,11 +105,11 @@ export function useBusinessActions({
       () => openIntake("composer"),
     );
 
-    const chips = [uploadReceipt, ...(canAsk ? [askSpending] : [recordExpense])];
+    const chips = [add, ...(canAsk ? [askSpending] : [])];
     return {
-      create: [uploadReceipt, recordExpense, ...captureActions],
-      composer: [attachReceipt, recordExpense],
+      create: [add],
+      composer: [attachReceipt],
       starterEntries: chips.map(({ id, icon, label, run }) => ({ key: id, icon, label, onSelect: run })),
     };
-  }, [bridge, canAsk, openCapture, openIntake, openRecordExpense, records.workspace, records.error, t]);
+  }, [bridge, canAsk, openIntake, t]);
 }

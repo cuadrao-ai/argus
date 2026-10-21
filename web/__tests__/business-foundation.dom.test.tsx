@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { useState } from "react";
-import { BUSINESS_STATUS, CANVAS, CONFIRM_ACTION, LOADING_TRACK, MUTED_TEXT, PLAIN_TOAST_MS, UNDO_TOAST_MS, contrastRatio } from "@/components/business-app/foundation/presentation";
+import { BUSINESS_STATUS, CANVAS, CONFIRM_ACTION, LOADING_TRACK, MUTED_TEXT, contrastRatio } from "@/components/business-app/foundation/presentation";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
@@ -79,102 +79,106 @@ describe("status is an icon, a word, and a color", () => {
   });
 });
 
-describe("one toast at a time", () => {
-  test("a queue shows the first notice, then the next, and undo waits longer", async () => {
-    const pending: { fn: () => void; ms: number }[] = [];
-    const real = window.setTimeout;
-    window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
-      if ((ms === PLAIN_TOAST_MS || ms === UNDO_TOAST_MS) && typeof fn === "function") {
-        pending.push({ fn, ms });
-        return pending.length as unknown as ReturnType<typeof setTimeout>;
+describe("toasts", () => {
+  test("info and success leave after 4 seconds, and an action after 8", async () => {
+    const { toastDuration } = await import("@/components/business-app/foundation/toasts");
+    assert.equal(toastDuration({ kind: "info", text: "x" }), 4000);
+    assert.equal(toastDuration({ kind: "success", text: "x" }), 4000);
+    assert.equal(toastDuration({ kind: "success", text: "x", action: { label: "Deshacer", run: () => undefined } }), 8000);
+  });
+
+  test("toasts only confirm: the type has no error or warning kind, so the compiler refuses one", async () => {
+    const { showToast, clearToasts } = await import("@/components/business-app/foundation/toasts");
+    // @ts-expect-error an error is shown where the work is, never in a toast
+    const refused = () => showToast({ kind: "error", text: "x" });
+    // @ts-expect-error a condition of the whole app docks in the banner, never in a toast
+    const alsoRefused = () => showToast({ kind: "warning", text: "x" });
+    assert.equal(typeof refused, "function");
+    assert.equal(typeof alsoRefused, "function");
+    clearToasts();
+  });
+
+  test("one toast at a time: the newest replaces the one on screen, and its Deshacer leaves with it", async () => {
+    const { clearToasts, showToast, useToasts } = await import("@/components/business-app/foundation/toasts");
+    clearToasts();
+    showToast({ kind: "info", text: "aviso uno" });
+    showToast({ kind: "success", text: "guardado uno", action: { label: "Deshacer", run: () => undefined } });
+    showToast({ kind: "info", text: "aviso" });
+    let seen: string[] = [];
+    function Probe() {
+      seen = useToasts().map((toast) => toast.text);
+      return null;
+    }
+    const page = await render(<Probe />);
+    assert.deepEqual(seen, ["aviso"]);
+    await page.close();
+    clearToasts();
+  });
+
+  test("each toast shows its kind's icon and border, closes on its button, and is announced politely", async () => {
+    const { clearToasts, showToast } = await import("@/components/business-app/foundation/toasts");
+    const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
+    clearToasts();
+    const page = await render(<ToastViewport />);
+    await page.act(async () => { showToast({ kind: "success", text: "Guardado." }); });
+    const toast = page.host.querySelector('[data-testid="toast"]') as HTMLElement;
+    assert.equal(toast.getAttribute("data-kind"), "success");
+    assert.equal(toast.getAttribute("role"), "status");
+    assert.ok(toast.querySelector("svg"), "an icon, not colour alone");
+    assert.ok(toast.style.borderLeftColor, "a left border colour per kind");
+    const close = toast.querySelector('button[aria-label="Cerrar"]') as HTMLButtonElement;
+    assert.ok(close);
+    await page.act(async () => { close.click(); });
+    assert.equal(page.host.querySelectorAll('[data-testid="toast"]').length, 0);
+    await page.close();
+  });
+
+  test("hovering pauses the clock, and leaving resumes it with the time that was left", async () => {
+    const { clearToasts, showToast } = await import("@/components/business-app/foundation/toasts");
+    const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
+    const timers: { fn: () => void; ms: number; cleared: boolean }[] = [];
+    const real = { set: window.setTimeout, clear: window.clearTimeout };
+    window.setTimeout = ((fn: TimerHandler, ms?: number) => {
+      if (typeof fn === "function" && typeof ms === "number" && ms >= 1000) {
+        timers.push({ fn: fn as () => void, ms, cleared: false });
+        return timers.length as unknown as ReturnType<typeof setTimeout>;
       }
-      return real(fn as never, ms as number, ...args);
+      return real.set(fn as never, ms as number);
     }) as typeof setTimeout;
+    window.clearTimeout = ((id?: number) => {
+      const timer = typeof id === "number" ? timers[id - 1] : undefined;
+      if (timer) timer.cleared = true;
+      else real.clear(id);
+    }) as typeof clearTimeout;
     try {
-      const { ToastQueue } = await import("@/components/business-app/foundation/ToastNotice");
-      function Queue() {
-        const [items, setItems] = useState([
-          { id: 1, text: "Guardado", kind: "confirm" as const },
-          { id: 2, text: "Deshecho", kind: "undo" as const, onUndo: () => undefined },
-        ]);
-        return <ToastQueue items={items} onDismiss={() => setItems((current) => current.slice(1))} />;
-      }
-      const page = await render(<Queue />);
-      assert.equal(page.host.querySelectorAll('[data-testid="undo-toast"]').length, 1);
-      assert.match(page.host.textContent ?? "", /Guardado/);
-      assert.equal((page.host.textContent ?? "").includes("Deshecho"), false);
-      assert.equal(page.host.querySelector('[data-testid="undo-toast"]')?.getAttribute("data-toast-kind"), "confirm");
-      assert.equal(pending[0]?.ms, PLAIN_TOAST_MS);
-      await page.act(async () => { pending[0].fn(); });
-      assert.match(page.host.textContent ?? "", /Deshecho/);
-      assert.equal((page.host.textContent ?? "").includes("Guardado"), false);
-      assert.equal(pending.at(-1)?.ms, UNDO_TOAST_MS);
+      clearToasts();
+      const page = await render(<ToastViewport />);
+      await page.act(async () => { showToast({ kind: "info", text: "Dirección copiada." }); });
+      assert.equal(timers.at(-1)?.ms, 4000);
+      const toast = page.host.querySelector('[data-testid="toast"]') as HTMLElement;
+      await page.act(async () => { toast.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: document.body })); });
+      assert.equal(timers.at(-1)?.cleared, true, "hover stops the clock");
+      const before = timers.length;
+      await page.act(async () => { toast.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body })); });
+      assert.ok(timers.length > before, "leaving starts it again");
+      assert.ok((timers.at(-1)?.ms ?? 5000) <= 4000, "with the time that was left, never more");
       await page.close();
+      clearToasts();
     } finally {
-      window.setTimeout = real;
+      window.setTimeout = real.set;
+      window.clearTimeout = real.clear;
     }
   });
 
-  test("two identical toasts behind a stable dismiss each clear on their own timer", async () => {
-    const pending: { fn: () => void; ms: number }[] = [];
-    const real = window.setTimeout;
-    window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
-      if (ms === UNDO_TOAST_MS && typeof fn === "function") {
-        pending.push({ fn, ms });
-        return pending.length as unknown as ReturnType<typeof setTimeout>;
-      }
-      return real(fn as never, ms as number, ...args);
-    }) as typeof setTimeout;
-    try {
-      const { ToastQueue } = await import("@/components/business-app/foundation/ToastNotice");
-      const { useCallback } = await import("react");
-      function Queue() {
-        const [items, setItems] = useState([
-          { id: 1, text: "Marcado como personal", kind: "undo" as const, onUndo: () => undefined },
-          { id: 2, text: "Marcado como personal", kind: "undo" as const, onUndo: () => undefined },
-        ]);
-        const dismiss = useCallback(() => setItems((current) => current.slice(1)), []);
-        return <ToastQueue items={items} onDismiss={dismiss} />;
-      }
-      const page = await render(<Queue />);
-      const toasts = () => page.host.querySelectorAll('[data-testid="undo-toast"]').length;
-      assert.equal(toasts(), 1);
-      assert.equal(pending.length, 1);
-      await page.act(async () => { pending[0].fn(); });
-      assert.equal(toasts(), 1, "the second toast is on screen");
-      assert.equal(pending.length, 2, "the second toast armed its own timer");
-      await page.act(async () => { pending[1].fn(); });
-      assert.equal(toasts(), 0, "both toasts cleared");
-      await page.close();
-    } finally {
-      window.setTimeout = real;
-    }
-  });
-
-  test("an undo toast stays longer and pauses while the pointer is over it", async () => {
-    const pending: { fn: () => void; ms: number }[] = [];
-    const real = window.setTimeout;
-    window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
-      if (ms === UNDO_TOAST_MS && typeof fn === "function") {
-        pending.push({ fn, ms });
-        return pending.length as unknown as ReturnType<typeof setTimeout>;
-      }
-      return real(fn as never, ms as number, ...args);
-    }) as typeof setTimeout;
-    try {
-      const { ToastNotice } = await import("@/components/business-app/foundation/ToastNotice");
-      const page = await render(<ToastNotice text="Marcado" kind="undo" onUndo={() => undefined} onClose={() => undefined} />);
-      assert.equal(pending.length, 1);
-      assert.equal(pending[0].ms, UNDO_TOAST_MS);
-      const notice = page.host.querySelector('[data-testid="undo-toast"]') as HTMLElement;
-      await page.act(async () => { notice.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); });
-      const parked = pending.length;
-      await page.act(async () => { notice.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })); });
-      assert.equal(pending.length, parked + 1);
-      await page.close();
-    } finally {
-      window.setTimeout = real;
-    }
+  test("the stack springs with stiffness 180 and damping 20: a small overshoot, then rest at 1", async () => {
+    const { springEasing } = await import("@/components/business-app/foundation/toasts");
+    const { easing, durationMs } = springEasing(180, 20);
+    const values = easing.slice("linear(".length, -1).split(", ").map(Number);
+    assert.equal(values[0], 0);
+    assert.equal(values.at(-1), 1);
+    const peak = Math.max(...values);
+    assert.ok(peak > 1 && peak < 1.06, `overshoot ${peak}`);
+    assert.ok(durationMs > 400 && durationMs < 1000, `settles in ${durationMs}ms`);
   });
 });
 

@@ -70,7 +70,7 @@ describe("auth card consistency", () => {
   test("forgot password uses the canonical 20px card radius", async () => {
     const html = await renderLocalized(createElement(ForgotPasswordPage));
 
-    equal(occurrences(html, "border border-black/10"), 1);
+    equal(occurrences(html, "border border-[var(--auth-line)]"), 1, "one card, on the Cuadrao line");
     match(html, /rounded-\[20px\]/);
     doesNotMatch(html, /rounded-\[24px\]/);
     doesNotMatch(html, /shadow/);

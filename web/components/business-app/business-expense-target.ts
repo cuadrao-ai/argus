@@ -4,10 +4,10 @@ import type { BusinessPanelState } from "./BusinessWorkspace";
 /**
  * The record a saved expense opens: its receipt when it names exactly one,
  * else the draft that recorded it, else its own plain detail. Every row and
- * search hit opens something.
+ * search hit opens something, beside the Expenses list on a desktop.
  */
 export function expensePanel(expense: Pick<BusinessExpense, "id" | "receipt_id" | "draft_id">): BusinessPanelState {
-  if (expense.receipt_id) return { kind: "receipt", receiptId: expense.receipt_id };
-  if (expense.draft_id) return { kind: "draft", draftId: expense.draft_id };
+  if (expense.receipt_id) return { kind: "receipt", receiptId: expense.receipt_id, list: "expenses" };
+  if (expense.draft_id) return { kind: "draft", draftId: expense.draft_id, list: "expenses" };
   return { kind: "expense", expenseId: expense.id };
 }

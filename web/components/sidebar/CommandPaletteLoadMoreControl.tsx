@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 
 type CommandPaletteLoadMoreControlProps = {
+  /** A workspace's own words for the failure, in place of the default. */
+  errorLabel?: string;
   failed: boolean;
   loading: boolean;
   disabled: boolean;
@@ -11,6 +13,7 @@ type CommandPaletteLoadMoreControlProps = {
 };
 
 export default function CommandPaletteLoadMoreControl({
+  errorLabel,
   failed,
   loading,
   disabled,
@@ -25,7 +28,7 @@ export default function CommandPaletteLoadMoreControl({
           className={`text-[12px] leading-relaxed ${inlineFailureTextClass}`}
           role="alert"
         >
-          {t(
+          {errorLabel ?? t(
             "command_palette.load_more_error",
             "Argus couldn’t load more results. Your current results are still available.",
           )}

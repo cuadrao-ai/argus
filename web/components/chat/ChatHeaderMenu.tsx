@@ -224,7 +224,7 @@ export default function ChatHeaderMenu({
       {isOpen && isBelowDesktop && (
         <BottomSheet
           isOpen
-          height="auto"
+          snaps="fit"
           titleHidden
           title={t("chat.chat_options", "Chat options")}
           closeLabel={t("common.close", "Close")}

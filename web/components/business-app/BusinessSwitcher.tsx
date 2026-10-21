@@ -1,7 +1,8 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, UsersRound } from "lucide-react";
+import { ArrowLeftRight, Settings2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
@@ -13,14 +14,24 @@ function initial(name: string): string {
   return letter ? letter.toLocaleUpperCase() : "·";
 }
 
+/** The business's square mark: its initial on the brand green. */
+export function BusinessMark({ name }: { name: string }) {
+  return (
+    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#2f5a49] text-[13px] font-medium text-[#fffefa]">
+      {initial(name)}
+    </span>
+  );
+}
+
 type MenuMode = "closed" | "menu" | "choose";
 
-export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, onOpenAccess }: {
+export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, onOpenSettings }: {
   spaces: GrantedSpace[] | null;
   chosen: GrantedSpace | null;
   collapsed: boolean;
   onChoose: (grantId: string | null) => void;
-  onOpenAccess: () => void;
+  /** Opens the Negocio page: name and RNC, team and access, receipt email. */
+  onOpenSettings: () => void;
 }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<MenuMode>("closed");
@@ -70,7 +81,15 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
     if (mode === "choose") listRef.current?.focus();
   }, [mode]);
 
-  if (!current) return null;
+  if (!current) {
+    // While the list loads, hold the mark's place so the menu below does not jump when it arrives.
+    return spaces === null ? (
+      <div data-testid="business-switcher-pending" aria-hidden="true" className={`flex min-h-11 items-center gap-2 px-1 ${collapsed ? "justify-center" : "w-full"}`}>
+        <span className="h-8 w-8 shrink-0 rounded-[12px] bg-black/[0.06] dark:bg-white/10" />
+        {collapsed ? null : <span className="h-4 w-24 rounded-md bg-black/[0.06] dark:bg-white/10" />}
+      </div>
+    ) : null;
+  }
   const fallback = t("business.overview.title", "Mi negocio");
   const name = formatBusinessName(current.name, fallback);
 
@@ -100,15 +119,11 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
     }
   };
 
-  const badge = (
-    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#2f5a49] text-[13px] font-medium text-[#fffefa]">
-      {initial(name)}
-    </span>
-  );
+  const badge = <BusinessMark name={name} />;
 
   return (
     <div data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
-      <button
+      {collapsed ? <Tooltip content={name} side="right"><button
         ref={buttonRef}
         type="button"
         aria-haspopup="menu"
@@ -116,13 +131,35 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         aria-controls={menuId}
         aria-label={name}
         onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
-        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
       >
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
-          <span data-testid="business-current-name" className="min-w-0 flex-1 break-words text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+          <span className="min-w-0 flex-1">
+            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
+          </span>
+        )}
+      </button></Tooltip> : (
+        <button
+        ref={buttonRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={mode !== "closed"}
+        aria-controls={menuId}
+        aria-label={name}
+        onClick={() => setMode((value) => value === "closed" ? "menu" : "closed")}
+        className={`flex min-h-11 min-w-11 items-center gap-2 rounded-[12px] px-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] ${collapsed ? "justify-center" : "w-full"}`}
+      >
+        {badge}
+        {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
+          <span className="min-w-0 flex-1">
+            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
+            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
+          </span>
         )}
       </button>
+      )}
       {mode !== "closed" ? createPortal(
         <div
           ref={menuRef}
@@ -139,10 +176,10 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
                 type="button"
                 role="menuitem"
                 className="flex min-h-11 w-full items-center gap-2 rounded-[12px] px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
-                onClick={() => { setMode("closed"); onOpenAccess(); }}
+                onClick={() => { setMode("closed"); onOpenSettings(); }}
               >
-                <UsersRound className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
-                {t("business.switcher.team", "Equipo y accesos")}
+                <Settings2 className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                {t("business.switcher.settings", "Business settings")}
               </button>
               {canSwitch ? (
                 <button

@@ -32,12 +32,15 @@ import {
 import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
+import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
-import { periodRange, type Period, type PeriodKey } from "./business-format";
+import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
-import BusinessSwitcher from "./BusinessSwitcher";
+import BusinessSwitcher, { BusinessMark } from "./BusinessSwitcher";
+import { ToastViewport } from "./foundation/ToastViewport";
+import { clearToasts } from "./foundation/toasts";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
 import { useBusinessKeyboardShortcuts } from "./business-keyboard-shortcuts";
 import BusinessBottomTabs from "./BusinessBottomTabs";
@@ -47,22 +50,38 @@ import BusinessHome from "./BusinessHome";
 import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
-import RecordExpenseDialog from "./RecordExpenseDialog";
-import ManualCaptureDialog from "./ManualCaptureDialog";
+import ExportRecordsPanel from "./ExportRecordsPanel";
+import BusinessAddMenu from "./BusinessAddMenu";
+import { AmountsToggle } from "./foundation/AmountsToggle";
+import { HeaderSearch } from "./foundation/HeaderSearch";
+import { useMonthCloseSource } from "./BusinessMonthClosePanel";
+import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
+import { useEmailDeliveries } from "./useEmailDeliveries";
+import { emailDeliveriesNeedRefresh, type BusinessEmailDelivery } from "@/lib/business-email";
 import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
+import { quietButtonClass } from "./business-ui";
 
 export type BusinessPanelState =
   | { kind: "overview" }
-  | { kind: "inbox"; emailId?: string }
+  | { kind: "inbox" }
   | { kind: "expenses"; expenseId?: string }
+  // Transacciones takes the third screen behind `businessBankMatchingEnabled`; its rows open in its own tray.
+  | { kind: "transactions" }
   | { kind: "expense"; expenseId: string }
-  | { kind: "updates" }
-  | { kind: "access" }
-  | { kind: "receipt"; receiptId: string }
-  | { kind: "draft"; draftId: string };
+  // Negocio: the business's own settings, one tab at a time; `?view=access` from before lands on Equipo y accesos.
+  | { kind: "business"; tab?: BusinessTab }
+  // `list` is the list the record was opened from; a desktop shows the record beside it. The address bar never carries it.
+  | { kind: "receipt"; receiptId: string; list?: RecordList }
+  | { kind: "draft"; draftId: string; list?: RecordList }
+  // An email that brought no receipt, or the one a receipt arrived in; it opens beside the Bandeja.
+  | { kind: "email"; emailId: string };
+
+export type RecordList = "inbox" | "expenses";
+export type BusinessTab = "datos" | "equipo" | "correo";
+const BUSINESS_TABS = new Set<string>(["datos", "equipo", "correo"]);
 
 type Records = {
   workspace: BusinessWorkspaceInfo | null;
@@ -74,6 +93,9 @@ type Records = {
   notesError: boolean;
   /** The captures list stops at the server's page size; older open notes are found through search. */
   notesTruncated: boolean;
+  /** Received emails, newest first; null until loaded. An email outage never hides receipts. */
+  emails: BusinessEmailDelivery[] | null;
+  emailsError: boolean;
   error: boolean;
   closed?: boolean;
   serverReference?: string | null;
@@ -102,6 +124,10 @@ export type BusinessContextValue = Readonly<{
   bridge: ChatShellBridge | null;
   attachedReceipt: ReceiptSummary | null;
   clearAttachedReceipt: () => void;
+  /** Opens Exportar registros over whatever screen is showing. */
+  openExport: () => void;
+  /** Asks the server for the emails again; the Negocio history shows it working. */
+  emailRefresh: Readonly<{ refresh: () => void; refreshing: boolean; stalled: boolean }>;
 }>;
 
 /** Exported for DOM tests that mount one panel with a hand-made context; the app provides it through BusinessWorkspaceProvider. */
@@ -116,21 +142,32 @@ export function useBusiness(): BusinessContextValue {
 const NO_ACCOUNTS: never[] = [];
 // The captures endpoint's largest page; it has no cursor.
 const NOTES_PAGE = 50;
-const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "updates", "access"]);
+const PANEL_KINDS = new Set(["overview", "inbox", "expenses", "transactions"]);
 
 // Read from the route's search params, not window.location: on a client-side
 // navigation (the sign-in return path) this renders before the address bar moves.
 function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   const draftId = params.get("draft");
   if (draftId) return { kind: "draft", draftId };
+  const emailId = params.get("email");
+  if (emailId) return { kind: "email", emailId };
   const receiptId = params.get("receipt");
   if (receiptId) return { kind: "receipt", receiptId };
   const expenseId = params.get("expense");
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
+  // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
+  if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
-    return { kind: view as "overview" | "inbox" | "expenses" | "updates" | "access" };
+    return { kind: view as "overview" | "inbox" | "expenses" | "transactions" };
   }
+  if (view === "business") {
+    const tab = params.get("tab");
+    return tab && BUSINESS_TABS.has(tab) ? { kind: "business", tab: tab as BusinessTab } : { kind: "business" };
+  }
+  if (view === "access") return { kind: "business", tab: "equipo" };
+  // Novedades became part of the Bandeja; an old link lands there.
+  if (view === "updates") return { kind: "inbox" };
   return { kind: "overview" };
 }
 
@@ -142,6 +179,8 @@ const EMPTY_RECORDS: Records = {
   notes: null,
   notesError: false,
   notesTruncated: false,
+  emails: null,
+  emailsError: false,
   error: false,
   closed: false,
   serverReference: null,
@@ -158,10 +197,15 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
     url.searchParams.delete("receipt");
     url.searchParams.delete("draft");
     url.searchParams.delete("expense");
+    url.searchParams.delete("email");
+    url.searchParams.delete("segment");
+    url.searchParams.delete("tab");
     if (view === "workspace") {
+      if (panel.kind === "business" && panel.tab) url.searchParams.set("tab", panel.tab);
       if (panel.kind === "receipt") url.searchParams.set("receipt", panel.receiptId);
       else if (panel.kind === "draft") url.searchParams.set("draft", panel.draftId);
       else if (panel.kind === "expense") url.searchParams.set("expense", panel.expenseId);
+      else if (panel.kind === "email") url.searchParams.set("email", panel.emailId);
       else if (panel.kind !== "overview") url.searchParams.set("view", panel.kind);
     } else if (view === "chat" && !url.searchParams.has("conversation")) {
       url.searchParams.set("view", "chat");
@@ -187,7 +231,8 @@ function BusinessWorkspaceContent({
   // A landing on a record URL (the sign-in return path) skips the space
   // bootstrap until the person leaves the record; opening a record later never
   // flips it, so a record's effects do not refetch on every address-bar write.
-  const [directRecord, setDirectRecord] = useState(() => searchParams.has("draft") || searchParams.has("receipt"));
+  // A desktop shows the record beside its list, so the list loads from the start.
+  const [directRecord, setDirectRecord] = useState(() => (searchParams.has("draft") || searchParams.has("receipt")) && responsiveLayoutSnapshot().isBelowDesktop);
   const workspaceSource = useMemo(
     () => withBusinessSpace(apiSource, () => normalizeEnabledLanguage(i18n.language)),
     [apiSource, i18n],
@@ -205,6 +250,9 @@ function BusinessWorkspaceContent({
   useEffect(() => {
     if (directRecord && panel.kind !== "receipt" && panel.kind !== "draft") setDirectRecord(false);
   }, [directRecord, panel.kind]);
+  useEffect(() => subscribeResponsiveLayout(() => {
+    if (!responsiveLayoutSnapshot().isBelowDesktop) setDirectRecord(false);
+  }), []);
   const [period, setPeriodState] = useState<Period>(() => periodRange("this_month"));
   const setPeriod = useCallback((next: PeriodKey | Period) => setPeriodState(typeof next === "string" ? periodRange(next) : next), []);
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
@@ -250,8 +298,6 @@ function BusinessWorkspaceContent({
   }, [chosen, source]);
   const [bridge, setBridge] = useState<ChatShellBridge | null>(null);
   const [intakeTarget, setIntakeTarget] = useState<IntakeTarget | null>(null);
-  const [recordExpenseOpen, setRecordExpenseOpen] = useState(false);
-  const [captureOpen, setCaptureOpen] = useState(false);
   const [attachedReceipt, setAttachedReceipt] = useState<ReceiptSummary | null>(null);
   // Switching Business closes whatever was open in the old one before the new
   // one loads: the open record and its address, the dialogs and their typed
@@ -270,8 +316,7 @@ function BusinessWorkspaceContent({
     writePanelToUrl("workspace", { kind: "overview" });
     setDirectRecord(false);
     setIntakeTarget(null);
-    setRecordExpenseOpen(false);
-    setCaptureOpen(false);
+    clearToasts();
     setAttachedReceipt(null);
     setRecords(EMPTY_RECORDS);
     setRevision((value) => value + 1);
@@ -289,7 +334,7 @@ function BusinessWorkspaceContent({
 
   // One queue outlives the dialog: closing it never drops a running upload.
   const [uploadQueue] = useState(() => new ReceiptUploadQueue(
-    (file, consent, key, documentType) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType)),
+    (file, consent, key, documentType, onProgress) => runQuietRetries(() => source.uploadReceipt(file, consent, key, documentType, onProgress)),
     reload,
   ));
   useLayoutEffect(() => {
@@ -352,12 +397,27 @@ function BusinessWorkspaceContent({
     };
   }, [onRecord, period.from, period.to, revision, source]);
 
+  const emailDeliveries = useEmailDeliveries({ source, enabled: !onRecord, revision, businessKey: chosenGrant });
+  const workspaceRecords = useMemo<Records>(
+    () => ({ ...records, emails: emailDeliveries.items, emailsError: emailDeliveries.failed }),
+    [records, emailDeliveries.items, emailDeliveries.failed],
+  );
+  const emailRefresh = useMemo(
+    () => ({ refresh: emailDeliveries.refresh, refreshing: emailDeliveries.refreshing, stalled: emailDeliveries.stalled }),
+    [emailDeliveries.refresh, emailDeliveries.refreshing, emailDeliveries.stalled],
+  );
+
   useReceiptInboxRefresh({
     source,
     active: !onRecord && panel.kind === "inbox" && bridge?.currentView !== "chat",
     reading: !onRecord && (records.receiptActivity?.reading_count ?? 0) > 0,
     businessKey: chosenGrant,
-    onRefresh: (page) => { if (!onRecord) setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity })); },
+    onRefresh: (page) => {
+      if (onRecord) return;
+      setRecords((value) => ({ ...value, inbox: page.items, receiptActivity: page.activity }));
+      // A long read outlasts the email poll; each receipt refresh asks again while an email is still moving.
+      if (emailDeliveries.items && !emailDeliveries.refreshing && emailDeliveriesNeedRefresh(emailDeliveries.items)) emailDeliveries.refresh();
+    },
   });
 
   useEffect(() => {
@@ -399,15 +459,16 @@ function BusinessWorkspaceContent({
     records,
     bridge,
     openIntake,
-    openRecordExpense: () => setRecordExpenseOpen(true),
-    openCapture: () => setCaptureOpen(true),
     openPanel,
   });
+
+  const [exportOpen, setExportOpen] = useState(false);
+  const openExport = useCallback(() => setExportOpen(true), []);
 
   const value = useMemo<BusinessContextValue>(
     () => ({
       source,
-      records,
+      records: workspaceRecords,
       spaces,
       chosen,
       chooseBusiness,
@@ -424,17 +485,21 @@ function BusinessWorkspaceContent({
       bridge,
       attachedReceipt,
       clearAttachedReceipt: () => setAttachedReceipt(null),
+      openExport,
+      emailRefresh,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, lostAccess, markAccessSeen, openPanel, panel, period, records, reload, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, revision, setPeriod, source, spaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;
   const businessSearch = useBusinessSearch({
     source,
-    chatAvailable,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
     openPanel,
-    setPeriod,
+    actions,
+    owner: chosen?.role !== "accountant",
+    scope: chosen?.space_id ?? "own",
+    openExport,
   });
 
   const keyboardShortcuts = useBusinessKeyboardShortcuts({ openPanel, actions, chosen });
@@ -448,20 +513,25 @@ function BusinessWorkspaceContent({
       conversationSurface: "business",
       chatAvailable,
       initialView,
-      profileInHeader: false,
+      // The person's account sits at the top right on a desktop; the rail keeps the business and its screens.
+      profileInHeader: true,
       keyboardShortcuts,
       bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview",
       sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} />,
+      sidebarMark: () => <BusinessMark name={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenAccess={() => openPanel({ kind: "access" })} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} /> : null,
       headerActions: (shell) => <>
-        {uploads.length > 0 ? <button type="button" className="min-h-11 rounded-full px-3 text-[16px] text-black/70 hover:bg-black/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]" onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
+        {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
+        {shell.isBelowTablet ? null : <BusinessAddMenu placement="header" />}
+        <AmountsToggle />
       </>,
+      headerSearch: (shell) => shell.openSearch ? <HeaderSearch onOpen={shell.openSearch} /> : null,
       panel: () => <BusinessPanel />,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -503,20 +573,8 @@ function BusinessWorkspaceContent({
             openPanel(saved.length === 1 ? { kind: "receipt", receiptId: saved[0].id } : { kind: "inbox" });
           }}
         />
-        <RecordExpenseDialog
-          isOpen={recordExpenseOpen}
-          onClose={() => setRecordExpenseOpen(false)}
-          onRecorded={() => {
-            setRecordExpenseOpen(false);
-            reload();
-            openPanel({ kind: "expenses" });
-          }}
-        />
-        <ManualCaptureDialog isOpen={captureOpen} onClose={() => setCaptureOpen(false)} onSaved={(dossier) => {
-          setCaptureOpen(false);
-          reload();
-          openPanel({ kind: "draft", draftId: dossier.draft_id });
-        }} />
+        {exportOpen ? <WorkspaceExport onClose={() => setExportOpen(false)} /> : null}
+        <ToastViewport />
       </ChatWorkspaceProvider>
     </BusinessContext.Provider>
   );
@@ -524,4 +582,10 @@ function BusinessWorkspaceContent({
 
 export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode }) {
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
+}
+
+/** The one Exportar registros, opened from the top bar's menu or from search over any screen. */
+function WorkspaceExport({ onClose }: { onClose: () => void }) {
+  const monthClose = useMonthCloseSource();
+  return <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={onClose} />;
 }

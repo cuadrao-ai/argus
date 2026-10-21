@@ -3,11 +3,13 @@
 import { useBusinessNaming } from "./BusinessNamingProvider";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Mail, ShieldCheck, UserRound } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 import { useTranslation } from "react-i18next";
 import type { BusinessAccess, BusinessAccessGrant, BusinessAccessInvite } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
-import { cardClass, dangerButtonClass, dangerConfirmButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { EmptyState } from "./foundation/EmptyState";
+import { cardClass, dangerButtonClass, PanelHeading, primaryButtonClass, secondaryButtonClass } from "./business-ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
 
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
@@ -40,9 +42,7 @@ export function AccessList({
       <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-access-grants">
         {access.grants.map((grant) => (
           <li key={grant.id} className={rowClass}>
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
-              {grant.owner ? <ShieldCheck className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" /> : <UserRound className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />}
-            </span>
+            <Avatar name={grant.display_name || grant.email} size={40} testId="access-avatar" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-black dark:text-white">{grant.display_name}{grant.email ? ` · ${grant.email}` : ""}</span>
               <span className="mt-0.5 block truncate text-[13px] text-black/50 dark:text-white/50">
@@ -66,9 +66,7 @@ export function AccessList({
           <ul className={`${cardClass} divide-y divide-black/[0.05] p-2 dark:divide-white/[0.05]`} data-testid="business-access-invites">
             {access.invites.map((invite) => (
               <li key={invite.id} className="grid grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-3 px-3 py-3 sm:flex">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-black/[0.04] dark:bg-white/[0.06]">
-                  <Mail className="h-5 w-5 text-black/55 dark:text-white/55" aria-hidden="true" />
-                </span>
+                <Avatar name={invite.email} size={40} status="pending" testId="access-avatar" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-black dark:text-white">{invite.email}</span>
                   <span className="mt-0.5 block break-words text-[13px] text-black/50 dark:text-white/50">{invite.state === "expired"
@@ -92,9 +90,10 @@ export function AccessList({
   );
 }
 
-export default function BusinessAccessPanel() {
+/** Equipo y accesos. `embedded` drops its own heading inside the Negocio page, which names it. */
+export default function BusinessAccessPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
-  const { source, revision } = useBusiness();
+  const { source, revision, reload } = useBusiness();
   const naming = useBusinessNaming();
   const [access, setAccess] = useState<BusinessAccess | null>(null);
   const [failed, setFailed] = useState(false);
@@ -107,6 +106,7 @@ export default function BusinessAccessPanel() {
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     source
       .access()
       .then((next) => !cancelled && setAccess(next))
@@ -178,31 +178,33 @@ export default function BusinessAccessPanel() {
 
   return (
     <section>
-      <PanelHeading
-        title={t("business_access.title", "Access")}
-        subtitle={t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}
-      />
+      {embedded ? <p className="mb-4 text-[14px] text-[#56635e] dark:text-white/70">{t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}</p> : (
+        <PanelHeading
+          title={t("business_access.title", "Access")}
+          subtitle={t("business_access.subtitle", "Who can see and prepare your business records. Only you approve.")}
+        />
+      )}
       {failed ? (
-        <p role="alert" className="text-[14px] text-black/70 dark:text-white/70">{t("business_access.error", "We couldn't load access. Try again.")}</p>
+        <EmptyState kind="error" testId="business-access-error" title={t("business.empty.access_error", "We couldn't load access")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
       ) : access === null ? (
         <Settle pending layout="access" />
       ) : (
         <>
           <AccessList access={access} busyId={busyId} onRemove={setPending} onResend={resend} />
           {removeError ? <p role="alert" className="mt-3 text-[14px] text-black/70 dark:text-white/70">{t("business_access.remove_error", "We couldn't remove access. Try again.")}</p> : null}
-          {pending ? (
-            <div role="alertdialog" aria-labelledby="business-access-confirm" className={`${cardClass} mt-4`}>
-              <p id="business-access-confirm" className="text-[15px] text-black dark:text-white">
-                {pending.kind === "grant"
-                  ? t("business_access.remove_confirm", "Remove access for {{who}}? They stop seeing and preparing at once.", { who })
-                  : t("business_access.remove_invite_confirm", "Cancel the invite for {{who}}?", { who })}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={dangerConfirmButtonClass} onClick={remove}>{t("business_access.confirm", "Yes, remove")}</button>
-                <button type="button" className={secondaryButtonClass} onClick={() => setPending(null)}>{t("business_access.cancel", "Cancel")}</button>
-              </div>
-            </div>
-          ) : null}
+          <ConfirmDialog
+            isOpen={pending !== null}
+            title={pending?.kind === "invite"
+              ? t("business_access.remove_invite_title", { who, defaultValue: "Cancel the invite for {{who}}?" })
+              : t("business_access.remove_title", { who, defaultValue: "Remove access for {{who}}?" })}
+            description={pending?.kind === "invite"
+              ? t("business_access.remove_invite_body", "You can invite them again at any time.")
+              : t("business_access.remove_body", "They stop seeing and preparing your records at once.")}
+            confirmLabel={pending?.kind === "invite" ? t("business_access.remove_invite", "Cancel invite") : t("business_access.remove", "Remove access")}
+            cancelLabel={t("business_access.keep", "Keep")}
+            onCancel={() => setPending(null)}
+            onConfirm={() => void remove()}
+          />
           <form onSubmit={give} className={`${cardClass} mt-6`} data-testid="business-access-give">
             <h3 className="font-display text-[16px] font-medium text-black dark:text-white">{t("business_access.give_title", "Give access to your accountant")}</h3>
             <p className="mb-3 mt-0.5 text-[13px] text-black/55 dark:text-white/55">{t("business_access.give_body", "Enter their email. They can see and prepare receipts. They can never approve.")}</p>

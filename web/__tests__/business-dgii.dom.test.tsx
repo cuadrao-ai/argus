@@ -142,6 +142,7 @@ test("the owner can save an eleven-digit filer cedula without losing leading zer
       tax_id: { type: "cedula", value: "001-0000000-1" },
       previous_tax_id: null,
     }]);
-    assert.match(host.textContent ?? "", /00100000001/);
+    assert.equal(value.value, "00100000001", "the saved number keeps its leading zeros");
+    assert.equal(kind.value, "cedula");
   } finally { await act(async () => root.unmount()); host.remove(); await release(); }
 });

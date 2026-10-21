@@ -193,7 +193,8 @@ describe("single-run dossier view", () => {
       repair: null,
     }));
 
-    expect(retestButtonMarkup(normal)).toContain('style="cursor:pointer"');
+    // Only the actionable state gets hover help; the tooltip no longer forces a cursor (buttons already have one).
+    expect(retestButtonMarkup(normal)).not.toMatch(/<button[^>]*\sdisabled[\s=>]/);
     expect(retestButtonMarkup(samePeriod)).not.toContain("cursor:pointer");
     expect(retestButtonMarkup(repairable)).not.toContain("cursor:pointer");
     expect(retestButtonMarkup(unavailable)).not.toContain("cursor:pointer");
