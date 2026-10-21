@@ -2,25 +2,11 @@ import XCTest
 
 final class LocalizationUITests: XCTestCase {
     func testUnknownDeviceLanguageUsesSpanishNativeCatalog() {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["--age-confirmation-harness", "--age-reset", "-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]
-        app.launch()
-        let checkbox = app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch
-        XCTAssertTrue(checkbox.waitForExistence(timeout: 15), "Offline age gate opened; this test must not skip")
-        XCTAssertTrue(checkbox.label.contains("Confirmo que tengo 18 años o más."), checkbox.label)
-        capture(app, name: "unknown-fr-native-spanish")
+        checkSignInSubmit(languages: "fr", region: "fr_FR", label: "Iniciar sesión", name: "unknown-fr-native-spanish")
     }
 
     func testLaterSupportedDeviceLanguageUsesEnglishNativeCatalog() {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["--age-confirmation-harness", "--age-reset", "-AppleLanguages", "(fr,en)", "-AppleLocale", "fr_FR"]
-        app.launch()
-        let checkbox = app.descendants(matching: .any)["age.confirmation.checkbox"].firstMatch
-        XCTAssertTrue(checkbox.waitForExistence(timeout: 15), "Offline age gate opened")
-        XCTAssertTrue(checkbox.label.contains("I confirm that I am 18 or older."), checkbox.label)
-        capture(app, name: "ordered-fr-en-native-english")
+        checkSignInSubmit(languages: "fr,en", region: "fr_FR", label: "Sign in", name: "ordered-fr-en-native-english")
     }
 
     func testEnglishDeviceLanguageUsesEnglishHelperCatalog() {
@@ -52,6 +38,26 @@ final class LocalizationUITests: XCTestCase {
         picker.buttons.element(boundBy: 0).tap()
         XCTAssertEqual(app.switches["gallery-dark"].label, "Oscuro")
         capture(app, name: "manual-preview-language")
+    }
+
+    /// The sign-in button's accessibility label is `Text("auth.signIn")`, read by SwiftUI from the catalog with the
+    /// system's language fallback, so it proves the native lookup rather than `CuadraoCopy`.
+    private func checkSignInSubmit(languages: String, region: String, label: String, name: String) {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--age-confirmation-harness", "--age-legal-entry", "--cuadrao-guest-reset",
+                               "-AppleLanguages", "(\(languages))", "-AppleLocale", region]
+        app.launch()
+        let signIn = app.buttons["cuadrao.welcome.signin"]
+        XCTAssertTrue(signIn.waitForExistence(timeout: 15), "Offline welcome opened; this test must not skip")
+        signIn.tap()
+        let emailChoice = app.buttons["cuadrao.signin.emailChoice"]
+        XCTAssertTrue(emailChoice.waitForExistence(timeout: 10))
+        emailChoice.tap()
+        let submit = app.buttons["auth.submit"]
+        XCTAssertTrue(submit.waitForExistence(timeout: 10))
+        XCTAssertEqual(submit.label, label)
+        capture(app, name: name)
     }
 
     private func checkHome(language: String, region: String, home: String, plan: String) {
