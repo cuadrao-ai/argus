@@ -21,6 +21,7 @@ from argus.domain.ingestion.documents.models import ExtractionResult
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
+from argus.domain.ingestion.whatsapp.intake import CaptureFailed
 
 from tests import test_business_actions_postgres as shared
 from tests.business_reading_support import ROUTE, reading_setting, turn_reading
@@ -197,6 +198,34 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
     monkeypatch.setattr(documents.business_actions, "resolve_actor", refused)
     with pytest.raises(ActionError):
         await destination.read(owner_id=owner, connection_id=connection_id)
+    draft = _draft(destination, owner, connection_id)
+    assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
+    assert extractor.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(actions):  # noqa: ANN001
+    """No fake: the owner's grant loses prepare in the table the authority
+    reads, so the read cannot start for a permission reason (the WhatsApp
+    path refuses with ``CaptureFailed``), and the draft records exactly
+    ``business_permission_denied``."""
+
+    destination, documents, extractor, owner = _rig(actions)
+    connection_id = await _capture(destination, owner)
+    _, context, _ = actions
+    with documents.business_actions.authority.pool.connection() as db:
+        changed = db.execute(
+            "update public.business_client_grants set capabilities=ARRAY['read','approve']"
+            " where space_id=%s and grantee_id=%s and revoked_at is null",
+            (context.actor.space_id, context.owner_id),
+        ).rowcount
+    # Exactly the owner's one live grant lost prepare; the refusal below is its doing.
+    assert changed == 1
+    # The read path refuses before dispatch with the WhatsApp capture error,
+    # carrying the same literal code; the draft records it on release.
+    with pytest.raises(CaptureFailed) as refused:
+        await destination.read(owner_id=owner, connection_id=connection_id)
+    assert refused.value.code == "business_permission_denied"
     draft = _draft(destination, owner, connection_id)
     assert (draft.status, draft.error_code) == ("saved", "business_permission_denied")
     assert extractor.calls == 0
