@@ -4,14 +4,16 @@ The Bandeja's counts come from here and nowhere else: ``unread`` is new
 activity this person has not opened; ``pending_review`` is every row the
 Bandeja lists, opened or not, emails that are a row of their own included;
 ``ready_to_review`` is the "por revisar" number, the rows a person can review
-now. The Bandeja and the Resumen all read them."""
+now. The Bandeja and the Resumen all read them. Each receipt row also carries
+``bandeja``, its membership in those buckets, from the same predicates the
+counts sum, so a count always equals the number of rows flagged."""
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Iterable, Literal, Mapping, Sequence
+from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
 
 from argus.domain.business.receipts import CLOSED
 
@@ -100,9 +102,44 @@ def ready_to_review(view: Mapping[str, Any]) -> bool:
         awaiting_owner(view)
         and view["status"] not in ("queued", "preparing")
         and not view.get("read_pending")
-        and (view.get("activity") or {}).get("state") != "reading"
+        and not still_reading(view)
         and view.get("attention") != "unreadable"
     )
+
+
+def needs_attention(view: Mapping[str, Any]) -> bool:
+    """A receipt row that needs the person to fix something: "con problema"."""
+
+    return awaiting_owner(view) and view["status"] == "needs_attention"
+
+
+def still_reading(view: Mapping[str, Any]) -> bool:
+    """A receipt row being read now: "leyendo". Its projected activity says so."""
+
+    return awaiting_owner(view) and (view.get("activity") or {}).get("state") == "reading"
+
+
+#: The Bandeja's buckets by their wire name. ``bandeja`` flags a row with them
+#: and the counts sum them, so each count equals the rows flagged.
+BANDEJA: dict[str, Callable[[Mapping[str, Any]], bool]] = {
+    "por_revisar": ready_to_review,
+    "con_problema": needs_attention,
+    "leyendo": still_reading,
+}
+
+
+def bandeja(view: Mapping[str, Any]) -> dict[str, bool]:
+    """Which Bandeja buckets this receipt row sits in. A closed row and the
+    email itself sit in none."""
+
+    return {name: predicate(view) for name, predicate in BANDEJA.items()}
+
+
+def closed_as(view: Mapping[str, Any], status: str) -> bool:
+    """A receipt the Bandeja no longer lists because it ended as ``status``; the
+    email itself never counts as a receipt."""
+
+    return not view.get("email_original") and view["status"] == status
 
 
 def inbox_counts(
@@ -118,26 +155,32 @@ def inbox_counts(
     receipt also needs attention. ``ready_to_review_count`` is the receipts
     ready for review plus those notes; an email is never ready to review.
     ``por_igualar_count`` is the Transacciones movements and documents still
-    to igualar, or None while bank matching is off."""
+    to igualar, or None while bank matching is off. ``confirmed_count`` and
+    ``dismissed_count`` are the receipts that left the Bandeja each way, so a
+    reader of the inbox view knows what it does not list."""
 
-    pending = [view for view in views if awaiting_owner(view)]
+    rows = list(views)
+    pending = [view for view in rows if awaiting_owner(view)]
     return {
         "pending_review_count": len(pending) + notes + len(emails),
-        "ready_to_review_count": sum(map(ready_to_review, pending)) + notes,
+        "ready_to_review_count": sum(map(BANDEJA["por_revisar"], pending)) + notes,
         "needs_attention_count": emails.count("no_receipt")
-        + sum(view["status"] == "needs_attention" for view in pending),
+        + sum(map(BANDEJA["con_problema"], pending)),
         "por_igualar_count": por_igualar,
+        "confirmed_count": sum(closed_as(view, "confirmed") for view in rows),
+        "dismissed_count": sum(closed_as(view, "dismissed") for view in rows),
     }
 
 
 def aggregate_activity(
-    items: Iterable[ReceiptActivity], reading_emails: int = 0
+    views: Iterable[Mapping[str, Any]], reading_emails: int = 0
 ) -> dict[str, Any]:
-    """``reading_emails``: emails still being read count with receipts being read."""
+    """Over projected receipt views (each carrying its ``activity``).
+    ``reading_emails``: emails still being read count with receipts being read."""
 
-    rows = list(items)
-    reading = sum(row.state == "reading" for row in rows) + reading_emails
-    unread = sum(row.unread for row in rows)
+    rows = list(views)
+    reading = sum(map(BANDEJA["leyendo"], rows)) + reading_emails
+    unread = sum(bool(row["activity"]["unread"]) for row in rows)
     return {
         "reading_count": reading,
         "unread_count": unread,

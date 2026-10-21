@@ -496,10 +496,15 @@ def give_access(
     response.status_code = 201 if created else 200
     payload = _access(found)
     if created:
-        invite = next((i for i in found.invites if i.email == body.email.strip().lower()), None)
+        invite = next(
+            (i for i in found.invites if i.email == body.email.strip().lower()), None
+        )
         if invite is not None:
             from argus.api.business_invite_delivery import deliver_invite
-            payload["invite_delivery"] = deliver_invite(request, found, invite, space_id, owner_id)
+
+            payload["invite_delivery"] = deliver_invite(
+                request, found, invite, space_id, owner_id
+            )
     return payload
 
 
@@ -514,12 +519,22 @@ def resend_access_invite(
     space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
     found = _access_store(request).resend(space_id, owner_id, str(invite_id))
     if found is None:
-        raise problem(request, status_code=404, code="business_access_not_found",
-                      title="Not Found", detail="This invite is not available.", headers=NO_STORE)
+        raise problem(
+            request,
+            status_code=404,
+            code="business_access_not_found",
+            title="Not Found",
+            detail="This invite is not available.",
+            headers=NO_STORE,
+        )
     response.headers.update(NO_STORE)
     from argus.api.business_invite_delivery import deliver_invite
+
     invite = next(i for i in found.invites if i.id == str(invite_id))
-    return {**_access(found), "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id)}
+    return {
+        **_access(found),
+        "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id),
+    }
 
 
 @router.delete("/access/grants/{grant_id}", status_code=204)
@@ -817,9 +832,13 @@ def list_receipts(
 ) -> dict[str, Any]:
     try:
         from argus.api.business_receipt_activity import counts
+        from argus.domain.business.receipts import CLOSED
 
-        items = receipt_summaries(context, view)
-        return {"items": items, "activity": counts(context, items)}
+        items = receipt_summaries(context, "all")
+        activity = counts(context, items)
+        if view == "inbox":
+            items = [item for item in items if item["status"] not in CLOSED]
+        return {"items": items, "activity": activity}
     except Exception as error:
         raise _problem(request, error) from None
 

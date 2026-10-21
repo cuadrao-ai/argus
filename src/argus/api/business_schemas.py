@@ -164,6 +164,15 @@ class ReceiptActivity(_Wire):
     completion_cursor: str | None
 
 
+class BandejaMembership(_Wire):
+    # Which Bandeja buckets this receipt sits in, from the same predicates the
+    # counts sum: "por revisar", "con problema" and "leyendo". A closed receipt
+    # and the email itself sit in none.
+    por_revisar: bool
+    con_problema: bool
+    leyendo: bool
+
+
 class ReceiptActivityCounts(_Wire):
     # Receipts being read, plus emails still being read with nothing saved yet.
     reading_count: int
@@ -183,6 +192,10 @@ class ReceiptActivityCounts(_Wire):
     # Transacciones "Por igualar": every movement and document still to
     # igualar, from any period. Null while bank matching is off.
     por_igualar_count: int | None
+    # Receipts that left the Bandeja each way, whichever view is read: saved as
+    # a record, or dismissed. The email itself never counts.
+    confirmed_count: int = 0
+    dismissed_count: int = 0
 
 
 class ReceiptReadingBody(_Wire):
@@ -199,6 +212,7 @@ class ReceiptReadBody(_Wire):
 class ReceiptSummary(_Wire):
     id: str
     activity: ReceiptActivity | None = None
+    bandeja: BandejaMembership | None = None
     # ``email`` is decided at the API boundary from the email queue.
     channel: Literal["web", "whatsapp", "email"]
     filename: str | None
