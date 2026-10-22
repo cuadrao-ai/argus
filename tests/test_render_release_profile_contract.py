@@ -128,7 +128,7 @@ def test_blueprint_matches_the_live_dashboard_service_shape() -> None:
         "python",
         "codex/private-alpha-next",
         "0.5c-512mb",
-        "checksPass",
+        "off",
         "poetry install",
     )
     manifest = json.loads(_source("scripts/ops/staging_env_manifest.json"))

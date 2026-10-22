@@ -228,7 +228,7 @@ services:
     branch: codex/private-alpha-next
     rootDir: .
     plan: 0.5c-512mb
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: "off"
     renderSubdomainPolicy: enabled
     buildCommand: poetry install
     startCommand: poetry run uvicorn argus.api.main:app --host 0.0.0.0 --port $PORT
@@ -327,7 +327,7 @@ services:
     repo: https://github.com/lagarcess/argus
     branch: codex/private-alpha-next
     rootDir: web
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: "off"
     buildCommand: bun install --frozen-lockfile && bun run build
     startCommand: bun run start -- -p $PORT
     envVars:
