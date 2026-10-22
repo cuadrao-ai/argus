@@ -1,8 +1,7 @@
 """Close notifications committed with the Business command, never live in tests.
 
-Approved copy exists for the member notice alone. The owner's close
-confirmation, the day-23 reminder and the member reopen notice queue with
-their facts and wait unsent until their copy is approved.
+The owner's close confirmation, the day-23 reminder and the member reopen
+notice have approved templates, but wait unsent for delivery activation.
 """
 
 from __future__ import annotations
@@ -14,7 +13,8 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from babel.dates import format_date
@@ -26,7 +26,7 @@ from argus.domain.business.transfer_mail import _origin
 
 MailKind = Literal["member_closed", "owner_closed", "purge_reminder", "member_reopened"]
 _ARTIFACT = Path(__file__).with_name("business_closed_email.generated.json")
-#: Kinds with approved copy; every other kind queues and waits for its copy.
+#: Delivery activation is separate from template approval.
 _APPROVED_KINDS = frozenset({"member_closed"})
 _RETRY_WINDOW = timedelta(hours=23)
 #: The owner's reminder goes out a week before the purge deadline.
@@ -61,42 +61,102 @@ def reopen_path(space_id: str) -> str:
     return "/biz?" + urlencode({"lifecycle": "manage", "business": space_id})
 
 
-def render_close_mail(context: dict[str, str]) -> dict[str, str]:
+def _local_timestamp(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Close mail dates must include a timezone")
+    return parsed.astimezone(ZoneInfo("America/Santo_Domingo"))
+
+
+def _application_link(context: dict[str, str], kind: MailKind) -> str:
+    origin = os.getenv("CUADRAO_APP_ORIGIN") or os.getenv("ARGUS_APP_ORIGIN") or ""
+    if any(character in origin for character in "\\?#"):
+        raise ValueError("Email origin must be an HTTPS origin")
+    origin = _origin(origin)
+    _ = urlsplit(origin).port
+    if kind == "member_reopened":
+        return origin + "/biz"
+    path = context.get("reopenPath", "")
+    parsed = urlsplit(path)
+    parameters = parse_qsl(parsed.query, keep_blank_values=True)
+    query = dict(parameters)
+    if (
+        parsed.scheme
+        or parsed.netloc
+        or parsed.path != "/biz"
+        or "#" in path
+        or "\\" in path
+        or any(character.isspace() for character in path)
+        or len(parameters) != 2
+        or set(query) != {"lifecycle", "business"}
+        or query["lifecycle"] != "manage"
+        or str(UUID(query["business"])) != query["business"].lower()
+    ):
+        raise ValueError("Close mail link must navigate to business management")
+    return origin + path
+
+
+def render_close_mail(
+    context: dict[str, str],
+    *,
+    kind: MailKind = "member_closed",
+    locale: Literal["es-419", "en"] = "es-419",
+) -> dict[str, str]:
     artifact = json.loads(_ARTIFACT.read_text())
-    if artifact["schemaVersion"] != 1:
+    if (
+        artifact["schemaVersion"] != 1
+        or kind
+        not in ("member_closed", "owner_closed", "purge_reminder", "member_reopened")
+        or locale not in ("es-419", "en")
+    ):
         raise ValueError("Unsupported close mail artifact")
-    local = ZoneInfo("America/Santo_Domingo")
-    closed = datetime.fromisoformat(context["closedAt"]).astimezone(local)
+    if any(
+        not value.strip() or re.search(r"[\x00-\x1f\x7f]", value)
+        for value in context.values()
+    ):
+        raise ValueError("Close mail fields must be nonempty single-line values")
+    closed = _local_timestamp(context["closedAt"])
+    purge = _local_timestamp(context["purgeAt"])
+    date_locale = "en_US" if locale == "en" and kind != "member_closed" else "es_DO"
     values = {
         "businessName": context["businessName"],
         "ownerName": context["ownerName"],
-        "closedDate": format_date(closed, "long", locale="es_DO"),
-        "purgeDate": format_date(
-            datetime.fromisoformat(context["purgeAt"]).astimezone(local),
-            "long",
-            locale="es_DO",
-        ),
+        "closedDate": format_date(closed, "long", locale=date_locale),
+        "purgeDate": format_date(purge, "long", locale=date_locale),
+        "purgeTime": purge.strftime("%H:%M:%S"),
         # The shared layout adds a postal line only beside an unsubscribe link.
         "postalAddress": "Cuadrao LLC",
         "assetOrigin": _origin(
             os.getenv("CUADRAO_EMAIL_ASSET_ORIGIN") or "https://cuadrao.ai"
         ),
     }
+    if kind != "member_closed":
+        values["businessUrl" if kind == "member_reopened" else "actionUrl"] = (
+            _application_link(context, kind)
+        )
     if any(
         not value.strip() or "\n" in value or "\r" in value for value in values.values()
     ):
         raise ValueError("Close mail fields must be nonempty single-line values")
-    replacements = {token: values[key] for key, token in artifact["tokens"].items()}
-    pattern = re.compile("|".join(re.escape(token) for token in replacements))
-    return {
-        field: pattern.sub(
-            lambda match, field=field: html.escape(replacements[match[0]], quote=True)
-            if field == "html"
-            else replacements[match[0]],
-            artifact[field],
+    template = (
+        artifact if kind == "member_closed" else artifact["templates"][locale][kind]
+    )
+    rendered = {}
+    for field in ("subject", "html", "text"):
+        escape = (
+            (lambda value: html.escape(value, quote=True)) if field == "html" else str
         )
-        for field in ("subject", "html", "text")
-    }
+        replacements = {
+            escape(token): escape(values[key])
+            for key, token in artifact["tokens"].items()
+            if key in values
+        }
+        pattern = re.compile("|".join(re.escape(token) for token in replacements))
+        rendered[field] = pattern.sub(
+            lambda match, replacements=replacements: replacements[match[0]],
+            template[field],
+        )
+    return rendered
 
 
 def _context(db, space_id: str, owner_id: str, name: str, closed_at: datetime) -> dict:
@@ -200,12 +260,11 @@ def deliver_close_mail(pool, space_id: str) -> int:
                     (mail_id,),
                 )
                 continue
+            if row[8] not in _APPROVED_KINDS:
+                continue
             if row[1] is None:
-                if row[8] not in _APPROVED_KINDS:
-                    # Held: no approved copy for this kind yet.
-                    continue
                 try:
-                    payload = render_close_mail(row[0])
+                    payload = render_close_mail(row[0], kind=row[8])
                 except ValueError:
                     continue
                 db.execute(
@@ -218,10 +277,12 @@ def deliver_close_mail(pool, space_id: str) -> int:
             row = db.execute(
                 "select o.recipient_email,o.payload,o.first_attempt_at,o.sent_at,o.suppressed_at,o.uncertain_at,clock_timestamp(),"
                 + _STILL_DUE
-                + " from public.business_close_mail_outbox o join public.spaces s on s.id=o.space_id where o.id=%s for update of o",
+                + ",o.kind from public.business_close_mail_outbox o join public.spaces s on s.id=o.space_id where o.id=%s for update of o",
                 (mail_id,),
             ).fetchone()
             if not row or any(value is not None for value in row[3:6]):
+                continue
+            if row[8] not in _APPROVED_KINDS:
                 continue
             if not row[7]:
                 db.execute(

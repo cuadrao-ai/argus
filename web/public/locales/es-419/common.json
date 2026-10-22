@@ -1484,6 +1484,50 @@
       "otp_rejected": "Ese código no fue aceptado. Revisa el correo e inténtalo de nuevo."
     }
   },
+  "account_email": {
+    "business_lifecycle": {
+      "member_reopened": {
+        "cta": "Abrir Cuadrao",
+        "paragraphs": [
+          "Hola,",
+          "{ownerName} reabrió {businessName} en Cuadrao.",
+          "Al reabrir, se restablece el acceso de los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "{ownerName} reabrió el negocio.",
+        "subject": "{businessName} se reabrió en Cuadrao",
+        "title": "{businessName} está abierto de nuevo"
+      },
+      "owner_closed": {
+        "cta": "Ver negocio cerrado",
+        "paragraphs": [
+          "Hola,",
+          "Cerraste {businessName} en Cuadrao el {closedDate}. Los miembros ya no tienen acceso.",
+          "Puedes reabrirlo antes del {purgeDate} a las {purgeTime} (hora de RD). Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+          "Para descargar comprobantes, primero debes reabrir el negocio. Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "Puedes reabrirlo antes de que venza el plazo.",
+        "subject": "Cerraste {businessName} en Cuadrao",
+        "title": "Cerraste {businessName}"
+      },
+      "purge_reminder": {
+        "cta": "Ver negocio cerrado",
+        "paragraphs": [
+          "Hola,",
+          "{businessName} sigue cerrado en Cuadrao desde el {closedDate}.",
+          "Puedes reabrirlo antes del {purgeDate} a las {purgeTime} (hora de RD). Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+          "Para descargar comprobantes, primero debes reabrir el negocio. Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "Reábrelo antes del plazo si necesitas conservar sus datos en Cuadrao.",
+        "subject": "El plazo para reabrir {businessName} está por vencer",
+        "title": "Aún puedes reabrir {businessName}"
+      }
+    },
+    "footer": {
+      "help": "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai",
+      "legal": "Cuadrao LLC",
+      "sign_off": "Saludos,\nCuadrao"
+    }
+  },
   "account_security": {
     "title": "Seguridad de la cuenta",
     "description": "Cambia tu contraseña o elige exactamente qué sesiones cerrar.",

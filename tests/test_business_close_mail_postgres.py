@@ -227,7 +227,7 @@ def _kinds(pool, space_id):  # noqa: ANN001
         ).fetchall()
 
 
-def test_close_queues_the_owner_confirmation_unsent_until_its_copy_exists(
+def test_close_queues_the_owner_confirmation_unsent_until_delivery_is_activated(
     world, provider
 ):  # noqa: F811
     from argus.domain.business.close_mail import reopen_path
@@ -235,7 +235,7 @@ def test_close_queues_the_owner_confirmation_unsent_until_its_copy_exists(
     pool, space, people, _, _ = world
     _confirm(pool, people["owner"])
     close(world)
-    # Only the member notice has approved copy; the owner's waits, unrendered.
+    # Template approval does not activate owner delivery.
     assert len(provider.messages) == 1
     assert _kinds(pool, space.id) == [
         ("member_closed", people["other"], False, False, False, reopen_path(space.id)),
@@ -279,9 +279,7 @@ def _age(pool, space_id, days):  # noqa: ANN001
         )
 
 
-def test_day_23_reminds_the_current_owner_once_with_the_reopen_path(
-    world, provider
-):  # noqa: F811
+def test_day_23_reminds_the_current_owner_once_with_the_reopen_path(world, provider):  # noqa: F811
     from argus.domain.business.close_mail import enqueue_purge_reminders
 
     pool, space, people, _, _ = world
@@ -316,3 +314,176 @@ def test_a_business_without_an_owner_gets_no_reminder(world):  # noqa: F811
         )
     _age(pool, space.id, 24)
     assert space.id not in enqueue_purge_reminders(pool)
+
+
+NEW_KINDS = ("owner_closed", "purge_reminder", "member_reopened")
+
+
+def _prepare_held_event(world, provider, kind):  # noqa: ANN001
+    from argus.domain.business.close_mail import enqueue_purge_reminders
+
+    pool, space, people, _, _ = world
+    _confirm(pool, people["owner"])
+    close(world)
+    if kind == "purge_reminder":
+        _age(pool, space.id, 23)
+        assert space.id in enqueue_purge_reminders(pool)
+    elif kind == "member_reopened":
+        PostgresBusinessLifecycle(pool).reopen(
+            owner_id=people["owner"], space_id=space.id, idempotency_key="mail-reopen"
+        )
+    with pool.connection() as db:
+        db.execute(
+            "update public.business_close_mail_outbox set suppressed_at=clock_timestamp()"
+            " where space_id=%s and kind<>%s and sent_at is null",
+            (space.id, kind),
+        )
+        row = db.execute(
+            "select id::text,context from public.business_close_mail_outbox where space_id=%s and kind=%s",
+            (space.id, kind),
+        ).fetchone()
+    provider.messages.clear()
+    provider.attempts.clear()
+    return row
+
+
+@pytest.mark.parametrize("kind", NEW_KINDS)
+def test_production_policy_never_reserves_renders_or_transports_a_new_kind(
+    world, provider, monkeypatch, kind
+):  # noqa: F811
+    from argus.domain.business import close_mail
+
+    pool, space, _, _, _ = world
+    mail_id, _ = _prepare_held_event(world, provider, kind)
+    assert close_mail._APPROVED_KINDS == frozenset({"member_closed"})
+
+    def forbidden_render(*args, **kwargs):
+        pytest.fail("Held mail reached rendering")
+
+    monkeypatch.setattr(close_mail, "render_close_mail", forbidden_render)
+    assert deliver_close_mail(pool, space.id) == 0
+    assert deliver_close_mail(pool, space.id) == 0
+    assert not provider.messages and not provider.attempts
+    with pool.connection() as db:
+        assert db.execute(
+            "select first_attempt_at,payload,sent_at,provider_receipt from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone() == (None, None, None, None)
+
+
+@pytest.mark.parametrize("kind", NEW_KINDS)
+def test_delivery_hold_also_blocks_a_previously_frozen_new_kind(world, provider, kind):  # noqa: F811
+    from psycopg.types.json import Jsonb
+
+    pool, space, _, _, _ = world
+    mail_id, context = _prepare_held_event(world, provider, kind)
+    payload = render_close_mail(context, kind=kind)
+    with pool.connection() as db:
+        db.execute(
+            "update public.business_close_mail_outbox set first_attempt_at=clock_timestamp(),payload=%s where id=%s",
+            (Jsonb(payload), mail_id),
+        )
+    assert deliver_close_mail(pool, space.id) == 0
+    assert not provider.messages and not provider.attempts
+    with pool.connection() as db:
+        assert db.execute(
+            "select payload,sent_at,provider_receipt from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone() == (payload, None, None)
+
+
+@pytest.mark.parametrize("kind", NEW_KINDS)
+@pytest.mark.parametrize("locale", ["es-419", "en"])
+def test_test_only_activation_dispatches_the_matching_bilingual_fake_payload_once(
+    world, provider, monkeypatch, kind, locale
+):  # noqa: F811
+    from argus.domain.business import close_mail
+
+    pool, space, _, _, _ = world
+    mail_id, context = _prepare_held_event(world, provider, kind)
+    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({kind}))
+
+    def localized(context, *, kind):
+        return render_close_mail(context, kind=kind, locale=locale)
+
+    monkeypatch.setattr(close_mail, "render_close_mail", localized)
+    assert deliver_close_mail(pool, space.id) == 1
+    assert deliver_close_mail(pool, space.id) == 0
+    assert len(provider.messages) == 1 and len(provider.attempts) == 1
+    payload = render_close_mail(context, kind=kind, locale=locale)
+    message = next(iter(provider.messages.values()))
+    assert str(make_header(decode_header(message["Subject"]))) == payload["subject"]
+    text = next(
+        part for part in message.walk() if part.get_content_type() == "text/plain"
+    )
+    assert text.get_payload(decode=True).decode("utf-8").rstrip() == payload["text"]
+    with pool.connection() as db:
+        row = db.execute(
+            "select first_attempt_at,payload,sent_at,provider_receipt from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone()
+    assert row[0] and row[1] == payload and row[2] and row[3]
+
+
+@pytest.mark.parametrize("kind", NEW_KINDS)
+def test_new_kind_fake_retries_keep_the_original_payload_and_provider_key(
+    world, provider, monkeypatch, kind
+):  # noqa: F811
+    from argus.domain.business import close_mail
+
+    pool, space, _, _, _ = world
+    mail_id, _ = _prepare_held_event(world, provider, kind)
+    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({kind}))
+    outgoing = []
+    original_send = close_mail.resend_email.send_resend_email
+
+    def observe(**kwargs):
+        outgoing.append(kwargs)
+        return original_send(**kwargs)
+
+    monkeypatch.setattr(close_mail.resend_email, "send_resend_email", observe)
+    provider.lose_response = True
+    assert deliver_close_mail(pool, space.id) == 0
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://changed.example.test")
+    with pool.connection() as db:
+        db.execute(
+            "update public.business_close_mail_outbox set context=jsonb_set(context,'{businessName}','\"Changed\"') where id=%s",
+            (mail_id,),
+        )
+    provider.lose_response = False
+    assert deliver_close_mail(pool, space.id) == 1
+    assert len(outgoing) == 2 and outgoing[0] == outgoing[1]
+    assert len(provider.messages) == 1
+    assert len(provider.attempts) == 2 and len(set(provider.attempts)) == 1
+
+
+@pytest.mark.parametrize("kind", NEW_KINDS)
+@pytest.mark.parametrize("stale", ["business", "recipient"])
+def test_stale_new_kind_is_suppressed_before_fake_transport(
+    world, provider, monkeypatch, kind, stale
+):  # noqa: F811
+    from argus.domain.business import close_mail
+
+    pool, space, _, _, _ = world
+    mail_id, _ = _prepare_held_event(world, provider, kind)
+    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({kind}))
+    with pool.connection() as db:
+        if stale == "recipient":
+            db.execute(
+                "update public.business_close_mail_outbox set recipient_email='changed@example.test' where id=%s",
+                (mail_id,),
+            )
+        elif kind == "member_reopened":
+            db.execute(
+                "update public.spaces set closed_at=clock_timestamp() where id=%s",
+                (space.id,),
+            )
+        else:
+            db.execute("update public.spaces set closed_at=null where id=%s", (space.id,))
+    assert deliver_close_mail(pool, space.id) == 0
+    assert not provider.messages and not provider.attempts
+    with pool.connection() as db:
+        assert db.execute(
+            "select first_attempt_at,payload,sent_at,suppressed_at is not null from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone() == (None, None, None, True)

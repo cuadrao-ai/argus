@@ -1484,6 +1484,50 @@
       "otp_rejected": "That code was not accepted. Check the email and try again."
     }
   },
+  "account_email": {
+    "business_lifecycle": {
+      "member_reopened": {
+        "cta": "Open Cuadrao",
+        "paragraphs": [
+          "Hi,",
+          "{ownerName} reopened {businessName} in Cuadrao.",
+          "Reopening restores access for members whose permissions are still valid."
+        ],
+        "preheader": "{ownerName} reopened the business.",
+        "subject": "{businessName} reopened in Cuadrao",
+        "title": "{businessName} is open again"
+      },
+      "owner_closed": {
+        "cta": "View closed business",
+        "paragraphs": [
+          "Hi,",
+          "You closed {businessName} in Cuadrao on {closedDate}. Members no longer have access.",
+          "You can reopen it before {purgeDate} at {purgeTime} (Dominican Republic time). If it remains closed when that deadline passes, its data and receipts will be deleted and cannot be recovered.",
+          "To download receipts, you must first reopen the business. Reopening restores access for members whose permissions are still valid."
+        ],
+        "preheader": "You can reopen it before the deadline.",
+        "subject": "You closed {businessName} in Cuadrao",
+        "title": "You closed {businessName}"
+      },
+      "purge_reminder": {
+        "cta": "View closed business",
+        "paragraphs": [
+          "Hi,",
+          "{businessName} has remained closed in Cuadrao since {closedDate}.",
+          "You can reopen it before {purgeDate} at {purgeTime} (Dominican Republic time). If it remains closed when that deadline passes, its data and receipts will be deleted and cannot be recovered.",
+          "To download receipts, you must first reopen the business. Reopening restores access for members whose permissions are still valid."
+        ],
+        "preheader": "Reopen it before the deadline if you need to keep its data in Cuadrao.",
+        "subject": "The deadline to reopen {businessName} is approaching",
+        "title": "You can still reopen {businessName}"
+      }
+    },
+    "footer": {
+      "help": "Need help? Email hola@cuadrao.ai",
+      "legal": "Cuadrao LLC",
+      "sign_off": "Regards,\nCuadrao"
+    }
+  },
   "account_security": {
     "title": "Account security",
     "description": "Change your password or choose exactly which sessions to sign out.",
