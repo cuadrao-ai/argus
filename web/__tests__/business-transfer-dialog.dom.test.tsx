@@ -15,12 +15,12 @@ async function mount() {
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
   const calls: string[] = [];
-  const request: BusinessTransferView = { kind: "request", members: [{ grantId: "editar-1", name: "Rosa" }], onRequest: (id, name) => { calls.push(`request:${id}:${name}`); } };
+  const request: BusinessTransferView = { kind: "request", members: [{ grant_id: "editar-1", name: "Rosa", eligible: true, reason: null }], onRequest: (id, name) => { calls.push(`request:${id}:${name}`); } };
   const render = async (view = request, submitting = false) => {
     await act(async () => root.render(<BusinessTransferDialog businessName="Taller Luna" copy={businessTransferCopyEs} view={view} state={submitting ? { kind: "submitting" } : { kind: "idle" }} onDismiss={() => { calls.push("dismiss"); }} />));
   };
   await render();
-  const button = (text: string) => { const found = [...document.querySelectorAll("button")].find((item) => item.textContent === text); assert.ok(found); return found; };
+  const button = (text: string) => { const found = [...document.querySelectorAll("button")].find((item) => item.textContent === text || item.getAttribute("aria-label") === text); assert.ok(found); return found; };
   const enter = async (selector: string, value: string) => {
     const field = document.querySelector(selector); assert.ok(field instanceof HTMLInputElement || field instanceof HTMLSelectElement);
     await act(async () => { Object.getOwnPropertyDescriptor(field instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype, "value")!.set!.call(field, value); field.dispatchEvent(new Event(field instanceof HTMLInputElement ? "input" : "change", { bubbles: true })); });
@@ -33,10 +33,10 @@ test("request needs an existing selected member and exact current name; Cancelar
   try {
     assert.ok(document.body.textContent?.includes("Elige un miembro del negocio. Será dueño cuando acepte."));
     assert.equal(view.button("Solicitar transferencia").disabled, true);
-    await view.enter("select", "editar-1");
-    await view.enter("input", "Taller Luna ");
+    await act(async () => document.querySelector<HTMLInputElement>('input[type="radio"][value="editar-1"]')!.click());
+    await view.enter('input:not([type="radio"])', "Taller Luna ");
     assert.equal(view.button("Solicitar transferencia").disabled, true);
-    await view.enter("input", "Taller Luna");
+    await view.enter('input:not([type="radio"])', "Taller Luna");
     await act(async () => view.button("Solicitar transferencia").click());
     assert.deepEqual(view.calls, ["request:editar-1:Taller Luna"]);
     await act(async () => view.button("Cancelar").click());
@@ -80,6 +80,25 @@ test("empty member list and expired request use the approved text", async () => 
     assert.equal(view.button("Solicitar transferencia").disabled, true);
     await view.render({ kind: "expired", targetName: "Rosa" });
     assert.ok(document.body.textContent?.includes("La solicitud a Rosa venció."));
+    assert.deepEqual(view.calls, []);
+  } finally { await view.close(); }
+});
+
+
+test("transfer candidates show server eligibility and cannot select an ineligible member", async () => {
+  const view = await mount();
+  try {
+    await view.render({ kind: "request", members: [
+      { grant_id: "editar-1", name: "Rosa", eligible: true, reason: null },
+      { grant_id: "blocked", name: "Sol", eligible: false, reason: "owns_open_business" },
+    ], onRequest: () => { view.calls.push("request"); } });
+    const blocked = document.querySelector<HTMLInputElement>('input[type="radio"][value="blocked"]');
+    assert.ok(blocked);
+    assert.equal(blocked.disabled, true);
+    assert.ok(document.body.textContent?.includes("Ya es dueño de otro negocio abierto."));
+    await act(async () => blocked.click());
+    await view.enter('input:not([type="radio"])', "Taller Luna");
+    assert.equal(view.button("Solicitar transferencia").disabled, true);
     assert.deepEqual(view.calls, []);
   } finally { await view.close(); }
 });

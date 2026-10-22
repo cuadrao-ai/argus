@@ -11,7 +11,7 @@ import { randomId } from "@/lib/random-id";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import BusinessCloseDialog, { businessCloseCopyEs, type BusinessCloseState } from "./BusinessCloseDialog";
 import BusinessTransferDialog, { businessTransferCopyEs } from "./BusinessTransferDialog";
-import { ReceiptPeriodExport } from "./ReceiptDossierReview";
+import BusinessCloseExport, { type BusinessCloseExportJournal } from "./BusinessCloseExport";
 
 type Entry = { kind: "loading" | "unavailable" } | { kind: "ready"; business: OwnedBusiness };
 
@@ -21,6 +21,7 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
   const [state, setState] = useState<BusinessCloseState>({ kind: "idle" });
   const journal = useRef<{ input: string; key: string } | null>(null);
   const busy = useRef(false);
+  const [exportJournal, setExportJournal] = useState<BusinessCloseExportJournal>({ nextWindow: 0, state: "idle" });
   const dismiss = () => window.location.assign("/biz");
   useEffect(() => {
     const controller = new AbortController();
@@ -57,8 +58,21 @@ export default function BusinessLifecycleEntry({ spaceId, action }: { spaceId: s
         : await requestBusinessTransfer({ spaceId, confirmation, targetGrantId: targetGrantId!, idempotencyKey });
       requireBrowserAuthGeneration(generation);
       window.location.assign("id" in result ? `/biz?transfer=${encodeURIComponent(result.id)}` : "/biz?lifecycle=manage");
-    } catch { busy.current = false; setState({ kind: "error", message: t("common.error_occurred") }); }
+    } catch (error) {
+      busy.current = false;
+      const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
+      const message = code === "business_name_mismatch"
+        ? t("business.lifecycle.errors.name_mismatch", { defaultValue: "El nombre no coincide. Escríbelo igual que arriba." })
+        : code === "business_transfer_pending"
+          ? t("business.lifecycle.errors.transfer_pending", { defaultValue: "Ya hay una transferencia pendiente. Retírala para pedir otra." })
+          : code === "business_transfer_target_invalid"
+            ? t("business.lifecycle.errors.target_invalid", { defaultValue: "Esta persona ya no puede recibir el negocio. Elige a otra." })
+            : action === "close"
+              ? t("business.lifecycle.errors.close_uncertain", { defaultValue: "No pudimos confirmar el cierre. Reintenta para comprobar el resultado." })
+              : t("business.lifecycle.errors.request_uncertain", { defaultValue: "No pudimos confirmar la solicitud. Tu selección sigue aquí. Reintenta para comprobar el resultado." });
+      setState({ kind: "error", message });
+    }
   };
-  if (action === "transfer") return <BusinessTransferDialog businessName={business.name} copy={businessTransferCopyEs} view={{ kind: "request", members: business.members.map(member => ({ grantId: member.grant_id, name: member.name })), onRequest: (grant, confirmation) => { void execute(confirmation, grant); } }} state={state} onDismiss={dismiss} />;
-  return <BusinessCloseDialog businessName={business.name} copy={businessCloseCopyEs} state={state} onConfirm={confirmation => { void execute(confirmation); }} onCancel={dismiss} exportControl={<ReceiptPeriodExport scope={{ grantId: business.grant_id, name: business.name, capabilities: ["read", "prepare", "approve"] }} start="" end="" available />} />;
+  if (action === "transfer") return <BusinessTransferDialog businessName={business.name} copy={businessTransferCopyEs} view={{ kind: "request", members: business.members, onRequest: (grant, confirmation) => { void execute(confirmation, grant); } }} state={state} onDismiss={dismiss} />;
+  return <BusinessCloseDialog businessName={business.name} preview={business} copy={businessCloseCopyEs} state={state} onConfirm={confirmation => { void execute(confirmation); }} onCancel={dismiss} exportControl={<BusinessCloseExport key={business.space_id} business={business} label={businessCloseCopyEs.download} journal={exportJournal} setJournal={setExportJournal} />} />;
 }

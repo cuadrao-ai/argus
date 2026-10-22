@@ -3,16 +3,23 @@ import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createContext, type ReactNode } from "react";
 let lifecycleMode: "open" | "off" | "closed" = "open";
-const BusinessContext = createContext<unknown>(null);
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 let releaseInitial!: (result: unknown) => void;
 mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: {
   onAuthStateChange: (next: typeof listener) => { listener = next; return { data: { subscription: { unsubscribe: () => {} } } }; },
   getSession: () => new Promise(resolve => { releaseInitial = resolve; }),
 } }) }));
-import { createContext, type ReactNode } from "react";
-let lifecycleMode: "open" | "off" | "closed" = "open";
-const BusinessContext = createContext<unknown>(null);
+mock.module("@/lib/business-lifecycle-api", () => ({
+  getOwnedBusinessSpaces: async () => { if (lifecycleMode === "off") throw { code: "business_unavailable" }; return []; },
+  getClosedBusinessSpaces: async () => lifecycleMode === "closed" ? [{ space_id: "closed" }] : [],
+}));
+mock.module("@/components/business-app/BusinessWorkspace", () => ({
+  BusinessContext: createContext(null),
+  BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,
+}));
+mock.module("@/components/business-app/BusinessNamingProvider", () => ({ default: ({ children }: { children: ReactNode }) => children }));
+mock.module("@/components/business-app/BusinessLifecycleControls", () => ({ default: () => <p>Closed controls</p> }));
+mock.module("@/components/business-app/BusinessLifecycleEntry", () => ({ default: () => null }));
 mock.module("@/components/chat/ChatInterface", () => ({ default: () => <input aria-label="Account draft" defaultValue="" /> }));
 mock.module("@/components/chat/ConversationShellGuard", () => ({ default: () => null }));
 mock.module("@/components/business-app/ConversationUnavailableNotice", () => ({ default: () => null }));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterAll, test } from "bun:test";
-import { closeBusinessSpace, reopenBusinessSpace, getClosedBusinessSpaces } from "@/lib/business-lifecycle-api";
+import { closeBusinessSpace, reopenBusinessSpace, getClosedBusinessSpaces, getOwnedBusinessSpaces } from "@/lib/business-lifecycle-api";
 
 const original = { fetch: globalThis.fetch, auth: process.env.NEXT_PUBLIC_MOCK_AUTH };
 const spaceId = "c9ee4f5a-71a4-4617-b370-c46d0ac7aefd";
@@ -39,4 +39,25 @@ test("closed spaces are server facts and malformed payloads are refused", async 
   assert.deepEqual(await getClosedBusinessSpaces(), [result]);
   globalThis.fetch = async () => Response.json({ spaces: [{ ...result, reopen_until: "not-a-date" }] });
   await assert.rejects(getClosedBusinessSpaces());
+});
+
+
+test("owned preview preserves server counts, deadline, export windows and every eligibility reason", async () => {
+  const reasons = [null, "account_unavailable", "not_editor", "email_unconfirmed", "owns_open_business"];
+  const business = {
+    space_id: spaceId, name: "Taller Luna", grant_id: "ee9c4550-1fe4-4e95-8fc2-8984d11e50f2",
+    member_count: 5, reopen_until: "2026-11-20T17:45:00Z",
+    export_windows: [{ start: "2024-01-01", end: "2024-12-31" }, { start: "2025-01-01", end: "2025-12-31" }],
+    members: reasons.map((reason) => ({ grant_id: crypto.randomUUID(), name: "Rosa", eligible: reason === null, reason })),
+  };
+  globalThis.fetch = async () => Response.json({ spaces: [business] });
+  assert.deepEqual(await getOwnedBusinessSpaces(), [business]);
+  for (const changed of [
+    { member_count: -1 }, { reopen_until: "not-a-date" },
+    { export_windows: [{ start: "2025-02-30", end: "2025-03-01" }] },
+    { members: [{ ...business.members[0], eligible: false, reason: null }] },
+  ]) {
+    globalThis.fetch = async () => Response.json({ spaces: [{ ...business, ...changed }] });
+    await assert.rejects(getOwnedBusinessSpaces());
+  }
 });

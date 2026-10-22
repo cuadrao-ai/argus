@@ -37,7 +37,7 @@ for (const action of ["close", "transfer"] as const) {
           space_id: spaceId,
           name: "Colmado Rosa",
           grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0",
-          members: [],
+          member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [], members: [],
         }] });
       };
       const navigate = spyOn(window.location, "assign").mockImplementation(() => undefined);

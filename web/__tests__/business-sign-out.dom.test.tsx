@@ -4,6 +4,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { ReactNode } from "react";
 import { leaveSession, resetLeavingSession } from "@/lib/logout-flow";
 
+const originalFetch = globalThis.fetch;
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 mock.module("@/lib/supabase-client", () => ({
   getSupabaseClient: () => ({
@@ -30,6 +31,11 @@ beforeAll(() => {
   resetLeavingSession();
   process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
   GlobalRegistrator.register({ url: "http://localhost/biz" });
+  globalThis.fetch = async (url) => {
+    const path = new URL(String(url)).pathname;
+    assert.ok(path.endsWith("/owned-spaces") || path.endsWith("/closed-spaces"), `Unexpected request ${path}`);
+    return Response.json({ spaces: [] });
+  };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
@@ -37,6 +43,7 @@ let restoreConsent = () => {};
 let consentAsked = () => {};
 
 afterAll(() => {
+  globalThis.fetch = originalFetch;
   restoreConsent();
   resetLeavingSession();
   GlobalRegistrator.unregister();
