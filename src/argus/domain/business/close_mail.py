@@ -1,7 +1,7 @@
 """Close notifications committed with the Business command, never live in tests.
 
-The owner's close confirmation, the day-23 reminder and the member reopen
-notice have approved templates, but wait unsent for delivery activation.
+Member close notices, owner close confirmations, day-23 reminders and member
+reopen notices are approved for delivery.
 """
 
 from __future__ import annotations
@@ -27,7 +27,9 @@ from argus.domain.business.transfer_mail import _origin
 MailKind = Literal["member_closed", "owner_closed", "purge_reminder", "member_reopened"]
 _ARTIFACT = Path(__file__).with_name("business_closed_email.generated.json")
 #: Delivery activation is separate from template approval.
-_APPROVED_KINDS = frozenset({"member_closed"})
+_APPROVED_KINDS = frozenset(
+    {"member_closed", "owner_closed", "purge_reminder", "member_reopened"}
+)
 _RETRY_WINDOW = timedelta(hours=23)
 #: The owner's reminder goes out a week before the purge deadline.
 REMINDER_AFTER = timedelta(days=23)

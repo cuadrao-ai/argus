@@ -1,4 +1,4 @@
-"""Held lifecycle templates render queued facts without transport calls."""
+"""Lifecycle templates render queued facts without transport calls."""
 
 import pytest
 from argus.domain.business.close_mail import render_close_mail
@@ -57,10 +57,10 @@ def test_existing_rows_default_to_spanish_and_member_closed_stays_compatible(con
     assert "17 de octubre de 2026" in rendered["text"]
 
 
-@pytest.mark.parametrize("kind", ["owner_closed", "purge_reminder", "member_reopened"])
-def test_held_rows_without_a_recipient_locale_default_to_spanish(
-    context, monkeypatch, kind
-):
+@pytest.mark.parametrize(
+    "kind", ["member_closed", "owner_closed", "purge_reminder", "member_reopened"]
+)
+def test_rows_without_a_recipient_locale_default_to_spanish(context, monkeypatch, kind):
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
     assert render_close_mail(context, kind=kind) == render_close_mail(
         context, kind=kind, locale="es-419"
