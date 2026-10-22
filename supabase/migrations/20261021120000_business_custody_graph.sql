@@ -141,6 +141,10 @@ insert into argus_private.business_custody_deferred_keys values
 ('financial_purchase_revision_owner_fk');
 insert into argus_private.business_custody_deferred_keys values
 ('whatsapp_sender_links_destination_space_fkey'),('business_whatsapp_consent_original_link_fkey');
+-- Month-close settlements follow their space and activity owner.
+insert into argus_private.business_custody_deferred_keys values
+('business_document_settlements_space_id_owner_id_fkey'),
+('business_document_settlements_activity_id_owner_id_fkey');
 do $$
 declare k record;
 begin

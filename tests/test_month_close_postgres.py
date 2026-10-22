@@ -2,7 +2,9 @@
 
 An owner and a member who have each settled a document can delete their
 accounts. The revision stays and the actor clears. A direct change or delete
-of that history is still refused.
+of that history is still refused. The owner leaves through the account-deletion
+command, which keeps the Business and its settlements for the record custodian;
+a bare Auth delete of someone the Business still names is refused.
 """
 
 from __future__ import annotations
@@ -73,7 +75,7 @@ def test_a_draft_from_another_space_is_not_read(db):
     assert [row[0] for row in theirs] == [str(activity)]
 
 
-def test_owner_and_member_delete_their_accounts_and_history_stays_sealed(db):
+def test_a_member_delete_clears_the_actor_and_a_bare_owner_delete_is_refused(db):
     owner = uuid4()
     member = uuid4()
     space = uuid4()
@@ -136,19 +138,98 @@ def test_owner_and_member_delete_their_accounts_and_history_stays_sealed(db):
     assert db.execute("select 1 from auth.users where id = %s", (member,)).fetchone() is None
     assert kept == (2, 1, 1)
 
-    db.execute("delete from auth.users where id = %s", (owner,))
-    assert db.execute("select 1 from auth.users where id = %s", (owner,)).fetchone() is None
+    with pytest.raises(CheckViolation) as refused, db.transaction():
+        db.execute("delete from auth.users where id = %s", (owner,))
     assert (
-        db.execute(
-            "select count(*) from public.business_document_settlement_revisions where activity_id = %s",
-            (activity,),
-        ).fetchone()[0]
-        == 0
+        refused.value.diag.message_primary
+        == "business_custody_identity_detachment_required"
     )
-    assert (
-        db.execute(
-            "select count(*) from public.business_document_settlements where activity_id = %s",
-            (activity,),
-        ).fetchone()[0]
-        == 0
+    assert db.execute(
+        "select count(*) from public.business_document_settlement_revisions where activity_id = %s",
+        (activity,),
+    ).fetchone() == (2,)
+    assert db.execute(
+        "select count(*) from public.business_document_settlements where activity_id = %s",
+        (activity,),
+    ).fetchone() == (1,)
+
+
+@pytest.mark.owner_acts
+def test_an_owner_who_settled_a_document_deletes_and_the_business_keeps_it():
+    from psycopg_pool import ConnectionPool
+
+    from tests.test_business_account_deletion_postgres import (
+        erase_open_owner,
+        release_custodian,
     )
+
+    owner, space, activity = str(uuid4()), str(uuid4()), str(uuid4())
+    with psycopg.connect(DSN) as db:
+        db.execute(
+            "insert into auth.users (id, email, is_anonymous) values (%s, %s, false)",
+            (owner, f"{owner}@month-close.test"),
+        )
+        db.execute(
+            "insert into public.spaces (id, kind, name, created_by) values (%s, 'business', 'Month close', %s)",
+            (space, owner),
+        )
+        db.execute(
+            "insert into public.financial_activity_groups (id, user_id, kind, current_revision) values (%s, %s, 'income', 1)",
+            (activity, owner),
+        )
+        db.execute(
+            "insert into public.financial_activity_revisions (activity_id, revision, user_id) values (%s, 1, %s)",
+            (activity, owner),
+        )
+        # The settled document reaches the Business through its import event.
+        db.execute(
+            """insert into public.financial_import_events (
+                   id, user_id, owner_space_id, state, evidence, resolution,
+                   activity_id, created_at, updated_at, version
+               ) values (%s, %s, %s, 'accepted', 'transaction', %s::jsonb, %s, now(), now(), 1)""",
+            (
+                str(uuid4()),
+                owner,
+                space,
+                '{"business": {"schema_version": "1", "facts": {}}}',
+                activity,
+            ),
+        )
+        db.execute(
+            """insert into public.business_document_settlements (
+                space_id, owner_id, activity_id, document_kind, status, settled_on, payment_method
+            ) values (%s, %s, %s, 'invoice', 'cobrado', '2026-10-09', 'efectivo')""",
+            (space, owner, activity),
+        )
+        db.execute(
+            """insert into public.business_document_settlement_revisions (
+                space_id, activity_id, actor_id, previous_status
+            ) values (%s, %s, %s, 'pendiente')""",
+            (space, activity, owner),
+        )
+    try:
+        with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+            assert erase_open_owner(pool, owner).status == "done"
+        with psycopg.connect(DSN) as db:
+            assert db.execute("select 1 from auth.users where id = %s", (owner,)).fetchone() is None
+            custodian = db.execute(
+                "select created_by::text from public.spaces where id = %s and closed_at is not null",
+                (space,),
+            ).fetchone()[0]
+            assert custodian != owner
+            assert db.execute(
+                "select owner_id::text, status from public.business_document_settlements where activity_id = %s",
+                (activity,),
+            ).fetchone() == (custodian, "cobrado")
+            assert db.execute(
+                "select count(*), count(*) filter (where actor_id is null) from public.business_document_settlement_revisions where activity_id = %s",
+                (activity,),
+            ).fetchone() == (1, 1)
+    finally:
+        release_custodian(space)
+        with psycopg.connect(DSN) as db:
+            db.execute(
+                "delete from argus_private.account_deletion_runs where user_id = %s",
+                (owner,),
+            )
+            db.execute("delete from auth.users where id = %s", (owner,))

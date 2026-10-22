@@ -64,6 +64,7 @@ FAMILIES = {
     "business_ownership_transfers": "space_id=%(s)s",
     "whatsapp_sender_links": "destination_space_id=%(s)s",
     "business_whatsapp_ai_consents": "space_id=%(s)s",
+    "business_document_settlements": "space_id=%(s)s",
 }
 
 ACTOR_KEYS = {"actor_id", "issuer_id", "consenting_actor_id", "revoked_by"}

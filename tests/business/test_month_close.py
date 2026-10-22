@@ -811,6 +811,7 @@ def _race_world():
         grant_id=uuid4(),
         owner_id=str(owner_id),
         space_name="Race",
+        current_owner_id=str(owner_id),
     )
     pending = document(
         activity_id=str(activity_id),
