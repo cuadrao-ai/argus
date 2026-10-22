@@ -511,7 +511,7 @@ describe("Inicio in two columns", () => {
     async markPendiente() { throw new Error("no undo"); },
     async closeMonth() { throw new Error("no close"); },
   });
-  async function renderView(client: MonthCloseClient) {
+  async function renderView(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"]) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -524,7 +524,7 @@ describe("Inicio in two columns", () => {
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => {
-      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
+      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} review={review} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
     });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     return { act, host, close: async () => { await act(async () => root.unmount()); host.remove(); } };
@@ -572,7 +572,7 @@ describe("Inicio in two columns", () => {
   });
 
   test("when the month can close, the green Cerrar appears in the line's place", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]));
+    const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]), { count: 0, detail: null, open: () => {} });
     try {
       assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]'), null);
       const close = view.host.querySelector<HTMLButtonElement>('[data-testid="month-close-close"]')!;

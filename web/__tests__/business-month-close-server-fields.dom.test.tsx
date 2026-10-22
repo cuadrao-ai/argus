@@ -106,6 +106,7 @@ describe("Inicio waits for the server receipt count before closing", () => {
         assert.ok(view.find("month-close-checklist"), "the month loaded successfully");
         assert.equal(Boolean(view.find("month-close-checklist-ready")), false, "unknown receipts are not zero receipts");
         assert.equal(Boolean(view.find("month-close-close")), false, "closing waits for the receipt count");
+        assert.equal(view.text("month-close-checklist-unknown"), "-");
         assert.match(view.text("month-close-income"), /RD\$/, "the month's known figures still show");
       } finally { await view.unmount(); }
     });
@@ -134,6 +135,7 @@ describe("Inicio waits for the server receipt count before closing", () => {
       assert.ok(confirm);
       await view.act(async () => confirm.click());
       assert.equal(closes, 0, "an open confirmation cannot bypass unknown receipts");
+      assert.equal(Boolean(document.querySelector('[role="alertdialog"]')), false, "the stale confirmation returns to the unknown checklist");
     } finally { await view.unmount(); }
   });
 

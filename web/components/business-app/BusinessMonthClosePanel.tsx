@@ -567,8 +567,14 @@ export function BusinessMonthCloseView({
     });
   }
 
+  const receiptsReviewed = review?.count === 0;
+
   async function confirmClose() {
     if (!canMutate || !snapshot?.month || busyClose) return;
+    if (!receiptsReviewed) {
+      setConfirming(false);
+      return;
+    }
     setBusyClose(true);
     setCloseProblem(null);
     try {
@@ -582,7 +588,7 @@ export function BusinessMonthCloseView({
     }
   }
 
-  const canClose = canMutate && gate.ok && !locked;
+  const canClose = canMutate && gate.ok && !locked && receiptsReviewed;
   const reason = !canMutate
     ? t("business.month_close.reason_permission", "Marking collection, marking payment, and closing the month requires approval permission.")
     : !snapshot || gate.ok
@@ -981,10 +987,14 @@ export function BusinessMonthCloseView({
                   <span data-testid="month-close-checklist-left" className="text-[14px] tabular-nums text-[#56635e] dark:text-white/70">{t("business.month_close.checklist_left", { count: tasks.length, defaultValue: "{{count}} left" })}</span>
                 ) : null}
               </div>
-              {tasks.length === 0 ? (
+              {tasks.length === 0 && receiptsReviewed ? (
                 <p className="mt-3 flex items-center gap-2 text-[15px] text-[var(--cuadrao-green)]" data-testid="month-close-checklist-ready">
                   <CircleCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
                   {t("business.month_close.checklist_ready", { month: monthName, defaultValue: "Everything is ready to close {{month}}." })}
+                </p>
+              ) : tasks.length === 0 ? (
+                <p data-testid="month-close-checklist-unknown" aria-label={t("business.month_close.figure_unknown", "Can't be calculated yet.")} className="mt-3 text-[15px] text-[#56635e] dark:text-white/70">
+                  {UNKNOWN_VALUE}
                 </p>
               ) : (
                 <ul className="mt-2 divide-y divide-black/[0.06] dark:divide-white/[0.06]">
