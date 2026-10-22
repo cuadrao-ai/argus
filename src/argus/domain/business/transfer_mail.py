@@ -48,14 +48,6 @@ def render_transfer_mail(variant: str, context: dict[str, str]) -> dict[str, str
     from zoneinfo import ZoneInfo
 
     local = ZoneInfo(_TIME_ZONE)
-    address = (os.getenv("MARKETING_POSTAL_ADDRESS") or "").strip()
-    if (
-        not address
-        or re.fullmatch(r"Cuadrao LLC[,\s]*", address, flags=re.I)
-        or "\r" in address
-        or "\n" in address
-    ):
-        raise ValueError("Email postal address configuration is required")
     occurred = datetime.fromisoformat(context["occurredAt"]).astimezone(local)
     expires = datetime.fromisoformat(context["expiresAt"]).astimezone(local)
     data = {
@@ -74,9 +66,8 @@ def render_transfer_mail(variant: str, context: dict[str, str]) -> dict[str, str
         "assetOrigin": _origin(
             os.getenv("CUADRAO_EMAIL_ASSET_ORIGIN") or "https://cuadrao.ai"
         ),
-        "postalAddress": address
-        if re.match(r"Cuadrao LLC(?:,|$)", address)
-        else f"Cuadrao LLC, {address}",
+        # The shared layout adds a postal line only beside an unsubscribe link.
+        "postalAddress": "Cuadrao LLC",
     }
     if any(
         not value.strip() or "\r" in value or "\n" in value for value in data.values()

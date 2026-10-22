@@ -57,7 +57,6 @@ def provider(monkeypatch):
     monkeypatch.setenv(resend_email.SMTP_PASSWORD_ENV, "synthetic-only")
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
     monkeypatch.setenv("CUADRAO_EMAIL_ASSET_ORIGIN", "https://images.example.test")
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "123 Synthetic Street, Test City")
     monkeypatch.setattr(resend_email.smtplib, "SMTP_SSL", SMTP)
     return SMTP
 

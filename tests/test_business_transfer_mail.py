@@ -22,7 +22,6 @@ VARIANTS = ("requested", "declined", "acceptedOwner", "acceptedTarget", "withdra
 def origin(monkeypatch):
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
     monkeypatch.setenv("CUADRAO_EMAIL_ASSET_ORIGIN", "https://images.example.test")
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "123 Synthetic Street, Test City")
 
 
 @pytest.mark.parametrize("variant", VARIANTS)
@@ -76,18 +75,16 @@ def test_asset_origin_cannot_inject_or_redirect_image_paths(monkeypatch, value):
         render_transfer_mail("requested", CONTEXT)
 
 
-@pytest.mark.parametrize(
-    "value", ("", "Cuadrao LLC", "Cuadrao LLC,", "123 Road\nBcc: injected@example.test")
-)
-def test_missing_or_multiline_postal_address_blocks_rendering(monkeypatch, value):
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", value)
-    with pytest.raises(ValueError, match="postal address"):
-        render_transfer_mail("requested", CONTEXT)
-
-
-def test_configured_postal_address_is_escaped_and_company_is_not_duplicated(monkeypatch):
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "Cuadrao LLC, 123 <Road> & Test City")
-    rendered = render_transfer_mail("requested", CONTEXT)
-    assert "Cuadrao LLC, 123 &lt;Road&gt; &amp; Test City" in rendered["html"]
-    assert "Cuadrao LLC, 123 <Road> & Test City" in rendered["text"]
-    assert "Cuadrao LLC, Cuadrao LLC" not in rendered["text"]
+@pytest.mark.parametrize("variant", VARIANTS)
+@pytest.mark.parametrize("value", (None, "123 Road\nBcc: injected@example.test"))
+def test_transactional_mail_ends_with_the_company_line_and_reads_no_postal_address(
+    monkeypatch, variant, value
+):
+    if value is None:
+        monkeypatch.delenv("MARKETING_POSTAL_ADDRESS", raising=False)
+    else:
+        monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", value)
+    rendered = render_transfer_mail(variant, CONTEXT)
+    assert rendered["text"].endswith("\n\nCuadrao LLC")
+    assert ">Cuadrao LLC</p>" in rendered["html"]
+    assert "Road" not in rendered["text"] and "Road" not in rendered["html"]
