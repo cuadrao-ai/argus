@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-22-business-close-lifecycle",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "010486ee383a183b6ea1b6afe48275dd13cc6a50",
+  "versions_sha256": "09dce85b63542fa8c292d090fb29643c1fa529e0e07c2af7b4ef7a0010607b7e",
+  "issued_at": "2026-10-22T05:11:26Z",
+  "expires_at": "2026-10-24T05:11:26Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas checkpoint authorization and standing staging migration approval, reaffirmed in this thread: continue under the agreed Eval and staging rules; no staging migration or merge before required Eval passes. Current repository rule requires a merged PR before staging application. PR #1222 independent Full Eval SHIP at010486ee383a183b6ea1b6afe48275dd13cc6a50: https://github.com/lagarcess/argus/pull/1222#issuecomment-6333243138. Staging only, committed record and dry run first; never production."
+}
