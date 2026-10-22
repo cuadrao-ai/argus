@@ -1,6 +1,5 @@
 import { renderAccountEmail, type EmailLayoutOptions } from "./account-layout";
-import spanish from "../../../web/public/locales/es-419/common.json";
-import english from "../../../web/public/locales/en/common.json";
+import accountCopy from "./account-copy.generated.json";
 
 export type BusinessClosedEmailData = {
   businessName: string;
@@ -45,7 +44,7 @@ export function renderBusinessLifecycleEmail(data: BusinessLifecycleEmailData, o
   if (Object.values(data).some(value => !value.trim() || [...value].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127))) {
     throw new Error("Business email fields must be nonempty single-line values");
   }
-  const copy = (options.locale === "en" ? english : spanish).account_email.business_lifecycle[data.kind];
+  const copy = accountCopy[options.locale ?? "es-419"].business_lifecycle[data.kind];
   const replace = (value: string) => value.replace(/\{(businessName|ownerName|closedDate|purgeDate|purgeTime)\}/g, (_, key: string) => {
     switch (key) {
       case "businessName": return data.businessName;

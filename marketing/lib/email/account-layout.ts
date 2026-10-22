@@ -1,5 +1,4 @@
-import spanish from "../../../web/public/locales/es-419/common.json";
-import english from "../../../web/public/locales/en/common.json";
+import accountCopy from "./account-copy.generated.json";
 
 export const emailPalette = {
   page: "#f7f5ee", card: "#ffffff", text: "#172b26", muted: "#56635e",
@@ -54,7 +53,7 @@ function safeUrl(value: string): string {
 export function renderAccountEmail(content: AccountEmail, options: EmailLayoutOptions = {}): { html: string; text: string } {
   const assets = emailAssets(options);
   const locale = options.locale ?? "es-419";
-  const footer = (locale === "en" ? english : spanish).account_email.footer;
+  const footer = accountCopy[locale].footer;
   if (content.code !== undefined && (!/^(?:\d{6,10}|\{\{ \.Token \}\})$/.test(content.code) || content.unsubscribeUrl)) {
     throw new Error("Invalid account email code");
   }

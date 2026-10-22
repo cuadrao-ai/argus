@@ -1,0 +1,90 @@
+{
+  "es-419": {
+    "footer": {
+      "help": "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai",
+      "legal": "Cuadrao LLC",
+      "sign_off": "Saludos,\nCuadrao"
+    },
+    "business_lifecycle": {
+      "member_reopened": {
+        "cta": "Abrir Cuadrao",
+        "paragraphs": [
+          "Hola,",
+          "{ownerName} reabrió {businessName} en Cuadrao.",
+          "Al reabrir, se restablece el acceso de los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "{ownerName} reabrió el negocio.",
+        "subject": "{businessName} se reabrió en Cuadrao",
+        "title": "{businessName} está abierto de nuevo"
+      },
+      "owner_closed": {
+        "cta": "Ver negocio cerrado",
+        "paragraphs": [
+          "Hola,",
+          "Cerraste {businessName} en Cuadrao el {closedDate}. Los miembros ya no tienen acceso.",
+          "Puedes reabrirlo antes del {purgeDate} a las {purgeTime} (hora de RD). Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+          "Para descargar comprobantes, primero debes reabrir el negocio. Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "Puedes reabrirlo antes de que venza el plazo.",
+        "subject": "Cerraste {businessName} en Cuadrao",
+        "title": "Cerraste {businessName}"
+      },
+      "purge_reminder": {
+        "cta": "Ver negocio cerrado",
+        "paragraphs": [
+          "Hola,",
+          "{businessName} sigue cerrado en Cuadrao desde el {closedDate}.",
+          "Puedes reabrirlo antes del {purgeDate} a las {purgeTime} (hora de RD). Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+          "Para descargar comprobantes, primero debes reabrir el negocio. Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "Reábrelo antes del plazo si necesitas conservar sus datos en Cuadrao.",
+        "subject": "El plazo para reabrir {businessName} está por vencer",
+        "title": "Aún puedes reabrir {businessName}"
+      }
+    }
+  },
+  "en": {
+    "footer": {
+      "help": "Need help? Email hola@cuadrao.ai",
+      "legal": "Cuadrao LLC",
+      "sign_off": "Regards,\nCuadrao"
+    },
+    "business_lifecycle": {
+      "member_reopened": {
+        "cta": "Open Cuadrao",
+        "paragraphs": [
+          "Hi,",
+          "{ownerName} reopened {businessName} in Cuadrao.",
+          "Reopening restores access for members whose permissions are still valid."
+        ],
+        "preheader": "{ownerName} reopened the business.",
+        "subject": "{businessName} reopened in Cuadrao",
+        "title": "{businessName} is open again"
+      },
+      "owner_closed": {
+        "cta": "View closed business",
+        "paragraphs": [
+          "Hi,",
+          "You closed {businessName} in Cuadrao on {closedDate}. Members no longer have access.",
+          "You can reopen it before {purgeDate} at {purgeTime} (Dominican Republic time). If it remains closed when that deadline passes, its data and receipts will be deleted and cannot be recovered.",
+          "To download receipts, you must first reopen the business. Reopening restores access for members whose permissions are still valid."
+        ],
+        "preheader": "You can reopen it before the deadline.",
+        "subject": "You closed {businessName} in Cuadrao",
+        "title": "You closed {businessName}"
+      },
+      "purge_reminder": {
+        "cta": "View closed business",
+        "paragraphs": [
+          "Hi,",
+          "{businessName} has remained closed in Cuadrao since {closedDate}.",
+          "You can reopen it before {purgeDate} at {purgeTime} (Dominican Republic time). If it remains closed when that deadline passes, its data and receipts will be deleted and cannot be recovered.",
+          "To download receipts, you must first reopen the business. Reopening restores access for members whose permissions are still valid."
+        ],
+        "preheader": "Reopen it before the deadline if you need to keep its data in Cuadrao.",
+        "subject": "The deadline to reopen {businessName} is approaching",
+        "title": "You can still reopen {businessName}"
+      }
+    }
+  }
+}
