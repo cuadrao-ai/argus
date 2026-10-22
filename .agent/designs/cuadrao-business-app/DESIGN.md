@@ -253,7 +253,7 @@ recovery and later onboarding keep their own contracts.
   background. Field accessibility and feedback rules apply at every width.
 - The background uses the approved cream and pine tokens. The desktop gradient
   fades from left to right into the solid form side, with separate light and
-  dark strengths. Current local values are 12% and 8%; these are design choices,
+  dark strengths. Approved strengths are 12% for light and 10% for dark; these are design choices,
   not separate palette colours.
 - Hero copy responds to language and auth mode. Form titles remain clear and
   separate. Locale files own the words. Only the hero uses the shared typewriter,

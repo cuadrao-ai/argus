@@ -4,7 +4,7 @@
 }
 
 :global(.dark) .screen[data-auth-split="true"] {
-  --auth-gradient-strength: 8%;
+  --auth-gradient-strength: 10%;
 }
 
 .screen[data-auth-split="true"] [data-auth-brand="cuadrao"] {
