@@ -1,0 +1,78 @@
+.screen[data-auth-split="true"] {
+  --auth-gradient-strength: 12%;
+  background-color: var(--cuadrao-cream);
+}
+
+:global(.dark) .screen[data-auth-split="true"] {
+  --auth-gradient-strength: 10%;
+}
+
+.screen[data-auth-split="true"] [data-auth-brand="cuadrao"] {
+  --auth-paper: var(--cuadrao-cream);
+  --field-surface: transparent;
+}
+
+:global(html:not(.dark)) .screen[data-auth-split="true"] [data-auth-brand="cuadrao"] {
+  --auth-field-border: #7d8a84;
+  --auth-pine: var(--cuadrao-green);
+}
+
+@media (min-width: 80rem) {
+  .screen[data-auth-split="true"] > [data-auth-brand="cuadrao"] {
+    justify-content: flex-start;
+    padding-top: max(6rem, 14svh, calc(50svh - 24rem));
+    padding-bottom: 2rem;
+  }
+  .screen[data-auth-split="true"] [data-testid="auth-hero"] {
+    min-block-size: 2.4em;
+  }
+  .screen[data-auth-split="true"] {
+    background-image: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--cuadrao-green) var(--auth-gradient-strength), var(--cuadrao-cream)),
+      var(--cuadrao-cream) 50%
+    );
+  }
+}
+
+.screen[data-auth-split="true"] [data-auth-feedback] [role="alert"] :is(p, a) {
+  color: inherit;
+}
+.screen[data-auth-split="true"] form[aria-busy="true"] input {
+  cursor: wait;
+}
+
+@media (48rem <= width < 80rem) {
+  .screen[data-auth-split="true"] {
+    justify-content: flex-start;
+    gap: 1.75rem;
+    padding: 5rem 2rem 2rem;
+  }
+  .screen[data-auth-split="true"] > [data-auth-logo] {
+    flex-grow: 0;
+    padding: 0;
+  }
+  .screen[data-auth-split="true"] [data-auth-logo] h1 > span {
+    max-width: 200px;
+  }
+  .screen[data-auth-split="true"] [data-testid="auth-hero"] {
+    min-block-size: 2.4em;
+  }
+}
+
+@media (min-width: 80rem) and (max-height: 50rem) {
+  .screen[data-auth-split="true"] > [data-auth-brand="cuadrao"] {
+    padding-top: 3rem;
+  }
+  .screen[data-auth-split="true"] [data-testid="auth-hero"] {
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+  }
+}
+
+@media (48rem <= width < 80rem) and (max-height: 50rem) {
+  .screen[data-auth-split="true"] {
+    padding-top: 2rem;
+    gap: 1.5rem;
+  }
+}

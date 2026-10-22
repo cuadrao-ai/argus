@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useTypewriter } from "@/components/ui/useTypewriter";
 import { CuadraoMark } from "@/components/CuadraoMark";
 import { getMarketSession } from "@/lib/argus-api";
 import {
@@ -19,8 +20,6 @@ import {
  * sentence once through a polite status region, never character by character;
  * reduced motion renders the sentence instantly. */
 
-const TYPE_INTERVAL_MS = 35;
-
 // Cosmetic, so it speaks without the session rather than waiting on it.
 const SESSION_TIMEOUT_MS = 2_000;
 
@@ -34,8 +33,7 @@ export default function EmptyChatGreeting({
 }) {
   const { t } = useTranslation();
   const [greeting, setGreeting] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(0);
-  const [done, setDone] = useState(false);
+  const { visibleCount, done } = useTypewriter(greeting ?? "");
   const [session, setSession] = useState<MarketSessionPhase | null>(null);
   const [interest, setInterest] = useState<DemonstratedInterest | null>(null);
   const [sessionSettled, setSessionSettled] = useState(false);
@@ -92,24 +90,6 @@ export default function EmptyChatGreeting({
       name,
     });
     setGreeting(text);
-    const reduceMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    )?.matches;
-    if (reduceMotion) {
-      setVisibleCount(text.length);
-      setDone(true);
-      return;
-    }
-    let shown = 0;
-    const interval = window.setInterval(() => {
-      shown += 1;
-      setVisibleCount(shown);
-      if (shown >= text.length) {
-        window.clearInterval(interval);
-        setDone(true);
-      }
-    }, TYPE_INTERVAL_MS);
-    return () => window.clearInterval(interval);
   }, [interest, isGuest, preferredName, session, settled, t]);
 
   return (

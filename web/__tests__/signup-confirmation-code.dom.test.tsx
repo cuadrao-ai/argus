@@ -55,10 +55,10 @@ async function renderSpanishSignup(props: {
 
   const signupForm = host.querySelector("form");
   if (!signupForm) throw new Error("signup form missing");
-  const fields = signupForm.querySelectorAll("input");
-  await setNativeValue(fields[0] as HTMLInputElement, "Ada");
-  await setNativeValue(fields[1] as HTMLInputElement, "ada@example.com");
-  await setNativeValue(fields[2] as HTMLInputElement, "correct-horse");
+  await setNativeValue(signupForm.querySelector('input[autocomplete="given-name"]') as HTMLInputElement, "Ada");
+  await setNativeValue(signupForm.querySelector('input[autocomplete="family-name"]') as HTMLInputElement, "Peña");
+  await setNativeValue(signupForm.querySelector('input[type="email"]') as HTMLInputElement, "ada@example.com");
+  await setNativeValue(signupForm.querySelector('input[autocomplete="new-password"]') as HTMLInputElement, "correct-horse");
   const signupButton = signupForm.querySelector("button[type='submit']");
   await act(async () => {
     signupForm.requestSubmit(signupButton as HTMLButtonElement);

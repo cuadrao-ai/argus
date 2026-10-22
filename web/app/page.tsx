@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import styles from "./auth-entry.module.css";
 import FullscreenLoading from "@/components/FullscreenLoading";
 import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { useRouter } from "next/navigation";
@@ -8,6 +9,7 @@ import AuthForm, {
   type AuthFormSubmission,
 } from "@/components/auth/AuthForm";
 import RequestAccess from "@/components/auth/RequestAccess";
+import { AuthHero } from "@/components/auth/AuthHero";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { useTranslation } from "react-i18next";
 import { DevModeBadge } from "@/components/ui/DevModeBadge";
@@ -248,16 +250,19 @@ export default function LandingPage() {
   return (
     <>
       <DevModeBadge />
-      <main className="relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#fafbf8] px-6 py-8 md:px-12 dark:bg-[#172b26]">
+      <main
+        data-auth-split={(isSignup || authMode === "login") && !homeClosed ? "true" : undefined}
+        className={`${styles.screen} group/auth relative flex min-h-[100dvh] w-full flex-col justify-between overflow-hidden bg-[#fafbf8] px-6 py-8 md:px-12 dark:bg-[#172b26] min-[80rem]:data-[auth-split=true]:grid min-[80rem]:data-[auth-split=true]:grid-cols-2 min-[80rem]:data-[auth-split=true]:p-0`}
+      >
         <SettingsMenu />
 
-        <div className="flex flex-grow items-center justify-center">
+        <div data-auth-logo="true" className="flex flex-grow items-center justify-center group-data-[auth-split=true]/auth:pb-[34px] group-data-[auth-split=true]/auth:pt-16 min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
           <h1 className="z-10 max-w-full select-none" aria-label="Cuadrao">
             <CuadraoLockup width={268} />
           </h1>
         </div>
 
-        <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4">
+        <div data-auth-brand="cuadrao" className="relative z-10 flex w-full flex-col items-center gap-6 pb-2 md:pb-4 min-[80rem]:group-data-[auth-split=true]/auth:justify-center min-[80rem]:group-data-[auth-split=true]/auth:px-12 min-[80rem]:group-data-[auth-split=true]/auth:py-24">
           {homeClosed ? (
             <BusinessClosedNotice navigate={leaveClosedHome} />
           ) : authMode === "intro" ? (
@@ -270,7 +275,8 @@ export default function LandingPage() {
               {t("auth.access_request.submit")}
             </button>
           ) : (
-            <div className="w-full max-w-sm">
+            <div className="w-full max-w-sm md:group-data-[auth-split=true]/auth:max-w-xl">
+              {authMode === "signup" || authMode === "login" ? <AuthHero mode={authMode} /> : null}
               {sessionEnded && authMode === "login" ? (
                 <p role="status" data-testid="session-ended" className="mb-4 text-center text-[16px] text-[#2f5a49]">
                   {t("auth.screen.session_ended", "Your session ended. Sign in again.")}
