@@ -105,6 +105,14 @@ def test_rows_are_replaced_in_place_and_go_with_their_user_or_space(pool, users)
             db.execute("delete from public.spaces where id = %s", (space.id,))
             assert db.execute("select count(*) from public.business_logos where space_id = %s", (space.id,)).fetchone() == (0,)
         with db.transaction(force_rollback=True):
+            # A Business still naming its owner refuses the bare Auth delete;
+            # account deletion hands it to a custodian or the purge removes it.
+            with pytest.raises(
+                psycopg.errors.CheckViolation,
+                match="business_custody_identity_detachment_required",
+            ), db.transaction():
+                db.execute("delete from auth.users where id = %s", (owner,))
+            db.execute("delete from public.spaces where id = %s", (space.id,))
             db.execute("delete from auth.users where id = %s", (owner,))
             assert db.execute("select count(*) from public.profile_photos where user_id = %s", (owner,)).fetchone() == (0,)
             assert db.execute("select count(*) from public.business_logos where space_id = %s", (space.id,)).fetchone() == (0,)

@@ -205,7 +205,39 @@ async def test_parent_deletion_purges_transport_but_link_deletion_keeps_canonica
         elif parent == "space":
             connection.execute("delete from public.spaces where id=%s", (world.space,))
         else:
-            connection.execute("delete from auth.users where id=%s", (world.owner,))
+            from tests.test_business_account_deletion_postgres import (
+                erase_open_owner,
+                release_custodian,
+            )
+
+            connection.commit()
+            outcome = erase_open_owner(world.pool, world.owner)
+            assert outcome.status == "done"
+            assert (
+                connection.execute(
+                    "select 1 from auth.users where id=%s", (world.owner,)
+                ).fetchone()
+                is None
+            )
+            assert (
+                connection.execute(
+                    "select 1 from public.whatsapp_inbound_messages where provider_message_key=%s",
+                    (world.keys.message(message.id),),
+                ).fetchone()
+                is None
+            )
+            assert (
+                connection.execute(
+                    "select 1 from public.whatsapp_outbox where provider_message_key=%s",
+                    (world.keys.message(message.id),),
+                ).fetchone()
+                is None
+            )
+            assert connection.execute(
+                "select text_content from public.business_sources where id=%s", (source,)
+            ).fetchone() == (message.body,)
+            release_custodian(world.space)
+            return
         assert (
             connection.execute(
                 "select 1 from public.whatsapp_inbound_messages where provider_message_key=%s",

@@ -4,9 +4,11 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, Settings2 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
+import { resolveLanguage } from "@/lib/language-features";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
-import type { GrantedSpace } from "@/lib/business-api";
+import type { ClosedGrantedSpace, GrantedSpace } from "@/lib/business-api";
 import { formatBusinessName } from "./business-format";
 
 function initial(name: string): string {
@@ -25,15 +27,17 @@ export function BusinessMark({ name }: { name: string }) {
 
 type MenuMode = "closed" | "menu" | "choose";
 
-export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, onOpenSettings }: {
+export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, collapsed, onChoose, onOpenSettings }: {
   spaces: GrantedSpace[] | null;
+  closedSpaces?: ClosedGrantedSpace[];
   chosen: GrantedSpace | null;
   collapsed: boolean;
   onChoose: (grantId: string | null) => void;
   /** Opens the Negocio page: name and RNC, team and access, receipt email. */
   onOpenSettings: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const held = closedSpaces.filter(space => space.role === "owner");
   const [mode, setMode] = useState<MenuMode>("closed");
   const [active, setActive] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -137,7 +141,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
             <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
+            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
           </span>
         )}
       </button></Tooltip> : (
@@ -155,7 +159,7 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
             <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : t("business.switcher.role_accountant", "Accountant")}</span>
+            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
           </span>
         )}
       </button>
@@ -181,6 +185,10 @@ export default function BusinessSwitcher({ spaces, chosen, collapsed, onChoose, 
                 <Settings2 className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
                 {t("business.switcher.settings", "Business settings")}
               </button>
+              {held.length ? <div className="mt-2 border-t border-black/10 pt-2 dark:border-white/10">
+                <p className="px-2 py-1 text-[12px]">{t("business.lifecycle.closed_group")}</p>
+                {held.map(space => <a key={space.grant_id} role="menuitem" href={`/biz?lifecycle=manage&business=${encodeURIComponent(space.space_id)}`} className="block min-h-11 rounded-item px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{space.name}<span className="block text-[12px]">{t("business.lifecycle.deadline", businessDeadlineParts(space.reopen_until, i18n.resolvedLanguage ?? resolveLanguage({})))}</span></a>)}
+              </div> : null}
               {canSwitch ? (
                 <button
                   type="button"

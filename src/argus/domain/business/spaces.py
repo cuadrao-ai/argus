@@ -22,6 +22,10 @@ from argus.domain.business.country import (
     DEFAULT_COUNTRY,
     business_country,
 )
+from argus.domain.business.lifecycle import (
+    BusinessLifecycleError,
+    require_ownership_admission,
+)
 
 # Founder-approved October 8: the name a space starts with until renamed.
 DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
@@ -32,6 +36,7 @@ MAX_NAME_LENGTH = 80
 class Space:
     id: str
     name: str
+    custodian_id: str
     name_prompt_seen: bool = False
     country: str = DEFAULT_COUNTRY
     currency: str = COUNTRIES[DEFAULT_COUNTRY].currency
@@ -87,8 +92,8 @@ class PostgresSpaceStore:
     def open_space(self, person_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name, business_name_prompt_seen_at is not null, country, currency"
-                " from public.spaces"
+                "select id::text, name, created_by::text, business_name_prompt_seen_at is not null,"
+                " country, currency from public.spaces"
                 " where id = public.business_space_of(%s)",
                 (person_id,),
             ).fetchone()
@@ -97,8 +102,8 @@ class PostgresSpaceStore:
     def get(self, space_id: str) -> Space | None:
         with self._pool.connection() as connection:
             row = connection.execute(
-                "select id::text, name, business_name_prompt_seen_at is not null, country, currency"
-                " from public.spaces"
+                "select id::text, name, created_by::text, business_name_prompt_seen_at is not null,"
+                " country, currency from public.spaces"
                 " where id = %s and kind = 'business' and closed_at is null",
                 (space_id,),
             ).fetchone()
@@ -108,13 +113,19 @@ class PostgresSpaceStore:
         self, person_id: str, name: str, country: str = DEFAULT_COUNTRY
     ) -> tuple[Space, bool]:
         with self._pool.connection() as connection, connection.transaction():
+            user = connection.execute(
+                "select id from auth.users where id=%s for no key update", (person_id,)
+            ).fetchone()
+            if user is None:
+                raise BusinessLifecycleError("business_record_not_found")
+            require_ownership_admission(connection, person_id)
             created = connection.execute(
-                "insert into public.spaces (kind, name, created_by, country, currency)"
-                " values ('business', %s, %s, %s, %s)"
-                " on conflict (created_by) where kind = 'business' and closed_at is null"
-                " do nothing returning id::text, name, business_name_prompt_seen_at is not null,"
-                " country, currency",
-                (name, person_id, country, business_country(country).currency),
+                "insert into public.spaces (kind, name, created_by, current_owner_id, country, currency)"
+                " values ('business', %s, %s, %s, %s, %s)"
+                " on conflict (current_owner_id) where kind = 'business' and closed_at is null"
+                " do nothing returning id::text, name, created_by::text,"
+                " business_name_prompt_seen_at is not null, country, currency",
+                (name, person_id, person_id, country, business_country(country).currency),
             ).fetchone()
             if created is not None:
                 # The owner's grant is born with the space, in the same transaction.
@@ -144,8 +155,8 @@ class PostgresSpaceStore:
             row = connection.execute(
                 "update public.spaces set name = %s"
                 " where id = public.business_space_of(%s) and (%s::uuid is null or id = %s::uuid)"
-                " returning id::text, name, business_name_prompt_seen_at is not null,"
-                " country, currency",
+                " returning id::text, name, created_by::text,"
+                " business_name_prompt_seen_at is not null, country, currency",
                 (name, person_id, space_id, space_id),
             ).fetchone()
         return Space(*row) if row else None
@@ -204,6 +215,7 @@ class InMemorySpaceStore:
             space = Space(
                 str(uuid.uuid4()),
                 name,
+                person_id,
                 country=country,
                 currency=business_country(country).currency,
             )

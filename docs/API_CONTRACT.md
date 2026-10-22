@@ -3545,7 +3545,16 @@ was verified, so the person existed a moment ago.
   command to resolve its durable state. A known pending caller also receives this
   code if the deletion service cannot be built.
 - `401` means no valid session, including on resume; `403
-  account_deletion_not_allowed` refuses an undeletable account; `404 not_found`
+  account_deletion_not_allowed` refuses an account placeholder or the current
+  owner of an open Business. Transfer must be accepted or the Business closed
+  before a fresh deletion run can start. A pending transfer still blocks deletion.
+  This refusal creates no run, Auth lock, revocation, custody move, close date or mail.
+  Business creation and reopening recheck deletion admission after locking the
+  person's Auth row and refuse admitted deletion runs with the existing
+  `404 business_record_not_found`. Transfer acceptance retains its existing
+  deleting-target refusal. Existing deletion runs resume under their original run
+  ID, including legacy runs that still own an open Business. Their retention
+  recovery preserves any existing close date and deadline. `404 not_found`
   means the flag is off; `422` refuses invalid body fields or code bounds;
   `429 too_many_requests` carries `Retry-After`. The shared
   `503 auth_session_verification_unavailable` remains unchanged.
@@ -10307,3 +10316,241 @@ shared email renderer. It returns counts; failures return HTTP 503.
 It never purges records. A separate SQL cron job calls the existing retention
 RPC. Both schedules run every five minutes, with retention offset by two minutes.
 Signup still sends confirmation immediately; welcome follows confirmation.
+
+### Business closure lifecycle domain contract, draft October 18, 2026
+
+The scoped closure work adds a domain service and an unmounted HTTP router.
+The router also refuses every request through `require_lifecycle_ready` until
+retention and purge are complete. A standalone confirmation dialog is unmounted.
+No email send, account-deletion enablement or scheduled purge is added by this slice.
+The full lane now has founder-approved copy, transfer and retention rules.
+Its remaining implementation is recorded in the lifecycle checkpoint handoff.
+
+The registered owner may close an owned Business by submitting its exact current
+name and a scoped idempotency key. A transaction locks the owner and Business,
+then sets the existing `spaces.closed_at` once. Live Business authorization and
+listings already exclude closed spaces, so members immediately lose access.
+The service keeps existing grants and invitations unchanged.
+
+The owner may list their closed Businesses within 30 days, then reopen one
+strictly before `closed_at + 30 days`. Reopening clears `closed_at`; only grants
+that are still live regain access. Revoked and expired grants stay unavailable.
+No new invitation is required or generated. Another open Business prevents
+reopening under the existing one-open-Business-per-owner constraint.
+
+Close and reopen commands retain their original result per Business/key. An
+identical delayed replay returns that result without reversing a later command.
+Reusing the key for another action or confirmation conflicts. Unknown and foreign
+Businesses return the same missing-record outcome. The deadline uses the database
+clock after locks are acquired. This contract does not promise receipt retention
+after the owner deletes their account; the existing cascade remains unchanged
+pending the required current-owner and data-custodian implementation.
+
+#### Unavailable lifecycle HTTP contract, WIP October 18, 2026
+
+`src/argus/api/routers/business_lifecycle.py` defines the following future routes.
+The application does not include this router, and its unconditional readiness
+dependency returns `404 business_unavailable` even if it is mounted accidentally.
+Only isolated tests override the dependency. Enabling requires the complete
+custody, account-deletion retention and full-purge work plus root acceptance.
+
+- `GET /business/closed-spaces` returns `{spaces: [...]}` for the authenticated
+  person, independently of the selected Business grant.
+- `POST /business/spaces/{space_id}/close` requires `Idempotency-Key` and
+  `{confirmation: string}`. The body rejects extra fields and preserves exact
+  whitespace and case for the domain's current-name comparison.
+- `POST /business/spaces/{space_id}/reopen` requires `Idempotency-Key`.
+- Each result contains `space_id`, `name`, `closed_at` and `reopen_until`. The
+  server owns the dates. Responses and domain refusals use `Cache-Control: no-store`.
+- Foreign, member, guest and missing-actor commands return the same
+  `404 business_record_not_found`. Name mismatch and an invalid command key
+  return 422. Expired reopening, another open Business and conflicting command
+  replay return 409. Normal authentication and Business availability remain
+  required when the gate is eventually opened.
+
+The standalone browser transport keeps the caller's original command key for
+retries and validates server results. The close dialog takes translated copy,
+controlled command state, an error message and the existing export control from
+its caller. Its bundled Spanish copy is the exact approved checkpoint copy.
+Mounting, English approval, the command journal, export-control binding, member
+notification and a reopen UI remain unfinished. No receipt or export behavior
+is changed by this checkpoint.
+
+#### Business current ownership and transfer, draft October 18, 2026
+
+This unmounted domain slice separates current owner authority from record custody.
+`spaces.current_owner_id` owns the former. Existing financial `user_id` and
+`spaces.created_by` keep custody. A transfer requests an existing live Editar
+member and exact current name. It changes no authority until that same member
+accepts. Acceptance serializes with close, checks the current owner and live
+member again, promotes the recipient and leaves the former owner with read and
+prepare. The owner may cancel a pending request. No transfer email is sent.
+Receipt reading requires the current owner's own consent generation after
+transfer. Historical consent never becomes the recipient's consent.
+Full account-deletion custody retention, purge, mounted routes and UI remain
+unavailable until their separate acceptance evidence is complete.
+
+#### Business custody copy preparation, draft October 18, 2026
+
+The private custody copy preparer reserves a dedicated banned placeholder and
+records all destination paths before copying receipt originals and rebuilt
+objects. It verifies the source and destination content hash and size. A retry
+checks existing bytes and never overwrites them. An unavailable or mismatched
+source blocks preparation and leaves original paths and records unchanged.
+This helper alone grants no authority to rekey records, erase old prefixes,
+delete accounts or purge a Business. Those steps require the still-pending
+whole-graph retention writer and its acceptance evidence.
+
+Recipient decline is now a terminal `declined` command. It requires the exact
+recipient's live member authority and ends pending state without transferring
+ownership. Owner withdrawal is terminal `cancelled`. Acceptance, decline and
+withdrawal serialize and cannot undo another terminal result. UI Cancelar closes
+the screen only. Retirar solicitud performs withdrawal.
+
+Automatic AI-consent invalidation stores the accepted transfer ID as its cause.
+It preserves the original consenting person and leaves `revoked_by` NULL. This
+transition is distinct from a person pressing a consent-revocation control.
+An open current Business owner is refused by account-deletion admission before
+any deletion run or external lock is created. The working exit UI and full closed
+Business retention remain unmounted and incomplete.
+
+#### Unavailable ownership-transfer HTTP contract, WIP October 18, 2026
+
+The new unmounted transfer router shares the lifecycle readiness denial.
+It defines `POST /business/spaces/{space_id}/ownership-transfers` with an
+`Idempotency-Key`, `target_grant_id` and exact-name `confirmation`.
+`POST /business/ownership-transfers/{transfer_id}/accept`, `/decline` and
+`/withdraw` derive the acting person from authentication. The first two are
+recipient actions. Withdrawal is an owner action. Their transfer ID supplies
+terminal replay identity. All response fields are server facts, with private
+no-store responses and the same known domain refusals. Defining this transport
+adds no application route until the full retention gate is complete.
+
+The October 18 transfer email successor adds authenticated
+`GET /business/ownership-transfers`. It returns only transfers where the actor
+is an original participant and still has a live grant to the open Business.
+Each item includes `id`, `space_id`, server-computed `status`, `expires_at`,
+`business_name`, `owner_name`, `target_name`, the actor's live `grant_id` and `owner` or `target`
+role. GET does not accept, decline, withdraw, expire or send mail.
+
+A request expires exactly 168 hours after creation. At or after the deadline,
+acceptance returns `business_transfer_expired` with HTTP 409. The next valid
+request resolves the expired pending row before creating a new request. An
+accepted transfer has no undo operation. A reverse transfer uses a new request
+and the same normal recipient acceptance.
+
+The configured transfer command path queues notifications in the same database
+transaction and calls the existing Resend SMTP transport after commit. Request
+and withdrawal go to the target; decline goes to the original owner; acceptance
+has separate messages for both people. Expiry sends no mail. Saved content,
+per-recipient event IDs and provider idempotency keys protect retries. Automatic
+retries stop after 23 hours from the first attempted send, before Resend's
+24-hour key retention ends; unresolved delivery then requires reconciliation.
+Missing provider or presentation configuration leaves the event unsent.
+
+Email actions navigate to `/biz?transfer=<id>`, which preserves the transfer ID
+through sign-in and loads the authorized transfer screen. Only explicit POST
+controls change ownership. The screen wiring is conditional on the existing
+Business pilot and transfer readiness. The transfer router remains unmounted
+and its readiness dependency still denies access in this WIP branch. No email
+or hosted activation is established by synthetic provider/browser proof.
+
+#### Business retention during account deletion, backend WIP October 18, 2026
+
+The existing claimed account-deletion run prepares verified custody copies and
+moves every retained Business graph before personal source rows or prefixes are
+erased. A departing member loses access and personal notification transport;
+saved Business actions keep a scoped anonymous actor. The service checks retained
+dependencies before Storage and Auth deletion. Auth absence must be verified,
+then in-flight Business identity maps are cleared before global settlement.
+The original close time remains the day-30 deadline. Ownerless Businesses cannot
+reopen. The existing deletion sweep also purges expired closed Business graphs,
+original objects and orphan custody copies with durable retry plans. Shared
+object bytes referenced by another surviving scope remain in that scope.
+This backend build keeps global account deletion off and lifecycle readiness
+unavailable. No hosted execution is authorized by this contract.
+
+#### Business lifecycle UI completion, held October 18, 2026
+
+This continuation supersedes the earlier unmounted-router status only. The
+lifecycle and transfer routers are mounted, and their shared
+`require_lifecycle_ready` dependency still unconditionally refuses every route.
+Global account deletion remains disabled. No hosted activation follows from this
+UI wiring.
+
+`GET /business/owned-spaces` returns `{spaces: [{space_id, name, grant_id,
+members: [{grant_id, name}]}]}`. The authenticated current owner and their live
+read grant supply authority. Each eligible member is checked through the same
+transfer target authority used by the request command. No owner query parameter
+or remembered selected Business changes the actor. Closed listing retains the
+existing current-owner, live-user and 30-day contract.
+
+The actual account-deletion dialog reads the existing authorized Business space
+list. Every owner Business gets its exact locked warning and distinct transfer
+and close links. Discovery failure blocks deletion. `/biz?lifecycle=close|transfer
+&business=<id>` opens the named command screen after authorization. These routes
+preserve their Business through sign-in. The existing explicit-date export
+component and API are reused unchanged, with the target's validated grant.
+Lifecycle routes render before workspace creation. After closing, the closed
+list is shown. Normal entry also checks for closed-only ownership before starting
+the workspace, so it cannot silently create a replacement Business. A readiness
+404 preserves the existing live workspace behavior.
+
+Close atomically queues one approved member notification for each live,
+confirmed, registered member and close instant. The canonical generated shared
+layout owns HTML and plain text. A command replay reuses the queue. Delivery
+uses the existing Cuadrao Resend sender, a frozen payload and a stable provider
+key. Automatic retry stops after 23 hours of provider uncertainty. Reopening
+suppresses unsent notices for that close instant. Person departure removes their
+personal notification transport. Business custody detachment removes the scoped
+close transport, and Business purge cascades the queue. No real email was sent
+for this delivery.
+
+#### Business lifecycle backend checkpoint, October 21, 2026
+
+This checkpoint supersedes the readiness status above. `require_lifecycle_ready`
+is removed. The nine lifecycle and transfer operations answer behind the existing
+Business surface gate only: with the pilot switch
+(`CUADRAO_BUSINESS_PILOT_ENABLED`, falling back to `ARGUS_BUSINESS_PILOT_ENABLED`)
+off they answer `404 business_unavailable`, as every Business route does. Global
+account deletion keeps its own switch and is unchanged.
+
+`GET /business/owned-spaces` is the close preview. Each Business now also carries
+`member_count` (the live members who lose access on close), `reopen_until` (the
+deadline a close now would set, from the database clock) and `export_windows`.
+`members` lists every live member as `{grant_id, name, eligible, reason}`.
+`reason` is null for an eligible member, otherwise `account_unavailable`,
+`not_editor`, `email_unconfirmed` or `owns_open_business`. Eligibility and the
+transfer request read one shared query, so a request naming an ineligible member
+still answers `409 business_transfer_target_invalid` and creates no transfer.
+
+`export_windows` is a list of `{start, end}` dates. Downloaded in order through
+the unchanged `GET /business/exports` (at most 366 days each), the windows cover
+every day the export can select, from the earliest recorded or drafted day
+through today. A Business with no record has none. The export itself is
+unchanged: each record keeps its own currency and exact amount, and a closed
+Business still cannot be exported.
+
+`GET /business/spaces` adds `closed_spaces: [{space_id, name, grant_id, role,
+closed_at, reopen_until}]`. It lists each closed Business where the caller's
+grant is otherwise live. A revoked or expired grant lists nothing there, so a
+closed Business reads differently from removed access. A Business action on a
+closed Business answers `403 business_closed` instead of the missing-record
+refusal, and so does any Business route called with `X-Business-Grant` naming a
+grant whose only problem is the close. A revoked or expired grant still answers
+`403 business_grant_not_live`.
+
+Close also queues the owner's own confirmation, and reopening queues one notice
+per live member for the close instant it undid. The existing deletion sweep
+queues the current owner's reminder once a close reaches day 23, inside the
+30-day window. Each such event carries `reopenPath`
+(`/biz?lifecycle=manage&business=<space_id>`). These three kinds have no approved
+copy yet, so they wait unsent, with no payload, and nothing invents their text.
+Approved member notices send as before. Transactional notices end with
+`Cuadrao LLC`, as the canonical layout prints mail without an unsubscribe link,
+so they no longer need `MARKETING_POSTAL_ADDRESS`.
+
+The day-30 purge erases the Business logo object before it deletes the space
+row, while that row still names it. A failed erase leaves the run `started` and
+the graph whole for the next sweep. A logo row without configured picture
+storage holds the purge. Other Businesses' logos are untouched.

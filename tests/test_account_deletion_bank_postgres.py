@@ -1,18 +1,22 @@
 """An owner with a bank account, lines, a suggestion and an outcome deletes
-their account, and every bank row goes with the Business space.
+their account. The closed Business keeps every bank row for its record
+custodian, and the day-30 purge takes them with the Business space.
 
 ``business_bank_accounts.account_id`` is a NO ACTION key to
-``financial_accounts``. The ``auth.users`` cascade reaches
-``financial_accounts`` before ``spaces`` (the older key fires first), so while
-the key was checked immediately the binding still existed and the delete was
-refused. 20261021065000 checks it at commit, after the spaces cascade took the
-binding. Proven three ways: the bare cascade (rolled back), the
-AccountDeletionService run, and POST /account/delete. Deleting the account
-while the binding exists is still refused.
+``financial_accounts``. A cascade can reach ``financial_accounts`` before the
+binding (the older key fires first), so while the key was checked immediately
+the binding still existed and the delete was refused. 20261021065000 checks it
+at commit. Account deletion now keeps the Business, so the cascade that takes
+the account and the binding runs when the space goes. Proven by the bare space
+cascade (rolled back) and by the day-30 purge after the AccountDeletionService
+run and after POST /account/delete. A bare Auth delete of an owner the Business
+still names is refused. Deleting the account while the binding exists is still
+refused.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -24,7 +28,9 @@ from argus.api import state as api_state
 from argus.api.main import app
 from argus.api.routers import account as account_route
 from argus.api.schemas import User
+from argus.domain.business.purge import PostgresBusinessPurge
 from fastapi.testclient import TestClient
+from psycopg_pool import ConnectionPool
 
 from tests.household.financial_fixtures import DSN, NOW
 from tests.household.financial_fixtures import lane as lane  # noqa: F401 - fixture
@@ -38,8 +44,15 @@ from tests.test_account_deletion_api_postgres import (
 from tests.test_account_deletion_fk_census_postgres import (
     _invite_code_secret,  # noqa: F401 - autouse fixture (#794 invite codes)
 )
-from tests.test_account_deletion_postgres import SqlAuthAdmin, _service
+from tests.test_business_account_deletion_postgres import (
+    Auth,
+    close_owned_business,
+    command,
+    erase_open_owner,
+    release_custodian,
+)
 from tests.test_business_bank_matching_postgres import _binding, _import, _line
+from tests.test_business_custody_graph_postgres import FakeObjects
 from tests.test_business_spaces_migration_postgres import account, space
 
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
@@ -78,10 +91,17 @@ def _bank_rows(db, owner: str) -> tuple[str, str]:  # noqa: ANN001
     return space_id, account_id
 
 
-def _assert_gone(db, owner: str, space_id: str, account_id: str) -> None:  # noqa: ANN001
-    assert db.execute(
-        "select count(*) from auth.users where id = %s", (owner,)
-    ).fetchone() == (0,)
+def _bank_counts(db, space_id: str) -> list[int]:  # noqa: ANN001
+    return [
+        db.execute(
+            f"select count(*) from public.{table} where space_id = %s::uuid",
+            (space_id,),
+        ).fetchone()[0]
+        for table in BANK_TABLES
+    ]
+
+
+def _assert_gone(db, space_id: str, account_id: str) -> None:  # noqa: ANN001
     assert db.execute(
         "select count(*) from public.spaces where id = %s::uuid", (space_id,)
     ).fetchone() == (0,)
@@ -96,12 +116,56 @@ def _assert_gone(db, owner: str, space_id: str, account_id: str) -> None:  # noq
         ).fetchone() == (0,), table
 
 
+def _assert_kept_for_custodian(owner: str, space_id: str, account_id: str) -> None:
+    """The owner's Auth row is gone; the closed Business, its account and every
+    bank row stay under the record custodian."""
+    with psycopg.connect(DSN) as db:
+        assert db.execute(
+            "select count(*) from auth.users where id = %s", (owner,)
+        ).fetchone() == (0,)
+        custodian, closed = db.execute(
+            "select created_by::text, closed_at is not null from public.spaces"
+            " where id = %s::uuid",
+            (space_id,),
+        ).fetchone()
+        assert closed and custodian != owner
+        assert db.execute(
+            "select user_id::text from public.financial_accounts where id = %s::uuid",
+            (account_id,),
+        ).fetchone() == (custodian,)
+        assert _bank_counts(db, space_id) == [1] * len(BANK_TABLES)
+        assert db.execute(
+            "select count(*) from public.business_bank_imports"
+            " where space_id = %s::uuid and imported_by is null",
+            (space_id,),
+        ).fetchone() == (1,)
+        assert db.execute(
+            "select count(*) from public.business_bank_line_outcomes"
+            " where space_id = %s::uuid and created_by is null",
+            (space_id,),
+        ).fetchone() == (1,)
+
+
+def _purge_at_day_30(space_id: str, account_id: str) -> None:
+    with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+        with pool.connection() as db:
+            db.execute(
+                "update public.spaces set closed_at = clock_timestamp() - %s"
+                " where id = %s::uuid",
+                (timedelta(days=30), space_id),
+            )
+        PostgresBusinessPurge(pool, FakeObjects(), Auth()).purge(space_id=space_id)
+    with psycopg.connect(DSN) as db:
+        _assert_gone(db, space_id, account_id)
+
+
 @pytest.fixture
 def owner(lane):  # noqa: ANN001, ANN201, F811
     """A committed Business owner with bank rows. Teardown removes whatever a
-    failed deletion left: the space first (its cascade takes the bank rows,
-    which the outcomes guard allows), then the auth user. A cleanup failure
-    raises, so a leak fails the test run instead of hiding."""
+    failed deletion or purge left: the custody rows, the space and its
+    custodian (the space cascade takes the bank rows, which the outcomes guard
+    allows), then the auth user. A cleanup failure raises, so a leak fails the
+    test run instead of hiding."""
     user_id = lane[2][0]
     with psycopg.connect(DSN) as db, db.transaction():
         db.execute(
@@ -112,6 +176,7 @@ def owner(lane):  # noqa: ANN001, ANN201, F811
     try:
         yield user_id, space_id, account_id
     finally:
+        release_custodian(space_id)
         with psycopg.connect(DSN) as db, db.transaction():
             db.execute("delete from public.spaces where id = %s", (space_id,))
             db.execute(
@@ -121,18 +186,35 @@ def owner(lane):  # noqa: ANN001, ANN201, F811
             db.execute("delete from auth.users where id = %s", (user_id,))
 
 
-def test_an_owner_with_bank_rows_is_deleted_and_the_bank_rows_go_with_the_space(
+def test_a_bare_auth_delete_of_an_owner_with_bank_rows_is_refused(
+    lane,  # noqa: ANN001, F811
+) -> None:
+    user_id = lane[2][0]
+    with psycopg.connect(DSN) as db, db.transaction(force_rollback=True):
+        space_id, _ = _bank_rows(db, user_id)
+        with (
+            pytest.raises(
+                psycopg.errors.CheckViolation,
+                match="business_custody_identity_detachment_required",
+            ),
+            db.transaction(),
+        ):
+            db.execute("delete from auth.users where id = %s", (user_id,))
+        assert _bank_counts(db, space_id) == [1] * len(BANK_TABLES)
+
+
+def test_the_space_cascade_takes_the_account_and_every_bank_row_at_commit(
     lane,  # noqa: ANN001, F811
 ) -> None:
     user_id = lane[2][0]
     with psycopg.connect(DSN) as db, db.transaction(force_rollback=True):
         space_id, account_id = _bank_rows(db, user_id)
 
-        # The Admin API delete is one statement in its own transaction.
-        db.execute("delete from auth.users where id = %s", (user_id,))
+        # The day-30 purge removes the Business with one space delete.
+        db.execute("delete from public.spaces where id = %s", (space_id,))
         db.execute("set constraints all immediate")
 
-        _assert_gone(db, user_id, space_id, account_id)
+        _assert_gone(db, space_id, account_id)
 
 
 def test_deleting_the_account_while_the_binding_exists_is_still_refused(
@@ -154,16 +236,15 @@ def test_deleting_the_account_while_the_binding_exists_is_still_refused(
             db.execute("set constraints all immediate")
 
 
+@pytest.mark.owner_acts
 def test_the_deletion_service_deletes_an_owner_with_bank_rows(lane, owner) -> None:  # noqa: ANN001, F811
     user_id, space_id, account_id = owner
-    admin = SqlAuthAdmin()
 
-    outcome = _service(lane, admin).delete_account(user_id=user_id)
+    with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+        assert erase_open_owner(pool, user_id).status == "done"
 
-    assert outcome.status == "done"
-    assert admin.deleted == [user_id]
-    with psycopg.connect(DSN) as db:
-        _assert_gone(db, user_id, space_id, account_id)
+    _assert_kept_for_custodian(user_id, space_id, account_id)
+    _purge_at_day_30(space_id, account_id)
 
 
 @pytest.fixture
@@ -196,20 +277,22 @@ def _subject(raw: str) -> str:
     return jwt.decode(raw, options={"verify_signature": False})["sub"]
 
 
+@pytest.mark.owner_acts
 def test_the_api_deletes_an_owner_with_bank_rows(lane, owner, route) -> None:  # noqa: ANN001, F811
     user_id, space_id, account_id = owner
-    admin = SqlAuthAdmin()
-    with patch.object(
-        account_route, "account_deletion_service", return_value=_service(lane, admin)
-    ):
-        response = route.post(
-            URL,
-            json={"confirm": True},
-            headers=_bearer(_token(user_id, _session(user_id))),
-        )
+    with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+        close_owned_business(pool, user_id)
+        service = command({"pool": pool, "objects": FakeObjects()})
+        with patch.object(
+            account_route, "account_deletion_service", return_value=service
+        ):
+            response = route.post(
+                URL,
+                json={"confirm": True},
+                headers=_bearer(_token(user_id, _session(user_id))),
+            )
 
     assert response.status_code == 200, response.text
     assert response.json() == {"status": "done", "pending": []}
-    assert admin.deleted == [user_id]
-    with psycopg.connect(DSN) as db:
-        _assert_gone(db, user_id, space_id, account_id)
+    _assert_kept_for_custodian(user_id, space_id, account_id)
+    _purge_at_day_30(space_id, account_id)

@@ -18,11 +18,13 @@ from argus.api.routers.business import router as business_router
 from argus.api.routers.business_drafts import router as business_drafts_router
 from argus.api.routers.business_export import router as business_export_router
 from argus.api.routers.business_fiscal import router as business_fiscal_router
+from argus.api.routers.business_lifecycle import router as business_lifecycle_router
 from argus.api.routers.business_manual import router as business_manual_router
 from argus.api.routers.business_month_close import (
     open_items_router as business_open_items_router,
 )
 from argus.api.routers.business_month_close import router as business_month_close_router
+from argus.api.routers.business_transfer import router as business_transfer_router
 from argus.api.routers.email_intake import router as business_email_router
 from argus.api.routers.email_intake import webhook_router as resend_webhook_router
 from argus.api.routers.financial_activities import router as money_router
@@ -192,6 +194,8 @@ router.include_router(shortcuts_intake_router)
 router.include_router(whatsapp_webhook_router)
 router.include_router(whatsapp_link_router)
 router.include_router(business_router)
+router.include_router(business_lifecycle_router)
+router.include_router(business_transfer_router)
 router.include_router(business_drafts_router)
 router.include_router(business_manual_router)
 router.include_router(resend_webhook_router)

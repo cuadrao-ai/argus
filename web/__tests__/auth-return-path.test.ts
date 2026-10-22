@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import assert from "node:assert/strict";
-import { readReturnPath } from "../lib/auth-return-path";
+import { readReturnPath, returnPathFor } from "../lib/auth-return-path";
 import { authLoginPathFromSearch, pathWithSearch } from "../lib/landing-intent";
 
 describe("sign-in return path", () => {
+  test("a signed-out transfer email returns to the transfer screen without an acceptance token", () => {
+    const id = "4100626b-f480-4249-97bd-04bdc03f1a15";
+    const login = authLoginPathFromSearch(`?transfer=${id}&accept=1&token=discard`, "/biz");
+    expect(readReturnPath(login.slice(login.indexOf("?")))).toBe(`/biz?transfer=${id}`);
+    expect(login).not.toContain("accept");
+    expect(login).not.toContain("token");
+  });
   test("a signed-out Business receipt link returns to that receipt", () => {
     const login = authLoginPathFromSearch("?receipt=rcpt-123&utm_source=whatsapp", "/biz");
     const search = login.slice(login.indexOf("?"));
@@ -41,4 +48,10 @@ describe("sign-in return path", () => {
       "/chat?utm_campaign=x",
     );
   });
+});
+
+
+test("lifecycle action preserves its Business through sign-in without a side effect", () => {
+  const params = new URLSearchParams("lifecycle=close&business=39d12d09-bebe-4992-b6dc-cb1a84d52438");
+  expect(returnPathFor("/biz", params)).toBe("/biz?lifecycle=close&business=39d12d09-bebe-4992-b6dc-cb1a84d52438");
 });

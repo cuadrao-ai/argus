@@ -465,15 +465,29 @@ async def test_owner_erasure_cascades_pending_attempt_and_daily_counter(pool, us
     world.clock.now += timedelta(seconds=120)
     assert world.store.reply_groups.claim(now=world.clock.now, limit=10)
     await _failed(world, 1)
+    from tests.test_business_account_deletion_postgres import (
+        erase_open_owner,
+        release_custodian,
+    )
+
     with pool.connection() as connection:
         for table in ("groups", "attempts", "days"):
             assert connection.execute(
                 f"select count(*) from public.whatsapp_reply_{table} where owner_id=%s",
                 (world.alice,),
             ).fetchone() == (1,)
-        connection.execute("delete from auth.users where id=%s", (world.alice,))
-        for table in ("groups", "attempts", "days"):
-            assert connection.execute(
-                f"select count(*) from public.whatsapp_reply_{table} where owner_id=%s",
-                (world.alice,),
-            ).fetchone() == (0,)
+        space_id = connection.execute(
+            "select id::text from public.spaces where current_owner_id=%s",
+            (world.alice,),
+        ).fetchone()[0]
+    outcome = erase_open_owner(pool, world.alice)
+    assert outcome.status == "done"
+    try:
+        with pool.connection() as connection:
+            for table in ("groups", "attempts", "days"):
+                assert connection.execute(
+                    f"select count(*) from public.whatsapp_reply_{table} where owner_id=%s",
+                    (world.alice,),
+                ).fetchone() == (0,)
+    finally:
+        release_custodian(space_id)

@@ -3,6 +3,7 @@ installEmailFixture();
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { emailPalette as p, renderAccountEmail } from "../server/emails/account-layout.generated";
+import { renderAccountEmail as renderMarketingAccountEmail } from "../../marketing/lib/email/account-layout";
 
 const link = "https://example.test/confirm?token=synthetic&next=%2Fbiz";
 const luminance = (color: string) => {
@@ -72,9 +73,35 @@ describe("shared account email layout", () => {
     }
   });
   test("the deployed web copy derives exactly from the canonical marketing renderer", () => {
-    const canonical = readFileSync(new URL("../../marketing/lib/email/account-layout.ts", import.meta.url),"utf8");
+    const canonical = readFileSync(new URL("../../marketing/lib/email/account-layout.ts", import.meta.url),"utf8")
+      .replace('import accountCopy from "./account-copy.generated.json";', `import spanish from "../../public/locales/es-419/common.json";
+import english from "../../public/locales/en/common.json";
+const accountCopy = { "es-419": spanish.account_email, en: english.account_email };`);
     const deployed = readFileSync(new URL("../server/emails/account-layout.generated.ts", import.meta.url),"utf8");
     expect(deployed.slice(deployed.indexOf("\n")+1)).toBe(canonical);
+  });
+  test("marketing email copy derives only the shared footer and lifecycle copy from web catalogs", () => {
+    const generated = JSON.parse(readFileSync(new URL("../../marketing/lib/email/account-copy.generated.json", import.meta.url), "utf8"));
+    const expected = Object.fromEntries(["es-419", "en"].map(locale => {
+      const { footer, business_lifecycle } = JSON.parse(readFileSync(new URL(`../public/locales/${locale}/common.json`, import.meta.url), "utf8")).account_email;
+      return [locale, { footer, business_lifecycle }];
+    }));
+    expect(generated).toEqual(expected);
+    for (const locale of ["es-419", "en"] as const) {
+      const content = { title: "Account notice", paragraphs: ["Saved."], action: { label: "View", url: link } };
+      expect(renderMarketingAccountEmail(content, { locale })).toEqual(renderAccountEmail(content, { locale }));
+    }
+  });
+  test("locale support preserves the default and translates the shared account footer", () => {
+    const content = {title: "Account notice", paragraphs: ["Saved."], action: {label: "View", url: link}};
+    expect(renderAccountEmail(content)).toEqual(renderAccountEmail(content, {locale: "es-419"}));
+    const rendered = renderAccountEmail(content, {locale: "en"});
+    expect(rendered.html).toContain('lang="en"');
+    expect(rendered.html).toContain("Regards,<br>Cuadrao");
+    expect(rendered.html).toContain('Need help? Email <a href="mailto:hola@cuadrao.ai"');
+    expect(rendered.text).toContain("Regards,\nCuadrao\n\nNeed help? Email hola@cuadrao.ai\n\nCuadrao LLC");
+    expect(rendered.text).not.toContain("Saludos");
+    expect(rendered.text).toContain(link);
   });
 });
 

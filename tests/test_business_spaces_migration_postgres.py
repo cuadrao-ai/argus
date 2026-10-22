@@ -359,27 +359,50 @@ def test_create_account_fingerprint_includes_the_space(db, users) -> None:  # no
         _create(db, owner, "forged-key", "sha256:a", space(db, users["other"]))
 
 
-def test_deleting_the_person_removes_the_space_and_its_rows(db, users) -> None:  # noqa: ANN001
-    owner = users["owner"]
-    business = space(db, owner)
-    rows = {
-        "financial_accounts": account(db, owner, business),
-        "financial_source_connections": connection(db, owner, business),
-        "conversations": conversation(db, owner, business),
-        "financial_import_events": event(db, owner, business),
-    }
-    sender_link(db, owner)
-    db.execute("delete from auth.users where id = %s", (owner,))
-    assert _one(db, "select count(*) from public.spaces where id = %s", (business,)) == 0
-    for table, row_id in rows.items():
-        assert (
-            _one(db, f"select count(*) from public.{table} where id = %s", (row_id,)) == 0
-        ), table
-    assert (
-        _one(
-            db,
-            "select count(*) from public.whatsapp_sender_links where destination_space_id = %s",
-            (business,),
-        )
-        == 0
+def test_deleting_the_person_hands_the_business_to_custody(users) -> None:  # noqa: ANN001
+    from psycopg_pool import ConnectionPool
+
+    from tests.test_business_account_deletion_postgres import (
+        erase_open_owner,
+        release_custodian,
     )
+
+    owner = users["owner"]
+    with psycopg.connect(shared.DSN) as db:
+        business = space(db, owner)
+        rows = {
+            "financial_accounts": account(db, owner, business),
+            "financial_source_connections": connection(db, owner, business),
+            "conversations": conversation(db, owner, business),
+            "financial_import_events": event(db, owner, business),
+        }
+        sender_link(db, owner, business)
+        db.commit()
+    with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
+        outcome = erase_open_owner(pool, owner)
+    assert outcome.status == "done"
+    with psycopg.connect(shared.DSN) as db:
+        assert (
+            db.execute("select 1 from auth.users where id = %s", (owner,)).fetchone()
+            is None
+        )
+        saved = db.execute(
+            "select created_by::text, current_owner_id::text, closed_at is not null"
+            " from public.spaces where id = %s",
+            (business,),
+        ).fetchone()
+        assert saved[0] != owner and saved[1] is None and saved[2] is True
+        for table, row_id in rows.items():
+            assert (
+                _one(db, f"select count(*) from public.{table} where id = %s", (row_id,))
+                == 1
+            ), table
+        assert (
+            _one(
+                db,
+                "select count(*) from public.whatsapp_sender_links where destination_space_id = %s",
+                (business,),
+            )
+            == 1
+        )
+    release_custodian(business)

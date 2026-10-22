@@ -4,7 +4,7 @@
  * never become an open redirect or carry arbitrary state.
  */
 const RETURNABLE: Readonly<Record<string, readonly string[]>> = {
-  "/biz": ["view", "receipt", "conversation", "draft"],
+  "/biz": ["view", "receipt", "conversation", "draft", "transfer", "lifecycle", "business"],
 };
 
 const VALUE = /^[A-Za-z0-9_-]{1,128}$/;

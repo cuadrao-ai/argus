@@ -34,6 +34,10 @@ class BusinessScope:
     currency: str = COUNTRIES[DEFAULT_COUNTRY].currency
 
     @property
+    def acting_person_id(self) -> str:
+        return self.person_id if self.actor_id is None else self.actor_id
+
+    @property
     def acting_as_owner(self) -> bool:
         return self.role == "owner"
 
@@ -49,8 +53,9 @@ def resolve_business_scope(spaces: SpaceStore, person_id: str) -> BusinessScope 
     if space is None:
         return None
     return BusinessScope(
-        person_id=person_id,
+        person_id=space.custodian_id,
         owner=BusinessSpace(space.id),
+        actor_id=person_id,
         country=space.country,
         currency=space.currency,
     )

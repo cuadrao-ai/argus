@@ -3466,9 +3466,12 @@ has dismissed their access line (their `access_seen` receipt); a logo to the
 Business's owner and live members. The `spaces` row is unchanged. The row goes
 with its auth user or space; the object does not: account deletion erases
 `people/{user_id}/` and `business/{space_id}/` for every space the person
-created in its `storage` step (`spaces.created_by` cascades with the user). No
-Business purge exists yet; the one #1222 adds must erase
-`business/{space_id}/` before it deletes the space row.
+created in its `storage` step (`spaces.created_by` cascades with the user). A
+Business that account deletion retains has already moved to its record
+custodian by then, so its logo stays with it. The day-30 purge erases
+`business/{space_id}/` before it deletes the space row, retries a failed erase
+with the graph intact, and holds while a logo row exists without picture
+storage.
 
 ### Business receipt reading consent and attention
 
@@ -3574,7 +3577,7 @@ open items read the date from the resolution, not from the revision.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
-| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. |
+| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge removes the row. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
 Migration `20261011070000_business_manual_capture_command.sql` extends only
@@ -3811,6 +3814,181 @@ by `tests/test_ingestion_reconcile_postgres.py`. On disconnect, unreviewed
 observations (and events left empty) are deleted; observations of accepted
 events are reduced to provenance (source, connection, external id, dates,
 status) and kept with the record.
+
+### Business closure lifecycle command history, draft October 18, 2026
+
+`20261021070000_business_close_lifecycle.sql` adds
+`business_lifecycle_commands`. One row stores the original result of one owner's
+close or reopen command, uniquely keyed by `(space_id, idempotency_key)`.
+The composite `(space_id, owner_id)` foreign key references the canonical
+`spaces(id, created_by)` and cascades with the space. Checks bind each action to
+its required exact-name confirmation and original closed/open result. Keys have
+1 to 200 characters and may not be whitespace-only. The table contains no email,
+receipt content, copied permission state or current financial facts.
+
+`spaces.closed_at` remains the only current closure state. Reopening clears it
+only before the single domain 30-day deadline; the command history is an
+idempotency record, never a second current-state owner. The server serializes
+commands under the existing owner and space rows. Original command results
+prevent delayed retries from changing later state. Existing grant rows remain
+unchanged. RLS has no client policies or grants, and `service_role` has only
+SELECT and INSERT on the command table. A space deletion removes its history.
+No new retention exception, purge execution or owner-deletion behavior ships in
+this bounded domain slice.
+
+### Business current owner and transfer commands, draft October 18, 2026
+
+The forward migration `20261021080000_business_current_owner_transfer.sql`
+separates `spaces.current_owner_id`, the current person's authority, from
+`spaces.created_by`, the unchanged record custodian. The new owner column is
+backfilled, indexed, nullable only for a closed Business and references Auth
+with SET NULL. The one-open-Business unique index uses current ownership.
+The legacy financial composite custody keys are unchanged.
+
+`business_ownership_transfers` stores the Business lifetime key, original owner,
+target person and existing grant, exact-name confirmation, request key, pending
+or terminal state and timestamps. One Business has at most one pending transfer.
+The table has RLS, no client grants and only SELECT, INSERT and UPDATE for
+service_role. A trigger prevents command/history rewrites and terminal changes.
+Transfer actors deliberately have no Auth cascade. Their explicit anonymization
+is a remaining account-deletion requirement before this lane can be enabled.
+The lifecycle command owner is now historical actor provenance. Its FK names
+only the Business lifetime, so a new owner can close without rekeying old history.
+
+The model checklist covers both new persistence owners. Ownership and transfer
+commands are server-only. Current owner lookup and pending recipient queries
+have indexes. Replay and target acceptance are tested on actual Postgres.
+Financial values, record IDs, revisions, sources and object paths do not move on
+transfer. Historical consent stays attributed to its original person and is
+revoked. The current owner must consent separately. Private/client behavior,
+retention and account-deletion custody movement remain WIP, with global account
+deletion and lifecycle readiness still closed.
+
+### Business transfer expiry and mail, WIP October 18, 2026
+
+The transfer successor migration `20261021130000_business_transfer_mail_expiry.sql`
+adds immutable `business_ownership_transfers.expires_at`, exactly 168 hours after
+`created_at`, plus the terminal `expired` state. It preserves the scoped custody
+rewrite guard added by migration 20261021120000. GET computes deadline status without
+changing history; new requests close expired pending commands under the same
+Business lock.
+
+`business_transfer_mail_outbox` owns personal notification transport only. Its
+model checklist covers every new column. `id`, `transfer_id`, `variant`,
+`recipient_id`, `owner_id`, `target_id`, `recipient_email`, `context` and
+`created_at` identify one event and freeze its recipient and source facts.
+`first_attempt_at` and `payload` reserve the first send before provider work.
+`sent_at`, `provider_receipt`, `suppressed_at` and `uncertain_at` record its
+outcome. A unique transfer/variant/recipient key prevents duplicate journal rows.
+The transfer FK cascades deletion. Independent actor columns allow dependency
+checks even after canonical transfer history becomes anonymous.
+
+The table has RLS and no public, anon or authenticated privileges. Only the
+server service role can read, insert, update and delete. Its pending index
+supports recovery. No client policy exposes names, addresses or payloads.
+Custody cleanup deletes the Business's outbox before changing historical actors.
+The Auth deletion guard refuses unresolved outbox dependencies. Canonical
+transfer history survives anonymously; transport is not retained Business data.
+The complete account-deletion orchestration and lifecycle activation remain held.
+
+### Business custody copy reservations, draft October 18, 2026
+
+The forward migration `20261021090000_business_custody_object_manifest.sql` adds
+`argus_private.business_custody_reservations` and `business_custody_objects`.
+The first owns one dedicated placeholder ID and anonymous historical actor ID
+per Business, with creation and Auth-ready times. It stores no departed-person
+ID. The second owns source and destination object paths, hash, size, media type,
+creation and verification times. Its in-flight source path contains the outgoing
+identity until the future completion writer clears it.
+
+The model checklist covers both tables and all columns. Both have RLS and no
+public or client grants. service_role can SELECT, INSERT and UPDATE, and cannot
+DELETE or TRUNCATE. Business and reservation FKs use RESTRICT so deletion cannot
+silently lose a reserved/orphan-object purge plan. The source path key deduplicates
+work. A destination index supports purge discovery. No original path or canonical
+record is moved by this helper. Byte hashes and sizes are verified after readback.
+Media type is passed to Storage creation; the existing Storage protocol exposes
+no destination metadata reader, so destination media metadata is not independently
+verified. Full custody and privacy completion remain pending.
+
+### Transfer decline and automatic consent invalidation
+
+The forward migration `20261021100000_business_transfer_decline.sql` adds the
+terminal `declined` transfer state. It preserves immutable command history.
+The owner withdraws through cancellation. Recipient decline and withdrawal both
+end pending state and leave ownership unchanged.
+
+`20261021110000_business_consent_transfer_invalidation.sql` adds the indexed
+nullable `business_ai_consents.invalidated_by_transfer_id` FK. It identifies an
+automatic invalidation by an accepted ownership transfer. The original owner and
+consenting actor stay unchanged. `revoked_by` stays NULL because nobody issued a
+manual revocation command. A deferred trigger requires the linked transfer to
+be accepted for the same Business and original owner. Existing manual revocation
+keeps its original owner attribution. Existing table RLS and grants are preserved.
+This column is server-only, adds no client authority, and follows Business
+lifetime deletion. Its original owner identity still needs the pending deletion
+anonymization writer.
+
+### Business member departure aliases and day-30 purge, backend WIP October 18, 2026
+
+Forward migration `20261021140000_business_account_deletion_orchestration.sql`
+adds private `business_departure_aliases`. Its composite `space_id,actor_id`
+key identifies a Business-scoped historical actor with no Auth account or grant.
+`departing_user_id,deletion_run_id,claim_id,started_at` fence the exact identity
+rewrite to the live claimed account-deletion run. Verified Auth absence clears
+`departing_user_id,claim_id` and sets `identity_cleaned_at`. The anonymous actor
+survives until its Business is purged. The existing custody graph guard and
+transfer-outbox Auth deletion guard stay composed. No service or client role
+can write the alias table or invoke the privileged identity writer.
+
+Forward migration `20261021150000_business_closed_purge.sql` adds private
+`business_purge_runs` and `business_purge_objects`. `id,space_id,closed_at`
+identify one purge and its original deadline. `status,claim_id,claimed_until`
+serialize the existing sweep across retries. `placeholder_id` names only the
+reserved synthetic custodian that still needs Storage/Auth cleanup, and is
+cleared on completion. `started_at,completed_at` form the non-personal deletion
+receipt. The object plan's `run_id,path,deleted_at` tracks exact original,
+rebuilt and orphan-copy cleanup before graph cascades. Shared live references
+prevent removing another scope's bytes. Completed settlement deletes all path
+rows, so the receipt retains neither object prefixes nor a real account ID.
+
+The model checklist applies to both migrations and every listed column. All
+new tables live in `argus_private`, enable RLS and deny public, anon,
+authenticated and service-role access. The postgres deletion writer alone owns
+them. Alias lifetime follows the Business through CASCADE. Purge receipts have
+no space FK so graph deletion cannot discard a retry plan. Object plans have
+a run FK with CASCADE. Run and due-date indexes bound sweep discovery. No new
+client policy, Data API endpoint, hosted activation or longer retention grant
+is introduced. The original `spaces.closed_at` owns the thirty-day deadline.
+
+### Business close notification transport, held October 18, 2026
+
+Forward migration `20261021160000_business_close_mail.sql` adds
+`business_close_mail_outbox`. This is server-only personal mail transport, with
+RLS and no `anon` or `authenticated` rights. Only `service_role` receives CRUD.
+It is separate from retained Business history.
+
+Model checklist for the new table and all columns. `id` is the provider
+idempotency identity. `space_id` cascades on Business purge. `closed_at` identifies
+the closure generation and combines with `recipient_id` in the unique event key.
+`owner_id`, `recipient_id`, `recipient_email` and `context` contain personal
+notification data and are removed during departure or scoped custody detachment.
+The recipient Auth FK cascades as a final privacy safeguard. `created_at` orders
+pending work. `first_attempt_at` and `payload` are committed together before SMTP;
+retries retain both and the provider key. `sent_at`, `suppressed_at`,
+`uncertain_at` and `provider_receipt` record delivery, stale-close suppression,
+the 23-hour retry hold and the bounded receipt. All lifecycle control dates and
+owner authority still derive from `spaces` and the existing grants.
+
+The October 21 backend checkpoint adds `kind` to the same unapplied migration.
+It is one of `member_closed`, `owner_closed`, `purge_reminder` or
+`member_reopened`, and joins `space_id,closed_at,recipient_id` in the unique event
+key. For `member_reopened`, `closed_at` is the close instant the reopen undid.
+`context` adds `reopenPath`, a relative app path with no personal data beyond
+the space ID. Only `member_closed` has approved copy; the other kinds stay with
+null `payload` and `first_attempt_at` until theirs is approved. An owner kind is
+suppressed once its recipient is no longer the current owner. Departure,
+custody detachment and purge remove every kind, as before.
 
 ## Public RNC registry
 

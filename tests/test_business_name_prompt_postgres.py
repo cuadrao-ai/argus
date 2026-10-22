@@ -29,6 +29,10 @@ def naming():
     with ConnectionPool(DSN, min_size=1, max_size=8) as pool:
         yield PostgresSpaceStore(pool), owners, spaces
     with psycopg.connect(DSN) as connection:
+        # A Business still naming its creator refuses the bare Auth delete.
+        connection.execute(
+            "delete from public.spaces where created_by = any(%s::uuid[])", (owners,)
+        )
         connection.execute("delete from auth.users where id = any(%s::uuid[])", (owners,))
 
 

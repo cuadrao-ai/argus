@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
+
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
 function formatDay(value: string, locale: string): string {

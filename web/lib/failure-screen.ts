@@ -9,6 +9,7 @@ export const CUADRAO_ADMIN_EMAIL = "hola@cuadrao.ai";
 export type FailureClass =
   | "session_ended"
   | "closed"
+  | "business_closed"
   | "removed"
   | "rate_limited"
   | "offline"
@@ -34,6 +35,7 @@ export function classifyFailure(
 ): FailureClass {
   if (options?.online === false) return "offline";
   if (grantNotLive(error)) return "removed";
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "business_closed") return "business_closed";
   if (options?.fetch && error instanceof TypeError) return "offline";
   const status = statusOf(error);
   if (status === 401) return "session_ended";
@@ -78,6 +80,12 @@ export function loadRecovery(error: unknown, online = typeof navigator === "unde
 }
 
 const REFERENCE = /^[A-Za-z0-9_-]{4,64}$/;
+
+/** A server-supplied request reference only; absence stays absent. */
+export function serverRequestReference(error: unknown): string | null {
+  const value = typeof error === "object" && error !== null && "requestId" in error ? error.requestId : null;
+  return typeof value === "string" && REFERENCE.test(value) ? value : null;
+}
 
 export function referenceCode(error: unknown): string {
   for (const key of ["requestId", "digest"] as const) {

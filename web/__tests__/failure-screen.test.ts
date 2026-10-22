@@ -6,6 +6,7 @@ import {
   nextQuietRetryMs,
   QUIET_UNAVAILABLE_MS,
   referenceCode,
+  serverRequestReference,
   runQuietRetries,
   sessionEndedLoginPath,
   sessionEndedNotice,
@@ -111,4 +112,19 @@ describe("runQuietRetries", () => {
     expect(nextQuietRetryMs(0, QUIET_UNAVAILABLE_MS - 500)).toBe(500);
     expect(nextQuietRetryMs(0, QUIET_UNAVAILABLE_MS)).toBeNull();
   });
+});
+
+
+test("a lifecycle close is distinct from removed access and general Business restrictions", () => {
+  expect(classifyFailure({ status: 403, code: "business_closed" })).toBe("business_closed");
+  expect(classifyFailure({ status: 403, code: "business_grant_not_live" })).toBe("removed");
+  expect(classifyFailure({ status: 403 })).toBe("closed");
+});
+
+
+test("lifecycle errors show only an actual safe server request reference", () => {
+  expect(serverRequestReference({ requestId: "4ea79978-ce17-4853-b232-b2a72f4c9ce7" })).toBe("4ea79978-ce17-4853-b232-b2a72f4c9ce7");
+  expect(serverRequestReference({ digest: "abc123" })).toBeNull();
+  expect(serverRequestReference(new Error("offline"))).toBeNull();
+  expect(serverRequestReference({ requestId: "unsafe server text" })).toBeNull();
 });

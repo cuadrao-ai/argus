@@ -88,6 +88,10 @@ def rig() -> Iterator[dict]:
             objects.delete(owner_prefix(user))
         with pool.connection() as connection:
             connection.execute(
+                "delete from public.spaces where created_by = any(%s) or current_owner_id = any(%s)",
+                ([owner, other], [owner, other]),
+            )
+            connection.execute(
                 "delete from auth.users where id = any(%s)", ([owner, other],)
             )
         pool.close()

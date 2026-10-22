@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { BusinessEmailDelivery, BusinessEmailDetail, BusinessEmailIntake } from "./business-email";
 import { browserAuthGeneration, requireBrowserAuthGeneration } from "./browser-auth-generation";
 import { authenticatedRequestHeaders } from "./chat-auth-ownership";
@@ -451,10 +452,27 @@ export type GrantedSpace = {
   access_seen: boolean;
 };
 
+const directorySpace = z.object({
+  space_id: z.string(), name: z.string(), grant_id: z.string(),
+  role: z.enum(["owner", "accountant"]),
+  capabilities: z.array(z.enum(["read", "prepare", "approve"])),
+  access_seen: z.boolean(),
+}).passthrough();
+const closedDirectorySpace = directorySpace.pick({ space_id: true, name: true, grant_id: true, role: true }).extend({
+  closed_at: z.iso.datetime({ offset: true }), reopen_until: z.iso.datetime({ offset: true }),
+});
+const businessDirectory = z.object({ spaces: z.array(directorySpace), closed_spaces: z.array(closedDirectorySpace).default([]) });
+export type ClosedGrantedSpace = z.infer<typeof closedDirectorySpace>;
+export type BusinessDirectory = { spaces: GrantedSpace[]; closed_spaces: ClosedGrantedSpace[] };
+
+/** Live and held-closed grants, distinguished by the server. */
+export async function getBusinessDirectory(signal?: AbortSignal): Promise<BusinessDirectory> {
+  return businessDirectory.parse(await apiFetch<unknown>("/business/spaces", { signal }));
+}
+
 /** Every Business the person may enter, their own first. */
 export async function getBusinessSpaces(): Promise<GrantedSpace[]> {
-  const answer = await apiFetch<{ spaces: GrantedSpace[] }>("/business/spaces");
-  return answer.spaces;
+  return (await getBusinessDirectory()).spaces;
 }
 
 /** The person dismissed the one-time access line for one of their grants; remembered server side. */

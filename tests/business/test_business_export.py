@@ -337,7 +337,7 @@ def export_client(monkeypatch):
             return resolved
 
     class Spaces:
-        value = Space(str(space_id), "Synthetic Business")
+        value = Space(str(space_id), "Synthetic Business", str(actor_id))
 
         def get(self, space):
             return self.value if self.value and self.value.id == space else None

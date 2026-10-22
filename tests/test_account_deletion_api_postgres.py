@@ -42,6 +42,10 @@ from tests.test_account_deletion_postgres import (  # noqa: F401 - fixtures
     world,
 )
 from tests.test_account_deletion_third_parties_postgres import _StorageDown
+from tests.test_business_account_deletion_postgres import (
+    close_owned_business,
+    release_custodian,
+)
 
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
 
@@ -281,7 +285,9 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
 ) -> None:
     """#778 at the route: Storage down is a pending third party (202, locked);
     the retry answers 200 with the person's folder gone and B's file kept.
-    The profile photo is one more object the same step erases."""
+    The profile photo is one more object the same step erases. A's Business
+    stays, closed, with its record custodian, so its logo stays until the
+    day-30 purge erases it."""
     a, b = world["a"], world["b"]
     objects = source_objects()
     mine, theirs = f"{a}/{uuid.uuid4()}/{'a' * 64}", f"{b}/{uuid.uuid4()}/{'b' * 64}"
@@ -300,6 +306,7 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
     for who in (a, b):
         photos.replace(person(who), png(), "image/png")
         photos.replace(business(spaces[who]), png(), "image/png")
+    closed = close_owned_business(lane[0]._repository._pool, a)
     session = _session(a)
     route["sessions"].append(session)
     token = _token(a, session)
@@ -342,8 +349,15 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
             assert stored_paths(c, f"{b}/") == [theirs]
             assert photo_paths(c, f"people/{a}/") == []
             assert photo_paths(c, f"people/{b}/") == [person(b).path]
-            assert photo_paths(c, f"business/{spaces[a]}/") == []
+            assert photo_paths(c, f"business/{spaces[a]}/") == [business(spaces[a]).path]
             assert photo_paths(c, f"business/{spaces[b]}/") == [business(spaces[b]).path]
+            assert c.execute(
+                "select created_by::text <> %s, closed_at is not null from public.spaces where id = %s",
+                (a, spaces[a]),
+            ).fetchone() == (True, True)
+            assert c.execute(
+                "select closed_at from public.spaces where id=%s", (spaces[a],)
+            ).fetchone() == (closed.closed_at,)
             assert c.execute(
                 "select count(*) from public.profile_photos where user_id = %s", (a,)
             ).fetchone() == (0,)
@@ -353,6 +367,12 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
         for who in (a, b):
             photos.remove(person(who))
             photos.remove(business(spaces[who]))
+        release_custodian(spaces[a])
+        with psycopg.connect(DSN) as c:
+            c.execute(
+                "delete from public.spaces where id = any(%s::uuid[])",
+                (list(spaces.values()),),
+            )
 
 
 def _deployed(monkeypatch, *, posthog_token: str | None) -> None:
@@ -718,3 +738,60 @@ def test_sweep_with_adapter_records_origin_and_bounded_attempts(
             ).fetchone() == (1,)
     finally:
         world["placeholders"] += admin.created
+
+
+def test_open_business_owner_is_refused_before_run_or_external_effects(
+    lane,  # noqa: F811
+    world,  # noqa: F811
+    route,
+):
+    from argus.domain.business.spaces import PostgresSpaceStore
+    from argus.observability.analytics_deletion import RecordingAnalyticsDeletion
+
+    from tests.test_account_deletion_postgres import FakeRevoker
+
+    user = world["a"]
+    pool = lane[0]._repository._pool
+    space, _ = PostgresSpaceStore(pool).create(user, "Synthetic owner Business")
+    admin, revoker, analytics = (
+        SqlAuthAdmin(),
+        FakeRevoker(),
+        RecordingAnalyticsDeletion(),
+    )
+    session = _session(user)
+    route["sessions"].append(session)
+    try:
+        with patch.object(
+            account_route,
+            "account_deletion_service",
+            return_value=_service(lane, admin, revoker=revoker, analytics=analytics),
+        ):
+            response = route["client"].post(
+                URL, json={"confirm": True}, headers=_bearer(_token(user, session))
+            )
+        assert response.status_code == 403, response.text
+        assert response.json()["code"] == "account_deletion_not_allowed"
+        assert not admin.locked and not admin.deleted and not admin.created
+        assert not revoker.calls and not analytics.calls
+        with pool.connection() as db:
+            assert (
+                db.execute(
+                    "select 1 from argus_private.account_deletion_runs where user_id=%s",
+                    (user,),
+                ).fetchone()
+                is None
+            )
+            assert db.execute(
+                "select closed_at,current_owner_id::text from public.spaces where id=%s",
+                (space.id,),
+            ).fetchone() == (None, user)
+            assert (
+                db.execute(
+                    "select 1 from public.business_close_mail_outbox where space_id=%s",
+                    (space.id,),
+                ).fetchone()
+                is None
+            )
+    finally:
+        with pool.connection() as db:
+            db.execute("delete from public.spaces where id=%s", (space.id,))

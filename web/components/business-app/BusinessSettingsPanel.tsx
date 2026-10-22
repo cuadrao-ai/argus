@@ -3,6 +3,7 @@
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness, type BusinessTab } from "./BusinessWorkspace";
+import BusinessLifecycleControls from "./BusinessLifecycleControls";
 import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
 import ReceiptReadingControl from "./ReceiptReadingControl";
@@ -21,9 +22,9 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
  */
 export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: BusinessTab }) {
   const { t } = useTranslation();
-  const { chosen, openPanel } = useBusiness();
+  const { chosen, openPanel, source } = useBusiness();
   const { isBelowTablet } = useResponsiveLayout();
-  const owner = chosen?.role !== "accountant";
+  const owner = chosen?.role === "owner";
   const tabs = [
     { key: "datos" as const, label: t("business.settings.tab_datos", "Details") },
     ...(owner ? [{ key: "equipo" as const, label: isBelowTablet ? t("business.settings.tab_equipo_short", "Team") : t("business.settings.tab_equipo", "Team and access") }] : []),
@@ -44,6 +45,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
             <BusinessFiscalProfile />
           </div>
           <div className={SURFACE_CARD}><ReceiptReadingControl variant="row" /></div>
+          {owner && source.mode === "live" ? <BusinessLifecycleControls spaceId={chosen?.space_id} /> : null}
         </div>
       ) : null}
       {shown === "equipo" ? <BusinessAccessPanel embedded /> : null}

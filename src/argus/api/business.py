@@ -52,7 +52,7 @@ def require_business_surface(
         str | None,
         Header(
             alias=GRANT_HEADER,
-            description="The caller's own live grant on the Business to work in; absent for the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live.",
+            description="The caller's own live grant on the Business to work in; absent for the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live; a live grant on a closed Business answers 403 business_closed.",
         ),
     ] = None,
 ) -> None:
@@ -74,6 +74,18 @@ def grant_not_live_problem(request: Request) -> HTTPException:
     )
 
 
+def closed_problem(request: Request) -> HTTPException:
+    """The caller's grant is live, but its Business is closed: paused, not removed."""
+    return problem(
+        request,
+        status_code=403,
+        code="business_closed",
+        title="Forbidden",
+        detail="This Business is closed.",
+        headers=NO_STORE,
+    )
+
+
 def chosen_scope(request: Request, user_id: str) -> BusinessScope | None:
     """The Business named by the caller's chosen grant, or None without one.
     A grant that is not the caller's, revoked or expired is refused the same
@@ -87,6 +99,8 @@ def chosen_scope(request: Request, user_id: str) -> BusinessScope | None:
         raise unavailable_problem(request)
     found = access.granted(user_id, grant_id)
     if found is None:
+        if access.closed_grant(user_id, grant_id) is not None:
+            raise closed_problem(request)
         raise grant_not_live_problem(request)
     spaces = business_spaces()
     space = spaces.get(found.space_id) if spaces is not None else None

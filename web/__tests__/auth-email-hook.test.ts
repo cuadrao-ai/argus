@@ -240,3 +240,21 @@ test("signed security notices send only to their documented recipients and disab
     }
   }
 });
+
+
+test("signed security notices send only to their documented recipients and disabled five send nothing", async () => {
+  for (const action of ["password_changed_notification", "email_changed_notification", ...DISABLED_SECURITY_NOTICES]) {
+    const value = {user: {email: "new@example.test"}, email_data: {email_action_type: action, site_url: config.appOrigin, redirect_to: "", old_email: "old@example.test"}};
+    const sent: AuthDelivery[] = [];
+    const response = await handleAuthEmailHook(request(value), config, async mail => {sent.push(mail);});
+    assert.equal(response.status, 200);
+    if (DISABLED_SECURITY_NOTICES.some(disabled => disabled === action)) {
+      assert.equal(sent.length, 0);
+    } else {
+      assert.equal(sent.length, 1);
+      assert.equal(sent[0].recipient, action === "email_changed_notification" ? "old@example.test" : "new@example.test");
+      assert.ok(!sent[0].html.includes('class="button"'));
+      assert.ok(!sent[0].text.includes("/auth/"));
+    }
+  }
+});

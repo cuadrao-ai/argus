@@ -302,7 +302,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             context.scope,
             actor_id=user_id,
             grant_id=str(context.grant_id),
-            role="owner" if str(context.owner_id) == str(user_id) else "accountant",
+            role="owner" if context.is_current_owner else "accountant",
             **({"country": scope.country, "currency": scope.currency} if scope else {}),
         ),
         BusinessService(scoped_documents, imports, _captured),

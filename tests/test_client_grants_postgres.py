@@ -148,6 +148,14 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "argus_private.account_deletion_revocations",
         "argus_private.account_deletion_runs",
         "argus_private.account_placeholders",
+        "argus_private.business_custody_changes",
+        "argus_private.business_custody_deferred_keys",
+        "argus_private.business_custody_moves",
+        "argus_private.business_custody_objects",
+        "argus_private.business_custody_reservations",
+        "argus_private.business_departure_aliases",
+        "argus_private.business_purge_objects",
+        "argus_private.business_purge_runs",
         "argus_private.invite_code_digests",
         "argus_private.retention_policies",
         "argus_private.retention_sweeps",
@@ -162,6 +170,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_ai_consents",
         "public.business_bank_line_outcomes",
         "public.business_client_grants",
+        "public.business_close_mail_outbox",
         "public.business_document_settlement_revisions",
         "public.business_document_settlements",
         "public.business_draft_revisions",
@@ -172,6 +181,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_email_parts",
         "public.business_email_retired_aliases",
         "public.business_email_routes",
+        "public.business_lifecycle_commands",
+        "public.business_ownership_transfers",
         "public.business_email_senders",
         "public.business_logos",
         "public.business_questions",
@@ -183,6 +194,7 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_search_recents",
         "public.business_sender_leases",
         "public.business_sources",
+        "public.business_transfer_mail_outbox",
         "public.business_turns",
         "public.business_turns_arrival_sequence_seq",
         "public.business_whatsapp_ai_consents",
@@ -271,6 +283,7 @@ CLIENT_EXECUTABLE_FUNCTIONS: dict[str, frozenset[str]] = {
     "argus_private.business_bank_has_capability(uuid, text)": frozenset(
         {"authenticated"}
     ),
+    "argus_private.business_custody_client_allowed()": frozenset({"authenticated"}),
     "public.argus_search_symbol_casefold(text)": frozenset({"anon", "authenticated"}),
     "public.is_active_household_member(uuid, uuid)": frozenset({"authenticated"}),
     # The historical staging adoption retains this existing helper grant.
@@ -777,12 +790,59 @@ def test_a_signed_in_person_writes_and_reads_only_their_own_consent(
             _act_as(cursor, "anon")
             cursor.execute("select count(*) from public.business_consent_acceptances")
 
-        cursor.execute("delete from auth.users where id = %s", (ana,))
-        cursor.execute(
-            "select count(*) from public.business_consent_acceptances where user_id = %s",
-            (ana,),
+        # Ana's Business still names her, so only the account-deletion
+        # command may remove her; the bare Auth delete is refused.
+        with (
+            pytest.raises(
+                psycopg.errors.CheckViolation,
+                match="business_custody_identity_detachment_required",
+            ),
+            connection.transaction(),
+        ):
+            cursor.execute("delete from auth.users where id = %s", (ana,))
+
+
+@pytest.mark.owner_acts
+def test_a_deleted_owner_keeps_no_consent_acceptance() -> None:
+    from psycopg_pool import ConnectionPool
+
+    from tests.test_business_account_deletion_postgres import (
+        erase_open_owner,
+        release_custodian,
+    )
+
+    ana = str(uuid4())
+    with psycopg.connect(DSN) as connection:
+        connection.execute(
+            "insert into auth.users (id, email, is_anonymous) values (%s, %s, false)",
+            (ana, f"consent-ana-{ana}@example.test"),
         )
-        assert cursor.fetchone() == (0,), "a deleted account keeps no acceptance"
+        (space_id,) = connection.execute(
+            "insert into public.spaces (kind, name, created_by)"
+            " values ('business', 'ana', %s) returning id::text",
+            (ana,),
+        ).fetchone()
+        connection.execute(CONSENT_INSERT, (ana, space_id, CONSENT_VERSION))
+    try:
+        with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+            assert erase_open_owner(pool, ana).status == "done"
+        with psycopg.connect(DSN) as connection:
+            assert connection.execute(
+                "select count(*) from public.business_consent_acceptances where user_id = %s",
+                (ana,),
+            ).fetchone() == (0,), "a deleted account keeps no acceptance"
+            assert connection.execute(
+                "select count(*) from public.spaces where id = %s and closed_at is not null",
+                (space_id,),
+            ).fetchone() == (1,), "the Business stays with its custodian"
+    finally:
+        release_custodian(space_id)
+        with psycopg.connect(DSN) as connection:
+            connection.execute(
+                "delete from argus_private.account_deletion_runs where user_id = %s",
+                (ana,),
+            )
+            connection.execute("delete from auth.users where id = %s", (ana,))
 
 
 # Storage. Buckets no client may reach, and every storage.objects policy; an

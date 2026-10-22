@@ -1484,6 +1484,50 @@
       "otp_rejected": "Ese código no fue aceptado. Revisa el correo e inténtalo de nuevo."
     }
   },
+  "account_email": {
+    "business_lifecycle": {
+      "member_reopened": {
+        "cta": "Abrir Cuadrao",
+        "paragraphs": [
+          "Hola,",
+          "{ownerName} reabrió {businessName} en Cuadrao.",
+          "Al reabrir, se restablece el acceso de los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "{ownerName} reabrió el negocio.",
+        "subject": "{businessName} se reabrió en Cuadrao",
+        "title": "{businessName} está abierto de nuevo"
+      },
+      "owner_closed": {
+        "cta": "Ver negocio cerrado",
+        "paragraphs": [
+          "Hola,",
+          "Cerraste {businessName} en Cuadrao el {closedDate}. Los miembros ya no tienen acceso.",
+          "Puedes reabrirlo antes del {purgeDate} a las {purgeTime} (hora de RD). Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+          "Para descargar comprobantes, primero debes reabrir el negocio. Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "Puedes reabrirlo antes de que venza el plazo.",
+        "subject": "Cerraste {businessName} en Cuadrao",
+        "title": "Cerraste {businessName}"
+      },
+      "purge_reminder": {
+        "cta": "Ver negocio cerrado",
+        "paragraphs": [
+          "Hola,",
+          "{businessName} sigue cerrado en Cuadrao desde el {closedDate}.",
+          "Puedes reabrirlo antes del {purgeDate} a las {purgeTime} (hora de RD). Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+          "Para descargar comprobantes, primero debes reabrir el negocio. Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes."
+        ],
+        "preheader": "Reábrelo antes del plazo si necesitas conservar sus datos en Cuadrao.",
+        "subject": "El plazo para reabrir {businessName} está por vencer",
+        "title": "Aún puedes reabrir {businessName}"
+      }
+    },
+    "footer": {
+      "help": "¿Necesitas ayuda? Escríbenos a hola@cuadrao.ai",
+      "legal": "Cuadrao LLC",
+      "sign_off": "Saludos,\nCuadrao"
+    }
+  },
   "account_security": {
     "title": "Seguridad de la cuenta",
     "description": "Cambia tu contraseña o elige exactamente qué sesiones cerrar.",
@@ -2842,6 +2886,95 @@
       "transactions": "Transacciones",
       "business": "Negocio"
     },
+    "lifecycle": {
+      "close": {
+        "action": "Cerrar negocio",
+        "consequences": "Al cerrar, los miembros pierden acceso de inmediato. Tienes 30 días para reabrirlo. Después, borramos todo y no se puede recuperar.",
+        "download": "Descargar comprobantes",
+        "title": "Cerrar este negocio",
+        "warning": "La ley obliga a tu negocio a guardar sus comprobantes por 10 años. Descárgalos antes de cerrar, porque Cuadrao no los guardará por ti."
+      },
+      "close_alert_title": "¿Cerrar {{businessName}}?",
+      "close_preview": {
+        "member_count_one": "1 miembro pierde acceso al cerrar.",
+        "member_count_other": "{{count}} miembros pierden acceso al cerrar.",
+        "member_count_zero": "Ningún miembro pierde acceso al cerrar.",
+        "reopen_until": "Si lo cierras ahora, podrás reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD)."
+      },
+      "closed_group": "Cerrados",
+      "closed_owner": "Para descargar comprobantes, primero debes reabrir el negocio.",
+      "closed_status": "Cerrado",
+      "deadline": "Puedes reabrirlo antes del {{purgeDate}} a las {{purgeTime}} (hora de RD).",
+      "deletion": {
+        "blocked": "Primero transfiere o cierra tus negocios.",
+        "checking": "Revisando tus negocios…",
+        "closed_warning": "{{businessName}} está cerrado. Si borras tu cuenta, nadie podrá reabrirlo y sus datos y comprobantes se borrarán el {{purgeDate}} a las {{purgeTime}} (hora de RD).",
+        "failed": "No pudimos revisar tus negocios. Intenta otra vez.",
+        "warning": "Eres el único dueño de {{businessName}}. Transfiérelo o ciérralo antes de borrar tu cuenta."
+      },
+      "errors": {
+        "accept_uncertain": "No pudimos confirmar la aceptación. Actualiza para comprobar el resultado.",
+        "already_open": "Ya tienes otro negocio abierto. Solo puedes tener uno abierto a la vez.",
+        "business_unavailable": "Este negocio no está disponible con tu acceso actual.",
+        "close_uncertain": "No pudimos confirmar el cierre. Reintenta para comprobar el resultado.",
+        "decline_uncertain": "No pudimos confirmar el rechazo. Actualiza para comprobar el resultado.",
+        "discovery": "No pudimos cargar tus negocios. Intenta otra vez.",
+        "name_mismatch": "El nombre no coincide. Escríbelo igual que arriba.",
+        "refresh_required": "No pudimos completar la solicitud con estos datos. Actualiza e intenta otra vez.",
+        "reopen_expired": "Venció el plazo. Este negocio ya no se puede reabrir.",
+        "reopen_uncertain": "No pudimos confirmar si se reabrió. Reintenta para comprobar el resultado.",
+        "request_uncertain": "No pudimos confirmar la solicitud. Tu selección sigue aquí. Reintenta para comprobar el resultado.",
+        "target_invalid": "Esta persona ya no puede recibir el negocio. Elige a otra.",
+        "transfer_expired": "Esta solicitud venció.",
+        "transfer_load": "No pudimos cargar la transferencia. Intenta otra vez.",
+        "transfer_not_pending": "Esta solicitud ya no está pendiente. Actualiza para ver su estado.",
+        "transfer_pending": "Ya hay una transferencia pendiente. Retírala para pedir otra.",
+        "transfer_unavailable": "Esta transferencia no está disponible con tu acceso actual.",
+        "withdraw_uncertain": "No pudimos confirmar el retiro. Actualiza para comprobar el resultado."
+      },
+      "export": {
+        "complete": "Se iniciaron todas las descargas. Revisa las descargas de tu navegador.",
+        "empty": "No hay registros ni comprobantes para descargar.",
+        "failed": "No pudimos iniciar todas las descargas. Reintenta para continuar.",
+        "preparing": "Preparando las descargas…"
+      },
+      "member_closed": "{{businessName}} está cerrado. Para pedir copias de los comprobantes, contacta al dueño del negocio.",
+      "name_confirmation": "Escribe el nombre del negocio para confirmar.",
+      "owner_title": "Dueño del negocio",
+      "purge_consequence": "Si sigue cerrado al vencer ese plazo, sus datos y comprobantes se borrarán y no se podrán recuperar.",
+      "refresh": "Actualizar",
+      "reopen": {
+        "action": "Reabrir negocio"
+      },
+      "reopen_access": "Al reabrirlo, recuperan el acceso los miembros cuyos permisos siguen vigentes.",
+      "transfer": {
+        "accept": "Aceptar transferencia",
+        "accept_body": "Serás el dueño. Solo tú podrás aprobar, cerrar el negocio y dar o quitar accesos. {{ownerName}} podrá seguir editando. La lectura automática de recibos se apaga hasta que tú la actives. No se puede deshacer.",
+        "accept_title": "¿Aceptar {{businessName}}?",
+        "accepted": "Transferencia completada",
+        "cancelled": "Transferencia retirada",
+        "choose_reason": "Elige a una persona y escribe el nombre del negocio.",
+        "decline": "Rechazar",
+        "declined": "{{targetName}} rechazó la transferencia. {{businessName}} sigue siendo tuyo.",
+        "declined_recipient": "Transferencia rechazada",
+        "empty": "Para transferir el negocio, primero invita a un miembro.",
+        "expired": "La solicitud a {{targetName}} venció.",
+        "help": "Elige un miembro del negocio. Será dueño cuando acepte.",
+        "ineligible": {
+          "account_unavailable": "Esta cuenta no puede recibir el negocio.",
+          "email_unconfirmed": "Falta confirmar su correo.",
+          "not_editor": "No tiene acceso para editar.",
+          "owns_open_business": "Ya es dueño de otro negocio abierto."
+        },
+        "member": "Nuevo dueño",
+        "none_eligible": "Ningún miembro puede recibir el negocio ahora. Revisa el motivo junto a cada persona.",
+        "pending": "Esperando que {{targetName}} acepte.",
+        "recipient": "{{ownerName}} quiere transferirte {{businessName}}. Si aceptas, serás su dueño y {{ownerName}} podrá seguir editando.",
+        "request": "Solicitar transferencia",
+        "title": "Transferir este negocio",
+        "withdraw": "Retirar solicitud"
+      }
+    },
     "month_close": {
       "checklist_title": "Para cerrar {{month}}",
       "checklist_left_one": "falta {{count}}",
@@ -3140,8 +3273,10 @@
       "choose": "Elige un negocio",
       "client": "Cliente",
       "client_cue": "Cliente: {{name}}",
+      "role_editor": "Editar",
       "role_owner": "Dueño",
       "role_accountant": "Contador",
+      "role_viewer": "Ver",
       "access_line": "Ahora tienes acceso a {{name}} · Ver y preparar",
       "got_it": "Entendido",
       "settings": "Configurar negocio"

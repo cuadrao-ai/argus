@@ -14,7 +14,7 @@ from datetime import timedelta
 
 import psycopg
 import pytest
-from argus.domain.account_deletion.auth_admin import PLACEHOLDER_DOMAIN
+from argus.domain.account_deletion.auth_admin import PLACEHOLDER_BAN, PLACEHOLDER_DOMAIN
 from argus.domain.account_deletion.service import (
     AccountDeletionIncomplete,
     AccountDeletionRejected,
@@ -62,9 +62,9 @@ def gotrue_admin_create(user_id: str, email: str) -> int:
     to {"provider": "email", "providers": ["email"]} and tx.Create(user)
     INSERTs the row with it, so no "placeholder" key yet; then, in the same
     transaction, UpdateAppMetaData merges the caller's app_metadata, Confirm
-    sets email_confirmed_at and Ban sets banned_until (the test auth schema
-    has no banned_until; BANNED records it). Returns how often the guest
-    handoff trigger function ran in that transaction."""
+    sets email_confirmed_at and Ban sets banned_until (BANNED records it
+    too). Returns how often the guest handoff trigger function ran in that
+    transaction."""
 
     with psycopg.connect(DSN) as c, c.transaction():
         c.execute("set local track_functions = 'all'")
@@ -80,6 +80,10 @@ def gotrue_admin_create(user_id: str, email: str) -> int:
         )
         c.execute(
             "update auth.users set email_confirmed_at = now() where id=%s", (user_id,)
+        )
+        c.execute(
+            "update auth.users set banned_until = now() + %s::interval where id=%s",
+            (PLACEHOLDER_BAN.replace("h", " hours"), user_id),
         )
         calls = c.execute(
             "select pg_stat_get_xact_function_calls("
