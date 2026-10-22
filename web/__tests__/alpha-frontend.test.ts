@@ -2746,13 +2746,12 @@ describe("Argus Alpha frontend contract", () => {
       "utf-8",
     );
 
-    expect(authForm).toContain("Eye");
+    const sharedField = readFileSync(join(root, "components/ui/FormField.tsx"), "utf-8");
+    expect(authForm).toContain("<PasswordField");
     expect(authForm).toContain("EyeClosed");
-    expect(authForm).not.toContain("EyeOff");
-    expect(authForm).toContain("showPassword");
-    expect(authForm).toContain('type={showPassword ? "text" : "password"}');
-    expect(authForm).toContain("auth.password.show");
-    expect(authForm).toContain("auth.password.hide");
+    expect(sharedField).toContain('type={shown ? "text" : "password"}');
+    expect(sharedField).toContain("auth.password.show");
+    expect(sharedField).toContain("auth.password.hide");
     expect(page).toContain("signupWithEmail");
     expect(page).toContain("loginWithEmail");
     expect(page).toContain(

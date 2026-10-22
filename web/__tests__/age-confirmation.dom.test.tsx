@@ -57,6 +57,16 @@ test("signup shows no age checkbox and submits without an age field", async () =
   expect(submit).toBeInstanceOf(HTMLButtonElement);
   expect((submit as HTMLButtonElement).disabled).toBe(false);
   const { act } = await import("react");
+  for (const [selector, value] of [
+    ['input[type="email"]', "synthetic@example.test"],
+    ['input[autocomplete="new-password"]', "synthetic long password 47"],
+  ]) {
+    const input = view.host.querySelector<HTMLInputElement>(selector)!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
   await act(async () => {
     view.host.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   });
