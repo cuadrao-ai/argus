@@ -443,7 +443,9 @@ def test_address_and_sender_changes_leave_an_audit_row(rig):
     )
     assert store.remove_sender(space_id, sender.id, actor_id=actor) is not None
     events = store.address_events(space_id)
-    assert [(event.event_type, event.old_address, event.new_address) for event in events] == [
+    assert [
+        (event.event_type, event.old_address, event.new_address) for event in events
+    ] == [
         ("address_changed", previous, recipient),
         ("address_stopped", recipient, None),
         ("sender_authorized", None, "caja@tienda.test"),
@@ -787,6 +789,13 @@ def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
             receipts["space"], "address", receipts["provider"].sender, "authorized"
         )
     attachment = deliver(receipts, authentication)
+    if status == 403:
+        from argus.domain.business.authority import ActionError
+
+        with pytest.raises(ActionError, match="email_sender_unauthorized"):
+            prepare(receipts, attachment)
+        assert receipts["documents"].extractor.calls == 0
+        return
     draft_id, origin = prepare(receipts, attachment)
     assert origin == "email"
     response = approve(receipts, draft_id)
@@ -795,20 +804,36 @@ def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
         assert response.json()["detail"]["code"] == "email_sender_unauthorized"
 
 
+def direct_upload(world):
+    from types import SimpleNamespace
+
+    from argus.api.business_drafts import upload_recorder
+    from starlette.requests import Request
+
+    context = SimpleNamespace(
+        service=SimpleNamespace(imports=world["documents"].hub.sink)
+    )
+    request = Request(
+        {"type": "http", "headers": [(b"idempotency-key", uuid4().hex.encode())]}
+    )
+    return asyncio.run(
+        world["documents"].upload(
+            user_id=world["owner"],
+            content=receipt_png(),
+            filename="recibo.png",
+            media_type="image/png",
+            scope=BusinessSpace(world["space"]),
+            on_capture=upload_recorder(context, request),
+        )
+    )
+
+
 @pytest.mark.owner_acts
 def test_an_upload_still_approves_after_a_forged_email_with_the_same_bytes(receipts):
     receipts["store"].upsert_sender(
         receipts["space"], "address", receipts["provider"].sender, "authorized"
     )
-    uploaded = asyncio.run(
-        receipts["documents"].upload(
-            user_id=receipts["owner"],
-            content=receipt_png(),
-            filename="recibo.png",
-            media_type="image/png",
-            scope=BusinessSpace(receipts["space"]),
-        )
-    ).connection_id
+    uploaded = direct_upload(receipts).connection_id
     draft_id, origin = prepare(receipts, uploaded)
     assert origin == "direct"
     assert deliver(receipts, FORGED) == uploaded

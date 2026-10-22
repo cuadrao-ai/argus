@@ -429,6 +429,7 @@ class EmailCapture:
                     filename=part.filename,
                     media_type=part.media_type,
                     consent=False,
+                    on_capture=self.store.part_capture_hook(delivery, result),
                 )
                 result = replace(
                     result, state="captured", document_id=outcome.connection_id

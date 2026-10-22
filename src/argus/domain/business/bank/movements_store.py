@@ -44,7 +44,11 @@ from argus.domain.business.bank.movements import (
     totals,
     unmoved_documents,
 )
-from argus.domain.business.bank.store_postgres import LINE_COLUMNS, line_from_row
+from argus.domain.business.bank.store_postgres import (
+    LINE_COLUMNS,
+    ensure_account_scope,
+    line_from_row,
+)
 from argus.domain.business.month_close_store import collect_documents
 
 _ACCOUNTS = """
@@ -55,6 +59,7 @@ select ba.id::text as bank_account_id, ba.account_id::text as account_id,
 from public.business_bank_accounts ba
 join public.financial_accounts fa on fa.id = ba.account_id
 where ba.space_id = %s
+    and argus_private.business_bank_account_in_space(ba.space_id, ba.account_id)
 order by ba.created_at, ba.id
 """
 
@@ -172,13 +177,18 @@ def por_igualar_count(pool, context: ActionContext) -> int:  # noqa: ANN001
     """Every line and document of the Business still to igualar, from any
     period: the number Inicio and the sidebar share. Reads only."""
 
-    with bank_session(pool, context, "read") as connection:
-        documents, _activities = load_documents(pool, connection, context)
-        space_id = context.actor.space_id
-        lines = _lines(connection, space_id, date.min, date.max)
-        accounts = _accounts(connection, space_id)
-        outcomes = _outcomes(connection, space_id)
-        movements = _movements(connection, space_id, lines, accounts, documents, outcomes)
+    try:
+        with bank_session(pool, context, "read") as connection:
+            documents, _activities = load_documents(pool, connection, context)
+            space_id = context.actor.space_id
+            lines = _lines(connection, space_id, date.min, date.max)
+            accounts = _accounts(connection, space_id)
+            outcomes = _outcomes(connection, space_id)
+            movements = _movements(connection, space_id, lines, accounts, documents, outcomes)
+    except BankMatchingError as error:
+        if error.code == "account_not_in_space":
+            raise ActionError("not_found", "business_record_not_found") from None
+        raise
     unmoved = unmoved_documents(
         documents.values(),
         accounts.values(),
@@ -267,6 +277,7 @@ def bank_session(pool, context: ActionContext, capability: str) -> Iterator[Any]
         auth.require(capability)
         if auth.context.owner_id != context.owner_id:
             raise ActionError("not_found", "business_record_not_found")
+        ensure_account_scope(connection, context.actor.space_id)
         yield connection
 
 
@@ -277,6 +288,7 @@ def _rows(connection, sql: str, params: tuple) -> list[dict[str, Any]]:  # noqa:
 
 
 def _accounts(connection, space_id) -> dict[str, Account]:  # noqa: ANN001
+    ensure_account_scope(connection, space_id)
     accounts = (
         Account(
             bank_account_id=row["bank_account_id"],

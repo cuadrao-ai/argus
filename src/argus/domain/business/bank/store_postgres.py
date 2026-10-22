@@ -14,6 +14,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
+from argus.domain.business.authority import Authorization, authorize
 from argus.domain.business.bank.model import (
     BankAccountBinding,
     BankImport,
@@ -25,6 +26,7 @@ from argus.domain.business.bank.model import (
     TargetKind,
 )
 from argus.domain.business.bank.movements import LiveOutcome
+from argus.domain.business.contracts.authority import TrustedActor
 
 LINE_COLUMNS = """
     id, space_id, bank_account_id, first_import_id, occurred_on, description,
@@ -43,6 +45,9 @@ class PostgresBankStore:
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
+        if getattr(self._local, "connection", None) is not None:
+            yield
+            return
         with self._pool.connection() as connection:
             with connection.transaction():
                 self._local.connection = connection
@@ -51,7 +56,22 @@ class PostgresBankStore:
                 finally:
                     self._local.connection = None
 
+    @contextmanager
+    def authorized_transaction(
+        self, actor: TrustedActor, grant_id: UUID | None, capability: str
+    ) -> Iterator[Authorization]:
+        with self.transaction():
+            authorization = authorize(self._local.connection, actor, grant_id)
+            authorization.require(capability)
+            ensure_account_scope(self._local.connection, actor.space_id)
+            yield authorization
+
+    def _require_account_scope(self, space_id: UUID) -> None:
+        with self.transaction():
+            ensure_account_scope(self._local.connection, space_id)
+
     def get_account(self, space_id: UUID) -> BankAccountBinding | None:
+        self._require_account_scope(space_id)
         row = self._one(
             """
             select id, space_id, account_id, currency, created_at
@@ -81,6 +101,7 @@ class PostgresBankStore:
     def import_for_key(
         self, space_id: UUID, actor_id: UUID, key: str
     ) -> BankImport | None:
+        self._require_account_scope(space_id)
         row = self._one(
             f"""
             select {_IMPORT}
@@ -197,6 +218,7 @@ class PostgresBankStore:
     def list_lines(
         self, space_id: UUID, *, period_start: date, period_end: date
     ) -> tuple[BankLine, ...]:
+        self._require_account_scope(space_id)
         rows = self._rows(
             f"""
             select {LINE_COLUMNS}
@@ -296,6 +318,7 @@ class PostgresBankStore:
         line_id: UUID | None = None,
         status: SuggestionStatus | None = None,
     ) -> tuple[Suggestion, ...]:
+        self._require_account_scope(space_id)
         rows = self._rows(
             f"""
             select {_SUGGESTION}
@@ -310,6 +333,7 @@ class PostgresBankStore:
         return tuple(_suggestion(row) for row in rows)
 
     def live_outcomes(self, space_id: UUID) -> dict[str, LiveOutcome]:
+        self._require_account_scope(space_id)
         rows = self._rows(
             """
             select line_id::text as line_id, kind, target_id::text as target_id, reason
@@ -410,3 +434,12 @@ def _suggestion(row: dict[str, Any]) -> Suggestion:
         decided_by=row["decided_by"],
         decision_key=row["decision_key"],
     )
+
+
+def ensure_account_scope(connection, space_id: UUID) -> None:  # noqa: ANN001
+    if connection.execute(
+        "select 1 from public.business_bank_accounts b where b.space_id=%s"
+        " and not argus_private.business_bank_account_in_space(b.space_id, b.account_id)",
+        (space_id,),
+    ).fetchone():
+        raise BankMatchingError("account_not_in_space")

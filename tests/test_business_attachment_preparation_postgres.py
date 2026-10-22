@@ -407,12 +407,13 @@ def test_email_origin_with_no_delivery_is_refused(prepared):
             ).fetchone()[0]
             == 0
         )
-    bind(prepared)
-    draft_id = finish(prepared).draft_id
-    assert stored_origin(service, draft_id) == "email"
-    blocked = post_approve(service, context, draft_id)
-    assert blocked.status_code == 403, blocked.text
-    assert blocked.json()["detail"]["code"] == "email_sender_unauthorized"
+    with pytest.raises(ActionError, match="email_sender_unauthorized"):
+        bind(prepared)
+    with service.authority.pool.connection() as db:
+        assert db.execute(
+            "select count(*) from public.business_draft_sources where space_id=%s",
+            (space,),
+        ).fetchone() == (0,)
 
 
 @pytest.mark.owner_acts
@@ -463,3 +464,158 @@ def test_accepted_target_refuses_completion(prepared):
     with pytest.raises(ActionError) as denied:
         finish(prepared)
     assert denied.value.code in {"stale_version", "recorded_correction_unsupported"}
+
+
+def link_prepared_email(prepared):
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+    from argus.domain.ingestion.email_intake.store import PostgresEmailStore
+
+    service, context, grant, cid, _, _ = prepared
+    store = PostgresEmailStore(service.authority.pool)
+    route = store.create_route(
+        recipient=f"recibos-{uuid4().hex[:8]}@recibos.example.test",
+        space_id=str(context.actor.space_id),
+        principal_id=context.owner_id,
+        granted_by=str(context.actor.actor_id),
+        grant_id=str(grant),
+    )
+    sender = "proveedor@example.test"
+    store.upsert_sender(route.space_id, "address", sender, "authorized")
+    delivery = store.enqueue(
+        "resend",
+        str(uuid4()),
+        (route.recipient,),
+        route_id=route.id,
+        space_id=route.space_id,
+        principal_id=route.principal_id,
+    )
+    claimed = store.claim(delivery_id=delivery.id)
+    store.update(claimed, sender=sender)
+    store.stamp_route(claimed, auth_result="aligned")
+    store.put_part(
+        claimed,
+        EmailDeliveryPart("receipt", "recibo.png", "image/png", "captured", cid, None),
+    )
+    return store, route
+
+
+@pytest.mark.parametrize("stage", ["before_provider", "before_commit"])
+def test_sender_removed_after_binding_stops_preparation(prepared, stage):
+    service, context, _, cid, holder, _ = prepared
+    store, route = link_prepared_email(prepared)
+    bind(prepared)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "delete from public.business_email_senders where space_id=%s",
+            (route.space_id,),
+        )
+    with pytest.raises(ActionError, match="email_sender_unauthorized"):
+        if stage == "before_provider":
+            service.check_attachment_preparation(
+                user_id=context.owner_id,
+                connection_id=cid,
+                scope=context.scope,
+                holder=holder,
+                attempt_id=None,
+            )
+        else:
+            finish(prepared)
+    with service.authority.pool.connection() as db:
+        assert db.execute(
+            "select count(*) from public.business_draft_revisions where space_id=%s",
+            (route.space_id,),
+        ).fetchone() == (0,)
+        assert db.execute(
+            "select count(*) from public.business_action_receipts where space_id=%s and command->>'action'='prepare_attachment'",
+            (route.space_id,),
+        ).fetchone() == (0,)
+
+
+@pytest.mark.owner_acts
+def test_orphan_email_source_without_connection_still_blocks_approval(prepared):
+    service, context, _, _, _, _ = prepared
+    bind(prepared)
+    draft_id = finish(prepared).draft_id
+    with service.authority.pool.connection() as db:
+        source_id = db.execute(
+            "insert into public.business_sources(space_id,kind,channel,source_key,text_content,received_at,origin)"
+            " values(%s,'message','web',%s,'Synthetic legacy email',now(),'email') returning id",
+            (context.actor.space_id, f"attachment:{uuid4()}"),
+        ).fetchone()[0]
+        db.execute(
+            "insert into public.business_draft_sources(space_id,draft_id,source_id) values(%s,%s,%s)",
+            (context.actor.space_id, draft_id, source_id),
+        )
+    denied = post_approve(service, context, draft_id, version=1)
+    assert (denied.status_code, denied.json()["detail"]["code"]) == (
+        403,
+        "email_sender_unauthorized",
+    )
+
+
+@pytest.mark.owner_acts
+@pytest.mark.parametrize("wrong", ["space", "connection"])
+def test_unrelated_upload_ledger_cannot_authorize_email(prepared, users, wrong):
+    from argus.domain.business.authority import authorize
+    from argus.domain.business.contracts.authority import TrustedActor
+    from argus.domain.business.transactions import record_legacy_action
+
+    from tests.test_business_spaces_migration_postgres import space
+
+    service, context, grant, cid, _, _ = prepared
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_sources(space_id,kind,channel,source_key,connection_id,received_at,origin) values(%s,'attachment','web',%s,%s,now(),'email')",
+            (context.actor.space_id, f"attachment:{cid}", cid),
+        )
+        if wrong == "space":
+            other_space = space(db, users["other"])
+            other_grant = db.execute(
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare','approve']) returning id",
+                (other_space, users["other"], users["other"]),
+            ).fetchone()[0]
+            live = authorize(
+                db,
+                TrustedActor(
+                    actor_id=users["other"], actor_kind="member", space_id=other_space
+                ),
+                other_grant,
+            )
+            subjects = [cid]
+        else:
+            live = authorize(db, context.actor, grant)
+            subjects = [connection(db, context.owner_id, context.actor.space_id)]
+        record_legacy_action(db, live, "receipt_upload", subjects, str(uuid4()))
+    with pytest.raises(ActionError, match="email_sender_unauthorized"):
+        bind(prepared)
+    with service.authority.pool.connection() as db:
+        foreign = connection(db, users["other"])
+    with pytest.raises(ActionError, match="business_record_not_found"):
+        service.capture_attachment_preparation(context, UUID(foreign), target=None)
+
+
+@pytest.mark.owner_acts
+def test_legacy_default_direct_origin_does_not_authorize_linked_email(prepared):
+    service, context, _, cid, holder, _ = prepared
+    bind(prepared)
+    draft_id = finish(prepared).draft_id
+    store, route = link_prepared_email(prepared)
+    assert stored_origin(service, draft_id) == "direct"
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "delete from public.business_email_senders where space_id=%s",
+            (route.space_id,),
+        )
+    with pytest.raises(ActionError, match="email_sender_unauthorized"):
+        service.check_attachment_preparation(
+            user_id=context.owner_id,
+            connection_id=cid,
+            scope=context.scope,
+            holder=holder,
+            attempt_id=None,
+        )
+    denied = post_approve(service, context, draft_id, version=1)
+    assert (denied.status_code, denied.json()["detail"]["code"]) == (
+        403,
+        "email_sender_unauthorized",
+    )
