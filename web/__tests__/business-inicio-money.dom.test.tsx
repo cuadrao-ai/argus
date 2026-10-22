@@ -560,12 +560,12 @@ describe("Inicio in two columns", () => {
   });
 
   test("while steps remain, Cerrar hides and one quiet line says how many and which month", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null })]));
+    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null })]), { count: 0, detail: null, open: () => {} });
     try {
       assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
       assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines los 2 pasos, podrás cerrar octubre.");
     } finally { await view.close(); }
-    const one = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" })]));
+    const one = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" })]), { count: 0, detail: null, open: () => {} });
     try {
       assert.equal(one.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines el paso que falta, podrás cerrar octubre.");
     } finally { await one.close(); }

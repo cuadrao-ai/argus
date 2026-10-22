@@ -5,8 +5,6 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { inboxCount, problemCount, readingCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
 import BusinessAddMenu from "./BusinessAddMenu";
-import { EmptyState } from "./foundation/EmptyState";
-import { cardClass } from "./business-ui";
 import BusinessMonthClosePanel, { useMonthCloseSource } from "./BusinessMonthClosePanel";
 
 /**
@@ -41,7 +39,7 @@ export default function BusinessOverviewPanel() {
             {isBelowTablet ? <div data-testid="inicio-actions"><BusinessAddMenu placement="page" /></div> : null}
           </>
         )}
-        review={porRevisar === null ? null : {
+        review={records.error ? (records.refused ? { state: "refused" } : { state: "failed", retry: reload }) : porRevisar === null ? { state: records.inbox === null ? "loading" : "unknown" } : {
           count: porRevisar,
           detail: [
             reading > 0 ? t("business.overview.reading", { count: reading }) : null,
@@ -50,17 +48,6 @@ export default function BusinessOverviewPanel() {
           open: () => openPanel({ kind: "inbox" }),
         }}
       />
-
-      {records.error ? (
-        <div className={`${cardClass} mt-6`}>
-          {/* A refusal for good is not the connection's fault, and asking again gets the same answer. */}
-          {records.refused ? (
-            <EmptyState kind="error" compact testId="inicio-error" title={t("auth.business_unavailable.title", "Cuadrao Business isn't available for your account yet.")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
-          ) : (
-            <EmptyState kind="error" compact testId="inicio-error" title={t("business.empty.overview_error", "We couldn't load your business")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
-          )}
-        </div>
-      ) : null}
     </section>
   );
 }

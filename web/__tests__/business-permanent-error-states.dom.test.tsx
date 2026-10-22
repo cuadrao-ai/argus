@@ -154,7 +154,7 @@ describe("Inicio's month when a read fails", () => {
 
 describe("Inicio when the Business itself does not load", () => {
   async function mountInicio(overrides: Partial<BusinessDataSource>, ready = (host: HTMLElement) => host.querySelector('[data-testid="inicio-error"]') !== null) {
-    const { act } = await import("react");
+    const { act, useEffect } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
     const { I18nextProvider } = await import("react-i18next");
@@ -172,7 +172,11 @@ describe("Inicio when the Business itself does not load", () => {
     document.body.appendChild(host);
     const root = createRoot(host);
     let context: ReturnType<typeof useBusiness> | null = null;
-    function Probe() { context = useBusiness(); return <BusinessPanel />; }
+    function Probe() {
+      const value = useBusiness();
+      useEffect(() => { context = value; }, [value]);
+      return <BusinessPanel />;
+    }
     const api = () => { if (!context) throw new Error("Business context did not mount"); return context; };
     await act(async () => {
       root.render(

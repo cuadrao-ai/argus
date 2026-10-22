@@ -322,6 +322,11 @@ function itbisCard(value: string | null | undefined): { state: "pending" | "fina
   return { state: "final", value: balance.amount, credit: balance.kind === "credit" };
 }
 
+export type MonthCloseReview =
+  | { count: number; detail: string | null; open: () => void }
+  | { state: "loading" | "unknown" | "refused" }
+  | { state: "failed"; retry: () => void };
+
 export function BusinessMonthCloseView({
   client,
   scopeKey = "default",
@@ -343,8 +348,8 @@ export function BusinessMonthCloseView({
   now?: Date;
   /** Told each time the owner moves to another month. */
   onMonthChange?: (month: string) => void;
-  /** Receipts waiting in the Bandeja, the checklist's first line; null while unknown. */
-  review?: { count: number; detail: string | null; open: () => void } | null;
+  /** The server receipt count, or why it is unavailable; null keeps older callers unknown. */
+  review?: MonthCloseReview | null;
   /** Opens Agregar; an empty month offers it as its next step. */
   onAdd?: () => void;
   /** Places the month switcher, so Inicio can set it on its greeting row. Alone by default. */
@@ -567,7 +572,8 @@ export function BusinessMonthCloseView({
     });
   }
 
-  const receiptsReviewed = review?.count === 0;
+  const knownReview = review && "count" in review ? review : null;
+  const receiptsReviewed = knownReview?.count === 0;
 
   async function confirmClose() {
     if (!canMutate || !snapshot?.month || busyClose) return;
@@ -613,7 +619,7 @@ export function BusinessMonthCloseView({
   const shownMonth = month ?? currentMonth;
   const monthName = snapshot?.month ? new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(Number(snapshot.month.slice(0, 4)), Number(snapshot.month.slice(5, 7)) - 1, 1))) : "";
   const tasks: { id: string; icon: typeof Inbox; text: string; detail?: string | null; action?: { label: string; run: () => void } }[] = [
-    ...(review && review.count > 0 ? [{ id: "review", icon: Inbox, text: t("business.month_close.checklist_review", { count: review.count, defaultValue: "Review {{count}} receipts" }), detail: review.detail, action: { label: t("business.month_close.action_review", "Review"), run: review.open } }] : []),
+    ...(knownReview && knownReview.count > 0 ? [{ id: "review", icon: Inbox, text: t("business.month_close.checklist_review", { count: knownReview.count, defaultValue: "Review {{count}} receipts" }), detail: knownReview.detail, action: { label: t("business.month_close.action_review", "Review"), run: knownReview.open } }] : []),
     ...(fiscalDocuments.length > 0 ? [{ id: "fiscal", icon: FileWarning, text: t("business.month_close.checklist_fiscal", { count: fiscalDocuments.length, defaultValue: "Add the RNC or NCF to {{count}} documents" }), detail: gate.ok ? null : t("business.month_close.checklist_required", "Needed to close the month") }] : []),
     ...(unsettled.length > 0 ? [{
       id: "settle",
@@ -623,6 +629,20 @@ export function BusinessMonthCloseView({
       action: { label: t("business.month_close.action_see", "See"), run: () => document.getElementById("month-close-money")?.scrollIntoView({ block: "start", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }) },
     }] : []),
   ];
+
+  const reviewProblem = review && "state" in review ? review : { state: "unknown" as const };
+  const receiptStatus = knownReview ? null : (
+    <div data-testid="month-close-receipts-status">
+      <div data-testid={reviewProblem.state === "failed" || reviewProblem.state === "refused" ? "inicio-error" : undefined} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#56635e] dark:text-white/70">
+        <div className="min-w-0 flex-1">
+          <p>{reviewProblem.state === "refused" ? t("auth.business_unavailable.title") : t(`business.month_close.receipts_${reviewProblem.state}`)}</p>
+          {reviewProblem.state === "refused" ? <p>{t("auth.business_unavailable.body")}</p> : null}
+        </div>
+        {reviewProblem.state === "failed" ? <button type="button" className={`${quietButtonClass} shrink-0 px-3`} onClick={reviewProblem.retry}>{t("common.retry")}</button> : null}
+      </div>
+    </div>
+  );
+  const checklistShown = phase !== "error" && snapshot !== null && !noDocuments && !locked;
 
   function renderRow(document: MonthCloseDocument, layout: "pending" | "overdue" | "closed" = "pending") {
     const overdue = overdueOn(document, monthToday);
@@ -920,6 +940,8 @@ export function BusinessMonthCloseView({
         )}
       </div>
 
+      {!checklistShown && receiptStatus ? <div className={`${cardClass} ${WIDE.left}`}>{receiptStatus}</div> : null}
+
       {phase === "error" ? (
         <div data-testid="month-close-error" data-layout="error" className={`${cardClass} ${WIDE.full}`}>
           {/* A refusal for good is not the connection's fault, and asking again gets the same answer. */}
@@ -1041,11 +1063,12 @@ export function BusinessMonthCloseView({
                 </ul>
               )}
               <div className="mt-auto flex min-h-11 flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
+                {receiptStatus ? <div className="basis-full">{receiptStatus}</div> : null}
                 {reason ? (
                   <p id="month-close-reason" data-testid="month-close-reason" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{reason}</p>
                 ) : !gate.ok && gate.reason === "closed" && !locked ? (
                   <p data-testid="month-close-filing" className="min-w-0 flex-1 text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.filing_ready", "You already have everything for the 606 and the 607. Close the month when you finish marking what was collected and what was paid.")}</p>
-                ) : tasks.length > 0 ? (
+                ) : tasks.length > 0 && knownReview ? (
                   <p data-testid="month-close-steps-note" className="min-w-0 flex-1 text-right text-[13px] text-[#56635e] dark:text-white/70">{t("business.month_close.close_after_steps", { count: tasks.length, month: monthName, defaultValue: "When you finish the {{count}} steps, you can close {{month}}." })}</p>
                 ) : null}
                 {canClose && tasks.length === 0 ? (
@@ -1139,7 +1162,7 @@ export function useMonthCloseSource(): MonthCloseSource {
   return { client: source.mode === "fixture" ? sampleClientFor(source) : monthCloseClient, scopeKey };
 }
 
-export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: { count: number; detail: string | null; open: () => void } | null; header?: (switcher: ReactNode) => ReactNode }) {
+export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode }) {
   const { chosen, actions, openPanel, records } = useBusiness();
   const add = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   // An open item carries only its activity id. A receipt's is its saved expense's id; an invoice has no record screen yet.

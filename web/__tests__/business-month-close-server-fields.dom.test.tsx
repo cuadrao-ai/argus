@@ -183,6 +183,7 @@ describe("receipt count recovery stays beside the hidden close action", () => {
     const view = await renderInicio(client, { state: "failed", retry: () => {} });
     try {
       assert.ok(view.find("month-close-task-settle"));
+      assert.equal(Boolean(view.find("month-close-steps-note")), false, "unknown counts cannot promise closure after only the known steps");
       assert.match(view.text("month-close-receipts-status"), /No pudimos cargar el conteo de recibos/);
       assert.equal(view.find("month-close-checklist")?.contains(view.find("month-close-receipts-status")!), true);
     } finally { await view.unmount(); }

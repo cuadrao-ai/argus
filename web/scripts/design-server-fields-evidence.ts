@@ -13,7 +13,8 @@ const stage = process.env.EVIDENCE_STAGE ?? "after";
 const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/lucas-design-server-fields", stage);
 mkdirSync(output, { recursive: true });
-const cases = process.env.EVIDENCE_CASE === "receipt" ? ["inicio-receipts-failed"] : ["inicio-business-refused", "inicio-month-500", "inicio-open-items-refused", "inicio-month-refused", "bandeja-al-dia", "bandeja-mixed", "bandeja-refused", "inicio-receipts-failed", "inicio-known-zero"];
+const cases = process.env.EVIDENCE_CASE === "receipt" ? ["inicio-receipts-failed"] : ["inicio-business-refused", "inicio-month-500", "inicio-open-items-refused", "inicio-month-refused", "bandeja-al-dia", "bandeja-mixed", "bandeja-refused", "inicio-receipts-failed", "inicio-known-zero", "inicio-receipts-loading", "inicio-receipts-refused", "inicio-receipts-unknown", "inicio-receipts-tasks"];
+const receiptChecks: { state: string; width: number; retry: boolean; recovered?: boolean; reads_before?: number; reads_after?: number }[] = [];
 const retryChecks: { width: number; notes_before: number; notes_after: number; emails_before: number; emails_after: number }[] = [];
 const evidence: { file: string; sha256: string; state: string; width: number; ready: boolean; close: boolean }[] = [];
 const browser = await chromium.launch({ headless: true });
@@ -30,7 +31,10 @@ try {
       });
       await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
-      const calls = { notes: 0, emails: 0 };
+      const calls = { notes: 0, emails: 0, receipts: 0 };
+      let receiptsDown = true;
+      let releaseReceipts = () => {};
+      const receiptRead = new Promise<void>((resolve) => { releaseReceipts = resolve; });
       let emailsDown = true;
       await page.route("**/api/v1/business/**", async (route) => {
         const url = new URL(route.request().url());
@@ -40,7 +44,13 @@ try {
         if (state === "inicio-month-refused" && path === "month-close") return refuse();
         if (state === "inicio-month-500" && path === "month-close") return refuse(500, "internal_error");
         if (state === "inicio-open-items-refused" && path === "open-items") return refuse();
-        if (state === "inicio-receipts-failed" && path === "receipts") return route.abort("connectionfailed");
+        if (path === "receipts") {
+          calls.receipts += 1;
+          if ((state === "inicio-receipts-failed" || state === "inicio-receipts-tasks") && receiptsDown) return route.abort("connectionfailed");
+          if (state === "inicio-receipts-refused") return refuse();
+          if (state === "inicio-receipts-loading") await receiptRead;
+          if (state === "inicio-receipts-unknown") return route.fulfill({ json: { items: [], activity: null } });
+        }
         if ((state === "bandeja-refused" || state === "bandeja-mixed") && path === "captures") { calls.notes += 1; return refuse(); }
         if (state === "bandeja-refused" && path === "email/deliveries") return refuse(503, "email_capture_unavailable");
         if (state === "bandeja-mixed" && path === "email/deliveries") { calls.emails += 1; return emailsDown ? refuse(500, "internal_error") : route.fulfill({ json: { items: [] } }); }
@@ -57,6 +67,7 @@ try {
         if (path === "consent") return fulfillAcceptedBusinessConsent(route);
         if (path === "month-close") {
           const wire = monthCloseWire(url.searchParams.get("month") ?? "2026-10");
+          if (state === "inicio-receipts-tasks") return route.fulfill({ json: wire });
           return route.fulfill({ json: { ...wire, cuentas_por_cobrar: [], currencies: wire.currencies.map((block) => ({ ...block, net_result_final: true, by_status: { invoices: { pendiente: { count: 0, before_itbis_minor: 0 }, cobrado: { count: 1, before_itbis_minor: 5000000 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } } })) } });
         }
         if (path === "open-items") {
@@ -80,6 +91,28 @@ try {
         await expect(page.getByTestId("month-close-checklist")).toBeVisible();
         await expect(page.getByTestId("month-close-checklist-ready")).toHaveCount(stage === "before" ? 1 : 0);
         await expect(page.getByTestId("month-close-close")).toHaveCount(stage === "before" ? 1 : 0);
+      }
+      if (state.startsWith("inicio-receipts-") && stage !== "before") {
+        const status = page.getByTestId("month-close-receipts-status");
+        await expect(status).toBeVisible();
+        const retry = status.getByRole("button", { name: "Reintentar", exact: true });
+        const failed = state === "inicio-receipts-failed" || state === "inicio-receipts-tasks";
+        await expect(retry).toHaveCount(failed ? 1 : 0);
+        await expect(status).toContainText(state === "inicio-receipts-loading" ? "Cargando el conteo de recibos." : state === "inicio-receipts-refused" ? "Cuadrao Business aún no está disponible para tu cuenta." : state === "inicio-receipts-unknown" ? "El conteo de recibos no está disponible." : "No pudimos cargar el conteo de recibos.");
+        await expect(page.getByTestId("month-close-close")).toHaveCount(0);
+        await expect(page.getByTestId("month-close-checklist-ready")).toHaveCount(0);
+        if (width === 390) {
+          const box = await status.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.y).toBeGreaterThanOrEqual(0);
+          expect(box!.y + box!.height, "receipt reason and retry stay on the first phone screen").toBeLessThanOrEqual(780);
+        }
+        if (failed) await expect(page.getByTestId("inicio-error")).toHaveCount(1);
+        if (state === "inicio-receipts-tasks") {
+          await expect(page.getByTestId("month-close-task-settle")).toBeVisible();
+          await expect(page.getByTestId("month-close-steps-note")).toHaveCount(0);
+        }
+        receiptChecks.push({ state, width, retry: failed });
       }
       if (state === "inicio-known-zero") {
         await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
@@ -113,6 +146,21 @@ try {
         await page.screenshot({ path: resolve(output, detail), fullPage: true });
         evidence.push({ file: detail, sha256: createHash("sha256").update(readFileSync(resolve(output, detail))).digest("hex"), state, width, ready: await page.getByTestId("month-close-checklist-ready").count() > 0, close: await page.getByTestId("month-close-close").count() > 0 });
       }
+      if (state === "inicio-receipts-failed" && stage !== "before") {
+        const before = calls.receipts;
+        receiptsDown = false;
+        await page.getByTestId("month-close-receipts-status").getByRole("button", { name: "Reintentar", exact: true }).click();
+        await expect(page.getByTestId("month-close-receipts-status")).toHaveCount(0);
+        await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
+        await expect(page.getByTestId("month-close-close")).toBeVisible();
+        expect(calls.receipts).toBeGreaterThan(before);
+        receiptChecks.push({ state, width, retry: true, recovered: true, reads_before: before, reads_after: calls.receipts });
+        const recovered = `${state}-${width}-recovered.png`;
+        await page.screenshot({ path: resolve(output, recovered), fullPage: true });
+        evidence.push({ file: recovered, sha256: createHash("sha256").update(readFileSync(resolve(output, recovered))).digest("hex"), state: "inicio-receipts-recovered", width, ready: true, close: true });
+      }
+      releaseReceipts();
+      if (state === "inicio-receipts-loading") await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible();
       if (state === "bandeja-mixed") {
         const before = { ...calls };
         emailsDown = false;
@@ -133,6 +181,6 @@ try {
   throw error;
 } finally {
   await browser.close();
-  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, evidence }, null, 2));
+  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, receiptChecks, evidence }, null, 2));
 }
 console.log(`Captured ${evidence.length} synthetic screenshots at ${head}`);
