@@ -1,0 +1,62 @@
+name: Business lifecycle evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [codex/private-alpha-next]
+    paths:
+      - web/scripts/business-lifecycle-evidence.ts
+      - .github/workflows/business-lifecycle-evidence.yml
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_MOCK_AUTH: "true"
+      NEXT_PUBLIC_APP_ENV: local
+      NEXT_PUBLIC_ENABLE_SPANISH: "true"
+      NEXT_PUBLIC_CUADRAO_BUSINESS_PILOT_ENABLED: "true"
+      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true"
+      NEXT_PUBLIC_ARGUS_API_URL: http://127.0.0.1:3198/api/v1
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3198
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install web and headless browser dependencies
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+      - name: Build the synthetic local app
+        working-directory: web
+        run: bun run build
+      - name: Capture and assert synthetic screens
+        working-directory: web
+        run: |
+          mkdir -p ../temp/1222-sofia/lifecycle-evidence
+          bun node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3198 > ../temp/1222-sofia/lifecycle-evidence/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3198/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3198/ > /dev/null
+          bun scripts/business-lifecycle-evidence.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-lifecycle-${{ github.event.pull_request.head.sha || github.sha }}
+          path: temp/1222-sofia/lifecycle-evidence/
+          if-no-files-found: error
+          retention-days: 14
