@@ -14,17 +14,19 @@ from typing import Any, Callable, Iterator, Protocol, TypedDict, TypeVar
 from uuid import uuid4
 
 from loguru import logger
-from psycopg import Cursor
+from psycopg import Connection, Cursor
 from psycopg.errors import RaiseException, UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from argus.domain.ingestion.documents.config import SOURCE_MAX_BYTES
+from argus.domain.ingestion.documents.store import CaptureHook
 from argus.domain.ingestion.email_intake.addressing import (
     MemoryAddressing,
     PostgresAddressing,
 )
+from argus.domain.ingestion.email_intake.alignment import bare_address
 from argus.domain.ingestion.email_intake.budget import (
     DailyEmailBudget,
     EmailBudgetWait,
@@ -114,6 +116,10 @@ class EmailStore(Protocol):
     def finish(
         self, delivery: EmailDelivery, state: str, error_code: str | None = None
     ) -> None: ...
+
+    def part_capture_hook(
+        self, delivery: EmailDelivery, part: EmailDeliveryPart
+    ) -> CaptureHook | None: ...
 
     def put_part(self, delivery: EmailDelivery, part: EmailDeliveryPart) -> None: ...
 
@@ -229,41 +235,20 @@ class PostgresEmailStore(PostgresAddressing):
             self.pool.connection() as connection,
             connection.cursor(row_factory=dict_row) as cursor,
         ):
-            rows = cursor.execute(
-                "with linked as ("
-                "select s.id, s.connection_id from public.business_draft_sources l "
-                "join public.business_sources s "
-                "on s.id=l.source_id and s.space_id=l.space_id "
-                "where l.draft_id=%s::uuid and l.space_id=%s::uuid "
-                "and s.origin='email'), "
-                "ids as ("
-                "select id from linked "
-                "union "
-                "select connection_id from linked where connection_id is not null) "
-                "select d.sender, d.auth_result from public.business_email_deliveries d "
-                "left join public.business_email_parts p on p.delivery_id=d.id "
-                "where d.space_id=%s::uuid and ("
-                "d.original_document_id in (select id from ids) "
-                "or p.document_id in (select id from ids))",
-                (document_id, space_id, space_id),
+            sources = cursor.execute(
+                "select distinct coalesce(s.connection_id,s.id)::text as connection_id from public.business_draft_sources l"
+                " join public.business_sources s on s.id=l.source_id and s.space_id=l.space_id"
+                " where l.draft_id=%s and l.space_id=%s",
+                (document_id, space_id),
             ).fetchall()
-            if not rows:
-                email = cursor.execute(
-                    "select 1 from public.business_draft_sources l "
-                    "join public.business_sources s "
-                    "on s.id=l.source_id and s.space_id=l.space_id "
-                    "where l.draft_id=%s::uuid and l.space_id=%s::uuid "
-                    "and s.origin='email' limit 1",
-                    (document_id, space_id),
-                ).fetchone()
-                return "new" if email else None
-        for row in rows:
-            if row["auth_result"] != "aligned":
-                return "new"
-            standing = self.sender_standing(space_id, row["sender"])
-            if standing != "authorized":
+            standings = [
+                email_connection_standing(connection, space_id, source["connection_id"])
+                for source in sources
+            ]
+        for standing in standings:
+            if standing is not None and standing != "authorized":
                 return standing
-        return "authorized"
+        return "authorized" if "authorized" in standings else None
 
     def routes(self, recipients: tuple[str, ...]) -> list[RecipientRoute]:
         with (
@@ -597,29 +582,47 @@ class PostgresEmailStore(PostgresAddressing):
             if changed != 1:
                 raise LeaseLost()
 
+    def part_capture_hook(
+        self, delivery: EmailDelivery, part: EmailDeliveryPart
+    ) -> CaptureHook:
+        def capture(connection: Connection, connection_id: str) -> None:
+            self._put_part(
+                connection,
+                delivery,
+                replace(part, state="captured", document_id=connection_id),
+            )
+
+        return capture
+
     def put_part(self, delivery: EmailDelivery, part: EmailDeliveryPart) -> None:
         with self.pool.connection() as connection, connection.transaction():
-            held = connection.execute(
-                "select id from public.business_email_deliveries where id=%s and lease_token=%s and lease_until>now() and state='processing' for update",
-                (delivery.id, delivery.lease_token),
-            ).fetchone()
-            if not held:
-                raise LeaseLost()
-            connection.execute(
-                "insert into public.business_email_parts(delivery_id,id,filename,media_type,state,document_id,error_code) "
-                "values(%s,%s,%s,%s,%s,%s,%s) on conflict(delivery_id,id) do update "
-                "set state=excluded.state,document_id=excluded.document_id,error_code=excluded.error_code",
-                (
-                    delivery.id,
-                    part.id,
-                    part.filename,
-                    part.media_type,
-                    part.state,
-                    part.document_id,
-                    part.error_code,
-                ),
-            )
-            _remember_email_origin(connection, delivery.space_id, part.document_id)
+            self._put_part(connection, delivery, part)
+
+    @staticmethod
+    def _put_part(
+        connection: Connection, delivery: EmailDelivery, part: EmailDeliveryPart
+    ) -> None:
+        held = connection.execute(
+            "select id from public.business_email_deliveries where id=%s and lease_token=%s and lease_until>now() and state='processing' for update",
+            (delivery.id, delivery.lease_token),
+        ).fetchone()
+        if not held:
+            raise LeaseLost()
+        connection.execute(
+            "insert into public.business_email_parts(delivery_id,id,filename,media_type,state,document_id,error_code) "
+            "values(%s,%s,%s,%s,%s,%s,%s) on conflict(delivery_id,id) do update "
+            "set state=excluded.state,document_id=excluded.document_id,error_code=excluded.error_code",
+            (
+                delivery.id,
+                part.id,
+                part.filename,
+                part.media_type,
+                part.state,
+                part.document_id,
+                part.error_code,
+            ),
+        )
+        _remember_email_origin(connection, delivery.space_id, part.document_id)
 
     def parts(self, delivery_id: str) -> list[EmailDeliveryPart]:
         with (
@@ -720,6 +723,51 @@ def _relations(rows: list[dict]) -> dict[str, EmailRelation]:
         entry["delivery_ids"] = [delivery_id for delivery_id, _ in ordered]
         entry["first_received_at"] = ordered[0][1] if ordered else None
     return found
+
+
+def email_connection_standing(
+    connection: Connection, space_id: str, connection_id: str
+) -> str | None:
+    with connection.cursor(row_factory=dict_row) as cursor:
+        direct = cursor.execute(
+            "select 1 from public.business_action_receipts where space_id=%s"
+            " and command->>'action'='receipt_upload' and command->'subjects' ? %s"
+            " and outcome->>'outcome'='applied' limit 1",
+            (space_id, connection_id),
+        ).fetchone()
+        if direct:
+            return None
+        source = cursor.execute(
+            "select id::text,origin from public.business_sources where space_id=%s"
+            " and (connection_id=%s or id=%s)",
+            (space_id, connection_id, connection_id),
+        ).fetchone()
+        deliveries = cursor.execute(
+            "select distinct d.sender,d.auth_result from public.business_email_deliveries d"
+            " left join public.business_email_parts p on p.delivery_id=d.id"
+            " where d.space_id=%s and (p.document_id in (%s,%s)"
+            " or d.original_document_id in (%s,%s))",
+            (
+                space_id,
+                connection_id,
+                source["id"] if source else connection_id,
+                connection_id,
+                source["id"] if source else connection_id,
+            ),
+        ).fetchall()
+        if not deliveries:
+            return "new" if source is not None and source["origin"] == "email" else None
+        for delivery in deliveries:
+            if delivery["auth_result"] != "aligned":
+                return "new"
+            sender = cursor.execute(
+                "select status from public.business_email_senders where space_id=%s"
+                " and kind='address' and value=%s for share",
+                (space_id, bare_address(delivery["sender"])),
+            ).fetchone()
+            if sender is None or sender["status"] != "authorized":
+                return sender["status"] if sender else "new"
+    return "authorized"
 
 
 def _remember_email_origin(connection, space_id, document_id) -> None:
@@ -1132,6 +1180,11 @@ class InMemoryEmailStore(MemoryAddressing):
         self._available[delivery.id] = now + timedelta(
             seconds=min(current.attempts * 10, 300)
         )
+
+    def part_capture_hook(
+        self, delivery: EmailDelivery, part: EmailDeliveryPart
+    ) -> CaptureHook | None:
+        return None
 
     @_synchronized
     def put_part(self, delivery, part):

@@ -56,6 +56,7 @@ from argus.domain.business.transactions import (
     transaction,
 )
 from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionBatch
+from argus.domain.ingestion.email_intake.store import email_connection_standing
 from argus.domain.ingestion.reconcile.service import ReconciliationService
 from argus.domain.owner_scope import OwnerScope, space_id
 
@@ -611,6 +612,7 @@ class BusinessActions:
         with transaction(self.authority, original, "prepare") as tx:
             row = self._attachment_row(tx, connection_id)
             draft = DocumentDraft.model_validate(row["draft"])
+            self._require_email_read(tx, connection_id)
             if not draft.consent or not draft.source_available:
                 raise ActionError("invalid_input", "document_extraction_consent_required")
             if row["preparation_binding"] is not None:
@@ -747,6 +749,14 @@ class BusinessActions:
             raise ActionError("not_found", "business_record_not_found")
         return binding, context
 
+    @staticmethod
+    def _require_email_read(tx: ActionTransaction, connection_id: UUID) -> None:
+        standing = email_connection_standing(
+            tx.connection, str(tx.context.actor.space_id), str(connection_id)
+        )
+        if standing is not None and standing != "authorized":
+            raise ActionError("permission_denied", "email_sender_unauthorized")
+
     def _checked_attachment(
         self,
         tx: ActionTransaction,
@@ -756,6 +766,7 @@ class BusinessActions:
     ) -> tuple[dict, DocumentDraft]:
         row = self._attachment_row(tx, binding.connection_id)
         draft = DocumentDraft.model_validate(row["draft"])
+        self._require_email_read(tx, binding.connection_id)
         if draft.business_reading_consent_id is not None:
             permission = tx.rows(
                 "select id,route from public.business_receipt_reading_consents where id=%s"
