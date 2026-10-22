@@ -4,13 +4,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CalendarDays, Check, Download, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
-import { currentMonthKey, shiftMonthKey, windowForMonth } from "@/lib/business-month-close";
+import { currentMonthKey, loadCurrentMonth, shiftMonthKey, windowForMonth, type DgiiForms, type DgiiFormStatus, type MonthCloseSnapshot } from "@/lib/business-month-close";
 import { businessExportPeriodValid, fetchBusinessExport } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
 import { useBusinessNaming } from "./BusinessNamingProvider";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
 import type { MonthCloseSource } from "./BusinessMonthClosePanel";
-import { formatBusinessName } from "./business-format";
+import { formatBusinessName, UNKNOWN_VALUE } from "./business-format";
 import { RangeCalendar } from "./foundation/RangeCalendar";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { showToast } from "./foundation/toasts";
@@ -46,19 +46,17 @@ type Preset = "this_month" | "last_month" | "year";
 export type ExportChoice = { kind: Preset } | { kind: "custom"; from: string; to: string };
 type Range = { from: string; to: string };
 
-/** The dates a choice exports, both inclusive. A year runs January to December. */
-export function exportRange(choice: ExportChoice, now = new Date()): Range {
+/** The dates a choice exports, both inclusive, around the server's current month. A year runs January to December. */
+export function exportRange(choice: ExportChoice, current: string): Range {
   if (choice.kind === "custom") return { from: choice.from, to: choice.to };
-  const month = currentMonthKey(now);
-  if (choice.kind === "this_month") return wholeMonth(month);
-  if (choice.kind === "last_month") return wholeMonth(shiftMonthKey(month, -1));
-  return { from: `${month.slice(0, 4)}-01-01`, to: `${month.slice(0, 4)}-12-31` };
+  if (choice.kind === "this_month") return wholeMonth(current);
+  if (choice.kind === "last_month") return wholeMonth(shiftMonthKey(current, -1));
+  return { from: `${current.slice(0, 4)}-01-01`, to: `${current.slice(0, 4)}-12-31` };
 }
 
-/** The panel opens on the month Inicio shows: a preset when one names it, else that month as typed dates. */
-export function openingChoice(month: string, now = new Date()): ExportChoice {
-  const current = currentMonthKey(now);
-  if (month === current) return { kind: "this_month" };
+/** The panel opens on `month` when one is given: a preset when one names it, else that month as typed dates. Otherwise this month. */
+export function openingChoice(month: string | undefined, current: string): ExportChoice {
+  if (month === undefined || month === current) return { kind: "this_month" };
   if (month === shiftMonthKey(current, -1)) return { kind: "last_month" };
   return { kind: "custom", ...wholeMonth(month) };
 }
@@ -75,24 +73,47 @@ export function wholeMonthOf(range: Range): string | null {
   return windowForMonth(month).to === range.to ? month : null;
 }
 
-/** What the 606 and 607 line says; the server still decides what goes in the ZIP. */
-export type FiscalLine = { kind: "checking" } | { kind: "included" } | { kind: "open"; month: string } | { kind: "whole_month_only" } | { kind: "unknown" };
+/** What the 606 and 607 line says: each form's own status word from the export packet, which decides what goes in the ZIP. */
+export type FiscalLine = { kind: "checking" } | { kind: "forms"; forms: DgiiForms } | { kind: "whole_month_only" } | { kind: "unknown" };
 
-function useFiscalLine(range: Range, monthClose: MonthCloseSource): FiscalLine {
-  const month = wholeMonthOf(range);
+const formsLine = (snapshot: MonthCloseSnapshot): FiscalLine => (snapshot.dgii_forms ? { kind: "forms", forms: snapshot.dgii_forms } : { kind: "unknown" });
+
+/** `current` is the month already read to learn the server's day; its forms need no second read. */
+function useFiscalLine(range: Range | null, monthClose: MonthCloseSource, current: MonthCloseSnapshot | null): FiscalLine {
+  const month = range ? wholeMonthOf(range) : null;
   const [seen, setSeen] = useState<{ key: string; line: FiscalLine } | null>(null);
   const key = `${monthClose.scopeKey}:${month}`;
+  const known = current && current.month === month ? current : null;
   useEffect(() => {
-    if (!month || monthClose.scopeKey === null) return undefined;
+    if (!month || known || monthClose.scopeKey === null) return undefined;
     let live = true;
     monthClose.client.load(month, monthClose.scopeKey).then(
-      (snapshot) => { if (live) setSeen({ key, line: (snapshot.closed ?? Boolean(snapshot.closed_at)) ? { kind: "included" } : { kind: "open", month } }); },
+      (snapshot) => { if (live) setSeen({ key, line: formsLine(snapshot) }); },
       () => { if (live) setSeen({ key, line: { kind: "unknown" } }); },
     );
     return () => { live = false; };
-  }, [key, month, monthClose]);
+  }, [key, known, month, monthClose]);
+  if (!range) return { kind: "checking" };
   if (!month) return { kind: "whole_month_only" };
+  if (known) return formsLine(known);
   return seen?.key === key ? seen.line : { kind: "checking" };
+}
+
+/** The current month as the server's day places it. An older server or a failed read leaves the month first asked for. */
+function useCurrentMonth(monthClose: MonthCloseSource): { month: string; snapshot: MonthCloseSnapshot | null } | null {
+  const [current, setCurrent] = useState<{ key: string; month: string; snapshot: MonthCloseSnapshot | null } | null>(null);
+  const key = String(monthClose.scopeKey);
+  useEffect(() => {
+    if (monthClose.scopeKey === null) return undefined;
+    let live = true;
+    const seed = currentMonthKey();
+    loadCurrentMonth(monthClose.client, monthClose.scopeKey, seed).then(
+      (snapshot) => { if (live) setCurrent({ key, month: snapshot.today?.slice(0, 7) ?? snapshot.month ?? seed, snapshot }); },
+      () => { if (live) setCurrent({ key, month: seed, snapshot: null }); },
+    );
+    return () => { live = false; };
+  }, [key, monthClose]);
+  return current?.key === key ? current : null;
 }
 
 function monthName(month: string, locale: string): string {
@@ -116,36 +137,37 @@ function rangeEnds(range: Range, locale: string): { from: string; to: string } {
  * last month, this year); any other range is typed. The list says what the
  * ZIP holds, and the 606 and 607 line says when they come with it.
  */
-export default function ExportRecordsPanel({ month: startMonth, monthClose, onClose }: { month: string; monthClose: MonthCloseSource; onClose: () => void }) {
+export default function ExportRecordsPanel({ month: startMonth, monthClose, onClose }: { month?: string; monthClose: MonthCloseSource; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const { chosen, source } = useBusiness();
   const naming = useBusinessNaming();
-  const [now] = useState(() => new Date());
-  const [choice, setChoice] = useState<ExportChoice>(() => openingChoice(startMonth, now));
+  const current = useCurrentMonth(monthClose);
+  const [picked, setChoice] = useState<ExportChoice | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
-  const range = exportRange(choice, now);
-  const valid = businessExportPeriodValid(range.from, range.to);
-  const fiscal = useFiscalLine(range, monthClose);
+  // The periods are named from the server's month, so nothing is offered until it is known.
+  const choice = picked ?? (current ? openingChoice(startMonth, current.month) : null);
+  const range = choice && current ? exportRange(choice, current.month) : null;
+  const valid = range !== null && businessExportPeriodValid(range.from, range.to);
+  const fiscal = useFiscalLine(range, monthClose, current?.snapshot ?? null);
   const available = source.mode === "live";
   const scope = chosen ? { name: chosen.name, grantId: chosen.role === "owner" ? null : chosen.grant_id } : null;
   const canRead = Boolean(chosen?.capabilities.includes("read"));
 
   // A change of Business, access or period drops the download in flight: it would save what the owner no longer asked for.
-  useEffect(() => () => request.current?.abort(), [chosen?.grant_id, canRead, available, range.from, range.to]);
+  useEffect(() => () => request.current?.abort(), [chosen?.grant_id, canRead, available, range?.from, range?.to]);
 
-  const current = currentMonthKey(now);
-  const segments = [
-    { key: "this_month" as const, label: monthName(current, locale) },
-    { key: "last_month" as const, label: monthName(shiftMonthKey(current, -1), locale) },
-    { key: "year" as const, label: current.slice(0, 4) },
-  ];
+  const segments = current ? [
+    { key: "this_month" as const, label: monthName(current.month, locale) },
+    { key: "last_month" as const, label: monthName(shiftMonthKey(current.month, -1), locale) },
+    { key: "year" as const, label: current.month.slice(0, 4) },
+  ] : [];
   const choose = (next: ExportChoice) => { setProblem(null); setChoice(next); };
 
   const download = async () => {
-    if (!scope || request.current || !available || !valid) return;
+    if (!scope || !range || request.current || !available || !valid) return;
     const controller = startPeriodExportRequest(request, setBusy);
     if (!controller) return;
     setProblem(null);
@@ -190,6 +212,9 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
         {canRead ? (
           <>
             <h3 className="mb-2 text-[13px] font-medium text-[#56635e] dark:text-white/70">{t("business.period.label", "Period")}</h3>
+            {!choice || !range ? (
+              <p role="status" data-testid="export-period-loading" className="flex min-h-11 items-center text-[13px] text-[#56635e] dark:text-white/70">{t("business.export.fiscal_checking", "Checking…")}</p>
+            ) : <>
             <SegmentedControl
               fill
               testId="export-period"
@@ -216,12 +241,13 @@ export default function ExportRecordsPanel({ month: startMonth, monthClose, onCl
                 </button>
               )}
             </div>
+            </>}
 
             <h3 className="mb-1 mt-5 text-[13px] font-medium text-[#56635e] dark:text-white/70">{t("business.export.includes", "Includes")}</h3>
             <ul className="divide-y divide-[#EEF0EC] dark:divide-white/[0.06]" data-testid="export-includes">
               <IncludedRow title={t("business.export.records", "Records")} detail={t("business.export.records_detail", "Excel and CSV")} status={<Included />} />
               <IncludedRow title={t("business.export.originals", "Originals")} detail={t("business.export.originals_detail", "Photos and PDFs of each receipt")} status={<Included />} />
-              <IncludedRow testId="export-fiscal" title={t("business.export.fiscal", "606 and 607")} detail={t("business.export.fiscal_detail", "For the DGII")} status={<FiscalStatus line={fiscal} locale={locale} />} />
+              <IncludedRow testId="export-fiscal" title={t("business.export.fiscal", "606 and 607")} detail={t("business.export.fiscal_detail", "For the DGII")} status={<FiscalStatus line={fiscal} />} />
             </ul>
             {available ? (
               <details className="group mt-4">
@@ -257,11 +283,36 @@ function Included() {
   return <Check className="h-5 w-5 text-[#2f5a49] dark:text-[#8fcbb0]" role="img" aria-label={t("business.export.included", "Included")} />;
 }
 
-function FiscalStatus({ line, locale }: { line: FiscalLine; locale: string }) {
+function FiscalStatus({ line }: { line: FiscalLine }) {
   const { t } = useTranslation();
-  if (line.kind === "included") return <Included />;
-  if (line.kind === "open") return <span className="font-medium text-[#735c14] dark:text-[#f6e7c1]">{t("business.export.fiscal_open", { month: monthName(line.month, locale).toLocaleLowerCase(locale), defaultValue: "Close {{month}} first" })}</span>;
+  if (line.kind === "forms") {
+    return (
+      <span className="flex flex-col items-end gap-0.5">
+        {(["606", "607"] as const).map((form) => <FormStatus key={form} form={form} status={line.forms[form]} />)}
+      </span>
+    );
+  }
   if (line.kind === "whole_month_only") return <span className="text-[#56635e] dark:text-white/70">{t("business.export.fiscal_month_only", "Whole month only")}</span>;
-  if (line.kind === "unknown") return <span className="text-[#56635e] dark:text-white/70">{t("business.export.fiscal_unknown", "Included once the month is closed")}</span>;
+  if (line.kind === "unknown") return <span className="text-[#56635e] dark:text-white/70">{UNKNOWN_VALUE}</span>;
   return <span className="text-[#56635e] dark:text-white/70">{t("business.export.fiscal_checking", "Checking…")}</span>;
+}
+
+/** One form and the packet's word for it. Only `prepared_candidate` means the ZIP carries the form. */
+function FormStatus({ form, status }: { form: "606" | "607"; status: DgiiFormStatus | null }) {
+  const { t } = useTranslation();
+  const words: Record<DgiiFormStatus, string> = {
+    prepared_candidate: t("business.export.included", "Included"),
+    needs_review: t("business.export.form_needs_review", "Needs review"),
+    no_operations: t("business.export.form_no_operations", "No operations"),
+    summary_only: t("business.export.form_summary_only", "Summary only"),
+    no_aplica: t("business.export.form_no_aplica", "Does not apply"),
+  };
+  const tone = status === "prepared_candidate" ? "font-medium text-[#2f5a49] dark:text-[#8fcbb0]" : status === "needs_review" ? "font-medium text-[#735c14] dark:text-[#f6e7c1]" : "text-[#56635e] dark:text-white/70";
+  return (
+    <span data-testid={`export-form-${form}`} data-status={status ?? "unknown"} className={`inline-flex items-center gap-1.5 tabular-nums ${tone}`}>
+      <span className="text-[#56635e] dark:text-white/70">{form}</span>
+      {status === "prepared_candidate" ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
+      {status === null ? UNKNOWN_VALUE : words[status]}
+    </span>
+  );
 }

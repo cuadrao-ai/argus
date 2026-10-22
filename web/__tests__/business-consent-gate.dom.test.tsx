@@ -160,7 +160,7 @@ test("a server failure says what failed inline, with its reference, and Reintent
   const failure = alert(host);
   assert.ok(failure);
   assert.match(failure.textContent ?? "", /No pudimos guardar tu aceptación\. No cambió nada\./);
-  assert.match(failure.textContent ?? "", /Ref\. req_7f3a9c/);
+  assert.equal(failure.querySelector('[data-testid="error-reference"]')?.getAttribute("title"), "req_7f3a9c", "the reference keeps its full id to copy");
   assert.equal(checkbox(host).checked, true, "the box stays ticked");
   assert.equal(host.querySelector('[data-testid="connection-banner"]'), null);
   assert.equal(host.querySelector('[data-testid="inicio"]'), null);

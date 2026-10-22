@@ -12,6 +12,7 @@ import { invalidateBrowserAuth } from "@/lib/browser-auth-generation";
 import { ChatWorkspaceProvider, type ChatWorkspace } from "@/components/chat/ChatWorkspace";
 import ExportRecordsPanel from "@/components/business-app/ExportRecordsPanel";
 import type { MonthCloseSource } from "@/components/business-app/BusinessMonthClosePanel";
+import { createMockMonthCloseClient } from "@/lib/business-month-close";
 
 mock.module("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push() {} }), usePathname: () => "/biz" }));
 beforeAll(() => {
@@ -20,7 +21,7 @@ beforeAll(() => {
 });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 const state = (id: string, show = false) => ({ id, name: "Mi negocio", name_required: true, name_prompt_seen: true, show_prompt: show });
-const pendingMonthClose = { client: { load: () => new Promise(() => {}) }, scopeKey: "own" } as unknown as MonthCloseSource;
+const sampleMonthClose: MonthCloseSource = { client: createMockMonthCloseClient({ now: new Date(2026, 9, 18) }), scopeKey: "own" };
 const deferred = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { resolve, promise }; };
 
 async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?: boolean; profile?: boolean } = {}) {
@@ -39,7 +40,7 @@ async function mount(fetcher: typeof fetch, options: { strict?: boolean; export?
     const context = { chosen: { space_id: id, role, name: "Mi negocio", grant_id: `${id}-grant`, capabilities: ["read"] }, source: { mode: "live" }, reload() {} } as unknown as BusinessContextValue;
     const ProfileMenu = options.profile ? (await import("@/components/sidebar/ProfileMenu")).default : null;
     const workspace = { conversationSurface: "business" } as ChatWorkspace;
-    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ExportRecordsPanel month="2026-10" monthClose={pendingMonthClose} onClose={() => {}} /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
+    const child = <I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><BusinessNamingProvider><Probe />{ProfileMenu ? <ChatWorkspaceProvider value={workspace}><ProfileMenu isOpen onClose={() => {}} onLogout={() => {}} anchorRef={{ current: host }} /></ChatWorkspaceProvider> : null}{options.export ? <ExportRecordsPanel month="2026-10" monthClose={sampleMonthClose} onClose={() => {}} /> : null}</BusinessNamingProvider></BusinessContext.Provider></I18nextProvider>;
     await act(async () => { root.render(options.strict ? <StrictMode>{child}</StrictMode> : child); });
   };
   return { render, naming: () => naming!, close: async () => { await act(async () => root.unmount()); host.remove(); globalThis.fetch = originalFetch; if (originalMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMock; } };

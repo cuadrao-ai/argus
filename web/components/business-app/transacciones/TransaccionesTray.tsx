@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { Check } from "lucide-react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { formatDay, formatTimestamp } from "../business-format";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 import { NO_COMPROBANTE_REASONS, type DocumentSummary, type HistoryEntry, type Movement } from "./transacciones-model";
@@ -61,7 +62,7 @@ export function TransaccionesTray({ controller, movement, phone, returnFocusRef 
         {failure ? (
           <div role="alert" data-testid="transacciones-decision-error" className="rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
             <p>{t(`business.transactions.error.codes.${failure.problem.code}`)}</p>
-            {failure.problem.action === "retry" ? <p className="mt-1 text-[12px] tabular-nums opacity-80">{t("business.transactions.error.reference", { reference: failure.reference })}</p> : null}
+            {failure.problem.action === "retry" ? <p className="mt-1"><ReferenceCode reference={failure.reference} /></p> : null}
             {failure.problem.action === "none" ? null : (
               <button type="button" data-recover={failure.problem.action} onClick={controller.recover} disabled={busy} className={`${quietButtonClass} -ml-1 mt-1`}>{failure.problem.action === "retry" ? t("common.retry", "Reintentar") : t("business.transactions.error.reload")}</button>
             )}

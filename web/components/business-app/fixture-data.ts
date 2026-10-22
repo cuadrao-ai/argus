@@ -400,6 +400,8 @@ export function createFixtureBusinessDataSource(
     workspace: async () => {
       await delay();
       return {
+        country: "DO",
+        currency: "DOP",
         accounts: [...accounts],
         currencies: [...new Set(accounts.map((item) => item.currency))].sort(),
         assistant_available: true,

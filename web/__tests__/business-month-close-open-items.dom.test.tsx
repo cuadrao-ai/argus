@@ -25,6 +25,7 @@ function settledByStatus() {
   };
 }
 
+
 const renderView = (client: MonthCloseClient, businessCurrency: string | null = null) => renderMonthCloseView(client, now, businessCurrency);
 
 describe("foreign currency lines", () => {
@@ -54,6 +55,8 @@ describe("foreign currency lines", () => {
       },
     }) : ({
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed: false,
@@ -119,15 +122,18 @@ describe("open items across months", () => {
       counterparty: `Cliente ${index}`,
     }));
     const client = createHttpMonthCloseClient(async (path) => path === "/business/open-items" ? ({
+      today: "2026-10-18",
       cuentas_por_cobrar: { count: 107, totals: [{ currency: "DOP", total_minor: 10700000, total: "107000.00" }], items },
       cuentas_por_pagar: { count: 0, totals: [], items: [] },
     }) : ({
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed: true,
       reasons: [],
-      currencies: [{ currency: "DOP", income_before_itbis_minor: 0, income_before_itbis: "0.00", expense_before_itbis_minor: 0, expense_before_itbis: "0.00", net_result_minor: 0, net_result: "0.00", itbis_owed_minor: 0, itbis_owed: "0.00", by_status: settledByStatus() }],
+      currencies: [{ currency: "DOP", income_before_itbis_minor: 0, income_before_itbis: "0.00", expense_before_itbis_minor: 0, expense_before_itbis: "0.00", net_result_minor: 0, net_result: "0.00", itbis_owed_minor: 0, itbis_owed: "0.00", by_status: settledByStatus(), net_result_final: true }],
       missing_rnc: [],
       missing_ncf: [],
       cuentas_por_cobrar: [],
@@ -164,8 +170,8 @@ describe("open items across months", () => {
     };
     const client: MonthCloseClient = {
       mode: "mock",
-      async load(month) { return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, documents: [], figures: [] }; },
-      async openItems() { return openItemsFrom([pending]); },
+      async load(month) { return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] }; },
+      async openItems() { return openItemsFrom([pending], "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },

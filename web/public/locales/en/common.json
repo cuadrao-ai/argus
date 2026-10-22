@@ -39,6 +39,9 @@
     "pin": "Pin",
     "recents": "Recents",
     "reference": "Ref. {{reference}}",
+    "reference_copied": "Reference copied.",
+    "reference_copy": "Copy reference {{reference}}",
+    "reference_copy_failed": "Could not copy it. Your reference is {{reference}}",
     "refresh_failed": "We couldn't update.",
     "refresh_updated": "Updated",
     "rename": "Rename",
@@ -2210,8 +2213,7 @@
       "continue": "Continue",
       "privacy_link": "View privacy notice",
       "one_time": "We ask this once, for your business's data.",
-      "save_failed": "We couldn't save your acceptance. Nothing changed.",
-      "reference": "Ref. {{reference}}"
+      "save_failed": "We couldn't save your acceptance. Nothing changed."
     },
     "export": {
       "start": "From",
@@ -2235,11 +2237,13 @@
       "fiscal": "606 and 607",
       "fiscal_detail": "For the DGII",
       "included": "Included",
-      "fiscal_open": "Close {{month}} first",
       "fiscal_month_only": "Whole month only",
-      "fiscal_unknown": "Included once the month is closed",
       "fiscal_checking": "Checking…",
-      "fiscal_profile": "Name and RNC on the 606"
+      "fiscal_profile": "Name and RNC on the 606",
+      "form_needs_review": "Needs review",
+      "form_no_aplica": "Does not apply",
+      "form_no_operations": "No operations",
+      "form_summary_only": "Summary only"
     },
     "transactions": {
       "title": "Transactions",
@@ -2268,7 +2272,7 @@
         "no_lleva": { "cargo_banco": "Bank charge, needs no proof", "entre_cuentas": "Between your accounts, needs no proof", "compra_informal": "Informal purchase, no proof", "monto_cero": "Zero amount, needs no proof", "personal": "Personal, needs no proof" }
       },
       "reasons": { "title": "Why does it need no proof?", "cargo_banco": "Bank charge", "entre_cuentas": "Between my accounts", "compra_informal": "Informal purchase", "personal": "Personal" },
-      "records": { "detail": { "gasto": "Expense", "venta": "Sale" }, "proof": "Receipt attached", "empty_title": "Your expenses show here", "empty_body": "Every receipt you approve in the Inbox shows here on its date.", "filtered_title": "No expenses in this period", "filtered_body": "There may be some in other months.", "error_title": "We couldn't load your expenses" },
+      "records": { "detail": { "gasto": "Expense", "venta": "Sale" }, "proof": "Receipt attached", "empty_title": "Your expenses and sales show here", "empty_body": "Every expense and sale you approve in the Inbox shows here on its date.", "filtered_title": "No expenses or sales in this period", "filtered_body": "There may be some in other months.", "error_title": "We couldn't load your expenses and sales" },
       "why": { "title": "Why we suggest it", "amount": "The amount is exact", "date_same": "It is from the same day", "date_one": "The document is from one day before", "date_many": "The document is from {{count}} days before", "date_after_one": "The document is from one day after", "date_after_many": "The document is from {{count}} days after", "name": "The name looks like the bank's" },
       "actions": { "igualar": "Match", "rechazar": "Not this one", "sin_comprobante": "No proof", "desigualar": "Unmatch", "agregar": "Add proof", "more": "More actions for {{name}}", "add_for": "Add proof for {{name}}", "open_for": "Open {{name}}" },
       "tray": { "title": "Movement", "step": "Suggestion {{index}} of {{count}}", "movement": "Bank movement", "suggested": "Suggested document", "matched": "Document", "date": "Date", "account": "Account", "bank_text": "Bank text", "recibo": "Purchase", "venta": "Sale", "rnc": "RNC", "ncf": "NCF", "itbis": "ITBIS", "total": "Total", "move": "move", "close": "close", "back": "Back" },
@@ -2276,7 +2280,6 @@
       "error": {
         "load_title": "We couldn't load your movements",
         "load_body": "What you already matched is still saved.",
-        "reference": "Ref. {{reference}}",
         "reload": "Refresh",
         "more": "We couldn't load more movements. The ones you see are still here.",
         "list_changed": "The list changed while you read it. Refresh it to continue.",
@@ -2294,6 +2297,9 @@
       },
       "history": { "title": "History", "match_recibo": "Matched with a receipt", "match_venta": "Matched with a sale", "no_receipt": "No proof: {{reason}}", "between": "from {{from}} to {{until}}", "since": "since {{from}}" },
       "more": "Load more",
+      "other_currencies_one": "There is also {{count}} movement in {{currency}}.",
+      "other_currencies_other": "There are also {{count}} movements in {{currency}}.",
+      "other_currencies_show": "Show in {{currency}}",
       "empty": { "first_run_title": "Import your bank statement", "first_run_body": "Import your bank statement to match each movement with its proof.", "done_title": "All matched", "done_body": "{{count}} movements, each with its proof.", "segment": "No movements in this view." },
       "density": { "options": "View options", "label": "Row height", "compacto": "Compact", "normal": "Normal", "amplio": "Roomy", "note": "Kept for you on every device you sign in on.", "failed": "We couldn't save the row height. Your last one stays." }
     },
@@ -2683,8 +2689,12 @@
       "net_label": "Net result",
       "next_month": "Next month",
       "previous_month": "Previous month",
+      "itbis_cobrado": "ITBIS collected",
       "itbis_credit_label": "ITBIS balance in your favor",
       "itbis_label": "ITBIS to pay",
+      "receipts_failed": "We couldn't load the receipt count. The month cannot be closed yet.",
+      "receipts_loading": "Loading the receipt count. The month cannot be closed yet.",
+      "receipts_unknown": "The receipt count is unavailable. The month cannot be closed yet.",
       "receivable_title": "To collect",
       "receivable_empty": "All collected",
       "receivable_empty_body": "No one owes you right now.",
@@ -2789,7 +2799,7 @@
       "group_new": "New since your last visit",
       "group_earlier": "Earlier",
       "no_problems": "No receipts with problems",
-      "nothing_to_review": "Nothing to review",
+      "nothing_to_review": "Your receipts are up to date.",
       "see_all_body": "Every receipt you have is under All.",
       "see_all": "See all",
       "segment_review_short": "Review",

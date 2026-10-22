@@ -138,15 +138,16 @@ describe("the Bandeja segments", () => {
 });
 
 describe("a list that did not load", () => {
-  // Lucas's LAN preview: no receipts, and the notes and emails requests fail.
+  // No receipts, and the notes and emails requests fail in ways that can pass:
+  // a 500 and a 503 that is not one of the server's refusals for good.
   const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 } };
-  const failing = () => {
+  const failing = ({ notes = () => Object.assign(new Error("API error 500"), { status: 500, code: "internal_error" }), emails = () => Object.assign(new Error("API error 503"), { status: 503, code: "service_unavailable" }) }: { notes?: () => Error; emails?: () => Error } = {}) => {
     const calls = { receipts: 0, notes: 0, emails: 0 };
     let fail = true;
     const overrides = () => ({
       receiptPage: async (view: string) => { if (view === "inbox") calls.receipts += 1; return NOTHING; },
-      captures: async () => { calls.notes += 1; if (fail) throw Object.assign(new Error("business_unavailable"), { status: 404 }); return { items: [] }; },
-      emailDeliveries: async () => { calls.emails += 1; if (fail) throw Object.assign(new Error("email_capture_unavailable"), { status: 503 }); return []; },
+      captures: async () => { calls.notes += 1; if (fail) throw notes(); return { items: [] }; },
+      emailDeliveries: async () => { calls.emails += 1; if (fail) throw emails(); return []; },
     });
     return { calls, overrides, recover: () => { fail = false; } };
   };
@@ -174,6 +175,33 @@ describe("a list that did not load", () => {
     assert.equal(page.segment("problem")?.textContent, "Con problema-");
   });
 
+  test("the server's counts read - while a list is down, and come back once every list loaded", async () => {
+    const { overrides, recover } = failing();
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ ...overrides(), receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, ready_to_review_count: 3, needs_attention_count: 2 } }) }) });
+    await page.settle(() => failure(page) !== null && page.segment("review")?.textContent !== "Por revisar", "the failure and the settled count");
+    assert.equal(page.segment("review")?.textContent, "Por revisar-", "a 3 beside a list that failed would contradict it");
+    assert.equal(page.segment("problem")?.textContent, "Con problema-");
+    recover();
+    await page.act(async () => [...failure(page)!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!.click());
+    await page.settle(() => failure(page) === null, "the recovery");
+    assert.equal(page.segment("review")?.textContent, "Por revisar3");
+    assert.equal(page.segment("problem")?.textContent, "Con problema2");
+  });
+
+  test("a server reference reads short, keeps the full id in its title and copies the full id", async () => {
+    const requestId = "4ea79978-ce17-4853-b232-b2a72f4c9ce7";
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ captures: async () => { throw Object.assign(new Error("API error 500"), { status: 500, requestId }); } }) });
+    await page.settle(() => failure(page)?.querySelector('[data-testid="error-reference"]') != null, "the reference");
+    const reference = failure(page)!.querySelector<HTMLButtonElement>('[data-testid="error-reference"]')!;
+    assert.equal(reference.querySelector("[data-reference-short]")?.textContent, "Ref. 4ea79978");
+    assert.equal(reference.title, requestId);
+    assert.ok(reference.textContent?.includes(requestId), "the accessible name carries the full id");
+    await page.act(async () => reference.click());
+    assert.deepEqual(copied, [requestId]);
+  });
+
   test("Reintentar asks again only for the lists that failed, and their recovery shows the true empty state", async () => {
     const { calls, overrides, recover } = failing();
     const page = await mount({ panel: { kind: "inbox" }, overrides });
@@ -187,6 +215,86 @@ describe("a list that did not load", () => {
     assert.equal(calls.receipts, before.receipts, "the receipts loaded, so the Bandeja does not ask for them again");
     assert.equal(calls.notes, before.notes + 1);
     assert.equal(calls.emails, before.emails + 1);
+  });
+});
+
+describe("a list the server refused for good", () => {
+  // Lucas's LAN preview: the Business routes answer 404 business_unavailable
+  // and email receiving answers 503 email_capture_unavailable. Asking again
+  // gets the same answer.
+  const NOTHING = { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none" as const, pending_review_count: 0, needs_attention_count: 0, ready_to_review_count: 0 } };
+  const BUSINESS_OFF = () => Object.assign(new Error("Business is not available."), { status: 404, code: "business_unavailable" });
+  const EMAIL_OFF = () => Object.assign(new Error("Email receiving is unavailable."), { status: 503, code: "email_capture_unavailable" });
+  const failure = (page: { host: HTMLElement }) => page.host.querySelector<HTMLElement>('[data-testid="bandeja-sources-failed"]');
+  const actions = (page: { host: HTMLElement }) => [...(failure(page)?.querySelectorAll("button") ?? [])].filter((button) => button.dataset.testid !== "error-reference").map((button) => button.textContent);
+
+  test("offers no Reintentar, says how to reach us, and claims no empty state or count", async () => {
+    const calls = { notes: 0, emails: 0 };
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({
+      receiptPage: async () => ({ ...NOTHING, activity: { ...NOTHING.activity, ready_to_review_count: 3 } }),
+      captures: async () => { calls.notes += 1; throw BUSINESS_OFF(); },
+      emailDeliveries: async () => { calls.emails += 1; throw EMAIL_OFF(); },
+    }) });
+    await page.settle(() => failure(page) !== null && page.segment("review")?.textContent !== "Por revisar", "the failure and the settled count");
+    assert.match(failure(page)!.textContent ?? "", /^No pudimos cargar tus notas ni tus correos\./);
+    assert.deepEqual(actions(page), [], "asking again gets the same refusal");
+    assert.match(failure(page)!.textContent ?? "", /escríbenos a hola@cuadrao\.ai/);
+    assert.doesNotMatch(failure(page)!.textContent ?? "", /conexión/);
+    assert.equal(page.segment("review")?.textContent, "Por revisar-", "a 3 beside a list that failed would contradict it");
+    assert.equal(page.host.querySelector('[data-testid="business-inbox-empty"]'), null);
+    assert.equal(page.host.querySelector('[data-testid="bandeja-segment-empty"]'), null);
+    const before = { ...calls };
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(new Event("online"));
+    await page.settle(() => true, "a reconnect");
+    assert.deepEqual(calls, before, "a reconnect does not ask again for a list the server refused");
+  });
+
+  test("a refused Bandeja says so with no Reintentar and without blaming the connection", async () => {
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({ receiptPage: async () => { throw BUSINESS_OFF(); } }) });
+    const error = () => page.host.querySelector('[data-testid="business-inbox-error"]');
+    await page.settle(() => error() !== null, "the Bandeja error");
+    assert.equal(error()!.querySelectorAll("button").length, 0);
+    assert.match(error()!.textContent ?? "", /Cuadrao Business aún no está disponible para tu cuenta\./);
+    assert.doesNotMatch(error()!.textContent ?? "", /conexión/);
+  });
+
+  test("beside a list that can pass, Reintentar asks again only for that one", async () => {
+    const calls = { notes: 0, emails: 0 };
+    let emailsDown = true;
+    const page = await mount({ panel: { kind: "inbox" }, overrides: () => ({
+      receiptPage: async () => NOTHING,
+      captures: async () => { calls.notes += 1; throw BUSINESS_OFF(); },
+      emailDeliveries: async () => { calls.emails += 1; if (emailsDown) throw Object.assign(new Error("API error 500"), { status: 500, code: "internal_error" }); return []; },
+    }) });
+    await page.settle(() => failure(page) !== null, "the failure");
+    assert.match(failure(page)!.textContent ?? "", /^No pudimos cargar tus notas ni tus correos\./);
+    assert.deepEqual(actions(page), ["Reintentar"]);
+    const before = { ...calls };
+    emailsDown = false;
+    await page.act(async () => [...failure(page)!.querySelectorAll("button")].find((button) => button.textContent === "Reintentar")!.click());
+    await page.settle(() => calls.emails > before.emails && !/correos/.test(failure(page)?.textContent ?? ""), "the emails back");
+    assert.equal(calls.notes, before.notes, "the refused notes are not asked for again");
+    assert.match(failure(page)!.textContent ?? "", /^No pudimos cargar tus notas\./);
+    assert.deepEqual(actions(page), [], "only the refusal is left, so no Reintentar");
+  });
+});
+
+describe("nothing left to review", () => {
+  test("Por revisar says the receipts are up to date, apart from a Bandeja that has none at all", async () => {
+    const page = await mount({
+      panel: { kind: "inbox" },
+      overrides: (fixture) => ({
+        receiptPage: async (view) => {
+          const shown = await fixture.receiptPage!(view);
+          return { ...shown, items: shown.items.map((item) => ({ ...item, bandeja: item.bandeja ? { ...item.bandeja, por_revisar: false } : item.bandeja })) };
+        },
+      }),
+    });
+    const empty = () => page.host.querySelector('[data-testid="bandeja-segment-empty"]');
+    await page.settle(() => empty() !== null, "the empty Por revisar");
+    assert.equal(empty()?.querySelector("h3")?.textContent, "Tus recibos están al día.");
+    assert.equal(page.host.querySelector('[data-testid="business-inbox-empty"]'), null, "the Bandeja still holds receipts under Todo");
   });
 });
 

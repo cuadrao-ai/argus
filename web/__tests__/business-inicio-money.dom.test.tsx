@@ -224,6 +224,7 @@ describe("Inicio export records panel", () => {
         missing_ncf: [],
         cuentas_por_cobrar: [],
         cuentas_por_pagar: [],
+        dgii_forms: { "606": "needs_review", "607": "no_operations" },
       });
     };
     const value = {
@@ -302,12 +303,12 @@ describe("Inicio export records panel", () => {
     }
   });
 
-  test("the 606 and 607 line follows the month close and asks for a whole month", async () => {
+  test("the 606 and 607 line shows each form's word from the packet and asks for a whole month", async () => {
     const view = await renderExport(own);
     try {
       await view.settle();
-      const month = new Intl.DateTimeFormat("es-419", { month: "long" }).format(new Date());
-      assert.match(view.fiscal(), new RegExp(`Falta cerrar ${month}`));
+      assert.match(view.fiscal(), /606\s*Por revisar/);
+      assert.match(view.fiscal(), /607\s*Sin operaciones/);
       await view.act(async () => { view.segment("year")!.click(); });
       assert.match(view.fiscal(), /Solo por mes completo/);
       await view.act(async () => { document.querySelector<HTMLButtonElement>('[data-testid="export-other-dates"]')!.click(); });
@@ -403,7 +404,7 @@ describe("Pendiente hoy cards", () => {
   test("overdue rows lead oldest first, then the nearest due, and a card shows four before Ver las N", async () => {
     const invoice = (id: string, due_on: string | null): MonthCloseDocument => ({ id, kind: "invoice", currency: "DOP", counterparty: `Cliente ${id}`, occurred_on: "2026-09-01", due_on, amount: "100.00", itbis: null, rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "pendiente" });
     const documents = [invoice("soon", "2026-10-26"), invoice("none", null), invoice("late-1", "2026-10-17"), invoice("today", "2026-10-18"), invoice("late-30", "2026-09-18"), invoice("far", "2026-11-30")];
-    const client: MonthCloseClient = { ...createMockMonthCloseClient({ now }), async openItems() { return openItemsFrom(documents); } };
+    const client: MonthCloseClient = { ...createMockMonthCloseClient({ now }), async openItems() { return openItemsFrom(documents, "2026-10-18"); } };
     const view = await renderCards(client);
     assert.deepEqual(view.rowIds("month-close-receivable"), ["late-30", "late-1", "today", "soon"]);
     const chip = (id: string) => view.host.querySelector(`[data-document-id="${id}"] [data-testid="month-close-lateness"]`)?.textContent;
@@ -503,14 +504,14 @@ describe("Inicio in two columns", () => {
   const document_ = (over: Partial<MonthCloseDocument>): MonthCloseDocument => ({ id: "inv-1", kind: "invoice", currency: "DOP", counterparty: "Colmado Don Luis", occurred_on: "2026-10-04", due_on: null, amount: "1180.00", itbis: "180.00", rnc: "101-23456-7", ncf: "B0100000042", ecf: null, status: "cobrado", ...over });
   const clientOf = (documents: MonthCloseDocument[]): MonthCloseClient => ({
     mode: "mock",
-    async load() { return { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed_at: null, earliest_month: null, documents, figures: monthCloseFiguresFrom(documents) }; },
-    async openItems() { return openItemsFrom(documents); },
+    async load() { return { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed_at: null, earliest_month: null, payment_methods: ["otro"], dgii_forms: null, documents, figures: monthCloseFiguresFrom(documents) }; },
+    async openItems() { return openItemsFrom(documents, "2026-10-18"); },
     async markCobrado() { throw new Error("no mark"); },
     async markPagado() { throw new Error("no mark"); },
     async markPendiente() { throw new Error("no undo"); },
     async closeMonth() { throw new Error("no close"); },
   });
-  async function renderView(client: MonthCloseClient) {
+  async function renderView(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"]) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -523,7 +524,7 @@ describe("Inicio in two columns", () => {
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => {
-      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
+      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} review={review} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
     });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     return { act, host, close: async () => { await act(async () => root.unmount()); host.remove(); } };
@@ -559,19 +560,19 @@ describe("Inicio in two columns", () => {
   });
 
   test("while steps remain, Cerrar hides and one quiet line says how many and which month", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null })]));
+    const view = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" }), document_({ id: "inv-2", rnc: null, ncf: null })]), { count: 0, detail: null, open: () => {} });
     try {
       assert.equal(view.host.querySelector('[data-testid="month-close-close"]'), null);
       assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines los 2 pasos, podrás cerrar octubre.");
     } finally { await view.close(); }
-    const one = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" })]));
+    const one = await renderView(clientOf([document_({ id: "inv-1", status: "pendiente" })]), { count: 0, detail: null, open: () => {} });
     try {
       assert.equal(one.host.querySelector('[data-testid="month-close-steps-note"]')?.textContent, "Cuando termines el paso que falta, podrás cerrar octubre.");
     } finally { await one.close(); }
   });
 
   test("when the month can close, the green Cerrar appears in the line's place", async () => {
-    const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]));
+    const view = await renderView(clientOf([document_({ id: "inv-1" }), document_({ id: "rcpt-1", kind: "receipt", counterparty: "Edenorte", status: "pagado" })]), { count: 0, detail: null, open: () => {} });
     try {
       assert.equal(view.host.querySelector('[data-testid="month-close-steps-note"]'), null);
       const close = view.host.querySelector<HTMLButtonElement>('[data-testid="month-close-close"]')!;

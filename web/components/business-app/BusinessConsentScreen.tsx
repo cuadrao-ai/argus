@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CuadraoLockup } from "@/components/CuadraoLockup";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
 import { BusinessSkeleton } from "./business-skeletons";
@@ -59,7 +60,7 @@ export function BusinessConsentScreen({ save, onContinue }: { save: ConsentSave;
             className="mt-4 rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 px-3.5 py-3 text-[14px] text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]"
           >
             <p>{t("business.consent.save_failed")}</p>
-            <p className="mt-1 text-[12px] tabular-nums opacity-80">{t("business.consent.reference", { reference: save.reference })}</p>
+            <p className="mt-1"><ReferenceCode reference={save.reference} /></p>
             <button type="button" data-testid="business-consent-retry" className={`${quietButtonClass} -ml-1 mt-1`} disabled={!optedIn} onClick={onContinue}>
               {t("common.retry")}
             </button>

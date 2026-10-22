@@ -4,7 +4,8 @@ import { useSyncExternalStore } from "react";
 import { readStored, writeStored } from "@/lib/browser-storage";
 
 /**
- * The currency a person chose for a Business's Inicio figures, per Business.
+ * The currency a person chose for a Business's Inicio figures and its
+ * Transacciones table, per Business: one choice drives both.
  * It lives in this browser until the server keeps `currency_view` per person
  * per Business; only this file changes then.
  */
@@ -29,6 +30,12 @@ function read(): Readonly<Record<string, string>> {
 export function setCurrencyView(business: string, currency: string) {
   views = { ...read(), [business]: currency };
   writeStored(KEY, JSON.stringify(views));
+  listeners.forEach((listener) => listener());
+}
+
+/** Tests start from no choice. */
+export function resetCurrencyViews() {
+  views = {};
   listeners.forEach((listener) => listener());
 }
 

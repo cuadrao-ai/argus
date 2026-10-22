@@ -51,6 +51,7 @@ async function mountWorkspace(options: { detail: BusinessExpenseDetail | (() => 
     }).current;
     const saved = useRef(createRecordsTransaccionesSource({
       expenses: source.expenses,
+      ventas: async () => [],
       overview: async () => ({ from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null }),
       workspace: async () => ({ accounts: [] }),
       month: async (month) => ({ month, from: `${month}-01`, to: `${month}-28`, currency: "DOP", closed_at: null, earliest_month: null, documents: [] }),

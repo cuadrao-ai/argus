@@ -30,7 +30,7 @@ import {
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
 import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
-import { classifyFailure, referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
+import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
@@ -55,7 +55,6 @@ import BusinessAddMenu from "./BusinessAddMenu";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import { HeaderSearch } from "./foundation/HeaderSearch";
 import { useMonthCloseSource } from "./BusinessMonthClosePanel";
-import { currentMonthKey } from "@/lib/business-month-close";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
 import { createReloadWaits } from "./list-reload";
@@ -99,6 +98,8 @@ type Records = {
   emails: BusinessEmailDelivery[] | null;
   emailsFailure?: LoadFailure | null;
   error: boolean;
+  /** With error: the server refused this Business on purpose, so asking again cannot help. */
+  refused?: boolean;
   closed?: boolean;
   serverReference?: string | null;
 };
@@ -190,6 +191,7 @@ const EMPTY_RECORDS: Records = {
   emails: null,
   emailsFailure: null,
   error: false,
+  refused: false,
   closed: false,
   serverReference: null,
 };
@@ -384,7 +386,7 @@ function BusinessWorkspaceContent({
     ]))
       .then(([workspace, overview, page]) => {
         if (cancelled) return;
-        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, closed: false, serverReference: null }));
+        setRecords((current) => ({ ...current, workspace, overview, inbox: page.items, receiptActivity: page.activity, error: false, refused: false, closed: false, serverReference: null }));
         reloadWaits.answered("records", revision, true);
       })
       .catch((error: unknown) => {
@@ -402,14 +404,18 @@ function BusinessWorkspaceContent({
         }
         reloadWaits.answered("records", revision, false);
         if (kind === "closed") {
-          setRecords((current) => ({ ...current, error: false, closed: true, serverReference: null }));
+          setRecords((current) => ({ ...current, error: false, refused: false, closed: true, serverReference: null }));
+          return;
+        }
+        if (refusedForGood(error)) {
+          setRecords((current) => ({ ...current, error: true, refused: true, closed: false, serverReference: null }));
           return;
         }
         if (kind === "unavailable" || kind === "server") {
-          setRecords((current) => ({ ...current, error: false, closed: false, serverReference: referenceCode(error) }));
+          setRecords((current) => ({ ...current, error: false, refused: false, closed: false, serverReference: referenceCode(error) }));
           return;
         }
-        setRecords((current) => ({ ...current, error: true, closed: false, serverReference: null }));
+        setRecords((current) => ({ ...current, error: true, refused: false, closed: false, serverReference: null }));
       });
     return () => {
       cancelled = true;
@@ -618,5 +624,5 @@ export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; c
 /** The one Exportar registros, opened from the top bar's menu or from search over any screen. */
 function WorkspaceExport({ onClose }: { onClose: () => void }) {
   const monthClose = useMonthCloseSource();
-  return <ExportRecordsPanel month={currentMonthKey()} monthClose={monthClose} onClose={onClose} />;
+  return <ExportRecordsPanel monthClose={monthClose} onClose={onClose} />;
 }

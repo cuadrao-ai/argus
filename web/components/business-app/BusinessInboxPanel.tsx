@@ -11,9 +11,10 @@ import { useReceiptStateWord } from "./receipt-state-word";
 import { useBusiness } from "./BusinessWorkspace";
 import { bandejaReceipts } from "./bandeja-order";
 import { isOpenRecord, OPEN_ROW_CLASS } from "./record-tray";
-import { bandejaEmails, inboxCount, openNotesByDraft, problemCount, type BandejaEmail, type OpenNote } from "./inbox-count";
-import { sourceLoad, type BandejaSource, type LoadFailure } from "./bandeja-sources";
+import { bandejaEmails, openNotesByDraft, type BandejaEmail, type OpenNote } from "./inbox-count";
+import { bandejaCounts, sourceLoad, type BandejaSource, type LoadFailure } from "./bandeja-sources";
 import { useOnline } from "@/components/ui/ConnectionBanner";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { formatMoney, formatRelativeTime, UNKNOWN_VALUE } from "./business-format";
 import { canAddRecords, cardClass, PanelHeading, primaryButtonClass, quietButtonClass, recordFiscalMark } from "./business-ui";
 import { ListPager } from "./foundation/ListPager";
@@ -202,29 +203,34 @@ const INBOX_PAGE = 8;
 
 /**
  * One line for every list that did not load, with one Reintentar that asks
- * again for only those lists. Offline is the connection banner's to say: the
- * line stays away and the lists are asked again when the connection is back.
+ * again for only the lists it can help. A list the server refused for good
+ * gets no Reintentar; the line says how to reach us instead. Offline is the
+ * connection banner's to say: the line stays away and the lists are asked
+ * again when the connection is back.
  */
 function SourcesFailed({ failed, retry }: { failed: readonly { source: BandejaSource; failure: LoadFailure }[]; retry: () => void }) {
   const { t } = useTranslation();
   const online = useOnline();
   const wasOnline = useRef(online);
+  const retryable = failed.some((item) => !item.failure.refused);
   useEffect(() => {
-    if (online && !wasOnline.current && failed.length) retry();
+    if (online && !wasOnline.current && retryable) retry();
     wasOnline.current = online;
-  }, [online, failed.length, retry]);
+  }, [online, retryable, retry]);
   const said = failed.filter((item) => !item.failure.offline);
   if (!said.length) return null;
   const notes = said.some((item) => item.source === "notes");
   const emails = said.some((item) => item.source === "emails");
+  const canRetry = said.some((item) => !item.failure.refused);
   const reference = said.find((item) => item.failure.reference)?.failure.reference;
   return (
     <div role="alert" data-testid="bandeja-sources-failed" className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-item border border-[#9e2f39]/30 bg-[#f6dfe0]/50 py-1 pl-3.5 pr-2 text-[14px] text-[#9e2f39] dark:border-[#ec9aa0]/30 dark:bg-[#ec9aa0]/10 dark:text-[#ec9aa0]">
       <p className="min-w-0 py-2">
         {notes && emails ? t("business.inbox.failed_notes_emails", "We couldn't load your notes or your emails.") : notes ? t("business.inbox.failed_notes", "We couldn't load your notes.") : t("business.inbox.failed_emails", "We couldn't load your emails.")}
-        {reference ? <span className="ml-2 text-[12px] tabular-nums opacity-80">{t("common.reference", { reference, defaultValue: "Ref. {{reference}}" })}</span> : null}
+        {canRetry ? null : <> {t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")}</>}
+        {reference ? <span className="ml-2 inline-flex align-middle"><ReferenceCode reference={reference} /></span> : null}
       </p>
-      <button type="button" onClick={retry} className={`${quietButtonClass} px-3`}>{t("common.retry", "Retry")}</button>
+      {canRetry ? <button type="button" onClick={retry} className={`${quietButtonClass} px-3`}>{t("common.retry", "Retry")}</button> : null}
     </div>
   );
 }
@@ -246,7 +252,7 @@ export default function BusinessInboxPanel() {
     const load = loads[source];
     return load.state === "failed" ? [{ source, failure: load.failure }] : [];
   });
-  const retryFailed = () => retrySources(failed.map((item) => item.source));
+  const retryFailed = () => retrySources(failed.filter((item) => !item.failure.refused).map((item) => item.source));
   const pending = Object.values(loads).some((load) => load.state === "loading");
   const receipts = bandejaReceipts(records.inbox ?? []);
   const notes = openNotesByDraft(records.notes ?? []);
@@ -255,9 +261,7 @@ export default function BusinessInboxPanel() {
   const upload = canAddRecords(chosen) ? uploadAction : null;
   const [list, setList] = useState<ListKey>("review");
   const empty = !pending && !failed.length && receipts.length === 0 && notes.length === 0 && emails.length === 0;
-  // A count waits for the receipts; then it is the server's, or "-" when the server sent none. Never a 0 it does not know.
-  const shown = (count: number | null) => (loads.receipts.state === "ready" ? count ?? UNKNOWN_VALUE : undefined);
-  const counts = { review: shown(inboxCount(records)), problem: shown(problemCount(records)) };
+  const counts = bandejaCounts(loads, records);
   const rows = pending ? null : bandejaRows(list, receipts, notes, emails);
   const fresh = rows?.filter(itemNew) ?? [];
   const earlier = rows?.filter((row) => !itemNew(row)) ?? [];
@@ -293,7 +297,9 @@ export default function BusinessInboxPanel() {
           }
         />
         <ReceiptReadingControl />
-        {records.error ? (
+        {records.error && records.refused ? (
+          <EmptyState kind="error" testId="business-inbox-error" title={t("auth.business_unavailable.title", "Cuadrao Business isn't available for your account yet.")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
+        ) : records.error ? (
           <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
         ) : (
           <>
@@ -326,7 +332,7 @@ export default function BusinessInboxPanel() {
                   ) : failed.length ? null : (
                     <div className={cardClass} data-testid="bandeja-segment-empty">
                       <EmptyState kind="filtered" mark={list === "problem" ? "check" : "inbox"} compact
-                        title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Nothing to review")}
+                        title={list === "problem" ? t("business.inbox.no_problems", "No receipts with problems") : t("business.inbox.nothing_to_review", "Your receipts are up to date.")}
                         body={t("business.inbox.see_all_body", "Every receipt you have is under All.")}
                         action={{ label: t("business.inbox.see_all", "See all"), run: () => setList("all") }} />
                     </div>
