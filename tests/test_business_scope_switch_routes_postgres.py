@@ -122,6 +122,13 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
+            # A Business that still names its owner refuses the bare Auth
+            # delete, so the test Businesses go first, with their history.
+            db.execute(
+                "delete from public.spaces where created_by = any(%s::uuid[])"
+                " or current_owner_id = any(%s::uuid[])",
+                (created, created),
+            )
         # Try every user, then fail loudly: a refused delete leaks a test user
         # and hides a deletion bug.
         leaked = []

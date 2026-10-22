@@ -42,6 +42,7 @@ from tests.test_account_deletion_postgres import (  # noqa: F401 - fixtures
     world,
 )
 from tests.test_account_deletion_third_parties_postgres import _StorageDown
+from tests.test_business_account_deletion_postgres import release_custodian
 
 pytestmark = pytest.mark.skipif(not DSN, reason="Disposable PostgreSQL required")
 
@@ -281,7 +282,9 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
 ) -> None:
     """#778 at the route: Storage down is a pending third party (202, locked);
     the retry answers 200 with the person's folder gone and B's file kept.
-    The profile photo is one more object the same step erases."""
+    The profile photo is one more object the same step erases. A's Business
+    stays, closed, with its record custodian, so its logo stays until the
+    day-30 purge erases it."""
     a, b = world["a"], world["b"]
     objects = source_objects()
     mine, theirs = f"{a}/{uuid.uuid4()}/{'a' * 64}", f"{b}/{uuid.uuid4()}/{'b' * 64}"
@@ -342,8 +345,12 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
             assert stored_paths(c, f"{b}/") == [theirs]
             assert photo_paths(c, f"people/{a}/") == []
             assert photo_paths(c, f"people/{b}/") == [person(b).path]
-            assert photo_paths(c, f"business/{spaces[a]}/") == []
+            assert photo_paths(c, f"business/{spaces[a]}/") == [business(spaces[a]).path]
             assert photo_paths(c, f"business/{spaces[b]}/") == [business(spaces[b]).path]
+            assert c.execute(
+                "select created_by::text <> %s, closed_at is not null from public.spaces where id = %s",
+                (a, spaces[a]),
+            ).fetchone() == (True, True)
             assert c.execute(
                 "select count(*) from public.profile_photos where user_id = %s", (a,)
             ).fetchone() == (0,)
@@ -353,6 +360,12 @@ def test_storage_failure_answers_202_until_a_retry_erases_the_sources(
         for who in (a, b):
             photos.remove(person(who))
             photos.remove(business(spaces[who]))
+        release_custodian(spaces[a])
+        with psycopg.connect(DSN) as c:
+            c.execute(
+                "delete from public.spaces where id = any(%s::uuid[])",
+                (list(spaces.values()),),
+            )
 
 
 def _deployed(monkeypatch, *, posthog_token: str | None) -> None:

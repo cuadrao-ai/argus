@@ -790,12 +790,59 @@ def test_a_signed_in_person_writes_and_reads_only_their_own_consent(
             _act_as(cursor, "anon")
             cursor.execute("select count(*) from public.business_consent_acceptances")
 
-        cursor.execute("delete from auth.users where id = %s", (ana,))
-        cursor.execute(
-            "select count(*) from public.business_consent_acceptances where user_id = %s",
-            (ana,),
+        # Ana's Business still names her, so only the account-deletion
+        # command may remove her; the bare Auth delete is refused.
+        with (
+            pytest.raises(
+                psycopg.errors.CheckViolation,
+                match="business_custody_identity_detachment_required",
+            ),
+            connection.transaction(),
+        ):
+            cursor.execute("delete from auth.users where id = %s", (ana,))
+
+
+@pytest.mark.owner_acts
+def test_a_deleted_owner_keeps_no_consent_acceptance() -> None:
+    from psycopg_pool import ConnectionPool
+
+    from tests.test_business_account_deletion_postgres import (
+        erase_open_owner,
+        release_custodian,
+    )
+
+    ana = str(uuid4())
+    with psycopg.connect(DSN) as connection:
+        connection.execute(
+            "insert into auth.users (id, email, is_anonymous) values (%s, %s, false)",
+            (ana, f"consent-ana-{ana}@example.test"),
         )
-        assert cursor.fetchone() == (0,), "a deleted account keeps no acceptance"
+        (space_id,) = connection.execute(
+            "insert into public.spaces (kind, name, created_by)"
+            " values ('business', 'ana', %s) returning id::text",
+            (ana,),
+        ).fetchone()
+        connection.execute(CONSENT_INSERT, (ana, space_id, CONSENT_VERSION))
+    try:
+        with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+            assert erase_open_owner(pool, ana).status == "done"
+        with psycopg.connect(DSN) as connection:
+            assert connection.execute(
+                "select count(*) from public.business_consent_acceptances where user_id = %s",
+                (ana,),
+            ).fetchone() == (0,), "a deleted account keeps no acceptance"
+            assert connection.execute(
+                "select count(*) from public.spaces where id = %s and closed_at is not null",
+                (space_id,),
+            ).fetchone() == (1,), "the Business stays with its custodian"
+    finally:
+        release_custodian(space_id)
+        with psycopg.connect(DSN) as connection:
+            connection.execute(
+                "delete from argus_private.account_deletion_runs where user_id = %s",
+                (ana,),
+            )
+            connection.execute("delete from auth.users where id = %s", (ana,))
 
 
 # Storage. Buckets no client may reach, and every storage.objects policy; an
