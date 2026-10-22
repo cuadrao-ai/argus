@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-22-bank-authorization",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "6a4426e9e612903561e92a6e49ee83ceb1e061ab",
+  "versions_sha256": "824cb209cfcef0a8f32359323922b262b3fef4e4adbe96e975dcd4178649b60d",
+  "issued_at": "2026-10-22T21:48:01Z",
+  "expires_at": "2026-10-24T21:48:01Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas current request in root thread 01a15fd3-8a2a-75c2-86b3-c6953a5e0e91 authorizes finishing the combined staging candidate from PRs #1367 and #1368, completing the dry run and approval record, deploying after gates, and verifying actual staging without repeated approvals. Standing staging authorization from 2026-10-19 15:25 CT covers reviewed add-only migrations with Full Eval SHIP, a merged PR, a committed approval record, and a dry run before execution through scripts/ops/apply_approved_migrations.py. PR #1367 independent Full Eval SHIP at 2d781c8a572486faa581166c4a8d81b4487159fc: https://github.com/lagarcess/argus/pull/1367#issuecomment-6348986739. PR #1368 SHIP at d0f388c50be1f590b8330b4ecdf686bdd3c44aca: https://github.com/lagarcess/argus/pull/1368#issuecomment-6351258635. Both PRs are merged into the candidate. Approval covers only migration 20261022181300 for staging project skedzwocnmrhfigiwyzi. No production changes."
+}
