@@ -9160,6 +9160,17 @@ The web discovers arrivals every 15 seconds while Inbox is visible and polls eve
 
 ### Business bank matching (default-off)
 
+Bank tables are server-only. A client reads or writes through these HTTP routes,
+which check its live Business grant and lock that grant and Business until all
+bank reads and writes finish. Closure, grant expiry or revocation, issuer loss,
+and anonymous identity deny access. A bound financial account must belong to the
+same Business and its record custodian (`spaces.created_by`), which can differ
+from its current owner after a transfer. An existing invalid binding is retained
+but bank reads and imports refuse it with the existing `account_not_in_space`
+error. The shared bank count refuses an invalid binding with the existing
+`business_record_not_found` outcome instead of reporting zero. HTTP request and
+response shapes are unchanged.
+
 Statement import, suggested matches, the unmatched charge count, the Transacciones movements read (`GET /business/bank/movements`: every line of a period with a server-owned state, the documents with no movement, totals per currency, the period's counts across currencies, and an optional `currency` filter that reports how many rows the other currencies hold), and the decisions on a line (igualar, which also writes the document's cobrado or pagado; desigualar, which restores it; decline; no lleva comprobante) for one Business space. The route shapes, statuses, errors, and UI string keys live in `docs/contracts/business-bank-matching.md`. The switch is off unless the Business pilot is on and `CUADRAO_BUSINESS_BANK_MATCHING_ENABLED` is true. While off, the routes answer 404.
 
 ### Business pilot (default-off)

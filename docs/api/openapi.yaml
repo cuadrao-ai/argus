@@ -865,6 +865,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  # Bank tables are server-only. HTTP access checks and locks the live Business
+  # grant; closure, expiry, revocation, issuer loss and anonymous identity deny it.
+  # Bindings use the same Business and record custodian, independent of its current
+  # owner. Invalid existing bindings are retained and refuse account_not_in_space.
+  # Shared HTTP request and response schemas remain unchanged.
   /api/v1/business/bank/imports:
     post:
       tags:

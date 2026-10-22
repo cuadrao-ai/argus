@@ -333,7 +333,7 @@ def test_deleting_the_importer_keeps_the_upload(db, users) -> None:  # noqa: ANN
     ).fetchone() == (line_id, import_id, {"synthetic": True})
 
 
-def test_a_grant_can_read_and_authenticated_cannot_delete(db, users) -> None:  # noqa: ANN001
+def test_a_grant_uses_the_api_and_authenticated_cannot_read_or_delete(db, users) -> None:  # noqa: ANN001
     owner = users["owner"]
     other = users["other"]
     space_id = space(db, owner)
@@ -351,14 +351,11 @@ def test_a_grant_can_read_and_authenticated_cannot_delete(db, users) -> None:  #
     ).fetchone()[0]
     assert "auth.uid()" in definition
     _grant(db, space_id, owner, ["read", "prepare"])
-    with db.transaction(), db.cursor() as cursor:
-        _as(cursor, owner)
-        cursor.execute("select count(*) from public.business_bank_lines")
-        assert cursor.fetchone()[0] == 1
-    with db.transaction(), db.cursor() as cursor:
-        _as(cursor, other)
-        cursor.execute("select count(*) from public.business_bank_lines")
-        assert cursor.fetchone()[0] == 0
+    for person in (owner, other):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), db.transaction():
+            with db.cursor() as cursor:
+                _as(cursor, person)
+                cursor.execute("select count(*) from public.business_bank_lines")
     with pytest.raises(psycopg.errors.InsufficientPrivilege), db.transaction():
         with db.cursor() as cursor:
             _as(cursor, owner)

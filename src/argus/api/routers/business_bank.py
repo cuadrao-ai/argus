@@ -5,6 +5,8 @@ Default-off. The personal import queue is not this surface.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
@@ -24,9 +26,11 @@ from argus.api.business_bank_schemas import (
     BankSuggestionResponse,
     UnmatchedChargesResponse,
 )
+from argus.api.business_drafts import action_problem
 from argus.api.business_spaces import business_access, space_missing_problem
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
+from argus.domain.business.authority import ActionError
 from argus.domain.business.bank.model import (
     AmountAndSignColumns,
     BankLine,
@@ -40,6 +44,8 @@ from argus.domain.business.bank.service import (
     bank_matching_service,
     confidence_of,
 )
+from argus.domain.business.bank.store_postgres import PostgresBankStore
+from argus.domain.business.contracts.authority import TrustedActor
 
 router = APIRouter(prefix="/bank", tags=["business-bank"])
 
@@ -110,6 +116,25 @@ def _capabilities(space_id: str, person_id: str) -> frozenset[str]:
     if access is None:
         return frozenset()
     return frozenset(access.capabilities(space_id, person_id))
+
+
+@contextmanager
+def _bank_access(
+    service, scope, person: BusinessPerson, capability: str
+) -> Iterator[frozenset[str]]:  # noqa: ANN001
+    if isinstance(service.store, PostgresBankStore):
+        actor = TrustedActor(
+            actor_id=UUID(person.person_id),
+            actor_kind="member",
+            space_id=UUID(scope.owner.space_id),
+        )
+        grant_id = UUID(scope.grant_id) if scope.grant_id else None
+        with service.store.authorized_transaction(
+            actor, grant_id, capability
+        ) as authorization:
+            yield authorization.capabilities
+    else:
+        yield _capabilities(scope.owner.space_id, person.person_id)
 
 
 def bank_problem(request: Request, error: BankMatchingError) -> Exception:
@@ -203,45 +228,48 @@ async def import_statement(
     if service is None:
         raise unavailable_problem(request)
     try:
-        result = service.import_statement(
-            space_id=UUID(scope.owner.space_id),
-            actor_id=actor_id,
-            owner_id=UUID(scope.person_id),
-            capabilities=_capabilities(scope.owner.space_id, person.person_id),
-            content=content,
-            account_id=account_id,
-            reader_id=reader_id,
-            mapping=_mapping(
-                date_column,
-                description_column,
-                amount_column,
-                sign_column,
-                debit_column,
-                credit_column,
-                currency_column,
-            ),
-            idempotency_key=key,
-        )
+        with _bank_access(service, scope, person, "prepare") as capabilities:
+            result = service.import_statement(
+                space_id=UUID(scope.owner.space_id),
+                actor_id=actor_id,
+                owner_id=UUID(scope.person_id),
+                capabilities=capabilities,
+                content=content,
+                account_id=account_id,
+                reader_id=reader_id,
+                mapping=_mapping(
+                    date_column,
+                    description_column,
+                    amount_column,
+                    sign_column,
+                    debit_column,
+                    credit_column,
+                    currency_column,
+                ),
+                idempotency_key=key,
+            )
+            logger.info(
+                "business bank import space={} reader={} inserted={} unchanged={}",
+                scope.owner.space_id,
+                result.bank_import.reader_id,
+                result.bank_import.inserted_count,
+                result.bank_import.unchanged_count,
+            )
+            response.status_code = 201 if result.created else 200
+            return BankImportResponse(
+                id=result.bank_import.id,
+                reader_id=result.bank_import.reader_id,
+                inserted_count=result.bank_import.inserted_count,
+                unchanged_count=result.bank_import.unchanged_count,
+                created=result.created,
+                imported_at=result.bank_import.imported_at,
+                lines=[_line(service, line) for line in result.lines],
+                suggestions=[_suggestion(service, row) for row in result.suggestions],
+            )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
     except BankMatchingError as error:
         raise bank_problem(request, error) from None
-    logger.info(
-        "business bank import space={} reader={} inserted={} unchanged={}",
-        scope.owner.space_id,
-        result.bank_import.reader_id,
-        result.bank_import.inserted_count,
-        result.bank_import.unchanged_count,
-    )
-    response.status_code = 201 if result.created else 200
-    return BankImportResponse(
-        id=result.bank_import.id,
-        reader_id=result.bank_import.reader_id,
-        inserted_count=result.bank_import.inserted_count,
-        unchanged_count=result.bank_import.unchanged_count,
-        created=result.created,
-        imported_at=result.bank_import.imported_at,
-        lines=[_line(service, line) for line in result.lines],
-        suggestions=[_suggestion(service, row) for row in result.suggestions],
-    )
 
 
 @router.get(
@@ -261,14 +289,18 @@ def list_suggestions(
     if service is None:
         raise unavailable_problem(request)
     try:
-        rows = service.list_suggestions(
-            space_id=UUID(scope.owner.space_id),
-            capabilities=_capabilities(scope.owner.space_id, person.person_id),
-            status=status,
-        )
+        with _bank_access(service, scope, person, "read") as capabilities:
+            rows = service.list_suggestions(
+                space_id=UUID(scope.owner.space_id),
+                capabilities=capabilities,
+                status=status,
+            )
+            answer = [_suggestion(service, row) for row in rows]
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
     except BankMatchingError as error:
         raise bank_problem(request, error) from None
-    return [_suggestion(service, row) for row in rows]
+    return answer
 
 
 @router.get(
@@ -299,23 +331,26 @@ def list_unmatched(
         raise unavailable_problem(request)
     space_id = UUID(scope.owner.space_id)
     try:
-        service.list_lines(
-            space_id=space_id,
-            capabilities=_capabilities(scope.owner.space_id, person.person_id),
-            period_start=period_start,
-            period_end=period_end,
-        )
-        lines = service.unmatched_charges(
-            space_id=space_id, period_start=period_start, period_end=period_end
-        )
+        with _bank_access(service, scope, person, "read") as capabilities:
+            service.list_lines(
+                space_id=space_id,
+                capabilities=capabilities,
+                period_start=period_start,
+                period_end=period_end,
+            )
+            lines = service.unmatched_charges(
+                space_id=space_id, period_start=period_start, period_end=period_end
+            )
+            return UnmatchedChargesResponse(
+                count=len(lines),
+                period_start=period_start,
+                period_end=period_end,
+                lines=[_line(service, line) for line in lines],
+            )
+    except ActionError as error:
+        raise action_problem(request, error.result) from None
     except BankMatchingError as error:
         raise bank_problem(request, error) from None
-    return UnmatchedChargesResponse(
-        count=len(lines),
-        period_start=period_start,
-        period_end=period_end,
-        lines=[_line(service, line) for line in lines],
-    )
 
 
 def _mapping(

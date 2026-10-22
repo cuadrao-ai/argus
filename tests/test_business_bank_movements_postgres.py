@@ -417,3 +417,154 @@ def test_the_accountant_reads_the_same_movements_and_strangers_none(bank) -> Non
         headers={**reader, "Idempotency-Key": str(uuid4())},
     )
     assert _code(refused) == (403, "business_permission_denied")
+
+
+def _lose_bank_access(world, loss: str) -> None:  # noqa: ANN001
+    with Connection.connect(shared.DSN) as db:
+        if loss == "closed":
+            db.execute(
+                "update public.spaces set closed_at=now() where id=%s",
+                (world.alice.space_id,),
+            )
+        elif loss == "anonymous":
+            db.execute(
+                "update auth.users set is_anonymous=true where id=%s", (world.bob.id,)
+            )
+        else:
+            column = "expires_at" if "expired" in loss else "revoked_at"
+            if loss.startswith("issuer"):
+                db.execute(
+                    f"update public.business_client_grants set created_at=least(created_at,now()-interval '1 day'), {column}=now()-interval '1 second'"
+                    " where space_id=%s and grantee_id=issuer_id",
+                    (world.alice.space_id,),
+                )
+            else:
+                db.execute(
+                    f"update public.business_client_grants set created_at=least(created_at,now()-interval '1 day'), {column}=now()-interval '1 second' where id=%s",
+                    (world.grant_a,),
+                )
+
+
+def _bank_request(world, surface: str, account_id: str, headers: dict):  # noqa: ANN001, ANN202
+    if surface == "imports":
+        return world.client.post(
+            f"{BANK}/imports",
+            files={"statement": ("estado.csv", _statement([]), "text/csv")},
+            data={"account_id": account_id},
+            headers={**headers, "Idempotency-Key": str(uuid4())},
+        )
+    return world.client.get(f"{BANK}/{surface}", params=OCTOBER, headers=headers)
+
+
+@pytest.mark.parametrize(
+    "loss",
+    ["closed", "revoked", "expired", "issuer_revoked", "issuer_expired", "anonymous"],
+)
+def test_lost_access_refuses_bank_http_reads_and_import(bank, loss) -> None:  # noqa: ANN001
+    checking = _checking(bank)
+    imported = _import(
+        bank, checking, _statement([("12/10/2026", "COMISION", "150.00", "")])
+    )
+    line_id = imported["lines"][0]["id"]
+    _lose_bank_access(bank, loss)
+    for surface in ("movements", "suggestions", "unmatched", "imports"):
+        answer = _bank_request(bank, surface, checking, _as(bank.bob, bank.grant_a))
+        assert answer.status_code in (401, 403, 404), (surface, answer.text)
+    refused = bank.client.put(
+        f"{BANK}/movements/{line_id}/disposition",
+        json={"reason": "cargo_banco"},
+        headers={**_as(bank.bob, bank.grant_a), "Idempotency-Key": str(uuid4())},
+    )
+    assert refused.status_code in (401, 403, 404), refused.text
+    with Connection.connect(shared.DSN) as db:
+        assert db.execute(
+            "select count(*) from public.business_bank_imports where space_id=%s",
+            (bank.alice.space_id,),
+        ).fetchone() == (1,)
+        assert db.execute(
+            "select count(*) from public.business_bank_line_outcomes where space_id=%s",
+            (bank.alice.space_id,),
+        ).fetchone() == (0,)
+
+
+@pytest.mark.parametrize("surface", ["suggestions", "unmatched", "imports"])
+def test_legacy_bank_route_rechecks_a_grant_after_scope_snapshot(
+    bank, monkeypatch, surface
+) -> None:  # noqa: ANN001
+    from argus.api.routers import business_bank
+
+    checking = _checking(bank)
+    _import(bank, checking, _statement([("12/10/2026", "COMISION", "150.00", "")]))
+    original = business_bank._bank_access
+
+    def lose_before_transaction(*args):  # noqa: ANN002, ANN202
+        _lose_bank_access(bank, "revoked")
+        return original(*args)
+
+    monkeypatch.setattr(business_bank, "_bank_access", lose_before_transaction)
+    answer = _bank_request(bank, surface, checking, _as(bank.bob, bank.grant_a))
+    assert _code(answer) == (404, "business_record_not_found")
+    with Connection.connect(shared.DSN) as db:
+        assert db.execute(
+            "select count(*) from public.business_bank_imports where space_id=%s",
+            (bank.alice.space_id,),
+        ).fetchone() == (1,)
+
+
+def test_old_foreign_binding_refuses_http_read_and_import(bank) -> None:  # noqa: ANN001
+    checking = _checking(bank)
+    _import(bank, checking, _statement([("12/10/2026", "COMISION", "150.00", "")]))
+    foreign = _send(
+        bank,
+        "POST",
+        "/business/accounts",
+        {"nickname": "Foreign", "type": "checking", "currency": "DOP"},
+        bank.carol.headers,
+    )["id"]
+    with Connection.connect(shared.DSN) as db:
+        db.execute("set local session_replication_role=replica")
+        db.execute(
+            "update public.business_bank_accounts set account_id=%s where space_id=%s",
+            (foreign, bank.alice.space_id),
+        )
+    for surface in ("movements", "suggestions", "unmatched", "imports"):
+        answer = _bank_request(bank, surface, checking, bank.alice.headers)
+        assert _code(answer) == (404, "account_not_in_space"), answer.text
+    with Connection.connect(shared.DSN) as db:
+        assert db.execute(
+            "select account_id::text from public.business_bank_accounts where space_id=%s",
+            (bank.alice.space_id,),
+        ).fetchone() == (foreign,)
+
+
+def test_import_holds_live_grant_and_business_locks_through_nested_store_work(
+    bank, monkeypatch
+) -> None:  # noqa: ANN001
+    from argus.domain.business.bank.service import bank_matching_service
+    from psycopg.errors import LockNotAvailable
+
+    checking = _checking(bank)
+    service = bank_matching_service()
+    original = service.import_statement
+    checked = []
+
+    def import_with_lock_probe(**kwargs):  # noqa: ANN003, ANN202
+        with Connection.connect(shared.DSN) as db:
+            for statement, key in (
+                ("update public.spaces set name=name where id=%s", bank.alice.space_id),
+                (
+                    "update public.business_client_grants set capabilities=capabilities where space_id=%s and grantee_id=issuer_id",
+                    bank.alice.space_id,
+                ),
+            ):
+                with pytest.raises(LockNotAvailable), db.transaction():
+                    db.execute("set local lock_timeout='100ms'")
+                    db.execute(statement, (key,))
+                checked.append(key)
+        imported = original(**kwargs)
+        assert service.store._local.connection is not None
+        return imported
+
+    monkeypatch.setattr(service, "import_statement", import_with_lock_probe)
+    _import(bank, checking, _statement([("12/10/2026", "COMISION", "150.00", "")]))
+    assert len(checked) == 2

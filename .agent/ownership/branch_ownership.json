@@ -77,6 +77,32 @@
         "marketing/**"
       ]
     },
+    "codex/business-bank-authorization-20261022": {
+      "description": "Repair approved Business bank authorization only. Preserve custody, transfer and shared HTTP schemas. No hosted migration or deployment.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_bank.py",
+        "src/argus/api/routers/business_bank_movements.py",
+        "src/argus/domain/business/bank/movements_store.py",
+        "src/argus/domain/business/bank/store_postgres.py",
+        "supabase/migrations/20261022181300_business_bank_authorization.sql",
+        "tests/test_business_bank_authorization_postgres.py",
+        "tests/test_business_bank_matching_postgres.py",
+        "tests/test_business_bank_movements_postgres.py",
+        "tests/test_client_grants_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/**",
+        "ios/**",
+        "mobile/**",
+        "marketing/**"
+      ]
+    },
     "codex/business-owner-receipt-upload": {
       "description": "Issue #1112 owner Inbox upload acceptance coverage for saved reading permission, exact web request, JPEG/PDF source persistence and review entry. No runtime, provider, hosted, migration or iOS changes.",
       "base_ref": "origin/codex/private-alpha-next",
