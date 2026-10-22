@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { ReactNode } from "react";
 
 const LOCKUP_WIDTH = 200;
 const LOCKUP_HEIGHT = Math.round((LOCKUP_WIDTH * 56) / 268);
@@ -25,7 +26,8 @@ export function BrandedStatusScreen({
   onAction?: () => void;
   secondaryLabel?: string;
   secondaryHref?: string;
-  reference?: string;
+  /** A ReferenceCode: the short form shows, the full id copies. */
+  reference?: ReactNode;
   contactEmail?: string;
   testId?: string;
 }) {
@@ -61,7 +63,7 @@ export function BrandedStatusScreen({
         </p>
       ) : null}
       {reference ? (
-        <p data-testid="error-reference" className="mt-3 text-center font-sans text-sm">
+        <p className="mt-3 text-center font-sans">
           {reference}
         </p>
       ) : null}

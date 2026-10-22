@@ -1,7 +1,7 @@
 import type { MonthCloseClient } from "../../lib/business-month-close";
 
 /** Inicio's month-close view in Spanish on a fresh root, the way the Business app mounts it. */
-export async function renderMonthCloseView(client: MonthCloseClient, now: Date, businessCurrency: string | null = null) {
+export async function renderMonthCloseView(client: MonthCloseClient, now: Date, businessCurrency: string | null = null, review?: Parameters<typeof import("../../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"]) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -16,7 +16,7 @@ export async function renderMonthCloseView(client: MonthCloseClient, now: Date, 
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
-        <BusinessMonthCloseView client={client} now={now} businessCurrency={businessCurrency} />
+        <BusinessMonthCloseView client={client} now={now} businessCurrency={businessCurrency} review={review} />
       </I18nextProvider>,
     );
   });

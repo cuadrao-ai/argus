@@ -2,14 +2,17 @@
 
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { businessWorkspaceCurrency } from "@/lib/business-api";
+import { setCurrencyView, useCurrencyView } from "@/lib/business-currency-view";
 import { referenceCode } from "@/lib/failure-screen";
+import { useMonthCloseSource } from "../BusinessMonthClosePanel";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatMoney, UNKNOWN_VALUE } from "../business-format";
 import { showToast } from "../foundation/toasts";
-import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisionProblem, listChanged, type DecisionProblem } from "./transacciones-adapter";
+import { createBankTransaccionesSource, createRecordsTransaccionesSource, decisionProblem, listChanged, readVentas, type DecisionProblem } from "./transacciones-adapter";
 import { useBankTransport, useIgualarEnabled } from "./transacciones-gate";
-import { createSampleBankServer } from "./transacciones-sample";
-import { inverse, magnitude, periodCount, suggestionRun, type Decision, type IgualarView, type Movement, type Segment, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
+import { createSampleBankServer, sampleVentasServer } from "./transacciones-sample";
+import { currencyChoices, inverse, magnitude, suggestionRun, type Decision, type IgualarView, type Movement, type Segment, type TransaccionesSource, type TransaccionesView } from "./transacciones-model";
 import { resolveLanguage } from "@/lib/language-features";
 import type { RefreshOutcome } from "@/components/ui/pull-to-refresh";
 
@@ -36,7 +39,8 @@ function useTransaccionesSource(): TransaccionesSource {
   const scope = chosen?.space_id ?? "own";
   return useMemo(() => {
     if (override) return override;
-    const saved = createRecordsTransaccionesSource({ expenses: source.expenses, overview: source.overview, workspace: source.workspace, ownerFunds });
+    const ventas = readVentas(source.mode === "fixture" ? sampleVentasServer : undefined);
+    const saved = createRecordsTransaccionesSource({ expenses: source.expenses, ventas, overview: source.overview, workspace: source.workspace, ownerFunds });
     if (!igualar) return saved;
     return createBankTransaccionesSource(source.mode === "fixture" && transport === "sample" ? createSampleBankServer() : undefined, saved);
     // A new Business starts a new source, so nothing decided in one shows in another.
@@ -48,7 +52,11 @@ function useTransaccionesSource(): TransaccionesSource {
 const PAGE = 50;
 const MAX_PAGE = 200;
 
-export type ListState = { kind: "loading" } | { kind: "failed" } | { kind: "ready"; view: TransaccionesView };
+/** What a list read asks for. A cursor belongs to the query that handed it out, so a new query starts from the top. */
+type Query = Readonly<{ segment: Segment; currency: string | null }>;
+const sameQuery = (left: Query, right: Query) => left.segment === right.segment && left.currency === right.currency;
+
+export type ListState = { kind: "loading" } | { kind: "failed" } | { kind: "ready"; view: TransaccionesView; query: Query };
 export type MoreState = { kind: "idle" } | { kind: "loading" } | { kind: "failed"; changed: boolean };
 
 /** The tray: which row, and whether it shows the record or asks why it needs no proof. `run` holds the suggestion run's rows in order. */
@@ -74,11 +82,19 @@ export function useTransacciones() {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const source = useTransaccionesSource();
-  const { period, revision } = useBusiness();
+  const { period, revision, records } = useBusiness();
   const [chosen, setChosen] = useState<Segment | null>(null);
   // With nothing to igualar in the period, the screen opens on Todas.
   const [fallback, setFallback] = useState<Segment>("por_igualar");
   const segment = chosen ?? fallback;
+  // One choice per Business drives Inicio and this table; until the person chooses, the Business currency. Unknown reads every currency.
+  const { scopeKey } = useMonthCloseSource();
+  const businessCurrency = businessWorkspaceCurrency(records.workspace);
+  const storedCurrency = useCurrencyView(scopeKey);
+  const currency = storedCurrency ?? businessCurrency;
+  // The first read waits for the Business currency, so its first page is already in it.
+  const currencyKnown = storedCurrency !== null || records.workspace !== null || records.error || Boolean(records.closed) || Boolean(records.serverReference);
+  const query = useMemo<Query>(() => ({ segment, currency }), [segment, currency]);
   const [list, setList] = useState<ListState>({ kind: "loading" });
   const [more, setMore] = useState<MoreState>({ kind: "idle" });
   const [reloads, setReloads] = useState(0);
@@ -96,38 +112,39 @@ export function useTransacciones() {
   }, [source, period.from, period.to]);
 
   const read = useCallback(async (limit = PAGE) => {
-    const view = await source.load({ from: period.from, to: period.to, segment, limit });
+    const view = await source.load({ from: period.from, to: period.to, ...query, limit });
     loaded.current = view.mode === "igualar" ? view.movements.length : 0;
     return view;
-  }, [source, period.from, period.to, segment]);
+  }, [source, period.from, period.to, query]);
 
   useEffect(() => {
+    if (!currencyKnown) return undefined;
     let cancelled = false;
-    // A background read keeps the rows on screen, and focus with them; only another segment shows loading.
-    setList((current) => (current.kind === "ready" && (current.view.mode === "records" || current.view.segment === segment) ? current : { kind: "loading" }));
+    // A background read keeps the rows on screen, and focus with them; another segment or currency shows loading.
+    setList((current) => (current.kind === "ready" && (current.view.mode === "records" || sameQuery(current.query, query)) ? current : { kind: "loading" }));
     setMore({ kind: "idle" });
     read().then(
       (view) => {
         if (cancelled) return;
-        if (view.mode === "igualar" && chosen === null && segment === "por_igualar" && periodCount(view.totals, "porIgualar") === 0) {
+        if (view.mode === "igualar" && chosen === null && segment === "por_igualar" && view.counts?.porIgualar === 0) {
           setFallback("todas");
           return;
         }
-        setList({ kind: "ready", view });
+        setList({ kind: "ready", view, query });
       },
       () => { if (!cancelled) setList({ kind: "failed" }); },
     );
     return () => { cancelled = true; };
     // `chosen` only matters for the first read of a period; a choice changes `segment`, which reads again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [read, revision, reloads]);
+  }, [read, revision, reloads, currencyKnown]);
 
   /** Read the segment again with every row already shown, after the server took a decision. */
   const reread = useCallback(async () => {
     const view = await read(Math.min(MAX_PAGE, Math.max(PAGE, loaded.current)));
-    setList({ kind: "ready", view });
+    setList({ kind: "ready", view, query });
     return view;
-  }, [read]);
+  }, [read, query]);
 
   /** A fresh read of the list in place; a failure is the list's own error, with Reintentar. */
   const refresh = useCallback((): Promise<RefreshOutcome> => reread().then(
@@ -144,24 +161,32 @@ export function useTransacciones() {
   }, []);
 
   const view: IgualarView | null = list.kind === "ready" && list.view.mode === "igualar" ? list.view : null;
+  // The menu stays while another currency loads, so the strip under it does not jump.
+  const [lastView, setLastView] = useState<IgualarView | null>(null);
+  if (view && view !== lastView) setLastView(view);
+  const menuView = view ?? (list.kind === "loading" ? lastView : null);
+  // A server that does not say which currency it follows ignores the choice, so it offers none.
+  const choices = menuView?.currency && currency ? currencyChoices({ ...menuView, currency }, businessCurrency) : [];
+  const currencyMenu = currency && choices.length > 1 ? { choices, value: currency } : null;
   const movements = useMemo(() => view?.movements ?? [], [view]);
   const byId = useMemo(() => new Map(movements.map((movement) => [movement.id, movement])), [movements]);
 
   const loadMore = useCallback(async () => {
-    if (!view?.nextCursor || more.kind === "loading") return;
+    if (list.kind !== "ready" || !view?.nextCursor || more.kind === "loading") return;
+    const shown = list.query;
     setMore({ kind: "loading" });
     try {
-      const next = await source.load({ from: period.from, to: period.to, segment: view.segment, cursor: view.nextCursor, limit: PAGE });
+      const next = await source.load({ from: period.from, to: period.to, ...shown, cursor: view.nextCursor, limit: PAGE });
       if (next.mode !== "igualar") throw new Error("bank: the list changed mode");
       const seen = new Set(view.movements.map((movement) => movement.id));
       const merged: IgualarView = { ...next, movements: [...view.movements, ...next.movements.filter((movement) => !seen.has(movement.id))] };
       loaded.current = merged.movements.length;
-      setList({ kind: "ready", view: merged });
+      setList({ kind: "ready", view: merged, query: shown });
       setMore({ kind: "idle" });
     } catch (error) {
       setMore({ kind: "failed", changed: listChanged(error) });
     }
-  }, [more.kind, period.from, period.to, source, view]);
+  }, [list, more.kind, period.from, period.to, source, view]);
 
   // Deshacer runs back through `decide`, which shows the toast that offers it; the ref breaks that loop.
   const decideRef = useRef<(decision: Decision, options?: { key?: string; undoing?: boolean; row?: Movement }) => Promise<void>>(async () => undefined);
@@ -249,6 +274,14 @@ export function useTransacciones() {
     setChosen(next);
   }, []);
 
+  /** The table follows one currency; the choice is kept per Business, so Inicio shows it too. */
+  const chooseCurrency = useCallback((next: string) => {
+    if (scopeKey === null) return;
+    setTray(null);
+    setFailure(null);
+    setCurrencyView(scopeKey, next);
+  }, [scopeKey]);
+
   // The run walks the Por igualar segment, where the server lists suggestions most confident first.
   useEffect(() => {
     if (!runWanted || !view || view.segment !== "por_igualar") return;
@@ -269,7 +302,7 @@ export function useTransacciones() {
     setFailure(null);
   }, []);
 
-  return { source, list, view, segment, choose, movements, byId, more, loadMore, tray, open, close, startRun, decide, busy, failure, recover, retryLoad, refresh };
+  return { source, list, view, segment, choose, businessCurrency, currencyMenu, chooseCurrency, movements, byId, more, loadMore, tray, open, close, startRun, decide, busy, failure, recover, retryLoad, refresh };
 }
 
 export type TransaccionesController = ReturnType<typeof useTransacciones>;

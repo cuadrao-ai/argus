@@ -13,7 +13,7 @@ afterAll(async () => {
 });
 
 const now = new Date(2026, 9, 18);
-const noOpenItems = async () => openItemsFrom([]);
+const noOpenItems = async () => openItemsFrom([], "2026-10-18");
 
 function delayingFailure(inner: MonthCloseClient): MonthCloseClient {
   return {
@@ -280,7 +280,7 @@ describe("month close layouts", () => {
     const client: MonthCloseClient = {
       mode: "mock",
       async load(month) {
-        return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, documents: [], figures: [] };
+        return { month, from: `${month}-01`, to: `${month}-31`, closed_at: null, earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null, documents: [], figures: [] };
       },
       openItems: noOpenItems,
       markCobrado: () => Promise.reject(new MonthCloseError("unavailable", "mark failed")),
@@ -354,17 +354,19 @@ describe("month close layouts", () => {
     });
     const snapshot: MonthCloseSnapshot = {
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed_at: null,
-      earliest_month: null,
+      earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [invoice("a", 20), invoice("b", 21), invoice("c", 22), invoice("d", 23), invoice("e", 24)],
       figures: [],
     };
     const client: MonthCloseClient = {
       mode: "mock",
       async load() { return snapshot; },
-      async openItems() { return openItemsFrom(snapshot.documents); },
+      async openItems() { return openItemsFrom(snapshot.documents, "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },
@@ -394,10 +396,12 @@ describe("month close layouts", () => {
   test("unknown figures say a short dash and never a zero, and unrendered blockers stay off the screen", async () => {
     const snapshot: MonthCloseSnapshot = {
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed_at: null,
-      earliest_month: null,
+      earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [],
       figures: [{ currency: "DOP", income_before_itbis: null, expense_before_itbis: null, net_before_itbis: null, itbis_owed: null }],
       blockers: [statementMissingBlocker, unmatchedCharges(2)],
@@ -405,7 +409,7 @@ describe("month close layouts", () => {
     const client: MonthCloseClient = {
       mode: "mock",
       async load() { return snapshot; },
-      async openItems() { return openItemsFrom(snapshot.documents); },
+      async openItems() { return openItemsFrom(snapshot.documents, "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },
@@ -508,12 +512,15 @@ describe("fiscal complete months stay editable", () => {
       if (path === "/business/open-items") {
         const marked = calls.some((call) => call.method === "PATCH");
         return {
+          today: "2026-10-18",
           cuentas_por_cobrar: marked ? { count: 0, totals: [], items: [] } : { count: 1, totals: [{ currency: "DOP", total_minor: 118000, total: "1180.00" }], items: [wireLine("act-invoice", "invoice", 118000, 18000)] },
           cuentas_por_pagar: { count: 1, totals: [{ currency: "DOP", total_minor: 59000, total: "590.00" }], items: [wireLine("act-receipt", "receipt", 59000, 9000)] },
         };
       }
       return {
         month: "2026-10",
+        today: "2026-10-18",
+        payment_methods: ["efectivo", "otro"],
         from: "2026-10-01",
         to: "2026-10-31",
         closed: true,
@@ -529,6 +536,7 @@ describe("fiscal complete months stay editable", () => {
             invoices: { pendiente: statusCell(1, 100000), cobrado: statusCell(0, 0) },
             receipts: { pendiente: statusCell(1, 50000), pagado: statusCell(0, 0) },
           },
+          net_result_final: false,
         }],
         missing_rnc: [],
         missing_ncf: [],
@@ -600,18 +608,20 @@ describe("fiscal complete months stay editable", () => {
     };
     const snapshot: MonthCloseSnapshot = {
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed_at: "2026-10-18T15:00:00",
       closed: true,
-      earliest_month: null,
+      earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [invoice, receipt],
       figures: monthCloseFiguresFrom([invoice, receipt]),
     };
     const client: MonthCloseClient = {
       mode: "mock",
       async load() { return snapshot; },
-      async openItems() { return openItemsFrom(snapshot.documents); },
+      async openItems() { return openItemsFrom(snapshot.documents, "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },
@@ -646,18 +656,20 @@ describe("fiscal complete months stay editable", () => {
     };
     const snapshot: MonthCloseSnapshot = {
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed_at: "2026-10-18T15:00:00",
       closed: true,
-      earliest_month: null,
+      earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [{ ...september, id: "inv-october", occurred_on: "2026-10-04", status: "cobrado" }],
       figures: [],
     };
     const client: MonthCloseClient = {
       mode: "mock",
       async load() { return snapshot; },
-      async openItems() { return openItemsFrom([september]); },
+      async openItems() { return openItemsFrom([september], "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },
@@ -687,10 +699,12 @@ describe("Inicio ITBIS balance", () => {
   function amountSnapshot(itbisOwed: string): MonthCloseSnapshot {
     return {
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed_at: null,
-      earliest_month: null,
+      earliest_month: null, today: "2026-10-18", payment_methods: ["otro"], dgii_forms: null,
       documents: [],
       figures: [{
         currency: "DOP",
@@ -707,7 +721,7 @@ describe("Inicio ITBIS balance", () => {
     return {
       mode: "mock",
       async load() { return snapshot; },
-      async openItems() { return openItemsFrom(snapshot.documents); },
+      async openItems() { return openItemsFrom(snapshot.documents, "2026-10-18"); },
       async markCobrado() { throw new Error("no mark"); },
       async markPagado() { throw new Error("no mark"); },
       async markPendiente() { throw new Error("no undo"); },
@@ -758,10 +772,13 @@ describe("Inicio ITBIS balance", () => {
 describe("a fully settled month", () => {
   test("a month with everything collected and paid is not empty, is ready to close, and has nothing left in the money columns", async () => {
     const client = createHttpMonthCloseClient(async (path) => path === "/business/open-items" ? ({
+      today: "2026-10-18",
       cuentas_por_cobrar: { count: 0, totals: [], items: [] },
       cuentas_por_pagar: { count: 0, totals: [], items: [] },
     }) : ({
       month: "2026-10",
+      today: "2026-10-18",
+      payment_methods: ["efectivo", "otro"],
       from: "2026-10-01",
       to: "2026-10-31",
       closed: true,
@@ -777,13 +794,14 @@ describe("a fully settled month", () => {
           invoices: { pendiente: statusCell(0, 0), cobrado: statusCell(2, 200000) },
           receipts: { pendiente: statusCell(0, 0), pagado: statusCell(1, 100000) },
         },
+        net_result_final: true,
       }],
       missing_rnc: [],
       missing_ncf: [],
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     }));
-    const { act, host, root } = await renderView(client);
+    const { act, host, root } = await renderMonthCloseView(client, now, null, { count: 0, detail: null, open: () => {} });
     assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000\.00/);
     assert.match(host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent ?? "", /Todo listo para cerrar octubre\./);
     assert.equal(host.querySelector('[data-testid="month-close-checklist-left"]'), null);

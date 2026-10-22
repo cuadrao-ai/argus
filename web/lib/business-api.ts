@@ -297,10 +297,9 @@ export type BusinessWorkspaceInfo = {
   receipt_limits: ReceiptLimits;
 };
 
-/** The Business's own currency when the payload carries it (it arrives with the Business's country); otherwise unknown, never pesos. */
-export function businessWorkspaceCurrency(workspace: BusinessWorkspaceInfo | null | undefined): string | null {
-  const { currency } = (workspace ?? {}) as { currency?: unknown };
-  return typeof currency === "string" && currency !== "" ? currency : null;
+/** The Business's own currency, the one reader of the workspace `currency`. A workspace still loading, or an older server without the field, is unknown, never pesos. */
+export function businessWorkspaceCurrency(workspace: BusinessWorkspaceInfo | null | undefined): CurrencyCode | null {
+  return workspace?.currency || null;
 }
 
 /**

@@ -27,6 +27,8 @@ afterAll(async () => {
 const unmounts: (() => Promise<void>)[] = [];
 beforeEach(async () => {
   Object.assign(profile, { stored: "normal", writes: [], refuse: false });
+  // Another file in the same run may have kept a currency for the own Business.
+  (await import("@/lib/business-currency-view")).resetCurrencyViews();
   (await import("@/components/business-app/transacciones/table-density")).resetTableDensity({
     read: async () => profile.stored,
     write: async (next) => {
@@ -40,11 +42,12 @@ afterEach(async () => {
   while (unmounts.length) await unmounts.pop()!();
   (await import("@/components/layout/overlayStack")).resetOverlayStack();
   (await import("@/components/business-app/foundation/toasts")).clearToasts();
+  (await import("@/lib/business-currency-view")).resetCurrencyViews();
   document.body.innerHTML = "";
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, transacciones, view = "transactions", porIgualarCount }: { enabled?: boolean; width?: number; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null } = {}) {
+async function mount({ enabled = true, width = 1440, transacciones, view = "transactions", porIgualarCount, businessCurrency }: { enabled?: boolean; width?: number; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
@@ -67,6 +70,12 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
+    // The Business currency only when a test names it; without it the table lists every currency, as with an older server.
+    workspace: async () => {
+      const workspace: Record<string, unknown> = { ...(await fixture.workspace()) };
+      delete workspace.currency;
+      return businessCurrency ? { ...workspace, currency: businessCurrency } : workspace;
+    },
     captures: async () => ({ items: [] }),
     receiptPage: porIgualarCount === undefined ? fixture.receiptPage : async (view: "inbox" | "all") => {
       const page = await fixture.receiptPage!(view);
@@ -94,7 +103,7 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   document.body.appendChild(host);
   const root = createRoot(host);
   const panel = (
-    <BusinessWorkspaceProvider source={source as BusinessDataSource}>
+    <BusinessWorkspaceProvider source={source as unknown as BusinessDataSource}>
       <Chrome />
       <Probe />
       <ToastViewport />
@@ -134,9 +143,11 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
 
 const EMPTY_OVERVIEW = { from: "2026-10-01", to: "2026-10-20", today: "2026-10-20", totals: [], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
 
-async function recordsOf(expenses: Parameters<typeof import("@/components/business-app/transacciones/transacciones-adapter")["createRecordsTransaccionesSource"]>[0]["expenses"] extends (...args: never[]) => Promise<infer T> ? T : never, overview: object = EMPTY_OVERVIEW) {
+type Saved = Parameters<typeof import("@/components/business-app/transacciones/transacciones-adapter")["createRecordsTransaccionesSource"]>[0]["expenses"] extends (...args: never[]) => Promise<infer T> ? T : never;
+
+async function recordsOf(expenses: Saved, overview: object = EMPTY_OVERVIEW, ventas: Saved = []) {
   const { createRecordsTransaccionesSource } = await import("@/components/business-app/transacciones/transacciones-adapter");
-  return createRecordsTransaccionesSource({ expenses: async () => expenses, overview: async () => ({ ...EMPTY_OVERVIEW, ...overview }), workspace: async () => ({ accounts: [] }), ownerFunds: "Dinero del dueño" });
+  return createRecordsTransaccionesSource({ expenses: async () => expenses, ventas: async () => ventas, overview: async () => ({ ...EMPTY_OVERVIEW, ...overview }), workspace: async () => ({ accounts: [] }), ownerFunds: "Dinero del dueño" });
 }
 
 /** The sample bank through the real adapter, with every request it was sent. */
@@ -157,14 +168,15 @@ async function bank(options: Parameters<typeof import("@/components/business-app
 const refusal = (status: number, code: string) => Object.assign(new Error(code), { status, code });
 
 describe("the gate", () => {
-  test("with igualar off, the third screen is still Transacciones: the period's saved gastos, no igualar parts, Entradas unknown", async () => {
+  test("with igualar off, the third screen is still Transacciones: the period's saved gastos and ventas, no igualar parts, Entradas unknown", async () => {
     const page = await mount({ enabled: false });
     const rail = page.host.querySelector('[data-testid="business-sidebar-nav"]')!;
     assert.ok([...rail.querySelectorAll("button")].some((button) => button.textContent?.includes("Transacciones")), "the rail names Transacciones");
     assert.ok(!rail.textContent?.includes("Gastos"));
     await page.settle(() => page.records().length > 0, "the saved records");
     assert.equal(page.screen()?.querySelector("h2")?.textContent, "Transacciones");
-    assert.deepEqual([...new Set(page.records().map((node) => node.dataset.kind))], ["gasto"], "no venta is rebuilt from month-close lines");
+    await page.settle(() => page.records().some((node) => node.dataset.kind === "venta"), "the ventas");
+    assert.deepEqual([...new Set(page.records().map((node) => node.dataset.kind))].sort(), ["gasto", "venta"], "the ventas come from the expenses read with kind=income");
     for (const absent of ["transacciones-segments", "transacciones-run", "transacciones-grid"]) assert.equal(document.querySelector(`[data-testid="${absent}"]`), null, `${absent} stays behind the flag`);
     assert.doesNotMatch(page.body(), /Banco al día|Por igualar|Igualadas|¿Este\?|Igualar sugerencias/);
     const summary = document.querySelector<HTMLElement>('[data-testid="transacciones-summary"]')!;
@@ -205,7 +217,7 @@ describe("the gate", () => {
   test("an empty period offers a real next step, never a zero list", async () => {
     const page = await mount({ enabled: false, transacciones: await recordsOf([]) });
     await page.settle(() => document.querySelector('[data-testid="transacciones-records-empty"]') !== null, "the empty state");
-    assert.match(page.body(), /Aquí verás tus gastos/);
+    assert.match(page.body(), /Aquí verás tus gastos y ventas/);
     assert.ok(document.querySelector('[data-testid="transacciones-records-empty"] button'), "one action to add");
     assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"] dd')?.textContent, "-sin dato", "no row names a currency, so the zero is not shown as pesos");
   });
@@ -411,6 +423,118 @@ describe("Transacciones table", () => {
   });
 });
 
+describe("Transacciones currency", () => {
+  const movementsCalls = (calls: { path: string }[]) => calls.filter((call) => call.path.startsWith("/business/bank/movements?")).map((call) => new URLSearchParams(call.path.split("?")[1]));
+  const menu = () => document.querySelector<HTMLButtonElement>('[data-testid="transacciones-currency"] [data-testid="month-close-currency"]');
+  const pick = async (page: Awaited<ReturnType<typeof mount>>, currency: string) => {
+    await page.click(menu());
+    await page.click(document.querySelector(`[data-testid="month-close-currency-picker"] [data-currency="${currency}"]`));
+  };
+
+  test("the table follows the Business currency, and choosing another reads it from the top: the cursor resets on every currency and segment change", async () => {
+    const { source, calls } = await bank({ pageSize: 5 });
+    const page = await mount({ transacciones: source, businessCurrency: "DOP" });
+    await page.ready();
+    assert.equal(movementsCalls(calls)[0].get("currency"), "DOP", "the first read is already in the Business currency");
+    await page.click(page.segment("todas"));
+    await page.settle(() => page.rows().length === 5, "the first page");
+    assert.ok(page.rows().every((row) => !/US\$/.test(row.textContent ?? "")), "no dollar row in a peso table");
+    await page.click(document.querySelector<HTMLButtonElement>('[data-testid="transacciones-more"] button'));
+    await page.settle(() => page.rows().length === 10, "the second page");
+    assert.equal(movementsCalls(calls).at(-1)?.get("cursor"), "o:5");
+    assert.equal(movementsCalls(calls).at(-1)?.get("currency"), "DOP", "a cursor travels with the currency that handed it out");
+    await pick(page, "USD");
+    await page.settle(() => page.row("mv-nube") !== null && page.rows().length === 1, "the dollar table");
+    const switched = movementsCalls(calls).at(-1)!;
+    assert.equal(switched.get("currency"), "USD");
+    assert.equal(switched.get("cursor"), null, "a new currency starts from the top");
+    assert.equal(menu()?.textContent, "USD");
+    assert.match(document.querySelector('[data-testid="transacciones-summary"] [data-total="salidas"]')?.textContent ?? "", /US\$\s?24\.00/);
+    assert.doesNotMatch(document.querySelector('[data-testid="transacciones-summary"]')?.textContent ?? "", /RD\$/, "the totals follow the table");
+    assert.match(localStorage.getItem("cuadrao:business_currency_view:v1") ?? "", /"own":"USD"/, "one kept choice drives Inicio and Transacciones");
+    await page.click(page.segment("igualadas"));
+    await page.settle(() => movementsCalls(calls).at(-1)?.get("segment") === "igualadas", "Igualadas");
+    assert.equal(movementsCalls(calls).at(-1)?.get("cursor"), null, "a new segment starts from the top");
+    assert.equal(movementsCalls(calls).at(-1)?.get("currency"), "USD");
+  });
+
+  test("counts are the server's: Igualadas is the period's across currencies, Por igualar the chosen currency's, and nothing is added on the web", async () => {
+    const { source, calls } = await bank({}, () => undefined);
+    const forged = { ...source, async load(request: Parameters<TransaccionesSource["load"]>[0]) {
+      const view = await source.load(request);
+      return view.mode === "igualar" ? { ...view, counts: view.counts && { ...view.counts, movimientos: 90, igualadas: 40, noLleva: 2 } } : view;
+    } };
+    const page = await mount({ transacciones: forged, businessCurrency: "DOP" });
+    await page.ready();
+    assert.ok(calls.length > 0);
+    const cell = (key: string) => document.querySelector<HTMLElement>(`[data-testid="transacciones-summary"] [data-total="${key}"] dd`)?.textContent ?? "";
+    assert.equal(cell("igualadas"), "42de 90", "the period's own counts, as sent");
+    const dop = (await source.load({ from: "2026-10-01", to: "2026-10-31", segment: "por_igualar", currency: "DOP" }));
+    assert.ok(dop.mode === "igualar");
+    const dopCount = dop.totals.find((block) => block.currency === "DOP")!.counts.porIgualar;
+    assert.match(cell("por_igualar"), new RegExp(`^${dopCount}`), "Por igualar counts the rows the table covers");
+    assert.equal(page.segment("por_igualar")?.textContent?.replace(/\D/g, ""), String(dopCount));
+  });
+
+  test("an older server without counts shows them as unknown, never a sum", async () => {
+    const { source } = await bank();
+    const older = { ...source, async load(request: Parameters<TransaccionesSource["load"]>[0]) {
+      const view = await source.load(request);
+      return view.mode === "igualar" ? { ...view, currency: null, counts: null, otherCurrencies: [] } : view;
+    } };
+    const page = await mount({ transacciones: older, businessCurrency: "DOP" });
+    await page.ready();
+    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="igualadas"] dd')?.textContent, "-sin dato");
+    assert.equal(menu(), null, "a server that does not follow a currency offers no menu");
+  });
+
+  test("the other-currencies line names what the table leaves out and switches to it; nothing renders when nothing is left out", async () => {
+    const { source, calls } = await bank();
+    const page = await mount({ transacciones: source, businessCurrency: "DOP" });
+    await page.ready();
+    await page.click(page.segment("todas"));
+    await page.settle(() => document.querySelector('[data-testid="transacciones-other-currencies"]') !== null, "the line");
+    const line = document.querySelector<HTMLElement>('[data-testid="transacciones-other-currencies"]')!;
+    assert.match(line.textContent ?? "", /También hay 1 movimiento en US\$\./);
+    await page.click([...line.querySelectorAll("button")].find((button) => button.textContent === "Ver en US$")!);
+    await page.settle(() => page.row("mv-nube") !== null && page.rows().length === 1, "the dollar table");
+    assert.equal(movementsCalls(calls).at(-1)?.get("currency"), "USD");
+    assert.match(document.querySelector('[data-testid="transacciones-other-currencies"]')?.textContent ?? "", /movimientos en RD\$/);
+    await page.unmount();
+    const single = { ...source, async load(request: Parameters<TransaccionesSource["load"]>[0]) {
+      const view = await source.load(request);
+      return view.mode === "igualar" ? { ...view, otherCurrencies: [], totals: view.totals.filter((block) => block.currency === "DOP") } : view;
+    } };
+    (await import("@/lib/business-currency-view")).resetCurrencyViews();
+    const one = await mount({ transacciones: single, businessCurrency: "DOP" });
+    await one.ready();
+    assert.equal(document.querySelector('[data-testid="transacciones-other-currencies"]'), null, "an empty list renders nothing");
+    assert.equal(menu(), null, "one currency, no menu");
+  });
+
+  test("records mode lists the server's ventas beside the gastos, each in its own currency, and Entradas stays unknown: no total is made on the web", async () => {
+    const saved = await recordsOf(
+      [{ id: "exp-1", merchant: "Colmado Don Pepe", amount: "860.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null }],
+      { totals: [{ currency: "DOP", amount: "860.00", count: 1 }] },
+      [
+        { id: "venta-1", merchant: "Cliente Uno", amount: "5000.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-10", receipt_id: null },
+        { id: "venta-2", merchant: "Cliente Dos", amount: "120.00", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-12", receipt_id: "rcpt-9" },
+      ],
+    );
+    const page = await mount({ enabled: false, transacciones: saved, businessCurrency: "DOP" });
+    await page.settle(() => page.records().length === 3, "gastos and ventas");
+    assert.deepEqual(page.records().map((node) => [node.dataset.recordId, node.dataset.kind]), [["venta-2", "venta"], ["venta-1", "venta"], ["exp-1", "gasto"]]);
+    const amount = (id: string) => document.querySelector(`[data-record-id="${id}"] [data-col="monto"] [aria-hidden="true"]`)?.textContent;
+    assert.equal(amount("venta-1"), "+5,000.00", "a venta is money in");
+    assert.equal(amount("venta-2"), "+US$ 120.00", "in its own currency");
+    assert.equal(amount("exp-1"), "−860.00");
+    assert.match(document.querySelector('[data-record-id="venta-1"]')?.textContent ?? "", /Venta/);
+    assert.equal(document.querySelector('[data-record-id="venta-1"]')?.className.includes("cursor-pointer"), false, "a venta with no receipt or draft has no record to open");
+    assert.equal(document.querySelector('[data-record-id="venta-2"]')?.className.includes("cursor-pointer"), true);
+    assert.equal(document.querySelector('[data-testid="transacciones-summary"] [data-total="entradas"] dd')?.textContent, "-sin dato");
+  });
+});
+
 describe("Transacciones decisions", () => {
   // The workspace and the harness each mount a viewport over the one presenter; the first is enough.
   const toastButtons = () => [...(document.querySelector('[data-testid="toast-viewport"]')?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
@@ -515,7 +639,7 @@ describe("Transacciones decisions", () => {
       await page.settle(() => document.querySelector('[data-testid="transacciones-decision-error"]') !== null, `the ${code} error`);
       const error = document.querySelector<HTMLElement>('[data-testid="transacciones-decision-error"]')!;
       assert.match(error.textContent ?? "", text, code);
-      assert.deepEqual([...error.querySelectorAll("button")].map((button) => button.textContent), action ? [action] : [], code);
+      assert.deepEqual([...error.querySelectorAll("button:not([data-testid=\"error-reference\"])")].map((button) => button.textContent), action ? [action] : [], code);
       assert.equal(/Ref\./.test(error.textContent ?? ""), action === "Reintentar", `${code} reference`);
       assert.equal(document.querySelector('[data-testid="toast-viewport"]')?.textContent, "", `${code} is never a toast`);
       await page.unmount();

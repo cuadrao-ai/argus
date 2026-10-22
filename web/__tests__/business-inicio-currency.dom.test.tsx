@@ -13,8 +13,9 @@ afterAll(async () => {
 
 const now = new Date(2026, 9, 18);
 
-function block(currency: string, income: number, expense: number, itbisOwed: number) {
-  return { currency, income_before_itbis_minor: income, expense_before_itbis_minor: expense, net_result_minor: income - expense, itbis_owed_minor: itbisOwed };
+function block(currency: string, income: number, expense: number, itbisOwed: number, pending = 0) {
+  const byStatus = { invoices: { pendiente: { count: pending, before_itbis_minor: 0 }, cobrado: { count: 0, before_itbis_minor: 0 } }, receipts: { pendiente: { count: 0, before_itbis_minor: 0 }, pagado: { count: 0, before_itbis_minor: 0 } } };
+  return { currency, income_before_itbis_minor: income, expense_before_itbis_minor: expense, net_result_minor: income - expense, itbis_owed_minor: itbisOwed, by_status: byStatus, net_result_final: pending === 0 };
 }
 
 function line(id: string, kind: "invoice" | "receipt", currency: string | undefined, totalMinor: number, extra: Record<string, unknown> = {}) {
@@ -26,8 +27,8 @@ function serverWith(currencies: unknown[], lists: { cobrar?: unknown[]; pagar?: 
   const pagar = lists.pagar ?? [];
   const open = (items: unknown[]) => ({ count: items.length, totals: [], items });
   return createHttpMonthCloseClient(async (path) => path === "/business/open-items"
-    ? { cuentas_por_cobrar: open(cobrar), cuentas_por_pagar: open(pagar) }
-    : { month: "2026-10", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], currencies, missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: cobrar, cuentas_por_pagar: pagar });
+    ? { today: "2026-10-18", cuentas_por_cobrar: open(cobrar), cuentas_por_pagar: open(pagar) }
+    : { month: "2026-10", today: "2026-10-18", from: "2026-10-01", to: "2026-10-31", closed: true, reasons: [], payment_methods: ["efectivo", "otro"], currencies, missing_rnc: [], missing_ncf: [], cuentas_por_cobrar: cobrar, cuentas_por_pagar: pagar });
 }
 
 const DOP_AND_USD = [block("DOP", 400000, 150000, 18000), block("USD", 120000, 2400, 21600)];
@@ -120,7 +121,7 @@ describe("Inicio figures in every currency the month holds", () => {
   });
 
   test("a pending USD document holds back only the USD net, and the waiting line names its currency", async () => {
-    const view = await renderView(serverWith(DOP_AND_USD, { cobrar: [line("usd-pending", "invoice", "USD", 5000)] }), { scopeKey: "pending-usd" });
+    const view = await renderView(serverWith([DOP_AND_USD[0], block("USD", 120000, 2400, 21600, 1)], { cobrar: [line("usd-pending", "invoice", "USD", 5000)] }), { scopeKey: "pending-usd" });
     const net = view.host.querySelector('[data-testid="month-close-net"]');
     assert.equal(net?.getAttribute("data-state"), "final");
     assert.match(net?.textContent ?? "", /RD\$ 2,500\.00/);

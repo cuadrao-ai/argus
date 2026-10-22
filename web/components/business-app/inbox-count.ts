@@ -29,7 +29,7 @@ export function bandejaEmails(deliveries: readonly BusinessEmailDelivery[]): Ban
   return deliveries.flatMap((delivery) => (delivery.standing ? [{ delivery, standing: delivery.standing }] : []));
 }
 
-type CountRecords = { receiptActivity?: ReceiptActivityCounts | null };
+export type CountRecords = { receiptActivity?: ReceiptActivityCounts | null };
 
 // The Bandeja's numbers are the server's: it counts every receipt, note and
 // email past any page the browser loaded. Without its answer a number is

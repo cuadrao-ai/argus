@@ -25,9 +25,9 @@ import {
   openItemsFrom,
   openItemsHeaderCurrency,
   openItemsInDueOrder,
-  openItemsOverdue,
   openItemsRequest,
   openItemsTotalsInOrder,
+  overdueTotalsInOrder,
   OPEN_ITEMS_CAP,
   readOpenItemsWire,
   readMonthCloseWire,
@@ -65,6 +65,9 @@ describe("month close money", () => {
       expense_before_itbis: "59.00",
       net_before_itbis: "41.00",
       itbis_owed: "18.00",
+      itbis_cobrado: "18.00",
+      net_result_final: true,
+      pending_count: 0,
     });
   });
 
@@ -87,6 +90,9 @@ describe("month close money", () => {
       expense_before_itbis: "9600.00",
       net_before_itbis: "48800.00",
       itbis_owed: "7902.00",
+      itbis_cobrado: "6120.00",
+      net_result_final: false,
+      pending_count: 4,
     });
     expect(monthCloseFiguresFrom(previous)).toEqual([{
       currency: "DOP",
@@ -94,25 +100,25 @@ describe("month close money", () => {
       expense_before_itbis: "2800.00",
       net_before_itbis: "14200.00",
       itbis_owed: "2556.00",
+      itbis_cobrado: "2160.00",
+      net_result_final: false,
+      pending_count: 2,
     }]);
   });
 });
 
 describe("month close net honesty", () => {
-  test("any pending document withholds the net number", () => {
-    const display = monthCloseNetDisplay([
-      document({ id: "open", kind: "invoice", amount: "118.00", itbis: "18.00", status: "pendiente" }),
-      document({ id: "paid", kind: "receipt", amount: "59.00", itbis: "9.00", status: "pagado" }),
-    ], [], "41.00", "DOP");
+  test("a block that is not final withholds the net number", () => {
+    const display = monthCloseNetDisplay({ net_before_itbis: "41.00", net_result_final: false, pending_count: 1 });
     expect(display).toEqual({ state: "pending", pending_count: 1, reason: "documents" });
     expect(display).not.toHaveProperty("net_before_itbis");
   });
 
   test("the sample month stays pending, and a settled month shows the number", () => {
     const current = monthCloseSampleDocuments(now).filter((item) => item.occurred_on.startsWith("2026-10"));
-    expect(monthCloseNetDisplay(current, [], "48800.00", "DOP")).toEqual({ state: "pending", pending_count: 4, reason: "documents" });
+    expect(monthCloseNetDisplay(monthCloseFiguresFrom(current)[0])).toEqual({ state: "pending", pending_count: 4, reason: "documents" });
     const settled = current.map((item) => ({ ...item, status: item.kind === "invoice" ? "cobrado" as const : "pagado" as const }));
-    expect(monthCloseNetDisplay(settled, [], "48800.00", "DOP")).toEqual({ state: "final", net_before_itbis: "48800.00" });
+    expect(monthCloseNetDisplay(monthCloseFiguresFrom(settled)[0])).toEqual({ state: "final", net_before_itbis: "48800.00" });
   });
 });
 
@@ -180,13 +186,13 @@ describe("month close mock client", () => {
     let snapshot = await client.load(lastMonth);
     expect(snapshot.month).toBe("2026-09");
     expect(canCloseMonth(snapshot)).toEqual({ ok: true, month: "2026-09" });
-    expect(monthCloseNetDisplay(snapshot.documents, [], snapshot.figures[0].net_before_itbis, "DOP").state).toBe("pending");
+    expect(monthCloseNetDisplay(snapshot.figures[0]).state).toBe("pending");
     await expect(client.markPagado("inv-luna")).rejects.toMatchObject({ code: "invalid_status" });
     await client.markCobrado("inv-luna");
     await client.markPagado("rcpt-rosa");
     snapshot = await client.load(lastMonth);
     expect(canCloseMonth(snapshot)).toEqual({ ok: true, month: "2026-09" });
-    expect(monthCloseNetDisplay(snapshot.documents, [], snapshot.figures[0].net_before_itbis, "DOP")).toEqual({ state: "final", net_before_itbis: "14200.00" });
+    expect(monthCloseNetDisplay(snapshot.figures[0])).toEqual({ state: "final", net_before_itbis: "14200.00" });
     const closed = await client.closeMonth("2026-09");
     expect(closed.closed_at).toBeTruthy();
     expect(closed.documents.every((item) => item.status !== "pendiente")).toBe(true);
@@ -232,8 +238,8 @@ describe("month switcher", () => {
     expect(shiftMonthKey("2025-12", 1)).toBe("2026-01");
     expect(canStepMonth("2026-10", 1, "2026-10")).toBe(false);
     expect(canStepMonth("2026-09", 1, "2026-10")).toBe(true);
-    expect(canStepMonth("2026-01", -1, "2026-10")).toBe(true);
-    expect(monthPickerFloor("2026-10", null)).toBe("2024-11");
+    expect(canStepMonth("2026-01", -1, "2026-10", "2025-06")).toBe(true);
+    expect(monthPickerFloor("2026-10", null)).toBe("2026-10");
     expect(monthPickerFloor("2026-10", "2020-03")).toBe("2020-03");
     const future = monthPickerMonths("2026-10", "2026-09").filter((option) => option.month > "2026-10");
     expect(future.length).toBeGreaterThan(0);
@@ -262,15 +268,14 @@ describe("month switcher", () => {
 });
 
 describe("future statement blockers stay in the gate and out of the lock", () => {
-  test("a missing statement does not lock the month, and unmatched charges withhold the net without a zero", () => {
+  test("a missing statement does not lock the month, and an unknown net is never a zero", () => {
     const documents = [document({ id: "ready", kind: "invoice", amount: "100.00", itbis: "18.00", status: "cobrado" })];
     expect(statementMissingBlocker.kind).toBe("statement_missing");
     expect(canCloseMonth({ month: "2026-10", closed_at: null, documents, blockers: [statementMissingBlocker] })).toEqual({ ok: true, month: "2026-10" });
     expect(unmatchedCharges(3)).toEqual({ kind: "unmatched_charges", count: 3 });
     expect(() => unmatchedCharges(0)).toThrow(MonthCloseError);
-    expect(monthCloseNetDisplay(documents, [unmatchedCharges(2)], "100.00", "DOP")).toEqual({ state: "pending", pending_count: 0, reason: "unmatched" });
-    expect(monthCloseNetDisplay(documents, [], null, "DOP")).toEqual({ state: "pending", pending_count: 0, reason: "unknown" });
-    expect(JSON.stringify(monthCloseNetDisplay(documents, [unmatchedCharges(2)], "100.00", "DOP"))).not.toContain("0.00");
+    expect(monthCloseNetDisplay({ net_before_itbis: null, net_result_final: true, pending_count: 0 })).toEqual({ state: "pending", pending_count: 0, reason: "unknown" });
+    expect(JSON.stringify(monthCloseNetDisplay({ net_before_itbis: "100.00", net_result_final: null, pending_count: null }))).not.toContain("0.00");
   });
 });
 
@@ -290,15 +295,15 @@ const wire = {
 describe("month close HTTP contract", () => {
   test("load is GET with month only, marks are PATCH with the settlement body, and close sends nothing", async () => {
     expect(monthCloseLoadRequest("2026-10")).toEqual({ method: "GET", path: "/business/month-close?month=2026-10" });
-    expect(monthCloseSettlementRequest("act-1", "cobrado", "2026-10-18")).toEqual({
+    expect(monthCloseSettlementRequest("act-1", "cobrado", { settled_on: "2026-10-18", payment_method: "otro" })).toEqual({
       method: "PATCH",
       path: "/business/month-close/documents/act-1",
       body: { status: "cobrado", settled_on: "2026-10-18", payment_method: "otro" },
     });
-    expect(monthCloseSettlementRequest("act-2", "pagado", "2026-10-18").body).toEqual({
+    expect(monthCloseSettlementRequest("act-2", "pagado", { settled_on: "2026-10-18", payment_method: "transferencia" }).body).toEqual({
       status: "pagado",
       settled_on: "2026-10-18",
-      payment_method: "otro",
+      payment_method: "transferencia",
     });
     const calls: { path: string; method: string; body?: string }[] = [];
     const client = createHttpMonthCloseClient(async (path, init) => {
@@ -312,7 +317,7 @@ describe("month close HTTP contract", () => {
     expect(loaded.figures).toEqual([]);
     expect(loaded.documents.map((item) => item.id)).toEqual(["act-1"]);
     expect(loaded.blockers).toEqual([{ kind: "missing_rnc", id: "act-1:missing_rnc", documentId: "act-1" }]);
-    await client.markCobrado("act-1", undefined, "2026-10-18");
+    await client.markCobrado("act-1", undefined, { settled_on: "2026-10-18", payment_method: "otro" });
     expect(JSON.parse(calls[1].body ?? "{}")).toEqual({ status: "cobrado", settled_on: "2026-10-18", payment_method: "otro" });
     expect(calls[1].method).toBe("PATCH");
     await expect(client.closeMonth("2026-10")).rejects.toMatchObject({ code: "unavailable" });
@@ -323,8 +328,9 @@ describe("month close HTTP contract", () => {
     const client = createHttpMonthCloseClient(async () => {
       throw Object.assign(new Error("Business document matched"), { status: 409, code: "business_document_matched" });
     });
-    await expect(client.markCobrado("act-1", undefined, "2026-10-18")).rejects.toMatchObject({ code: "matched" });
-    await expect(client.markPagado("act-2", undefined, "2026-10-18")).rejects.toMatchObject({ code: "matched" });
+    const settlement = { settled_on: "2026-10-18", payment_method: "otro" };
+    await expect(client.markCobrado("act-1", undefined, settlement)).rejects.toMatchObject({ code: "matched" });
+    await expect(client.markPagado("act-2", undefined, settlement)).rejects.toMatchObject({ code: "matched" });
     await expect(client.markPendiente("act-2")).rejects.toMatchObject({ code: "matched" });
   });
 
@@ -412,8 +418,8 @@ describe("live figure mapping", () => {
 
   test("M5 every currency keeps its own block, in the server's order", () => {
     expect(readMonthCloseWire(mappedWire).figures).toEqual([
-      { currency: "USD", income_before_itbis: "1.00", expense_before_itbis: "1.00", net_before_itbis: "1.00", itbis_owed: "1.00" },
-      { currency: "DOP", income_before_itbis: "4000.00", expense_before_itbis: "1500.00", net_before_itbis: "2500.00", itbis_owed: "180.00" },
+      { currency: "USD", income_before_itbis: "1.00", expense_before_itbis: "1.00", net_before_itbis: "1.00", itbis_owed: "1.00", itbis_cobrado: null, net_result_final: null, pending_count: null },
+      { currency: "DOP", income_before_itbis: "4000.00", expense_before_itbis: "1500.00", net_before_itbis: "2500.00", itbis_owed: "180.00", itbis_cobrado: null, net_result_final: null, pending_count: 1 },
     ]);
   });
 
@@ -430,9 +436,9 @@ describe("live figure mapping", () => {
     const usd = { ...document({ id: "usd", kind: "invoice", amount: "50.00", itbis: "5.00", status: "cobrado" }), currency: "USD" };
     const eur = { ...document({ id: "eur", kind: "receipt", amount: "20.00", itbis: "2.00", status: "pagado" }), currency: "EUR" };
     expect(monthCloseFiguresFrom([dop, usd, eur])).toEqual([
-      { currency: "DOP", income_before_itbis: "100.00", expense_before_itbis: "0.00", net_before_itbis: "100.00", itbis_owed: "18.00" },
-      { currency: "EUR", income_before_itbis: "0.00", expense_before_itbis: "18.00", net_before_itbis: "-18.00", itbis_owed: "-2.00" },
-      { currency: "USD", income_before_itbis: "45.00", expense_before_itbis: "0.00", net_before_itbis: "45.00", itbis_owed: "5.00" },
+      { currency: "DOP", income_before_itbis: "100.00", expense_before_itbis: "0.00", net_before_itbis: "100.00", itbis_owed: "18.00", itbis_cobrado: "18.00", net_result_final: true, pending_count: 0 },
+      { currency: "EUR", income_before_itbis: "0.00", expense_before_itbis: "18.00", net_before_itbis: "-18.00", itbis_owed: "-2.00", itbis_cobrado: "0.00", net_result_final: true, pending_count: 0 },
+      { currency: "USD", income_before_itbis: "45.00", expense_before_itbis: "0.00", net_before_itbis: "45.00", itbis_owed: "5.00", itbis_cobrado: "5.00", net_result_final: true, pending_count: 0 },
     ]);
   });
 
@@ -492,7 +498,7 @@ describe("open items", () => {
     expect(open.cuentas_por_cobrar.count).toBe(2);
     expect(open.cuentas_por_cobrar.totals).toEqual([{ currency: "DOP", total: "59.00" }, { currency: "USD", total: "10.50" }]);
     expect(open.cuentas_por_cobrar.items[0]).toEqual(expect.objectContaining({ id: "act-1", kind: "invoice", occurred_on: "2026-09-12", amount: "59.00", counterparty: "Cliente de práctica", status: "pendiente" }));
-    expect(open.cuentas_por_pagar).toEqual({ count: 0, totals: [], items: [] });
+    expect(open.cuentas_por_pagar).toEqual({ count: 0, totals: [], overdue: null, items: [] });
   });
 
   test("the reader keeps the due day and fiscal facts the server sends, so live rows show lateness and fiscal marks", () => {
@@ -537,7 +543,7 @@ describe("open items", () => {
 
   test("totals are one per currency and never added together; the header is the Business currency, never a guessed one", () => {
     const pending = (id: string, currency: string, amount: string): MonthCloseDocument => ({ ...document({ id, kind: "invoice", amount, itbis: null, status: "pendiente" }), currency });
-    const list = openItemsFrom([pending("usd", "USD", "50.00"), pending("dop-1", "DOP", "100.00"), pending("dop-2", "DOP", "18.50"), pending("eur", "EUR", "20.00")]).cuentas_por_cobrar;
+    const list = openItemsFrom([pending("usd", "USD", "50.00"), pending("dop-1", "DOP", "100.00"), pending("dop-2", "DOP", "18.50"), pending("eur", "EUR", "20.00")], "2026-10-18").cuentas_por_cobrar;
     expect(list.totals).toEqual([{ currency: "DOP", total: "118.50" }, { currency: "EUR", total: "20.00" }, { currency: "USD", total: "50.00" }]);
     expect(openItemsHeaderCurrency(list, "DOP")).toBe("DOP");
     expect(openItemsHeaderCurrency(list, "USD")).toBe("USD");
@@ -546,15 +552,15 @@ describe("open items", () => {
     const serverOrder = { ...list, totals: [{ currency: "USD", total: "50.00" }, { currency: "EUR", total: "20.00" }, { currency: "DOP", total: "118.50" }] };
     expect(openItemsTotalsInOrder(serverOrder, "DOP").map((total) => total.currency)).toEqual(["DOP", "USD", "EUR"]);
     expect(openItemsTotalsInOrder(serverOrder).map((total) => total.currency)).toEqual(["USD", "EUR", "DOP"]);
-    const usdOnly = openItemsFrom([pending("usd", "USD", "50.00")]).cuentas_por_cobrar;
+    const usdOnly = openItemsFrom([pending("usd", "USD", "50.00")], "2026-10-18").cuentas_por_cobrar;
     expect(openItemsHeaderCurrency(usdOnly)).toBe("USD");
     expect(openItemsHeaderCurrency(usdOnly, "DOP")).toBe("USD");
-    expect(openItemsHeaderCurrency(openItemsFrom([]).cuentas_por_cobrar)).toBe(null);
+    expect(openItemsHeaderCurrency(openItemsFrom([], "2026-10-18").cuentas_por_cobrar)).toBe(null);
   });
 
   test("the mock caps the list at the oldest 100 and counts the rest", () => {
     const many = Array.from({ length: OPEN_ITEMS_CAP + 7 }, (_, index) => document({ id: `inv-${String(index).padStart(3, "0")}`, kind: "invoice", amount: "1.00", itbis: null, status: "pendiente", occurred_on: `2026-${String((index % 9) + 1).padStart(2, "0")}-01` }));
-    const list = openItemsFrom(many).cuentas_por_cobrar;
+    const list = openItemsFrom(many, "2026-10-18").cuentas_por_cobrar;
     expect(list.count).toBe(107);
     expect(list.items.length).toBe(100);
     expect(list.items[0]?.occurred_on).toBe("2026-01-01");
@@ -562,7 +568,7 @@ describe("open items", () => {
   });
 });
 
-describe("Pendiente hoy order and overdue sum", () => {
+describe("Pendiente hoy order and the sample books' overdue", () => {
   const today = "2026-10-18";
   const pending = (id: string, due_on: string | null, amount = "1.00", currency = "DOP", occurred_on = "2026-10-01"): MonthCloseDocument => ({ ...document({ id, kind: "invoice", amount, itbis: null, status: "pendiente", due_on, occurred_on }), currency });
 
@@ -571,11 +577,12 @@ describe("Pendiente hoy order and overdue sum", () => {
     expect(openItemsInDueOrder(rows).map((row) => row.id)).toEqual(["late-30", "late-2", "today", "soon", "far", "none-early", "none-late"]);
   });
 
-  test("the overdue sum is exact decimal math, one total per currency with the list's currency first", () => {
+  test("the sample books answer overdue as the server does: exact, per currency, over every item, due today is not late", () => {
     const items = [pending("a", "2026-10-01", "0.10"), pending("b", "2026-10-02", "0.20"), pending("c", "2026-10-17", "12299.70"), pending("usd", "2026-09-30", "50.00", "USD"), pending("due-today", today, "999.00"), pending("none", null, "5.00")];
-    const list = { count: items.length, totals: [{ currency: "USD", total: "50.00" }, { currency: "DOP", total: "13304.00" }], items };
-    expect(openItemsOverdue(list, today)).toEqual({ count: 4, totals: [{ currency: "DOP", total: "12300.00" }, { currency: "USD", total: "50.00" }] });
-    expect(openItemsOverdue({ ...list, items: [pending("due-today", today)] }, today)).toEqual({ count: 0, totals: [] });
+    const list = openItemsFrom(items, today).cuentas_por_cobrar;
+    expect(list.overdue).toEqual({ count: 4, totals: [{ currency: "DOP", total: "12300.00" }, { currency: "USD", total: "50.00" }] });
+    expect(overdueTotalsInOrder(list, "USD").map((total) => total.currency)).toEqual(["USD", "DOP"]);
+    expect(openItemsFrom([pending("due-today", today)], today).cuentas_por_cobrar.overdue).toEqual({ count: 0, totals: [] });
   });
 
   test("Deshacer is a PATCH back to pendiente with neither a day nor a method, and the mock returns the row to the open items", async () => {

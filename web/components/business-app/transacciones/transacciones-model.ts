@@ -81,13 +81,22 @@ export type CurrencyTotals = Readonly<{ currency: string; entradas: string; sali
 export type Segment = "por_igualar" | "igualadas" | "todas";
 export const SEGMENTS: readonly Segment[] = ["por_igualar", "igualadas", "todas"];
 
+/** How many rows of the segment another currency holds, which the chosen currency leaves out. */
+export type OtherCurrency = Readonly<{ currency: string; count: number }>;
+
 export type IgualarView = Readonly<{
   mode: "igualar";
   segment: Segment;
+  /** The currency the rows and totals follow; null when the server lists every currency. */
+  currency: string | null;
   /** The segment's rows in the server's order, every page read so far. */
   movements: readonly Movement[];
   nextCursor: string | null;
+  /** With a currency, only its block, and none when the period has no row in it. */
   totals: readonly CurrencyTotals[];
+  /** The period's counts across every currency, whatever the segment, currency or page. Null when the server does not send them. */
+  counts: Counts | null;
+  otherCurrencies: readonly OtherCurrency[];
   /** The currency of the account the statement comes from, for a total of a period with no rows. */
   accountCurrency: string | null;
   /** The last statement day the bank covers; null when no statement says. */
@@ -102,13 +111,13 @@ export type RecordTarget =
   | { kind: "draft"; draftId: string; list: "transactions" }
   | { kind: "expense"; expenseId: string };
 
-/** A saved gasto, as the screen lists it with no statement to igualar against. */
+/** A saved gasto or venta, as the screen lists it with no statement to igualar against. */
 export type RecordRow = Readonly<{
   id: string;
   kind: RecordKind;
   occurredOn: string;
   counterparty: string | null;
-  /** Signed like a movement: a gasto is money out. */
+  /** Signed like a movement: a gasto is money out, a venta money in. */
   money: Money;
   categoryId: string | null;
   account: MovementAccount | null;
@@ -120,12 +129,12 @@ export type RecordRow = Readonly<{
   opens: RecordTarget | null;
 }>;
 
-/** Salidas is the server's own total. No read serves the period's ventas, so Entradas reads as unknown. */
+/** Salidas is the server's own total. No read serves a total of the period's ventas, so Entradas reads as unknown. */
 export type RecordsTotals = Readonly<{ salidas: readonly Money[] }>;
 
 /**
  * With no statement to igualar against, the screen lists the period's saved
- * gastos: no Por igualar flags, no suggestions, no coverage.
+ * gastos and ventas: no Por igualar flags, no suggestions, no coverage.
  */
 export type RecordsView = Readonly<{ mode: "records"; records: readonly RecordRow[]; totals: RecordsTotals }>;
 
@@ -163,7 +172,8 @@ export function inverse(decision: Decision): Decision | null {
 /** One past outcome of a line, oldest first. */
 export type HistoryEntry = Readonly<{ id: string; outcome: "match" | "no_receipt"; documentKind: DocumentKind | null; reason: NoComprobanteReason | null; from: string; until: string | null }>;
 
-export type LoadRequest = Readonly<{ from: string; to: string | null; segment: Segment; cursor?: string | null; limit?: number }>;
+/** `currency` null reads every currency. A cursor is only a position in the list its segment and currency name. */
+export type LoadRequest = Readonly<{ from: string; to: string | null; segment: Segment; currency?: string | null; cursor?: string | null; limit?: number }>;
 
 /** The seam the backend plugs into. The screen re-reads after every decision; it never moves a row itself. */
 export type TransaccionesSource = Readonly<{
@@ -179,12 +189,24 @@ export const GROUPS: readonly Group[] = ["sugerencias", "falta_comprobante", "si
 const GROUP_OF: Record<MatchState, Group | null> = { igualada: null, sugerencia: "sugerencias", falta_comprobante: "falta_comprobante", no_lleva: null, sin_movimiento: "sin_movimiento" };
 const GROUP_COUNT: Record<Group, keyof Counts> = { sugerencias: "sugerencias", falta_comprobante: "faltaComprobante", sin_movimiento: "sinMovimiento" };
 
+const NO_ROWS: Counts = { movimientos: 0, igualadas: 0, noLleva: 0, sugerencias: 0, faltaComprobante: 0, sinMovimiento: 0, porIgualar: 0 };
+
 /**
- * A count for the whole period. Each currency's block counts its own rows and
- * no row is in two currencies, so the blocks add up to the period exactly.
+ * The server's counts for the rows the table covers: the chosen currency's own
+ * block (none means no row in it), or the period's while every currency is
+ * listed. Null when the server does not send them.
  */
-export function periodCount(totals: readonly CurrencyTotals[], key: keyof Counts): number {
-  return totals.reduce((sum, block) => sum + block.counts[key], 0);
+export function tableCounts(view: IgualarView): Counts | null {
+  if (view.currency === null) return view.counts;
+  return view.totals.find((block) => block.currency === view.currency)?.counts ?? NO_ROWS;
+}
+
+/** The currencies the person can switch the table to: the Business currency first, the chosen one, and each the server says holds rows. */
+export function currencyChoices(view: IgualarView, businessCurrency: string | null): string[] {
+  if (view.currency === null) return [];
+  const found = new Set([view.currency, ...view.totals.map((block) => block.currency), ...view.otherCurrencies.map((other) => other.currency)]);
+  if (businessCurrency) found.add(businessCurrency);
+  return [...found].sort((left, right) => Number(right === businessCurrency) - Number(left === businessCurrency));
 }
 
 /** One figure per currency, never added across them. */
@@ -196,11 +218,12 @@ export type Section = Readonly<{ group: Group | null; count: number | null; rows
 
 /**
  * The rows a segment shows, in the server's order. Por igualar comes in its
- * three groups, each named with the server's count for the period.
+ * three groups, each named with the server's count for the rows the table covers.
  */
 export function segmentSections(view: IgualarView): Section[] {
   if (view.segment !== "por_igualar") return [{ group: null, count: null, rows: view.movements }];
-  return GROUPS.map((group) => ({ group, count: periodCount(view.totals, GROUP_COUNT[group]), rows: view.movements.filter((movement) => GROUP_OF[movement.match.state] === group) }))
+  const counts = tableCounts(view);
+  return GROUPS.map((group) => ({ group, count: counts ? counts[GROUP_COUNT[group]] : null, rows: view.movements.filter((movement) => GROUP_OF[movement.match.state] === group) }))
     .filter((section) => section.rows.length > 0);
 }
 
@@ -211,7 +234,7 @@ export function suggestionRun(view: IgualarView): Movement[] {
 
 /** The currency the Monto header names: the Business currency when a row holds it, else the only currency, else none. One owner: `openItemsHeaderCurrency`. */
 export function headerCurrency(rows: readonly Readonly<{ money: Money }>[], businessCurrency: string | null = null): string | null {
-  return openItemsHeaderCurrency({ count: 0, items: [], totals: rows.map((row) => ({ currency: row.money.currency, total: row.money.amount })) }, businessCurrency);
+  return openItemsHeaderCurrency({ count: 0, overdue: null, items: [], totals: rows.map((row) => ({ currency: row.money.currency, total: row.money.amount })) }, businessCurrency);
 }
 
 /** Totals in one currency each, the header's first. Never added across currencies. */

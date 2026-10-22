@@ -356,6 +356,7 @@ Type the error first; each type has its own surface (Lucas, October 20, 2026):
 | Validation | A typo in an RNC | Inline under the field, after the owner leaves it and live from then on. The action stays pressable and a failed press lists each broken field (see Forms). |
 | Network | The connection dropped | The banner docked at the top ("Estás sin conexión. Lo que hagas ahora no se guarda hasta que vuelva."). It moves the bar and the page down, never covers them, and leaves when the connection is back. |
 | Server | The save failed on our side | Inline where the work is, with Reintentar and the reference code. A failed confirm says so inside its alert, whose button tries again. Never a toast. |
+| Refused | The server said this Business or this part of it is not available: 404 `business_unavailable`, 503 `email_capture_unavailable` | Inline where the work is, with no Reintentar, since asking again gets the same answer, and "Si crees que es un error, escríbenos a hola@cuadrao.ai." Never blames the connection. Only these status and code pairs (owner `refusedForGood` in `failure-screen.ts`); any other 503, `business_bank_unavailable` included, keeps Reintentar. |
 | Permission | Access was removed | A full-page notice with the way back. It is the only error that replaces the page. |
 
 - When the surface that failed has closed, send the owner to where the work
@@ -458,9 +459,9 @@ table only.
   options button and is kept per person on the account (`table_density` on
   `/me`; owner `table-density.ts`). Phones ignore it: rows become two-line
   list items of at least 64px.
-- Ventas and Entradas in records mode (no bank data) wait on a server read of
-  the period's ventas; until then records mode lists gastos and Entradas
-  shows "-".
+- Records mode (no bank data) lists the period's gastos and ventas, each in
+  its own currency. Entradas shows "-" until the server sends a total of the
+  period's ventas; the web never adds rows to make one.
 - Single-letter keys work only while focus is in the table and not in a field.
 
 ## 4. Accessibility
@@ -511,7 +512,7 @@ Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr an
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
 - Overdue rows come first, oldest first, then the nearest due. Four rows show, then "Ver las N".
-- The check removes the row and offers Deshacer, which sets it back to pendiente. A failed mark puts the row back with an error toast.
+- The check removes the row and offers Deshacer, which sets it back to pendiente. A failed mark puts the row back and says so inline above the rows, with Reintentar when trying again can help. The toast only confirms a mark; there is no error toast.
 - A Por pagar row opens its expense. A Por cobrar row is plain until an invoice has a record screen.
 
 **Behavior rules (pending from Product).**

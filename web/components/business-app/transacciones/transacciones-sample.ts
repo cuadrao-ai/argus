@@ -1,12 +1,14 @@
 import { minorToDecimal } from "@/lib/money-entry";
+import { SAMPLE_VENTAS } from "../search-fixtures";
 import type { NoComprobanteReason } from "./transacciones-model";
 
 /**
  * A sample bank server for the local design preview and tests. It answers
  * the bank routes in the contract's own shapes (`docs/contracts/business-bank-matching.md`),
  * so the screen reads it through the real adapter. It keeps decisions, takes
- * them back, pages, and computes the period's totals per currency in minor
- * units, the way the server does. Every name, RNC and NCF is invented.
+ * them back, pages one currency at a time, and computes the period's totals
+ * per currency in minor units and its counts across currencies, the way the
+ * server does. Every name, RNC and NCF is invented.
  */
 
 type Kind = "receipt" | "venta";
@@ -74,6 +76,8 @@ function shift(day: string, daysAgo: number): string {
   date.setUTCDate(date.getUTCDate() - daysAgo);
   return date.toISOString().slice(0, 10);
 }
+
+const COUNT_KEYS = ["movimientos", "igualadas", "no_lleva_comprobante", "sugerencias", "falta_comprobante", "sin_movimiento", "por_igualar"] as const;
 
 type Row = { kind: "movement" | "document"; id: string; occurredOn: string; amountMinor: number; currency: string; state: string; confidence: number; item: Record<string, unknown> };
 
@@ -176,7 +180,7 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
   function totalsOf(rows: readonly Row[]) {
     const blocks = new Map<string, { entradas: number; salidas: number; porIgualar: number; counts: Record<string, number> }>();
     for (const row of rows) {
-      const block = blocks.get(row.currency) ?? { entradas: 0, salidas: 0, porIgualar: 0, counts: { movimientos: 0, igualadas: 0, no_lleva_comprobante: 0, sugerencias: 0, falta_comprobante: 0, sin_movimiento: 0, por_igualar: 0 } };
+      const block = blocks.get(row.currency) ?? { entradas: 0, salidas: 0, porIgualar: 0, counts: Object.fromEntries(COUNT_KEYS.map((key) => [key, 0])) };
       blocks.set(row.currency, block);
       if (row.kind === "movement") {
         block.counts.movimientos += 1;
@@ -207,20 +211,30 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
     const from = query.get("period_start")!;
     const to = query.get("period_end")!;
     const segment = query.get("segment") ?? "todas";
+    const currency = query.get("currency");
+    if (currency !== null && !/^[A-Z]{3}$/.test(currency)) throw refuse(422, "validation_error");
     const limit = Math.min(Number(query.get("limit") ?? 50), options.pageSize ?? Number.POSITIVE_INFINITY);
+    // A cursor is a position only: sent with another segment or currency, it points past that list's end.
     const cursor = query.get("cursor");
     if (cursor !== null && !/^o:\d+$/.test(cursor)) throw refuse(422, "invalid_cursor");
     const offset = cursor ? Number(cursor.slice(2)) : 0;
     const rows = rowsOf(from, to);
-    const listed = segmentRows(rows, segment);
+    const inSegment = segmentRows(rows, segment);
+    const listed = currency === null ? inSegment : inSegment.filter((row) => row.currency === currency);
     const page = listed.slice(offset, offset + limit);
+    const blocks = totalsOf(rows);
+    const left = new Map<string, number>();
+    if (currency !== null) for (const row of inSegment) if (row.currency !== currency) left.set(row.currency, (left.get(row.currency) ?? 0) + 1);
     return {
       period_start: from,
       period_end: to,
       segment,
       sense: null,
+      currency,
       accounts: [{ ...ACCOUNTS.corriente, bank_account_id: "bank-corriente", currency: "DOP", covered_through: options.noStatement ? null : shift(to, 3) }],
-      totals: totalsOf(rows),
+      totals: currency === null ? blocks : blocks.filter((block) => block.currency === currency),
+      counts: Object.fromEntries(COUNT_KEYS.map((key) => [key, blocks.reduce((sum, block) => sum + block.counts[key], 0)])),
+      other_currencies: [...left].sort(([one], [two]) => one.localeCompare(two)).map(([code, count]) => ({ currency: code, count })),
       items: page.map((row) => row.item),
       next_cursor: offset + limit < listed.length ? `o:${offset + limit}` : null,
     };
@@ -318,4 +332,15 @@ export function createSampleBankServer(options: SampleBankOptions = {}): Fetch {
     answered.set(key, answer);
     return answer as T;
   };
+}
+
+/** `GET /business/expenses?kind=income` over the preview's sample sales: the period's ventas, newest first, each in its own currency. */
+export async function sampleVentasServer<T>(path: string): Promise<T> {
+  const [route, search = ""] = path.split("?");
+  const query = new URLSearchParams(search);
+  if (route !== "/business/expenses" || query.get("kind") !== "income") throw refuse(404, "not_found");
+  const from = query.get("from")!;
+  const to = query.get("to") ?? new Date().toISOString().slice(0, 10);
+  const items = SAMPLE_VENTAS.filter((venta) => venta.occurred_on >= from && venta.occurred_on <= to).sort((left, right) => right.occurred_on.localeCompare(left.occurred_on));
+  return { items } as T;
 }

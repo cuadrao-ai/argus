@@ -15,6 +15,8 @@ import {
   type Match,
   type Movement,
   type MovementAccount,
+  type OtherCurrency,
+  type RecordKind,
   type RecordRow,
   type RecordsView,
   type SuggestionReason,
@@ -23,9 +25,10 @@ import {
 
 /**
  * The one place the bank routes meet the screen. `GET /business/bank/movements`
- * serves the period's rows with their server-owned state, a page at a time,
- * and the period's totals per currency; the decisions are one route each.
- * A shape the screen cannot trust fails the load, never half-renders.
+ * serves the period's rows in one currency with their server-owned state, a
+ * page at a time, that currency's totals and the period's counts; the
+ * decisions are one route each. A shape the screen cannot trust fails the
+ * load, never half-renders.
  */
 
 class BankWireError extends Error {
@@ -165,9 +168,19 @@ function parseTotals(value: unknown, field: string): CurrencyTotals {
   };
 }
 
+function parseOtherCurrency(value: unknown, field: string): OtherCurrency {
+  const wire = record(value, field);
+  return { currency: currency(wire.currency, `${field}.currency`), count: integer(wire.count, `${field}.count`) };
+}
+
 export type MovementsPage = Readonly<{ view: IgualarView; hasStatement: boolean }>;
 
-/** `GET /business/bank/movements` as the view model. `hasStatement` is false while no account has an imported line. */
+/**
+ * `GET /business/bank/movements` as the view model. `hasStatement` is false
+ * while no account has an imported line. A server older than the currency
+ * filter sends no `currency`, `counts` or `other_currencies`: every currency
+ * listed, counts unknown, nothing named as left out.
+ */
 export function parseMovementsPage(value: unknown): MovementsPage {
   const wire = record(value, "movements");
   const segment = oneOf(wire.segment, ["por_igualar", "igualadas", "todas"] as const, "movements.segment");
@@ -181,9 +194,12 @@ export function parseMovementsPage(value: unknown): MovementsPage {
     view: {
       mode: "igualar",
       segment,
+      currency: wire.currency === undefined || wire.currency === null ? null : currency(wire.currency, "movements.currency"),
       movements: list(wire.items, "movements.items").map((item, index) => parseMovementItem(item, `movements.items[${index}]`)),
       nextCursor: maybeText(wire.next_cursor, "movements.next_cursor"),
       totals: list(wire.totals, "movements.totals").map((block, index) => parseTotals(block, `movements.totals[${index}]`)),
+      counts: wire.counts === undefined ? null : parseCounts(wire.counts, "movements.counts"),
+      otherCurrencies: wire.other_currencies === undefined ? [] : list(wire.other_currencies, "movements.other_currencies").map((other, index) => parseOtherCurrency(other, `movements.other_currencies[${index}]`)),
       accountCurrency: accounts[0]?.currency ?? null,
       // With more than one account, the bank is up to date only through the one that is furthest behind.
       coverageThrough: covered[0] ?? null,
@@ -281,6 +297,7 @@ export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch, recor
   return {
     async load(request) {
       const query = new URLSearchParams({ period_start: request.from, period_end: request.to ?? todayIso(), segment: request.segment });
+      if (request.currency) query.set("currency", request.currency);
       if (request.limit) query.set("limit", String(request.limit));
       if (request.cursor) query.set("cursor", request.cursor);
       let page: MovementsPage;
@@ -306,9 +323,18 @@ export function createBankTransaccionesSource(fetchJson: Fetch = apiFetch, recor
   };
 }
 
-/** The reads the saved records come from: the same expenses read Gastos used, the server's period totals, and the accounts. */
+/** The period's ventas: `GET /business/expenses?kind=income`, each in its own currency, `merchant` being the client. */
+export function readVentas(fetchJson: Fetch = apiFetch) {
+  return async (from: string, to: string | null): Promise<BusinessExpense[]> => {
+    const query = new URLSearchParams(to === null ? { from, kind: "income" } : { from, to, kind: "income" });
+    return (await fetchJson<{ items: BusinessExpense[] }>(`/business/expenses?${query}`)).items;
+  };
+}
+
+/** The reads the saved records come from: the same expenses read Gastos used, the period's ventas, the server's period totals, and the accounts. */
 export type RecordReads = Readonly<{
   expenses: (from: string, to: string | null) => Promise<BusinessExpense[]>;
+  ventas: (from: string, to: string | null) => Promise<BusinessExpense[]>;
   overview: (from: string, to: string | null) => Promise<BusinessOverview>;
   workspace: () => Promise<Pick<BusinessWorkspaceInfo, "accounts">>;
   /** The account words for an expense paid from the owner's own money. */
@@ -321,35 +347,40 @@ function accountOf(expense: BusinessExpense, accounts: readonly BusinessAccount[
   return account?.nickname ? { kind: ACCOUNT_KINDS[account.type] ?? "bank", name: account.nickname } : null;
 }
 
-function gastoRow(expense: BusinessExpense, accounts: readonly BusinessAccount[], ownerFunds: string): RecordRow {
+function recordRow(kind: RecordKind, expense: BusinessExpense, accounts: readonly BusinessAccount[], ownerFunds: string): RecordRow {
+  const amount = expense.amount.replace(/^[-+]/, "");
   return {
     id: expense.id,
-    kind: "gasto",
+    kind,
     occurredOn: expense.occurred_on,
     counterparty: expense.merchant,
-    money: { amount: `-${expense.amount.replace(/^[-+]/, "")}`, currency: expense.currency },
+    money: { amount: kind === "gasto" ? `-${amount}` : amount, currency: expense.currency },
     categoryId: expense.category_id,
     account: accountOf(expense, accounts, ownerFunds),
     hasProof: Boolean(expense.receipt_id),
     marks: { personal: Boolean(expense.personal), markedBy: expense.personal_marked_by ?? null, fiscal: recordFiscalMark(expense) },
-    opens: expensePanel(expense),
+    // The plain expense read serves expenses only, so a venta opens only through its receipt or draft.
+    opens: kind === "gasto" || expense.receipt_id || expense.draft_id ? expensePanel(expense) : null,
   };
 }
 
 const newestFirst = (left: RecordRow, right: RecordRow) => right.occurredOn.localeCompare(left.occurredOn) || left.id.localeCompare(right.id);
 
 /**
- * The saved gastos of a period, with no statement to igualar against.
- * Salidas is the server's own "Gastos reales" for the period, so a personal
- * gasto stays listed, marked, and out of it.
+ * The saved gastos and ventas of a period, with no statement to igualar
+ * against. Salidas is the server's own "Gastos reales" for the period, so a
+ * personal gasto stays listed, marked, and out of it.
  */
 export function createRecordsTransaccionesSource(reads: RecordReads): TransaccionesSource {
   return {
     async load(request): Promise<RecordsView> {
-      const [expenses, overview, workspace] = await Promise.all([reads.expenses(request.from, request.to), reads.overview(request.from, request.to), reads.workspace()]);
+      const [expenses, ventas, overview, workspace] = await Promise.all([reads.expenses(request.from, request.to), reads.ventas(request.from, request.to), reads.overview(request.from, request.to), reads.workspace()]);
       return {
         mode: "records",
-        records: expenses.map((expense) => gastoRow(expense, workspace.accounts, reads.ownerFunds)).sort(newestFirst),
+        records: [
+          ...expenses.map((expense) => recordRow("gasto", expense, workspace.accounts, reads.ownerFunds)),
+          ...ventas.map((venta) => recordRow("venta", venta, workspace.accounts, reads.ownerFunds)),
+        ].sort(newestFirst),
         totals: { salidas: overview.totals.map((total) => ({ amount: total.amount, currency: total.currency })) },
       };
     },

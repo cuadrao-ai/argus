@@ -5,7 +5,8 @@ import localFont from "next/font/local";
 
 import "./globals.css";
 import { BrandedStatusScreen } from "@/components/status/BrandedStatusScreen";
-import { CUADRAO_ADMIN_EMAIL, referenceCode } from "@/lib/failure-screen";
+import { ReferenceCodeView } from "@/components/status/ReferenceCode";
+import { CUADRAO_ADMIN_EMAIL, referenceCode, shortReference } from "@/lib/failure-screen";
 import spanish from "@/public/locales/es-419/common.json";
 
 const inter = localFont({
@@ -40,7 +41,17 @@ export default function GlobalError({
           onAction={reset}
           secondaryLabel={copy.go_home}
           secondaryHref="/?auth=login"
-          reference={reference}
+          reference={
+            <ReferenceCodeView
+              reference={reference}
+              labels={{
+                shown: spanish.common.reference.replace("{{reference}}", shortReference(reference)),
+                name: spanish.common.reference_copy.replace("{{reference}}", reference),
+                copied: spanish.common.reference_copied,
+                failed: spanish.common.reference_copy_failed.replace("{{reference}}", reference),
+              }}
+            />
+          }
           contactEmail={CUADRAO_ADMIN_EMAIL}
         />
       </body>
