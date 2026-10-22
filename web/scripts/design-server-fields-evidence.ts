@@ -14,6 +14,7 @@ const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).tr
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/lucas-design-server-fields", stage);
 mkdirSync(output, { recursive: true });
 const cases = process.env.EVIDENCE_CASE === "receipt" ? ["inicio-receipts-failed"] : ["inicio-business-refused", "inicio-month-500", "inicio-open-items-refused", "inicio-month-refused", "bandeja-al-dia", "bandeja-mixed", "bandeja-refused", "inicio-receipts-failed", "inicio-known-zero"];
+const retryChecks: { width: number; notes_before: number; notes_after: number; emails_before: number; emails_after: number }[] = [];
 const evidence: { file: string; sha256: string; state: string; width: number; ready: boolean; close: boolean }[] = [];
 const browser = await chromium.launch({ headless: true });
 try {
@@ -29,8 +30,8 @@ try {
       });
       await installBreakpointFixture(page, { language: "es-419", theme: "light", emptyChat: true });
       const source = createFixtureBusinessDataSource({ chatAvailable: false });
-      const receiptPage = source.receiptPage;
-      if (!receiptPage) throw new Error("The synthetic source must serve receipt counts");
+      const calls = { notes: 0, emails: 0 };
+      let emailsDown = true;
       await page.route("**/api/v1/business/**", async (route) => {
         const url = new URL(route.request().url());
         const path = url.pathname.split("/business/")[1];
@@ -40,14 +41,16 @@ try {
         if (state === "inicio-month-500" && path === "month-close") return refuse(500, "internal_error");
         if (state === "inicio-open-items-refused" && path === "open-items") return refuse();
         if (state === "inicio-receipts-failed" && path === "receipts") return route.abort("connectionfailed");
+        if ((state === "bandeja-refused" || state === "bandeja-mixed") && path === "captures") { calls.notes += 1; return refuse(); }
         if (state === "bandeja-refused" && path === "email/deliveries") return refuse(503, "email_capture_unavailable");
+        if (state === "bandeja-mixed" && path === "email/deliveries") { calls.emails += 1; return emailsDown ? refuse(500, "internal_error") : route.fulfill({ json: { items: [] } }); }
         if (path === "workspace") return route.fulfill({ json: await source.workspace() });
         if (path === "space/name-prompt") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba", name_required: false, name_prompt_seen: true, show_prompt: false } });
         if (path === "space") return route.fulfill({ json: { id: "fixture-space", name: "Colmado de prueba" } });
         if (path === "spaces") return route.fulfill({ json: { spaces: (await source.spaces()).slice(0, 1) } });
         if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
         if (state === "bandeja-al-dia" && path === "receipts") return route.fulfill({ json: { items: [await source.receipt("rcpt-confirmed")], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 1, dismissed_count: 0 } } });
-        if (path === "receipts") return route.fulfill({ json: state === "bandeja-mixed" ? await receiptPage("all") : { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
+        if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
         if (path === "receipt-reading") return route.fulfill({ json: { enabled: true, available: true, can_change: false } });
         if (path === "email") return route.fulfill({ json: { enabled: true, receiving_address: "recibos@example.test" } });
         if (path === "captures" || path === "email/deliveries") return route.fulfill({ json: { items: [] } });
@@ -68,7 +71,10 @@ try {
       if (state === "inicio-month-refused" || state === "inicio-month-500") await expect(page.getByTestId("month-close-error")).toBeVisible();
       if (state === "inicio-open-items-refused") await expect(page.getByTestId("month-close-money-error")).toBeVisible();
       if (state === "bandeja-al-dia") await expect(page.getByText("Tus recibos están al día.", { exact: true })).toBeVisible();
-      if (state === "bandeja-mixed") await expect(page.getByTestId("business-inbox-receipts")).toBeVisible();
+      if (state === "bandeja-mixed") {
+        await expect(page.getByTestId("bandeja-sources-failed")).toContainText("No pudimos cargar tus notas ni tus correos.");
+        await expect(page.getByTestId("bandeja-sources-failed").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
+      }
       if (state === "bandeja-refused") await expect(page.getByTestId("bandeja-sources-failed").getByText(/hola@cuadrao.ai/)).toBeVisible();
       if (state === "inicio-receipts-failed") {
         await expect(page.getByTestId("month-close-checklist")).toBeVisible();
@@ -87,9 +93,10 @@ try {
         }
       }
       if (state === "inicio-month-500") await expect(page.getByTestId("month-close-error").getByRole("button", { name: "Reintentar", exact: true })).toBeVisible();
-      if (state === "bandeja-refused") {
+      if (state === "bandeja-refused" || state === "bandeja-mixed") {
         await expect(page.getByTestId("bandeja-segments")).toContainText("-");
         await expect(page.getByTestId("business-inbox-empty")).toHaveCount(0);
+        await expect(page.getByTestId("bandeja-segment-empty")).toHaveCount(0);
       }
       await page.evaluate((label) => {
         const stamp = document.createElement("div");
@@ -106,6 +113,17 @@ try {
         await page.screenshot({ path: resolve(output, detail), fullPage: true });
         evidence.push({ file: detail, sha256: createHash("sha256").update(readFileSync(resolve(output, detail))).digest("hex"), state, width, ready: await page.getByTestId("month-close-checklist-ready").count() > 0, close: await page.getByTestId("month-close-close").count() > 0 });
       }
+      if (state === "bandeja-mixed") {
+        const before = { ...calls };
+        emailsDown = false;
+        await page.getByTestId("bandeja-sources-failed").getByRole("button", { name: "Reintentar", exact: true }).click();
+        await expect(page.getByTestId("bandeja-sources-failed")).toContainText("No pudimos cargar tus notas.");
+        await expect(page.getByTestId("bandeja-sources-failed")).not.toContainText("correos");
+        await expect(page.getByTestId("bandeja-sources-failed").getByRole("button", { name: "Reintentar", exact: true })).toHaveCount(0);
+        expect(calls.notes, "permanently refused notes are not retried").toBe(before.notes);
+        expect(calls.emails, "only transient email failure is retried").toBeGreaterThan(before.emails);
+        retryChecks.push({ width, notes_before: before.notes, notes_after: calls.notes, emails_before: before.emails, emails_after: calls.emails });
+      }
       expect(unexpected, "all requests stay local").toEqual([]);
       await page.close();
     }
@@ -115,6 +133,6 @@ try {
   throw error;
 } finally {
   await browser.close();
-  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), evidence }, null, 2));
+  writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, stage, proof: "synthetic fixture proof", generated_at: new Date().toISOString(), retryChecks, evidence }, null, 2));
 }
 console.log(`Captured ${evidence.length} synthetic screenshots at ${head}`);
