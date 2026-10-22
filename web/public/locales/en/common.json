@@ -2643,6 +2643,95 @@
       "transactions": "Transactions",
       "business": "Business"
     },
+    "lifecycle": {
+      "close": {
+        "action": "Close business",
+        "consequences": "When you close, members lose access immediately. You have 30 days to reopen. After that, we delete everything and it cannot be recovered.",
+        "download": "Download receipts",
+        "title": "Close this business",
+        "warning": "The law requires your business to keep its receipts for 10 years. Download them before closing, because Cuadrao will not keep them for you."
+      },
+      "close_alert_title": "Close {{businessName}}?",
+      "close_preview": {
+        "member_count_one": "1 member loses access when you close.",
+        "member_count_other": "{{count}} members lose access when you close.",
+        "member_count_zero": "No members lose access when you close.",
+        "reopen_until": "If you close it now, you can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time)."
+      },
+      "closed_group": "Closed businesses",
+      "closed_owner": "To download receipts, you must first reopen the business.",
+      "closed_status": "Closed",
+      "deadline": "You can reopen it before {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
+      "deletion": {
+        "blocked": "Transfer or close your businesses first.",
+        "checking": "Checking your businesses…",
+        "closed_warning": "{{businessName}} is closed. If you delete your account, nobody can reopen it, and its data and receipts will be deleted on {{purgeDate}} at {{purgeTime}} (Dominican Republic time).",
+        "failed": "We couldn't check your businesses. Try again.",
+        "warning": "You are the sole owner of {{businessName}}. Transfer it or close it before deleting your account."
+      },
+      "errors": {
+        "accept_uncertain": "We couldn't confirm acceptance. Refresh to check the result.",
+        "already_open": "You already own another open business. You can own only one open business at a time.",
+        "business_unavailable": "This business is unavailable with your current access.",
+        "close_uncertain": "We couldn't confirm the closure. Retry to check the result.",
+        "decline_uncertain": "We couldn't confirm the decline. Refresh to check the result.",
+        "discovery": "We couldn't load your businesses. Try again.",
+        "name_mismatch": "The name doesn't match. Enter it exactly as shown above.",
+        "refresh_required": "We couldn't complete the request with these details. Refresh and try again.",
+        "reopen_expired": "The deadline has passed. This business can no longer reopen.",
+        "reopen_uncertain": "We couldn't confirm whether it reopened. Retry to check the result.",
+        "request_uncertain": "We couldn't confirm the request. Your selection is still here. Retry to check the result.",
+        "target_invalid": "This person can no longer take ownership. Choose someone else.",
+        "transfer_expired": "This request has expired.",
+        "transfer_load": "We couldn't load the transfer. Try again.",
+        "transfer_not_pending": "This request is no longer pending. Refresh to see its status.",
+        "transfer_pending": "A transfer is already pending. Withdraw it to request another.",
+        "transfer_unavailable": "This transfer is unavailable with your current access.",
+        "withdraw_uncertain": "We couldn't confirm withdrawal. Refresh to check the result."
+      },
+      "export": {
+        "complete": "All downloads have started. Check your browser's downloads.",
+        "empty": "There are no records or receipts to download.",
+        "failed": "We couldn't start all downloads. Retry to continue.",
+        "preparing": "Preparing downloads…"
+      },
+      "member_closed": "{{businessName}} is closed. To request copies of receipts, contact the business owner.",
+      "name_confirmation": "Enter the business name to confirm.",
+      "owner_title": "Business owner",
+      "purge_consequence": "If it remains closed when that deadline passes, its data and receipts will be deleted and cannot be recovered.",
+      "refresh": "Refresh",
+      "reopen": {
+        "action": "Reopen business"
+      },
+      "reopen_access": "Reopening restores access for members whose permissions are still valid.",
+      "transfer": {
+        "accept": "Accept transfer",
+        "accept_body": "You will become the owner. Only you can approve, close the business, and grant or remove access. {{ownerName}} can keep editing. Automatic receipt reading turns off until you activate it. This cannot be undone.",
+        "accept_title": "Accept {{businessName}}?",
+        "accepted": "Transfer completed",
+        "cancelled": "Transfer withdrawn",
+        "choose_reason": "Choose a person and enter the business name.",
+        "decline": "Decline",
+        "declined": "{{targetName}} declined the transfer. You still own {{businessName}}.",
+        "declined_recipient": "Transfer declined",
+        "empty": "To transfer the business, invite a member first.",
+        "expired": "The request to {{targetName}} expired.",
+        "help": "Choose a business member. They will become the owner when they accept.",
+        "ineligible": {
+          "account_unavailable": "This account cannot take ownership of the business.",
+          "email_unconfirmed": "Their email needs confirmation.",
+          "not_editor": "Does not have access to edit.",
+          "owns_open_business": "Already owns another open business."
+        },
+        "member": "New owner",
+        "none_eligible": "No members can take ownership now. Check the reason beside each person.",
+        "pending": "Waiting for {{targetName}} to accept.",
+        "recipient": "{{ownerName}} wants to transfer {{businessName}} to you. If you accept, you will become its owner and {{ownerName}} can keep editing.",
+        "request": "Request transfer",
+        "title": "Transfer this business",
+        "withdraw": "Withdraw request"
+      }
+    },
     "month_close": {
       "checklist_title": "To close {{month}}",
       "checklist_left_one": "{{count}} left",
@@ -3140,8 +3229,10 @@
       "choose": "Choose a Business",
       "client": "Client",
       "client_cue": "Client: {{name}}",
+      "role_editor": "Can edit",
       "role_owner": "Owner",
       "role_accountant": "Accountant",
+      "role_viewer": "Can view",
       "access_line": "You now have access to {{name}} · View and prepare",
       "got_it": "Got it",
       "settings": "Business settings"

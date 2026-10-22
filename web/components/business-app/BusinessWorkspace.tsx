@@ -39,6 +39,8 @@ import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
 import BusinessSwitcher, { BusinessMark } from "./BusinessSwitcher";
+import { BusinessClosedAccess, BusinessClosedOwnerBanner } from "./BusinessLifecycleControls";
+import type { ClosedGrantedSpace } from "@/lib/business-api";
 import { ToastViewport } from "./foundation/ToastViewport";
 import { clearToasts } from "./foundation/toasts";
 import { BusinessReviewShortcutsProvider } from "./BusinessReviewShortcuts";
@@ -109,6 +111,7 @@ export type BusinessContextValue = Readonly<{
   records: Records;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
+  closedSpaces?: ClosedGrantedSpace[];
   /** The Business the person is working in: their own unless they chose a client's. */
   chosen: GrantedSpace | null;
   chooseBusiness: (grantId: string | null) => void;
@@ -271,6 +274,8 @@ function BusinessWorkspaceContent({
   // The chosen Business: a grant id the client remembers, proven by the server on every request.
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
   const [spaces, setSpaces] = useState<GrantedSpace[] | null>(null);
+  const [closedSpaces, setClosedSpaces] = useState<ClosedGrantedSpace[]>([]);
+  const [closedAccess, setClosedAccess] = useState(false);
   const [accessRevision, setAccessRevision] = useState(0);
   const [lostAccess, setLostAccess] = useState(false);
   const clearLostAccess = useCallback(() => setLostAccess(false), []);
@@ -278,15 +283,23 @@ function BusinessWorkspaceContent({
     () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
     [spaces, chosenGrant],
   );
+  const closedAccessName = closedAccess ? closedSpaces.find(space => space.grant_id === chosenGrant)?.name ?? chosen?.name ?? t("business.overview.title") : null;
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
     let cancelled = false;
-    source.spaces().then(
-      (listed) => {
+    const directory = source.mode === "live" && source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [] }));
+    directory.then(
+      ({ spaces: listed, closed_spaces: closed }) => {
         if (cancelled) return;
         setSpaces(listed);
+        setClosedSpaces(closed);
         const grant = getChosenGrant();
-        if (grant && !listed.some((space) => space.grant_id === grant && space.role !== "owner")) {
+        const selected = listed.find(space => space.grant_id === grant);
+        if (grant && selected?.role === "owner") {
+          setChosenGrant(null);
+        } else if (grant && !selected) {
+          const held = closed.find(space => space.grant_id === grant);
+          if (held) { setClosedAccess(true); return; }
           setChosenGrant(null);
           setLostAccess(true);
         } else if (!grant) {
@@ -322,6 +335,7 @@ function BusinessWorkspaceContent({
     if (grantId === getChosenGrant()) return;
     clearTitleFocusUnless();
     setLostAccess(false);
+    setClosedAccess(false);
     setChosenGrant(grantId);
     setPanel({ kind: "overview" });
     writePanelToUrl("workspace", { kind: "overview" });
@@ -392,6 +406,11 @@ function BusinessWorkspaceContent({
       .catch((error: unknown) => {
         if (cancelled) return;
         const kind = classifyFailure(error, { fetch: true });
+        if (kind === "business_closed") {
+          setClosedAccess(true);
+          reloadWaits.answered("records", revision, false);
+          return;
+        }
         if (kind === "removed" && getChosenGrant()) {
           setChosenGrant(null);
           setLostAccess(true);
@@ -505,6 +524,7 @@ function BusinessWorkspaceContent({
       source,
       records: workspaceRecords,
       spaces,
+      closedSpaces,
       chosen,
       chooseBusiness,
       markAccessSeen,
@@ -525,10 +545,10 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
-  const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted;
+  const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   const businessSearch = useBusinessSearch({
     source,
     accounts: records.workspace?.accounts ?? NO_ACCOUNTS,
@@ -553,14 +573,14 @@ function BusinessWorkspaceContent({
       // The person's account sits at the top right on a desktop; the rail keeps the business and its screens.
       profileInHeader: true,
       keyboardShortcuts,
-      bottomNavigation: (shell) => shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
-      panelHasComposer: panel.kind === "overview",
-      sidebarNav: (shell) => <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} />,
+      bottomNavigation: (shell) => !closedAccessName && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
+      panelHasComposer: panel.kind === "overview" && !closedAccessName,
+      sidebarNav: (shell) => closedAccessName ? null : <BusinessSidebarNav shell={shell} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} />,
       sidebarMark: () => <BusinessMark name={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} /> : null,
-      headerActions: (shell) => <>
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} /> : null,
+      headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
@@ -569,7 +589,7 @@ function BusinessWorkspaceContent({
         <AmountsToggle />
       </>,
       headerSearch: (shell) => shell.openSearch ? <HeaderSearch onOpen={shell.openSearch} /> : null,
-      panel: () => <BusinessPanel />,
+      panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
       search: businessSearch,
@@ -592,7 +612,7 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, chosen, chooseBusiness, openPanel]);
+  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel]);
 
   return (
     <BusinessContext.Provider value={value}>

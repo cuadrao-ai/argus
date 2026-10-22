@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { act } from "react";
+import i18next from "i18next";
+import { I18nextProvider } from "react-i18next";
+import spanish from "@/public/locales/es-419/common.json";
 import { createRoot } from "react-dom/client";
 import BusinessTransferDialog, { businessTransferCopyEs, type BusinessTransferView } from "@/components/business-app/BusinessTransferDialog";
 
@@ -14,10 +17,11 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 async function mount() {
   const host = document.createElement("div"); document.body.append(host);
   const root = createRoot(host);
+  const i18n = i18next.createInstance(); await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } } });
   const calls: string[] = [];
   const request: BusinessTransferView = { kind: "request", members: [{ grant_id: "editar-1", name: "Rosa", eligible: true, reason: null }], onRequest: (id, name) => { calls.push(`request:${id}:${name}`); } };
   const render = async (view = request, submitting = false) => {
-    await act(async () => root.render(<BusinessTransferDialog businessName="Taller Luna" copy={businessTransferCopyEs} view={view} state={submitting ? { kind: "submitting" } : { kind: "idle" }} onDismiss={() => { calls.push("dismiss"); }} />));
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessTransferDialog businessName="Taller Luna" copy={businessTransferCopyEs} view={view} state={submitting ? { kind: "submitting" } : { kind: "idle" }} onDismiss={() => { calls.push("dismiss"); }} /></I18nextProvider>));
   };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll("button")].find((item) => item.textContent === text || item.getAttribute("aria-label") === text); assert.ok(found); return found; };
@@ -66,6 +70,9 @@ test("recipient accepts or declines; submission blocks repeated actions", async 
     await view.render(recipient);
     await act(async () => view.button("Rechazar").click());
     await act(async () => view.button("Aceptar transferencia").click());
+    assert.deepEqual(view.calls, ["decline"]);
+    const confirm = document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]'); assert.ok(confirm);
+    await act(async () => confirm.click());
     assert.deepEqual(view.calls, ["decline", "accept"]);
     await view.render({ kind: "declined", targetName: "Rosa" });
     assert.ok(document.body.textContent?.includes("Rosa rechazó la transferencia. Taller Luna sigue siendo tuyo."));

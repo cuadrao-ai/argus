@@ -33,7 +33,7 @@ beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz" });
   globalThis.fetch = async (url) => {
     const path = new URL(String(url)).pathname;
-    assert.ok(path.endsWith("/owned-spaces") || path.endsWith("/closed-spaces"), `Unexpected request ${path}`);
+    assert.ok(path.endsWith("/spaces"), `Unexpected request ${path}`);
     return Response.json({ spaces: [] });
   };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

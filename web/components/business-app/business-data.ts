@@ -36,6 +36,7 @@ export type BusinessDataSource = Readonly<{
   acceptConsent: (version: string) => Promise<BusinessConsent>;
   /** Every Business the person may enter through a live grant, their own first. */
   spaces: () => Promise<GrantedSpace[]>;
+  spaceDirectory?: () => Promise<api.BusinessDirectory>;
   /** The person dismissed the one-time access line for one of their grants. */
   markAccessSeen: (grantId: string) => Promise<void>;
   workspace: () => Promise<BusinessWorkspaceInfo>;
@@ -146,6 +147,7 @@ export const liveBusinessDataSource: BusinessDataSource = {
   revokeAccessGrant: api.revokeBusinessAccessGrant,
   revokeAccessInvite: api.revokeBusinessAccessInvite,
   spaces: api.getBusinessSpaces,
+  spaceDirectory: api.getBusinessDirectory,
   markAccessSeen: api.markBusinessAccessSeen,
 };
 
@@ -236,6 +238,7 @@ export function withBusinessSpace(
     revokeAccessGrant: source.revokeAccessGrant,
     revokeAccessInvite: source.revokeAccessInvite,
     spaces: after(source.spaces),
+    spaceDirectory: source.spaceDirectory,
     markAccessSeen: source.markAccessSeen,
   };
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, describe, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import type { GrantedSpace } from "@/lib/business-api";
+import type { ClosedGrantedSpace, GrantedSpace } from "@/lib/business-api";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 
 // A real DOM: the switcher is a button and a listbox driven by the keyboard,
@@ -33,7 +33,7 @@ async function setup() {
   return { act, root, host, settle, I18nextProvider, i18n };
 }
 
-async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace | null, collapsed = false) {
+async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace | null, collapsed = false, closedSpaces: ClosedGrantedSpace[] = []) {
   const env = await setup();
   const { default: BusinessSwitcher } = await import("@/components/business-app/BusinessSwitcher");
   const chosenIds: (string | null)[] = [];
@@ -41,7 +41,7 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
   await env.act(async () => {
     env.root.render(
       <env.I18nextProvider i18n={env.i18n}>
-        <BusinessSwitcher spaces={spaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenSettings={() => opened.push("settings")} />
+        <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenSettings={() => opened.push("settings")} />
       </env.I18nextProvider>,
     );
   });
@@ -106,7 +106,7 @@ describe("the Business mark menu", () => {
     assert.equal(owner.host.querySelector("button[aria-haspopup=menu]")?.textContent, "FFerretería LunaDueño");
     await owner.act(async () => owner.root.unmount());
     const client = await mountSwitcher([OWN, CLIENT], CLIENT);
-    assert.equal(client.host.querySelector("button[aria-haspopup=menu]")?.textContent, `CColmado Peña${spanish.business.switcher.role_accountant}`);
+    assert.equal(client.host.querySelector("button[aria-haspopup=menu]")?.textContent, `CColmado Peña${spanish.business.switcher.role_editor}`);
     assert.ok(!client.host.textContent?.includes("Dueño"));
     await client.act(async () => client.root.unmount());
     const collapsed = await mountSwitcher([OWN], OWN, true);
@@ -265,4 +265,27 @@ describe("the chosen grant rides on every API call", () => {
     setChosenGrant(null);
     assert.equal(argusApiRequestHeaders(undefined, {}).get(GRANT_HEADER), null);
   });
+});
+
+
+for (const [capabilities, label] of [[["read", "prepare"], "Editar"], [["read"], "Ver"]] as const) {
+  test(`member label comes from capabilities as ${label}`, async () => {
+    const member = { ...CLIENT, capabilities: [...capabilities] };
+    const page = await mountSwitcher([member], member);
+    try { assert.ok(page.host.textContent?.includes(label)); assert.equal(page.host.textContent?.includes("Contador"), false); }
+    finally { await page.act(async () => page.root.unmount()); }
+  });
+}
+
+test("closed owner Businesses link to recovery and never join live switch options", async () => {
+  const closed = { space_id: "closed-business", name: "Taller Cerrado", grant_id: "closed-grant", role: "owner" as const, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
+  const page = await mountSwitcher([OWN], OWN, false, [closed]);
+  try {
+    await page.act(async () => page.host.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')!.click());
+    assert.ok(document.body.textContent?.includes("Cerrados"));
+    const link = document.querySelector<HTMLAnchorElement>('a[href="/biz?lifecycle=manage&business=closed-business"]'); assert.ok(link);
+    assert.ok(link.textContent?.includes("Taller Cerrado"));
+    assert.equal(document.querySelector('[role="option"]'), null);
+    assert.deepEqual(page.chosenIds, []);
+  } finally { await page.act(async () => page.root.unmount()); }
 });

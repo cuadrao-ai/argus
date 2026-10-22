@@ -3,9 +3,12 @@
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
 import { useCallback, useEffect, useId, useRef, useState, type RefObject } from "react";
-import BusinessOwnershipDeletionBlock, { businessOwnershipCopyEs, type SolelyOwnedBusiness } from "@/components/business-app/BusinessOwnershipDeletionBlock";
-import { getBusinessSpaces } from "@/lib/business-api";
-import { businessLifecycleHref } from "@/lib/business-lifecycle-api";
+import BusinessOwnershipDeletionBlock, { useBusinessOwnershipCopy, type SolelyOwnedBusiness } from "@/components/business-app/BusinessOwnershipDeletionBlock";
+import { getBusinessDirectory, getBusinessSpaces, type ClosedGrantedSpace } from "@/lib/business-api";
+import { businessDeadlineParts, businessLifecycleHref } from "@/lib/business-lifecycle-api";
+import { browserAuthGeneration } from "@/lib/browser-auth-generation";
+import { serverRequestReference } from "@/lib/failure-screen";
+import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { businessPilotEnabled } from "@/lib/private-alpha-flags";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -43,7 +46,8 @@ function ProfileDeleteRequestDialogSurface({
   onClose,
   onSubmit,
   returnFocusRef,
-  discoverBusinesses = businessPilotEnabled ? getBusinessSpaces : undefined,
+  discoverBusinesses,
+  discoverDirectory = !discoverBusinesses && businessPilotEnabled ? getBusinessDirectory : undefined,
 }: {
   state: DeleteRequestState;
   supportMailto: string;
@@ -51,18 +55,28 @@ function ProfileDeleteRequestDialogSurface({
   onSubmit: () => void | Promise<void>;
   returnFocusRef?: RefObject<HTMLElement | null>;
   discoverBusinesses?: typeof getBusinessSpaces;
+  discoverDirectory?: typeof getBusinessDirectory;
 }) {
-  const { t } = useTranslation();
-  const [businesses, setBusinesses] = useState<SolelyOwnedBusiness[] | null>(discoverBusinesses ? null : []);
-  const [businessError, setBusinessError] = useState(false);
+  const { t, i18n } = useTranslation();
+  const ownershipCopy = useBusinessOwnershipCopy();
+  const hasDiscovery = Boolean(discoverBusinesses || discoverDirectory);
+  const [businesses, setBusinesses] = useState<SolelyOwnedBusiness[] | null>(hasDiscovery ? null : []);
+  const [closedBusinesses, setClosedBusinesses] = useState<ClosedGrantedSpace[]>([]);
+  const [businessError, setBusinessError] = useState<{ reference: string | null } | null>(null);
+  const [discoveryAttempt, setDiscoveryAttempt] = useState(0);
   useEffect(() => {
-    if (!discoverBusinesses) return;
+    if (!discoverBusinesses && !discoverDirectory) return;
     let active = true;
-    void discoverBusinesses().then(spaces => {
-      if (active) setBusinesses(spaces.filter(space => space.role === "owner").map(space => ({ id: space.space_id, name: space.name, transferHref: businessLifecycleHref(space.space_id, "transfer"), closeHref: businessLifecycleHref(space.space_id, "close") })));
-    }).catch(() => { if (active) setBusinessError(true); });
+    const generation = browserAuthGeneration();
+    setBusinesses(null); setClosedBusinesses([]); setBusinessError(null);
+    const discovery = discoverDirectory ? discoverDirectory() : discoverBusinesses!().then(spaces => ({ spaces, closed_spaces: [] }));
+    void discovery.then(directory => {
+      if (!active || browserAuthGeneration() !== generation) return;
+      setBusinesses(directory.spaces.filter(space => space.role === "owner").map(space => ({ id: space.space_id, name: space.name, transferHref: businessLifecycleHref(space.space_id, "transfer"), closeHref: businessLifecycleHref(space.space_id, "close") })));
+      setClosedBusinesses(directory.closed_spaces.filter(space => space.role === "owner"));
+    }).catch(error => { if (active && browserAuthGeneration() === generation) setBusinessError({ reference: serverRequestReference(error) }); });
     return () => { active = false; };
-  }, [discoverBusinesses]);
+  }, [discoverBusinesses, discoverDirectory, discoveryAttempt]);
   const businessBlocked = businesses === null || businesses.length > 0;
   const overlayId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -187,8 +201,14 @@ function ProfileDeleteRequestDialogSurface({
                 "In plans you share, your amounts stay so everyone else's numbers still add up, but without your name: you'll show as \"Former member.\" Your receipts and notes are deleted. Anything you owe or are owed is closed in the app, not marked as paid. Plans you created pass to whoever has been in each one longest, except shared debt plans, which are closed and stay view-only.",
               )}
             </p>
-            {businesses?.length ? <div className="mt-4"><BusinessOwnershipDeletionBlock businesses={businesses} copy={businessOwnershipCopyEs} /></div> : null}
-            {businesses === null ? <p role="status" className="mt-3 text-[13px]">{businessError ? t("common.error_occurred") : t("common.loading")}</p> : null}
+            {businesses?.length ? <div className="mt-4"><BusinessOwnershipDeletionBlock businesses={businesses} copy={ownershipCopy} /></div> : null}
+            {businesses === null ? <div className="mt-3 space-y-2 text-[13px]">
+              <p role={businessError ? "alert" : "status"}>{t(businessError ? "business.lifecycle.deletion.failed" : "business.lifecycle.deletion.checking")}</p>
+              {businessError?.reference ? <ReferenceCode reference={businessError.reference} /> : null}
+              {businessError ? <button type="button" className="min-h-11 underline" onClick={() => setDiscoveryAttempt(value => value + 1)}>{t("common.retry")}</button> : null}
+            </div> : null}
+            {businesses?.length ? <p className="mt-3 text-[13px]">{t("business.lifecycle.deletion.blocked")}</p> : null}
+            {closedBusinesses.map(business => <p key={business.space_id} className="mt-3 text-[13px] leading-relaxed">{t("business.lifecycle.deletion.closed_warning", { businessName: business.name, ...businessDeadlineParts(business.reopen_until, i18n.resolvedLanguage ?? "es-419") })}</p>)}
             {state === "error" && (
               <p className="mt-3 text-[12px] leading-relaxed text-[#d66d75]">
                 {t(

@@ -50,3 +50,30 @@ export async function getOwnedBusinessSpaces(signal?: AbortSignal): Promise<Owne
 export function businessLifecycleHref(spaceId: string, action: "close" | "transfer"): string {
   return `/biz?lifecycle=${action}&business=${encodeURIComponent(spaceId)}`;
 }
+
+export function businessDeadlineParts(value: string, locale: string) {
+  const date = new Date(value);
+  const options = { timeZone: "America/Santo_Domingo" };
+  return {
+    purgeDate: date.toLocaleDateString(locale, { ...options, day: "numeric", month: "long", year: "numeric" }),
+    purgeTime: date.toLocaleTimeString(locale, { ...options, hour: "numeric", minute: "2-digit" }),
+  };
+}
+
+export function businessLifecycleErrorKey(error: unknown, fallback: string): string {
+  const code = typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : "";
+  const known: Record<string, string> = {
+    business_name_mismatch: "name_mismatch",
+    business_record_not_found: "business_unavailable",
+    business_unavailable: "business_unavailable",
+    business_grant_not_live: "business_unavailable",
+    business_already_open: "already_open",
+    business_reopen_expired: "reopen_expired",
+    business_transfer_pending: "transfer_pending",
+    business_transfer_target_invalid: "target_invalid",
+    business_transfer_expired: "transfer_expired",
+    business_transfer_not_pending: "transfer_not_pending",
+    business_transfer_confirmation_required: "refresh_required",
+  };
+  return `business.lifecycle.errors.${known[code] ?? fallback}`;
+}

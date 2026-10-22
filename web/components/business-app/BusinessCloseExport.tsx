@@ -43,14 +43,14 @@ export default function BusinessCloseExport({ business, label, journal, setJourn
   };
 
   return <div className="space-y-3" aria-busy={state === "loading"}>
-    {!business.export_windows.length ? <p className="text-[14px]">{t("business.lifecycle.export.empty", { defaultValue: "No hay registros ni comprobantes para descargar." })}</p> : null}
+    {!business.export_windows.length ? <p className="text-[14px]">{t("business.lifecycle.export.empty")}</p> : null}
     <ul className="space-y-1 text-[14px] tabular-nums">
       {business.export_windows.map(period => <li key={`${period.start}/${period.end}`}>{t("business.export.range", { from: period.start, to: period.end })}</li>)}
     </ul>
-    {state === "failed" ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.lifecycle.export.failed", { defaultValue: "No pudimos iniciar todas las descargas. Reintenta para continuar." })}</p> : null}
-    {state === "complete" ? <p role="status" className="text-[14px]">{t("business.lifecycle.export.complete", { defaultValue: "Se iniciaron todas las descargas. Revisa las descargas de tu navegador." })}</p> : null}
+    {state === "failed" ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.lifecycle.export.failed")}</p> : null}
+    {state === "complete" ? <p role="status" className="text-[14px]">{t("business.lifecycle.export.complete")}</p> : null}
     {business.export_windows.length ? <button type="button" className={primaryButtonClass} disabled={state === "loading" || state === "complete"} onClick={() => { void download(); }}>
-      {state === "loading" ? t("business.lifecycle.export.preparing", { defaultValue: "Preparando las descargas…" }) : state === "failed" ? t("common.retry") : label}
+      {state === "loading" ? t("business.lifecycle.export.preparing") : state === "failed" ? t("common.retry") : label}
     </button> : null}
   </div>;
 }

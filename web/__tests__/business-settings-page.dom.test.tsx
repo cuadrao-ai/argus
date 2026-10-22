@@ -31,7 +31,7 @@ afterAll(async () => {
 const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
 const CLIENT: GrantedSpace = { space_id: "s-client", name: "Colmado Peña", grant_id: "g-client", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
 
-async function mount(query: string, space: GrantedSpace, overrides: Partial<BusinessDataSource> = {}) {
+async function mount(query: string, space: GrantedSpace, overrides: Partial<BusinessDataSource> = {}, rememberedGrant?: string) {
   search = query;
   window.history.replaceState(null, "", `/biz${query ? `?${query}` : ""}`);
   const { act, useEffect } = await import("react");
@@ -44,15 +44,18 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { useChatWorkspace } = await import("@/components/chat/ChatWorkspace");
   const { setChosenGrant } = await import("@/lib/business-grant");
-  setChosenGrant(space.role === "owner" ? null : space.grant_id);
+  setChosenGrant(rememberedGrant ?? (space.role === "owner" ? null : space.grant_id));
   const i18n = i18next.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), spaces: async () => [space], ...overrides };
   const shell = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined } as unknown as ChatShellBridge;
   let panel: BusinessPanelState = { kind: "overview" };
+  let chosenReady = false;
   function Shell() {
     const workspace = useChatWorkspace();
-    panel = useBusiness().panel;
+    const context = useBusiness();
+    panel = context.panel;
+    chosenReady = context.chosen?.grant_id === space.grant_id;
     const connect = workspace?.onShellChange;
     useEffect(() => { connect?.(shell); }, [connect]);
     return <main>{workspace?.panel(shell)}</main>;
@@ -83,7 +86,7 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
     assert.ok(tab, `the ${label} tab`);
     await act(async () => tab.click());
   };
-  await settle(() => host.querySelector('[data-testid="business-settings"]') !== null);
+  await settle(() => chosenReady && host.querySelector('[data-testid="business-settings"]') !== null);
   const click = (element: Element) => act(async () => { (element as HTMLElement).click(); });
   return { host, settle, tabs, chosenTab, choose, click, panel: () => panel, close: () => act(async () => root.unmount()) };
 }
@@ -229,4 +232,69 @@ describe("the Negocio page", () => {
       }
     });
   });
+});
+
+
+test("a remembered closed membership shows closure rather than removed access", async () => {
+  const held = { space_id: CLIENT.space_id, grant_id: CLIENT.grant_id, name: CLIENT.name, role: "accountant" as const, closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" };
+  let creates = 0;
+  const page = await mount("view=business", CLIENT, {
+    mode: "live", spaceDirectory: async () => ({ spaces: [OWN], closed_spaces: [held] }),
+    ensureSpace: async () => { creates += 1; throw new Error("closed membership must not create a workspace"); },
+  });
+  try {
+    assert.ok(page.host.querySelector('[data-testid="business-member-closed"]'));
+    assert.ok(page.host.textContent?.includes("Colmado Peña está cerrado."));
+    assert.equal(page.host.textContent?.includes("Ya no tienes acceso"), false);
+    assert.equal(page.host.querySelector('[data-testid="business-settings"]'), null);
+    assert.equal(creates, 0);
+  } finally { await page.close(); }
+});
+
+test("a live workspace offers a dismissible recovery banner for an owned closed business", async () => {
+  const page = await mount("view=business", CLIENT, { mode: "live", spaceDirectory: async () => ({ spaces: [CLIENT], closed_spaces: [{ space_id: "s-closed", grant_id: "g-closed", name: "Taller Nube", role: "owner", closed_at: "2026-10-21T17:45:00Z", reopen_until: "2026-11-20T17:45:00Z" }] }) });
+  try {
+    const banner = page.host.querySelector('[data-testid="business-closed-owner-banner"]');
+    assert.ok(banner);
+    assert.ok(banner.textContent?.includes("Taller Nube"));
+    assert.ok(banner.textContent?.includes("hora de RD"));
+    assert.ok(banner.querySelector('a[href*="lifecycle=manage"]'));
+    await page.click(banner.querySelector('button')!);
+    assert.equal(page.host.querySelector('[data-testid="business-closed-owner-banner"]'), null);
+    assert.ok(page.host.querySelector('[data-testid="business-settings"]'));
+  } finally { await page.close(); }
+});
+
+
+test("an absent remembered membership still shows removed access", async () => {
+  const page = await mount("view=business", CLIENT, { mode: "live", spaceDirectory: async () => ({ spaces: [OWN], closed_spaces: [] }) });
+  try {
+    assert.ok(page.host.querySelector('[data-testid="removed-member-screen"]'));
+    assert.equal(page.host.querySelector('[data-testid="business-member-closed"]'), null);
+  } finally { await page.close(); }
+});
+
+
+test("only the owner finds lifecycle controls in Datos, and Equipo has none", async () => {
+  const previousFetch = globalThis.fetch; const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
+  globalThis.fetch = async url => Response.json({ spaces: String(url).includes("owned-spaces") ? [{ space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: OWN.name, grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [], members: [] }] : [] });
+  const owner = { ...OWN, space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438" };
+  const page = await mount("view=business", owner, { mode: "live", spaceDirectory: async () => ({ spaces: [owner], closed_spaces: [] }) });
+  try {
+    await page.settle(() => page.host.querySelector('[data-testid="business-lifecycle-controls"]') !== null);
+    assert.ok(page.host.querySelector('a[href*="lifecycle=close"]'));
+    assert.ok(page.host.querySelector('a[href*="lifecycle=transfer"]'));
+    await page.choose("Equipo y accesos");
+    assert.equal(page.host.querySelector('[data-testid="business-lifecycle-controls"]'), null);
+  } finally { await page.close(); globalThis.fetch = previousFetch; if (previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth; }
+});
+
+
+test("returning from an owner lifecycle action does not report removed access", async () => {
+  const page = await mount("view=business", OWN, { spaces: async () => [OWN] }, OWN.grant_id);
+  try {
+    assert.equal(page.host.querySelector('[data-testid="removed-member-screen"]') !== null, false, "owner return must not show removed access");
+    assert.ok(page.host.querySelector('[data-testid="business-settings"]'));
+  } finally { await page.close(); }
 });

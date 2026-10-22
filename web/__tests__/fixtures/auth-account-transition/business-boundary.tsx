@@ -9,10 +9,7 @@ mock.module("@/lib/supabase-client", () => ({ getSupabaseClient: () => ({ auth: 
   onAuthStateChange: (next: typeof listener) => { listener = next; return { data: { subscription: { unsubscribe: () => {} } } }; },
   getSession: () => new Promise(resolve => { releaseInitial = resolve; }),
 } }) }));
-mock.module("@/lib/business-lifecycle-api", () => ({
-  getOwnedBusinessSpaces: async () => { if (lifecycleMode === "off") throw { code: "business_unavailable" }; return []; },
-  getClosedBusinessSpaces: async () => lifecycleMode === "closed" ? [{ space_id: "closed" }] : [],
-}));
+mock.module("@/lib/business-api", () => ({ getBusinessDirectory: async () => { if (lifecycleMode === "off") throw { code: "business_unavailable" }; return { spaces: lifecycleMode === "open" ? [{ role: "owner" }] : [], closed_spaces: lifecycleMode === "closed" ? [{ role: "owner" }] : [] }; } }));
 mock.module("@/components/business-app/BusinessWorkspace", () => ({
   BusinessContext: createContext(null),
   BusinessWorkspaceProvider: ({ children }: { children: ReactNode }) => children,

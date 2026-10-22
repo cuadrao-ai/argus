@@ -13,7 +13,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Settle } from "./business-skeletons";
 import { resolveLanguage } from "@/lib/language-features";
 
-import BusinessLifecycleControls from "./BusinessLifecycleControls";
 
 type Pending = { kind: "grant"; item: BusinessAccessGrant } | { kind: "invite"; item: BusinessAccessInvite };
 
@@ -230,7 +229,6 @@ export default function BusinessAccessPanel({ embedded = false }: { embedded?: b
           </form>
         </>
       )}
-      {source.mode === "live" ? <BusinessLifecycleControls /> : null}
     </section>
   );
 }
