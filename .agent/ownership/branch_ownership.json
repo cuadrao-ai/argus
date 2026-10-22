@@ -3624,6 +3624,7 @@
         "web/components/business-app/BusinessSwitcher.tsx",
         "web/components/business-app/BusinessWorkspace.tsx",
         "web/components/business-app/business-data.ts",
+        "web/e2e/business-consent.playwright.config.ts",
         "web/lib/business-api.ts",
         "web/lib/failure-screen.ts",
         "web/public/locales/en/common.json",

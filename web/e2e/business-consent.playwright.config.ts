@@ -17,7 +17,7 @@ export default defineConfig({
   webServer: {
     command: `node node_modules/next/dist/bin/next dev --webpack --port ${port}`,
     cwd: path.resolve(__dirname, ".."),
-    port,
+    url: `http://localhost:${port}/biz`,
     timeout: 120_000,
     env: {
       NEXT_PUBLIC_MOCK_AUTH: "true",
