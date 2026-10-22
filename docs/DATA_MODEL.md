@@ -3466,9 +3466,12 @@ has dismissed their access line (their `access_seen` receipt); a logo to the
 Business's owner and live members. The `spaces` row is unchanged. The row goes
 with its auth user or space; the object does not: account deletion erases
 `people/{user_id}/` and `business/{space_id}/` for every space the person
-created in its `storage` step (`spaces.created_by` cascades with the user). No
-Business purge exists yet; the one #1222 adds must erase
-`business/{space_id}/` before it deletes the space row.
+created in its `storage` step (`spaces.created_by` cascades with the user). A
+Business that account deletion retains has already moved to its record
+custodian by then, so its logo stays with it. The day-30 purge erases
+`business/{space_id}/` before it deletes the space row, retries a failed erase
+with the graph intact, and holds while a logo row exists without picture
+storage.
 
 ### Business receipt reading consent and attention
 
@@ -3574,7 +3577,7 @@ open items read the date from the resolution, not from the revision.
 | `business_sender_leases` | One durable holder, monotonic fence and expiry per `(space_id, sender_hash)`. Runtime acquisition/renewal/release must lock this row and check the fence before committing. |
 | `business_turns` | Globally deduplicated provider turn key, scoped actual actor/sender, arrival order, phase, model state, immutable typed normalized plan, active lease fence and reply text. A completed model interpretation requires its plan and server-derived `plan_actor: ActorProvenance` snapshot, present together and immutable together, with matching actual actor ID; completion/reply phases require the plan. |
 | `business_action_receipts` | Unique `(space_id, actor_id, idempotency_key)` and `(turn_key, action_index)`, canonical input hash, normalized command, immutable actual `actor: ActorProvenance` snapshot (including human commands without a turn), and typed result. Snapshot actor ID must match the receipt actor. Human `review_draft`, `approve_expense`, `approve_income` and `capture_note` commands, and trusted `prepare_attachment` commands bound to the stored preparation binding, may omit a turn; agent commands require a persisted plan. Agent receipts require the matching action in an already persisted plan of the same client and actor, with identical plan-actor provenance. Identity/command/hash cannot mutate. A settled result cannot change; unknown results allow explicit reconciliation. This is action execution recovery, not another financial ledger. |
-| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. |
+| `business_document_settlements` | One row per recorded activity in one Business (`space_id`, `activity_id`). Status, settlement date, and payment method only. Amounts, ITBIS, RNC, and the fiscal number stay on the activity and its draft. A pending row has no date and no method. A settled row has both, and the status has to match invoice or receipt. Deleting the space or the activity cascades the row. Both owner keys are custody-deferred: account deletion moves `owner_id` to the record custodian with the Business, and the day-30 purge removes the row. |
 | `business_document_settlement_revisions` | Append-only previous status, date, and method, plus the actor and the time. A repeated identical settlement writes no row. Updates and direct deletes fail. Deleting the settlement cascades these rows. The actor reference clears when that person is deleted. The month summary is computed, not stored. Shapes and the closed rule are in the [month-close contract](contracts/business-month-close.md). |
 
 Migration `20261011070000_business_manual_capture_command.sql` extends only
@@ -3976,6 +3979,16 @@ retries retain both and the provider key. `sent_at`, `suppressed_at`,
 `uncertain_at` and `provider_receipt` record delivery, stale-close suppression,
 the 23-hour retry hold and the bounded receipt. All lifecycle control dates and
 owner authority still derive from `spaces` and the existing grants.
+
+The October 21 backend checkpoint adds `kind` to the same unapplied migration.
+It is one of `member_closed`, `owner_closed`, `purge_reminder` or
+`member_reopened`, and joins `space_id,closed_at,recipient_id` in the unique event
+key. For `member_reopened`, `closed_at` is the close instant the reopen undid.
+`context` adds `reopenPath`, a relative app path with no personal data beyond
+the space ID. Only `member_closed` has approved copy; the other kinds stay with
+null `payload` and `first_attempt_at` until theirs is approved. An owner kind is
+suppressed once its recipient is no longer the current owner. Departure,
+custody detachment and purge remove every kind, as before.
 
 ## Public RNC registry
 

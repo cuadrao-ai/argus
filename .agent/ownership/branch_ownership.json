@@ -3758,7 +3758,16 @@
         "docs/reports/evidence/shared-account-email/final-delta/reauthentication-light.png",
         "docs/reports/evidence/shared-account-email/final-delta/recovery-dark.png",
         "docs/reports/evidence/shared-account-email/final-delta/recovery-light.png",
-        "scripts/emails/render-staging-auth.ts"
+        "scripts/emails/render-staging-auth.ts",
+        "tests/business/test_month_close.py",
+        "tests/test_account_deletion_bank_postgres.py",
+        "tests/test_business_name_prompt_postgres.py",
+        "tests/test_month_close_postgres.py",
+        "src/argus/api/business.py",
+        "tests/test_account_deletion_api_postgres.py",
+        "tests/test_account_deletion_postgres.py",
+        "tests/test_business_scope_switch_routes_postgres.py",
+        "tests/test_profile_images_postgres.py"
       ],
       "deny": [
         ".env",

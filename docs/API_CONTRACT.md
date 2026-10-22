@@ -10496,3 +10496,52 @@ suppresses unsent notices for that close instant. Person departure removes their
 personal notification transport. Business custody detachment removes the scoped
 close transport, and Business purge cascades the queue. No real email was sent
 for this delivery.
+
+#### Business lifecycle backend checkpoint, October 21, 2026
+
+This checkpoint supersedes the readiness status above. `require_lifecycle_ready`
+is removed. The nine lifecycle and transfer operations answer behind the existing
+Business surface gate only: with the pilot switch
+(`CUADRAO_BUSINESS_PILOT_ENABLED`, falling back to `ARGUS_BUSINESS_PILOT_ENABLED`)
+off they answer `404 business_unavailable`, as every Business route does. Global
+account deletion keeps its own switch and is unchanged.
+
+`GET /business/owned-spaces` is the close preview. Each Business now also carries
+`member_count` (the live members who lose access on close), `reopen_until` (the
+deadline a close now would set, from the database clock) and `export_windows`.
+`members` lists every live member as `{grant_id, name, eligible, reason}`.
+`reason` is null for an eligible member, otherwise `account_unavailable`,
+`not_editor`, `email_unconfirmed` or `owns_open_business`. Eligibility and the
+transfer request read one shared query, so a request naming an ineligible member
+still answers `409 business_transfer_target_invalid` and creates no transfer.
+
+`export_windows` is a list of `{start, end}` dates. Downloaded in order through
+the unchanged `GET /business/exports` (at most 366 days each), the windows cover
+every day the export can select, from the earliest recorded or drafted day
+through today. A Business with no record has none. The export itself is
+unchanged: each record keeps its own currency and exact amount, and a closed
+Business still cannot be exported.
+
+`GET /business/spaces` adds `closed_spaces: [{space_id, name, grant_id, role,
+closed_at, reopen_until}]`. It lists each closed Business where the caller's
+grant is otherwise live. A revoked or expired grant lists nothing there, so a
+closed Business reads differently from removed access. A Business action on a
+closed Business answers `403 business_closed` instead of the missing-record
+refusal, and so does any Business route called with `X-Business-Grant` naming a
+grant whose only problem is the close. A revoked or expired grant still answers
+`403 business_grant_not_live`.
+
+Close also queues the owner's own confirmation, and reopening queues one notice
+per live member for the close instant it undid. The existing deletion sweep
+queues the current owner's reminder once a close reaches day 23, inside the
+30-day window. Each such event carries `reopenPath`
+(`/biz?lifecycle=manage&business=<space_id>`). These three kinds have no approved
+copy yet, so they wait unsent, with no payload, and nothing invents their text.
+Approved member notices send as before. Transactional notices end with
+`Cuadrao LLC`, as the canonical layout prints mail without an unsubscribe link,
+so they no longer need `MARKETING_POSTAL_ADDRESS`.
+
+The day-30 purge erases the Business logo object before it deletes the space
+row, while that row still names it. A failed erase leaves the run `started` and
+the graph whole for the next sweep. A logo row without configured picture
+storage holds the purge. Other Businesses' logos are untouched.
