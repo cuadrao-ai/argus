@@ -13,7 +13,7 @@ from argus.domain.ingestion.documents.models import DocumentDraft
 
 
 @pytest.fixture
-def checked():
+def checked(monkeypatch):
     now = datetime.now(timezone.utc)
     data = b"synthetic receipt"
     digest = sha256(data).hexdigest()
@@ -59,7 +59,15 @@ def checked():
     )
     service = object.__new__(BusinessActions)
     service._attachment_row = Mock(return_value=row)
-    tx = SimpleNamespace(authorization=SimpleNamespace(provenance=actor))
+    tx = SimpleNamespace(
+        authorization=SimpleNamespace(provenance=actor),
+        connection=object(),
+        context=SimpleNamespace(actor=SimpleNamespace(space_id=binding.space_id)),
+    )
+    monkeypatch.setattr(
+        "argus.domain.business.actions.service.email_connection_standing",
+        Mock(return_value=None),
+    )
     return service, tx, binding, row
 
 

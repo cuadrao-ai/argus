@@ -2265,7 +2265,9 @@
         "src/argus/domain/business/actions/service.py",
         "src/argus/domain/ingestion/email_intake/service.py",
         "src/argus/domain/ingestion/email_intake/store.py",
+        "tests/test_business_attachment_preparation.py",
         "tests/test_business_attachment_preparation_postgres.py",
+        "tests/test_business_email_authorization_postgres.py",
         "tests/test_business_email_intake_postgres.py",
         "tests/test_business_reading_setting_postgres.py"
       ],
