@@ -801,7 +801,7 @@ describe("a fully settled month", () => {
       cuentas_por_cobrar: [],
       cuentas_por_pagar: [],
     }));
-    const { act, host, root } = await renderView(client);
+    const { act, host, root } = await renderMonthCloseView(client, now, null, { count: 0, detail: null, open: () => {} });
     assert.match(host.querySelector('[data-testid="month-close-net"]')?.textContent ?? "", /RD\$ 3,000\.00/);
     assert.match(host.querySelector('[data-testid="month-close-checklist-ready"]')?.textContent ?? "", /Todo listo para cerrar octubre\./);
     assert.equal(host.querySelector('[data-testid="month-close-checklist-left"]'), null);

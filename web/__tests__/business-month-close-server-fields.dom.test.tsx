@@ -74,7 +74,7 @@ function serverClient(server: Server): { client: MonthCloseClient; asked: string
   return { client, asked };
 }
 
-async function renderInicio(client: MonthCloseClient) {
+async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"]) {
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const i18next = (await import("i18next")).default;
@@ -86,16 +86,70 @@ async function renderInicio(client: MonthCloseClient) {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root = createRoot(host);
-  await act(async () => {
-    root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={browser} scopeKey="own" businessCurrency="DOP" /></I18nextProvider>);
-  });
+  const render = () => root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={browser} scopeKey="own" businessCurrency="DOP" review={review} /></I18nextProvider>);
+  await act(async () => { render(); });
+  const setReview = async (next: typeof review) => { review = next; await act(async () => { render(); }); };
   const settle = async () => { for (let i = 0; i < 20; i += 1) await act(async () => { await Promise.resolve(); }); };
   await settle();
   const find = (id: string) => host.querySelector<HTMLElement>(`[data-testid="${id}"]`);
   const text = (id: string) => find(id)?.textContent ?? "";
   const unmount = async () => { await act(async () => root.unmount()); host.remove(); };
-  return { act, host, find, text, settle, unmount };
+  return { act, host, find, text, settle, setReview, unmount };
 }
+
+describe("Inicio waits for the server receipt count before closing", () => {
+  for (const review of [null, undefined]) {
+    test(`${review === null ? "failed or loading" : "missing"} receipt counts cannot claim ready or offer close`, async () => {
+      const { client } = serverClient({});
+      const view = await renderInicio(client, review);
+      try {
+        assert.ok(view.find("month-close-checklist"), "the month loaded successfully");
+        assert.equal(Boolean(view.find("month-close-checklist-ready")), false, "unknown receipts are not zero receipts");
+        assert.equal(Boolean(view.find("month-close-close")), false, "closing waits for the receipt count");
+        assert.match(view.text("month-close-income"), /RD\$/, "the month's known figures still show");
+      } finally { await view.unmount(); }
+    });
+  }
+
+  test("a server-known zero keeps the ready message and close action", async () => {
+    const { client } = serverClient({});
+    const view = await renderInicio(client, { count: 0, detail: null, open: () => {} });
+    try {
+      assert.match(view.text("month-close-checklist-ready"), /Todo listo para cerrar noviembre/);
+      assert.ok(view.find("month-close-close"));
+      assert.equal(view.find("month-close-task-review"), null);
+    } finally { await view.unmount(); }
+  });
+
+  test("a receipt count lost after opening confirmation cannot close the month", async () => {
+    let closes = 0;
+    const { client } = serverClient({});
+    const view = await renderInicio({ ...client, closeMonth: async (month) => { closes += 1; return client.load(month); } }, { count: 0, detail: null, open: () => {} });
+    try {
+      await view.act(async () => view.find("month-close-close")!.click());
+      const dialog = document.querySelector('[role="alertdialog"]');
+      assert.ok(dialog, "the known zero allows opening confirmation");
+      await view.setReview(null);
+      const confirm = [...dialog.querySelectorAll("button")].find((button) => button.textContent === "Sí, cerrar mes");
+      assert.ok(confirm);
+      await view.act(async () => confirm.click());
+      assert.equal(closes, 0, "an open confirmation cannot bypass unknown receipts");
+    } finally { await view.unmount(); }
+  });
+
+  test("a positive server count keeps the review task and its action", async () => {
+    let opened = false;
+    const { client } = serverClient({});
+    const view = await renderInicio(client, { count: 2, detail: null, open: () => { opened = true; } });
+    try {
+      assert.match(view.text("month-close-task-review"), /Revisa 2 recibos/);
+      assert.equal(view.find("month-close-checklist-ready"), null);
+      assert.equal(view.find("month-close-close"), null);
+      await view.act(async () => view.find("month-close-task-review")!.querySelector("button")!.click());
+      assert.equal(opened, true);
+    } finally { await view.unmount(); }
+  });
+});
 
 describe("Inicio reads today from the server", () => {
   test("a browser clock one day behind opens the server's month and judges overdue by the server's day", async () => {
