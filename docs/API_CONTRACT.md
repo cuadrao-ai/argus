@@ -9910,6 +9910,15 @@ accept path recorded.
     is 404 `email_sender_not_found`. Stopping or changing the receipt address,
     and authorizing, removing, or blocking a sender, each append one audit row
     with the actor, the time, the old address, and the new address.
+  - Reading an email attachment requires an aligned delivery and the sender's
+    exact address to remain authorized in that Business. This is checked when
+    preparation starts, before extraction, and before the extracted draft is
+    saved, including manual preparation, retries and queued jobs. Raw mail and
+    attachments remain captured when reading is refused. The existing
+    `email_sender_unauthorized` refusal and response shapes are unchanged.
+    A separate authenticated direct upload retains its own authority, including
+    when its bytes match a captured email attachment. Receipt reading must also
+    remain enabled, and final Business approval stays with the owner.
   - GET `/api/v1/business/email/inbox` groups deliveries as
     `remitentes_nuevos`, then `bandeja`. A first scan from an authorized
     sender sets `notice` to "Prueba recibida".

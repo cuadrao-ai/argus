@@ -796,6 +796,13 @@ def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
             receipts["space"], "address", receipts["provider"].sender, "authorized"
         )
     attachment = deliver(receipts, authentication)
+    if status == 403:
+        from argus.domain.business.authority import ActionError
+
+        with pytest.raises(ActionError, match="email_sender_unauthorized"):
+            prepare(receipts, attachment)
+        assert receipts["documents"].extractor.calls == 0
+        return
     draft_id, origin = prepare(receipts, attachment)
     assert origin == "email"
     response = approve(receipts, draft_id)
@@ -804,20 +811,36 @@ def test_an_emailed_attachment_approves_only_from_an_authorized_aligned_sender(
         assert response.json()["detail"]["code"] == "email_sender_unauthorized"
 
 
+def direct_upload(world):
+    from types import SimpleNamespace
+
+    from argus.api.business_drafts import upload_recorder
+    from starlette.requests import Request
+
+    context = SimpleNamespace(
+        service=SimpleNamespace(imports=world["documents"].hub.sink)
+    )
+    request = Request(
+        {"type": "http", "headers": [(b"idempotency-key", uuid4().hex.encode())]}
+    )
+    return asyncio.run(
+        world["documents"].upload(
+            user_id=world["owner"],
+            content=receipt_png(),
+            filename="recibo.png",
+            media_type="image/png",
+            scope=BusinessSpace(world["space"]),
+            on_capture=upload_recorder(context, request),
+        )
+    )
+
+
 @pytest.mark.owner_acts
 def test_an_upload_still_approves_after_a_forged_email_with_the_same_bytes(receipts):
     receipts["store"].upsert_sender(
         receipts["space"], "address", receipts["provider"].sender, "authorized"
     )
-    uploaded = asyncio.run(
-        receipts["documents"].upload(
-            user_id=receipts["owner"],
-            content=receipt_png(),
-            filename="recibo.png",
-            media_type="image/png",
-            scope=BusinessSpace(receipts["space"]),
-        )
-    ).connection_id
+    uploaded = direct_upload(receipts).connection_id
     draft_id, origin = prepare(receipts, uploaded)
     assert origin == "direct"
     assert deliver(receipts, FORGED) == uploaded
@@ -1211,3 +1234,87 @@ def test_attachment_is_associated_before_an_immediate_reader_can_start(
         observed["business_drafts"],
         observed["preparation_receipts"],
     ) == (0, 0, 0), observed
+
+
+@pytest.mark.owner_acts
+def test_a_direct_upload_after_unapproved_mail_can_be_read_and_approved(
+    email_reader_boundary,
+):
+    world = email_reader_boundary
+    delivery = _deliver_for_reader(world, {"dmarc": "pass", "dkim": "pass"})
+    assert world["extraction"].await_count == 0
+    with world["pool"].connection() as db:
+        assert db.execute(
+            "select count(*) from public.business_action_receipts where space_id=%s"
+            " and command->>'action'='receipt_upload'",
+            (world["space"],),
+        ).fetchone() == (0,)
+    [part] = world["store"].parts(delivery.id)
+    uploaded = direct_upload(world)
+    assert uploaded.connection_id == part.document_id and uploaded.replayed
+    assert world["extraction"].await_count == 0
+    draft, _ = prepare(world, uploaded.connection_id)
+    assert world["extraction"].await_count == 1
+    approved = approve(world, draft)
+    assert approved.status_code == 200, approved.text
+
+
+@pytest.mark.owner_acts
+def test_old_email_capture_and_duplicate_keep_email_authority(email_reader_boundary):
+    world = email_reader_boundary
+    first = _deliver_for_reader(world, {"dmarc": "pass", "dkim": "pass"})
+    [part] = world["store"].parts(first.id)
+    with world["pool"].connection() as db:
+        db.execute(
+            "update public.financial_document_extractions set created_at=created_at-interval '1 year' where connection_id=%s",
+            (part.document_id,),
+        )
+    second = _deliver_for_reader(world, {"dmarc": "pass", "dkim": "pass"})
+    assert world["store"].parts(second.id)[0].document_id == part.document_id
+    assert world["extraction"].await_count == 0
+    with world["pool"].connection() as db:
+        assert db.execute(
+            "select origin from public.business_sources where connection_id=%s",
+            (part.document_id,),
+        ).fetchone() == ("email",)
+        assert db.execute(
+            "select count(*) from public.business_draft_sources where space_id=%s",
+            (world["space"],),
+        ).fetchone() == (0,)
+
+
+def test_email_attachment_link_rolls_back_with_failed_capture(rig):
+    from argus.domain.ingestion.email_intake.models import EmailDeliveryPart
+
+    delivery = rig["runtime"].enqueue_resend(str(uuid4()), (rig["route"].recipient,))
+    claimed = rig["store"].claim(delivery_id=delivery.id)
+    part = EmailDeliveryPart("receipt", "recibo.png", "image/png", "pending", None, None)
+    rig["store"].put_part(claimed, part)
+    hook = rig["store"].part_capture_hook(claimed, part)
+
+    def refuse_after_link(connection, connection_id):
+        hook(connection, connection_id)
+        raise RuntimeError("synthetic_capture_abort")
+
+    with pytest.raises(RuntimeError, match="synthetic_capture_abort"):
+        asyncio.run(
+            rig["documents"].upload(
+                user_id=rig["users"]["owner"],
+                content=receipt_png(),
+                filename="recibo.png",
+                media_type="image/png",
+                scope=BusinessSpace(rig["route"].space_id),
+                on_capture=refuse_after_link,
+            )
+        )
+    [saved] = rig["store"].parts(delivery.id)
+    assert saved.document_id is None and saved.state == "pending"
+    with rig["pool"].connection() as db:
+        assert db.execute(
+            "select count(*) from public.business_sources where space_id=%s",
+            (rig["route"].space_id,),
+        ).fetchone() == (0,)
+        assert db.execute(
+            "select draft->>'source_available' from public.financial_document_extractions where user_id=%s",
+            (rig["users"]["owner"],),
+        ).fetchone() == ("false",)

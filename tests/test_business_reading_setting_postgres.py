@@ -188,7 +188,12 @@ class Provider:
         self.raw, self.recipients = raw, ()
 
     async def raw_message(self, email_id: str, *, budget=None) -> ReceivedEmail:  # noqa: ANN001
-        return ReceivedEmail(self.raw, self.recipients)
+        return ReceivedEmail(
+            self.raw,
+            self.recipients,
+            {"dmarc": "pass", "dkim": "pass"},
+            "proveedor@example.test",
+        )
 
 
 def _email(attachment: bytes) -> bytes:
@@ -219,6 +224,9 @@ def _email_runtime(web, monkeypatch: pytest.MonkeyPatch, raw: bytes):  # noqa: A
         principal_id=web.alice.id,
         granted_by=web.alice.id,
         grant_id=grant,
+    )
+    store.upsert_sender(
+        web.alice.space_id, "address", "proveedor@example.test", "authorized"
     )
     provider = Provider(raw)
     provider.recipients = (route.recipient,)

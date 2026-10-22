@@ -2256,6 +2256,28 @@
         "ios/Config/Device.local.xcconfig"
       ]
     },
+    "codex/email-attachment-authorization-20261022": {
+      "description": "Enforce approved Business email sender authority before receipt extraction and draft persistence. Preserve raw capture and direct uploads. No schema, UI, provider mapping or hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        "docs/API_CONTRACT.md",
+        "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/ingestion/email_intake/service.py",
+        "src/argus/domain/ingestion/email_intake/store.py",
+        "tests/test_business_attachment_preparation_postgres.py",
+        "tests/test_business_email_intake_postgres.py",
+        "tests/test_business_reading_setting_postgres.py"
+      ],
+      "deny": [
+        ".env",
+        "web/**",
+        "ios/**",
+        "mobile/**",
+        "marketing/**",
+        "supabase/**"
+      ]
+    },
     "codex/email-dependency-cleanup": {
       "description": "Remove unused React Email dependencies while preserving the hand-written shared email layout. User email lane item 1.",
       "base_ref": "origin/codex/private-alpha-next",
