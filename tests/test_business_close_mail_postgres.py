@@ -86,9 +86,9 @@ def test_reopen_suppresses_unsent_close_and_new_close_has_new_notification(
         owner_id=people["owner"], space_id=space.id, idempotency_key="reopen"
     )
     monkeypatch.setenv(resend_email.SMTP_PASSWORD_ENV, "synthetic-only")
-    assert deliver_close_mail(pool, space.id) == 0
+    assert deliver_close_mail(pool, space.id) == 1
     close(world, "close-again")
-    assert len(provider.messages) == 1
+    assert len(provider.messages) == 2
     with pool.connection() as db:
         assert (
             db.execute(
@@ -227,19 +227,17 @@ def _kinds(pool, space_id):  # noqa: ANN001
         ).fetchall()
 
 
-def test_close_queues_the_owner_confirmation_unsent_until_delivery_is_activated(
-    world, provider
-):  # noqa: F811
+def test_close_sends_the_owner_confirmation_and_member_notice_once(world, provider):  # noqa: F811
     from argus.domain.business.close_mail import reopen_path
 
     pool, space, people, _, _ = world
     _confirm(pool, people["owner"])
     close(world)
-    # Template approval does not activate owner delivery.
-    assert len(provider.messages) == 1
+    close(world)
+    assert len(provider.messages) == 2
     assert _kinds(pool, space.id) == [
         ("member_closed", people["other"], False, False, False, reopen_path(space.id)),
-        ("owner_closed", people["owner"], True, True, False, reopen_path(space.id)),
+        ("owner_closed", people["owner"], False, False, False, reopen_path(space.id)),
     ]
     assert reopen_path(space.id) == f"/biz?lifecycle=manage&business={space.id}"
 
@@ -260,11 +258,11 @@ def test_reopen_queues_member_notices_and_retires_the_close_notices(
     PostgresBusinessLifecycle(pool).reopen(
         owner_id=people["owner"], space_id=space.id, idempotency_key="reopen-notice"
     )
-    assert not provider.messages
+    assert len(provider.messages) == 1 and len(provider.attempts) == 1
     path = f"/biz?lifecycle=manage&business={space.id}"
     assert _kinds(pool, space.id) == [
         ("member_closed", people["other"], True, True, True, path),
-        ("member_reopened", people["other"], True, True, False, path),
+        ("member_reopened", people["other"], False, False, False, path),
         ("owner_closed", people["owner"], True, True, True, path),
     ]
 
@@ -317,21 +315,24 @@ def test_a_business_without_an_owner_gets_no_reminder(world):  # noqa: F811
 
 
 NEW_KINDS = ("owner_closed", "purge_reminder", "member_reopened")
+ALL_KINDS = ("member_closed", *NEW_KINDS)
 
 
-def _prepare_held_event(world, provider, kind):  # noqa: ANN001
+def _prepare_event(world, provider, monkeypatch, kind):  # noqa: ANN001
     from argus.domain.business.close_mail import enqueue_purge_reminders
 
     pool, space, people, _, _ = world
     _confirm(pool, people["owner"])
-    close(world)
-    if kind == "purge_reminder":
-        _age(pool, space.id, 23)
-        assert space.id in enqueue_purge_reminders(pool)
-    elif kind == "member_reopened":
-        PostgresBusinessLifecycle(pool).reopen(
-            owner_id=people["owner"], space_id=space.id, idempotency_key="mail-reopen"
-        )
+    with monkeypatch.context() as preparation:
+        preparation.delenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD")
+        close(world)
+        if kind == "purge_reminder":
+            _age(pool, space.id, 23)
+            assert space.id in enqueue_purge_reminders(pool)
+        elif kind == "member_reopened":
+            PostgresBusinessLifecycle(pool).reopen(
+                owner_id=people["owner"], space_id=space.id, idempotency_key="mail-reopen"
+            )
     with pool.connection() as db:
         db.execute(
             "update public.business_close_mail_outbox set suppressed_at=clock_timestamp()"
@@ -348,14 +349,14 @@ def _prepare_held_event(world, provider, kind):  # noqa: ANN001
 
 
 @pytest.mark.parametrize("kind", NEW_KINDS)
-def test_production_policy_never_reserves_renders_or_transports_a_new_kind(
+def test_reduced_policy_never_reserves_renders_or_transports_a_held_kind(
     world, provider, monkeypatch, kind
 ):  # noqa: F811
     from argus.domain.business import close_mail
 
     pool, space, _, _, _ = world
-    mail_id, _ = _prepare_held_event(world, provider, kind)
-    assert close_mail._APPROVED_KINDS == frozenset({"member_closed"})
+    mail_id, _ = _prepare_event(world, provider, monkeypatch, kind)
+    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({"member_closed"}))
 
     def forbidden_render(*args, **kwargs):
         pytest.fail("Held mail reached rendering")
@@ -372,11 +373,15 @@ def test_production_policy_never_reserves_renders_or_transports_a_new_kind(
 
 
 @pytest.mark.parametrize("kind", NEW_KINDS)
-def test_delivery_hold_also_blocks_a_previously_frozen_new_kind(world, provider, kind):  # noqa: F811
+def test_reduced_policy_blocks_a_previously_frozen_kind(
+    world, provider, monkeypatch, kind
+):  # noqa: F811
+    from argus.domain.business import close_mail
     from psycopg.types.json import Jsonb
 
+    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({"member_closed"}))
     pool, space, _, _, _ = world
-    mail_id, context = _prepare_held_event(world, provider, kind)
+    mail_id, context = _prepare_event(world, provider, monkeypatch, kind)
     payload = render_close_mail(context, kind=kind)
     with pool.connection() as db:
         db.execute(
@@ -392,21 +397,21 @@ def test_delivery_hold_also_blocks_a_previously_frozen_new_kind(world, provider,
         ).fetchone() == (payload, None, None)
 
 
-@pytest.mark.parametrize("kind", NEW_KINDS)
+@pytest.mark.parametrize("kind", ALL_KINDS)
 @pytest.mark.parametrize("locale", ["es-419", "en"])
-def test_test_only_activation_dispatches_the_matching_bilingual_fake_payload_once(
+def test_approved_policy_dispatches_the_matching_fake_payload_once(
     world, provider, monkeypatch, kind, locale
 ):  # noqa: F811
     from argus.domain.business import close_mail
 
     pool, space, _, _, _ = world
-    mail_id, context = _prepare_held_event(world, provider, kind)
-    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({kind}))
+    mail_id, context = _prepare_event(world, provider, monkeypatch, kind)
 
     def localized(context, *, kind):
         return render_close_mail(context, kind=kind, locale=locale)
 
-    monkeypatch.setattr(close_mail, "render_close_mail", localized)
+    if locale == "en":
+        monkeypatch.setattr(close_mail, "render_close_mail", localized)
     assert deliver_close_mail(pool, space.id) == 1
     assert deliver_close_mail(pool, space.id) == 0
     assert len(provider.messages) == 1 and len(provider.attempts) == 1
@@ -425,15 +430,14 @@ def test_test_only_activation_dispatches_the_matching_bilingual_fake_payload_onc
     assert row[0] and row[1] == payload and row[2] and row[3]
 
 
-@pytest.mark.parametrize("kind", NEW_KINDS)
-def test_new_kind_fake_retries_keep_the_original_payload_and_provider_key(
+@pytest.mark.parametrize("kind", ALL_KINDS)
+def test_approved_kind_retries_keep_the_original_payload_and_provider_key(
     world, provider, monkeypatch, kind
 ):  # noqa: F811
     from argus.domain.business import close_mail
 
     pool, space, _, _, _ = world
-    mail_id, _ = _prepare_held_event(world, provider, kind)
-    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({kind}))
+    mail_id, _ = _prepare_event(world, provider, monkeypatch, kind)
     outgoing = []
     original_send = close_mail.resend_email.send_resend_email
 
@@ -457,16 +461,13 @@ def test_new_kind_fake_retries_keep_the_original_payload_and_provider_key(
     assert len(provider.attempts) == 2 and len(set(provider.attempts)) == 1
 
 
-@pytest.mark.parametrize("kind", NEW_KINDS)
+@pytest.mark.parametrize("kind", ALL_KINDS)
 @pytest.mark.parametrize("stale", ["business", "recipient"])
-def test_stale_new_kind_is_suppressed_before_fake_transport(
+def test_stale_approved_kind_is_suppressed_before_fake_transport(
     world, provider, monkeypatch, kind, stale
 ):  # noqa: F811
-    from argus.domain.business import close_mail
-
     pool, space, _, _, _ = world
-    mail_id, _ = _prepare_held_event(world, provider, kind)
-    monkeypatch.setattr(close_mail, "_APPROVED_KINDS", frozenset({kind}))
+    mail_id, _ = _prepare_event(world, provider, monkeypatch, kind)
     with pool.connection() as db:
         if stale == "recipient":
             db.execute(
@@ -487,3 +488,75 @@ def test_stale_new_kind_is_suppressed_before_fake_transport(
             "select first_attempt_at,payload,sent_at,suppressed_at is not null from public.business_close_mail_outbox where id=%s",
             (mail_id,),
         ).fetchone() == (None, None, None, True)
+
+
+@pytest.mark.parametrize("kind", ALL_KINDS)
+def test_approved_kind_stops_ambiguous_retries_after_23_hours(
+    world, provider, monkeypatch, kind
+):  # noqa: F811
+    pool, space, _, _, _ = world
+    mail_id, _ = _prepare_event(world, provider, monkeypatch, kind)
+    provider.lose_response = True
+    assert deliver_close_mail(pool, space.id) == 0
+    assert len(provider.attempts) == 1
+    with pool.connection() as db:
+        db.execute(
+            "update public.business_close_mail_outbox set first_attempt_at=clock_timestamp()-interval '23 hours' where id=%s",
+            (mail_id,),
+        )
+    provider.lose_response = False
+    assert deliver_close_mail(pool, space.id) == 0
+    assert len(provider.attempts) == 1
+    with pool.connection() as db:
+        assert db.execute(
+            "select uncertain_at is not null,sent_at from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone() == (True, None)
+
+
+@pytest.mark.parametrize("kind", ["owner_closed", "purge_reminder"])
+def test_owner_notice_is_suppressed_if_the_current_owner_changes(
+    world, provider, monkeypatch, kind
+):  # noqa: F811
+    pool, space, people, _, _ = world
+    mail_id, _ = _prepare_event(world, provider, monkeypatch, kind)
+    with pool.connection() as db:
+        db.execute(
+            "update public.spaces set current_owner_id=%s where id=%s",
+            (people["other"], space.id),
+        )
+    assert deliver_close_mail(pool, space.id) == 0
+    assert not provider.messages and not provider.attempts
+    with pool.connection() as db:
+        assert db.execute(
+            "select first_attempt_at,payload,suppressed_at is not null from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone() == (None, None, True)
+
+
+@pytest.mark.parametrize("kind", ALL_KINDS)
+@pytest.mark.parametrize("unreachable", ["unconfirmed", "anonymous", "banned"])
+def test_unreachable_recipient_is_suppressed_before_fake_transport(
+    world, provider, monkeypatch, kind, unreachable
+):  # noqa: F811
+    pool, space, _, _, _ = world
+    mail_id, _ = _prepare_event(world, provider, monkeypatch, kind)
+    updates = {
+        "unconfirmed": "email_confirmed_at=null",
+        "anonymous": "is_anonymous=true",
+        "banned": "banned_until=clock_timestamp()+interval '1 day'",
+    }
+    with pool.connection() as db:
+        db.execute(
+            "update auth.users set "
+            + updates[unreachable]
+            + " where id=(select recipient_id from public.business_close_mail_outbox where id=%s)",
+            (mail_id,),
+        )
+    assert deliver_close_mail(pool, space.id) == 0
+    assert not provider.messages and not provider.attempts
+    with pool.connection() as db:
+        assert db.execute(
+            "select first_attempt_at,payload,suppressed_at is not null from public.business_close_mail_outbox where id=%s",
+            (mail_id,),
+        ).fetchone() == (None, None, True)
