@@ -17,10 +17,11 @@
   --auth-pine: var(--cuadrao-green);
 }
 
-@media (min-width: 64rem) {
+@media (min-width: 80rem) {
   .screen[data-auth-split="true"] > [data-auth-brand="cuadrao"] {
     justify-content: flex-start;
     padding-top: max(6rem, 14svh, calc(50svh - 24rem));
+    padding-bottom: 2rem;
   }
   .screen[data-auth-split="true"] [data-testid="auth-hero"] {
     min-block-size: 2.4em;
@@ -41,8 +42,37 @@
   cursor: wait;
 }
 
-@media (64rem <= width < 80rem) {
+@media (48rem <= width < 80rem) {
+  .screen[data-auth-split="true"] {
+    justify-content: flex-start;
+    gap: 1.75rem;
+    padding: 5rem 2rem 2rem;
+  }
+  .screen[data-auth-split="true"] > [data-auth-logo] {
+    flex-grow: 0;
+    padding: 0;
+  }
+  .screen[data-auth-split="true"] [data-auth-logo] h1 > span {
+    max-width: 200px;
+  }
   .screen[data-auth-split="true"] [data-testid="auth-hero"] {
-    min-block-size: 3.6em;
+    min-block-size: 2.4em;
+  }
+}
+
+@media (min-width: 80rem) and (max-height: 50rem) {
+  .screen[data-auth-split="true"] > [data-auth-brand="cuadrao"] {
+    padding-top: 3rem;
+  }
+  .screen[data-auth-split="true"] [data-testid="auth-hero"] {
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+  }
+}
+
+@media (48rem <= width < 80rem) and (max-height: 50rem) {
+  .screen[data-auth-split="true"] {
+    padding-top: 2rem;
+    gap: 1.5rem;
   }
 }

@@ -224,9 +224,9 @@ Use it; never restyle a field by hand (Lucas, October 21, 2026).
 These decisions cover the initial signup and sign-in screens. Confirmation,
 recovery and later onboarding keep their own contracts.
 
-- Desktop uses a 50/50 split from 1024px. The logo is centred on the left and the
+- Desktop uses a 50/50 split from 1280px. The logo is centred on the left and the
   form is on the right. Both auth modes use the same layout. First and last name
-  share a row on desktop and stack on small screens; both remain optional.
+  share a row from 768px and stack on small screens; both remain optional.
   Keep their labels clean, above the inputs. Identify the optional name row once
   with a quiet note associated with that group. Remove required-field legends
   and visual asterisks; email and password retain native `required` semantics
@@ -235,6 +235,11 @@ recovery and later onboarding keep their own contracts.
   Anchor the desktop hero and card to a common starting position so interaction
   does not recenter the whole column. On tall desktop viewports, lower this
   starting position with the viewport height instead of capping it near the top.
+  From 768px through 1279px, use one centred column with a 576px form cap and
+  a smaller logo. Below 768px, preserve the existing mobile layout. In desktop
+  windows up to 800px tall, reduce the top space and hero size while preserving
+  input sizes, readable text and natural vertical scrolling. Keep the hero's
+  reserved height stable across auth modes within each layout.
 - Auth inputs use the card surface in both themes. The shared field surface token
   keeps other screens unchanged; white is not an accessibility requirement.
 - Signup reveals the minimum and advice when the password receives focus. The

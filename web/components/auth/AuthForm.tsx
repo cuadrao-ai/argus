@@ -382,7 +382,7 @@ export default function AuthForm({
             ) : null}
             {isSignup && (
               <div role="group" aria-labelledby={`${id}-names-note`}>
-                <div className="grid grid-cols-1 gap-3 desktop:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <FormField id={`${id}-first-name`} label={t("auth.signup.first_name_placeholder")}
                   value={firstName} onChange={(event) => setFirstName(event.target.value)}
                   autoComplete="given-name" reserveMessages={[]} readOnly={isSubmitting} />
