@@ -177,13 +177,18 @@ def por_igualar_count(pool, context: ActionContext) -> int:  # noqa: ANN001
     """Every line and document of the Business still to igualar, from any
     period: the number Inicio and the sidebar share. Reads only."""
 
-    with bank_session(pool, context, "read") as connection:
-        documents, _activities = load_documents(pool, connection, context)
-        space_id = context.actor.space_id
-        lines = _lines(connection, space_id, date.min, date.max)
-        accounts = _accounts(connection, space_id)
-        outcomes = _outcomes(connection, space_id)
-        movements = _movements(connection, space_id, lines, accounts, documents, outcomes)
+    try:
+        with bank_session(pool, context, "read") as connection:
+            documents, _activities = load_documents(pool, connection, context)
+            space_id = context.actor.space_id
+            lines = _lines(connection, space_id, date.min, date.max)
+            accounts = _accounts(connection, space_id)
+            outcomes = _outcomes(connection, space_id)
+            movements = _movements(connection, space_id, lines, accounts, documents, outcomes)
+    except BankMatchingError as error:
+        if error.code == "account_not_in_space":
+            raise ActionError("not_found", "business_record_not_found") from None
+        raise
     unmoved = unmoved_documents(
         documents.values(),
         accounts.values(),

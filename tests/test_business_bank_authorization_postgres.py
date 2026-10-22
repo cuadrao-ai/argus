@@ -177,3 +177,33 @@ def test_server_cannot_retarget_a_valid_binding_to_foreign_account(db, users) ->
             "update public.business_bank_accounts set account_id=%s where id=%s",
             (foreign, binding),
         )
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_business_bank_count_keeps_valid_total_and_refuses_invalid_binding(
+    db, users, valid
+) -> None:  # noqa: ANN001
+    from argus.domain.business.authority import ActionError
+    from argus.domain.business.bank.movements_store import por_igualar_count
+
+    owner, other = users["owner"], users["other"]
+    business = space(db, owner)
+    account_id = account(db, owner, business) if valid else account(db, other)
+    binding = (
+        _binding(db, business, account_id)
+        if valid
+        else _legacy_binding(db, business, account_id)
+    )
+    bank_tables._line(
+        db, business, binding, bank_tables._import(db, business, binding, owner), "c" * 64
+    )
+    _grant(db, business, owner, ["read", "prepare"])
+    actor = TrustedActor(
+        actor_id=UUID(owner), space_id=UUID(business), actor_kind="member"
+    )
+    context = authorize(db, actor).context
+    if valid:
+        assert por_igualar_count(_Pool(db), context) == 1
+    else:
+        with pytest.raises(ActionError, match="business_record_not_found"):
+            por_igualar_count(_Pool(db), context)
