@@ -153,13 +153,13 @@ describe("Inicio's month when a read fails", () => {
 });
 
 describe("Inicio when the Business itself does not load", () => {
-  async function mountInicio(overrides: Partial<BusinessDataSource>) {
+  async function mountInicio(overrides: Partial<BusinessDataSource>, ready = (host: HTMLElement) => host.querySelector('[data-testid="inicio-error"]') !== null) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
     const { I18nextProvider } = await import("react-i18next");
     const spanish = (await import("@/public/locales/es-419/common.json")).default;
-    const { BusinessWorkspaceProvider } = await import("@/components/business-app/BusinessWorkspace");
+    const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
     const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
     const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
     const BusinessPanel = (await import("@/components/business-app/BusinessPanel")).default;
@@ -171,12 +171,15 @@ describe("Inicio when the Business itself does not load", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const root = createRoot(host);
+    let context: ReturnType<typeof useBusiness> | null = null;
+    function Probe() { context = useBusiness(); return <BusinessPanel />; }
+    const api = () => { if (!context) throw new Error("Business context did not mount"); return context; };
     await act(async () => {
       root.render(
         <I18nextProvider i18n={i18n}>
           <BusinessConsentTestProvider accepted>
             <BusinessWorkspaceProvider source={source as BusinessDataSource}>
-              <BusinessPanel />
+              <Probe />
             </BusinessWorkspaceProvider>
           </BusinessConsentTestProvider>
         </I18nextProvider>,
@@ -184,21 +187,61 @@ describe("Inicio when the Business itself does not load", () => {
     });
     unmounts.push(() => act(async () => root.unmount()));
     const error = () => host.querySelector('[data-testid="inicio-error"]');
-    for (let i = 0; i < 80 && !error(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
-    assert.ok(error(), "Inicio says the Business did not load");
-    return error()!;
+    const settle = async (done: () => boolean) => {
+      for (let i = 0; i < 80 && !done(); i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 25)); });
+      assert.ok(done(), "Inicio reached the expected state");
+    };
+    await settle(() => ready(host));
+    return { host, act, error, api, settle };
   }
 
   test("the server refusing the Business offers no Reintentar and does not blame the connection", async () => {
-    const error = await mountInicio({ overview: async () => { throw BUSINESS_OFF(); } });
+    const view = await mountInicio({ overview: async () => { throw BUSINESS_OFF(); } });
+    const error = view.error()!;
     assert.deepEqual(buttons(error), []);
     assert.doesNotMatch(error.textContent ?? "", CONNECTION_BLAME);
     assert.match(error.textContent ?? "", /Cuadrao Business aún no está disponible para tu cuenta\./);
     assert.match(error.textContent ?? "", /hola@cuadrao\.ai/);
   });
 
+  test("the provider distinguishes a pending receipt read from a settled legacy response without counts", async () => {
+    const loading = await mountInicio({ receiptPage: () => new Promise<never>(() => {}) }, (host) => host.querySelector('[data-testid="month-close-receipts-status"]') !== null);
+    assert.match(loading.host.querySelector('[data-testid="month-close-receipts-status"]')?.textContent ?? "", /Cargando el conteo de recibos/);
+    assert.equal(loading.host.querySelector('[data-testid="month-close-receipts-status"] button'), null);
+    const unknown = await mountInicio({ receiptPage: undefined, receipts: async () => [] }, (host) => /El conteo de recibos no está disponible/.test(host.textContent ?? ""));
+    assert.equal(unknown.api().records.inbox?.length, 0, "the read settled successfully");
+    assert.equal(unknown.host.querySelector('[data-testid="month-close-receipts-status"] button'), null);
+  });
+
+  test("a failed refresh cannot reuse an earlier known-zero count, and adjacent retry reloads", async () => {
+    let failed = false;
+    let reads = 0;
+    const view = await mountInicio({ receiptPage: async () => {
+      reads += 1;
+      if (failed) throw NETWORK();
+      return { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0 } };
+    } }, (host) => host.querySelector('[data-testid="month-close-task-settle"]') !== null);
+    await view.settle(() => view.api().records.receiptActivity?.ready_to_review_count === 0);
+    failed = true;
+    await view.act(async () => view.api().reload());
+    await view.settle(() => view.api().records.error);
+    assert.equal(view.api().records.receiptActivity?.ready_to_review_count, 0, "the workspace retains its earlier answer");
+    assert.match(view.host.querySelector('[data-testid="month-close-receipts-status"]')?.textContent ?? "", /No pudimos cargar el conteo de recibos/);
+    assert.equal(Boolean(view.host.querySelector('[data-testid="month-close-close"]')), false);
+    assert.equal(view.host.querySelectorAll('[data-testid="inicio-error"]').length, 1, "the failure appears once");
+    const before = reads;
+    failed = false;
+    const retry = view.host.querySelector<HTMLButtonElement>('[data-testid="month-close-receipts-status"] button');
+    assert.ok(retry);
+    await view.act(async () => retry.click());
+    await view.settle(() => !view.api().records.error);
+    assert.ok(reads > before);
+    assert.equal(view.host.querySelector('[data-testid="month-close-receipts-status"]'), null);
+  });
+
   test("a dropped request keeps Reintentar", async () => {
-    const error = await mountInicio({ overview: async () => { throw NETWORK(); } });
+    const view = await mountInicio({ overview: async () => { throw NETWORK(); } });
+    const error = view.error()!;
     assert.deepEqual(buttons(error), ["Reintentar"]);
   });
 });

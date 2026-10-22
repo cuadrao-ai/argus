@@ -153,6 +153,54 @@ describe("Inicio waits for the server receipt count before closing", () => {
   });
 });
 
+describe("receipt count recovery stays beside the hidden close action", () => {
+  for (const [state, copy] of [
+    ["loading", "Cargando el conteo de recibos. Aún no se puede cerrar el mes."],
+    ["unknown", "El conteo de recibos no está disponible. Aún no se puede cerrar el mes."],
+    ["failed", "No pudimos cargar el conteo de recibos. Aún no se puede cerrar el mes."],
+    ["refused", "Cuadrao Business aún no está disponible para tu cuenta."],
+  ] as const) {
+    test(`${state} has its own reason, with retry only for a failed read`, async () => {
+      let retries = 0;
+      const { client } = serverClient({});
+      const view = await renderInicio(client, state === "failed" ? { state, retry: () => { retries += 1; } } : { state });
+      try {
+        assert.match(view.text("month-close-receipts-status"), new RegExp(copy));
+        assert.equal(view.text("month-close-checklist-unknown"), "-");
+        assert.equal(Boolean(view.find("month-close-close")), false);
+        const retry = view.find("month-close-receipts-status")?.querySelector("button");
+        assert.equal(Boolean(retry), state === "failed");
+        if (retry) {
+          await view.act(async () => retry.click());
+          assert.equal(retries, 1);
+        }
+      } finally { await view.unmount(); }
+    });
+  }
+
+  test("a failed count keeps its reason and retry beside other checklist tasks", async () => {
+    const { client } = serverClient({ month: () => ({ cuentas_por_cobrar: [line("pending", null)] }) });
+    const view = await renderInicio(client, { state: "failed", retry: () => {} });
+    try {
+      assert.ok(view.find("month-close-task-settle"));
+      assert.match(view.text("month-close-receipts-status"), /No pudimos cargar el conteo de recibos/);
+      assert.equal(view.find("month-close-checklist")?.contains(view.find("month-close-receipts-status")!), true);
+    } finally { await view.unmount(); }
+  });
+
+  for (const branch of ["empty", "error"] as const) {
+    test(`the ${branch} month branch keeps receipt-count recovery`, async () => {
+      const { client } = serverClient({ month: () => ({ currencies: [] }) });
+      const view = await renderInicio(branch === "error" ? { ...client, load: async () => { throw new Error("month read failed"); } } : client, { state: "failed", retry: () => {} });
+      try {
+        assert.ok(view.find(`month-close-${branch}`));
+        assert.match(view.text("month-close-receipts-status"), /No pudimos cargar el conteo de recibos/);
+        assert.equal(view.find("month-close-receipts-status")?.querySelector("button")?.textContent, "Reintentar");
+      } finally { await view.unmount(); }
+    });
+  }
+});
+
 describe("Inicio reads today from the server", () => {
   test("a browser clock one day behind opens the server's month and judges overdue by the server's day", async () => {
     const open = {
