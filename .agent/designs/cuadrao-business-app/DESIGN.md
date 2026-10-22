@@ -164,21 +164,102 @@ One owner builds every field: `web/components/ui/FormField.tsx` (field styles in
 `web/components/ui/form-field.ts`, password rules in `web/lib/password-strength.ts`).
 Use it; never restyle a field by hand (Lucas, October 21, 2026).
 
-- Every field has a real label above it that never leaves. Example text never
-  replaces the label or the instructions.
-- A field stays quiet while the owner types. Leaving it with something in it
-  checks it. From then on it is checked on every keystroke, so the error clears
-  the moment the value is fixed. Editing another field does not clear it.
-- Each field reserves one line for its hint or its error, so the submit never
-  moves. Errors say how to fix the value. Never use browser validation pop-ups.
-- The submit stays pressable. A failed submit opens a summary at the top that
-  links to each broken field and moves focus there.
-- Autofill is styled to the surface. Codes such as an RNC are text with
-  `inputMode="numeric"`, never `type="number"`.
-- Passwords show a live checklist and a strength meter (Débil, Casi lista,
-  Fuerte), always with the word. They use the shared eye toggle, never block
-  paste, have no confirm field, and set `passwordrules` for password managers.
-  Only the server's real minimum blocks a password.
+- Every field has an associated, visible label above it. The label stays when
+  the field is focused, filled or autofilled. Placeholders are examples only.
+  Floating labels are not the Business default. Make required fields clear.
+- A field stays quiet while the owner first types. Check a nonempty value on blur.
+  An empty field stays quiet until submit. Once a field has an error, recheck it
+  while typing and clear the error as soon as it is fixed. Editing another field
+  does not clear it. Submit checks every required field.
+- An error has a colour, an icon and a short repair message. Associate the message
+  with the input and set `aria-invalid`. The focus ring remains visible over an
+  error state. It has at least 3:1 contrast against its adjacent surface.
+- Reserve space for feedback at the current width and language. One line is only
+  enough when every possible message fits. `reserveMessages` measures the wrapped
+  messages without exposing hidden copies to screen readers. Never clip an error.
+- Long forms use a summary after a failed submit, with links to broken fields.
+  Short signup and sign-in forms use inline feedback and focus the first invalid
+  input after its message renders. Do not repeat these errors in a top banner.
+  Keep a form-level alert for request failures that no field alone can explain.
+  Never use browser validation pop-ups. Do not focus an input on page load and
+  open the mobile keyboard before the owner chooses a field.
+- Show success only when a useful check has completed. A valid email format may
+  get a small check inside the field and a message stating what was checked.
+  It does not mean the address exists, belongs to the owner or is verified.
+  An edit revokes the check until validation runs again. Do not mark optional
+  names or a sign-in password as verified.
+- Autofill matches the field surface in both themes and keeps text readable.
+  Preserve autocomplete purposes and password-manager support. Codes such as an
+  RNC are text with `inputMode="numeric"`, never `type="number"`.
+- New passwords show a live checklist and a strength estimate with a word, such
+  as Débil, Casi lista or Fuerte. Separate the required minimum from advice about
+  predictable words and patterns. The estimate is coaching, never a guarantee
+  about entropy or cracking time. Existing sign-in passwords have no meter or
+  new-password minimum. The server remains the authority on acceptance.
+- Keep paste enabled, use the shared visibility control, set `passwordrules`
+  for new passwords and do not add a confirmation field. Auth entry retains
+  the eye and eyelash icons chosen by Lucas. Only activating that control changes
+  visibility. Eye activation focuses the password input, then changes its type.
+  Focusing or typing in the field never changes visibility. Verify the rendered
+  masking in the target browser, not only the input type and icon state.
+- While submitting, preserve values and show one spinner in the submit button.
+  Mark the form busy and make its inputs read-only with readable text. Disable
+  competing actions with a visible explanation from the loading button. Guard
+  repeat click and Enter events synchronously. A late result must not replace a
+  different auth mode. Show an input spinner only for a real check of that input.
+- Disabled fields use a muted surface and readable text, not reduced opacity
+  alone. Read-only and disabled are different states. A read-only field remains
+  focusable; a disabled action cannot run.
+- Keep server error codes in state and translate their messages when rendering.
+  Language changes update visible feedback. Clear obsolete request errors on
+  credential edits or a mode change, preserve entered values after failure, and
+  offer the next useful action. Never reveal account existence unless the
+  existing authentication contract explicitly permits that response.
+- Buttons state the next action without unsupported promises. Auth sign-in uses
+  Continuar / Continue. Signup keeps its approved action copy. No claim that an
+  account is free is added by the form.
+
+### Auth entry
+
+These decisions cover the initial signup and sign-in screens. Confirmation,
+recovery and later onboarding keep their own contracts.
+
+- Desktop uses a 50/50 split from 1024px. The logo is centred on the left and the
+  form is on the right. Both auth modes use the same layout. First and last name
+  share a row on desktop and stack on small screens; both remain optional.
+  Keep their labels clean, above the inputs. Identify the optional name row once
+  with a quiet note associated with that group. Remove required-field legends
+  and visual asterisks; email and password retain native `required` semantics
+  (Lucas, October 22, 2026). Signup can be taller than sign-in. Keep the same
+  width, padding and visual treatment without adding filler to equalize heights.
+  Anchor the desktop hero and card to a common starting position so interaction
+  does not recenter the whole column. On tall desktop viewports, lower this
+  starting position with the viewport height instead of capping it near the top.
+- Auth inputs use the card surface in both themes. The shared field surface token
+  keeps other screens unchanged; white is not an accessibility requirement.
+- Signup reveals the minimum and advice when the password receives focus. The
+  meter starts reporting strength as text is entered. Keep coaching open after
+  engagement so it does not repeatedly expand and collapse during edits. A
+  filled or invalid password also reveals help. This is an intentional expansion
+  on interaction, not space reserved on arrival. Other shared-field consumers
+  retain their existing coaching behavior.
+- The compact system, light and dark controls stay at the top-right. Language
+  stays below the card. The mobile layout remains stacked without the split
+  background. Field accessibility and feedback rules apply at every width.
+- The background uses the approved cream and pine tokens. The desktop gradient
+  fades from left to right into the solid form side, with separate light and
+  dark strengths. Current local values are 12% and 8%; these are design choices,
+  not separate palette colours.
+- Hero copy responds to language and auth mode. Form titles remain clear and
+  separate. Locale files own the words. Only the hero uses the shared typewriter,
+  once on display or an intentional language or mode change. Typing in a field
+  does not restart it. Reduced motion shows the whole phrase immediately.
+- Reserve the hero's final size and expose the complete phrase to screen readers
+  without announcing each character. The animation never delays the form.
+- Verify both languages, themes and auth modes at desktop and mobile widths.
+  Include keyboard focus, wrapped errors, zoom, autofill, retries, duplicate
+  submits and delayed responses. Shared field changes also check signed-in
+  consumers. Local design acceptance does not authorize integration.
 
 ### Delete confirmations
 

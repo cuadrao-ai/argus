@@ -1370,15 +1370,29 @@
       "sign_out": "Cerrar sesión",
       "title": "Cuadrao Business aún no está disponible para tu cuenta."
     },
+    "form": {
+      "email_invalid": "Usa nombre@ejemplo.com.",
+      "email_required": "Escribe tu correo.",
+      "email_valid": "Formato de correo válido.",
+      "names_optional": "Nombre y apellido son opcionales",
+      "password_advice": "Consejo: evita palabras comunes, secuencias y repeticiones.",
+      "password_required": "Escribe tu contraseña.",
+      "password_short": "Usa al menos {{min}} caracteres."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Inicia sesión para continuar",
       "email_placeholder": "Correo electrónico",
+      "hero": "Todo en su sitio. Sigamos.",
       "password_placeholder": "Contraseña",
-      "submit": "Iniciar sesión",
-      "loading": "Iniciando sesión..."
+      "submit": "Continuar",
+      "loading": "Iniciando sesión...",
+      "title": "Inicia sesión"
     },
     "signup": {
+      "first_name_placeholder": "Nombre",
+      "hero": "Tus cuentas en orden.",
+      "last_name_placeholder": "Apellido",
       "subtitle": "Crea tu cuenta de Cuadrao",
       "name_placeholder": "Nombre",
       "submit": "Registrarse",
@@ -1390,7 +1404,8 @@
       "confirmation_description": "Escribe el código que te enviamos a {{correo}}.",
       "confirmation_code_label": "Código de confirmación",
       "confirmation_submit": "Confirmar",
-      "confirmation_loading": "Confirmando..."
+      "confirmation_loading": "Confirmando...",
+      "title": "Crea tu cuenta"
     },
     "confirm": {
       "error_title": "Este enlace no funcionó",

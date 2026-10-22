@@ -1370,15 +1370,29 @@
       "sign_out": "Sign out",
       "title": "Cuadrao Business isn't available for your account yet."
     },
+    "form": {
+      "email_invalid": "Use name@example.com.",
+      "email_required": "Enter your email address.",
+      "email_valid": "Email format looks right.",
+      "names_optional": "First and last name are optional",
+      "password_advice": "Tip: avoid common words, runs and repeats.",
+      "password_required": "Enter your password.",
+      "password_short": "Use at least {{min}} characters."
+    },
     "login": {
       "brand": "cuadrao",
       "subtitle": "Sign in to continue",
       "email_placeholder": "Email address",
+      "hero": "Everything in place. Pick up where you left off.",
       "password_placeholder": "Password",
-      "submit": "Sign in",
-      "loading": "Signing in..."
+      "submit": "Continue",
+      "loading": "Signing in...",
+      "title": "Sign in"
     },
     "signup": {
+      "first_name_placeholder": "First name",
+      "hero": "Your finances in order.",
+      "last_name_placeholder": "Last name",
       "subtitle": "Create your Cuadrao account",
       "name_placeholder": "Name",
       "submit": "Sign up",
@@ -1390,7 +1404,8 @@
       "confirmation_description": "Enter the code we sent to {{correo}}.",
       "confirmation_code_label": "Confirmation code",
       "confirmation_submit": "Confirm",
-      "confirmation_loading": "Confirming..."
+      "confirmation_loading": "Confirming...",
+      "title": "Create your account"
     },
     "confirm": {
       "error_title": "This link didn’t work",

@@ -47,40 +47,36 @@ describe("auth form copy", () => {
       assert.equal(shared.includes('data-auth-brand="cuadrao"'), true);
     }
   });
-  test("signup associates the password requirement with the password input", async () => {
+  test("signup declares its password minimum without expanding coaching on arrival", async () => {
     const signup = await renderAuthForm("signup", "en");
     const login = await renderAuthForm("login", "en");
 
-    expect(signup).toContain(
-      'aria-describedby="auth-signup-password-requirement"',
-    );
-    expect(signup).toContain(
-      '<p id="auth-signup-password-requirement"',
-    );
-    expect(login).not.toContain("auth-signup-password-requirement");
+    expect(signup).toContain('passwordrules="minlength: 8;"');
+    expect(signup).not.toContain('data-testid="password-coach"');
+    expect(login).not.toContain('data-testid="password-coach"');
   });
 
-  test("English signup explains the password rule and auth actions use sentence case", async () => {
+  test("English auth actions keep their approved copy", async () => {
     const signup = await renderAuthForm("signup", "en");
     const login = await renderAuthForm("login", "en");
 
-    expect(signup).toContain("At least 8 characters.");
     expect(signup).toContain("Already have an account?");
     expect(signup).toContain(">Sign in</button>");
     expect(login).toContain("New to Cuadrao?");
-    expect(login).toContain(">Sign in</button>");
-    expect(login).not.toContain("At least 8 characters.");
+    expect(login).toContain(">Continue</button>");
+    expect(login).toContain(">Sign in</h2>");
+    expect(login).not.toContain("At least 8 characters");
   });
 
-  test("Spanish signup explains the password rule and auth actions use sentence case", async () => {
+  test("Spanish auth actions keep their approved copy", async () => {
     const signup = await renderAuthForm("signup", "es-419");
     const login = await renderAuthForm("login", "es-419");
 
-    expect(signup).toContain("Mínimo 8 caracteres.");
     expect(signup).toContain("¿Ya tienes una cuenta?");
     expect(signup).toContain(">Iniciar sesión</button>");
     expect(login).toContain("¿Nuevo en Cuadrao?");
-    expect(login).toContain(">Iniciar sesión</button>");
-    expect(login).not.toContain("Mínimo 8 caracteres.");
+    expect(login).toContain(">Continuar</button>");
+    expect(login).toContain(">Inicia sesión</h2>");
+    expect(login).not.toContain("Al menos 8 caracteres");
   });
 });
