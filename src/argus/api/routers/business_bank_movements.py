@@ -113,6 +113,8 @@ def list_movements(
             cursor=cursor,
             currency=currency,
         )
+    except BankMatchingError as error:
+        raise bank_problem(request, error) from None
     except InvalidCursor:
         raise _refuse(request, 422, "invalid_cursor") from None
     except ActionError as error:

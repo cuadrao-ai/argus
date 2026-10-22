@@ -57,18 +57,6 @@ CLIENT_SCHEMA_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
 
 CLIENT_RELATION_PRIVILEGES: dict[str, dict[str, frozenset[str]]] = {
     "public.backtest_jobs": {"authenticated": frozenset({"SELECT"})},
-    "public.business_bank_accounts": {
-        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
-    },
-    "public.business_bank_imports": {
-        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
-    },
-    "public.business_bank_lines": {
-        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
-    },
-    "public.business_bank_suggestions": {
-        "authenticated": frozenset({"INSERT", "SELECT", "UPDATE"})
-    },
     "public.business_consent_acceptances": {"authenticated": frozenset({"SELECT"})},
     "public.chat_turn_lifecycles": {"authenticated": frozenset({"SELECT"})},
     "public.conversation_read_states": {"authenticated": frozenset({"SELECT"})},
@@ -168,7 +156,11 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "public.business_access_invites",
         "public.business_action_receipts",
         "public.business_ai_consents",
+        "public.business_bank_accounts",
+        "public.business_bank_imports",
         "public.business_bank_line_outcomes",
+        "public.business_bank_lines",
+        "public.business_bank_suggestions",
         "public.business_client_grants",
         "public.business_close_mail_outbox",
         "public.business_document_settlement_revisions",
