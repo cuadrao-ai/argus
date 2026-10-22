@@ -44,12 +44,12 @@ def test_committed_close_queues_only_live_members_once_and_uses_shared_sender(
     assert message["To"].endswith("@example.test")
     with pool.connection() as db:
         row = db.execute(
-            "select recipient_id::text,closed_at,sent_at,payload from public.business_close_mail_outbox where space_id=%s",
+            "select recipient_id::text,closed_at,sent_at,payload from public.business_close_mail_outbox where space_id=%s and kind='member_closed'",
             (space.id,),
         ).fetchone()
         assert row[0] == people["other"] and row[1] == result.closed_at and row[2]
         assert "ya no tienes acceso" in row[3]["text"]
-        assert "Cuadrao LLC, 123 Synthetic Street, Test City" in row[3]["text"]
+        assert row[3]["text"].endswith("\n\nCuadrao LLC")
         assert "business_close_mail_outbox" in retained_dependencies(db, people["owner"])
 
 
@@ -60,7 +60,7 @@ def test_failed_delivery_retries_same_provider_key_and_freezes_original_payload(
     provider.lose_response = True
     close(world)
     original = dict(provider.messages)
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "Different synthetic address")
+    monkeypatch.setenv("CUADRAO_EMAIL_ASSET_ORIGIN", "https://other-images.example.test")
     provider.lose_response = False
     assert deliver_close_mail(pool, space.id) == 1
     assert provider.messages == original
@@ -92,7 +92,7 @@ def test_reopen_suppresses_unsent_close_and_new_close_has_new_notification(
     with pool.connection() as db:
         assert (
             db.execute(
-                "select count(*) from public.business_close_mail_outbox where space_id=%s and suppressed_at is not null",
+                "select count(*) from public.business_close_mail_outbox where space_id=%s and kind='member_closed' and suppressed_at is not null",
                 (space.id,),
             ).fetchone()[0]
             == 1
@@ -106,7 +106,7 @@ def test_revoked_member_gets_no_close_notification(world, provider):  # noqa: F8
     assert not provider.messages
 
 
-def test_template_substitution_is_single_pass_and_postal_configuration_is_required(
+def test_template_substitution_is_single_pass_and_reads_no_postal_address(
     monkeypatch,
 ):
     context = {
@@ -115,14 +115,14 @@ def test_template_substitution_is_single_pass_and_postal_configuration_is_requir
         "closedAt": "2026-10-18T02:00:00+00:00",
         "purgeAt": "2026-11-17T02:00:00+00:00",
     }
-    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "123 Synthetic Street")
+    monkeypatch.delenv("MARKETING_POSTAL_ADDRESS", raising=False)
     payload = render_close_mail(context)
     assert "A &amp; __CUADRAO_OWNER_NAME__" in payload["html"]
     assert "Ana &lt;Rosa&gt;" in payload["html"]
     assert "17 de octubre de 2026" in payload["text"]
-    monkeypatch.delenv("MARKETING_POSTAL_ADDRESS")
-    with pytest.raises(ValueError, match="postal"):
-        render_close_mail(context)
+    assert payload["text"].endswith("\n\nCuadrao LLC")
+    monkeypatch.setenv("MARKETING_POSTAL_ADDRESS", "123 Synthetic Street")
+    assert render_close_mail(context) == payload
 
 
 def test_discovery_uses_current_owner_and_existing_target_authority(world):
@@ -159,7 +159,7 @@ def test_concurrent_close_commands_send_one_event_per_member(world, provider):  
     with pool.connection() as db:
         assert (
             db.execute(
-                "select count(*) from public.business_close_mail_outbox where space_id=%s",
+                "select count(*) from public.business_close_mail_outbox where space_id=%s and kind='member_closed'",
                 (space.id,),
             ).fetchone()[0]
             == 1
@@ -204,8 +204,115 @@ def test_close_notification_queue_is_service_only(world):
         db.execute("set local role service_role")
         assert (
             db.execute(
-                "select count(*) from public.business_close_mail_outbox where space_id=%s",
+                "select count(*) from public.business_close_mail_outbox where space_id=%s and kind='member_closed'",
                 (space.id,),
             ).fetchone()[0]
             == 1
         )
+
+
+def _confirm(pool, person):  # noqa: ANN001
+    with pool.connection() as db:
+        db.execute(
+            "update auth.users set email_confirmed_at=now() where id=%s", (person,)
+        )
+
+
+def _kinds(pool, space_id):  # noqa: ANN001
+    with pool.connection() as db:
+        return db.execute(
+            "select kind,recipient_id::text,payload is null,sent_at is null,suppressed_at is not null,context->>'reopenPath'"
+            " from public.business_close_mail_outbox where space_id=%s order by kind,recipient_id",
+            (space_id,),
+        ).fetchall()
+
+
+def test_close_queues_the_owner_confirmation_unsent_until_its_copy_exists(
+    world, provider
+):  # noqa: F811
+    from argus.domain.business.close_mail import reopen_path
+
+    pool, space, people, _, _ = world
+    _confirm(pool, people["owner"])
+    close(world)
+    # Only the member notice has approved copy; the owner's waits, unrendered.
+    assert len(provider.messages) == 1
+    assert _kinds(pool, space.id) == [
+        ("member_closed", people["other"], False, False, False, reopen_path(space.id)),
+        ("owner_closed", people["owner"], True, True, False, reopen_path(space.id)),
+    ]
+    assert reopen_path(space.id) == f"/biz?lifecycle=manage&business={space.id}"
+
+
+def test_reopen_queues_member_notices_and_retires_the_close_notices(
+    world, provider, monkeypatch
+):  # noqa: F811
+    from argus.domain import resend_email
+
+    pool, space, people, _, _ = world
+    _confirm(pool, people["owner"])
+    monkeypatch.delenv(resend_email.SMTP_PASSWORD_ENV)
+    close(world)
+    monkeypatch.setenv(resend_email.SMTP_PASSWORD_ENV, "synthetic-only")
+    PostgresBusinessLifecycle(pool).reopen(
+        owner_id=people["owner"], space_id=space.id, idempotency_key="reopen-notice"
+    )
+    PostgresBusinessLifecycle(pool).reopen(
+        owner_id=people["owner"], space_id=space.id, idempotency_key="reopen-notice"
+    )
+    assert not provider.messages
+    path = f"/biz?lifecycle=manage&business={space.id}"
+    assert _kinds(pool, space.id) == [
+        ("member_closed", people["other"], True, True, True, path),
+        ("member_reopened", people["other"], True, True, False, path),
+        ("owner_closed", people["owner"], True, True, True, path),
+    ]
+
+
+def _age(pool, space_id, days):  # noqa: ANN001
+    from datetime import timedelta
+
+    with pool.connection() as db:
+        db.execute(
+            "update public.spaces set closed_at=clock_timestamp()-%s where id=%s",
+            (timedelta(days=days), space_id),
+        )
+
+
+def test_day_23_reminds_the_current_owner_once_with_the_reopen_path(
+    world, provider
+):  # noqa: F811
+    from argus.domain.business.close_mail import enqueue_purge_reminders
+
+    pool, space, people, _, _ = world
+    _confirm(pool, people["owner"])
+    close(world)
+    _age(pool, space.id, 22)
+    assert space.id not in enqueue_purge_reminders(pool)
+    _age(pool, space.id, 23)
+    assert space.id in enqueue_purge_reminders(pool)
+    assert space.id in enqueue_purge_reminders(pool)
+    with pool.connection() as db:
+        rows = db.execute(
+            "select recipient_id::text,payload is null,sent_at is null,context->>'reopenPath',context ? 'purgeAt'"
+            " from public.business_close_mail_outbox where space_id=%s and kind='purge_reminder'",
+            (space.id,),
+        ).fetchall()
+    assert rows == [
+        (people["owner"], True, True, f"/biz?lifecycle=manage&business={space.id}", True)
+    ]
+    _age(pool, space.id, 30)
+    assert space.id not in enqueue_purge_reminders(pool)
+
+
+def test_a_business_without_an_owner_gets_no_reminder(world):  # noqa: F811
+    from argus.domain.business.close_mail import enqueue_purge_reminders
+
+    pool, space, people, _, _ = world
+    close(world)
+    with pool.connection() as db:
+        db.execute(
+            "update public.spaces set current_owner_id=null where id=%s", (space.id,)
+        )
+    _age(pool, space.id, 24)
+    assert space.id not in enqueue_purge_reminders(pool)

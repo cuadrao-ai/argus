@@ -97,6 +97,15 @@ def authorize(
         )
         row = cursor.fetchone()
     if row is None:
+        from argus.domain.business.access import PostgresAccessStore
+
+        if connection.execute(
+            PostgresAccessStore._CLOSED
+            + " and g.space_id=%s and (%s::uuid is null or g.id=%s)",
+            (actor.actor_id, actor.space_id, grant_id, grant_id),
+        ).fetchone():
+            # The close paused this grant; it was not removed.
+            raise ActionError("permission_denied", "business_closed")
         raise ActionError("not_found", "business_record_not_found")
     capabilities = frozenset(row["capabilities"])
     if actor.actor_kind != "member":

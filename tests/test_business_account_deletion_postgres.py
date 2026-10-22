@@ -26,7 +26,7 @@ class Auth(graph.FakeAuth):
         pass
 
 
-def command(w, *, auth=None):
+def command(w, *, auth=None, images=None):
     return AccountDeletionService(
         households=household_repository(w["pool"]),
         auth_admin=auth or Auth(),
@@ -34,6 +34,7 @@ def command(w, *, auth=None):
         analytics=RecordingAnalyticsDeletion(),
         allow_fake_analytics=True,
         source_objects=w["objects"],
+        profile_images=images,
         clock=lambda: datetime.now(timezone.utc),
     )
 
@@ -450,7 +451,7 @@ def test_closed_member_mail_transport_is_removed_with_the_departing_person(
     with w["pool"].connection() as db:
         assert (
             db.execute(
-                "select count(*) from public.business_close_mail_outbox where space_id=%s",
+                "select count(*) from public.business_close_mail_outbox where space_id=%s and kind='member_closed'",
                 (w["space"],),
             ).fetchone()[0]
             == 1

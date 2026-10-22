@@ -3,7 +3,6 @@ from uuid import uuid4
 
 import pytest
 from argus.api.business import require_business_person, require_business_surface
-from argus.api.routers.business_lifecycle import require_lifecycle_ready
 from argus.api.routers.business_transfer import require_transfer, router
 from argus.domain.business.lifecycle import BusinessLifecycleError
 from argus.domain.business.transfer import TransferDetails
@@ -77,17 +76,20 @@ def client():
         yield transport, service, person, app
 
 
-def test_transfer_readiness_denial_precedes_transport(client):
-    transport, service, _, _ = client
+def test_the_business_surface_gate_precedes_transport(client, monkeypatch):
+    transport, service, _, app = client
+    for name in ("CUADRAO_BUSINESS_PILOT_ENABLED", "ARGUS_BUSINESS_PILOT_ENABLED"):
+        monkeypatch.setenv(name, "false")
+    del app.dependency_overrides[require_business_surface]
     reply = transport.post(
         f"/api/v1/business/ownership-transfers/{service.result.id}/accept"
     )
     assert reply.status_code == 404 and not service.calls
+    assert reply.json()["detail"]["code"] == "business_unavailable"
 
 
 def test_request_passes_actual_actor_target_and_original_key(client):
     transport, service, person, app = client
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     target = str(uuid4())
     reply = transport.post(
         f"/api/v1/business/spaces/{service.result.space_id}/ownership-transfers",
@@ -114,7 +116,6 @@ def test_request_passes_actual_actor_target_and_original_key(client):
 @pytest.mark.parametrize("action", ["accept", "decline", "withdraw"])
 def test_terminal_commands_derive_authenticated_actor(client, action):
     transport, service, person, app = client
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     reply = transport.post(
         f"/api/v1/business/ownership-transfers/{service.result.id}/{action}"
     )
@@ -137,7 +138,6 @@ def test_terminal_commands_derive_authenticated_actor(client, action):
 )
 def test_known_domain_refusals_remain_private(client, code, status):
     transport, service, _, app = client
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     service.error = code
     reply = transport.post(
         f"/api/v1/business/ownership-transfers/{service.result.id}/accept"
@@ -152,7 +152,6 @@ users = lifecycle.users
 
 def test_transfer_link_discovery_is_authenticated_read_only(client):
     transport, service, person, app = client
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     reply = transport.get("/api/v1/business/ownership-transfers")
     assert reply.status_code == 200
     assert reply.headers["cache-control"] == "no-store"
@@ -178,7 +177,6 @@ def test_expired_get_discovery_does_not_change_history_or_send_email(client, wor
     )
     expire(world, pending)
     person.person_id = people["other"]
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     app.dependency_overrides[require_transfer] = lambda: service
     for _ in range(2):
         reply = transport.get("/api/v1/business/ownership-transfers")
@@ -203,7 +201,6 @@ def test_transfer_http_accept_saves_current_owner_and_preserves_custody(client, 
 
     transport, _, person, app = client
     pool, space, people, _, member = world
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     app.dependency_overrides[require_transfer] = lambda: PostgresBusinessTransfer(pool)
     person.person_id = people["owner"]
     pending = transport.post(
@@ -230,7 +227,6 @@ def test_transfer_http_wrong_recipient_leaves_request_pending(client, world):
 
     transport, _, person, app = client
     pool, space, people, _, member = world
-    app.dependency_overrides[require_lifecycle_ready] = lambda: None
     app.dependency_overrides[require_transfer] = lambda: PostgresBusinessTransfer(pool)
     person.person_id = people["owner"]
     pending = transport.post(

@@ -84,6 +84,19 @@ class GrantedSpace:
 
 
 @dataclass(frozen=True)
+class ClosedSpace:
+    """A closed Business a person still holds a live grant on: the close paused
+    their access; it was not removed. Distinct from a revoked or expired grant,
+    which lists nothing."""
+
+    space_id: str
+    name: str
+    grant_id: str
+    role: Literal["owner", "accountant"]
+    closed_at: datetime
+
+
+@dataclass(frozen=True)
 class AccessGrant:
     id: str
     grantee_id: str
@@ -170,6 +183,14 @@ class AccessStore(Protocol):
         theirs, revoked or expired answers the same None."""
         ...
 
+    def closed_spaces_for(self, person_id: str) -> tuple[ClosedSpace, ...]:
+        """Every closed Business where this person's grant is otherwise live."""
+        ...
+
+    def closed_grant(self, person_id: str, grant_id: str) -> ClosedSpace | None:
+        """This person's grant, by id, when only the close keeps it from being live."""
+        ...
+
     def seen_grants(self, person_id: str) -> frozenset[str]:
         """Grants whose one-time "you now have access" line this person dismissed."""
         ...
@@ -177,6 +198,12 @@ class AccessStore(Protocol):
     def mark_seen(self, person_id: str, grant_id: str) -> None:
         """Record the dismissal once, as this person's own ledger row."""
         ...
+
+
+def _closed(row: tuple, person_id: str) -> ClosedSpace:
+    grant, space, name, _, _, current_owner, closed_at = row
+    role = "owner" if current_owner == person_id else "accountant"
+    return ClosedSpace(space, name, grant, role, closed_at)
 
 
 def _label(display_name: str | None, username: str | None) -> str:
@@ -370,13 +397,15 @@ class PostgresAccessStore:
     # Live means: not revoked or expired, the Business open, the person not
     # anonymous, and the issuer still holding owner access: an issuer whose own
     # owner grant was revoked, with no live one since, ends every grant they gave.
-    _GRANTED = (
-        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities, s.current_owner_id::text"
+    # A closed Business pauses every grant on it; the same grant reads as
+    # closed, not removed, until the Business reopens or is purged.
+    _LIVE_GRANTS = (
+        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities, s.current_owner_id::text, s.closed_at"
         " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
         " join auth.users u on u.id=g.grantee_id"
         " where g.grantee_id=%s and g.revoked_at is null"
         " and (g.expires_at is null or g.expires_at > clock_timestamp())"
-        " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at is null"
+        " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at {state}"
         " and coalesce(u.is_anonymous,false)=false"
         " and not exists (select 1 from public.business_client_grants lost"
         "   where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id"
@@ -388,6 +417,8 @@ class PostgresAccessStore:
         "     and own.issuer_id=own.grantee_id and own.revoked_at is null"
         "     and (own.expires_at is null or own.expires_at > clock_timestamp())))"
     )
+    _GRANTED = _LIVE_GRANTS.format(state="is null")
+    _CLOSED = _LIVE_GRANTS.format(state="is not null")
 
     def capabilities(self, space_id: str, grantee_id: str) -> tuple[str, ...]:
         from argus.domain.business.authority import ActionError, authorize
@@ -411,7 +442,7 @@ class PostgresAccessStore:
             ).fetchall()
         return tuple(
             GrantedSpace(space, name, grant, owner, tuple(caps), person_id, current_owner)
-            for grant, space, name, owner, caps, current_owner in rows
+            for grant, space, name, owner, caps, current_owner, _ in rows
         )
 
     def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
@@ -421,10 +452,25 @@ class PostgresAccessStore:
             ).fetchone()
         if row is None:
             return None
-        grant, space, name, owner, caps, current_owner = row
+        grant, space, name, owner, caps, current_owner, _ = row
         return GrantedSpace(
             space, name, grant, owner, tuple(caps), person_id, current_owner
         )
+
+    def closed_spaces_for(self, person_id: str) -> tuple[ClosedSpace, ...]:
+        with self.pool.connection() as connection:
+            rows = connection.execute(
+                self._CLOSED + " order by s.closed_at desc, s.id, g.created_at",
+                (person_id,),
+            ).fetchall()
+        return tuple(_closed(row, person_id) for row in rows)
+
+    def closed_grant(self, person_id: str, grant_id: str) -> ClosedSpace | None:
+        with self.pool.connection() as connection:
+            row = connection.execute(
+                self._CLOSED + " and g.id=%s", (person_id, grant_id)
+            ).fetchone()
+        return _closed(row, person_id) if row else None
 
     def seen_grants(self, person_id: str) -> frozenset[str]:
         with self.pool.connection() as connection:
@@ -808,6 +854,13 @@ class InMemoryAccessStore:
                 None,
             )
         return self._granted(grant) if grant else None
+
+    def closed_spaces_for(self, person_id: str) -> tuple[ClosedSpace, ...]:
+        # The local store keeps no Business spaces, so none is ever closed.
+        return ()
+
+    def closed_grant(self, person_id: str, grant_id: str) -> ClosedSpace | None:
+        return None
 
     def seen_grants(self, person_id: str) -> frozenset[str]:
         with self._lock:

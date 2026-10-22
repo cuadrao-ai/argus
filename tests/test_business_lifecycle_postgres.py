@@ -74,7 +74,7 @@ def test_close_denies_existing_grants_and_reopen_restores_them_without_invites(w
     assert access.spaces_for(users["other"]) == ()
     with psycopg.connect(shared.DSN) as db:
         for person in (users["owner"], users["other"]):
-            with pytest.raises(ActionError, match="business_record_not_found"):
+            with pytest.raises(ActionError, match="business_closed"):
                 authorize(db, _actor(person, space.id))
     assert [
         s.space_id for s in PostgresBusinessLifecycle(pool).closed_spaces(users["owner"])
@@ -324,3 +324,191 @@ def test_reopen_rechecks_the_deadline_after_waiting_for_the_space_lock(world):  
             protected.commit()
         with pytest.raises(BusinessLifecycleError, match="business_reopen_expired"):
             reopening.result(timeout=3)
+
+
+def test_a_closed_business_reads_as_closed_and_removed_access_reads_as_nothing(world):  # noqa: ANN001
+    pool, space, users, access, member = world
+    closed = _close(world)
+    owner_view = access.closed_spaces_for(users["owner"])
+    member_view = access.closed_spaces_for(users["other"])
+    assert [(c.space_id, c.role, c.closed_at) for c in owner_view] == [
+        (space.id, "owner", closed.closed_at)
+    ]
+    assert [(c.space_id, c.grant_id, c.role) for c in member_view] == [
+        (space.id, member.id, "accountant")
+    ]
+    assert access.closed_grant(users["other"], member.id) == member_view[0]
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (member.id,),
+        )
+        db.commit()
+        # Removed access is not a closed Business: nothing reads as closed.
+        with pytest.raises(ActionError, match="business_record_not_found"):
+            authorize(db, _actor(users["other"], space.id))
+    assert access.closed_spaces_for(users["other"]) == ()
+    assert access.closed_grant(users["other"], member.id) is None
+    assert access.granted(users["other"], member.id) is None
+
+
+def _person(db, *, confirmed: bool = True) -> str:  # noqa: ANN001
+    person = str(uuid4())
+    db.execute(
+        "insert into auth.users (id, email, is_anonymous, email_confirmed_at)"
+        " values (%s, %s, false, case when %s then now() end)",
+        (person, f"lifecycle-{person}@example.test", confirmed),
+    )
+    return person
+
+
+def _member(db, space_id: str, owner: str, person: str, *caps: str) -> str:  # noqa: ANN001
+    return db.execute(
+        "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
+        " values(%s,%s,%s,%s) returning id::text",
+        (space_id, person, owner, list(caps)),
+    ).fetchone()[0]
+
+
+def test_close_preview_counts_members_and_says_who_may_take_ownership(world):  # noqa: ANN001
+    from argus.domain.business.transfer import PostgresBusinessTransfer
+
+    pool, space, users, _, member = world
+    owner = users["owner"]
+    extra: list[str] = []
+    try:
+        with psycopg.connect(shared.DSN) as db:
+            viewer, unconfirmed, owning, leaving = (
+                _person(db),
+                _person(db, confirmed=False),
+                _person(db),
+                _person(db),
+            )
+            extra += [viewer, unconfirmed, owning, leaving]
+            grants = {
+                "viewer": _member(db, space.id, owner, viewer, "read"),
+                "unconfirmed": _member(
+                    db, space.id, owner, unconfirmed, "read", "prepare"
+                ),
+                "owning": _member(db, space.id, owner, owning, "read", "prepare"),
+                "leaving": _member(db, space.id, owner, leaving, "read", "prepare"),
+            }
+            db.execute(
+                "insert into public.spaces (kind, name, created_by) values ('business', 'Propio', %s)",
+                (owning,),
+            )
+            db.execute(
+                "insert into argus_private.account_deletion_runs"
+                " (user_id, subject_hash, analytics_distinct_id) values (%s, %s, %s)",
+                (leaving, uuid4().hex * 2, leaving),
+            )
+            now = db.execute("select clock_timestamp()").fetchone()[0]
+        [preview] = PostgresBusinessLifecycle(pool).owned_spaces(owner)
+        assert preview["member_count"] == 5
+        assert abs(preview["reopen_until"] - (now + timedelta(days=30))) < timedelta(
+            minutes=1
+        )
+        assert preview["export_windows"] == []
+        reasons = {
+            m["grant_id"]: (m["eligible"], m["reason"]) for m in preview["members"]
+        }
+        assert reasons == {
+            member.id: (True, None),
+            grants["viewer"]: (False, "not_editor"),
+            grants["unconfirmed"]: (False, "email_unconfirmed"),
+            grants["owning"]: (False, "owns_open_business"),
+            grants["leaving"]: (False, "account_unavailable"),
+        }
+        transfers = PostgresBusinessTransfer(pool)
+        for ineligible in ("viewer", "unconfirmed", "owning", "leaving"):
+            with pytest.raises(
+                BusinessLifecycleError, match="business_transfer_target_invalid"
+            ):
+                transfers.request(
+                    owner_id=owner,
+                    space_id=space.id,
+                    target_grant_id=grants[ineligible],
+                    confirmation=space.name,
+                    idempotency_key=f"ineligible-{ineligible}",
+                )
+        with psycopg.connect(shared.DSN) as db:
+            assert db.execute(
+                "select count(*) from public.business_ownership_transfers where space_id=%s",
+                (space.id,),
+            ).fetchone() == (0,)
+    finally:
+        with psycopg.connect(shared.DSN) as db:
+            db.execute(
+                "delete from argus_private.account_deletion_runs where user_id = any(%s::uuid[])",
+                (extra,),
+            )
+            db.execute(
+                "delete from public.spaces where created_by = any(%s::uuid[])", (extra,)
+            )
+            db.execute(
+                "delete from public.business_client_grants where grantee_id = any(%s::uuid[])",
+                (extra,),
+            )
+            db.execute("delete from auth.users where id = any(%s::uuid[])", (extra,))
+
+
+from tests.test_business_actions_postgres import actions  # noqa: E402,F401
+
+
+@pytest.mark.owner_acts
+def test_export_windows_download_the_whole_history_with_exact_money(actions):  # noqa: F811
+    import io
+    import json
+    from zipfile import ZipFile
+
+    from argus.domain.business.contracts.actions import ApproveExpense, ReviewDraft
+    from argus.domain.business.contracts.facts import BusinessFactPatch
+    from argus.domain.business.export import ExportPeriod, export_package
+    from argus.domain.business.ledger import today
+    from argus.domain.ingestion.documents.objects import InMemorySourceObjects
+
+    from tests.test_business_actions_postgres import create
+
+    service, context, _ = actions
+    recorded = [("2024-02-29", "850", "DOP"), ("2026-10-01", "12.34", "USD")]
+    for day, amount, currency in recorded:
+        draft, version = create(service, context)
+        facts = BusinessFactPatch.model_validate(
+            {
+                name: {"state": "known", "value": value}
+                for name, value in {
+                    "kind": "expense",
+                    "amount": amount,
+                    "currency": currency,
+                    "occurred_on": day,
+                    "funding": {"kind": "owner_funds"},
+                    "business_share": {"kind": "all"},
+                }.items()
+            }
+        )
+        review = ReviewDraft(version=version, facts=facts)
+        assert service.review(context, draft, review, f"r-{day}").outcome == "applied"
+        approve = ApproveExpense(version=version + 1, action="record_expense")
+        assert service.approve(context, draft, approve, f"a-{day}").outcome == "applied"
+    [preview] = PostgresBusinessLifecycle(service.authority.pool).owned_spaces(
+        str(context.owner_id)
+    )
+    windows = preview["export_windows"]
+    assert windows[0]["start"].isoformat() == "2024-02-29"
+    assert windows[-1]["end"] >= today()
+    for before, after in zip(windows, windows[1:], strict=False):
+        assert (after["start"] - before["end"]).days == 1
+    rows = []
+    for window in windows:
+        package = export_package(
+            service.authority,
+            context,
+            ExportPeriod(window["start"], window["end"]),
+            InMemorySourceObjects(),
+        )
+        with ZipFile(io.BytesIO(package)) as archive:
+            rows += json.loads(archive.read("manifest.json"))["records"]
+    assert sorted((r["occurred_on"], r["amount"], r["currency"]) for r in rows) == [
+        ("2024-02-29", "850.00", "DOP"),
+        ("2026-10-01", "12.34", "USD"),
+    ]

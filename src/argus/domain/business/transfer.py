@@ -42,6 +42,12 @@ class TransferDetails(TransferResult):
     grant_id: str = ""
 
 
+#: Why a live member cannot take ownership: the account is unusable, the
+#: grant is not Editar, the email is unconfirmed, or they own an open Business.
+TransferIneligible = Literal[
+    "account_unavailable", "not_editor", "email_unconfirmed", "owns_open_business"
+]
+
 _COLUMNS = "id::text,space_id::text,owner_id::text,target_id::text,case when status='pending' and expires_at<=clock_timestamp() then 'expired' else status end,expires_at"
 
 
@@ -300,11 +306,40 @@ class PostgresBusinessTransfer:
         ).fetchall()
 
     @staticmethod
-    def _target(db: Connection, space_id: str, grant_id: str, owner_id: str) -> str:
+    def eligibility(
+        db: Connection, space_id: str, grant_id: str, owner_id: str
+    ) -> tuple[str, TransferIneligible | None] | None:
+        """The member a live grant names, with why they cannot take ownership,
+        or None when they can; None for a grant that is not a live member's."""
         row = db.execute(
-            "select g.grantee_id::text from public.business_client_grants g join auth.users u on u.id=g.grantee_id where g.id=%s and g.space_id=%s and g.grantee_id<>%s and g.revoked_at is null and (g.expires_at is null or g.expires_at>clock_timestamp()) and 'read'=any(g.capabilities) and 'prepare'=any(g.capabilities) and not 'approve'=any(g.capabilities) and coalesce(u.is_anonymous,false)=false and u.email_confirmed_at is not null and (u.banned_until is null or u.banned_until<=clock_timestamp()) and not exists(select 1 from argus_private.account_deletion_runs d where d.user_id=g.grantee_id) and not exists(select 1 from public.spaces s where s.current_owner_id=g.grantee_id and s.kind='business' and s.closed_at is null) for share of g,u",
+            "select g.grantee_id::text,"
+            " not coalesce(u.is_anonymous,false) and (u.banned_until is null or u.banned_until<=clock_timestamp())"
+            "  and not exists(select 1 from argus_private.account_deletion_runs d where d.user_id=g.grantee_id),"
+            " 'prepare'=any(g.capabilities) and not 'approve'=any(g.capabilities),"
+            " u.email_confirmed_at is not null,"
+            " not exists(select 1 from public.spaces s where s.current_owner_id=g.grantee_id and s.kind='business' and s.closed_at is null)"
+            " from public.business_client_grants g join auth.users u on u.id=g.grantee_id"
+            " where g.id=%s and g.space_id=%s and g.grantee_id<>%s and g.revoked_at is null"
+            " and (g.expires_at is null or g.expires_at>clock_timestamp()) and 'read'=any(g.capabilities)"
+            " for share of g,u",
             (grant_id, space_id, owner_id),
         ).fetchone()
         if not row:
+            return None
+        grantee, *facts = row
+        reasons: tuple[TransferIneligible, ...] = (
+            "account_unavailable",
+            "not_editor",
+            "email_unconfirmed",
+            "owns_open_business",
+        )
+        return grantee, next(
+            (r for r, ok in zip(reasons, facts, strict=True) if not ok), None
+        )
+
+    @staticmethod
+    def _target(db: Connection, space_id: str, grant_id: str, owner_id: str) -> str:
+        found = PostgresBusinessTransfer.eligibility(db, space_id, grant_id, owner_id)
+        if found is None or found[1] is not None:
             raise BusinessLifecycleError("business_transfer_target_invalid")
-        return row[0]
+        return found[0]

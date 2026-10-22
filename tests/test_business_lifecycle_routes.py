@@ -1,4 +1,4 @@
-"""Hermetic transport contract. The production lifecycle gate remains closed."""
+"""Hermetic transport contract behind the existing Business surface gate."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -44,7 +44,17 @@ class Service:
                 "space_id": SPACE,
                 "name": "Taller Luna",
                 "grant_id": str(uuid4()),
-                "members": [],
+                "member_count": 1,
+                "reopen_until": CLOSED,
+                "export_windows": [],
+                "members": [
+                    {
+                        "grant_id": str(uuid4()),
+                        "name": "Rosa",
+                        "eligible": False,
+                        "reason": "not_editor",
+                    }
+                ],
             },
         )
 
@@ -69,14 +79,20 @@ def client():
         person_id=ACTOR
     )
     app.dependency_overrides[transport.require_lifecycle] = lambda: service
-    app.dependency_overrides[transport.require_lifecycle_ready] = lambda: None
     with TestClient(app) as browser:
         yield browser, service, app
 
 
-def test_gate_cannot_be_enabled_by_mounting_the_router(client):
+@pytest.fixture
+def surface_off(monkeypatch):
+    """The real Business surface gate, with the pilot switch off."""
+    for name in ("CUADRAO_BUSINESS_PILOT_ENABLED", "ARGUS_BUSINESS_PILOT_ENABLED"):
+        monkeypatch.setenv(name, "false")
+
+
+def test_commands_answer_only_while_the_business_surface_is_on(client, surface_off):
     browser, service, app = client
-    del app.dependency_overrides[transport.require_lifecycle_ready]
+    del app.dependency_overrides[require_business_surface]
     response = browser.post(
         f"/api/v1/business/spaces/{SPACE}/close",
         json={"confirmation": "Taller Luna"},
@@ -199,23 +215,72 @@ def test_real_database_route_enforces_owner_and_closed_member_access(
 
 
 @pytest.mark.parametrize("path", ["owned-spaces", "closed-spaces"])
-def test_discovery_keeps_readiness_denial_and_authenticated_owner(client, path):
+def test_discovery_follows_the_surface_gate_and_authenticated_owner(
+    client, surface_off, path
+):
     browser, service, app = client
     answer = browser.get(f"/api/v1/business/{path}?owner_id=someone-else")
     assert answer.status_code == 200
     assert service.calls[0][1] == ACTOR
     service.calls.clear()
-    del app.dependency_overrides[transport.require_lifecycle_ready]
+    del app.dependency_overrides[require_business_surface]
     denied = browser.get(f"/api/v1/business/{path}")
     assert denied.status_code == 404
     assert denied.json()["detail"]["code"] == "business_unavailable"
     assert service.calls == []
 
 
-def test_actual_application_mounts_lifecycle_and_transfer_behind_the_hold():
+def test_preview_carries_member_count_reopen_deadline_and_eligibility(client):
+    browser, _, _ = client
+    [owned] = browser.get("/api/v1/business/owned-spaces").json()["spaces"]
+    assert owned["member_count"] == 1
+    assert owned["reopen_until"] == "2026-10-18T00:00:00Z"
+    assert owned["export_windows"] == []
+    assert owned["members"][0]["eligible"] is False
+    assert owned["members"][0]["reason"] == "not_editor"
+
+
+def test_actual_application_mounts_lifecycle_and_transfer_behind_the_surface_gate():
     from argus.api.routers.financial_accounts import router
 
     paths = {route.path for route in router.routes}
     assert "/api/v1/business/owned-spaces" in paths
     assert "/api/v1/business/ownership-transfers" in paths
     assert "/api/v1/business/spaces/{space_id}/close" in paths
+
+
+@pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
+def test_a_grant_header_on_a_closed_business_reads_closed_not_removed(
+    world,  # noqa: F811
+    monkeypatch,
+):
+    import psycopg
+    from argus.api import business as business_api
+    from argus.domain.business.lifecycle import PostgresBusinessLifecycle
+    from fastapi import HTTPException
+
+    pool, space, identities, access, member = world
+    monkeypatch.setattr(business_api, "business_access", lambda: access)
+    request = SimpleNamespace(
+        headers={business_api.GRANT_HEADER: member.id},
+        state=SimpleNamespace(request_id="closed-grant"),
+    )
+
+    def refusal() -> tuple[int, str]:
+        with pytest.raises(HTTPException) as refused:
+            business_api.chosen_scope(request, identities["other"])
+        return refused.value.status_code, refused.value.detail["code"]
+
+    PostgresBusinessLifecycle(pool).close(
+        owner_id=identities["owner"],
+        space_id=space.id,
+        confirmation=space.name,
+        idempotency_key="closed-grant",
+    )
+    assert refusal() == (403, "business_closed")
+    with psycopg.connect(shared.DSN) as db:
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where id=%s",
+            (member.id,),
+        )
+    assert refusal() == (403, "business_grant_not_live")

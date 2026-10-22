@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Literal
+from datetime import date, datetime, timedelta
+from typing import Any, Literal
 
 from psycopg import Connection
 from psycopg_pool import ConnectionPool
@@ -30,6 +30,23 @@ class LifecycleResult:
         return self.closed_at + REOPEN_WINDOW if self.closed_at is not None else None
 
 
+def export_windows(days: set[date]) -> list[dict[str, Any]]:
+    """Consecutive periods the existing export accepts that, downloaded in
+    order, cover every recorded day through today; none without a record."""
+    from argus.domain.business.export import ExportPeriod
+    from argus.domain.business.ledger import today
+
+    if not days:
+        return []
+    start, last, windows = min(days), max(max(days), today()), []
+    while start <= last:
+        # The export's own period type refuses a window it would not serve.
+        period = ExportPeriod(start, min(start + timedelta(days=365), last))
+        windows.append({"start": period.start, "end": period.end})
+        start = period.end + timedelta(days=1)
+    return windows
+
+
 class PostgresBusinessLifecycle:
     def __init__(self, pool: ConnectionPool) -> None:
         self._pool = pool
@@ -52,15 +69,23 @@ class PostgresBusinessLifecycle:
     def reopen(
         self, *, owner_id: str, space_id: str, idempotency_key: str
     ) -> LifecycleResult:
-        return self._command(
+        result = self._command(
             owner_id=owner_id,
             space_id=space_id,
             action="reopen",
             confirmation=None,
             idempotency_key=idempotency_key,
         )
+        from argus.domain.business.close_mail import deliver_close_mail
+
+        deliver_close_mail(self._pool, space_id)
+        return result
 
     def owned_spaces(self, owner_id: str) -> tuple[dict, ...]:
+        """Each open Business this person owns, with what closing it would do:
+        every live member, who loses access and whether they may take
+        ownership, the reopen deadline a close now would set, and the export
+        periods that download its whole history first."""
         from argus.domain.business.access import PostgresAccessStore
         from argus.domain.business.transfer import PostgresBusinessTransfer
 
@@ -74,24 +99,77 @@ class PostgresBusinessLifecycle:
                 self._owned_space(db, owner_id, space.space_id)
                 members = []
                 for member in grants:
-                    if member.owner:
-                        continue
-                    try:
-                        PostgresBusinessTransfer._target(
+                    found = (
+                        None
+                        if member.owner
+                        else PostgresBusinessTransfer.eligibility(
                             db, space.space_id, member.id, owner_id
                         )
-                    except BusinessLifecycleError:
+                    )
+                    if found is None:
                         continue
-                    members.append({"grant_id": member.id, "name": member.display_name})
+                    members.append(
+                        {
+                            "grant_id": member.id,
+                            "name": member.display_name,
+                            "eligible": found[1] is None,
+                            "reason": found[1],
+                        }
+                    )
+                now = db.execute("select clock_timestamp()").fetchone()[0]
+            # History loads outside the owner and Business locks above.
+            with self._pool.connection() as db:
+                days = self._recorded_days(db, space.space_id)
             result.append(
                 {
                     "space_id": space.space_id,
                     "name": space.name,
                     "grant_id": space.grant_id,
+                    "member_count": len(members),
+                    "reopen_until": now + REOPEN_WINDOW,
+                    "export_windows": export_windows(days),
                     "members": members,
                 }
             )
         return tuple(result)
+
+    def _recorded_days(self, db: Connection, space_id: str) -> set[date]:
+        """Every day the Business export can select, read as it reads them: its
+        current activities and each unrecorded open draft's known date."""
+        from argus.domain.business.contracts.facts import BusinessResolution, Known
+        from argus.domain.business.ledger import occurred_on
+        from argus.domain.owner_scope import BusinessSpace
+        from argus.domain.recording.canonical_groups import VisibleAccounts, load
+        from argus.domain.recording.money_reads import current_activities
+        from argus.domain.recording.postgres_repository import (
+            PostgresFinancialAccountRepository,
+        )
+
+        custodian = db.execute(
+            "select created_by::text from public.spaces where id=%s", (space_id,)
+        ).fetchone()[0]
+        canonical = load(
+            PostgresFinancialAccountRepository(self._pool),
+            db,
+            {custodian},
+            scope=BusinessSpace(space_id),
+        )
+        visible = [s for s in canonical.records if s.account.user_id == custodian]
+        days = {
+            occurred_on(a)
+            for a in current_activities(VisibleAccounts(visible, canonical))
+        }
+        for (resolution,) in db.execute(
+            "select resolution from public.financial_import_events"
+            " where user_id=%s and owner_space_id=%s and activity_id is null"
+            " and state in ('open','accepting')",
+            (custodian, space_id),
+        ):
+            typed = (resolution or {}).get("business")
+            facts = BusinessResolution.model_validate(typed).facts if typed else None
+            if facts is not None and isinstance(facts.occurred_on, Known):
+                days.add(facts.occurred_on.value)
+        return days
 
     def closed_spaces(self, owner_id: str) -> tuple[LifecycleResult, ...]:
         with self._pool.connection() as connection:
@@ -136,6 +214,7 @@ class PostgresBusinessLifecycle:
                 newly_closed = closed_at is None
                 closed_at = closed_at or now
             else:
+                reopened_from = closed_at
                 if closed_at is not None and now >= closed_at + REOPEN_WINDOW:
                     raise BusinessLifecycleError("business_reopen_expired")
                 if connection.execute(
@@ -173,6 +252,10 @@ class PostgresBusinessLifecycle:
                 from argus.domain.business.close_mail import enqueue_close_mail
 
                 enqueue_close_mail(connection, space_id, owner_id, name, closed_at)
+            if action == "reopen" and reopened_from is not None:
+                from argus.domain.business.close_mail import enqueue_reopen_mail
+
+                enqueue_reopen_mail(connection, space_id, owner_id, name, reopened_from)
             return LifecycleResult(space_id, name, closed_at)
 
     @staticmethod

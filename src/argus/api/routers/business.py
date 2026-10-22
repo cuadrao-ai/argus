@@ -8,7 +8,7 @@ Default-off. Each person's Business records live in their own space (see
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -24,6 +24,7 @@ from fastapi import (
 )
 from fastapi.concurrency import run_in_threadpool
 from loguru import logger
+from pydantic import BaseModel, ConfigDict
 
 from argus.api import business_search
 from argus.api.business import (
@@ -116,6 +117,7 @@ from argus.domain.business.actions import BusinessActions
 from argus.domain.business.authority import ActionError
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
+from argus.domain.business.lifecycle import REOPEN_WINDOW
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
@@ -314,7 +316,24 @@ def save_business_name(
     return _naming(space)
 
 
-@router.get("/spaces", response_model=BusinessSpaces)
+class ClosedSpaceInfo(BaseModel):
+    """A closed Business the caller still holds a live grant on. It cannot be
+    entered until its owner reopens it; removed access lists nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+    space_id: str
+    name: str
+    grant_id: str
+    role: Literal["owner", "accountant"]
+    closed_at: datetime
+    reopen_until: datetime
+
+
+class BusinessSpacesWithClosed(BusinessSpaces):
+    closed_spaces: list[ClosedSpaceInfo] = []
+
+
+@router.get("/spaces", response_model=BusinessSpacesWithClosed)
 def list_spaces(
     request: Request,
     response: Response,
@@ -324,7 +343,8 @@ def list_spaces(
     their own first. Pending invites for the caller's confirmed email become
     grants first, so the read beside the first profile read already lists
     them. Names come from the spaces; the one-time access line is marked seen
-    per grant, server side."""
+    per grant, server side. ``closed_spaces`` lists the closed Businesses the
+    caller's grants would otherwise open."""
 
     _no_store(response)
     access = _access_store(request)
@@ -345,7 +365,18 @@ def list_spaces(
                 "access_seen": found.role == "owner" or found.grant_id in seen,
             }
             for found in granted
-        ]
+        ],
+        "closed_spaces": [
+            {
+                "space_id": closed.space_id,
+                "name": closed.name,
+                "grant_id": closed.grant_id,
+                "role": closed.role,
+                "closed_at": closed.closed_at,
+                "reopen_until": closed.closed_at + REOPEN_WINDOW,
+            }
+            for closed in access.closed_spaces_for(person.person_id)
+        ],
     }
 
 

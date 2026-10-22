@@ -225,7 +225,7 @@ class AccountDeletionService:
         self._profile_images = profile_images
         self._business = BusinessAccountDeletion(households, auth_admin, source_objects)
         self._business_purge = PostgresBusinessPurge(
-            households, source_objects, auth_admin
+            households, source_objects, auth_admin, profile_images
         )
         self._clock = clock
 

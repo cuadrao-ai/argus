@@ -1,6 +1,6 @@
-"""WIP close transport, unmounted and denied until retention is complete."""
+"""Close, reopen and owned-Business discovery, behind the Business surface gate."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -20,6 +20,7 @@ from argus.domain.business.lifecycle import (
     LifecycleResult,
     PostgresBusinessLifecycle,
 )
+from argus.domain.business.transfer import TransferIneligible
 
 
 class CloseBusinessBody(BaseModel):
@@ -36,14 +37,32 @@ class BusinessLifecycleResponse(BaseModel):
 
 
 class TransferMember(BaseModel):
+    """A live member, who loses access on close; only an eligible one may be
+    asked to take ownership, and ``reason`` says why another may not."""
+
     grant_id: str
     name: str
+    eligible: bool
+    reason: TransferIneligible | None
+
+
+class ExportWindow(BaseModel):
+    """One period for ``GET /business/exports``; in order, the windows cover
+    the Business's whole recorded history through today."""
+
+    start: date
+    end: date
 
 
 class OwnedBusiness(BaseModel):
     space_id: str
     name: str
     grant_id: str
+    #: Live members who lose access when the Business closes.
+    member_count: int
+    #: The reopen deadline a close now would set.
+    reopen_until: datetime
+    export_windows: list[ExportWindow]
     members: list[TransferMember]
 
 
@@ -53,11 +72,6 @@ class OwnedBusinesses(BaseModel):
 
 class ClosedBusinesses(BaseModel):
     spaces: list[BusinessLifecycleResponse]
-
-
-def require_lifecycle_ready(request: Request) -> None:
-    # Mounting this module must not enable closure before custody and purge work.
-    raise unavailable_problem(request)
 
 
 def require_lifecycle(request: Request) -> PostgresBusinessLifecycle:
@@ -74,11 +88,7 @@ def no_store(response: Response) -> None:
 router = APIRouter(
     prefix="/business",
     tags=["business"],
-    dependencies=[
-        Depends(require_business_surface),
-        Depends(require_lifecycle_ready),
-        Depends(no_store),
-    ],
+    dependencies=[Depends(require_business_surface), Depends(no_store)],
 )
 Person = Annotated[BusinessPerson, Depends(require_business_person)]
 Lifecycle = Annotated[PostgresBusinessLifecycle, Depends(require_lifecycle)]

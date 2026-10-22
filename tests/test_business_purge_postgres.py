@@ -292,3 +292,119 @@ def test_two_sweeps_do_not_run_the_same_storage_plan_together(custody, monkeypat
         finally:
             release.set()
         assert first.result(timeout=10)["done"] == 1
+
+
+class LogoObjects:
+    """Synthetic picture storage that records which space rows existed at
+    each erase, and can be made to fail."""
+
+    def __init__(self, pool, paths):
+        self.pool, self.rows, self.erased, self.fail = pool, dict.fromkeys(paths, b"webp"), [], False
+
+    def put(self, path, content, media_type):
+        self.rows[path] = content
+
+    def remove(self, path):
+        if self.fail:
+            raise OSError("synthetic picture storage outage")
+        space_id = path.split("/")[1]
+        with self.pool.connection() as db:
+            row = db.execute(
+                "select exists(select 1 from public.spaces where id=%s),"
+                " exists(select 1 from public.business_logos where space_id=%s)",
+                (space_id, space_id),
+            ).fetchone()
+        self.erased.append((path, row))
+        self.rows.pop(path, None)
+
+    def signed_urls(self, paths, expires_in):
+        return {}
+
+
+@pytest.fixture
+def logos(custody):
+    """After the Business closes: a logo for it and for another Business of the
+    same person, each named by its row and present in synthetic storage."""
+    from argus.domain.profile_images import ProfileImages, business
+    from argus.domain.profile_images.store import PostgresProfileImageStore
+
+    from tests.test_business_spaces_migration_postgres import space
+
+    w, made = custody, []
+
+    def make():
+        with w["pool"].connection() as db:
+            made.append(space(db, w["old"]))
+        store = PostgresProfileImageStore(w["pool"])
+        for space_id in (w["space"], made[0]):
+            store.save("business", space_id, uuid4().hex * 2)
+        paths = [business(w["space"]).path, business(made[0]).path]
+        objects = LogoObjects(w["pool"], paths)
+        return ProfileImages(store, objects), objects, made[0], paths
+
+    yield make
+    with w["pool"].connection() as db:
+        db.execute("delete from public.spaces where id=any(%s::uuid[])", (made,))
+
+
+def test_logo_object_goes_before_its_space_row_and_other_logos_stay(
+    custody, logos, monkeypatch
+):
+    w = custody
+    remover(w, monkeypatch)
+    deletion.close(w)
+    images, objects, other, (mine, theirs) = logos()
+    expiry(w)
+    assert deletion.command(w, images=images).resume_pending(idle_seconds=0)["done"] == 1
+    # Erased once, while the space row and its logo row still named it.
+    assert objects.erased == [(mine, (True, True))]
+    assert set(objects.rows) == {theirs}
+    with w["pool"].connection() as db:
+        assert db.execute(
+            "select space_id::text from public.business_logos where space_id=any(%s::uuid[])",
+            ([w["space"], other],),
+        ).fetchall() == [(other,)]
+
+
+def test_failed_logo_erase_keeps_the_business_and_the_sweep_retries(
+    custody, logos, monkeypatch
+):
+    w = custody
+    remover(w, monkeypatch)
+    deletion.close(w)
+    images, objects, _, (mine, _theirs) = logos()
+    expiry(w)
+    before = graph._snapshot(w)
+    objects.fail = True
+    service = deletion.command(w, images=images)
+    assert service.resume_pending(idle_seconds=0)["pending"] == 1
+    assert graph._snapshot(w) == before and mine in objects.rows
+    with w["pool"].connection() as db:
+        assert db.execute(
+            "select status,claim_id from argus_private.business_purge_runs where space_id=%s",
+            (w["space"],),
+        ).fetchone() == ("started", None)
+        assert db.execute(
+            "select count(*) from public.business_logos where space_id=%s", (w["space"],)
+        ).fetchone() == (1,)
+    objects.fail = False
+    assert service.resume_pending(idle_seconds=0)["done"] == 1
+    assert mine not in objects.rows
+    with w["pool"].connection() as db:
+        assert db.execute(
+            "select 1 from public.spaces where id=%s", (w["space"],)
+        ).fetchone() is None
+
+
+def test_a_logo_without_picture_storage_holds_the_purge(custody, logos, monkeypatch):
+    w = custody
+    remover(w, monkeypatch)
+    deletion.close(w)
+    logos()
+    expiry(w)
+    before = graph._snapshot(w)
+    with pytest.raises(BusinessPurgePending, match="business_logo_storage_unavailable"):
+        PostgresBusinessPurge(w["pool"], w["objects"], deletion.Auth()).purge(
+            space_id=w["space"]
+        )
+    assert graph._snapshot(w) == before

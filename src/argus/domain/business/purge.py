@@ -11,6 +11,7 @@ from psycopg import sql
 from argus.domain.account_deletion.auth_admin import AuthAdmin
 from argus.domain.business.custody_graph import PostgresBusinessCustodyGraph
 from argus.domain.ingestion.documents.objects import SourceObjects, owner_prefix
+from argus.domain.profile_images import ProfileImages, business
 
 
 class BusinessPurgePending(RuntimeError):
@@ -22,10 +23,26 @@ class BusinessPurgeBusy(RuntimeError):
 
 
 class PostgresBusinessPurge:
-    def __init__(self, connections: Any, objects: SourceObjects | None, auth: AuthAdmin):
+    def __init__(
+        self,
+        connections: Any,
+        objects: SourceObjects | None,
+        auth: AuthAdmin,
+        images: ProfileImages | None = None,
+    ):
         self.connections, self.objects, self.auth = connections, objects, auth
+        self.images = images
 
     def sweep(self, *, limit: int = 25) -> dict[str, int]:
+        from argus.domain.business.close_mail import (
+            deliver_close_mail,
+            enqueue_purge_reminders,
+        )
+
+        # Day 23: each closed Business's owner is reminded once, with the
+        # reopen path, before day 30 removes it.
+        for reminded in enqueue_purge_reminders(self.connections):
+            deliver_close_mail(self.connections, reminded)
         with self.connections.connection() as db:
             candidates = db.execute(
                 "select space_id::text from ("
@@ -59,6 +76,7 @@ class PostgresBusinessPurge:
             return
         run, claim = claimed
         try:
+            self._erase_logo(run, claim)
             self._delete_graph(run, claim)
             self._erase_objects(run, claim)
             self._finish(run, claim)
@@ -118,6 +136,25 @@ class PostgresBusinessPurge:
         if row is None:
             raise BusinessPurgeBusy("business_purge_claim_lost")
         return row
+
+    def _erase_logo(self, run: str, claim: str) -> None:
+        """The logo object goes before the space row that names it. Erasing is
+        idempotent, so a failure keeps the graph and the next sweep retries."""
+        with self.connections.connection() as db:
+            space, status, _, _ = self._live(db, run, claim)
+            if status != "started":
+                return
+            named = db.execute(
+                "select 1 from public.business_logos where space_id=%s", (space,)
+            ).fetchone()
+        if self.images is None:
+            if named:
+                raise BusinessPurgePending("business_logo_storage_unavailable")
+            return
+        try:
+            self.images.erase(business(space))
+        except Exception as error:
+            raise BusinessPurgePending("business_logo_delete_pending") from error
 
     def _delete_graph(self, run: str, claim: str) -> None:
         with self.connections.connection() as db, db.transaction():

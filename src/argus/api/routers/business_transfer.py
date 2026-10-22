@@ -1,4 +1,4 @@
-"""Unmounted transfer transport guarded by the full lifecycle readiness gate."""
+"""Ownership transfer commands, behind the Business surface gate."""
 
 from collections.abc import Callable
 from datetime import datetime
@@ -16,7 +16,6 @@ from argus.api.routers.business_lifecycle import (
     Person,
     lifecycle_problem,
     no_store,
-    require_lifecycle_ready,
 )
 from argus.domain.business.lifecycle import BusinessLifecycleError
 from argus.domain.business.transfer import PostgresBusinessTransfer, TransferResult
@@ -59,11 +58,7 @@ Transfer = Annotated[PostgresBusinessTransfer, Depends(require_transfer)]
 router = APIRouter(
     prefix="/business",
     tags=["business"],
-    dependencies=[
-        Depends(require_business_surface),
-        Depends(require_lifecycle_ready),
-        Depends(no_store),
-    ],
+    dependencies=[Depends(require_business_surface), Depends(no_store)],
 )
 
 
