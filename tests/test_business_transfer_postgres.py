@@ -443,7 +443,7 @@ def test_accept_against_decline_or_withdraw_has_one_terminal_result(world, other
         )
 
 
-def test_open_owner_account_deletion_hands_off_custody_and_erases_the_person(world):
+def test_closed_owner_account_deletion_hands_off_custody_and_erases_the_person(world):
     from tests.test_business_account_deletion_postgres import erase_open_owner
 
     pool, space, people, _, _ = world
@@ -524,3 +524,184 @@ def test_business_creation_waits_for_person_identity_lock(world):
                 pending.result(timeout=0.15)
         created, fresh = pending.result(timeout=3)
     assert fresh and PostgresSpaceStore(pool).open_space(people["other"]).id == created.id
+
+
+@pytest.mark.parametrize("operation", ["create", "reopen", "transfer"])
+@pytest.mark.parametrize("winner", ["ownership", "deletion"])
+def test_ownership_and_deletion_admission_serialize_on_person(world, operation, winner):
+    import time
+    from contextlib import contextmanager
+    from threading import Event
+
+    from argus.domain.account_deletion.service import (
+        AccountDeletionRejected,
+        subject_hash,
+    )
+
+    from tests.test_business_account_deletion_postgres import command
+
+    pool, space, people, _, _ = world
+    person = people["owner" if operation == "reopen" else "other"]
+    pending = _request(world) if operation == "transfer" else None
+    closed_at = lifecycle._close(world).closed_at if operation == "reopen" else None
+    locked, release = Event(), Event()
+    holders = []
+
+    class PausedConnection:
+        def __init__(self, db):
+            self.db = db
+
+        def __getattr__(self, name):
+            return getattr(self.db, name)
+
+        def execute(self, query, *args, **kwargs):
+            result = self.db.execute(query, *args, **kwargs)
+            if "from auth.users" in query and "for " in query and not locked.is_set():
+                holders.append(self.db.info.backend_pid)
+                locked.set()
+                assert release.wait(8), "person lock was not released"
+            return result
+
+    class PausedPool:
+        @contextmanager
+        def connection(self):
+            with pool.connection() as db:
+                yield PausedConnection(db)
+
+    paused = PausedPool()
+    deletion = command(
+        {"pool": paused if winner == "deletion" else pool, "objects": None}
+    )
+    ownership_pool = paused if winner == "ownership" else pool
+
+    def acquire():
+        if operation == "create":
+            return PostgresSpaceStore(ownership_pool).create(person, "Another Business")
+        if operation == "reopen":
+            return PostgresBusinessLifecycle(ownership_pool).reopen(
+                owner_id=person, space_id=space.id, idempotency_key="race-reopen"
+            )
+        return PostgresBusinessTransfer(ownership_pool).accept(
+            actor_id=person, transfer_id=pending.id
+        )
+
+    def admit():
+        return deletion._claim_classified(person, subject_hash(person))
+
+    first, second = (acquire, admit) if winner == "ownership" else (admit, acquire)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as workers:
+            winning = workers.submit(first)
+            assert locked.wait(5), "winner did not acquire person lock"
+            waiting = workers.submit(second)
+            try:
+                with psycopg.connect(shared.DSN, autocommit=True) as observer:
+                    deadline = time.monotonic() + 5
+                    blocked = False
+                    while time.monotonic() < deadline:
+                        blocked = observer.execute(
+                            "select exists(select 1 from pg_stat_activity where %s=any(pg_blocking_pids(pid)))",
+                            (holders[0],),
+                        ).fetchone()[0]
+                        if blocked:
+                            break
+                assert (
+                    blocked and not waiting.done()
+                ), "loser did not wait for person lock"
+            finally:
+                release.set()
+            winning.result(timeout=5)
+            expected = (
+                AccountDeletionRejected
+                if winner == "ownership"
+                else BusinessLifecycleError
+            )
+            code = (
+                "business_owner_must_exit"
+                if winner == "ownership"
+                else (
+                    "business_transfer_target_invalid"
+                    if operation == "transfer"
+                    else "business_record_not_found"
+                )
+            )
+            with pytest.raises(expected, match=code):
+                waiting.result(timeout=5)
+        with pool.connection() as db:
+            run = db.execute(
+                "select status from argus_private.account_deletion_runs where user_id=%s",
+                (person,),
+            ).fetchone()
+            assert run == (("started",) if winner == "deletion" else None)
+            if winner == "deletion":
+                assert db.execute(
+                    "select current_owner_id::text,closed_at from public.spaces where id=%s",
+                    (space.id,),
+                ).fetchone() == (people["owner"], closed_at)
+                assert (
+                    db.execute(
+                        "select count(*) from public.spaces where current_owner_id=%s and kind='business' and closed_at is null",
+                        (person,),
+                    ).fetchone()[0]
+                    == 0
+                )
+                if pending:
+                    assert db.execute(
+                        "select status from public.business_ownership_transfers where id=%s",
+                        (pending.id,),
+                    ).fetchone() == ("pending",)
+            else:
+                assert PostgresSpaceStore(pool).open_space(person) is not None
+    finally:
+        release.set()
+        with pool.connection() as db:
+            db.execute(
+                "delete from argus_private.account_deletion_runs where user_id=%s",
+                (person,),
+            )
+
+
+def test_ownership_acquired_during_reauthorization_refuses_fresh_deletion(world):
+    from unittest.mock import MagicMock
+
+    from argus.domain.account_deletion.service import AccountDeletionRejected
+
+    from tests.test_business_account_deletion_postgres import command
+
+    pool, _, people, _, _ = world
+    person = people["other"]
+    auth, apple = MagicMock(), MagicMock()
+    apple.capture.side_effect = lambda **_: PostgresSpaceStore(pool).create(
+        person, "Business acquired during reauthorization"
+    )
+    service = command({"pool": pool, "objects": None}, auth=auth, apple=apple)
+    with pytest.raises(AccountDeletionRejected, match="business_owner_must_exit"):
+        service.delete_account(user_id=person, apple_authorization_code="synthetic-code")
+    apple.capture.assert_called_once_with(
+        user_id=person, authorization_code="synthetic-code", deletion_claim=None
+    )
+    assert not auth.mock_calls
+    space = PostgresSpaceStore(pool).open_space(person)
+    assert space is not None
+    with pool.connection() as db:
+        assert (
+            db.execute(
+                "select 1 from argus_private.account_deletion_runs where user_id=%s",
+                (person,),
+            ).fetchone()
+            is None
+        )
+        assert (
+            db.execute(
+                "select 1 from argus_private.business_custody_reservations where space_id=%s",
+                (space.id,),
+            ).fetchone()
+            is None
+        )
+        assert (
+            db.execute(
+                "select 1 from public.business_close_mail_outbox where space_id=%s",
+                (space.id,),
+            ).fetchone()
+            is None
+        )

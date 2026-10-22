@@ -153,7 +153,7 @@ _RESPONSES: dict = {  # type: ignore[type-arg]
     ),
     403: _problem(
         "`account_deletion_not_allowed`: the account can't be deleted here "
-        "(an account placeholder)."
+        "(an account placeholder or a current owner of an open Business)."
     ),
     404: _problem(
         "`not_found`: `ARGUS_ACCOUNT_DELETION_ENABLED` is off; answered before "

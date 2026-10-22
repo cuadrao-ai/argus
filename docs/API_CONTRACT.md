@@ -3545,7 +3545,16 @@ was verified, so the person existed a moment ago.
   command to resolve its durable state. A known pending caller also receives this
   code if the deletion service cannot be built.
 - `401` means no valid session, including on resume; `403
-  account_deletion_not_allowed` refuses an undeletable account; `404 not_found`
+  account_deletion_not_allowed` refuses an account placeholder or the current
+  owner of an open Business. Transfer must be accepted or the Business closed
+  before a fresh deletion run can start. A pending transfer still blocks deletion.
+  This refusal creates no run, Auth lock, revocation, custody move, close date or mail.
+  Business creation and reopening recheck deletion admission after locking the
+  person's Auth row and refuse admitted deletion runs with the existing
+  `404 business_record_not_found`. Transfer acceptance retains its existing
+  deleting-target refusal. Existing deletion runs resume under their original run
+  ID, including legacy runs that still own an open Business. Their retention
+  recovery preserves any existing close date and deadline. `404 not_found`
   means the flag is off; `422` refuses invalid body fields or code bounds;
   `429 too_many_requests` carries `Retry-After`. The shared
   `503 auth_session_verification_unavailable` remains unchanged.

@@ -22,6 +22,10 @@ from argus.domain.business.country import (
     DEFAULT_COUNTRY,
     business_country,
 )
+from argus.domain.business.lifecycle import (
+    BusinessLifecycleError,
+    require_ownership_admission,
+)
 
 # Founder-approved October 8: the name a space starts with until renamed.
 DEFAULT_SPACE_NAMES = {"es": "Mi negocio", "en": "My business"}
@@ -109,9 +113,12 @@ class PostgresSpaceStore:
         self, person_id: str, name: str, country: str = DEFAULT_COUNTRY
     ) -> tuple[Space, bool]:
         with self._pool.connection() as connection, connection.transaction():
-            connection.execute(
+            user = connection.execute(
                 "select id from auth.users where id=%s for no key update", (person_id,)
-            )
+            ).fetchone()
+            if user is None:
+                raise BusinessLifecycleError("business_record_not_found")
+            require_ownership_admission(connection, person_id)
             created = connection.execute(
                 "insert into public.spaces (kind, name, created_by, current_owner_id, country, currency)"
                 " values ('business', %s, %s, %s, %s, %s)"

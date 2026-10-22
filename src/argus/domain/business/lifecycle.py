@@ -19,6 +19,15 @@ class BusinessLifecycleError(Exception):
         super().__init__(code)
 
 
+def require_ownership_admission(connection: Connection, person_id: str) -> None:
+    """Recheck deletion admission after acquiring this person's Auth row lock."""
+    if connection.execute(
+        "select 1 from argus_private.account_deletion_runs where user_id=%s",
+        (person_id,),
+    ).fetchone():
+        raise BusinessLifecycleError("business_record_not_found")
+
+
 @dataclass(frozen=True)
 class LifecycleResult:
     space_id: str
@@ -197,6 +206,8 @@ class PostgresBusinessLifecycle:
             raise BusinessLifecycleError("invalid_idempotency_key")
         with self._pool.connection() as connection, connection.transaction():
             name, closed_at = self._owned_space(connection, owner_id, space_id)
+            if action == "reopen":
+                require_ownership_admission(connection, owner_id)
             previous = connection.execute(
                 "select action,confirmation,result_closed_at,result_name,owner_id::text"
                 " from public.business_lifecycle_commands"

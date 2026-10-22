@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
 from argus.api.account_deletion_runtime import household_repository
-from argus.domain.account_deletion.service import AccountDeletionService
+from argus.domain.account_deletion.service import (
+    AccountDeletionRejected,
+    AccountDeletionService,
+    subject_hash,
+)
 from argus.domain.business.custody_graph import retained_dependencies
 from argus.domain.business.lifecycle import PostgresBusinessLifecycle
 from argus.domain.business.transfer import PostgresBusinessTransfer
@@ -26,11 +31,12 @@ class Auth(graph.FakeAuth):
         pass
 
 
-def command(w, *, auth=None, images=None):
+def command(w, *, auth=None, images=None, apple=None):
     return AccountDeletionService(
         households=household_repository(w["pool"]),
-        auth_admin=auth or Auth(),
+        auth_admin=auth if auth is not None else Auth(),
         revoker=None,
+        apple=apple,
         analytics=RecordingAnalyticsDeletion(),
         allow_fake_analytics=True,
         source_objects=w["objects"],
@@ -39,9 +45,25 @@ def command(w, *, auth=None, images=None):
     )
 
 
-def erase_open_owner(pool, user_id: str):
-    """The account-deletion command an open Business owner actually runs."""
+def close_owned_business(pool, user_id: str):
+    """Give a synthetic owner its grant and explicitly close its open Business."""
+    from argus.domain.business.access import ensure_owner_grant
+    from argus.domain.business.spaces import PostgresSpaceStore
 
+    space = PostgresSpaceStore(pool).open_space(user_id)
+    with pool.connection() as db:
+        ensure_owner_grant(db, space.id, user_id)
+    return PostgresBusinessLifecycle(pool).close(
+        owner_id=user_id,
+        space_id=space.id,
+        confirmation=space.name,
+        idempotency_key="erasure-fixture-close",
+    )
+
+
+def erase_open_owner(pool, user_id: str):
+    """Explicitly close the fixture's open Business, then erase the person."""
+    close_owned_business(pool, user_id)
     return command({"pool": pool, "objects": graph.FakeObjects()}).delete_account(
         user_id=user_id
     )
@@ -87,7 +109,7 @@ def close(w):
     )
 
 
-def transfer(w):
+def transfer(w, *, accept=True):
     with w["pool"].connection() as db:
         db.execute(
             "update auth.users set email_confirmed_at=now() where id=%s",
@@ -105,7 +127,8 @@ def transfer(w):
         confirmation="Colmado",
         idempotency_key="transfer-account-deletion",
     )
-    service.accept(actor_id=w["users"]["other"], transfer_id=pending.id)
+    if accept:
+        service.accept(actor_id=w["users"]["other"], transfer_id=pending.id)
 
 
 @pytest.mark.parametrize("transferred", [False, True])
@@ -470,3 +493,122 @@ def test_closed_member_mail_transport_is_removed_with_the_departing_person(
             "select 1 from public.financial_document_extractions where connection_id=%s",
             (w["cid"],),
         ).fetchone()
+
+
+@pytest.mark.parametrize("owner_state", ["original", "pending", "transferred"])
+@pytest.mark.parametrize("with_code", [False, True])
+def test_open_current_owner_refused_before_deletion_effects(
+    custody, owner_state, with_code
+):
+    w = custody
+    person = w["old"]
+    if owner_state == "pending":
+        transfer(w, accept=False)
+    elif owner_state == "transferred":
+        transfer(w)
+        person = w["users"]["other"]
+    before = graph._snapshot(w)
+    auth, apple = MagicMock(), MagicMock()
+    service = command(w, auth=auth, apple=apple)
+    with pytest.raises(AccountDeletionRejected, match="business_owner_must_exit"):
+        service.delete_account(
+            user_id=person,
+            **({"apple_authorization_code": "synthetic-code"} if with_code else {}),
+        )
+    assert graph._snapshot(w) == before
+    auth.assert_not_called()
+    assert not auth.mock_calls and not apple.mock_calls
+    assert not w["objects"].erased
+    with w["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select 1 from argus_private.account_deletion_runs where user_id=%s",
+                (person,),
+            ).fetchone()
+            is None
+        )
+        assert (
+            db.execute(
+                "select 1 from argus_private.business_custody_reservations where space_id=%s",
+                (w["space"],),
+            ).fetchone()
+            is None
+        )
+        assert db.execute(
+            "select closed_at from public.spaces where id=%s", (w["space"],)
+        ).fetchone() == (None,)
+
+
+@pytest.mark.parametrize("expired_claim", [False, True])
+def test_legacy_started_open_owner_run_resumes_same_run(custody, expired_claim):
+    from uuid import uuid4
+
+    w = custody
+    with w["pool"].connection() as db:
+        run_id = db.execute(
+            "insert into argus_private.account_deletion_runs"
+            " (subject_hash,user_id,analytics_distinct_id,status,steps,claim_id,claimed_until)"
+            " values(%s,%s,'synthetic-legacy','started','{}',%s,case when %s then now()-interval '1 second' else null end) returning id::text",
+            (
+                subject_hash(w["old"]),
+                w["old"],
+                str(uuid4()) if expired_claim else None,
+                expired_claim,
+            ),
+        ).fetchone()[0]
+    outcome = command(w).delete_account(user_id=w["old"])
+    assert outcome.status == "done" and outcome.run_id == run_id
+    assert not Auth().user_exists(w["old"])
+    with w["pool"].connection() as db:
+        assert db.execute(
+            "select status from argus_private.account_deletion_runs where id=%s",
+            (run_id,),
+        ).fetchone() == ("done",)
+        assert db.execute(
+            "select closed_at is not null,current_owner_id from public.spaces where id=%s",
+            (w["space"],),
+        ).fetchone() == (True, None)
+        assert retained_dependencies(db, w["old"]) == ()
+
+
+def test_owner_admission_query_failure_never_reports_progress(custody, monkeypatch):
+    from contextlib import contextmanager
+
+    from argus.domain.account_deletion.apple import AccountDeletionAdmissionError
+
+    w = custody
+    auth = MagicMock()
+    service = command(w, auth=auth)
+    connection = service._households.connection
+
+    class UnavailableOwnership:
+        def __init__(self, db):
+            self.db = db
+
+        def __getattr__(self, name):
+            return getattr(self.db, name)
+
+        def execute(self, query, *args, **kwargs):
+            if "select 1 from public.spaces" in query:
+                raise RuntimeError("synthetic ownership query unavailable")
+            return self.db.execute(query, *args, **kwargs)
+
+    @contextmanager
+    def unavailable():
+        with connection() as db:
+            yield UnavailableOwnership(db)
+
+    monkeypatch.setattr(service._households, "connection", unavailable)
+    with pytest.raises(
+        AccountDeletionAdmissionError, match="account_deletion_unavailable"
+    ):
+        service.delete_account(user_id=w["old"])
+    assert not auth.mock_calls and not w["objects"].erased
+    with w["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select 1 from argus_private.account_deletion_runs where user_id=%s",
+                (w["old"],),
+            ).fetchone()
+            is None
+        )

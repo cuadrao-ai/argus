@@ -584,6 +584,12 @@ class AccountDeletionService:
             user, apple_state = lock_apple_state(connection, user_id)
             row = connection.execute(select, (subject,)).fetchone()
             if row is None:
+                if connection.execute(
+                    "select 1 from public.spaces where kind='business'"
+                    " and current_owner_id=%s and closed_at is null",
+                    (user_id,),
+                ).fetchone():
+                    raise AccountDeletionRejected("business_owner_must_exit")
                 if existing_only:
                     return None
                 if origin != "route_first_pass":

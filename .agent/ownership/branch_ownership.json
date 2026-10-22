@@ -3786,7 +3786,9 @@
         "tests/test_account_deletion_api_postgres.py",
         "tests/test_account_deletion_postgres.py",
         "tests/test_business_scope_switch_routes_postgres.py",
-        "tests/test_profile_images_postgres.py"
+        "tests/test_profile_images_postgres.py",
+        "src/argus/api/routers/account.py",
+        "tests/test_account_deletion_api.py"
       ],
       "deny": [
         ".env",

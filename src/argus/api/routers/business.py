@@ -438,11 +438,17 @@ def start_space(
     A new space is born with the owner's grant. An old space without one gets
     it here, once."""
 
-    space, created = person.spaces.create(
-        person.person_id,
-        body.name or default_space_name(body.language),
-        body.country or DEFAULT_COUNTRY,
-    )
+    from argus.api.routers.business_lifecycle import lifecycle_problem
+    from argus.domain.business.lifecycle import BusinessLifecycleError
+
+    try:
+        space, created = person.spaces.create(
+            person.person_id,
+            body.name or default_space_name(body.language),
+            body.country or DEFAULT_COUNTRY,
+        )
+    except BusinessLifecycleError as error:
+        raise lifecycle_problem(request, error) from None
     _access_store(request).ensure_owner_grant(space.id, person.person_id)
     response.status_code = 201 if created else 200
     return space_payload(space)

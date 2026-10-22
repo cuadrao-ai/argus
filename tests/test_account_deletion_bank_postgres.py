@@ -46,6 +46,7 @@ from tests.test_account_deletion_fk_census_postgres import (
 )
 from tests.test_business_account_deletion_postgres import (
     Auth,
+    close_owned_business,
     command,
     erase_open_owner,
     release_custodian,
@@ -280,6 +281,7 @@ def _subject(raw: str) -> str:
 def test_the_api_deletes_an_owner_with_bank_rows(lane, owner, route) -> None:  # noqa: ANN001, F811
     user_id, space_id, account_id = owner
     with ConnectionPool(DSN, min_size=1, max_size=4) as pool:
+        close_owned_business(pool, user_id)
         service = command({"pool": pool, "objects": FakeObjects()})
         with patch.object(
             account_route, "account_deletion_service", return_value=service

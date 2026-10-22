@@ -136,6 +136,11 @@ def test_a_guest_is_deleted_by_the_same_command(enabled) -> None:  # noqa: ANN00
     ("error", "status", "code"),
     [
         (AccountDeletionRejected("placeholder"), 403, "account_deletion_not_allowed"),
+        (
+            AccountDeletionRejected("business_owner_must_exit"),
+            403,
+            "account_deletion_not_allowed",
+        ),
         (RuntimeError("boom"), 503, "account_deletion_incomplete"),
     ],
 )

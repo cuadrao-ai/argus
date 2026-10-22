@@ -58,7 +58,7 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: '`account_deletion_not_allowed`: the account can''t be deleted here
-            (an account placeholder).'
+            (an account placeholder or a current owner of an open Business).'
           content:
             application/json:
               schema:
