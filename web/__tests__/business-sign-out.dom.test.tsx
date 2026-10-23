@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { leaveSession, resetLeavingSession } from "@/lib/logout-flow";
 
 const originalFetch = globalThis.fetch;
+const originalMockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
 let listener: (event: string, session: { user: { id: string } } | null) => void = () => {};
 mock.module("@/lib/supabase-client", () => ({
   getSupabaseClient: () => ({
@@ -41,10 +42,15 @@ beforeAll(() => {
 
 let restoreConsent = () => {};
 let consentAsked = () => {};
+let firstConsent: unknown;
+let currentConsent = (): unknown => undefined;
 
 afterAll(() => {
   globalThis.fetch = originalFetch;
   restoreConsent();
+  assert.equal(currentConsent(), firstConsent, "the consent method is restored after sign-out tests");
+  if (originalMockAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+  else process.env.NEXT_PUBLIC_MOCK_AUTH = originalMockAuth;
   resetLeavingSession();
   GlobalRegistrator.unregister();
 });
@@ -59,7 +65,11 @@ async function mount() {
   const { default: BusinessApp } = await import("@/components/business-app/BusinessApp");
   const { liveBusinessDataSource } = await import("@/components/business-app/business-data");
   const { consent } = liveBusinessDataSource;
-  restoreConsent = () => Object.assign(liveBusinessDataSource, { consent });
+  if (firstConsent === undefined) {
+    firstConsent = consent;
+    restoreConsent = () => Object.assign(liveBusinessDataSource, { consent });
+  }
+  currentConsent = () => liveBusinessDataSource.consent;
   Object.assign(liveBusinessDataSource, {
     consent: async (version: string) => {
       consentAsked();
