@@ -87,6 +87,7 @@ export function RecoveryReset({ actions = getAuthSecurityActions }: { actions?: 
     { password },
   );
   const passwordLabel = t("auth.recovery.new_password", "New password");
+  const revocationAuthorityMissing = result?.revocation === "failed" && result.revocationAuthority === "absent";
 
   const retryRevocation = async () => {
     setError(null);
@@ -180,10 +181,12 @@ export function RecoveryReset({ actions = getAuthSecurityActions }: { actions?: 
             </p>
             {result.revocation === "failed" && (
               <p role="alert" className="text-sm leading-relaxed text-amber-700 dark:text-amber-200">
-                {t(
-                  "auth.recovery.revocation_warning",
-                  "Cuadrao could not confirm that every session was signed out. Retry before signing in again.",
-                )}
+                {revocationAuthorityMissing
+                  ? t("auth.recovery.revocation_authority_missing")
+                  : t(
+                      "auth.recovery.revocation_warning",
+                      "Cuadrao could not confirm that every session was signed out. Retry before signing in again.",
+                    )}
               </p>
             )}
             {result.revocation === "complete" && result.cookieSync === "failed" && (
@@ -195,7 +198,7 @@ export function RecoveryReset({ actions = getAuthSecurityActions }: { actions?: 
               </p>
             )}
             {error && <p role="alert" className={`text-sm ${inlineFailureTextClass}`}>{t(error)}</p>}
-            {result.revocation === "failed" ? (
+            {result.revocation === "failed" && !revocationAuthorityMissing ? (
               <button
                 type="button"
                 disabled={retryingRevocation}

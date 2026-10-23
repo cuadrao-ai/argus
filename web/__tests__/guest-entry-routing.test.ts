@@ -148,8 +148,10 @@ describe("a Cuadrao Business build has no guest chat", () => {
   test("the investing chat route is gone; the Security link and the reload button use the signed-in home", () => {
     expect(existsSync(join(root, "app/chat/page.tsx"))).toBe(false);
     const security = readFileSync(join(root, "app/account/security/page.tsx"), "utf-8");
-    expect(security).toContain("href={signedInHomePath()}");
-    expect(security).not.toContain('href="/chat"');
+    const securityView = readFileSync(join(root, "components/auth/AccountSecurity.tsx"), "utf-8");
+    expect(security).toContain("<AccountSecurity />");
+    expect(securityView).toContain("href={signedInHomePath()}");
+    expect(securityView).not.toContain('href="/chat"');
     const chat = readFileSync(join(root, "components/chat/ChatInterface.tsx"), "utf-8");
     expect(chat).toContain("window.location.assign(signedInHomePath())");
     expect(chat).not.toContain('window.location.assign("/chat")');

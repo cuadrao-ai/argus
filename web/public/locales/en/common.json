@@ -1464,6 +1464,7 @@
       "password_rejected": "We couldn’t update the password. Check the requirements or request a new recovery link.",
       "password_updated": "Your password is updated.",
       "reset_complete": "Your password is updated. Sign in again on every browser.",
+      "revocation_authority_missing": "We couldn’t confirm that every session was signed out. Sign in again and open Account security to sign them out.",
       "revocation_warning": "Cuadrao could not confirm that every session was signed out. Retry before signing in again.",
       "retry_revocation": "Retry sign out all sessions",
       "retrying_revocation": "Retrying...",

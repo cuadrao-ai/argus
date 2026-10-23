@@ -59,7 +59,21 @@ try {
     const prefix = `${language}-${theme}-${width}-${mode}`;
     const capture = async (state: string) => {
       const file = `${prefix}-${state}.png`;
-      const image = await page.screenshot({ path: resolve(output, file), fullPage: true, animations: "disabled", scale: "css" });
+      await page.evaluate(() => {
+        const mark = document.createElement("div");
+        mark.dataset.authEvidenceWatermark = "true";
+        mark.textContent = "MOCK AUTH CAPTURE";
+        mark.setAttribute("aria-hidden", "true");
+        Object.assign(mark.style, { position: "fixed", top: "8px", left: "8px", zIndex: "9999", padding: "4px 8px",
+          background: "#ffda80", color: "#172b26", borderRadius: "4px", font: "bold 12px sans-serif", pointerEvents: "none" });
+        document.body.append(mark);
+      });
+      let image: Buffer;
+      try {
+        image = await page.screenshot({ path: resolve(output, file), fullPage: true, animations: "disabled", scale: "css" });
+      } finally {
+        await page.locator('[data-auth-evidence-watermark="true"]').evaluate(node => node.remove());
+      }
       const baseline = process.env.EVIDENCE_BASELINE ? resolve(process.env.EVIDENCE_BASELINE, file) : "";
       captures.push({ file, head, sha256: createHash("sha256").update(image).digest("hex"), width, height, language, theme, mode, state, baselineIdentical: baseline && existsSync(baseline) ? image.equals(readFileSync(baseline)) : null });
     };

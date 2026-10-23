@@ -258,12 +258,14 @@ describe("password auth CAPTCHA and confirmation contract", () => {
   });
 
   test("the recovery form surfaces a rejected request", () => {
+    const page = readFileSync(join(root, "app/auth/forgot-password/page.tsx"), "utf-8");
     const recoveryForm = readFileSync(
-      join(root, "app/auth/forgot-password/page.tsx"),
+      join(root, "components/auth/RecoveryRequest.tsx"),
       "utf-8",
     );
 
-    expect(recoveryForm).toContain('setStatus("error")');
+    expect(page).toContain("<RecoveryRequest />");
+    expect(recoveryForm).toContain('setState("error")');
     expect(recoveryForm).toContain('role="alert"');
     expect(recoveryForm).toContain('"auth.recovery.request_error"');
   });

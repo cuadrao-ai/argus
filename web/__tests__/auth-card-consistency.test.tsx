@@ -4,6 +4,7 @@ import { doesNotMatch, equal, match } from "node:assert/strict";
 import { createElement, type ComponentProps, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { I18nextProvider } from "react-i18next";
+import { readFileSync } from "node:fs";
 
 import ForgotPasswordPage from "../app/auth/forgot-password/page";
 import AuthForm from "../components/auth/AuthForm";
@@ -69,10 +70,12 @@ describe("auth card consistency", () => {
 
   test("forgot password uses the canonical 20px card radius", async () => {
     const html = await renderLocalized(createElement(ForgotPasswordPage));
+    const shell = readFileSync(new URL("../components/auth/RecoveryShell.tsx", import.meta.url), "utf8");
+    const styles = readFileSync(new URL("../components/auth/recovery.module.css", import.meta.url), "utf8");
 
-    equal(occurrences(html, "border border-[var(--auth-line)]"), 1, "one card, on the Cuadrao line");
-    match(html, /rounded-\[20px\]/);
-    doesNotMatch(html, /rounded-\[24px\]/);
-    doesNotMatch(html, /shadow/);
+    equal(occurrences(html, "<section"), 1, "one recovery card");
+    match(shell, /<section className=\{styles\.card\}/);
+    match(styles, /\.card\s*\{[^}]*border:\s*1px solid var\(--auth-line\);[^}]*border-radius:\s*20px;/);
+    doesNotMatch(styles, /\.card\s*\{[^}]*box-shadow:/);
   });
 });

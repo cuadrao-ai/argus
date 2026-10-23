@@ -1,4 +1,5 @@
 import { clearArgusSessionCookies } from "./argus-api";
+import { readSessionStored, removeSessionStored, writeSessionStored } from "./browser-storage";
 import { classifyFailure, emailRetrySeconds } from "./failure-screen";
 import { acquirePasswordAuthCaptchaToken } from "./guest-captcha";
 import { PASSWORD_MIN_LENGTH } from "./password-strength";
@@ -7,14 +8,14 @@ import { getSupabaseClient } from "./supabase-client";
 export type AuthSecurityPort = {
   exchangeCodeForSession: (
     code: string,
-  ) => Promise<{ error: unknown | null }>;
+  ) => Promise<{ data?: { redirectType?: string | null } | null; error: unknown | null }>;
+  getValidatedSession?: () => Promise<{ userId: string; sessionId: string } | null>;
   updateUser: (
     attributes: Record<string, string>,
   ) => Promise<{ error: unknown | null }>;
   signOut: (options: {
     scope: "local" | "others" | "global";
   }) => Promise<{ error: unknown | null }>;
-  hasSession?: () => Promise<boolean>;
 };
 
 export type SessionActionResult = {
@@ -22,9 +23,50 @@ export type SessionActionResult = {
   freshLoginRequired: boolean;
   revocation: "complete" | "failed";
   cookieSync: "not_required" | "cleared" | "failed";
+  revocationAuthority?: "absent" | "unknown" | "present";
 };
 
 type ClearArgusCookies = () => Promise<void>;
+type RecoveryProofStore = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+const RECOVERY_PROOF_KEY = "cuadrao:recovery-session:v1";
+
+async function sessionFingerprint(sessionId: string): Promise<string> {
+  const bytes = new TextEncoder().encode(sessionId);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+type AuthIdentityReader = {
+  getClaims: () => Promise<{ data: { claims: { sub?: string; session_id?: string } } | null; error: unknown | null }>;
+  getUser: () => Promise<{ data: { user: { id: string } | null }; error: unknown | null }>;
+};
+
+function knownEndedSession(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const detail = error as { name?: unknown; code?: unknown; status?: unknown };
+  return detail.name === "AuthSessionMissingError"
+    || detail.status === 401
+    || ["bad_jwt", "invalid_jwt", "session_not_found", "session_expired",
+      "refresh_token_not_found", "refresh_token_already_used"].includes(String(detail.code));
+}
+
+export async function readValidatedAuthSession(auth: AuthIdentityReader): Promise<{ userId: string; sessionId: string } | null> {
+  const claims = await auth.getClaims();
+  if (claims.error) {
+    if (knownEndedSession(claims.error)) return null;
+    throw claims.error;
+  }
+  if (!claims.data?.claims) return null;
+  const user = await auth.getUser();
+  if (user.error) {
+    if (knownEndedSession(user.error)) return null;
+    throw user.error;
+  }
+  const userId = user.data.user?.id;
+  const sessionId = claims.data.claims.session_id;
+  if (!userId || !sessionId || claims.data.claims.sub !== userId) return null;
+  return { userId, sessionId };
+}
 
 export function accountSecurityLoadFailureAction(
   error: unknown,
@@ -55,10 +97,58 @@ function throwOnAuthError(error: unknown | null): void {
 export function createAuthSecurityActions(
   auth: AuthSecurityPort,
   clearCookies: ClearArgusCookies,
+  recoveryStore?: RecoveryProofStore,
 ) {
+  const store: RecoveryProofStore = recoveryStore ?? {
+    getItem: () => readSessionStored(RECOVERY_PROOF_KEY),
+    setItem: (_key, value) => {
+      if (!writeSessionStored(RECOVERY_PROOF_KEY, value)) throw new Error("Recovery session could not be saved.");
+    },
+    removeItem: () => removeSessionStored(RECOVERY_PROOF_KEY),
+  };
+  const clearRecoveryProof = () => {
+    try { store?.removeItem(RECOVERY_PROOF_KEY); } catch { /* Storage may be unavailable. */ }
+  };
+  const currentRecoveryProof = async () => {
+    if (!store || !auth.getValidatedSession) return null;
+    const identity = await auth.getValidatedSession();
+    if (!identity) return null;
+    return `${identity.userId}:${await sessionFingerprint(identity.sessionId)}`;
+  };
+  const hasRecoveryProof = async () => {
+    let stored: string | null;
+    try {
+      stored = store.getItem(RECOVERY_PROOF_KEY);
+    } catch {
+      return false;
+    }
+    if (!stored) return false;
+    let current: string | null;
+    try { current = await currentRecoveryProof(); }
+    catch { return false; } // A provider outage must not discard a valid recovery proof.
+    if (current && stored === current) return true;
+    clearRecoveryProof();
+    return false;
+  };
   const signOut = async (
     scope: "local" | "others" | "global",
   ): Promise<SessionActionResult> => {
+    if (scope !== "local") {
+      let identity: { userId: string; sessionId: string } | null = null;
+      let authority: "absent" | "unknown" = "absent";
+      try { identity = await auth.getValidatedSession?.() ?? null; }
+      catch { authority = "unknown"; }
+      if (!identity) {
+        if (scope === "others") throw new Error("Session could not be verified.");
+        return {
+          currentSessionPreserved: "unknown",
+          freshLoginRequired: false,
+          revocation: "failed",
+          cookieSync: "not_required",
+          revocationAuthority: authority,
+        };
+      }
+    }
     let revocationError: unknown | null = null;
     try {
       const { error } = await auth.signOut({ scope });
@@ -75,6 +165,16 @@ export function createAuthSecurityActions(
         cookieSync: "not_required",
       };
     }
+    if (revocationError) {
+      return {
+        currentSessionPreserved: "unknown",
+        freshLoginRequired: false,
+        revocation: "failed",
+        cookieSync: "not_required",
+        revocationAuthority: "present",
+      };
+    }
+    clearRecoveryProof();
     let cookieSync: SessionActionResult["cookieSync"] = "cleared";
     try {
       await clearCookies();
@@ -82,9 +182,9 @@ export function createAuthSecurityActions(
       cookieSync = "failed";
     }
     return {
-      currentSessionPreserved: revocationError ? "unknown" : false,
-      freshLoginRequired: revocationError === null,
-      revocation: revocationError ? "failed" : "complete",
+      currentSessionPreserved: false,
+      freshLoginRequired: true,
+      revocation: "complete",
       cookieSync,
     };
   };
@@ -92,25 +192,29 @@ export function createAuthSecurityActions(
   return {
     async exchangeRecoveryCode(code: string): Promise<void> {
       if (!code) throw new Error("Missing recovery code.");
-      const { error } = await auth.exchangeCodeForSession(code);
+      clearRecoveryProof();
+      const { data, error } = await auth.exchangeCodeForSession(code);
       throwOnAuthError(error);
+      if (data?.redirectType !== "recovery") throw new Error("The link is not a recovery link.");
+      const proof = await currentRecoveryProof();
+      if (!proof) throw new Error("Recovery session could not be verified.");
+      if (!store) throw new Error("Recovery session could not be saved.");
+      try { store.setItem(RECOVERY_PROOF_KEY, proof); }
+      catch { throw new Error("Recovery session could not be saved."); }
     },
 
     async hasRecoverySession(): Promise<boolean> {
-      if (!auth.hasSession) return false;
-      try {
-        return await auth.hasSession();
-      } catch {
-        return false;
-      }
+      return hasRecoveryProof();
     },
 
     async resetRecoveredPassword(
       newPassword: string,
     ): Promise<SessionActionResult> {
       if (newPassword.length < PASSWORD_MIN_LENGTH) throw new Error("Password is too short.");
+      if (!await hasRecoveryProof()) throw new Error("Recovery session is required.");
       const { error } = await auth.updateUser({ password: newPassword });
       throwOnAuthError(error);
+      clearRecoveryProof();
       return signOut("global");
     },
 
@@ -147,12 +251,15 @@ export function getAuthSecurityActions() {
     throw new Error("Authentication is not configured.");
   }
   const auth: AuthSecurityPort = {
-    exchangeCodeForSession: (code) => supabase.auth.exchangeCodeForSession(code),
+    exchangeCodeForSession: async (code) => {
+      const result = await supabase.auth.exchangeCodeForSession(code);
+      const data = result.data as typeof result.data & { redirectType?: string | null };
+      return { data: { redirectType: data?.redirectType ?? null }, error: result.error };
+    },
     updateUser: (attributes) => supabase.auth.updateUser(attributes),
     signOut: (options) => supabase.auth.signOut(options),
-    hasSession: async () => {
-      const { data, error } = await supabase.auth.getUser();
-      return error === null && data.user !== null;
+    getValidatedSession: async () => {
+      return readValidatedAuthSession(supabase.auth);
     },
   };
   return createAuthSecurityActions(auth, async () => {

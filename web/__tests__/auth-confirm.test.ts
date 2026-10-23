@@ -282,10 +282,10 @@ test("the layout accepts the confirm template and still rejects other links and 
   })).toThrow();
 });
 
-test("a recovery page with a session and no code is ready", async () => {
+test("a recovery page reload needs proof from a recovery exchange", async () => {
   const port: AuthSecurityPort = {
     async exchangeCodeForSession() {
-      return { error: null };
+      return { data: { redirectType: "recovery" }, error: null };
     },
     async updateUser() {
       return { error: null };
@@ -293,23 +293,36 @@ test("a recovery page with a session and no code is ready", async () => {
     async signOut() {
       return { error: null };
     },
-  };
-  const absent = createAuthSecurityActions(port, async () => undefined);
-  expect(await absent.hasRecoverySession()).toBe(false);
-  const ready = createAuthSecurityActions({ ...port, hasSession: async () => true }, async () => undefined);
-  expect(await ready.hasRecoverySession()).toBe(true);
-  const failed = createAuthSecurityActions({
-    ...port,
-    hasSession: async () => {
-      throw new Error("synthetic session read failure");
+    async getValidatedSession() {
+      return { userId: "person-1", sessionId: "session-1" };
     },
-  }, async () => undefined);
+  };
+  const values = new Map<string, string>();
+  const store = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+    removeItem: (key: string) => { values.delete(key); },
+  };
+  const ordinarySession = createAuthSecurityActions(port, async () => undefined, store);
+  expect(await ordinarySession.hasRecoverySession()).toBe(false);
+  await ordinarySession.exchangeRecoveryCode("recovery-code");
+  const reloaded = createAuthSecurityActions(port, async () => undefined, store);
+  expect(await reloaded.hasRecoverySession()).toBe(true);
+  const failed = createAuthSecurityActions({ ...port, getValidatedSession: async () => {
+    throw new Error("synthetic session read failure");
+  } }, async () => undefined, store);
   expect(await failed.hasRecoverySession()).toBe(false);
   const page = readFileSync(new URL("../app/auth/recovery/page.tsx", import.meta.url), "utf8");
-  const codeRead = page.indexOf('.get("code")');
-  const queryRemoved = page.indexOf('window.history.replaceState(null, "", "/auth/recovery")');
-  const session = page.indexOf("hasRecoverySession()");
-  const exchange = page.indexOf(".exchangeRecoveryCode(code)");
+  const reset = readFileSync(new URL("../components/auth/RecoveryReset.tsx", import.meta.url), "utf8");
+  expect(page).toContain("<RecoveryReset />");
+  const codeRead = reset.indexOf('.get("code")');
+  const queryRemoved = reset.indexOf('window.history.replaceState(null, "", window.location.pathname)');
+  const session = reset.indexOf("hasRecoverySession()");
+  const exchange = reset.indexOf(".exchangeRecoveryCode(code)");
+  expect(codeRead).toBeGreaterThan(-1);
+  expect(queryRemoved).toBeGreaterThan(-1);
+  expect(session).toBeGreaterThan(-1);
+  expect(exchange).toBeGreaterThan(-1);
   expect(session).toBeGreaterThan(queryRemoved);
   expect(exchange).toBeGreaterThan(queryRemoved);
   expect(queryRemoved).toBeGreaterThan(codeRead);

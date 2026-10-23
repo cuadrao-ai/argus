@@ -1464,6 +1464,7 @@
       "password_rejected": "No pudimos actualizar la contraseña. Revisa los requisitos o solicita un enlace de recuperación nuevo.",
       "password_updated": "Tu contraseña fue actualizada.",
       "reset_complete": "Tu contraseña fue actualizada. Inicia sesión de nuevo en cada navegador.",
+      "revocation_authority_missing": "No pudimos confirmar que todas las sesiones se cerraron. Inicia sesión de nuevo y abre Seguridad de la cuenta para cerrarlas.",
       "revocation_warning": "Cuadrao no pudo confirmar que todas las sesiones se cerraron. Vuelve a intentarlo antes de iniciar sesión de nuevo.",
       "retry_revocation": "Reintentar cerrar todas las sesiones",
       "retrying_revocation": "Reintentando...",
