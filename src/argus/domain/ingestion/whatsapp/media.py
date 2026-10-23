@@ -44,6 +44,8 @@ if not any(isinstance(f, _DropMetaRequestLines) for f in _httpx_logger.filters):
 
 _GRAPH_NUMBER = re.compile(r"[0-9]{1,10}")
 _GRAPH_WORD = re.compile(r"[A-Za-z0-9_]{1,40}")
+_MEDIA_STEPS = frozenset({"locate", "download"})
+_MEDIA_REASONS = frozenset({"bad_media_id", "status", "transport", "payload"})
 
 
 def graph_error(response: httpx.Response) -> dict[str, str]:
@@ -67,7 +69,34 @@ def graph_error(response: httpx.Response) -> dict[str, str]:
 
 
 def _unavailable(step: str, reason: str, **fields: str | int) -> MediaUnavailable:
-    logger.warning("WhatsApp media unavailable", step=step, reason=reason, **fields)
+    safe_step = step if step in _MEDIA_STEPS else "unknown"
+    safe_reason = reason if reason in _MEDIA_REASONS else "unknown"
+    safe_fields: dict[str, str | int] = {}
+    for name, value in fields.items():
+        if (
+            name == "http_status"
+            and isinstance(value, int)
+            and not isinstance(value, bool)
+            and 100 <= value <= 599
+        ):
+            safe_fields[name] = value
+        elif name in {"graph_code", "graph_error_subcode"}:
+            safe_fields[name] = (
+                value if isinstance(value, str) and _GRAPH_NUMBER.fullmatch(value) else "unknown"
+            )
+        elif name == "graph_type":
+            safe_fields[name] = (
+                value if isinstance(value, str) and _GRAPH_WORD.fullmatch(value) else "unknown"
+            )
+
+    diagnostics = [f"step={safe_step}", f"reason={safe_reason}"]
+    diagnostics.extend(f"{name}={value}" for name, value in safe_fields.items())
+    logger.warning(
+        f"WhatsApp media unavailable: {' '.join(diagnostics)}",
+        step=safe_step,
+        reason=safe_reason,
+        **safe_fields,
+    )
     return MediaUnavailable("whatsapp_media_unavailable")
 
 

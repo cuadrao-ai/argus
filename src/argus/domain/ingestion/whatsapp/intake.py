@@ -10,6 +10,7 @@ the owner's choice in the web app.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -65,6 +66,7 @@ CLAIM_SECONDS = 90
 PROCESSING_SECONDS = CLAIM_SECONDS - 15
 CODE_TTL = timedelta(minutes=10)
 SERVICE_WINDOW = timedelta(hours=24)
+_REPLY_REJECTION = re.compile(r"([1-5][0-9]{2})(?::([0-9]{1,10}))?")
 
 
 class DeliveryInFlight(Exception):
@@ -520,4 +522,29 @@ class WhatsAppIntake:
                 reply_payload(to=message.sender, in_reply_to=message.id, body=body)
             )
         except ReplyFailed as error:
-            log.warning("WhatsApp acknowledgement not sent", failure_mode=str(error))
+            reason = (
+                error.args[0]
+                if error.args and isinstance(error.args[0], str)
+                else ""
+            )
+            rejection = _REPLY_REJECTION.fullmatch(reason)
+            failure_mode = (
+                "transport"
+                if reason == "transport"
+                else "provider_rejection"
+                if rejection
+                else "unknown"
+            )
+            outcome = "unknown" if error.outcome_unknown is True else "known"
+            diagnostics: dict[str, str | int] = {
+                "failure_mode": failure_mode,
+                "outcome": outcome,
+            }
+            if rejection:
+                diagnostics["http_status"] = int(rejection.group(1))
+                if rejection.group(2):
+                    diagnostics["graph_code"] = rejection.group(2)
+            rendered = " ".join(f"{name}={value}" for name, value in diagnostics.items())
+            log.warning(
+                f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics
+            )
