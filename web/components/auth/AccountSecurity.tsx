@@ -36,12 +36,13 @@ import { referenceCode, runQuietRetries, sessionEndedLoginPath } from "@/lib/fai
 type SignOutScope = "local" | "others" | "global";
 type Confirmation = Exclude<SignOutScope, "local"> | null;
 type Section = "password" | "sessions";
-type Busy = "password" | SignOutScope | null;
+type Busy = "password" | "cookies" | SignOutScope | null;
 type AuthCheckState = "checking" | "ready" | "unavailable" | "closed" | "server";
+type RetryTarget = SignOutScope | "password" | { kind: "cookies"; successMessage: string };
 /** What the last action left on screen, shown inside the section it came from. */
 type Outcome =
   | { kind: "done"; section: Section; text: string }
-  | { kind: "warning" | "error"; section: Section; text: string; retry: SignOutScope | "password" };
+  | { kind: "warning" | "error"; section: Section; text: string; retry: RetryTarget };
 
 
 type PasswordFieldName = "current" | "next";
@@ -126,7 +127,7 @@ export function AccountSecurity({ actions = getAuthSecurityActions, loadSession 
       setOutcome({
         kind: "warning",
         section,
-        retry,
+        retry: { kind: "cookies", successMessage },
         text: t(
           "account_security.cookie_sync_warning",
           "Sessions were revoked, but local cookie cleanup could not be confirmed.",
@@ -225,8 +226,18 @@ export function AccountSecurity({ actions = getAuthSecurityActions, loadSession 
     }
   };
 
-  const retry = (target: SignOutScope | "password") => {
-    if (target === "password") passwordForm.current?.requestSubmit();
+  const retry = async (target: RetryTarget, section: Section) => {
+    if (typeof target === "object") {
+      if (busy !== null) return;
+      setBusy("cookies");
+      try {
+        if (await actions().retryCookieCleanup() === "cleared") {
+          setOutcome({ kind: "done", section, text: target.successMessage });
+        }
+      } finally {
+        setBusy(null);
+      }
+    } else if (target === "password") passwordForm.current?.requestSubmit();
     else void signOut(target);
   };
 
@@ -260,7 +271,7 @@ export function AccountSecurity({ actions = getAuthSecurityActions, loadSession 
           <button
             type="button"
             disabled={busy !== null}
-            onClick={() => retry(outcome.retry)}
+            onClick={() => void retry(outcome.retry, section)}
             className={`${quietButtonClass} -ml-1`}
           >
             {retryLabel}

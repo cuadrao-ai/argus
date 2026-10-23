@@ -479,4 +479,24 @@ describe("account security actions", () => {
       cookieSync: "failed",
     });
   });
+
+  test("cookie cleanup retries return cleanup status without repeating provider actions", async () => {
+    const port = authPort();
+    let cookieClears = 0;
+    const actions = createAuthSecurityActions(port.auth, async () => {
+      cookieClears += 1;
+      if (cookieClears < 3) throw new Error("cookie cleanup unavailable");
+    });
+    const result = await actions.changePassword({ currentPassword: "old-password", newPassword: "new-password" });
+    port.auth.getValidatedSession = async () => { throw new Error("ended session must not be checked"); };
+
+    expect(result.revocation).toBe("complete");
+    expect(result.freshLoginRequired).toBe(true);
+    expect(result.cookieSync).toBe("failed");
+    expect(await actions.retryCookieCleanup()).toBe("failed");
+    expect(await actions.retryCookieCleanup()).toBe("cleared");
+    expect(cookieClears).toBe(3);
+    expect(port.updates).toHaveLength(1);
+    expect(port.scopes).toEqual(["global"]);
+  });
 });

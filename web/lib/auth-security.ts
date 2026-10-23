@@ -130,6 +130,14 @@ export function createAuthSecurityActions(
     clearRecoveryProof();
     return false;
   };
+  const retryCookieCleanup = async (): Promise<"cleared" | "failed"> => {
+    try {
+      await clearCookies();
+      return "cleared";
+    } catch {
+      return "failed";
+    }
+  };
   const signOut = async (
     scope: "local" | "others" | "global",
   ): Promise<SessionActionResult> => {
@@ -175,12 +183,7 @@ export function createAuthSecurityActions(
       };
     }
     clearRecoveryProof();
-    let cookieSync: SessionActionResult["cookieSync"] = "cleared";
-    try {
-      await clearCookies();
-    } catch {
-      cookieSync = "failed";
-    }
+    const cookieSync = await retryCookieCleanup();
     return {
       currentSessionPreserved: false,
       freshLoginRequired: true,
@@ -242,6 +245,7 @@ export function createAuthSecurityActions(
     signOutThisBrowser: () => signOut("local"),
     signOutOtherSessions: () => signOut("others"),
     signOutAllSessions: () => signOut("global"),
+    retryCookieCleanup,
   };
 }
 

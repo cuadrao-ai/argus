@@ -94,7 +94,7 @@ test("rate limiting respects the service wait", async () => {
 test("only the eye reveals the password and a failed reset retains the value", async () => {
   const { RecoveryReset } = await import("@/components/auth/RecoveryReset");
   const complete = { currentSessionPreserved: false, freshLoginRequired: true, revocation: "complete", cookieSync: "cleared" } as const;
-  const page = await mount(<RecoveryReset actions={() => ({ hasRecoverySession: async () => true, exchangeRecoveryCode: async () => {}, resetRecoveredPassword: async () => { throw new Error("fixture"); }, changePassword: async () => complete, signOutThisBrowser: async () => complete, signOutOtherSessions: async () => complete, signOutAllSessions: async () => complete })} />);
+  const page = await mount(<RecoveryReset actions={() => ({ hasRecoverySession: async () => true, exchangeRecoveryCode: async () => {}, resetRecoveredPassword: async () => { throw new Error("fixture"); }, changePassword: async () => complete, signOutThisBrowser: async () => complete, signOutOtherSessions: async () => complete, signOutAllSessions: async () => complete, retryCookieCleanup: async () => "cleared" })} />);
   try {
     await page.type("Synthetic phrase 2026");
     const input = page.host.querySelector("input")!;
@@ -117,7 +117,7 @@ test("only the eye reveals the password and a failed reset retains the value", a
 test("expired links offer a new link without exposing a password form", async () => {
   const { RecoveryReset } = await import("@/components/auth/RecoveryReset");
   const complete = { currentSessionPreserved: false, freshLoginRequired: true, revocation: "complete", cookieSync: "cleared" } as const;
-  const page = await mount(<RecoveryReset actions={() => ({ hasRecoverySession: async () => false, exchangeRecoveryCode: async () => {}, resetRecoveredPassword: async () => complete, changePassword: async () => complete, signOutThisBrowser: async () => complete, signOutOtherSessions: async () => complete, signOutAllSessions: async () => complete })} />);
+  const page = await mount(<RecoveryReset actions={() => ({ hasRecoverySession: async () => false, exchangeRecoveryCode: async () => {}, resetRecoveredPassword: async () => complete, changePassword: async () => complete, signOutThisBrowser: async () => complete, signOutOtherSessions: async () => complete, signOutAllSessions: async () => complete, retryCookieCleanup: async () => "cleared" })} />);
   try {
     assert.equal(page.host.querySelector("form"), null);
     assert.ok(page.host.querySelector('a[href="/auth/forgot-password"]'));

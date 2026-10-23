@@ -45,6 +45,7 @@ async function mount(language: "es-419" | "en" = "es-419") {
     exchangeRecoveryCode: async () => undefined,
     resetRecoveredPassword: async (password: string) => { calls.push(password); return resetResult; },
     signOutAllSessions: async () => { retryCalls += 1; return retryResult; },
+    retryCookieCleanup: async () => "cleared",
   })) as unknown as typeof getAuthSecurityActions;
   await act(async () => root.render(<I18nextProvider i18n={i18n}><RecoveryReset actions={actions} /></I18nextProvider>));
   for (let i = 0; i < 40 && !host.querySelector("form") && !host.querySelector('[role="alert"]'); i += 1) {

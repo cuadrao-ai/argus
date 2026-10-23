@@ -17,13 +17,15 @@ const run = (name: string) => async (input?: unknown) => {
 };
 
 const realAuth = await import("@/lib/auth-security");
+let actionsOverride: ReturnType<typeof realAuth.createAuthSecurityActions> | null = null;
 mock.module("@/lib/auth-security", () => ({
   ...realAuth,
-  getAuthSecurityActions: () => ({
+  getAuthSecurityActions: () => actionsOverride ?? ({
     changePassword: run("changePassword"),
     signOutThisBrowser: run("signOutThisBrowser"),
     signOutOtherSessions: run("signOutOtherSessions"),
     signOutAllSessions: run("signOutAllSessions"),
+    retryCookieCleanup: async () => "cleared",
   }),
 }));
 const realApi = await import("@/lib/argus-api");
@@ -38,6 +40,7 @@ afterEach(() => {
   calls.length = 0;
   failing = new Set();
   freshLoginRequired = false;
+  actionsOverride = null;
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();
@@ -78,6 +81,71 @@ async function mount() {
 const strong = () => `clave-${Math.random().toString(36).slice(2, 10)}`;
 
 describe("account security", () => {
+  for (const source of ["password", "local", "global"] as const) {
+    test(`${source} cookie cleanup retries preserve completed revocation and the original section`, async () => {
+      const providerCalls: string[] = [];
+      let sessionPresent = true;
+      let cookieClears = 0;
+      actionsOverride = realAuth.createAuthSecurityActions({
+        exchangeCodeForSession: async () => ({ error: null }),
+        getValidatedSession: async () => {
+          providerCalls.push("validate");
+          return sessionPresent ? { userId: "person-1", sessionId: "session-1" } : null;
+        },
+        updateUser: async () => { providerCalls.push("update"); return { error: null }; },
+        signOut: async ({ scope }) => {
+          providerCalls.push(scope);
+          sessionPresent = false;
+          return { error: null };
+        },
+      }, async () => {
+        cookieClears += 1;
+        if (cookieClears < 3) throw new Error("cookie cleanup unavailable");
+      });
+      const page = await mount();
+      try {
+        if (source === "password") {
+          await page.type("current-password", strong());
+          await page.type("new-password", strong());
+          await page.press("Cambiar contraseña");
+        } else if (source === "local") {
+          await page.press("Cerrar sesión en este navegador");
+        } else {
+          await page.press("Cerrar todas las sesiones");
+          await page.press("Confirmar");
+        }
+        await page.settle();
+        const expectedCalls = source === "password" ? ["update", "validate", "global"]
+          : source === "global" ? ["validate", "global"] : ["local"];
+        assert.deepEqual(providerCalls, expectedCalls);
+        assert.equal(sessionPresent, false);
+        assert.equal(cookieClears, 1);
+        const sectionId = source === "password" ? "password-title" : "sessions-title";
+        const section = page.host.querySelector(`section[aria-labelledby="${sectionId}"]`)!;
+        const warning = section.querySelector('[role="alert"] p')?.textContent;
+        assert.ok(warning);
+        assert.equal(page.input("new-password").disabled, true);
+        await page.press("Reintentar");
+        await page.settle();
+        assert.equal(cookieClears, 2, "Retry calls cookie cleanup again after the provider session ended");
+        assert.deepEqual(providerCalls, expectedCalls, "cleanup does not update, revoke, or validate the ended session");
+        assert.equal(section.querySelector('[role="alert"] p')?.textContent, warning);
+        assert.equal(page.input("new-password").disabled, true);
+        assert.equal(page.host.querySelector('button[type="submit"]'), null);
+        await page.press("Reintentar");
+        await page.settle();
+        assert.equal(cookieClears, 3);
+        assert.deepEqual(providerCalls, expectedCalls);
+        assert.equal(page.host.querySelector('[role="alert"]'), null);
+        const spanish = (await import("@/public/locales/es-419/common.json")).default;
+        assert.equal(section.querySelector('[role="status"]')?.textContent,
+          source === "password" ? spanish.account_security.password.changed : spanish.account_security.sessions.signed_out);
+        assert.equal(section.querySelector('a[href="/?auth=login"]')?.textContent, "Volver a iniciar sesión");
+        assert.equal(page.input("new-password").disabled, true);
+      } finally { await page.close(); }
+    });
+  }
+
   test("two password fields with real labels and autocomplete, and guidance revealed on focus", async () => {
     const page = await mount();
     try {

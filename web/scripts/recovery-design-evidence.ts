@@ -44,6 +44,7 @@ export default function RecoveryEvidenceFixture() {
     changePassword: async () => complete,
     signOutThisBrowser: async () => complete,
     signOutOtherSessions: async () => complete,
+    retryCookieCleanup: async () => "cleared",
   })) as typeof getAuthSecurityActions;
   const request = async (_email: string): Promise<void> => {
     if (scenario === "request-limited") throw new RecoveryRequestError(429, 45);
