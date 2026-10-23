@@ -1,6 +1,38 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "codex/auth-checkpoint2-integration-20261022": {
+      "description": "Approved auth checkpoint integration with email-first entry, eight-slot confirmation, bounded resend and synthetic verification. No hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".github/workflows/auth-design-evidence.yml",
+        "docs/handoffs/confirmation-design-checkpoint-draft.md",
+        "web/__tests__/auth-email-first.dom.test.tsx",
+        "web/__tests__/auth-email-hook.test.ts",
+        "web/__tests__/auth-hero.dom.test.tsx",
+        "web/__tests__/email-otp.test.ts",
+        "web/__tests__/signup-confirmation-code.dom.test.tsx",
+        "web/app/auth-entry.module.css",
+        "web/app/page.tsx",
+        "web/components/auth/AuthForm.tsx",
+        "web/components/auth/AuthHero.tsx",
+        "web/lib/email-otp.ts",
+        "web/public/images/auth/confirmation-envelope.png",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json",
+        "web/scripts/auth-design-evidence.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "src/**",
+        "supabase/**",
+        "ios/**",
+        "mobile/**",
+        "marketing/**"
+      ]
+    },
     "codex/business-duplicate-resolution-20261022": {
       "description": "Explicit same-Business receipt duplicate decisions with live human prepare authority, bounded evidence, review UI and isolated proofs. No hosted changes.",
       "base_ref": "origin/codex/private-alpha-next",

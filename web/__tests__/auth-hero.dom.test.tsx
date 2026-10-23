@@ -126,6 +126,6 @@ test.each(copy)("%s %s keeps complete hero accessible and form title static", as
   expect(heading.querySelectorAll(".invisible").length).toBe(0);
   expect(timers.size).toBe(0);
   await act(async () => i18n.changeLanguage(language === "en" ? "es-419" : "en"));
-  expect(host.querySelectorAll('[data-testid="auth-hero"] .invisible').length).toBeGreaterThan(0);
-  expect(timers.size).toBe(1);
+  expect(host.querySelectorAll('[data-testid="auth-hero"] .invisible').length).toBe(0);
+  expect(timers.size).toBe(0);
 });

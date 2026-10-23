@@ -5,6 +5,11 @@ on:
   pull_request:
     branches: [codex/private-alpha-next]
     paths:
+      - web/components/auth/**
+      - web/lib/email-otp.ts
+      - web/app/page.tsx
+      - web/app/auth-entry.module.css
+      - web/public/locales/*/common.json
       - web/scripts/auth-design-evidence.ts
       - .github/workflows/auth-design-evidence.yml
 
@@ -17,6 +22,8 @@ jobs:
     timeout-minutes: 15
     env:
       NEXT_PUBLIC_MOCK_AUTH: "true"
+      NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP: "true"
+      NEXT_PUBLIC_CUADRAO_LOCAL_QA_CAPTCHA_TOKEN: argus-local-browser-qa
       NEXT_PUBLIC_APP_ENV: local
       NEXT_PUBLIC_ENABLE_SPANISH: "true"
       NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true"

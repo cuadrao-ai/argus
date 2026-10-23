@@ -290,6 +290,7 @@ export default function LandingPage() {
                 />
               ) : (
                 <AuthForm
+                  emailFirst
                   mode={isSignup ? "signup" : "login"}
                   brand="cuadrao"
                   onModeChange={(mode) => updateAuthMode(mode)}
