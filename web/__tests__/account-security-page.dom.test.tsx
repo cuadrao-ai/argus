@@ -17,13 +17,15 @@ const run = (name: string) => async (input?: unknown) => {
 };
 
 const realAuth = await import("@/lib/auth-security");
+let actionsOverride: ReturnType<typeof realAuth.createAuthSecurityActions> | null = null;
 mock.module("@/lib/auth-security", () => ({
   ...realAuth,
-  getAuthSecurityActions: () => ({
+  getAuthSecurityActions: () => actionsOverride ?? ({
     changePassword: run("changePassword"),
     signOutThisBrowser: run("signOutThisBrowser"),
     signOutOtherSessions: run("signOutOtherSessions"),
     signOutAllSessions: run("signOutAllSessions"),
+    retryCookieCleanup: async () => "cleared",
   }),
 }));
 const realApi = await import("@/lib/argus-api");
@@ -38,6 +40,7 @@ afterEach(() => {
   calls.length = 0;
   failing = new Set();
   freshLoginRequired = false;
+  actionsOverride = null;
 });
 afterAll(async () => {
   await GlobalRegistrator.unregister();
@@ -78,7 +81,72 @@ async function mount() {
 const strong = () => `clave-${Math.random().toString(36).slice(2, 10)}`;
 
 describe("account security", () => {
-  test("two password fields with real labels and autocomplete, and the length rule shown before any error", async () => {
+  for (const source of ["password", "local", "global"] as const) {
+    test(`${source} cookie cleanup retries preserve completed revocation and the original section`, async () => {
+      const providerCalls: string[] = [];
+      let sessionPresent = true;
+      let cookieClears = 0;
+      actionsOverride = realAuth.createAuthSecurityActions({
+        exchangeCodeForSession: async () => ({ error: null }),
+        getValidatedSession: async () => {
+          providerCalls.push("validate");
+          return sessionPresent ? { userId: "person-1", sessionId: "session-1" } : null;
+        },
+        updateUser: async () => { providerCalls.push("update"); return { error: null }; },
+        signOut: async ({ scope }) => {
+          providerCalls.push(scope);
+          sessionPresent = false;
+          return { error: null };
+        },
+      }, async () => {
+        cookieClears += 1;
+        if (cookieClears < 3) throw new Error("cookie cleanup unavailable");
+      });
+      const page = await mount();
+      try {
+        if (source === "password") {
+          await page.type("current-password", strong());
+          await page.type("new-password", strong());
+          await page.press("Cambiar contraseña");
+        } else if (source === "local") {
+          await page.press("Cerrar sesión en este navegador");
+        } else {
+          await page.press("Cerrar todas las sesiones");
+          await page.press("Confirmar");
+        }
+        await page.settle();
+        const expectedCalls = source === "password" ? ["update", "validate", "global"]
+          : source === "global" ? ["validate", "global"] : ["local"];
+        assert.deepEqual(providerCalls, expectedCalls);
+        assert.equal(sessionPresent, false);
+        assert.equal(cookieClears, 1);
+        const sectionId = source === "password" ? "password-title" : "sessions-title";
+        const section = page.host.querySelector(`section[aria-labelledby="${sectionId}"]`)!;
+        const warning = section.querySelector('[role="alert"] p')?.textContent;
+        assert.ok(warning);
+        assert.equal(page.input("new-password").disabled, true);
+        await page.press("Reintentar");
+        await page.settle();
+        assert.equal(cookieClears, 2, "Retry calls cookie cleanup again after the provider session ended");
+        assert.deepEqual(providerCalls, expectedCalls, "cleanup does not update, revoke, or validate the ended session");
+        assert.equal(section.querySelector('[role="alert"] p')?.textContent, warning);
+        assert.equal(page.input("new-password").disabled, true);
+        assert.equal(page.host.querySelector('button[type="submit"]'), null);
+        await page.press("Reintentar");
+        await page.settle();
+        assert.equal(cookieClears, 3);
+        assert.deepEqual(providerCalls, expectedCalls);
+        assert.equal(page.host.querySelector('[role="alert"]'), null);
+        const spanish = (await import("@/public/locales/es-419/common.json")).default;
+        assert.equal(section.querySelector('[role="status"]')?.textContent,
+          source === "password" ? spanish.account_security.password.changed : spanish.account_security.sessions.signed_out);
+        assert.equal(section.querySelector('a[href="/?auth=login"]')?.textContent, "Volver a iniciar sesión");
+        assert.equal(page.input("new-password").disabled, true);
+      } finally { await page.close(); }
+    });
+  }
+
+  test("two password fields with real labels and autocomplete, and guidance revealed on focus", async () => {
     const page = await mount();
     try {
       const fields = [...page.host.querySelectorAll<HTMLInputElement>("form input")];
@@ -87,6 +155,9 @@ describe("account security", () => {
         ["Contraseña nueva", "new-password", "password"],
       ], "no retype field: the eye and the password manager cover typos");
       assert.equal(page.input("new-password").getAttribute("passwordrules"), "minlength: 8;");
+      assert.equal(page.host.querySelector('[data-testid="password-coach"]'), null);
+      assert.ok(fields.every(field => field.placeholder));
+      await act(async () => page.input("new-password").focus());
       assert.match(page.host.querySelector('[data-testid="password-coach"]')?.textContent ?? "", /Al menos 8 caracteres/);
       assert.equal(page.button("Cambiar contraseña").disabled, false, "the submit is there to press, it checks on press");
     } finally {
@@ -109,17 +180,51 @@ describe("account security", () => {
     }
   });
 
-  test("submitting with gaps lists every broken field and changes nothing", async () => {
+  test("submitting with gaps focuses the first invalid field without a duplicate banner", async () => {
     const page = await mount();
     try {
       await page.press("Cambiar contraseña");
       const summary = page.host.querySelector('[data-testid="form-error-summary"]');
-      assert.ok(summary);
-      assert.deepEqual([...summary.querySelectorAll("a")].map((link) => link.getAttribute("href")), ["#current-password", "#new-password"]);
+      assert.equal(summary, null);
+      assert.equal(page.host.querySelector('[data-testid="password-coach"]'), null, "errors alone must not expand untouched password guidance");
+      assert.equal(document.activeElement?.id, "current-password");
+      assert.equal(page.input("current-password").getAttribute("aria-invalid"), "true");
+      assert.equal(page.input("new-password").getAttribute("aria-invalid"), "true");
       assert.deepEqual(calls, []);
     } finally {
       await page.close();
     }
+  });
+
+  test("eye controls reveal only their own field and keep the eyelash icon", async () => {
+    const page = await mount();
+    try {
+      await page.type("current-password", "Synthetic current password");
+      await page.type("new-password", "Synthetic next password");
+      await act(async () => page.input("new-password").click());
+      assert.equal(page.input("new-password").type, "password");
+      const eye = page.host.querySelector<HTMLButtonElement>('button[aria-controls="new-password"]')!;
+      await act(async () => eye.click());
+      assert.equal(page.input("new-password").type, "text");
+      assert.equal(page.input("current-password").type, "password");
+      assert.ok(eye.querySelector(".lucide-eye-closed"));
+      await act(async () => eye.click());
+      assert.equal(page.input("new-password").type, "password");
+    } finally { await page.close(); }
+  });
+
+  test("editing after a failed password change clears the stale request error", async () => {
+    failing = new Set(["changePassword"]);
+    const page = await mount();
+    try {
+      await page.type("current-password", "Synthetic current password");
+      await page.type("new-password", "Synthetic next password");
+      await page.press("Cambiar contraseña");
+      assert.ok(page.host.querySelector('[role="alert"]'));
+      await page.type("current-password", "Corrected synthetic password");
+      assert.equal(page.host.querySelector('[role="alert"]'), null);
+      assert.equal(page.input("new-password").value, "Synthetic next password");
+    } finally { await page.close(); }
   });
 
   test("a valid change sends the same call as before and empties the fields", async () => {
@@ -161,9 +266,9 @@ describe("account security", () => {
     const page = await mount();
     try {
       for (const [name, line] of [
-        ["Cerrar sesión en este navegador", "Sales solo aquí. Tus otras sesiones siguen abiertas."],
-        ["Cerrar otras sesiones", "Sales en tus otros navegadores y dispositivos. Tu sesión aquí sigue abierta."],
-        ["Cerrar todas las sesiones", "Sales en todas partes, también aquí. Tendrás que iniciar sesión de nuevo."],
+        ["Cerrar sesión en este navegador", "Tus otras sesiones siguen abiertas."],
+        ["Cerrar otras sesiones", "Este navegador sigue conectado."],
+        ["Cerrar todas las sesiones", "Incluye este navegador. Tendrás que iniciar sesión de nuevo."],
       ]) {
         const describedBy = page.button(name).getAttribute("aria-describedby");
         assert.equal(document.getElementById(describedBy ?? "")?.textContent, line);

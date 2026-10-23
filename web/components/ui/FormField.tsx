@@ -178,7 +178,7 @@ export function PasswordField({ id, label, hint, error, success, reserveMessages
   const [engaged, setEngaged] = useState(false);
   const fresh = input.autoComplete === "new-password";
   const coachId = `${id}-coach`;
-  const showCoach = fresh && (coaching === "always" || engaged || input.value !== "" || Boolean(error));
+  const showCoach = fresh && (coaching === "always" || engaged || input.value !== "");
   const described = [showCoach ? coachId : null, error || success || hint ? noteId(id) : null].filter(Boolean).join(" ") || undefined;
   return (
     <FieldFrame id={id} label={label} hint={hint} error={error} success={success} reserveMessages={reserveMessages} coach={showCoach ? <PasswordCoach id={coachId} value={input.value} advice={advice} progressive={coaching === "on-focus"} /> : null}>
