@@ -1401,10 +1401,16 @@
       "new_account": "New to Cuadrao?",
       "password_requirement": "At least 8 characters.",
       "confirmation_title": "Check your email",
-      "confirmation_description": "Enter the code we sent to {{correo}}.",
+      "confirmation_description": "Enter the code we sent to <email>{{correo}}</email>.",
+      "confirmation_code_incomplete": "Enter all {{count}} digits.",
       "confirmation_code_label": "Confirmation code",
+      "confirmation_code_rejected": "Check the code and try again.",
       "confirmation_submit": "Confirm",
+      "confirmation_help": "Can’t find the email? Check your spam folder.",
       "confirmation_loading": "Confirming...",
+      "confirmation_resend": "Resend code",
+      "confirmation_resend_wait": "Resend in {{seconds}} s",
+      "confirmation_verified": "Code confirmed",
       "title": "Create your account"
     },
     "confirm": {

@@ -1401,10 +1401,16 @@
       "new_account": "¿Nuevo en Cuadrao?",
       "password_requirement": "Mínimo 8 caracteres.",
       "confirmation_title": "Revisa tu correo",
-      "confirmation_description": "Escribe el código que te enviamos a {{correo}}.",
+      "confirmation_description": "Escribe el código que te enviamos a <email>{{correo}}</email>.",
+      "confirmation_code_incomplete": "Completa los {{count}} dígitos.",
       "confirmation_code_label": "Código de confirmación",
+      "confirmation_code_rejected": "Revisa el código e inténtalo de nuevo.",
       "confirmation_submit": "Confirmar",
+      "confirmation_help": "¿No ves el correo? Revisa la carpeta de spam.",
       "confirmation_loading": "Confirmando...",
+      "confirmation_resend": "Reenviar código",
+      "confirmation_resend_wait": "Reenviar en {{seconds}} s",
+      "confirmation_verified": "Código confirmado",
       "title": "Crea tu cuenta"
     },
     "confirm": {

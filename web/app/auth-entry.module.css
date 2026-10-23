@@ -76,3 +76,87 @@
     gap: 1.5rem;
   }
 }
+
+.screen:has([data-auth-step="confirmation"]) [data-testid="auth-hero"] {
+  display: none;
+}
+
+.screen [data-auth-step="confirmation"] {
+  animation: confirmation-enter 200ms ease-out both;
+}
+
+@keyframes confirmation-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen [data-auth-step="confirmation"] {
+    animation: none;
+  }
+}
+
+.screen [data-otp-control] {
+  position: relative;
+  margin: 0.5rem auto 0;
+  max-width: 25rem;
+}
+
+.screen [data-testid="auth-confirmation-code"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 16px;
+}
+
+.screen [data-otp-slots] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(0.25rem, 1vw, 0.5rem);
+}
+
+.screen [data-otp-slot] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.5rem;
+  border: 1px solid #7d8a84;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--auth-pine);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  cursor: text;
+}
+
+.screen [data-otp-control]:focus-within [data-otp-slot][data-active="true"] {
+  outline: 2px solid var(--auth-pine);
+  outline-offset: 2px;
+}
+
+.screen [data-otp-error="true"] [data-otp-slot] { border-color: #9e2f39; }
+.screen [data-otp-status="verifying"] [data-otp-slot] { cursor: wait; }
+.screen [data-otp-status="verified"] [data-otp-slot] {
+  border-color: #2f5a49;
+  background: #2f5a4910;
+  cursor: default;
+}
+
+:global(.dark) .screen [data-otp-slot] { color: #ffffff; border-color: #7d8a84; }
+:global(.dark) .screen [data-otp-control]:focus-within [data-otp-slot][data-active="true"] { outline-color: #a8d5c2; }
+:global(.dark) .screen [data-otp-error="true"] [data-otp-slot] { border-color: #ec9aa0; }
+:global(.dark) .screen [data-otp-status="verified"] [data-otp-slot] { border-color: #8fcbb0; background: #8fcbb010; }
+
+.screen [data-otp-rejected="true"] { animation: code-rejected 180ms ease-out; }
+@keyframes code-rejected {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen [data-otp-rejected="true"] { animation: none; }
+}

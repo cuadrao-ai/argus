@@ -1,10 +1,12 @@
 "use client";
 
-import { EyeClosed } from "lucide-react";
+import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
+import Image from "next/image";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { FormField, PasswordField, useFieldChecks } from "@/components/ui/FormField";
+import { fieldLabelClass } from "@/components/ui/form-field";
 import { PASSWORD_MIN_LENGTH } from "@/lib/password-strength";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { acceptanceLinks } from "@/lib/cuadrao-legal-links";
 import {
   EmailOtpRejectedError,
@@ -12,6 +14,8 @@ import {
   verifyEmailOtp,
 } from "@/lib/email-otp";
 import { blockingErrorBannerClass } from "@/lib/failure-treatment";
+
+const CONFIRMATION_CODE_LENGTH = 8;
 
 export type AuthFormMode = "login" | "signup";
 
@@ -205,8 +209,23 @@ export default function AuthForm({
   const authError = errorMessage ? t(errorMessage.key, errorMessage.fallback) : null;
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const [confirmationCode, setConfirmationCode] = useState("");
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [isConfirming, setIsConfirming] = useState(false);
+  const [codeErrorKind, setCodeErrorKind] = useState<string | null>(null);
+  const [confirmationStatus, setConfirmationStatus] = useState<"editing" | "verifying" | "verified">("editing");
+  const [activeSlot, setActiveSlot] = useState(0);
+  const [rejectionCount, setRejectionCount] = useState(0);
+  const confirmationInputRef = useRef<HTMLInputElement>(null);
+  const confirming = useRef(false);
+  const isConfirming = confirmationStatus === "verifying";
+  const isVerified = confirmationStatus === "verified";
+  const codeErrorMessage = codeErrorKind !== null ? AUTH_ERROR_MESSAGE_BY_CODE[codeErrorKind] ?? GENERIC_AUTH_ERROR : null;
+  const codeError = codeErrorKind === "incomplete"
+    ? t("auth.signup.confirmation_code_incomplete", { count: CONFIRMATION_CODE_LENGTH })
+    : codeErrorKind === "otp_rejected" ? t("auth.signup.confirmation_code_rejected")
+    : codeErrorMessage ? t(codeErrorMessage.key, codeErrorMessage.fallback) : null;
+  const isConfirmationPreview = process.env.NEXT_PUBLIC_MOCK_AUTH === "true"
+    && process.env.NEXT_PUBLIC_E2E_ALLOW_MOCK_SIGNUP === "true";
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
+  const [resendSeconds, setResendSeconds] = useState(30);
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const isSignup = mode === "signup";
   const acceptance = acceptanceLinks();
@@ -232,7 +251,11 @@ export default function AuthForm({
   useEffect(() => {
     setNeedsEmailConfirmation(false);
     setConfirmationCode("");
-    setCodeError(null);
+    setCodeErrorKind(null);
+    setConfirmationStatus("editing");
+    setRejectionCount(0);
+    setActiveSlot(0);
+    confirming.current = false;
     pending.current = false;
     setRequest({ status: "idle" });
     resetChecks();
@@ -250,8 +273,24 @@ export default function AuthForm({
   useEffect(() => {
     if (needsEmailConfirmation) {
       confirmationHeadingRef.current?.focus();
+      setResendAvailableAt(Date.now() + 30_000);
     }
   }, [needsEmailConfirmation]);
+
+  useEffect(() => {
+    if (!needsEmailConfirmation || !isConfirmationPreview) return;
+    const update = () => setResendSeconds(Math.max(0, Math.ceil((resendAvailableAt - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [needsEmailConfirmation, isConfirmationPreview, resendAvailableAt]);
+
+  const updateConfirmationCode = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, CONFIRMATION_CODE_LENGTH);
+    setConfirmationCode(digits);
+    setActiveSlot(Math.min(digits.length, CONFIRMATION_CODE_LENGTH - 1));
+    if (digits.length === CONFIRMATION_CODE_LENGTH) setCodeErrorKind(null);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -280,94 +319,176 @@ export default function AuthForm({
 
   const handleConfirmCode = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setCodeError(null);
-    setIsConfirming(true);
-    try {
-      const token = normalizeEmailOtp(confirmationCode);
-      if (!token) throw new EmailOtpRejectedError();
-      if (onConfirmEmailCode) {
-        await onConfirmEmailCode({ email: email.trim(), code: token });
-      } else {
-        await verifyEmailOtp({
-          email: email.trim(),
-          token,
-          type: "signup",
+    if (confirming.current || (isVerified && !codeErrorKind)) return;
+    if (!isVerified && confirmationCode.length !== CONFIRMATION_CODE_LENGTH) {
+      setCodeErrorKind("incomplete");
+      confirmationInputRef.current?.focus();
+      return;
+    }
+    confirming.current = true;
+    const current = generation.current;
+    setCodeErrorKind(null);
+    if (!isVerified) {
+      setConfirmationStatus("verifying");
+      try {
+        const token = normalizeEmailOtp(confirmationCode);
+        if (!token) throw new EmailOtpRejectedError();
+        if (onConfirmEmailCode) {
+          await onConfirmEmailCode({ email: email.trim(), code: token });
+        } else {
+          await verifyEmailOtp({ email: email.trim(), token, type: "signup" });
+        }
+        if (current !== generation.current) return;
+        setConfirmationStatus("verified");
+      } catch (error) {
+        if (current !== generation.current) return;
+        setCodeErrorKind(authErrorCode(error) || "generic");
+        setConfirmationStatus("editing");
+        setConfirmationCode("");
+        setActiveSlot(0);
+        setRejectionCount((count) => count + 1);
+        confirming.current = false;
+        requestAnimationFrame(() => {
+          if (current === generation.current) confirmationInputRef.current?.focus();
         });
+        return;
       }
+    }
+    try {
       await onEmailConfirmed?.();
     } catch (error) {
-      setCodeError(
-        localizedAuthErrorMessage(error, (key, fallback) =>
-          String(t(key, fallback)),
-        ),
-      );
+      if (current === generation.current) setCodeErrorKind(authErrorCode(error) || "generic");
     } finally {
-      setIsConfirming(false);
+      if (current === generation.current) confirming.current = false;
     }
   };
 
   return (
     <div
       data-auth-brand={brand}
+      data-auth-step={needsEmailConfirmation ? "confirmation" : undefined}
       className={
-        embedded
+        needsEmailConfirmation
+          ? "w-full px-1 py-7 min-[80rem]:pt-[55px]"
+          : embedded
           ? "w-full"
           : "w-full rounded-[20px] border border-black/10 bg-white p-7 dark:border-white/10 dark:bg-[#151719]"
       }
     >
       {needsEmailConfirmation ? (
-        <div
-          data-testid="auth-check-email"
-          role="status"
-          aria-live="polite"
-          className="w-full text-center"
-        >
+        <div data-testid="auth-check-email" className="w-full text-center">
+          <div
+            data-confirmation-illustration="true"
+            aria-hidden="true"
+            className="mx-auto mb-[21px] h-[112px] w-[168px]"
+          >
+            <Image src="/images/auth/confirmation-envelope.png" alt="" width={1536} height={1024} sizes="168px" className="h-full w-full object-contain" />
+          </div>
           <h2
             ref={confirmationHeadingRef}
             tabIndex={-1}
-            className="font-display text-[24px] font-medium tracking-tight text-black outline-none dark:text-white"
+            className="font-display text-balance text-[28px] font-medium leading-[1.2] tracking-tight text-black outline-none dark:text-white min-[80rem]:text-[40px]"
           >
             {t("auth.signup.confirmation_title", "Check your email")}
           </h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-black/60 dark:text-white/60">
-            {t(
-              "auth.signup.confirmation_description",
-              "Enter the code we sent to {{correo}}.",
-              { correo: email.trim() },
-            )}
-          </p>
-          <form onSubmit={handleConfirmCode} className="mt-5 space-y-3 text-left">
-            <label
-              htmlFor="auth-confirmation-code"
-              className="block px-1 text-[13px] tracking-[0.16px] text-black/55 dark:text-white/55"
-            >
-              {t("auth.signup.confirmation_code_label", "Confirmation code")}
-            </label>
-            <input
-              id="auth-confirmation-code"
-              data-testid="auth-confirmation-code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={confirmationCode}
-              onChange={(event) => setConfirmationCode(event.target.value)}
-              required
-              className="w-full rounded-[20px] border border-black/15 bg-transparent px-5 py-[14px] text-[16px] tracking-[0.16px] text-black transition-colors placeholder:text-black/40 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black dark:border-white/20 dark:text-white dark:placeholder:text-white/40 dark:focus-visible:ring-white"
+          <p className="mx-auto mt-[13px] max-w-md text-[16px] leading-relaxed text-black/60 dark:text-white/60">
+            <Trans
+              i18nKey="auth.signup.confirmation_description"
+              values={{ correo: email.trim() }}
+              components={{ email: <strong className="font-medium [overflow-wrap:anywhere]" /> }}
             />
-            {codeError ? (
-              <p role="alert" className={blockingErrorBannerClass}>
-                {codeError}
-              </p>
-            ) : null}
+          </p>
+          <form onSubmit={handleConfirmCode} aria-busy={isConfirming} className="mx-auto mt-[34px] max-w-[400px] space-y-2 text-left">
+            <div>
+              <label htmlFor="auth-confirmation-code" className={`${fieldLabelClass} text-center`}>
+                {t("auth.signup.confirmation_code_label")}
+              </label>
+              <div data-otp-control data-otp-status={confirmationStatus} data-otp-error={Boolean(codeError && !isVerified)}>
+                <input
+                  ref={confirmationInputRef}
+                  id="auth-confirmation-code"
+                  data-testid="auth-confirmation-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  aria-required="true"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  value={confirmationCode}
+                  readOnly={isConfirming || isVerified}
+                  aria-invalid={codeError && !isVerified ? true : undefined}
+                  aria-describedby="auth-confirmation-code-note"
+                  onChange={(event) => updateConfirmationCode(event.target.value)}
+                  onSelect={(event) => setActiveSlot(Math.min(event.currentTarget.selectionStart ?? confirmationCode.length, CONFIRMATION_CODE_LENGTH - 1))}
+                  onBlur={() => {
+                    if (confirmationCode && confirmationCode.length !== CONFIRMATION_CODE_LENGTH) setCodeErrorKind("incomplete");
+                  }}
+                  onPaste={(event) => {
+                    if (isConfirming || isVerified) return;
+                    event.preventDefault();
+                    updateConfirmationCode(event.clipboardData.getData("text"));
+                  }}
+                />
+                <div key={rejectionCount} data-otp-slots data-otp-rejected={rejectionCount > 0} aria-hidden="true">
+                  {Array.from({ length: CONFIRMATION_CODE_LENGTH }, (_, index) => (
+                    <span
+                      key={index}
+                      data-otp-slot={index}
+                      data-active={index === activeSlot}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        if (isConfirming || isVerified) return;
+                        const input = confirmationInputRef.current;
+                        const position = Math.min(index, confirmationCode.length);
+                        input?.focus();
+                        input?.setSelectionRange(position, position < confirmationCode.length ? position + 1 : position);
+                        setActiveSlot(Math.min(position, CONFIRMATION_CODE_LENGTH - 1));
+                      }}
+                    >{confirmationCode[index] ?? ""}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-1.5 grid text-[14px] leading-[22px]">
+                {["auth.signup.confirmation_code_rejected", "auth.signup.confirmation_code_incomplete", "auth.errors.generic"].map((key) => (
+                  <p key={key} aria-hidden="true" className="invisible col-start-1 row-start-1 flex gap-1.5">
+                    <span className="h-4 w-4 shrink-0" />{t(key, { count: CONFIRMATION_CODE_LENGTH })}
+                  </p>
+                ))}
+                <p id="auth-confirmation-code-note" aria-live="polite" className={`col-start-1 row-start-1 flex min-h-[22px] gap-1.5 ${codeError ? "text-[#9e2f39]! dark:text-[#ec9aa0]!" : "text-[#2f5a49]! dark:text-[#8fcbb0]!"}`}>
+                  {codeError ? <AlertCircle aria-hidden="true" className="mt-[3px] h-4 w-4 shrink-0" /> : isVerified ? <Check aria-hidden="true" className="mt-[3px] h-4 w-4 shrink-0" /> : null}
+                  {codeError || (isVerified ? t("auth.signup.confirmation_verified") : "")}
+                </p>
+              </div>
+            </div>
             <button
               type="submit"
-              disabled={isConfirming}
+              disabled={isConfirming || (isVerified && !codeErrorKind)}
               className="font-display flex w-full items-center justify-center rounded-[9999px] bg-black px-[32px] py-[14px] text-[16px] font-medium text-white transition-opacity hover:opacity-85 focus:outline-none focus-visible:ring-[0.125rem] focus-visible:ring-black disabled:opacity-50 dark:bg-white dark:text-black dark:focus-visible:ring-white"
             >
+              {isConfirming ? <LoaderCircle aria-hidden="true" className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
               {isConfirming
                 ? t("auth.signup.confirmation_loading", "Confirming...")
+                : isVerified && codeErrorKind ? t("auth.login.submit")
+                : isVerified ? t("auth.signup.confirmation_verified")
                 : t("auth.signup.confirmation_submit", "Confirm")}
             </button>
           </form>
+          <p className="mx-auto mt-[21px] max-w-[400px] text-[14px] leading-relaxed text-black/60 dark:text-white/60">
+            {t("auth.signup.confirmation_help")}
+          </p>
+          {isConfirmationPreview ? (
+            <div className="mx-auto mt-3 max-w-[400px] text-center text-[14px]">
+              <button type="button" disabled={resendSeconds > 0 || isConfirming || isVerified}
+                className="min-h-11 rounded-item px-3 underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cuadrao-green)] disabled:cursor-not-allowed disabled:no-underline"
+                onClick={() => {
+                  if (Date.now() < resendAvailableAt) return;
+                  setResendAvailableAt(Date.now() + 30_000);
+                  setResendSeconds(30);
+                }}>
+                {resendSeconds > 0 ? t("auth.signup.confirmation_resend_wait", { seconds: resendSeconds }) : t("auth.signup.confirmation_resend")}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
