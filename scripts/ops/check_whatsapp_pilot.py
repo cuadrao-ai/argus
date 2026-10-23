@@ -116,7 +116,7 @@ def delivery_observation(path: Path | None) -> dict[str, Any]:
             "callbacks": callbacks,
             "failures": failures,
         }
-    except (OSError, ValueError, UnicodeError):
+    except (OSError, ValueError, UnicodeError, RecursionError):
         return {"status": "unverified", "reason": "events_invalid", "failures": []}
 
 

@@ -217,6 +217,32 @@ def test_bad_or_large_event_file_has_no_arbitrary_output(
     }
 
 
+def test_deeply_nested_events_cli_reports_invalid_without_private_output(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    path = tmp_path / "nested-events.jsonl"
+    private_record = json.dumps({"message": "SECRETWORDS", "token": TOKEN}).encode()
+    path.write_bytes(b"[" * 1200 + private_record + b"]" * 1200 + b"\n")
+    monkeypatch.setattr(pilot, "load_whatsapp_settings", lambda: WhatsAppSettings())
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Invalid events input made a request")
+
+    monkeypatch.setattr(pilot.httpx, "Client", forbidden)
+    assert pilot.main(["--events", str(path)]) == 2
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    assert report["delivery"] == {
+        "status": "unverified",
+        "reason": "events_invalid",
+        "failures": [],
+    }
+    assert "check_delivery_events_export" in report["actions"]
+    assert "SECRETWORDS" not in captured.out + captured.err
+    assert TOKEN not in captured.out + captured.err
+    assert "Traceback" not in captured.out + captured.err
+
+
 def test_default_cli_makes_no_request_and_preserves_unknown_delivery(
     monkeypatch, capsys
 ) -> None:
