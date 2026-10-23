@@ -28,6 +28,7 @@ async function setNativeValue(element: HTMLInputElement, value: string) {
 async function renderSpanishSignup(props: {
   onConfirmEmailCode?: (input: { email: string; code: string }) => Promise<void>;
   onEmailConfirmed?: () => void | Promise<void>;
+  onResendEmailCode?: (input: { email: string }) => Promise<void>;
 }) {
   const i18n = i18next.createInstance();
   await i18n.init({
@@ -39,19 +40,20 @@ async function renderSpanishSignup(props: {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const root: Root = createRoot(host);
-  await act(async () => {
+  const renderMode = async (mode: "signup" | "login") => act(async () => {
     root.render(
       createElement(
         I18nextProvider,
         { i18n },
         createElement(AuthForm, {
-          mode: "signup",
+          mode,
           onSubmit: async () => ({ status: "email_confirmation_required" as const }),
           ...props,
         }) as ReactNode,
       ),
     );
   });
+  await renderMode("signup");
 
   const signupForm = host.querySelector("form");
   if (!signupForm) throw new Error("signup form missing");
@@ -63,7 +65,7 @@ async function renderSpanishSignup(props: {
   await act(async () => {
     signupForm.requestSubmit(signupButton as HTMLButtonElement);
   });
-  return { host, root };
+  return { host, root, renderMode };
 }
 
 describe("signup confirmation code", () => {
@@ -178,4 +180,108 @@ describe("signup confirmation code", () => {
     await act(async () => { page.root.unmount(); });
   });
 
+});
+
+
+describe("confirmation integration safety", () => {
+  test.each(["123456789", "1234x5678", "1234-5678"])("malformed %s never becomes a valid token", async (value) => {
+    let requests = 0;
+    const page = await renderSpanishSignup({ onConfirmEmailCode: async () => { requests++; } });
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, value);
+    await act(async () => { code.closest("form")?.requestSubmit(); });
+    expect(requests).toBe(0);
+    expect(code.getAttribute("aria-invalid")).toBe("true");
+    await act(async () => { page.root.unmount(); });
+  });
+
+  test.each(["otp_transient", "too_many_requests"])("%s keeps the code for retry", async (kind) => {
+    let requests = 0;
+    const page = await renderSpanishSignup({ onConfirmEmailCode: async () => {
+      requests++;
+      if (requests === 1) throw Object.assign(new Error("private"), { code: kind });
+    } });
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "01234567");
+    await act(async () => { code.closest("form")?.requestSubmit(); });
+    expect(code.value).toBe("01234567");
+    expect(page.host.textContent).not.toContain("private");
+    await act(async () => { code.closest("form")?.requestSubmit(); });
+    expect(requests).toBe(2);
+    await act(async () => { page.root.unmount(); });
+  });
+
+  test("continuation retry never resubmits a consumed code", async () => {
+    let verified = 0;
+    let continued = 0;
+    let release: () => void = () => {};
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const page = await renderSpanishSignup({
+      onConfirmEmailCode: async () => { verified++; },
+      onEmailConfirmed: async () => {
+        continued++;
+        if (continued === 1) throw new Error("offline");
+        await pending;
+      },
+    });
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "01234567");
+    await act(async () => { code.closest("form")?.requestSubmit(); });
+    expect(code.readOnly).toBe(true);
+    await act(async () => {
+      code.closest("form")?.requestSubmit();
+      code.closest("form")?.requestSubmit();
+    });
+    expect(verified).toBe(1);
+    expect(continued).toBe(2);
+    await act(async () => { release(); });
+    await act(async () => { page.root.unmount(); });
+  });
+});
+
+
+test("a stale verification cannot continue after an auth mode switch", async () => {
+  let finish: () => void = () => {};
+  let continued = 0;
+  const pending = new Promise<void>((resolve) => { finish = resolve; });
+  const page = await renderSpanishSignup({ onConfirmEmailCode: () => pending, onEmailConfirmed: () => { continued++; } });
+  const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+  await setNativeValue(code, "01234567");
+  await act(async () => { code.closest("form")?.requestSubmit(); });
+  await page.renderMode("login");
+  await act(async () => { finish(); });
+  expect(continued).toBe(0);
+  expect(page.host.querySelector("[data-testid='auth-check-email']")).toBeNull();
+  await act(async () => { page.root.unmount(); });
+});
+
+test("resend waits for acceptance, preserves the code and blocks concurrent verification", async () => {
+  const originalInterval = window.setInterval;
+  const originalNow = Date.now;
+  let tick: () => void = () => {};
+  window.setInterval = ((handler: () => void) => { tick = handler; return 0; }) as typeof window.setInterval;
+  let release: () => void = () => {};
+  let sent = 0;
+  let verified = 0;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const page = await renderSpanishSignup({ onResendEmailCode: async () => { sent++; await pending; }, onConfirmEmailCode: async () => { verified++; } });
+  try {
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "01234567");
+    Date.now = () => originalNow() + 31_000;
+    await act(async () => { tick(); });
+    const resend = [...page.host.querySelectorAll("button")].find(button => button.textContent === "Reenviar código") as HTMLButtonElement;
+    await act(async () => { resend.click(); resend.click(); code.closest("form")?.requestSubmit(); });
+    expect(sent).toBe(1);
+    expect(verified).toBe(0);
+    expect(resend.disabled).toBe(true);
+    expect(page.host.textContent).not.toContain("Solicitud recibida.");
+    await act(async () => { release(); });
+    expect(page.host.textContent).toContain("Solicitud recibida.");
+    expect(code.value).toBe("01234567");
+  } finally {
+    Date.now = originalNow;
+    window.setInterval = originalInterval;
+    await act(async () => { page.root.unmount(); });
+  }
 });

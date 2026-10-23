@@ -1,10 +1,12 @@
 # Auth entry and confirmation design checkpoint draft
 
-Status: on 2026-10-22 the user accepted signup, sign-in, and confirmation
-designs as complete and requested a local commit.
-Not approved for handoff, integration, or release.
-Ownership remains in the design lane. No confirmation checkpoint has been sent
-to the orchestrator. The user approved a local commit of this iteration.
+Status: the user approved the signup, sign-in, and confirmation designs on
+2026-10-22 and then cleared the checkpoint handoff and integration. The integration
+branch is `codex/auth-checkpoint2-integration-20261022`, based on design commit
+`db1887d91d0a1c603e7a98e3bba56e9995d86010` and fetched integration commit
+`b8eed7ee4ec2422324ebb61ad1459777fd135fd4`. The original design branch is preserved.
+Root owns independent Eval, merge, and the return to the frontend design owner.
+Deployment and hosted acceptance remain separate gates.
 
 ## Provider evidence and design decision
 
@@ -38,51 +40,47 @@ The existing email verification helper accepts six through ten digits. It is not
 proof of what the provider generates. This change leaves that shared helper alone.
 The password strength indicator is guidance, not a leaked-password check.
 
-## Remaining integration evidence and wiring
+## Confirmation integration
 
-These items are recorded for a future approved handoff, not assigned work now.
+- Confirmation keeps eight slots over one string. Spaces are removed. Leading
+  zeros remain. Invalid characters and overlong input produce an error without
+  becoming valid tokens. The shared helper keeps its six-through-ten-digit
+  contract for existing callers.
+- Temporary verification failures keep the code for retry. Rejected and expired
+  service categories use the approved rejected-code copy and clear the code.
+  The service can use its expired category for invalid or used codes too.
+- The existing auth client verifies the token and installs the returned session.
+  A rejected signup token can continue only when a current session exists and a fresh
+  identity request proves the same confirmed email. Other email OTP types still
+  reject their failed tokens. Another email, an unconfirmed
+  user, a missing session, and a failed identity check cannot take this path.
+- A failed continuation keeps verified status. Retry runs continuation only and
+  never verifies the consumed code again.
+- Verification and resend share one synchronous lock. Mode changes and unmounts
+  invalidate pending UI responses. No automatic resend loop runs.
+- Resend makes a bounded request to the existing auth service with a fresh browser
+  security check. Acceptance appears only after service acceptance. The response
+  controls a supplied Retry-After delay. A missing or hidden header uses the
+  existing 30-second advisory delay. That fallback is not the service's limit.
+- The service owns actual token validity, expiry, invalidation, account obfuscation,
+  browser-check acceptance, and abuse limits. The UI does not infer email delivery
+  or whether an account exists from a successful resend response.
+- No code, password, or confirmation context is saved for reload. The explicit
+  signup or login URL returns to email-first entry. The ordinary home URL retains
+  its existing current-account check. Reload never triggers a resend or invents
+  confirmation success. Service limits still apply after reload.
 
-- Retain the user-confirmed eight-digit contract. Record the target environment
-  when collecting connected-workflow evidence.
-- Confirm the signup email template includes the code, and verify one controlled
-  end-to-end signup at the approved integration test gate.
-- The preview resend countdown is 30 seconds and sends no email. This is separate
-  from the one-hour code expiry. Real resend needs pending, sent, failure, and
-  rate-limit handling based on the service response.
-- Verification currently clears the code on any failure. Error classification
-  needs to distinguish rejected or expired codes from temporary connection errors.
-- A change-email escape was raised during the audit but is not part of the accepted
-  confirmation design. If required for recovery during integration, bring the
-  proposed experience back to the user before adding it.
-- Physical-phone keyboard, autofill, and screen-reader acceptance remain open.
-- Inputs longer than eight digits are currently trimmed by the frontend. Backend
-  validation must reject malformed tokens without truncating them into valid ones.
-  Any change to the accepted input experience needs user review.
+## Separate release evidence
 
-## OTP edge cases for the eventual backend handoff
+The synthetic email-hook test confirms that an eight-digit code with a leading
+zero appears unchanged in subject, text, and HTML. It does not prove delivery.
+Connected signup, a delivered email, hosted header exposure, old-code behavior,
+and physical-phone keyboard, autofill, and screen-reader acceptance remain open.
+The user reports eight-digit codes and a 3,600-second expiry in staging. No hosted
+setting was read or changed in this integration. No real email was sent.
 
-Confirmation design approval is not end-to-end auth acceptance. The integration
-owner must preserve the approved design while handling these cases gracefully.
-This list records expectations for the eventual handoff; it does not start work.
-
-| Case | Required behavior |
-| --- | --- |
-| Incorrect or expired code | Return a stable error category with a useful next step. Keep the user on confirmation. Distinguish expiry from an incorrect code when the service supports it. |
-| Offline, timeout, or temporary service failure | Keep the typed code and offer retry. Do not label a connection problem as an incorrect code or clear the field. The current generic clear-on-failure behavior needs integration repair. |
-| Verification succeeds but navigation or session continuation fails | Preserve verified status and retry continuation safely. Do not require the user to reuse a consumed code. |
-| Used code, already-confirmed account, or concurrent tabs | Reconcile the real confirmation and session state. Provide a safe continuation or sign-in path without inventing success or exposing another account's state. |
-| Duplicate clicks and concurrent verification or resend | Prevent duplicate requests and ignore stale responses. An old request must not overwrite the current email, code state, or auth mode. |
-| Resend rejected, delayed, or rate-limited | Show sent status only after service acceptance. Respect the service retry delay, including Retry-After when supplied. Keep expiry separate from resend cooldown. Avoid automatic resend loops. |
-| Old code after resend | Match the provider's actual invalidation behavior and explain what to do next. Do not assume that every resend invalidates previous codes without checking. |
-| Reload during cooldown or an interrupted request | Reconcile with server state. Reloading must not bypass rate limits or produce a false success. |
-| Missing or mismatched email, malformed code | Validate the signup confirmation context and eight-digit token on the server. Preserve leading zeros and never interpret the code as a number. |
-| Abuse and sensitive data | Enforce verification and resend limits on the server. Do not log raw codes, tokens, or passwords, and do not leak account existence through errors. |
-
-Errors and recovery actions must have natural Spanish and English copy, accessible
-feedback, and the stable button placement already approved. Do not expose raw
-provider errors. Missing product decisions or material visual changes return to
-the user before implementation. The delivered-code length and real workflow still
-need evidence from the intended environment at the approved integration test gate.
+A change-email escape, recovery redesign, and profile-name persistence are outside
+this checkpoint. Return any additional product decision to the user before edits.
 
 ## Approved signup and sign-in refinements
 
@@ -115,26 +113,25 @@ entry, request confirmation, recovery-link handling, and password reset into one
 connected recovery checkpoint. Treat signed-in password change as a distinct
 entry path with its own current-password requirements. Confirm its scope before
 editing. Start dependent work from the resulting integration commit after the
-orchestrator returns ownership. No handoff or integration work is assigned now.
+orchestrator returns ownership. This recommendation does not assign recovery implementation.
 
-## Verification results
+## Local verification
 
-- Before the change, regression tests failed on the six-slot rendering and acceptance
-  of incomplete six-digit codes.
-- All 35 focused auth tests pass, including eight-digit submission, whitespace,
-  leading zeros, incomplete input, rejection, pending lock, and duplicate prevention.
-- The prior confirmation-only matrix passed all 16 local browser cases. Chromium covers 320, 390, and 1440 px. WebKit
-  covers 390 px. Both languages and themes have no horizontal overflow or CTA
-  movement after incomplete and rejected codes. Typing, backspace, spaced paste,
-  and focus restoration pass. These tests use synthetic requests only.
-- The latest entry refinements were inspected in the local browser in both themes
-  and languages. The password focus outline and placeholders were checked visually.
-  These desktop checks do not extend the prior confirmation matrix to all entry viewports.
-- TypeScript and diff checks pass. The prior lint run had zero errors and 11 existing warnings.
-- Screenshots are stored outside Git in the task visualization folder with the
-  prefix `confirmation-eight-`. Mobile light and dark captures were inspected.
-- Following Model the Domain, the existing one-string state is retained. One length
-  constant supplies the rendering and validation contract. No new state is added.
+The regression tests first reproduced malformed input becoming a valid token and
+temporary failures clearing entered digits. Focused helper and DOM tests cover
+those cases, resend locking, stale mode responses, and safe continuation retry.
+They also reproduced rejected non-signup OTPs becoming successful when a signup
+session was present, then proved that only signup can use that fallback.
+The email-hook proof uses an injected synthetic sender and sends no email.
 
-The local commit does not authorize a push, deployment, provider edit, or checkpoint
-handoff. The user must approve and request the handoff separately.
+Before the final signup-only guard, the full web suite passed with 3,534 tests,
+one skipped, and zero failed. The final focused tests pass with 48 tests.
+Lint passes with zero errors and 11 existing warnings. The production build passes.
+The baseline captures were taken before confirmation wiring changed. The existing
+headless evidence workflow captures the final head and uploads images outside Git.
+The matrix covers both languages and themes, reduced motion, entry, confirmation,
+keyboard input, spaced paste, leading zeros, malformed input, temporary failures,
+rejection, resend pending, acceptance, failure, rate limits, and reload behavior.
+Its manifest records the exact head and image hashes. Browser evidence uses only
+synthetic local responses. Root must inspect the final artifact and run independent
+Eval before merge. A passing test or build does not authorize a deploy.

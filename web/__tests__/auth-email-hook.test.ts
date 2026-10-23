@@ -258,3 +258,16 @@ test("signed security notices send only to their documented recipients and disab
     }
   }
 });
+
+
+test("signup email preserves an eight-digit code with a leading zero in HTML, text and subject", async () => {
+  const value = payload("signup");
+  value.email_data.token = "01234567";
+  const deliveries: AuthDelivery[] = [];
+  const response = await handleAuthEmailHook(request(value), config, async email => { deliveries.push(email); });
+  assert.equal(response.status, 200);
+  assert.equal(deliveries.length, 1);
+  assert.ok(deliveries[0].subject.startsWith("01234567 "));
+  assert.ok(deliveries[0].text.includes("01234567"));
+  assert.ok(deliveries[0].html.includes("01234567"));
+});
