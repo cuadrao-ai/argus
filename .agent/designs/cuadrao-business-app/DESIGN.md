@@ -508,6 +508,21 @@ These three states look different:
 
 A month with no receipts is not a closed month at RD$0.00. Unknown is never shown as zero.
 
+### Entry into Home
+
+Keep the sign-in button busy while checking credentials. During Business startup,
+use one Cuadrao loader across session, directory, consent and profile checks.
+Show it only after 300ms of continuous pending work. A faster entry goes straight
+to Home. Keep the same loader mounted between checks; do not insert a full-page
+skeleton or restart the bar. Never delay ready content to finish an animation.
+
+The loader uses the destination canvas in each theme. Its bar is indeterminate
+unless progress is measured. Reduced motion shows a static indicator. Announce
+loading once per episode with a polite status; do not move or trap keyboard focus.
+Consent prompts and actionable errors replace loading as soon as they are known.
+Once Home can render its structure, any remaining data placeholders stay inside
+their final positions. Unknown values remain distinct from zero.
+
 ### Growing lists
 
 Rules for any list that grows past one screen, Bandeja first:

@@ -7,7 +7,7 @@ import { CuadraoLockup } from "@/components/CuadraoLockup";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { BANNER_HEIGHT_PX, ConnectionBanner, useOnline } from "@/components/ui/ConnectionBanner";
 import { cuadraoLegalLinks } from "@/lib/cuadrao-legal-links";
-import { BusinessSkeleton } from "./business-skeletons";
+import FullscreenLoading from "@/components/FullscreenLoading";
 import { primaryButtonClass, quietButtonClass } from "./business-ui";
 
 /** Where the one save stands. A failed save keeps the box ticked and offers one honest retry. */
@@ -96,11 +96,6 @@ export function BusinessConsentScreen({ save, onContinue }: { save: ConsentSave;
   );
 }
 
-/** Inicio's layout while the gate checks, so /biz never paints blank. */
 export function BusinessConsentLoading() {
-  return (
-    <main data-testid="business-consent-loading" className="mx-auto w-full max-w-3xl px-4 pb-12 pt-10 tablet:px-6 tablet:pt-20">
-      <BusinessSkeleton layout="overview" />
-    </main>
-  );
+  return <FullscreenLoading />;
 }

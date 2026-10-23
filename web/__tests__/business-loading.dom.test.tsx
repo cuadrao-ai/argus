@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, type ReactNode } from "react";
+import { act, StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import i18next from "i18next";
 import { I18nextProvider } from "react-i18next";
+import FullscreenLoading, { FullscreenLoadingBoundary } from "../components/FullscreenLoading";
 import ConversationRetrievalState, { ConversationRetrievalAnnouncement, InitialConversationRetrievalState } from "../components/chat/ConversationRetrievalState";
 import { LoadingRows } from "../components/business-app/business-ui";
 import en from "../public/locales/en/common.json";
@@ -22,7 +23,11 @@ async function mount(node: ReactNode, language = "es-419") {
   document.body.append(host);
   const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}>{node}</I18nextProvider>));
-  return { host, close: async () => { await act(async () => root.unmount()); host.remove(); } };
+  return {
+    host,
+    render: async (node: ReactNode) => { await act(async () => root.render(<I18nextProvider i18n={i18n}>{node}</I18nextProvider>)); },
+    close: async () => { await act(async () => root.unmount()); host.remove(); },
+  };
 }
 
 describe("Business loading presentation", () => {
@@ -96,4 +101,72 @@ describe("Business loading presentation", () => {
       await view.close();
     });
   }
+});
+
+
+describe("shared full-page loading boundary", () => {
+  const loader = (host: HTMLElement) => host.querySelector('[data-testid="fullscreen-loading"]');
+  const wait = async (milliseconds: number) => {
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, milliseconds)); });
+  };
+  const episode = (pending: boolean, key = "first") => (
+    <StrictMode>
+      <FullscreenLoadingBoundary>
+        {pending ? <FullscreenLoading key={key} /> : <main>Inicio</main>}
+      </FullscreenLoadingBoundary>
+    </StrictMode>
+  );
+
+  test("Strict Mode preserves a loader across a same-commit handoff and resets after ready", async () => {
+    const view = await mount(episode(true));
+    try {
+      expect(loader(view.host)).toBeNull();
+      await wait(320);
+      const first = loader(view.host);
+      expect(first).not.toBeNull();
+      await view.render(episode(true, "second"));
+      expect(loader(view.host)).toBe(first);
+      expect(view.host.querySelectorAll('[role="status"]').length).toBe(1);
+      await view.render(episode(false));
+      expect(loader(view.host)).toBeNull();
+      expect(view.host.querySelector("main")?.closest("[hidden]")).toBeNull();
+      await view.render(episode(true, "third"));
+      expect(loader(view.host)).toBeNull();
+      await wait(100);
+      expect(loader(view.host)).toBeNull();
+      await wait(220);
+      expect(loader(view.host)).not.toBeNull();
+      expect(loader(view.host)).not.toBe(first);
+    } finally { await view.close(); }
+  });
+
+  test("multiple clients share one indicator until the last client finishes", async () => {
+    const view = await mount(<FullscreenLoadingBoundary><FullscreenLoading key="first" /><FullscreenLoading key="second" /></FullscreenLoadingBoundary>);
+    try {
+      await wait(320);
+      const first = loader(view.host);
+      expect(first).not.toBeNull();
+      expect(view.host.querySelectorAll('[role="status"]').length).toBe(1);
+      await view.render(<FullscreenLoadingBoundary><FullscreenLoading key="second" /></FullscreenLoadingBoundary>);
+      expect(loader(view.host)).toBe(first);
+      await view.render(<FullscreenLoadingBoundary><main>Inicio</main></FullscreenLoadingBoundary>);
+      expect(loader(view.host)).toBeNull();
+    } finally { await view.close(); }
+  });
+
+  test("an unmounted pending boundary cannot leave an indicator in a later boundary", async () => {
+    const view = await mount(episode(true));
+    await wait(100);
+    await view.close();
+    await wait(220);
+    expect(document.querySelector('[data-testid="fullscreen-loading"]')).toBeNull();
+    const next = await mount(episode(true));
+    try {
+      expect(loader(next.host)).toBeNull();
+      await wait(100);
+      expect(loader(next.host)).toBeNull();
+      await wait(220);
+      expect(loader(next.host)).not.toBeNull();
+    } finally { await next.close(); }
+  });
 });

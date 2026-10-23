@@ -41,3 +41,16 @@
     transform: translateX(75%);
   }
 }
+
+.businessSurface {
+  min-height: 100dvh;
+  background: #F7F5EE;
+}
+
+.businessSurface .screen {
+  background: inherit;
+}
+
+:global(.dark) .businessSurface {
+  background: #141517;
+}
