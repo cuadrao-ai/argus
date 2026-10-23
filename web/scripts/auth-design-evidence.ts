@@ -49,6 +49,7 @@ try {
         assert.deepEqual(request.postDataJSON(), { email: "synthetic@example.test", type: "signup", gotrue_meta_security: { captcha_token: "argus-local-browser-qa" } });
         if (resends === 1) return route.fulfill({ status: 429, headers: { "Retry-After": "65" }, json: { code: "over_email_send_rate_limit" } });
         if (resends === 2) return route.fulfill({ status: 503, json: { code: "unexpected_failure" } });
+        if (resends === 3) return route.fulfill({ status: 400, json: { code: "captcha_failed" } });
         return new Promise<void>(done => { acceptResend = async () => { await route.fulfill({ json: {} }); done(); }; });
       }
       if (url.pathname === "/auth/v1/user") return route.fulfill({ status: 401, json: { msg: "no synthetic session" } });
@@ -94,8 +95,9 @@ try {
       await capture("confirmation");
       const code = page.getByTestId("auth-confirmation-code"), confirm = page.locator('form button[type="submit"]');
       assert.equal(await page.locator("[data-otp-slot]").count(), 8);
+      await page.evaluate(() => document.fonts.ready);
       const before = await position(confirm);
-      const stable = async () => { assert.ok(Math.abs(before - await position(confirm)) < 1, `${prefix} CTA moved ${before} to ${await position(confirm)} for ${await page.locator("#auth-confirmation-code-note").textContent()}`); await noOverflow(); };
+      const stable = async () => { await page.evaluate(() => document.fonts.ready); assert.ok(Math.abs(before - await position(confirm)) < 1, `${prefix} CTA moved ${before} to ${await position(confirm)} for ${await page.locator("#auth-confirmation-code-note").textContent()}`); await noOverflow(); };
       await code.fill("012");
       await confirm.click();
       assert.equal(verifies, 0);
@@ -133,6 +135,10 @@ try {
       await expect(page.locator("#auth-confirmation-code-note")).toHaveText(copy.auth.signup.confirmation_resend_failed);
       await stable();
       await resend.click();
+      await expect(page.locator("#auth-confirmation-code-note")).toHaveText(copy.auth.signup.confirmation_resend_failed);
+      await stable();
+      await capture("captcha-refused");
+      await resend.click();
       await expect(page.locator("#auth-confirmation-code-note")).toHaveText(copy.auth.signup.confirmation_resend_pending);
       await expect(confirm).toBeDisabled();
       assert.ok(acceptResend);
@@ -141,10 +147,10 @@ try {
       await stable();
       await capture("resend-accepted");
       assert.equal(verifies, 2);
-      assert.equal(resends, 3);
+      assert.equal(resends, 4);
       await page.reload({ waitUntil: "networkidle" });
       await expect(email).toHaveValue("");
-      assert.equal(resends, 3);
+      assert.equal(resends, 4);
     } else {
       await page.getByRole("button", { name: copy.auth.form.edit_email, exact: true }).click();
       await expect(email).toHaveValue("synthetic@example.test");

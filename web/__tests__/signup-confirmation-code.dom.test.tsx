@@ -285,3 +285,28 @@ test("resend waits for acceptance, preserves the code and blocks concurrent veri
     await act(async () => { page.root.unmount(); });
   }
 });
+
+test("browser-check refusal uses short resend feedback without clearing the code", async () => {
+  const originalInterval = window.setInterval;
+  const originalNow = Date.now;
+  let tick: () => void = () => {};
+  window.setInterval = ((handler: () => void) => { tick = handler; return 0; }) as typeof window.setInterval;
+  const page = await renderSpanishSignup({
+    onResendEmailCode: async () => { throw Object.assign(new Error("private"), { code: "captcha_unavailable" }); },
+  });
+  try {
+    const code = page.host.querySelector("[data-testid='auth-confirmation-code']") as HTMLInputElement;
+    await setNativeValue(code, "01234567");
+    Date.now = () => originalNow() + 31_000;
+    await act(async () => { tick(); });
+    const resend = [...page.host.querySelectorAll("button")].find(button => button.textContent === "Reenviar código") as HTMLButtonElement;
+    await act(async () => { resend.click(); });
+    expect(page.host.querySelector("#auth-confirmation-code-note")?.textContent).toBe("No se pudo reenviar. Intenta de nuevo.");
+    expect(code.value).toBe("01234567");
+    expect(page.host.textContent).not.toContain("private");
+  } finally {
+    Date.now = originalNow;
+    window.setInterval = originalInterval;
+    await act(async () => { page.root.unmount(); });
+  }
+});

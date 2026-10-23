@@ -318,7 +318,7 @@ export default function AuthForm({
   const resendFeedback = resend.status === "pending" ? t("auth.signup.confirmation_resend_pending")
     : resend.status === "sent" ? t("auth.signup.confirmation_resend_sent")
     : resend.status === "failed" ? resend.code === "too_many_requests" ? t("auth.signup.confirmation_rate_limited")
-    : resend.code === "captcha_unavailable" ? t("auth.errors.browser_check_failed") : t("auth.signup.confirmation_resend_failed") : null;
+    : t("auth.signup.confirmation_resend_failed") : null;
 
   const updateConfirmationCode = (value: string) => {
     const digits = value.replace(/\s+/g, "");
