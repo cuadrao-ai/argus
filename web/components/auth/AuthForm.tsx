@@ -35,6 +35,7 @@ type AuthFormProps = {
   brand?: "argus" | "cuadrao";
   allowModeSwitch?: boolean;
   embedded?: boolean;
+  emailFirst?: boolean;
   onModeChange?: (mode: AuthFormMode) => void;
   onSubmit: (
     submission: AuthFormSubmission,
@@ -186,6 +187,7 @@ export default function AuthForm({
   brand = "cuadrao",
   allowModeSwitch = true,
   embedded = false,
+  emailFirst = false,
   onModeChange,
   onSubmit,
   onConfirmEmailCode,
@@ -196,6 +198,10 @@ export default function AuthForm({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [entry, setEntry] = useState<{ mode: AuthFormMode; step: "identity" | "password" }>({ mode, step: "identity" });
+  const entryStep = entry.mode === mode ? entry.step : "identity";
+  const isIdentityStep = emailFirst && entryStep === "identity";
+  const cardRef = useRef<HTMLDivElement>(null);
   const [request, setRequest] = useState<{ status: "idle" | "pending" } | { status: "failed"; code: string }>({ status: "idle" });
   const pending = useRef(false);
   const generation = useRef(0);
@@ -243,12 +249,16 @@ export default function AuthForm({
   const checks = useFieldChecks({
     email: (values) => !values.email.trim() ? messages.emailRequired
       : emailRef.current?.validity.typeMismatch ? messages.emailInvalid : null,
-    password: (values) => !values.password ? messages.passwordRequired
+    password: (values) => isIdentityStep ? null : !values.password ? messages.passwordRequired
       : isSignup && values.password.length < PASSWORD_MIN_LENGTH ? messages.passwordShort : null,
   }, { email, password });
   const resetChecks = checks.reset;
 
   useEffect(() => {
+    if (emailFirst) {
+      setPassword("");
+      setEntry({ mode, step: "identity" });
+    }
     setNeedsEmailConfirmation(false);
     setConfirmationCode("");
     setCodeErrorKind(null);
@@ -260,7 +270,16 @@ export default function AuthForm({
     setRequest({ status: "idle" });
     resetChecks();
     return () => { generation.current += 1; };
-  }, [mode, resetChecks]);
+  }, [mode, resetChecks, emailFirst]);
+
+  useEffect(() => {
+    if (emailFirst && entry.mode === mode && entryStep === "password") {
+      const frame = requestAnimationFrame(() => {
+        formRef.current?.querySelector<HTMLInputElement>('input[autocomplete$="password"]')?.focus();
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [emailFirst, entry, entryStep, mode]);
 
   useEffect(() => {
     if (checks.attempt > 0) formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
@@ -297,6 +316,11 @@ export default function AuthForm({
     if (pending.current) return;
     setRequest({ status: "idle" });
     if (!checks.submit()) return;
+    if (isIdentityStep) {
+      resetChecks();
+      setEntry({ mode, step: "password" });
+      return;
+    }
     pending.current = true;
     const current = generation.current;
     setRequest({ status: "pending" });
@@ -365,6 +389,8 @@ export default function AuthForm({
 
   return (
     <div
+      ref={cardRef}
+      data-auth-entry-step={emailFirst ? entryStep : undefined}
       data-auth-brand={brand}
       data-auth-step={needsEmailConfirmation ? "confirmation" : undefined}
       className={
@@ -491,8 +517,8 @@ export default function AuthForm({
           ) : null}
         </div>
       ) : (
-        <>
-          <h2 className="font-display mb-[21px] text-[24px] font-medium tracking-tight text-black dark:text-white">
+        <div data-auth-entry-content={emailFirst ? "true" : undefined}>
+          <h2 tabIndex={-1} className="outline-none font-display mb-[21px] text-[24px] font-medium tracking-tight text-black dark:text-white">
             {t(`auth.${mode}.title`)}
           </h2>
           <form ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={isSubmitting} className="space-y-3">
@@ -501,26 +527,53 @@ export default function AuthForm({
                 <p ref={errorRef} tabIndex={-1} role="alert" className={blockingErrorBannerClass}>{authError}</p>
               </div>
             ) : null}
-            {isSignup && (
-              <div role="group" aria-labelledby={`${id}-names-note`}>
+            {(emailFirst || isSignup) && (
+              <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={isSignup && (!emailFirst || isIdentityStep)}
+                aria-hidden={emailFirst && (!isSignup || !isIdentityStep) ? true : undefined}
+                inert={emailFirst && (!isSignup || !isIdentityStep)}>
+              <div><div role="group" aria-labelledby={`${id}-names-note`}>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <FormField id={`${id}-first-name`} label={t("auth.signup.first_name_placeholder")}
+                  placeholder={emailFirst ? t("auth.form.first_name_hint") : undefined}
                   value={firstName} onChange={(event) => setFirstName(event.target.value)}
                   autoComplete="given-name" reserveMessages={[]} readOnly={isSubmitting} />
                 <FormField id={`${id}-last-name`} label={t("auth.signup.last_name_placeholder")}
+                  placeholder={emailFirst ? t("auth.form.last_name_hint") : undefined}
                   value={lastName} onChange={(event) => setLastName(event.target.value)}
                   autoComplete="family-name" reserveMessages={[]} readOnly={isSubmitting} />
                 </div>
                 <p id={`${id}-names-note`} className="mt-1.5 text-[12px]">{t("auth.form.names_optional")}</p>
-              </div>
+              </div></div></div>
             )}
-            <FormField ref={emailRef} id={`${id}-email`} type="email" label={labels.email}
+            {emailFirst && (
+              <div data-auth-collapse="true" data-open={!isIdentityStep} aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
+              <div><div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-current/15 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[12px] opacity-70">{labels.email}</p>
+                  <p className="break-all text-[15px]">{email}</p>
+                  <input type="hidden" name="username" autoComplete="username" value={email} />
+                </div>
+                <button type="button" disabled={isSubmitting} className="min-h-11 shrink-0 rounded px-2 text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2"
+                  onClick={() => {
+                    setPassword(""); resetChecks(); setRequest({ status: "idle" }); setEntry({ mode, step: "identity" });
+                    requestAnimationFrame(() => emailRef.current?.focus());
+                  }}>{t("auth.form.edit_email")}</button>
+              </div></div></div>
+            )}
+            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!emailFirst || isIdentityStep}
+              aria-hidden={emailFirst && !isIdentityStep ? true : undefined} inert={emailFirst && !isIdentityStep}>
+              <div><FormField ref={emailRef} id={`${id}-email`} type="email" label={labels.email}
+              placeholder={emailFirst ? t("auth.form.email_hint") : undefined}
               value={email} onChange={(event) => { setEmail(event.target.value); if (request.status === "failed") setRequest({ status: "idle" }); }}
               onBlur={() => checks.blur("email")} error={checks.errorOf("email")}
               success={checks.isValid("email") ? messages.emailValid : undefined}
               reserveMessages={[messages.emailRequired, messages.emailInvalid, messages.emailValid]}
-              autoComplete="email" autoCapitalize="none" spellCheck={false} required readOnly={isSubmitting} />
-            <PasswordField key={mode} id={`${id}-password`} label={labels.password}
+              autoComplete="email" autoCapitalize="none" spellCheck={false} required readOnly={isSubmitting} /></div>
+            </div>
+            <div data-auth-collapse={emailFirst ? "true" : undefined} data-open={!isIdentityStep}
+              aria-hidden={isIdentityStep || undefined} inert={isIdentityStep}>
+              <div><PasswordField key={mode} id={`${id}-password`} label={labels.password}
+              placeholder={emailFirst ? t("auth.form.password_hint") : undefined}
               value={password} onChange={(event) => { setPassword(event.target.value); if (request.status === "failed") setRequest({ status: "idle" }); }}
               onBlur={() => checks.blur("password")} error={checks.errorOf("password")}
               reserveMessages={isSignup ? [messages.passwordRequired, messages.passwordShort] : [messages.passwordRequired]}
@@ -532,11 +585,13 @@ export default function AuthForm({
             {!isSignup && (
               <a
                 href="/auth/forgot-password"
-                className="block px-1 text-right text-sm font-medium text-black/60 transition-opacity hover:opacity-75 dark:text-white/60"
+                className="mt-3 block px-1 text-right text-sm font-medium text-black/60 transition-opacity hover:opacity-75 dark:text-white/60"
               >
                 {t("auth.recovery.forgot", "Forgot password?")}
               </a>
             )}
+              </div>
+            </div>
 
             <button
               type="submit"
@@ -554,6 +609,8 @@ export default function AuthForm({
                     ? t("auth.signup.loading", "Creating account...")
                     : t("auth.login.loading", "Signing in...")}
                 </>
+              ) : isIdentityStep ? (
+                t("auth.login.submit")
               ) : authErrorKind === "captcha_unavailable" ? (
                 t("auth.errors.browser_check_retry", "Try again")
               ) : isSignup ? (
@@ -573,7 +630,10 @@ export default function AuthForm({
                 type="button"
                 className="font-medium text-black transition-opacity hover:opacity-80 dark:text-white"
                 disabled={isSubmitting}
-                onClick={() => onModeChange(isSignup ? "login" : "signup")}
+                onClick={() => {
+                  onModeChange(isSignup ? "login" : "signup");
+                  if (emailFirst) requestAnimationFrame(() => cardRef.current?.querySelector("h2")?.focus());
+                }}
               >
                 {isSignup
                   ? t("landing.sign_in", "Sign in")
@@ -600,7 +660,7 @@ export default function AuthForm({
               .
             </p>
           ) : null}
-        </>
+        </div>
       )}
     </div>
   );

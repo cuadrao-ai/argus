@@ -160,3 +160,49 @@
 @media (prefers-reduced-motion: reduce) {
   .screen [data-otp-rejected="true"] { animation: none; }
 }
+
+.screen [data-auth-hero-settled="true"] {
+  animation: auth-content-enter 180ms ease-out both;
+}
+
+@keyframes auth-content-enter {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+@media (width < 48rem) {
+  .screen[data-auth-split="true"] [data-testid="auth-hero"] {
+    min-block-size: 3.6em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen [data-auth-hero-settled="true"] { animation: none; }
+}
+
+.screen [data-auth-collapse="true"] {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-block: 0;
+  visibility: hidden;
+  transition: grid-template-rows 280ms cubic-bezier(.2,.7,.2,1),
+    margin-bottom 280ms cubic-bezier(.2,.7,.2,1), visibility 0s 280ms;
+}
+
+.screen [data-auth-collapse="true"][data-open="true"] {
+  grid-template-rows: 1fr;
+  margin-bottom: 0.75rem;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.screen [data-auth-collapse="true"] > div {
+  min-height: 0;
+  margin-inline: -5px;
+  padding-inline: 5px;
+  overflow: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen [data-auth-collapse="true"] { transition: none; }
+}

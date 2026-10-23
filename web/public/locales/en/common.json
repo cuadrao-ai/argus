@@ -1371,11 +1371,16 @@
       "title": "Cuadrao Business isn't available for your account yet."
     },
     "form": {
+      "edit_email": "Edit",
+      "email_hint": "Your email address",
       "email_invalid": "Use name@example.com.",
       "email_required": "Enter your email address.",
       "email_valid": "Email format looks right.",
+      "first_name_hint": "Your first name",
+      "last_name_hint": "Your last name",
       "names_optional": "First and last name are optional",
       "password_advice": "Tip: avoid common words, runs and repeats.",
+      "password_hint": "Your password",
       "password_required": "Enter your password.",
       "password_short": "Use at least {{min}} characters."
     },
