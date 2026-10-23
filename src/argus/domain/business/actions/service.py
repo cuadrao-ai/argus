@@ -33,6 +33,7 @@ from argus.domain.business.contracts.actions import (
     PrepareAttachmentCommand,
     ReadContext,
     RebindAttachmentCommand,
+    ResolveDuplicate,
     ReviewCommand,
     ReviewDraft,
     SettleRemainder,
@@ -339,6 +340,17 @@ class BusinessActions:
                 return plans.finish_receipt(tx, key, result)
         except ActionError as error:
             return error.result
+
+    def resolve_duplicate(
+        self,
+        context: ActionContext,
+        draft_id: UUID,
+        request: ResolveDuplicate,
+        key: str,
+    ) -> ActionOutcome:
+        from argus.domain.business.actions.duplicate_resolution import resolve
+
+        return resolve(self.authority, context, draft_id, request, key)
 
     def settle_remainder(
         self,
@@ -876,7 +888,15 @@ class BusinessActions:
             )
             # The read is saved; a repeat of another receipt is marked on this
             # draft's event before the command settles.
-            flag_receipt_duplicates(tx.imports, str(result.draft_id))
+            from argus.domain.business.actions.duplicate_resolution import (
+                attachment_signature,
+            )
+
+            flag_receipt_duplicates(
+                tx.imports,
+                str(result.draft_id),
+                lambda event_id: attachment_signature(tx, event_id),
+            )
             live = authorize(tx.connection, context.actor, binding.actor.grant_id)
             live.require("prepare")
             final_tx = ActionTransaction(tx.connection, live, tx.imports)

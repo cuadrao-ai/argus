@@ -9315,6 +9315,27 @@ then fails, the reopened draft gets one more revision that clears the
 approval's declaration; a declaration a person saved stays. If that clear cannot
 run, the next approval rebuilds the declaration instead of keeping it.
 
+`POST /business/drafts/{draft_id}/duplicate-resolution` takes
+`{version, other_draft_id, other_version, decision: "different_purchase"}` and
+`Idempotency-Key`. Both versions are strict positive integers. A live human
+with `prepare` may decide one existing receipt-fact duplicate pair in the same
+Business. The target must be open; the comparison may be open or accepted and
+is read-only. A stale version answers 409; a foreign or personal ID answers
+404 without disclosing its state. A bank or source-change warning cannot be
+cleared through this action. The returned `BusinessDossier` adds optional
+`duplicate_candidates: [{draft_id, version}]` (empty by default) for the
+remaining supported pairs; model-facing views omit this human control.
+
+A successful decision adds one revision, source and action receipt and clears
+only the selected pair. It creates no financial activity. The durable decision
+binds both normalized merchant/date/amount/currency keys, live import evidence,
+and attached source IDs, source hashes and saved extraction batches. Ordinary
+review and unchanged preparation retry preserve it; changed facts or attached
+evidence reopen the approval blocker. Approval checks current evidence again,
+including comparison changes. Replay requires current human `prepare` authority
+and the still-valid pair decision; changed input under the same key answers 409.
+Every other review and owner-approval condition remains in force.
+
 `PATCH /business/drafts/{draft_id}/review` takes `{version, facts: BusinessFactPatch}`
 and `Idempotency-Key`. It may also carry `document_type` (`recibo` or `venta`),
 alone or with facts and `dgii`, for an open draft from an upload, a note or a
