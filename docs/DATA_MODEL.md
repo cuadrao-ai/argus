@@ -3541,6 +3541,20 @@ default value is unverified DOP currency. Fiscal facts are evidence, not model
 tax decisions. Income is a distinct draft kind; expense acceptance does not
 establish delivery of all seven Business journeys.
 
+`financial_import_events.resolution.different_purchases` holds explicit
+same-Business receipt decisions, keyed by the comparison event ID. Each entry
+binds `self` and `other` hashes of normalized duplicate facts and live import
+evidence, plus `source_self` and `source_other` hashes of the attached source
+IDs, immutable source hashes and saved extraction batches. Human review sources
+and event versions/timestamps do not enter these hashes. Only an open target is
+changed; an accepted comparison and its financial record are read-only. The
+existing revision/source/action-receipt mechanism records who decided and which
+two versions they reviewed. Current evidence and live authority are checked again
+for replay and approval. A missing source verifier cannot validate a decision.
+Migration `20261023005500_business_duplicate_resolution.sql` adds only
+`resolve_duplicate` to the existing unplanned-command allowlist, preserving all
+older commands, tables, grants and row-level security.
+
 The resolution's `document_type` (`recibo` or `venta`) is the draft's current
 document type, and `document_type_detected` is true while the read's choice
 stands. The upload's own choice lives on `financial_document_extractions.draft`

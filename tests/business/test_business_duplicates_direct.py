@@ -172,3 +172,41 @@ def test_the_legacy_delivery_marks_from_the_observations_the_same_way():
     service._flag_business_duplicates(OWNER, cid1, SCOPE)
     with imports.transaction(OWNER, scope=SCOPE) as tx:
         assert tx.event(first.id).attention is None
+
+
+def test_no_decision_adds_no_queries_and_missing_source_verification_fails_closed():
+    from dataclasses import replace
+
+    from argus.domain.business.duplicates import (
+        different_purchase,
+        evidence_signature,
+        pending_duplicates,
+    )
+
+    first, second = _event(_facts()), _event(_facts())
+    idle = Mock()
+    assert pending_duplicates(idle, second) == ()
+    assert idle.mock_calls == []
+    store = InMemoryImportStore()
+    with store.transaction(OWNER, scope=SCOPE) as tx:
+        tx.put_event(first)
+        tx.put_event(second)
+        decision = {
+            "self": evidence_signature(tx, second),
+            "other": evidence_signature(tx, first),
+            "source_self": "second-source",
+            "source_other": "first-source",
+        }
+        second = replace(
+            second,
+            resolution={**second.resolution, "different_purchases": {first.id: decision}},
+        )
+        tx.put_event(second)
+        def proof(event_id: str) -> str:
+            return "second-source" if event_id == second.id else "first-source"
+        assert different_purchase(tx, second, first) is False
+        assert different_purchase(tx, second, first, proof) is True
+        assert (
+            different_purchase(tx, second, first, lambda event_id: "changed-source")
+            is False
+        )

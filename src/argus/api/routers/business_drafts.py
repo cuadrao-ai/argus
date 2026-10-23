@@ -21,6 +21,7 @@ from argus.domain.business.contracts.actions import (
     DecideFiscalInclusion,
     MarkPersonal,
     Refused,
+    ResolveDuplicate,
     ReviewDraft,
     SettleRemainder,
 )
@@ -82,6 +83,8 @@ def _run(request, response, context, draft_id, command=None, key=None):
         if command is not None:
             if isinstance(command, ReviewDraft):
                 method = context.service.review
+            elif isinstance(command, ResolveDuplicate):
+                method = context.service.resolve_duplicate
             elif isinstance(command, SettleRemainder):
                 method = context.service.settle_remainder
             elif isinstance(command, MarkPersonal):
@@ -119,6 +122,20 @@ def review_draft(
     response: Response,
     draft_id: UUID,
     body: ReviewDraft,
+    context: Annotated[DraftContext, Depends(require_drafts)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    return _run(
+        request, response, context, draft_id, body, _key(request, idempotency_key)
+    )
+
+
+@router.post("/{draft_id}/duplicate-resolution", response_model=BusinessDossier)
+def resolve_duplicate(
+    request: Request,
+    response: Response,
+    draft_id: UUID,
+    body: ResolveDuplicate,
     context: Annotated[DraftContext, Depends(require_drafts)],
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):

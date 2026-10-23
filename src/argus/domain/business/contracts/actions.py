@@ -228,6 +228,19 @@ class DecideFiscalInclusionCommand(Contract):
     request: DecideFiscalInclusion
 
 
+class ResolveDuplicate(Contract):
+    version: int = Field(ge=1, strict=True)
+    other_draft_id: UUID
+    other_version: int = Field(ge=1, strict=True)
+    decision: Literal["different_purchase"]
+
+
+class ResolveDuplicateCommand(Contract):
+    action: Literal["resolve_duplicate"] = "resolve_duplicate"
+    draft_id: UUID
+    request: ResolveDuplicate
+
+
 class ReviewCommand(Contract):
     action: Literal["review_draft"] = "review_draft"
     draft_id: UUID
@@ -348,6 +361,7 @@ class RebindAttachmentCommand(Contract):
 Command = (
     BusinessAction
     | ReviewCommand
+    | ResolveDuplicateCommand
     | ApprovalCommand
     | CaptureCommand
     | IncomeApprovalCommand

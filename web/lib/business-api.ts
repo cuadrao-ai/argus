@@ -221,6 +221,14 @@ export async function reviewBusinessDraft(draftId: string, version: number, fact
   });
 }
 
+export async function resolveBusinessDuplicate(draftId: string, version: number, otherDraftId: string, otherVersion: number, idempotencyKey: string): Promise<BusinessDossier> {
+  return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/duplicate-resolution`, {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ version, other_draft_id: otherDraftId, other_version: otherVersion, decision: "different_purchase" }),
+  });
+}
+
 /** Compra or Venta on an open draft. Null clears a picked type so the server detects it again. */
 export async function setBusinessDraftDocumentType(draftId: string, version: number, documentType: "recibo" | "venta" | null, idempotencyKey: string): Promise<BusinessDossier> {
   return apiFetch(`/business/drafts/${encodeURIComponent(draftId)}/review`, {

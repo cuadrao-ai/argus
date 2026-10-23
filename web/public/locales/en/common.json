@@ -3044,6 +3044,12 @@
       },
       "not_found": "We couldn't find this email."
     },
+    "receipts": {
+      "duplicate_resolution": {
+        "button": "This is a different purchase",
+        "explanation": "Confirm that these receipts are for different purchases. The expense still needs review and approval."
+      }
+    },
     "review": {
       "see_original": "See the receipt already saved",
       "rebind_note": "The access that prepared this receipt is no longer valid. Bind it to your current access, then prepare it again.",

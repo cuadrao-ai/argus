@@ -126,6 +126,7 @@ export type BusinessDossier = BusinessRecordContext & {
   history: BusinessDraftRevision[];
   blockers: { code: string; field: BusinessFactField | null }[];
   approval_available: boolean;
+  duplicate_candidates?: { draft_id: string; version: number }[];
   /** The approve action this draft takes, by its kind; null while approval is not available. Absent from servers older than #1353. */
   approval_action?: BusinessApprovalAction | null;
   /** The caller may answer the 606 question now, by the gate that action enforces. */

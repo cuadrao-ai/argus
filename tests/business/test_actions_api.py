@@ -135,3 +135,22 @@ def test_approve_route_dispatches_strict_income_and_expense_commands():
         ("income", draft_id, "record_income", 2, "same-key"),
         ("expense", draft_id, "record_expense", 3, "same-key"),
     ]
+
+
+def test_duplicate_resolution_is_a_strict_business_command():
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[require_drafts] = lambda: DraftContext(MissingDraft(), uuid4())
+    with TestClient(app) as client:
+        response = client.post(
+            f"/business/drafts/{uuid4()}/duplicate-resolution",
+            json={
+                "version": 1,
+                "other_draft_id": str(uuid4()),
+                "other_version": 1,
+                "decision": "different_purchase",
+                "space_id": str(uuid4()),
+            },
+            headers={"Idempotency-Key": "duplicate-decision"},
+        )
+    assert response.status_code == 422

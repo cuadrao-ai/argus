@@ -1,0 +1,67 @@
+name: Business duplicate resolution evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [codex/private-alpha-next]
+    paths:
+      - .github/workflows/business-duplicate-resolution-evidence.yml
+      - web/scripts/receipt-duplicate-resolution-evidence.ts
+      - web/components/business-app/ReceiptDossierReview.tsx
+      - web/lib/business-api.ts
+      - web/lib/business-dossier.ts
+      - web/public/locales/en/common.json
+      - web/public/locales/es-419/common.json
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_MOCK_AUTH: "true"
+      NEXT_PUBLIC_APP_ENV: local
+      NEXT_PUBLIC_ENABLE_SPANISH: "true"
+      NEXT_PUBLIC_CUADRAO_BUSINESS_PILOT_ENABLED: "true"
+      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true"
+      NEXT_PUBLIC_ARGUS_API_URL: http://127.0.0.1:3198/api/v1
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3198
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install web and headless browser dependencies
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+      - name: Build the synthetic local app
+        working-directory: web
+        run: bun run build
+      - name: Capture and assert synthetic receipt review
+        working-directory: web
+        run: |
+          mkdir -p ../temp/duplicate-resolution-evidence
+          bun node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3198 > ../temp/duplicate-resolution-evidence/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3198/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3198/ > /dev/null
+          bun scripts/receipt-duplicate-resolution-evidence.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-duplicate-resolution-${{ github.event.pull_request.head.sha || github.sha }}
+          path: temp/duplicate-resolution-evidence/
+          if-no-files-found: error
+          retention-days: 14

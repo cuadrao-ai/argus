@@ -3130,6 +3130,12 @@
     "receipt": {
       "untitled": "Recibo"
     },
+    "receipts": {
+      "duplicate_resolution": {
+        "button": "Es otra compra",
+        "explanation": "Confirma que estos recibos corresponden a compras distintas. El gasto todavía necesita revisión y aprobación."
+      }
+    },
     "review": {
       "see_original": "Ver el recibo ya guardado",
       "rebind_note": "El acceso que preparó este recibo ya no es válido. Vincúlalo a tu acceso actual y vuelve a prepararlo.",
