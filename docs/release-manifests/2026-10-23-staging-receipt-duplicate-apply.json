@@ -1,0 +1,15 @@
+{
+  "id": "staging-apply-2026-10-23-receipt-duplicate",
+  "project_ref": "skedzwocnmrhfigiwyzi",
+  "hosts": [
+    "db.skedzwocnmrhfigiwyzi.supabase.co",
+    "aws-0-us-east-1.pooler.supabase.com"
+  ],
+  "database": "postgres",
+  "candidate_sha": "12e09a484f6b34df9fbce919853acf4a3ff96fea",
+  "versions_sha256": "27c2c8a7ddae2dafbe959b65355026f20e8e2af7cf83abf2a40b646d2c32a1b1",
+  "issued_at": "2026-10-23T01:52:04Z",
+  "expires_at": "2026-10-25T01:52:04Z",
+  "approved_by": "founder",
+  "approval_reference": "Lucas current narrow Business receipt duplicate-resolution repair approval in root thread 01a15fd3-8a2a-75c2-86b3-c6953a5e0e91 covers the compatible action-ledger constraint migration needed for PR #1371 and the existing receipt review/approval/export acceptance. Standing staging authorization from 2026-10-19 15:25 CT covers reviewed additive migrations with independent Full Eval SHIP, a merged PR, a committed approval record, and a dry run before execution through scripts/ops/apply_approved_migrations.py. PR #1371 received independent GPT-6-sol high SHIP at a1770d526b4c73eb201db0a0ccda39d6b48b7d7f: https://github.com/lagarcess/argus/pull/1371#issuecomment-6355438378. The PR is merged into candidate 12e09a484f6b34df9fbce919853acf4a3ff96fea. This record covers only migration 20261023005500 for staging project skedzwocnmrhfigiwyzi. It does not authorize production changes."
+}
