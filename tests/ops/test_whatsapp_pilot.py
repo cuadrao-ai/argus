@@ -74,6 +74,45 @@ def test_success_means_only_number_access(payload: object, expected: str) -> Non
     assert "delivered" not in result.values()
 
 
+@pytest.mark.parametrize("status", [200, 400])
+def test_deeply_nested_provider_body_cli_is_safe_and_not_retried(
+    status: int, monkeypatch, capsys
+) -> None:
+    settings = WhatsAppSettings(
+        intake_enabled=True,
+        verify_token="synthetic-verify",
+        app_secret="synthetic-app",
+        sender_key="synthetic-sender",
+        access_token=TOKEN,
+        phone_number_id=NUMBER,
+    )
+    private_record = json.dumps({"message": "SECRETWORDS", "token": TOKEN}).encode()
+    content = b"[" * 1200 + private_record + b"]" * 1200
+    calls = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        assert request.method == "GET"
+        return httpx.Response(status, content=content)
+
+    client = httpx.Client(transport=httpx.MockTransport(respond))
+
+    def mock_client(*, trust_env: bool) -> httpx.Client:
+        assert not trust_env
+        return client
+
+    monkeypatch.setattr(pilot, "load_whatsapp_settings", lambda: settings)
+    monkeypatch.setattr(pilot.httpx, "Client", mock_client)
+    assert pilot.main(["--probe-credential"]) == 2
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    assert report["credential"] == {"status": "unverified", "reason": "unexpected_response"}
+    assert report["actions"] == ["inspect_number_access_without_sending"]
+    assert len(calls) == 1
+    for private in (TOKEN, "SECRETWORDS", "Traceback"):
+        assert private not in captured.out + captured.err
+
+
 def test_transport_failure_is_unverified_and_redirect_is_not_followed() -> None:
     calls = []
 

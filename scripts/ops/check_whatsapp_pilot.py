@@ -53,13 +53,16 @@ def probe_credential(
         try:
             payload = safe_response.json()
             matches = isinstance(payload, dict) and payload.get("id") == number_id
-        except ValueError:
+        except (ValueError, RecursionError):
             matches = False
         return {
             "status": "authorized" if matches else "unverified",
             "reason": "number_access" if matches else "unexpected_response",
         }
-    error = graph_error(safe_response)
+    try:
+        error = graph_error(safe_response)
+    except RecursionError:
+        return {"status": "unverified", "reason": "unexpected_response"}
     code, subcode = error.get("code"), error.get("error_subcode")
     if code == "190":
         reason = {"463": "expired", "464": "token_user_unconfirmed"}.get(
