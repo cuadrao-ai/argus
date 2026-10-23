@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from tests.test_staging_default_off_flags import APPROVED_STAGING_OVERRIDES
+
 ROOT = Path(__file__).resolve().parents[1]
 
 # Surfaces that already leave a web flag to its code default. A new
@@ -101,6 +103,7 @@ def test_private_alpha_web_flags_are_declared_for_hosted_settings() -> None:
     for name in BUSINESS_DEFAULT_OFF_FLAGS:
         assert re.search(rf"^{name}=false$", env_example, re.M)
         assert profile_env[name] == "false"
-        assert manifest_entries[name]["value"] == "false"
+        staging_value = "true" if APPROVED_STAGING_OVERRIDES.get(name, "").strip() else "false"
+        assert manifest_entries[name]["value"] == staging_value
         for service_env in render_web.values():
-            assert service_env[name]["value"] == "false"
+            assert service_env[name]["value"] == staging_value
