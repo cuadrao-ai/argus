@@ -194,6 +194,14 @@ class WhatsAppIntake:
             statuses=delivery.statuses,
             other_numbers=delivery.other_numbers,
         )
+        for failure in delivery.failures:
+            logger.warning(
+                f"WhatsApp outbound delivery failed: code={failure.code or 'unknown'} "
+                f"reason={failure.reason}",
+                event="whatsapp_delivery_failed",
+                graph_code=failure.code,
+                failure_reason=failure.reason,
+            )
         in_flight = False
         first_error: Exception | None = None
         held: list[_Held] = []

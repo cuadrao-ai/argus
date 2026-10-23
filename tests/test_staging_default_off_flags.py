@@ -4,6 +4,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,11 @@ APPROVED_STAGING_OVERRIDES: dict[str, str] = {
     "ARGUS_HOUSEHOLDS_ENABLED": (
         "The Consumer staging proof uses households ahead of the iOS beta "
         "build. Prod stays false."
+    ),
+    "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED": (
+        "Prepare the requested persistent staging pilot's existing connection "
+        "controls for a reviewed manual release. Activation remains behind "
+        "founder approval, CI, Eval, and manual release gates. Prod stays false."
     ),
 }
 
@@ -124,6 +130,7 @@ def prod_values_other_than_false(
         render_values = [
             item.get("value")
             for service in render_config.get("services", [])
+            if service.get("name") not in ("cuadrao-api-staging", "cuadrao-web-staging")
             for item in service.get("envVars", [])
             if item.get("key") == name
         ]
@@ -189,3 +196,69 @@ def test_default_off_profile_flags_are_not_turned_on_in_staging() -> None:
         turned_on_default_off_flags(profile, manifest, APPROVED_STAGING_OVERRIDES)
         == []
     )
+
+
+def test_explicit_staging_web_override_keeps_production_false() -> None:
+    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
+    name = "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED"
+    stage = next(
+        service
+        for service in render_config["services"]
+        if service["name"] == "cuadrao-web-staging"
+    )
+    assert (
+        next(entry for entry in stage["envVars"] if entry["key"] == name)["value"]
+        == "true"
+    )
+    assert (
+        next(
+            entry
+            for entry in manifest["services"]["web"]["entries"]
+            if entry["name"] == name
+        )["value"]
+        == "true"
+    )
+    assert profile["services"]["web"]["env"][name] == "false"
+    assert (
+        prod_values_other_than_false(profile, render_config, APPROVED_STAGING_OVERRIDES)
+        == []
+    )
+
+
+@pytest.mark.parametrize("surface", ["profile", "render", "unknown", "unnamed"])
+def test_staging_exception_cannot_hide_other_true_values(surface: str) -> None:
+    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    render_config = yaml.safe_load(RENDER_PATH.read_text(encoding="utf-8"))
+    name = "NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED"
+    if surface == "profile":
+        profile["services"]["web"]["env"][name] = "true"
+    elif surface == "render":
+        production = next(
+            service
+            for service in render_config["services"]
+            if service["name"] == "cuadrao-web"
+        )
+        production.setdefault("envVars", []).append({"key": name, "value": "true"})
+    else:
+        service = {"envVars": [{"key": name, "value": "true"}]}
+        if surface == "unknown":
+            service["name"] = "cuadrao-web-preview-staging"
+        render_config["services"].append(service)
+    assert prod_values_other_than_false(
+        profile, render_config, APPROVED_STAGING_OVERRIDES
+    ) == [name]
+
+
+def test_another_staging_flag_still_needs_its_own_approval() -> None:
+    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    name = "NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED"
+    entry = next(
+        entry for entry in manifest["services"]["web"]["entries"] if entry["name"] == name
+    )
+    entry["value"] = "true"
+    assert turned_on_default_off_flags(profile, manifest, APPROVED_STAGING_OVERRIDES) == [
+        name
+    ]

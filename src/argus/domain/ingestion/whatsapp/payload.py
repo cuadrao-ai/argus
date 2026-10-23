@@ -1,9 +1,9 @@
 """Meta webhook payloads parsed into the three message shapes intake handles.
 
 Only ``messages`` changes for the configured business number are read. Text,
-image and document messages become typed values; every other message type and
-every delivery status is counted and ignored. Meta adds fields over time, so
-unknown fields are ignored rather than rejected.
+image and document messages become typed values. Other message types and
+delivery statuses are counted. Failed statuses retain safe diagnostics.
+Unknown fields are ignored rather than rejected.
 """
 
 from __future__ import annotations
@@ -99,6 +99,31 @@ class UnsupportedMessage:
 
 InboundMessage = TextMessage | MediaMessage | UnsupportedMessage
 
+
+@dataclass(frozen=True)
+class DeliveryFailure:
+    code: str | None
+    reason: str
+
+
+def delivery_failure(code: object) -> DeliveryFailure:
+    safe = None
+    if isinstance(code, (str, int)) and not isinstance(code, bool):
+        value = str(code)
+        if value.isascii() and value.isdigit() and 1 <= len(value) <= 10:
+            safe = value
+    reason = {
+        "190": "credential_invalid",
+        "130429": "rate_limited",
+        "131026": "undeliverable",
+        "131031": "account_restricted",
+        "131047": "service_window_closed",
+        "131048": "rate_limited",
+        "131049": "delivery_limited",
+    }.get(safe, "delivery_failed")
+    return DeliveryFailure(safe, reason)
+
+
 # Meta's message type names for kinds the owner may send but intake cannot read
 # yet. Reactions, system and unknown types stay ignored: they need no answer.
 UNSUPPORTED_KINDS = frozenset({"audio", "sticker", "video"})
@@ -110,6 +135,7 @@ class Delivery:
     ignored_messages: int
     statuses: int
     other_numbers: int
+    failures: tuple[DeliveryFailure, ...] = ()
 
 
 _DEFAULT_NAMES = {"image": "whatsapp-image", "document": "whatsapp-document"}
@@ -145,6 +171,7 @@ def parse_delivery(body: bytes, *, phone_number_id: str) -> Delivery:
     except ValidationError:
         raise PayloadInvalid("envelope") from None
     messages: list[InboundMessage] = []
+    failures: list[DeliveryFailure] = []
     ignored = statuses = other = 0
     for entry in envelope.entry:
         for change in entry.changes:
@@ -155,10 +182,16 @@ def parse_delivery(body: bytes, *, phone_number_id: str) -> Delivery:
                 other += len(value.messages) + len(value.statuses)
                 continue
             statuses += len(value.statuses)
+            for status in value.statuses:
+                if status.get("status") == "failed":
+                    errors = status.get("errors")
+                    first = errors[0] if isinstance(errors, list) and errors else None
+                    code = first.get("code") if isinstance(first, dict) else None
+                    failures.append(delivery_failure(code))
             for message in value.messages:
                 projected = _project(message)
                 if projected is None:
                     ignored += 1
                 else:
                     messages.append(projected)
-    return Delivery(tuple(messages), ignored, statuses, other)
+    return Delivery(tuple(messages), ignored, statuses, other, tuple(failures))

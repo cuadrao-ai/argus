@@ -358,7 +358,7 @@ services:
       - key: NEXT_PUBLIC_BUSINESS_ONLY_WEB
         value: "true"
       - key: NEXT_PUBLIC_BUSINESS_WHATSAPP_PREFERENCES_ENABLED
-        value: "false"
+        value: "true"
       - key: NEXT_PUBLIC_BUSINESS_SEARCH_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
