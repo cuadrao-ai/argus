@@ -103,7 +103,10 @@ test("Continuar waits for the box, locks with a spinner while saving, and goes s
   const releaseRead = world.holdRead();
   const { host, root } = await mount(world.source);
   await settle();
-  assert.ok(host.querySelector('[data-testid="business-consent-loading"] [data-layout="overview"]'), "the check paints Inicio's skeleton, not blank");
+  assert.equal(host.querySelector('[data-layout="overview"]'), null, "consent checking does not paint the Home skeleton");
+  assert.equal(host.querySelector('[data-testid="fullscreen-loading"]'), null, "a fast check waits before showing the indicator");
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
+  assert.ok(host.querySelector('[data-testid="fullscreen-loading"]'), "a slow check uses the shared full-page indicator");
   releaseRead();
   await settle();
 
