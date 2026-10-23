@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { factsRevision, type BusinessDossier, type BusinessFactField, type BusinessFactPatch } from "@/lib/business-dossier";
 import ReceiptEcfChecks from "./ReceiptEcfChecks";
 import FiscalDeclarationEditor from "./FiscalDeclarationEditor";
-import { duplicateRecordId, type BusinessCaptureInput } from "@/lib/business-api";
+import { duplicateRecordId, resolveBusinessDuplicate, type BusinessCaptureInput } from "@/lib/business-api";
 import ManualCaptureDialog from "./ManualCaptureDialog";
 import { randomId } from "@/lib/random-id";
 import { useBusiness } from "./BusinessWorkspace";
@@ -43,7 +43,61 @@ export function approvalLine(canApprove: boolean, canPrepare: boolean): "prepare
 export function ReceiptApprovalGuidance({ dossier }: { dossier: BusinessDossier }) {
   const { t } = useTranslation();
   if (!dossier.blockers.length || dossier.review_state === "accepted" && dossier.approval_result?.status === "recorded") return null;
-  return <div className={`${SURFACE_CARD} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(`business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
+  return <div className={`${SURFACE_CARD} text-[13px] text-black/70 dark:text-white/70`}><p className="font-medium">{t("business.dossier.before_approval", "Before approval")}</p><ul className="mt-2 space-y-2">{dossier.blockers.map((blocker, index) => <li key={`${blocker.code}-${index}`}>{t(blocker.code === "possible_duplicate" ? "business.attention.duplicate" : `business.dossier.blocker.${blocker.code}`, t("business.dossier.blocker_fallback", "This record needs further review before approval."))}{blocker.field ? ` · ${t(`business.dossier.field.${blocker.field}`, blocker.field)}` : ""}</li>)}</ul></div>;
+}
+
+export function ReceiptDuplicateResolution({ dossier, busy = false, onChanged, onBusyChange, onOpenOriginal }: {
+  dossier: BusinessDossier;
+  busy?: boolean;
+  onChanged: (next: BusinessDossier) => void;
+  onBusyChange: (busy: boolean) => void;
+  onOpenOriginal: (draftId: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [working, setWorking] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  const request = useRef<{ draftId: string; version: number; otherId: string; otherVersion: number; key: string } | null>(null);
+  const candidates = dossier.duplicate_candidates ?? [];
+  if (!candidates.length || dossier.review_state !== "open") return null;
+  const canPrepare = dossier.capabilities.includes("prepare");
+  const resolve = async (candidate: (typeof candidates)[number]) => {
+    if (inFlight.current || busy || !canPrepare) return;
+    inFlight.current = true;
+    setWorking(true);
+    onBusyChange(true);
+    setProblem(null);
+    const saved = request.current;
+    const command = saved?.draftId === dossier.draft_id && saved.version === dossier.version && saved.otherId === candidate.draft_id && saved.otherVersion === candidate.version
+      ? saved
+      : { draftId: dossier.draft_id, version: dossier.version, otherId: candidate.draft_id, otherVersion: candidate.version, key: randomId() };
+    request.current = command;
+    try {
+      const next = await resolveBusinessDuplicate(dossier.draft_id, command.version, command.otherId, command.otherVersion, command.key);
+      request.current = null;
+      onChanged(next);
+    } catch (error) {
+      const code = error !== null && typeof error === "object" && "code" in error ? error.code : null;
+      setProblem(code === "stale_version" || code === "duplicate_evidence_changed"
+        ? t("business.dossier.stale")
+        : t("business.dossier.refused"));
+    } finally {
+      inFlight.current = false;
+      setWorking(false);
+      onBusyChange(false);
+    }
+  };
+  return <div className={SURFACE_CARD} data-testid="receipt-duplicate-resolution" aria-busy={working}>
+    <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.receipts.duplicate_resolution.explanation")}</p>
+    {candidates.map((candidate) => <div key={candidate.draft_id} className="mt-3 flex flex-wrap gap-2">
+      <button type="button" className={secondaryButtonClass} disabled={busy || working} onClick={() => onOpenOriginal(candidate.draft_id)}>{t("business.review.see_original")}</button>
+      {canPrepare ? <button type="button" className={secondaryButtonClass} disabled={busy || working} onClick={() => void resolve(candidate)}>
+        {working ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+        {t("business.receipts.duplicate_resolution.button")}
+      </button> : null}
+    </div>)}
+    {problem ? <p role="alert" className="mt-3 text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{problem}</p> : null}
+  </div>;
 }
 
 /** The purchases a read showed on one receipt, what this record covers of its total, and the settle action once the record is recorded. */
@@ -99,6 +153,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const [captureRetained, setCaptureRetained] = useState(false);
   const [capturePending, setCapturePending] = useState(false);
   const [settling, setSettling] = useState(false);
+  const [duplicateBusy, setDuplicateBusy] = useState(false);
   const [advancing, setAdvancing] = useState(false);
   const [fiscalBusy, setFiscalBusy] = useState(false);
   const [fiscalDirty, setFiscalDirty] = useState(false);
@@ -153,7 +208,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
 
   const write = async (action: "save" | "approve", facts?: BusinessFactPatch): Promise<BusinessDossier | null> => {
     const approval = dossier?.approval_action;
-    if (!dossier || inFlight.current || fiscalBusy || action === "approve" && (fiscalDirty || !approval) || operation.kind !== "idle" || action === "save" && !facts) return null;
+    if (!dossier || inFlight.current || duplicateBusy || fiscalBusy || action === "approve" && (fiscalDirty || !approval) || operation.kind !== "idle" || action === "save" && !facts) return null;
     inFlight.current = true;
     setOperation({ kind: action === "save" ? "saving" : "approving" });
     setProblem(null);
@@ -248,13 +303,13 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
   const recorded = approval !== null;
   // The server names the approve action; without one there is nothing this screen may approve.
   const supportedKind = Boolean(dossier.approval_action);
-  const mutable = !capturePending && !captureOpen && !fiscalBusy && !fiscalDirty && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
+  const mutable = !duplicateBusy && !capturePending && !captureOpen && !fiscalBusy && !fiscalDirty && dossier.review_state === "open" && !recorded && operation.kind === "idle" && dossier.approval_result?.status !== "outcome_unknown";
   const canPrepare = dossier.capabilities.includes("prepare");
   const canApprove = dossier.capabilities.includes("approve");
   const line = approvalLine(canApprove, canPrepare);
   const title = dossier.facts.counterparty.state === "known" ? dossier.facts.counterparty.value : t("business.dossier.title", "Review record");
   const attachments = dossier.sources.filter((item) => item.kind === "attachment");
-  const busy = operation.kind === "saving" || operation.kind === "approving";
+  const busy = duplicateBusy || operation.kind === "saving" || operation.kind === "approving";
   const approvable = mutable && dossier.approval_available && !dirty && !fiscalDirty;
   const missingFields = [...new Set(dossier.blockers.flatMap((blocker) => blocker.code === "fact_required" && blocker.field ? [blocker.field] : []))];
   const confirmations = extractedConfirmationPatch(dossier, edits);
@@ -333,6 +388,7 @@ export default function ReceiptDossierReview({ draftId, onUnprepared, receipt }:
           {source.mode === "live" ? <FiscalDeclarationEditor key={`${dossier.draft_id}-${dossier.version}`} dossier={dossier} disabled={busy || dirty || capturePending || captureOpen} onBusy={setFiscalBusy} onDirty={setFiscalDirty} onChanged={(value) => { setDossier(value); reload(); }} /> : null}
           <ReceiptReviewQuestions questions={dossier.questions} />
           <ReceiptApprovalGuidance dossier={dossier} />
+          <ReceiptDuplicateResolution dossier={dossier} busy={busy || dirty || fiscalDirty || capturePending || captureOpen} onBusyChange={setDuplicateBusy} onChanged={(next) => { setDossier(next); reload(); }} onOpenOriginal={(id) => openPanel({ kind: "draft", draftId: id })} />
           {problem ? <p role="alert" className="flex items-start gap-2 text-[15px] leading-[22px] text-[#9e2f39] dark:text-[#ec9aa0]"><CircleAlert className="mt-0.5 h-[18px] w-[18px] shrink-0" aria-hidden="true" />{problem}</p> : null}
           {duplicate ? <div role="alert" data-testid="dossier-duplicate" className={SURFACE_CARD}><p className="text-[15px] leading-[22px] text-[#172b26] dark:text-white">{t("business.dossier.duplicate_recorded", "You already recorded this fiscal receipt.")}</p>{duplicate.recordId ? <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={() => openPanel({ kind: "draft", draftId: duplicate.recordId as string })}>{t("business.dossier.see_recorded", "See the recorded one")}</button> : null}</div> : null}
           <div className={SURFACE_CARD}>

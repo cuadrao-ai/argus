@@ -10,6 +10,8 @@ read of the original never turns both into duplicates of each other.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
@@ -17,7 +19,7 @@ from decimal import Decimal, InvalidOperation
 
 from argus.domain.business.contracts.facts import BusinessFacts, BusinessResolution, Known
 from argus.domain.ingestion.reconcile import duplicates
-from argus.domain.ingestion.reconcile.model import ImportEvent, Observation
+from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent, Observation
 from argus.domain.ingestion.reconcile.store import ImportTx
 
 DUPLICATE_FIELDS = ("counterparty", "occurred_on", "amount", "currency")
@@ -78,7 +80,81 @@ def event_key(
     return _observed_key(observations(event.id))
 
 
-def flag_receipt_duplicates(tx: ImportTx, event_id: str) -> tuple[str, ...]:
+def evidence_signature(tx: ImportTx, event: ImportEvent) -> str:
+    evidence = sorted(
+        (
+            {
+                "id": o.id,
+                "connection_id": o.connection_id,
+                "fingerprint": o.fingerprint,
+                "candidate": o.candidate,
+            }
+            for o in tx.observations(event.id)
+            if o.live
+        ),
+        key=lambda item: item["id"],
+    )
+    payload = {"facts": event_key(event, tx.observations), "evidence": evidence}
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def different_purchase(
+    tx: ImportTx,
+    event: ImportEvent,
+    other: ImportEvent,
+    source_signature: Callable[[str], str] | None = None,
+) -> bool:
+    for left, right in ((event, other), (other, event)):
+        decision = left.resolution.get("different_purchases", {}).get(right.id)
+        if decision is None:
+            continue
+        if decision.get("self") != evidence_signature(tx, left) or decision.get(
+            "other"
+        ) != evidence_signature(tx, right):
+            continue
+        if source_signature is not None and (
+            decision.get("source_self") == source_signature(left.id)
+            and decision.get("source_other") == source_signature(right.id)
+        ):
+            return True
+    return False
+
+
+def pending_duplicates(
+    tx: ImportTx,
+    event: ImportEvent,
+    source_signature: Callable[[str], str] | None = None,
+) -> tuple[str, ...]:
+    """Keep existing warnings and reopen a decided pair when its evidence changes."""
+    pending = set(event.possible_duplicates)
+    decisions = event.resolution.get("different_purchases", {})
+    if not decisions:
+        return tuple(sorted(pending))
+    key = event_key(event, tx.observations)
+    for other_id in set(decisions) | pending:
+        try:
+            other = tx.event(other_id)
+        except EventNotFound:
+            continue
+        if different_purchase(tx, event, other, source_signature):
+            pending.discard(other.id)
+        elif (
+            other.id in decisions
+            and other.state in OPEN_OR_RECORDED
+            and key is not None
+            and event_key(other, tx.observations) == key
+        ):
+            pending.add(other.id)
+    return tuple(sorted(pending))
+
+
+def flag_receipt_duplicates(
+    tx: ImportTx,
+    event_id: str,
+    source_signature: Callable[[str], str] | None = None,
+) -> tuple[str, ...]:
     """Mark ``event_id`` as a possible repeat of the other open or recorded
     events of this scope that share its read facts. Returns what it named."""
 
@@ -90,7 +166,9 @@ def flag_receipt_duplicates(tx: ImportTx, event_id: str) -> tuple[str, ...]:
     for other in tx.events(OPEN_OR_RECORDED):
         if other.id == event.id or event.id in other.possible_duplicates:
             continue
-        if event_key(other, tx.observations) == key:
+        if event_key(other, tx.observations) == key and not different_purchase(
+            tx, event, other, source_signature
+        ):
             found.append(other.id)
     if not found:
         return ()

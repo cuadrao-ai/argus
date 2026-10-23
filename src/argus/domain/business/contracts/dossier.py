@@ -151,6 +151,11 @@ class RefundCandidate(Contract):
     currency: str
 
 
+class DuplicateCandidate(Contract):
+    draft_id: UUID
+    version: int = Field(ge=1)
+
+
 class BusinessDossier(RecordContext):
     dgii: DgiiDeclaration | None = None
     draft_id: UUID
@@ -162,6 +167,7 @@ class BusinessDossier(RecordContext):
     history: tuple[DraftRevision, ...]
     blockers: tuple[Blocker, ...]
     approval_available: bool
+    duplicate_candidates: tuple[DuplicateCandidate, ...] = ()
     #: The approve action this draft takes once ``approval_available``, by its
     #: kind; null while approval is not available.
     approval_action: ApprovalAction | None = None
@@ -222,6 +228,7 @@ _UNMEASURED_DOSSIER_FIELDS = {
     "approval_action": True,
     "fiscal_inclusion_available": True,
     "refund_candidates": True,
+    "duplicate_candidates": True,
     "history": {"__all__": {"before_due_on", "after_due_on"}},
 }
 

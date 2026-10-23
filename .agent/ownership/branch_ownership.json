@@ -1,6 +1,43 @@
 {
   "default_base_ref": "codex/alpha-functional",
   "branches": {
+    "codex/business-duplicate-resolution-20261022": {
+      "description": "Explicit same-Business receipt duplicate decisions with live human prepare authority, bounded evidence, review UI and isolated proofs. No hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".github/workflows/business-duplicate-resolution-evidence.yml",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "src/argus/api/routers/business_drafts.py",
+        "src/argus/domain/business/actions/dossier.py",
+        "src/argus/domain/business/actions/duplicate_resolution.py",
+        "src/argus/domain/business/actions/service.py",
+        "src/argus/domain/business/contracts/actions.py",
+        "src/argus/domain/business/contracts/dossier.py",
+        "src/argus/domain/business/duplicates.py",
+        "supabase/migrations/20261023005500_business_duplicate_resolution.sql",
+        "tests/business/test_actions_api.py",
+        "tests/business/test_business_duplicates_direct.py",
+        "tests/test_business_duplicate_resolution_postgres.py",
+        "web/__tests__/receipt-duplicate-resolution.dom.test.tsx",
+        "web/components/business-app/ReceiptDossierReview.tsx",
+        "web/lib/business-api.ts",
+        "web/lib/business-dossier.ts",
+        "web/public/locales/en/common.json",
+        "web/public/locales/es-419/common.json",
+        "web/scripts/receipt-duplicate-resolution-evidence.ts"
+      ],
+      "deny": [
+        ".env",
+        "web/.env.local",
+        "ios/**",
+        "mobile/**",
+        "marketing/**",
+        "web/app/page.tsx"
+      ]
+    },
     "codex/cleanup-m2-definer-paths": {
       "description": "M2 only. Preserve 21 definer bodies, signatures and grants while setting empty search paths. Root granted this unique ownership entry. No staging apply.",
       "base_ref": "origin/codex/private-alpha-next",

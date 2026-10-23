@@ -19,6 +19,7 @@ from argus.domain.business.contracts.dossier import (
     Blocker,
     BusinessDossier,
     DraftRevision,
+    DuplicateCandidate,
     RecordContext,
     RecordedApproval,
     ReviewQuestion,
@@ -31,9 +32,10 @@ from argus.domain.business.contracts.facts import (
     BusinessResolution,
     Known,
 )
+from argus.domain.business.duplicates import pending_duplicates
 from argus.domain.business.transactions import ActionTransaction
 from argus.domain.ingestion.receipt_review import DUPLICATE_WARNINGS
-from argus.domain.ingestion.reconcile.model import EventNotFound
+from argus.domain.ingestion.reconcile.model import EventNotFound, ImportEvent
 from argus.domain.recording.money_schemas import ELIGIBILITY
 
 SOURCE = TypeAdapter(SourceEvidence)
@@ -164,6 +166,27 @@ def approval_of(
     return None
 
 
+def duplicate_candidates(
+    tx: ActionTransaction, event: ImportEvent, ids: tuple[str, ...]
+) -> tuple[DuplicateCandidate, ...]:
+    if event.attention not in (None, "possible_duplicate") or not (
+        (event.attention_detail or {}).get("basis") == "read_facts"
+        or event.resolution.get("different_purchases")
+    ):
+        return ()
+    candidates = []
+    for other_id in ids:
+        try:
+            other = tx.imports.event(other_id)
+        except EventNotFound:
+            continue
+        if other.state in ("open", "accepted") and "business" in other.resolution:
+            candidates.append(
+                DuplicateCandidate(draft_id=other.id, version=other.version)
+            )
+    return tuple(candidates)
+
+
 def dossier(
     tx: ActionTransaction,
     draft_id: UUID,
@@ -224,7 +247,17 @@ def dossier(
         blocked.append(Blocker(code="business_questions_unresolved"))
     if event.state != "open":
         blocked.append(Blocker(code="business_draft_not_open"))
-    if event.attention in DUPLICATE_WARNINGS:
+    from argus.domain.business.actions.duplicate_resolution import attachment_signature
+
+    duplicate_ids = pending_duplicates(
+        tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
+    )
+    unresolved_attention = event.attention in DUPLICATE_WARNINGS and (
+        event.attention != "possible_duplicate"
+        or not event.possible_duplicates
+        or bool(duplicate_ids)
+    )
+    if unresolved_attention or duplicate_ids:
         # Settled only by a person: the draft stays reviewable, never approvable.
         blocked.append(Blocker(code="possible_duplicate"))
     pointer = event.resolution.get("approval_receipt")
@@ -257,6 +290,7 @@ def dossier(
         history=revisions,
         blockers=tuple(blocked),
         approval_available=approvable,
+        duplicate_candidates=duplicate_candidates(tx, event, duplicate_ids),
         approval_action=APPROVAL_ACTION[facts.kind.value] if approvable else None,
         approval_result=approval,
         fiscal_inclusion_available=fiscal_inclusion_available(tx, facts, event.state),
