@@ -203,6 +203,20 @@ async def test_a_redelivered_message_sends_one_follow_up() -> None:
 
 
 @pytest.mark.asyncio
+async def test_same_bytes_resent_in_a_new_message_keep_one_receipt_and_one_read() -> None:
+    world, extractor, _ = _world(on=True)
+    connection_id = await _send(world, "wamid.READ-FIRST")
+    await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
+    await world.deliver(cases.image("700000000000201", "wamid.READ-RESENT"))
+    assert world.captures(world.alice) == [connection_id]
+    assert world.captures(world.bob) == []
+    assert extractor.calls == 1
+    assert _status(world, connection_id) == "review_ready"
+    assert world.record("wamid.READ-RESENT").connection_id == connection_id
+    assert world.transport.bodies()[-1].startswith("Ya lo teníamos.")
+
+
+@pytest.mark.asyncio
 async def test_with_outbound_off_the_receipt_is_read_and_nothing_is_sent() -> None:
     world, extractor, _ = _world(on=True)
     await world.link(world.alice, ALICE_PHONE)

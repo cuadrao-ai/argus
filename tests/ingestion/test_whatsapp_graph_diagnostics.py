@@ -18,6 +18,130 @@ EXPIRED = {
 TOKEN = "synthetic-token-value"
 
 
+def failed_delivery(*, number: str = "100000000000001", code: object = 131026) -> bytes:
+    import json
+
+    return json.dumps(
+        {
+            "object": "whatsapp_business_account",
+            "entry": [
+                {
+                    "changes": [
+                        {
+                            "field": "messages",
+                            "value": {
+                                "metadata": {"phone_number_id": number},
+                                "statuses": [
+                                    {
+                                        "id": "wamid.PRIVATE",
+                                        "recipient_id": "15550109999",
+                                        "status": "failed",
+                                        "errors": [
+                                            {
+                                                "code": code,
+                                                "message": f"SECRETWORDS {TOKEN}",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            },
+                        }
+                    ]
+                }
+            ],
+        }
+    ).encode()
+
+
+def test_failed_delivery_keeps_only_safe_actionable_diagnostics() -> None:
+    from argus.domain.ingestion.whatsapp.payload import parse_delivery
+
+    delivery = parse_delivery(failed_delivery(), phone_number_id="100000000000001")
+    assert delivery.statuses == 1
+    assert [(failure.code, failure.reason) for failure in delivery.failures] == [
+        ("131026", "undeliverable")
+    ]
+    assert delivery.messages == ()
+    for secret in ("wamid.PRIVATE", "15550109999", "SECRETWORDS", TOKEN):
+        assert secret not in repr(delivery)
+
+
+@pytest.mark.parametrize("code", [True, None, {}, "SECRETWORDS", "7" * 11, "١٩٠"])
+def test_malformed_delivery_codes_never_become_diagnostic_text(code: object) -> None:
+    from argus.domain.ingestion.whatsapp.payload import parse_delivery
+
+    delivery = parse_delivery(
+        failed_delivery(code=code), phone_number_id="100000000000001"
+    )
+    assert [(failure.code, failure.reason) for failure in delivery.failures] == [
+        (None, "delivery_failed")
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "signed,number,http_status,events",
+    [
+        (True, "100000000000001", 200, 1),
+        (True, "100000000000002", 200, 0),
+        (False, "100000000000001", 401, 0),
+    ],
+)
+async def test_delivery_failure_event_requires_signature_and_receiving_number(
+    records, signed: bool, number: str, http_status: int, events: int
+) -> None:
+    from types import SimpleNamespace
+
+    from argus.api.routers.whatsapp import webhook_router
+    from argus.api.whatsapp import require_whatsapp_surface
+    from fastapi import FastAPI
+    from pydantic import SecretStr
+
+    from tests.ingestion.test_whatsapp_intake import _world
+    from tests.ingestion.whatsapp_support import APP_SECRET, sign
+
+    world = _world()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def request_id(request, call_next):
+        request.state.request_id = "synthetic-request"
+        return await call_next(request)
+
+    app.include_router(webhook_router)
+    app.dependency_overrides[require_whatsapp_surface] = lambda: SimpleNamespace(
+        settings=SimpleNamespace(
+            app_secret=SecretStr(APP_SECRET), phone_number_id="100000000000001"
+        ),
+        intake=world.intake,
+    )
+    body = failed_delivery(number=number)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/webhooks/whatsapp",
+            content=body,
+            headers={"X-Hub-Signature-256": sign(body) if signed else "sha256=invalid"},
+        )
+    assert response.status_code == http_status
+    observed = [
+        record
+        for record in records
+        if record["extra"].get("event") == "whatsapp_delivery_failed"
+    ]
+    assert len(observed) == events
+    if observed:
+        assert "code=131026 reason=undeliverable" in observed[0]["message"]
+        assert observed[0]["extra"] == {
+            "event": "whatsapp_delivery_failed",
+            "graph_code": "131026",
+            "failure_reason": "undeliverable",
+        }
+    for secret in ("wamid.PRIVATE", "15550109999", "SECRETWORDS", TOKEN):
+        assert secret not in str(records)
+
+
 @pytest.fixture
 def records():
     seen = []
