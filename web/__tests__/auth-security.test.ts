@@ -47,7 +47,7 @@ describe("account security actions", () => {
       "utf-8",
     );
     const recoveryPage = readFileSync(
-      join(import.meta.dir, "../app/auth/recovery/page.tsx"),
+      join(import.meta.dir, "../components/auth/RecoveryReset.tsx"),
       "utf-8",
     );
 
@@ -55,7 +55,7 @@ describe("account security actions", () => {
     expect(recoveryPage).toContain(".exchangeRecoveryCode(code)");
     const codeRead = recoveryPage.indexOf('.get("code")');
     const queryRemoved = recoveryPage.indexOf(
-      'window.history.replaceState(null, "", "/auth/recovery")',
+      'window.history.replaceState(null, "", window.location.pathname)',
     );
     const codeExchange = recoveryPage.indexOf(".exchangeRecoveryCode(code)");
     expect(codeRead).toBeGreaterThan(-1);
@@ -65,11 +65,11 @@ describe("account security actions", () => {
 
   test("partial revoke-all outcomes stay honest and retryable in both password flows", () => {
     const accountPage = readFileSync(
-      join(import.meta.dir, "../app/account/security/page.tsx"),
+      join(import.meta.dir, "../components/auth/AccountSecurity.tsx"),
       "utf-8",
     );
     const recoveryPage = readFileSync(
-      join(import.meta.dir, "../app/auth/recovery/page.tsx"),
+      join(import.meta.dir, "../components/auth/RecoveryReset.tsx"),
       "utf-8",
     );
 

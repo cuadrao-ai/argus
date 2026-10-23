@@ -78,7 +78,7 @@ async function mount() {
 const strong = () => `clave-${Math.random().toString(36).slice(2, 10)}`;
 
 describe("account security", () => {
-  test("two password fields with real labels and autocomplete, and the length rule shown before any error", async () => {
+  test("two password fields with real labels and autocomplete, and guidance revealed on focus", async () => {
     const page = await mount();
     try {
       const fields = [...page.host.querySelectorAll<HTMLInputElement>("form input")];
@@ -87,6 +87,9 @@ describe("account security", () => {
         ["Contraseña nueva", "new-password", "password"],
       ], "no retype field: the eye and the password manager cover typos");
       assert.equal(page.input("new-password").getAttribute("passwordrules"), "minlength: 8;");
+      assert.equal(page.host.querySelector('[data-testid="password-coach"]'), null);
+      assert.ok(fields.every(field => field.placeholder));
+      await act(async () => page.input("new-password").focus());
       assert.match(page.host.querySelector('[data-testid="password-coach"]')?.textContent ?? "", /Al menos 8 caracteres/);
       assert.equal(page.button("Cambiar contraseña").disabled, false, "the submit is there to press, it checks on press");
     } finally {
@@ -109,17 +112,51 @@ describe("account security", () => {
     }
   });
 
-  test("submitting with gaps lists every broken field and changes nothing", async () => {
+  test("submitting with gaps focuses the first invalid field without a duplicate banner", async () => {
     const page = await mount();
     try {
       await page.press("Cambiar contraseña");
       const summary = page.host.querySelector('[data-testid="form-error-summary"]');
-      assert.ok(summary);
-      assert.deepEqual([...summary.querySelectorAll("a")].map((link) => link.getAttribute("href")), ["#current-password", "#new-password"]);
+      assert.equal(summary, null);
+      assert.equal(page.host.querySelector('[data-testid="password-coach"]'), null, "errors alone must not expand untouched password guidance");
+      assert.equal(document.activeElement?.id, "current-password");
+      assert.equal(page.input("current-password").getAttribute("aria-invalid"), "true");
+      assert.equal(page.input("new-password").getAttribute("aria-invalid"), "true");
       assert.deepEqual(calls, []);
     } finally {
       await page.close();
     }
+  });
+
+  test("eye controls reveal only their own field and keep the eyelash icon", async () => {
+    const page = await mount();
+    try {
+      await page.type("current-password", "Synthetic current password");
+      await page.type("new-password", "Synthetic next password");
+      await act(async () => page.input("new-password").click());
+      assert.equal(page.input("new-password").type, "password");
+      const eye = page.host.querySelector<HTMLButtonElement>('button[aria-controls="new-password"]')!;
+      await act(async () => eye.click());
+      assert.equal(page.input("new-password").type, "text");
+      assert.equal(page.input("current-password").type, "password");
+      assert.ok(eye.querySelector(".lucide-eye-closed"));
+      await act(async () => eye.click());
+      assert.equal(page.input("new-password").type, "password");
+    } finally { await page.close(); }
+  });
+
+  test("editing after a failed password change clears the stale request error", async () => {
+    failing = new Set(["changePassword"]);
+    const page = await mount();
+    try {
+      await page.type("current-password", "Synthetic current password");
+      await page.type("new-password", "Synthetic next password");
+      await page.press("Cambiar contraseña");
+      assert.ok(page.host.querySelector('[role="alert"]'));
+      await page.type("current-password", "Corrected synthetic password");
+      assert.equal(page.host.querySelector('[role="alert"]'), null);
+      assert.equal(page.input("new-password").value, "Synthetic next password");
+    } finally { await page.close(); }
   });
 
   test("a valid change sends the same call as before and empties the fields", async () => {
@@ -161,9 +198,9 @@ describe("account security", () => {
     const page = await mount();
     try {
       for (const [name, line] of [
-        ["Cerrar sesión en este navegador", "Sales solo aquí. Tus otras sesiones siguen abiertas."],
-        ["Cerrar otras sesiones", "Sales en tus otros navegadores y dispositivos. Tu sesión aquí sigue abierta."],
-        ["Cerrar todas las sesiones", "Sales en todas partes, también aquí. Tendrás que iniciar sesión de nuevo."],
+        ["Cerrar sesión en este navegador", "Tus otras sesiones siguen abiertas."],
+        ["Cerrar otras sesiones", "Este navegador sigue conectado."],
+        ["Cerrar todas las sesiones", "Incluye este navegador. Tendrás que iniciar sesión de nuevo."],
       ]) {
         const describedBy = page.button(name).getAttribute("aria-describedby");
         assert.equal(document.getElementById(describedBy ?? "")?.textContent, line);

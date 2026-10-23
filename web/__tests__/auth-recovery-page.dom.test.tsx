@@ -62,6 +62,8 @@ describe("reset password", () => {
       assert.equal(page.host.querySelectorAll("form input").length, 1);
       assert.equal(page.input.autocomplete, "new-password");
       assert.equal(page.input.getAttribute("passwordrules"), "minlength: 8;");
+      assert.equal(page.host.querySelector('[data-testid="password-coach"]'), null);
+      await act(async () => page.input.focus());
       assert.ok(page.host.querySelector('[data-testid="password-coach"]'));
       assert.ok(page.host.querySelector('button[aria-label="Mostrar contraseña"]'), "the shared eye");
     } finally {
@@ -69,12 +71,13 @@ describe("reset password", () => {
     }
   });
 
-  test("a short password is stopped with a summary; a long one is sent once", async () => {
+  test("a short password is stopped inline; a long one is sent once", async () => {
     const page = await mount();
     try {
       await page.type("corta");
       await page.submit();
-      assert.ok(page.host.querySelector('[data-testid="form-error-summary"]'));
+      assert.equal(page.host.querySelector('[data-testid="form-error-summary"]'), null);
+      assert.equal(page.input.getAttribute("aria-invalid"), "true");
       assert.deepEqual(calls, []);
       const password = `frase larga ${Date.now().toString(36)}`;
       await page.type(password);

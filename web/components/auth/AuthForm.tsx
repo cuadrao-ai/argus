@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { rememberRecoveryEmail } from "./recovery-email";
+
 import { AlertCircle, Check, EyeClosed, LoaderCircle } from "lucide-react";
 import Image from "next/image";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
@@ -626,12 +629,13 @@ export default function AuthForm({
               required readOnly={isSubmitting} minLength={isSignup ? PASSWORD_MIN_LENGTH : undefined} />
 
             {!isSignup && (
-              <a
+              <Link
                 href="/auth/forgot-password"
+                onClick={() => rememberRecoveryEmail(email)}
                 className="mt-3 block px-1 text-right text-sm font-medium text-black/60 transition-opacity hover:opacity-75 dark:text-white/60"
               >
                 {t("auth.recovery.forgot", "Forgot password?")}
-              </a>
+              </Link>
             )}
               </div>
             </div>

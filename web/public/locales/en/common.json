@@ -1445,12 +1445,12 @@
     },
     "recovery": {
       "forgot": "Forgot password?",
-      "title": "Recover your account",
-      "description": "Enter your email and we’ll send recovery instructions if the account is eligible.",
+      "title": "Forgot your password?",
+      "description": "Enter your email to get a link to reset your password.",
       "email_label": "Email address",
-      "send": "Send recovery instructions",
+      "send": "Send reset link",
       "sending": "Sending...",
-      "generic_sent": "If an eligible account exists for that email, recovery instructions will arrive shortly.",
+      "generic_sent": "If an eligible account uses this email, you’ll receive a link to reset your password.",
       "request_error": "We couldn’t start recovery. Wait a moment and try again.",
       "back_to_sign_in": "Back to sign in",
       "reset_title": "Choose a new password",
@@ -1458,7 +1458,7 @@
       "invalid_link": "This recovery link is missing, expired, or already used.",
       "request_new": "Request a new link",
       "new_password": "New password",
-      "update_password": "Update password",
+      "update_password": "Save password",
       "updating": "Updating...",
       "reset_error": "This recovery link is no longer valid. Request a new one.",
       "password_rejected": "We couldn’t update the password. Check the requirements or request a new recovery link.",
@@ -1468,7 +1468,15 @@
       "retry_revocation": "Retry sign out all sessions",
       "retrying_revocation": "Retrying...",
       "revocation_retry_error": "Cuadrao still couldn’t confirm that every session was signed out. Try again.",
-      "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required."
+      "cleanup_warning": "Sessions were revoked, but this browser could not confirm local cookie cleanup. A fresh sign-in is still required.",
+      "change_email": "Edit email",
+      "inbox_title": "Check your inbox",
+      "link_title": "Let’s get you a new link",
+      "rate_help": "Please wait before requesting another link.",
+      "resend": "Send another link",
+      "resend_wait": "Send again in {{seconds}}s",
+      "spam_help": "Not there yet? Check your spam folder, or request another link below.",
+      "success_title": "Password updated"
     },
     "screen": {
       "email_wait": "Wait a minute before requesting another email.",
@@ -1597,14 +1605,14 @@
       "confirm_all_title": "Sign out everywhere?",
       "confirm_all_description": "Every browser, including this one, will need a fresh login.",
       "this_title": "This browser",
-      "this_line": "You sign out here only. Your other sessions stay open.",
+      "this_line": "Other sessions stay signed in.",
       "this_action": "Sign out",
       "others_title": "Other sessions",
-      "others_line": "You sign out on your other browsers and devices. Your session here stays open.",
+      "others_line": "Keep this browser signed in.",
       "others_action": "Sign out others",
-      "all_title": "All sessions",
-      "all_line": "You sign out everywhere, here too. You will need to sign in again.",
-      "all_action": "Sign out all"
+      "all_title": "Everywhere",
+      "all_line": "Includes this browser. Sign in again to continue.",
+      "all_action": "Sign out everywhere"
     }
   },
   "landing": {
