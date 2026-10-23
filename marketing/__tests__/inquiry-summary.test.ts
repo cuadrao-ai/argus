@@ -29,11 +29,18 @@ describe("inquiry message", () => {
         "Soy: contador/a",
         "Prefiere: WhatsApp +1 809 555 0123",
         "Nos conoció por: mi contador",
-        "Piloto: quiere ver el prototipo y probarlo",
+        "Demostración: le interesa una demostración de Cuadrao",
         "",
         "Tengo 12 clientes.",
       ].join("\n"),
     );
+    expect(message).not.toMatch(/piloto|prototipo|prototype|probar|try it/i);
+  });
+
+  test("an unchecked demo request adds no demo line", () => {
+    const message = buildInquiryMessage({ ...EMPTY_PROFILE, pilot: false }, "Consulta.");
+    expect(message).toBe("Consulta.");
+    expect(message).not.toMatch(/demostración|piloto|probar/i);
   });
 
   test("a phone number is dropped unless WhatsApp is chosen", () => {
