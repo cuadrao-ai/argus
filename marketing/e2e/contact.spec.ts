@@ -40,6 +40,27 @@ for (const locale of ["es", "en"] as const) {
       await expectNothingStoredInBrowser(page);
     });
 
+    test("delivers a WhatsApp preference with the normalized number and email reply-to", async ({ page, request }, info) => {
+      const address = uniqueAddress(info);
+      await page.goto(copy.path);
+      await page.locator("#contact-name").fill("Marisol Peña");
+      await page.locator("#contact-email").fill(address);
+      await page.getByRole("radio", { name: "WhatsApp" }).check();
+      await page.locator("#contact-phone").fill("(809) 555-0123");
+      await page.getByRole("button", { name: copy.send }).click();
+      await expect(page.getByRole("heading", { name: copy.sent })).toBeVisible();
+      await expect(page.getByText(locale === "es"
+        ? "Te responderemos por WhatsApp al número que escribiste."
+        : "We’ll reply on WhatsApp at the number you entered.")).toBeVisible();
+
+      const { emails } = await mockState(request);
+      expect(emails).toHaveLength(1);
+      expect(emails[0].to).toEqual(["inbox@example.test"]);
+      expect(emails[0].reply_to).toBe(address);
+      expect(emails[0].text).toContain("Prefiere: WhatsApp +1 809 555 0123");
+      await expectNothingStoredInBrowser(page);
+    });
+
     test("the send button rests on the brand green and darkens on hover", async ({ page }) => {
       await page.goto(copy.path);
       const button = page.getByRole("button", { name: copy.send });

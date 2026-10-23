@@ -38,7 +38,7 @@
 .header nav > div:last-child {
   gap: 20px;
 }
-.header nav > div:last-child > a:last-child {
+.header nav > div:last-child > [data-header-cta] {
   border-radius: 28px;
 }
 .footerBrand {

@@ -7,6 +7,7 @@ import { businessContent, type BusinessLocale } from "./content";
 import styles from "./business.module.css";
 import shell from "./touchup-shell.module.css";
 import { siteCopy } from "./site-copy";
+import { BusinessLanguageToggle } from "./business-language-toggle";
 
 export function BusinessHeader({
   locale,
@@ -70,7 +71,7 @@ export function BusinessHeader({
     };
   }, []);
 
-  const languageLinks = spanishOnly ? null : (
+  const languageLinks = spanishOnly ? null : personal ? (
     <span className={styles.languages} role="group" aria-label={copy.language}>
       {(["es", "en"] as const).map((language) => (
         <a
@@ -84,6 +85,8 @@ export function BusinessHeader({
         </a>
       ))}
     </span>
+  ) : (
+    <BusinessLanguageToggle locale={locale} page={page} label={copy.language} />
   );
   const backLink = (
     <a href={home} className={styles.backLink}>
@@ -140,19 +143,17 @@ export function BusinessHeader({
           <div className={styles.utilityNav}>
             {secondary ? (
               backLink
-            ) : !personal ? (
-              <>
-                <a href={`${home}#el-producto`}>
-                  {copy.howItWorks}
-                </a>
-                <a href={`${home}#nosotros`}>{copy.about}</a>
-              </>
             ) : null}
             {languageLinks}
             {!secondary && (
-              <a className={styles.buttonSmall} href={primaryHref}>
+              <a className={styles.buttonSmall} data-header-cta data-business-cta={!personal ? true : undefined} href={primaryHref}>
                 {primaryLabel}
               </a>
+            )}
+            {!personal && !secondary && (
+              <button className={styles.loginLink} type="button" data-preview-unwired="true">
+                {copy.login}
+              </button>
             )}
           </div>
         </nav>
@@ -178,7 +179,7 @@ export function BusinessHeader({
             className={styles.mobileNav}
             aria-label={copy.label}
             onClick={(event) => {
-              if ((event.target as HTMLElement).closest("a")) setOpen(false);
+              if (!event.defaultPrevented && (event.target as HTMLElement).closest("a")) setOpen(false);
             }}
           >
             <a href={home} aria-current={page === "home" ? "page" : undefined}>
@@ -190,10 +191,6 @@ export function BusinessHeader({
             >
               {copy.personal}
             </a>
-            {!personal && (
-              <a href={`${home}#el-producto`}>{copy.howItWorks}</a>
-            )}
-            {!personal && <a href={`${home}#nosotros`}>{copy.about}</a>}
             {page !== "personal" && (
               <a href={`${home}#preguntas`}>{siteCopy[locale].faqLink}</a>
             )}
@@ -204,6 +201,11 @@ export function BusinessHeader({
               <a className={styles.button} href={primaryHref}>
                 {primaryLabel}
               </a>
+            )}
+            {!personal && !secondary && (
+              <button className={styles.loginLink} type="button" data-preview-unwired="true">
+                {copy.login}
+              </button>
             )}
           </nav>
         )}
