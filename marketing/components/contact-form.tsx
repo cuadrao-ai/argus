@@ -5,7 +5,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { businessPath } from "@/lib/site-routes";
 import { businessContent, type BusinessLocale } from "./content";
 import { newSubmissionId } from "./submission-id";
-import { checkPhone, cleanPhoneInput } from "./phone";
+import { checkPhone, cleanPhoneInput, type PhoneErrorReason } from "./phone";
 import {
   EMPTY_PROFILE,
   NOTE_MAX,
@@ -23,7 +23,7 @@ type FormValues = Record<Field, string>;
 type SendState =
   | { status: "idle" }
   | { status: "sending" }
-  | { status: "sent"; values: FormValues }
+  | { status: "sent"; values: FormValues; channel: InquiryChannel | ""; phone: string }
   | { status: "error"; kind: "unavailable" | "rateLimited" | "rejected" };
 
 const EMPTY_VALUES: FormValues = { name: "", email: "", description: "" };
@@ -32,6 +32,7 @@ const clientSnapshot = (): boolean => true;
 const serverSnapshot = (): boolean => false;
 const REQUIRED_FIELDS = ["name", "email"] as const;
 const REQUEST_TIMEOUT_MS = 15_000;
+const PHONE_ERROR_REASONS: PhoneErrorReason[] = ["empty", "length", "format", "region"];
 
 export function ContactForm({ locale }: { locale: BusinessLocale }) {
   const copy = businessContent[locale].contact;
@@ -42,7 +43,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
   );
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
   const [profile, setProfile] = useState<InquiryProfile>(EMPTY_PROFILE);
-  const [phoneError, setPhoneError] = useState(false);
+  const [phoneError, setPhoneError] = useState<PhoneErrorReason | null>(null);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [state, setState] = useState<SendState>({ status: "idle" });
   const form = useRef<HTMLFormElement>(null);
@@ -78,8 +79,8 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
     }
 
     const phone = profile.channel === "whatsapp" ? checkPhone(profile.phone) : { status: "empty" as const };
-    if (phone.status === "invalid") {
-      setPhoneError(true);
+    if (profile.channel === "whatsapp" && phone.status !== "valid") {
+      setPhoneError(phone.status === "empty" ? "empty" : phone.reason);
       (form.current?.elements.namedItem("phone") as HTMLInputElement | null)?.focus();
       return;
     }
@@ -111,7 +112,12 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
       });
       if (response.status === 202) {
         attempt.current = null;
-        setState({ status: "sent", values });
+        setState({
+          status: "sent",
+          values,
+          channel: profile.channel,
+          phone: phone.status === "valid" ? phone.display : "",
+        });
       } else {
         setState({
           status: "error",
@@ -143,7 +149,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
           <h2 id="contact-sent-title" ref={confirmation} tabIndex={-1}>
             {copy.successTitle}
           </h2>
-          <p>{copy.successBody}</p>
+          <p>{state.channel === "whatsapp" ? copy.successBodyWhatsApp : copy.successBody}</p>
           <p className={styles.nextStep}>{copy.nextStep}</p>
           <dl>
             {([...REQUIRED_FIELDS, "description"] as const).map((field) => (
@@ -152,6 +158,12 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                 <dd>{state.values[field].trim() || copy.empty}</dd>
               </div>
             ))}
+            {state.channel === "whatsapp" && (
+              <div>
+                <dt>{copy.phone}</dt>
+                <dd>{state.phone}</dd>
+              </div>
+            )}
           </dl>
         </section>
       ) : (
@@ -249,7 +261,7 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                   disabled={sending}
                   onChange={() => {
                     setProfile({ ...profile, channel });
-                    if (channel !== "whatsapp") setPhoneError(false);
+                    if (channel !== "whatsapp") setPhoneError(null);
                   }}
                 >
                   {copy.channelOptions[channel]}
@@ -263,31 +275,46 @@ export function ContactForm({ locale }: { locale: BusinessLocale }) {
                   autoComplete="tel"
                   inputMode="tel"
                   maxLength={PHONE_MAX}
+                  required
                   aria-label={copy.phone}
                   placeholder={copy.phonePlaceholder}
                   value={profile.phone}
-                  aria-invalid={phoneError}
+                  aria-invalid={phoneError !== null}
                   aria-describedby={phoneError ? "contact-phone-error" : undefined}
                   readOnly={sending}
                   onChange={(event) => {
                     setProfile({ ...profile, phone: cleanPhoneInput(event.target.value) });
-                    if (phoneError) setPhoneError(false);
+                    if (phoneError) setPhoneError(null);
                   }}
                   onBlur={() => {
                     const result = checkPhone(profile.phone);
                     if (result.status === "valid") {
                       setProfile({ ...profile, phone: result.display });
                     } else {
-                      setPhoneError(result.status === "invalid");
+                      setPhoneError(result.status === "empty" ? "empty" : result.reason);
                     }
                   }}
                 />
               )}
             </ChoiceGroup>
-            {phoneError && (
-              <p id="contact-phone-error" className={styles.phoneError} role="alert">
-                {copy.invalidPhone}
-              </p>
+            {profile.channel === "whatsapp" && (
+              <div className={styles.phoneErrorSlot}>
+                {PHONE_ERROR_REASONS.map((reason) => {
+                  const active = phoneError === reason;
+                  return (
+                    <p
+                      key={reason}
+                      id={active || (!phoneError && reason === "empty") ? "contact-phone-error" : undefined}
+                      className={styles.phoneError}
+                      role={active ? "alert" : undefined}
+                      aria-hidden={!active}
+                      style={{ visibility: active ? "visible" : "hidden" }}
+                    >
+                      {copy.phoneErrors[reason]}
+                    </p>
+                  );
+                })}
+              </div>
             )}
             <div className={styles.field}>
               <label htmlFor="contact-source">

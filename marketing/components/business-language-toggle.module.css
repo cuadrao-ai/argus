@@ -1,0 +1,58 @@
+.track {
+  position: relative;
+  display: inline-grid;
+  width: fit-content;
+  grid-template-columns: repeat(2, 48px);
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 28px;
+  background: #e8ede3;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: 48px;
+  border-radius: 24px;
+  background: #fff;
+  pointer-events: none;
+}
+
+.track[data-locale="en"] .thumb {
+  left: 53px;
+}
+
+.track a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 44px;
+  border-radius: 24px;
+  color: #606862;
+}
+
+.track a::before {
+  content: "";
+  position: absolute;
+  inset: -3px -1px;
+}
+
+.track a:first-of-type::before {
+  left: -3px;
+}
+
+.track a:last-of-type::before {
+  right: -3px;
+}
+
+.track a[aria-current] {
+  color: #172b26;
+  font-weight: 600;
+}

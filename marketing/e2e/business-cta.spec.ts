@@ -48,7 +48,7 @@ for (const { path, cta } of [
     test.skip(test.info().project.name === "mobile", "the header button is in the mobile menu on phones");
     await page.goto(path);
     const background = (node: ReturnType<typeof page.locator>) => node.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const header = page.locator("header nav > div:last-child > a:last-child");
+    const header = page.locator("header").getByRole("link", { name: cta, exact: true });
     const hero = page.locator("main").getByRole("link", { name: cta, exact: true }).first();
     const closing = page.locator("footer").getByRole("link", { name: cta, exact: true });
 
@@ -73,7 +73,7 @@ for (const { path, cta } of [
 test("/personal header button rests on the green once the header floats", async ({ page }) => {
   test.skip(test.info().project.name === "mobile", "the header button is in the mobile menu on phones");
   await page.goto("/personal");
-  const button = page.locator("header nav > div:last-child > a:last-child");
+  const button = page.locator("header").getByRole("link", { name: "Acceso anticipado", exact: true });
   await page.evaluate(() => window.scrollTo(0, 800));
   await expect(page.locator("header")).toHaveAttribute("data-condensed", "true");
   await page.mouse.move(2, 2);
