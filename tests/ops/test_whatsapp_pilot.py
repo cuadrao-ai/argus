@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import httpx
@@ -103,7 +104,14 @@ def test_deeply_nested_provider_body_cli_is_safe_and_not_retried(
 
     monkeypatch.setattr(pilot, "load_whatsapp_settings", lambda: settings)
     monkeypatch.setattr(pilot.httpx, "Client", mock_client)
-    assert pilot.main(["--probe-credential"]) == 2
+    previous_limit = sys.getrecursionlimit()
+    try:
+        sys.setrecursionlimit(1000)
+        with pytest.raises(RecursionError):
+            json.loads(content)
+        assert pilot.main(["--probe-credential"]) == 2
+    finally:
+        sys.setrecursionlimit(previous_limit)
     captured = capsys.readouterr()
     report = json.loads(captured.out)
     assert report["credential"] == {"status": "unverified", "reason": "unexpected_response"}
