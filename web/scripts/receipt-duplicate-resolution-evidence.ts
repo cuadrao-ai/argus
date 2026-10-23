@@ -25,6 +25,7 @@ try {
   for (const state of ["warning", "pending", "failure", "readonly", "success"]) for (const width of [1440, 390]) {
     const page = await browser.newPage({ viewport: { width, height: width === 390 ? 844 : 1100 }, reducedMotion: "reduce" });
     const unexpected: string[] = [];
+    page.on("pageerror", (error) => unexpected.push(error.message));
     await page.route("**/*", route => {
       if (new URL(route.request().url()).origin === new URL(baseURL).origin) return route.continue();
       unexpected.push(route.request().url());
@@ -46,13 +47,17 @@ try {
         dossier = { ...dossier, version: 8, duplicate_candidates: [], blockers: [{ code: "fact_required", field: "funding" }] };
         return route.fulfill({ json: dossier });
       }
-      if (route.request().method() !== "GET") throw new Error(`Unexpected synthetic write ${path}`);
+      if (path === "space/name-prompt") return route.fulfill({ json: { id: owner.space_id, name: owner.name, name_required: false, name_prompt_seen: true, show_prompt: false } });
+      if (route.request().method() !== "GET") {
+        unexpected.push(`Unexpected synthetic write ${path}`);
+        return route.fulfill({ status: 503, json: { code: "unexpected_synthetic_write" } });
+      }
       if (path === "drafts/synthetic-new/dossier") return route.fulfill({ json: dossier });
       if (path === "spaces") return route.fulfill({ json: { spaces: [owner], closed_spaces: [] } });
-      if (path === "space/name-prompt") return route.fulfill({ json: { id: owner.space_id, name: owner.name, name_required: false, name_prompt_seen: true, show_prompt: false } });
       if (path === "space") return route.fulfill({ json: { id: owner.space_id, name: owner.name } });
       if (path === "workspace") return route.fulfill({ json: await source.workspace() });
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
+      if (path === "fiscal-profile/fields") return route.fulfill({ json: { "606": [], "607": [] } });
       if (path === "fiscal-profile") return route.fulfill({ json: await source.fiscalProfile() });
       if (path === "consent") return fulfillAcceptedBusinessConsent(route);
       if (path === "receipt-reading") return route.fulfill({ json: { enabled: false, available: true, can_change: false } });
@@ -61,7 +66,8 @@ try {
       if (path === "receipts") return route.fulfill({ json: { items: [], activity: { reading_count: 0, unread_count: 0, presentation: "none", pending_review_count: 0, ready_to_review_count: 0, needs_attention_count: 0, confirmed_count: 0, dismissed_count: 0 } } });
       if (path === "month-close") return route.fulfill({ json: monthCloseWire("2026-10") });
       if (path === "open-items") { const none = { count: 0, totals: [], overdue: { count: 0, totals: [] }, items: [] }; return route.fulfill({ json: { today: "2026-10-22", cuentas_por_cobrar: none, cuentas_por_pagar: none } }); }
-      throw new Error(`Unmapped synthetic endpoint ${path}`);
+      unexpected.push(`Unmapped synthetic endpoint ${path}`);
+      return route.fulfill({ status: 503, json: { code: "unmapped_synthetic_endpoint" } });
     });
     try {
       await page.goto(`${baseURL}/biz?draft=synthetic-new`);
