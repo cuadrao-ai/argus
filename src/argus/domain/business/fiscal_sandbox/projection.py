@@ -49,7 +49,9 @@ def project(
         )
     )
     reconciliation = "not_needed"
-    if contacted and (not identified or processing != "FINISHED"):
+    if contacted and (
+        not identified or processing != "FINISHED" or legal == "unreported"
+    ):
         reconciliation = "identity_missing" if not identified else "pending"
         if attempts >= 20:
             reconciliation = "exhausted"
