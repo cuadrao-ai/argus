@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, BadgeCheck, Check, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, Clock, FileWarning, Inbox } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -334,18 +334,7 @@ export type MonthCloseReview =
   | { state: "loading" | "unknown" | "refused" }
   | { state: "failed"; retry: () => void };
 
-export function BusinessMonthCloseView({
-  client,
-  scopeKey = "default",
-  canMutate = true,
-  now,
-  onMonthChange,
-  review,
-  onAdd,
-  header = (switcher) => switcher,
-  openDocument,
-  businessCurrency = null,
-}: {
+type BusinessMonthCloseViewProps = {
   client: MonthCloseClient;
   /** Selected Business grant. A change reloads this snapshot and keeps the mock's books apart; null holds the load until the Business is known. */
   scopeKey?: string | null;
@@ -365,7 +354,25 @@ export function BusinessMonthCloseView({
   openDocument?: (document: MonthCloseDocument) => (() => void) | null;
   /** The Business's own currency: the figures' default and the first in its menu. Null while unknown. */
   businessCurrency?: string | null;
-}) {
+};
+
+/** Local month and document state belongs to one selected Business. */
+export function BusinessMonthCloseView(props: BusinessMonthCloseViewProps) {
+  return <BusinessMonthCloseContent key={props.scopeKey === null ? "pending" : `selected:${props.scopeKey ?? "default"}`} {...props} />;
+}
+
+function BusinessMonthCloseContent({
+  client,
+  scopeKey = "default",
+  canMutate = true,
+  now,
+  onMonthChange,
+  review,
+  onAdd,
+  header = (switcher) => switcher,
+  openDocument,
+  businessCurrency = null,
+}: BusinessMonthCloseViewProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
   const [seed] = useState(() => currentMonthKey(now ?? new Date()));
@@ -399,6 +406,11 @@ export function BusinessMonthCloseView({
   useEffect(() => { liveToastIds.current = new Set(liveToasts.map((toast) => toast.id)); }, [liveToasts]);
   const generation = useRef(0);
   const openGeneration = useRef(0);
+  const mounted = useRef(true);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   // Por cobrar and Por pagar are every month's pending documents, so a month change does not reread them.
   async function readOpenItems(): Promise<void> {
@@ -497,6 +509,7 @@ export function BusinessMonthCloseView({
     try {
       saved = document.kind === "invoice" ? await client.markCobrado(documentId, scopeKey ?? undefined, settlement) : await client.markPagado(documentId, scopeKey ?? undefined, settlement);
     } catch (error) {
+      if (!mounted.current) return;
       if (settledByBank(error)) {
         setWorkProblems((current) => new Map(current).set(documentId, { kind: document.kind, name: nameOf(document, t), text: bankMatchedText(document.kind) }));
         await rereadSettlements();
@@ -517,6 +530,7 @@ export function BusinessMonthCloseView({
       settle(documentId);
       return;
     }
+    if (!mounted.current) return;
     clearWorkProblem(documentId);
     setSnapshot((current) => (current ? { ...current, documents: current.documents.map((item) => (item.id === documentId ? { ...item, status: saved.status } : item)) } : current));
     const earlier = markToast.current && markToast.current.kind === document.kind && liveToastIds.current.has(markToast.current.id) ? markToast.current : null;
