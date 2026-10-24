@@ -45,12 +45,51 @@ if not any(isinstance(f, _DropMetaRequestLines) for f in _httpx_logger.filters):
 _GRAPH_NUMBER = re.compile(r"[0-9]{1,10}")
 _GRAPH_WORD = re.compile(r"[A-Za-z0-9_]{1,40}")
 _SAFE_GRAPH_LOG_VALUES = {
-    "graph_code": frozenset({"190", "131026"}),
+    "graph_code": frozenset(
+        {
+            "0",
+            "3",
+            "10",
+            "100",
+            "104",
+            "190",
+            "200",
+            "131005",
+            "131008",
+            "131009",
+            "131026",
+        }
+    ),
     "graph_error_subcode": frozenset({"463"}),
-    "graph_type": frozenset({"OAuthException"}),
+    "graph_type": frozenset({"GraphMethodException", "OAuthException"}),
+}
+_GRAPH_CAUSES = {
+    "0": "authentication_failed",
+    "3": "capability_or_permissions",
+    "10": "permission_required",
+    "190": "token_invalid_or_expired",
+    "131005": "permission_required",
+    "131008": "required_parameter_missing",
+    "131009": "invalid_parameter",
+    "131026": "undeliverable",
 }
 _MEDIA_STEPS = frozenset({"locate", "download"})
 _MEDIA_REASONS = frozenset({"bad_media_id", "status", "transport", "payload"})
+_SAFE_GRAPH_CAUSES = frozenset(
+    {
+        "unknown",
+        "ambiguous",
+        "appsecret_proof_invalid",
+        "authentication_failed",
+        "capability_or_permissions",
+        "permission_required",
+        "token_invalid_or_expired",
+        "access_token_missing",
+        "required_parameter_missing",
+        "invalid_parameter",
+        "undeliverable",
+    }
+)
 
 
 def safe_graph_log_value(name: str, value: object) -> str:
@@ -63,8 +102,7 @@ def safe_graph_log_value(name: str, value: object) -> str:
 
 
 def graph_error(response: httpx.Response) -> dict[str, str]:
-    """The Graph error's code, subcode and type: fixed, non-secret fields that
-    tell an expired token (code 190) from a gone media id. Never the message."""
+    """Return only bounded Graph code, subcode and type fields."""
 
     try:
         error = response.json().get("error") or {}
@@ -80,6 +118,34 @@ def graph_error(response: httpx.Response) -> dict[str, str]:
         return found
     except (ValueError, AttributeError):
         return {}
+
+
+def _graph_cause(response: httpx.Response, code: str) -> str:
+    if code == "100":
+        try:
+            error = response.json().get("error") or {}
+            provider_type = error.get("type")
+            if (
+                isinstance(provider_type, str)
+                and provider_type in {"GraphMethodException", "OAuthException"}
+                and error.get("message")
+                == "Invalid appsecret_proof provided in the API argument"
+            ):
+                return "appsecret_proof_invalid"
+        except (ValueError, AttributeError):
+            pass
+        return "ambiguous"
+    if code == "200":
+        try:
+            error = response.json().get("error") or {}
+            if error.get("message") == "Provide valid app ID":
+                return "access_token_missing"
+        except (ValueError, AttributeError):
+            pass
+        return "unknown"
+    if code == "104":
+        return "ambiguous"
+    return _GRAPH_CAUSES.get(code, "unknown")
 
 
 def _unavailable(step: str, reason: str, **fields: str | int) -> MediaUnavailable:
@@ -98,6 +164,12 @@ def _unavailable(step: str, reason: str, **fields: str | int) -> MediaUnavailabl
             safe_fields[name] = safe_graph_log_value(name, value)
         elif name == "graph_type":
             safe_fields[name] = safe_graph_log_value(name, value)
+        elif (
+            name == "graph_cause"
+            and isinstance(value, str)
+            and value in _SAFE_GRAPH_CAUSES
+        ):
+            safe_fields[name] = value
 
     diagnostics = [f"step={safe_step}", f"reason={safe_reason}"]
     diagnostics.extend(f"{name}={value}" for name, value in safe_fields.items())
@@ -181,11 +253,19 @@ class GraphMedia:
         if response.status_code in _GONE:
             raise MediaUnavailable("whatsapp_media_expired")
         if response.status_code != 200:
+            error = graph_error(response)
+            graph_code = error.get("code", "unknown")
             raise _unavailable(
                 "locate",
                 "status",
                 http_status=response.status_code,
-                **{f"graph_{k}": v for k, v in graph_error(response).items()},
+                graph_code=graph_code,
+                graph_cause=_graph_cause(response, graph_code),
+                **{
+                    f"graph_{key}": value
+                    for key, value in error.items()
+                    if key != "code"
+                },
             )
         try:
             meta = response.json()
