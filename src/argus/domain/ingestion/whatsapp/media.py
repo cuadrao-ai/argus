@@ -44,8 +44,22 @@ if not any(isinstance(f, _DropMetaRequestLines) for f in _httpx_logger.filters):
 
 _GRAPH_NUMBER = re.compile(r"[0-9]{1,10}")
 _GRAPH_WORD = re.compile(r"[A-Za-z0-9_]{1,40}")
+_SAFE_GRAPH_LOG_VALUES = {
+    "graph_code": frozenset({"190", "131026"}),
+    "graph_error_subcode": frozenset({"463"}),
+    "graph_type": frozenset({"OAuthException"}),
+}
 _MEDIA_STEPS = frozenset({"locate", "download"})
 _MEDIA_REASONS = frozenset({"bad_media_id", "status", "transport", "payload"})
+
+
+def safe_graph_log_value(name: str, value: object) -> str:
+    allowed = _SAFE_GRAPH_LOG_VALUES.get(name, frozenset())
+    if isinstance(value, (int, str)) and not isinstance(value, bool):
+        candidate = str(value)
+        if candidate in allowed:
+            return candidate
+    return "unknown"
 
 
 def graph_error(response: httpx.Response) -> dict[str, str]:
@@ -81,13 +95,9 @@ def _unavailable(step: str, reason: str, **fields: str | int) -> MediaUnavailabl
         ):
             safe_fields[name] = value
         elif name in {"graph_code", "graph_error_subcode"}:
-            safe_fields[name] = (
-                value if isinstance(value, str) and _GRAPH_NUMBER.fullmatch(value) else "unknown"
-            )
+            safe_fields[name] = safe_graph_log_value(name, value)
         elif name == "graph_type":
-            safe_fields[name] = (
-                value if isinstance(value, str) and _GRAPH_WORD.fullmatch(value) else "unknown"
-            )
+            safe_fields[name] = safe_graph_log_value(name, value)
 
     diagnostics = [f"step={safe_step}", f"reason={safe_reason}"]
     diagnostics.extend(f"{name}={value}" for name, value in safe_fields.items())

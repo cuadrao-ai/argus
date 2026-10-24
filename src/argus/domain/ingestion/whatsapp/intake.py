@@ -30,6 +30,7 @@ from argus.domain.ingestion.whatsapp.media import (
     FetchedMedia,
     MediaRejected,
     MediaUnavailable,
+    safe_graph_log_value,
 )
 from argus.domain.ingestion.whatsapp.payload import (
     Delivery,
@@ -543,7 +544,9 @@ class WhatsAppIntake:
             if rejection:
                 diagnostics["http_status"] = int(rejection.group(1))
                 if rejection.group(2):
-                    diagnostics["graph_code"] = rejection.group(2)
+                    diagnostics["graph_code"] = safe_graph_log_value(
+                        "graph_code", rejection.group(2)
+                    )
             rendered = " ".join(f"{name}={value}" for name, value in diagnostics.items())
             log.warning(
                 f"WhatsApp acknowledgement not sent: {rendered}", **diagnostics
