@@ -275,6 +275,7 @@ async def test_known_send_failure_retries_without_charging_and_unknown_does_not_
     from argus.domain.ingestion.whatsapp.replies import ReplyFailed
 
     world = await _linked(pool, users)
+    world.clock.now = world.clock.now.replace(hour=12, minute=0, second=0, microsecond=0)
     await _failed(world, 0)
     world.clock.now += timedelta(seconds=120)
     original = world.transport.send

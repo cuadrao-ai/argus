@@ -1,6 +1,8 @@
 """A failed Graph call says which step failed, the HTTP status and Graph's error
 code and type, never the message, the media id, a URL or a token."""
 
+from io import StringIO
+
 import httpx
 import pytest
 from argus.domain.ingestion.whatsapp.media import GraphMedia, MediaUnavailable
@@ -150,6 +152,14 @@ def records():
     logger.remove(sink)
 
 
+@pytest.fixture
+def plain_sink():
+    output = StringIO()
+    sink = logger.add(output, level="WARNING")
+    yield output
+    logger.remove(sink)
+
+
 def _media(handler):  # noqa: ANN001, ANN202
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     return GraphMedia(
@@ -226,10 +236,19 @@ HOSTILE = {
     }
 }
 
+HOSTILE_LOG_FIELDS = {
+    "error": {
+        "message": f"token {TOKEN} for 700000000000009 at https://evil.example/x?t=abc",
+        "type": "Q" * 26,
+        "code": "7000000000",
+        "error_subcode": "1555012345",
+    }
+}
+
 
 @pytest.mark.asyncio
 async def test_nothing_hostile_in_a_graph_error_reaches_a_log_record(records) -> None:
-    media = _media(lambda request: httpx.Response(400, json=HOSTILE))
+    media = _media(lambda request: httpx.Response(400, json=HOSTILE_LOG_FIELDS))
     with pytest.raises(MediaUnavailable):
         await media.fetch("700000000000003")
     [record] = records
@@ -241,7 +260,15 @@ async def test_nothing_hostile_in_a_graph_error_reaches_a_log_record(records) ->
         "unknown",
     ]
     text = str(record)
-    for forbidden in (TOKEN, "evil.example", "700000000000009", "700000000000003"):
+    for forbidden in (
+        TOKEN,
+        "evil.example",
+        "700000000000009",
+        "700000000000003",
+        "7000000000",
+        "1555012345",
+        "Q" * 26,
+    ):
         assert forbidden not in text
 
 
@@ -262,8 +289,85 @@ async def test_a_hostile_graph_code_never_reaches_the_reply_failure() -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_acknowledgement_failure_log_line_has_exactly_its_fields(
-    records,
+async def test_plain_media_log_shows_safe_graph_failure_fields(plain_sink) -> None:
+    media = _media(lambda request: httpx.Response(401, json=EXPIRED))
+    with pytest.raises(MediaUnavailable):
+        await media.fetch("700000000000006")
+
+    text = plain_sink.getvalue()
+    assert "step=locate" in text
+    assert "reason=status" in text
+    assert "http_status=401" in text
+    assert "graph_code=190" in text
+    assert "graph_error_subcode=463" in text
+    assert "graph_type=OAuthException" in text
+    for forbidden in (TOKEN, "SECRETWORDS", "700000000000006"):
+        assert forbidden not in text
+
+
+@pytest.mark.asyncio
+async def test_plain_media_log_hides_hostile_graph_payload(plain_sink) -> None:
+    media = _media(lambda request: httpx.Response(400, json=HOSTILE_LOG_FIELDS))
+    with pytest.raises(MediaUnavailable):
+        await media.fetch("700000000000007")
+
+    text = plain_sink.getvalue()
+    assert "step=locate" in text and "reason=status" in text
+    assert "graph_code=unknown" in text
+    assert "graph_error_subcode=unknown" in text
+    assert "graph_type=unknown" in text
+    for forbidden in (
+        TOKEN,
+        "evil.example",
+        "700000000000009",
+        "700000000000007",
+        "7000000000",
+        "1555012345",
+        "Q" * 26,
+    ):
+        assert forbidden not in text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure,expected",
+    [
+        ("download_status", "step=download reason=status http_status=403"),
+        ("locate_transport", "step=locate reason=transport"),
+        ("locate_payload", "step=locate reason=payload"),
+    ],
+)
+async def test_plain_media_log_names_step_and_bounded_failure(
+    plain_sink, failure: str, expected: str
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if failure == "locate_transport":
+            raise httpx.ConnectError(f"{TOKEN} SECRETWORDS", request=request)
+        if request.url.host == "graph.facebook.com":
+            if failure == "locate_payload":
+                return httpx.Response(200, json={"token": TOKEN})
+            return httpx.Response(
+                200,
+                json={
+                    "url": "https://lookaside.fbsbx.com/whatsapp_business/synthetic",
+                    "mime_type": "image/png",
+                    "file_size": 10,
+                },
+            )
+        return httpx.Response(403)
+
+    with pytest.raises(MediaUnavailable):
+        await _media(handler).fetch("700000000000008")
+
+    text = plain_sink.getvalue()
+    assert expected in text
+    for forbidden in (TOKEN, "SECRETWORDS", "700000000000008"):
+        assert forbidden not in text
+
+
+@pytest.mark.asyncio
+async def test_acknowledgement_log_formats_only_sanitized_provider_failure(
+    records, plain_sink
 ) -> None:
     from argus.domain.ingestion.whatsapp.replies import ReplyFailed
 
@@ -273,7 +377,7 @@ async def test_the_acknowledgement_failure_log_line_has_exactly_its_fields(
 
     class Refused:
         async def send(self, payload):  # noqa: ANN001, ANN201
-            raise ReplyFailed("401:190")
+            raise ReplyFailed(f"401:190 {TOKEN} SECRETWORDS https://evil.example/x")
 
     world = _world()
     await world.link(world.alice, ALICE_PHONE)
@@ -281,6 +385,108 @@ async def test_the_acknowledgement_failure_log_line_has_exactly_its_fields(
     world.graph.media["700000000000301"] = Media(RECEIPT_PNG, "image/png")
     del records[:]
     await world.deliver(cases.image("700000000000301", "wamid.ACK-FAIL"))
-    [record] = [r for r in records if r["message"] == "WhatsApp acknowledgement not sent"]
-    assert set(record["extra"]) == {"message_ref", "sender_ref", "failure_mode"}
-    assert record["extra"]["failure_mode"] == "401:190"
+    [record] = [
+        r
+        for r in records
+        if r["message"].startswith("WhatsApp acknowledgement not sent:")
+    ]
+    assert record["extra"]["failure_mode"] == "unknown"
+    assert record["extra"]["outcome"] == "known"
+    text = plain_sink.getvalue()
+    assert "failure_mode=unknown" in text
+    assert "outcome=known" in text
+    for forbidden in (TOKEN, "SECRETWORDS", "evil.example", "15550101234"):
+        assert forbidden not in text
+
+
+@pytest.mark.asyncio
+async def test_acknowledgement_log_classifies_provider_and_transport_failures(
+    plain_sink,
+) -> None:
+    from argus.domain.ingestion.whatsapp.replies import ReplyFailed
+
+    from tests.ingestion import whatsapp_cases as cases
+    from tests.ingestion.test_whatsapp_intake import _world
+    from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+
+    class Refused:
+        def __init__(self, reason: str, *, outcome_unknown: bool = False) -> None:
+            self.reason = reason
+            self.outcome_unknown = outcome_unknown
+
+        async def send(self, payload):  # noqa: ANN001, ANN201
+            raise ReplyFailed(self.reason, outcome_unknown=self.outcome_unknown)
+
+    world = _world()
+    await world.link(world.alice, ALICE_PHONE)
+    world.graph.media["700000000000302"] = Media(RECEIPT_PNG, "image/png")
+    world.intake.transport = Refused("401:190")
+    await world.deliver(cases.image("700000000000302", "wamid.ACK-PROVIDER"))
+
+    world.graph.media["700000000000303"] = Media(RECEIPT_PNG, "image/png")
+    world.intake.transport = Refused("transport", outcome_unknown=True)
+    await world.deliver(cases.image("700000000000303", "wamid.ACK-TRANSPORT"))
+
+    text = plain_sink.getvalue()
+    assert "failure_mode=provider_rejection" in text
+    assert "http_status=401" in text and "graph_code=190" in text
+    assert "failure_mode=transport" in text
+    assert "outcome=unknown" in text
+    for forbidden in (TOKEN, "15550101234", "wamid.ACK-"):
+        assert forbidden not in text
+
+
+@pytest.mark.asyncio
+async def test_acknowledgement_log_hides_unrecognized_numeric_code(records, plain_sink) -> None:
+    from argus.domain.ingestion.whatsapp.replies import ReplyFailed
+
+    from tests.ingestion import whatsapp_cases as cases
+    from tests.ingestion.test_whatsapp_intake import _world
+    from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+
+    code = "7000000000"
+
+    class Refused:
+        async def send(self, payload):  # noqa: ANN001, ANN201
+            raise ReplyFailed(f"401:{code}")
+
+    world = _world()
+    await world.link(world.alice, ALICE_PHONE)
+    world.intake.transport = Refused()
+    world.graph.media["700000000000309"] = Media(RECEIPT_PNG, "image/png")
+    del records[:]
+    await world.deliver(cases.image("700000000000309", "wamid.ACK-HOSTILE"))
+
+    [record] = [
+        row
+        for row in records
+        if row["message"].startswith("WhatsApp acknowledgement not sent:")
+    ]
+    assert record["extra"]["failure_mode"] == "provider_rejection"
+    assert record["extra"]["http_status"] == 401
+    assert record["extra"]["graph_code"] == "unknown"
+    text = plain_sink.getvalue()
+    assert "failure_mode=provider_rejection" in text
+    assert "http_status=401 graph_code=unknown" in text
+    assert code not in text and code not in str(record)
+
+
+@pytest.mark.asyncio
+async def test_successful_media_fetch_keeps_accepted_bytes_and_type() -> None:
+    content = b"%PDF-1.7 synthetic receipt"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "graph.facebook.com":
+            return httpx.Response(
+                200,
+                json={
+                    "url": "https://lookaside.fbsbx.com/whatsapp_business/synthetic",
+                    "mime_type": "application/pdf",
+                    "file_size": len(content),
+                },
+            )
+        return httpx.Response(200, content=content)
+
+    fetched = await _media(handler).fetch("700000000000304")
+    assert fetched.content == content
+    assert fetched.mime_type == "application/pdf"
