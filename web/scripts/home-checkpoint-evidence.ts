@@ -138,17 +138,17 @@ try {
     if (state === "zero") {
       await expect(page.getByTestId("month-close-checklist-ready")).toBeVisible({ timeout: 30000 });
       await expect(page.getByTestId("month-close-close")).toBeVisible();
-      await page.getByTestId("month-close-close").scrollIntoViewIfNeeded();
+      await page.evaluate(() => document.querySelector('[data-testid="month-close-close"]')?.scrollIntoView({ block: "center" }));
       checks.push("known zero receipts allows the close action in the synthetic fixture");
     } else if (state === "month-error") {
       await expect(page.getByTestId("month-close-error")).toBeVisible({ timeout: 30000 });
       await expect(page.getByTestId("month-close-close")).toHaveCount(0);
-      await page.getByTestId("month-close-error").scrollIntoViewIfNeeded();
+      await page.evaluate(() => document.querySelector('[data-testid="month-close-error"]')?.scrollIntoView({ block: "center" }));
       checks.push("month read error blocks close");
     } else {
       await expect(page.getByTestId("inicio-error")).toBeVisible({ timeout: 30000 });
       await expect(page.getByTestId("month-close-close")).toHaveCount(0);
-      await page.getByTestId("inicio-error").scrollIntoViewIfNeeded();
+      await page.evaluate(() => document.querySelector('[data-testid="inicio-error"]')?.scrollIntoView({ block: "center" }));
       checks.push(`${state} blocks close`);
     }
     await capture(page, `es-419-light-390x844-${state}`, "es-419", "light");
