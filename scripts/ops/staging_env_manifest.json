@@ -91,6 +91,67 @@
           "value": "true"
         },
         {
+          "name": "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
+          "kind": "secret",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_BUSINESS_ID",
+          "kind": "plain",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_CALLBACK_SECRET",
+          "kind": "secret",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_CONTACT_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_MANIFEST_PATH",
+          "kind": "plain",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_MANIFEST_SHA256",
+          "kind": "plain",
+          "keep_current": true
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_POLL_LIMIT",
+          "kind": "plain",
+          "value": "5"
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_POLL_SECONDS",
+          "kind": "plain",
+          "value": "30"
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_STORAGE_HOST",
+          "kind": "plain",
+          "keep_current": true,
+          "optional": true
+        },
+        {
+          "name": "CUADRAO_FISCAL_SANDBOX_STORAGE_PATH_PREFIX",
+          "kind": "plain",
+          "keep_current": true,
+          "optional": true
+        },
+        {
           "name": "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED",
           "kind": "plain",
           "value": "true"

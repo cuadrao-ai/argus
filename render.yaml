@@ -266,6 +266,28 @@ services:
         value: "false"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
         value: "true"
+      - key: CUADRAO_FISCAL_SANDBOX_API_TOKEN
+        sync: false
+      - key: CUADRAO_FISCAL_SANDBOX_BUSINESS_ID
+        sync: false
+      - key: CUADRAO_FISCAL_SANDBOX_CALLBACK_SECRET
+        sync: false
+      - key: CUADRAO_FISCAL_SANDBOX_CONTACT_ENABLED
+        value: "false"
+      - key: CUADRAO_FISCAL_SANDBOX_ENABLED
+        value: "false"
+      - key: CUADRAO_FISCAL_SANDBOX_MANIFEST_PATH
+        sync: false
+      - key: CUADRAO_FISCAL_SANDBOX_MANIFEST_SHA256
+        sync: false
+      - key: CUADRAO_FISCAL_SANDBOX_POLL_LIMIT
+        value: "5"
+      - key: CUADRAO_FISCAL_SANDBOX_POLL_SECONDS
+        value: "30"
+      - key: CUADRAO_FISCAL_SANDBOX_STORAGE_HOST
+        sync: false
+      - key: CUADRAO_FISCAL_SANDBOX_STORAGE_PATH_PREFIX
+        sync: false
       - key: CUADRAO_FINANCIAL_ACCOUNTS_ENABLED
         value: "true"
       - key: CUADRAO_INGESTION_ENABLED

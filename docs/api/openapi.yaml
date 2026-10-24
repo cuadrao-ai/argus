@@ -3163,6 +3163,203 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-operations:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FiscalPrepare'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalOperation'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-operations/{operation_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalOperation'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-operations/{operation_id}/artifacts/{kind}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: kind
+        in: path
+        required: true
+        schema:
+          enum:
+          - xml
+          - pdf
+          type: string
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/fiscal-operations/{operation_id}/submit:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: operation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FiscalSubmit'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FiscalOperation'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/fiscal-profile:
     get:
       tags:
@@ -13399,6 +13596,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/webhooks/fiscal-sandbox/emission:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Cuadrao-Fiscal-Callback
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '200':
+          description: Authenticated probe only
+        '401':
+          description: Static callback authentication failed
+        '413':
+          description: Body exceeds 32768 bytes
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
   /api/v1/webhooks/resend:
     post:
       tags:
@@ -20263,6 +20505,53 @@ components:
       - rnc
       - ncf
       - itbis
+    FiscalOperation:
+      properties:
+        id:
+          type: string
+          format: uuid
+        business_id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+        kind:
+          type: string
+          enum:
+          - E31
+          - E32
+        number:
+          type: string
+        payload_digest:
+          type: string
+        provider_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        state:
+          $ref: '#/components/schemas/FiscalState'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - business_id
+      - case_id
+      - kind
+      - number
+      - payload_digest
+      - provider_id
+      - state
+    FiscalPrepare:
+      properties:
+        case_id:
+          type: string
+          maxLength: 80
+          minLength: 1
+          pattern: ^[a-zA-Z0-9_-]+$
+      additionalProperties: false
+      type: object
+      required:
+      - case_id
     FiscalProfile:
       properties:
         name:
@@ -20318,6 +20607,83 @@ components:
       required:
       - fiscal
       - declaration
+    FiscalState:
+      properties:
+        submission:
+          type: string
+          enum:
+          - prepared
+          - contacted
+          - unknown
+          - identified
+        processing:
+          type: string
+          enum:
+          - unreported
+          - REGISTERED
+          - TO_SEND
+          - WAITING_RESPONSE
+          - TO_NOTIFY
+          - FINISHED
+          default: unreported
+        legal:
+          type: string
+          enum:
+          - unreported
+          - ACCEPTED
+          - ACCEPTED_WITH_OBSERVATIONS
+          - REJECTED
+          default: unreported
+        xml:
+          type: string
+          enum:
+          - unreported
+          - available
+          - unavailable
+          - retrieval_failed
+          default: unreported
+        pdf:
+          type: string
+          enum:
+          - unreported
+          - available
+          - unavailable
+          - retrieval_failed
+          default: unreported
+        delivery:
+          type: string
+          const: not_requested
+          default: not_requested
+        reconciliation:
+          type: string
+          enum:
+          - not_needed
+          - pending
+          - identity_missing
+          - exhausted
+          - conflict
+          default: not_needed
+        diagnostics:
+          items:
+            type: string
+          type: array
+          default: []
+        needs_review:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - submission
+    FiscalSubmit:
+      properties:
+        payload_digest:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+      additionalProperties: false
+      type: object
+      required:
+      - payload_digest
     ForecastCurrency:
       properties:
         currency:

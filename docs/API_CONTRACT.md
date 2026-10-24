@@ -9443,6 +9443,47 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+### Business fiscal sandbox operations
+
+All paths below use `/api/v1`. The default-off fiscal surface also requires the
+existing Business surface and durable store. Member routes use the live selected
+Business grant (`X-Business-Grant`) and return `Cache-Control: no-store`.
+
+| Method and path | Request | Result |
+| --- | --- | --- |
+| `POST /business/fiscal-operations` | `{case_id}` only | 201 stable operation from the protected synthetic manifest; live member prepare authority |
+| `GET /business/fiscal-operations/{operation_id}` | none | 200 scoped operation; live read authority |
+| `POST /business/fiscal-operations/{operation_id}/submit` | `{payload_digest}` | 202 current human owner plus approve; separate contact gate; repeated requests never contact again |
+| `GET /business/fiscal-operations/{operation_id}/artifacts/{xml|pdf}` | none | 200 private file proxy; scoped read authority rechecked after network work |
+| `POST /webhooks/fiscal-sandbox/emission` | documented emission JSON, at most 32768 bytes | 202 only after durable commit or recognized duplicate; authenticated exact probe 200 |
+
+The operation response is `{id,business_id,case_id,kind,number,payload_digest,provider_id,state}`.
+State has `submission` (`prepared`, `contacted`, `unknown`, `identified`),
+`processing` (`unreported`, `REGISTERED`, `TO_SEND`, `WAITING_RESPONSE`, `TO_NOTIFY`, `FINISHED`),
+`legal` (`unreported`, `ACCEPTED`, `ACCEPTED_WITH_OBSERVATIONS`, `REJECTED`), independent
+`xml` and `pdf` (`unreported`, `available`, `unavailable`, `retrieval_failed`),
+`delivery: not_requested`, `reconciliation` (`not_needed`, `pending`, `identity_missing`,
+`exhausted`, `conflict`), bounded sanitized `diagnostics`, and `needs_review`.
+Private payload, provenance and storage URLs never appear in the response. The first
+terminal legal outcome remains sticky; conflicting terminals require review.
+Accepted status survives XML/PDF failure. No fiscal endpoint records money or changes
+receipt ingestion, financial approval, collection state or tax exports.
+
+Preparation rejects caller numbers, payloads, buyers, URLs or digests (422). Same manifest
+identity returns the same operation across actors and HTTP keys; changed identity conflicts
+(409). Foreign operations are 404; lost authority is denied by existing Business rules.
+Submit digest mismatch is 409 `fiscal_payload_changed`; disabled contact is 403
+`fiscal_contact_disabled`. Artifact unavailability is 409 `fiscal_artifact_unavailable`.
+No retry-issuance, renumber, clone, reset or email endpoint exists. Unknown without a
+validated external ID requires reconciliation and never permits another create call.
+
+Callbacks require `X-Cuadrao-Fiscal-Callback`, compared in constant time before parsing.
+No browser session or callback Business ID selects the target. Exact issuer/number/type
+on an already contacted selected manifest operation may bind the first external ID.
+Unknown, mismatched, unsupported or post-purge events remain quarantined. Authentication
+failure is 401; oversized body 413; invalid JSON 422; failed durable persistence 503.
+Probe JSON is exactly `{message:"Test message"}` and creates no fiscal observation.
+
 `GET /business/fiscal-profile` returns `{name, tax_id, can_edit}` under the same live read
 grant. Optional `draft_id` supplies the existing canonical Business anchor.
 `name` is the Business name the switcher lists. `tax_id` is null until the owner sets one.
