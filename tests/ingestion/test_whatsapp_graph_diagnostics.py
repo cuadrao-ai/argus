@@ -330,6 +330,72 @@ async def test_plain_media_log_hides_hostile_graph_payload(plain_sink) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "code,message,cause",
+    [
+        (0, "Unable to authenticate app user", "authentication_failed"),
+        (3, "Capability or permissions issue", "capability_or_permissions"),
+        (10, "Permission is either not granted TOKEN", "permission_required"),
+        (100, "(#100) Invalid parameter SECRETWORDS", "unknown"),
+        (104, "Access token error SECRETWORDS", "unknown"),
+        (200, "Provide valid app ID SECRETWORDS", "access_token_missing"),
+        (131005, "Permission is either not granted TOKEN", "permission_required"),
+        (131008, "Request is missing a required parameter", "required_parameter_missing"),
+        (131009, "One or more parameter values are invalid", "invalid_parameter"),
+        (190, "Your access token has expired", "token_expired"),
+        (131026, "Unable to deliver message", "undeliverable"),
+    ],
+)
+async def test_provider_error_codes_have_bounded_causes_in_both_sinks(
+    records, plain_sink, code: int, message: str, cause: str
+) -> None:
+    response = {
+        "error": {
+            "message": f"{message} for 700000000000011 https://evil.example/x?token={TOKEN}",
+            "type": "OAuthException",
+            "code": code,
+        }
+    }
+    with pytest.raises(MediaUnavailable):
+        await _media(lambda request: httpx.Response(400, json=response)).fetch(
+            "700000000000012"
+        )
+
+    [record] = records
+    assert record["extra"]["graph_code"] == str(code)
+    assert record["extra"]["graph_cause"] == cause
+    assert f"graph_cause={cause}" in plain_sink.getvalue()
+    for secret in ("SECRETWORDS", TOKEN, "evil.example", "700000000000011", "700000000000012"):
+        assert secret not in str(record)
+        assert secret not in plain_sink.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_unknown_provider_error_code_stays_unknown_in_both_sinks(
+    records, plain_sink
+) -> None:
+    response = {
+        "error": {
+            "message": f"raw {TOKEN} 700000000000013 https://evil.example/?id=abc",
+            "type": "OAuthException",
+            "code": 7000000000,
+        }
+    }
+    with pytest.raises(MediaUnavailable):
+        await _media(lambda request: httpx.Response(400, json=response)).fetch(
+            "700000000000014"
+        )
+
+    [record] = records
+    assert record["extra"]["graph_code"] == "unknown"
+    assert record["extra"]["graph_cause"] == "unknown"
+    assert "graph_cause=unknown" in plain_sink.getvalue()
+    for secret in (TOKEN, "evil.example", "700000000000013", "700000000000014", "7000000000"):
+        assert secret not in str(record)
+        assert secret not in plain_sink.getvalue()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "failure,expected",
     [
         ("download_status", "step=download reason=status http_status=403"),
