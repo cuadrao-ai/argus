@@ -236,10 +236,19 @@ HOSTILE = {
     }
 }
 
+HOSTILE_LOG_FIELDS = {
+    "error": {
+        "message": f"token {TOKEN} for 700000000000009 at https://evil.example/x?t=abc",
+        "type": "Q" * 26,
+        "code": "7000000000",
+        "error_subcode": "1555012345",
+    }
+}
+
 
 @pytest.mark.asyncio
 async def test_nothing_hostile_in_a_graph_error_reaches_a_log_record(records) -> None:
-    media = _media(lambda request: httpx.Response(400, json=HOSTILE))
+    media = _media(lambda request: httpx.Response(400, json=HOSTILE_LOG_FIELDS))
     with pytest.raises(MediaUnavailable):
         await media.fetch("700000000000003")
     [record] = records
@@ -251,7 +260,15 @@ async def test_nothing_hostile_in_a_graph_error_reaches_a_log_record(records) ->
         "unknown",
     ]
     text = str(record)
-    for forbidden in (TOKEN, "evil.example", "700000000000009", "700000000000003"):
+    for forbidden in (
+        TOKEN,
+        "evil.example",
+        "700000000000009",
+        "700000000000003",
+        "7000000000",
+        "1555012345",
+        "Q" * 26,
+    ):
         assert forbidden not in text
 
 
@@ -290,7 +307,7 @@ async def test_plain_media_log_shows_safe_graph_failure_fields(plain_sink) -> No
 
 @pytest.mark.asyncio
 async def test_plain_media_log_hides_hostile_graph_payload(plain_sink) -> None:
-    media = _media(lambda request: httpx.Response(400, json=HOSTILE))
+    media = _media(lambda request: httpx.Response(400, json=HOSTILE_LOG_FIELDS))
     with pytest.raises(MediaUnavailable):
         await media.fetch("700000000000007")
 
@@ -299,7 +316,15 @@ async def test_plain_media_log_hides_hostile_graph_payload(plain_sink) -> None:
     assert "graph_code=unknown" in text
     assert "graph_error_subcode=unknown" in text
     assert "graph_type=unknown" in text
-    for forbidden in (TOKEN, "evil.example", "700000000000009", "700000000000007"):
+    for forbidden in (
+        TOKEN,
+        "evil.example",
+        "700000000000009",
+        "700000000000007",
+        "7000000000",
+        "1555012345",
+        "Q" * 26,
+    ):
         assert forbidden not in text
 
 
@@ -409,6 +434,41 @@ async def test_acknowledgement_log_classifies_provider_and_transport_failures(
     assert "outcome=unknown" in text
     for forbidden in (TOKEN, "15550101234", "wamid.ACK-"):
         assert forbidden not in text
+
+
+@pytest.mark.asyncio
+async def test_acknowledgement_log_hides_unrecognized_numeric_code(records, plain_sink) -> None:
+    from argus.domain.ingestion.whatsapp.replies import ReplyFailed
+
+    from tests.ingestion import whatsapp_cases as cases
+    from tests.ingestion.test_whatsapp_intake import _world
+    from tests.ingestion.whatsapp_support import ALICE_PHONE, RECEIPT_PNG, Media
+
+    code = "7000000000"
+
+    class Refused:
+        async def send(self, payload):  # noqa: ANN001, ANN201
+            raise ReplyFailed(f"401:{code}")
+
+    world = _world()
+    await world.link(world.alice, ALICE_PHONE)
+    world.intake.transport = Refused()
+    world.graph.media["700000000000309"] = Media(RECEIPT_PNG, "image/png")
+    del records[:]
+    await world.deliver(cases.image("700000000000309", "wamid.ACK-HOSTILE"))
+
+    [record] = [
+        row
+        for row in records
+        if row["message"].startswith("WhatsApp acknowledgement not sent:")
+    ]
+    assert record["extra"]["failure_mode"] == "provider_rejection"
+    assert record["extra"]["http_status"] == 401
+    assert record["extra"]["graph_code"] == "unknown"
+    text = plain_sink.getvalue()
+    assert "failure_mode=provider_rejection" in text
+    assert "http_status=401 graph_code=unknown" in text
+    assert code not in text and code not in str(record)
 
 
 @pytest.mark.asyncio
