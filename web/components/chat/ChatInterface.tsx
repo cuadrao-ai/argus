@@ -2010,7 +2010,11 @@ export default function ChatInterface() {
       showChatOptions ||
       mobileShell.isDrawerOpen,
     sidebarOpen: isSidebarOpen,
-    setSidebarOpen: setIsSidebarOpen,
+    setSidebarOpen: layout.businessShell
+      ? (open) => {
+          if (!layout.railLocked) chooseSidebarMode(open ? "expanded" : "collapsed");
+        }
+      : setIsSidebarOpen,
     recentsExpanded: isRecentsExpanded,
     setRecentsExpanded: setIsRecentsExpanded,
     requestNewChat,
@@ -2408,6 +2412,7 @@ export default function ChatInterface() {
       {isSidebarPreferenceModalOpen && (
         <SidebarPreferenceModal
           mode={sidebarMode}
+          business={layout.businessShell}
           onSelect={chooseSidebarMode}
           onClose={() => setIsSidebarPreferenceModalOpen(false)}
         />

@@ -16,11 +16,11 @@ export const cardClass =
  * danger is the red confirm of a delete. All are fully round with a 44px target.
  */
 export const pillButtonClass =
-  `inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-medium transition-[opacity,background-color] hover:opacity-90 ${FOCUS_RING} disabled:opacity-40`;
+  `inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-[16px] font-medium transition-[opacity,background-color] hover:opacity-90 ${FOCUS_RING} disabled:opacity-40`;
 
 export const primaryButtonClass = `${pillButtonClass} bg-[var(--cuadrao-green)] text-[var(--cuadrao-cream)]`;
 export const secondaryButtonClass = `${pillButtonClass} border border-[#7d8a84]/60 bg-white text-[#172b26] hover:bg-[#F7F5EE] hover:opacity-100 dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/[0.06]`;
-export const quietButtonClass = `inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[15px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline ${FOCUS_RING} disabled:opacity-40`;
+export const quietButtonClass = `inline-flex min-h-11 items-center gap-1.5 rounded-full px-1 text-[16px] font-medium text-[var(--cuadrao-green)] underline-offset-4 hover:underline ${FOCUS_RING} disabled:opacity-40`;
 /** A destructive action: red, and always behind a confirmation. */
 export const dangerButtonClass = `${pillButtonClass} border border-[#9e2f39]/40 bg-white text-[#9e2f39] dark:border-[#ec9aa0]/40 dark:bg-[#1f2225] dark:text-[#ec9aa0]`;
 export const dangerConfirmButtonClass = `${pillButtonClass} bg-[#9e2f39] text-white dark:bg-[#ec9aa0] dark:text-[#172b26]`;

@@ -12,6 +12,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { readStored, writeStored } from "@/lib/browser-storage";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import {
@@ -115,6 +116,7 @@ export type BusinessContextValue = Readonly<{
   /** The Business the person is working in: their own unless they chose a client's. */
   chosen: GrantedSpace | null;
   chooseBusiness: (grantId: string | null) => void;
+  renamePreviewBusiness?: (name: string) => void;
   /** The one-time access line for the chosen client Business was dismissed. */
   markAccessSeen: () => Promise<void>;
   /** The chosen grant stopped being live mid-session; the person is back in their own Business. */
@@ -279,10 +281,27 @@ function BusinessWorkspaceContent({
   const [accessRevision, setAccessRevision] = useState(0);
   const [lostAccess, setLostAccess] = useState(false);
   const clearLostAccess = useCallback(() => setLostAccess(false), []);
-  const chosen = useMemo(
-    () => spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner")) ?? null,
-    [spaces, chosenGrant],
-  );
+  const localPreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const [previewNames, setPreviewNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!localPreview) return;
+    try {
+      const cached: unknown = JSON.parse(readStored("cuadrao-preview-business-names-v1") || "{}");
+      if (cached && typeof cached === "object" && !Array.isArray(cached)) setPreviewNames(Object.fromEntries(Object.entries(cached).filter(([, name]) => typeof name === "string" && name.trim() && [...name].length <= 80)));
+    } catch { /* A damaged preview cache leaves the source name intact. */ }
+  }, [localPreview]);
+  const chosen = useMemo(() => {
+    const space = spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner"));
+    return space ? { ...space, name: localPreview ? previewNames[space.space_id] || space.name : space.name } : null;
+  }, [spaces, chosenGrant, localPreview, previewNames]);
+  const renamePreviewBusiness = useCallback((name: string) => {
+    if (!localPreview || !chosen || chosen.role !== "owner" || !name.trim() || [...name.trim()].length > 80) return;
+    setPreviewNames(current => {
+      const next = { ...current, [chosen.space_id]: name.trim() };
+      writeStored("cuadrao-preview-business-names-v1", JSON.stringify(next));
+      return next;
+    });
+  }, [chosen, localPreview]);
   const closedAccessName = closedAccess ? closedSpaces.find(space => space.grant_id === chosenGrant)?.name ?? chosen?.name ?? t("business.overview.title") : null;
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
@@ -527,6 +546,7 @@ function BusinessWorkspaceContent({
       closedSpaces,
       chosen,
       chooseBusiness,
+      renamePreviewBusiness: localPreview ? renamePreviewBusiness : undefined,
       markAccessSeen,
       lostAccess,
       clearLostAccess,
@@ -545,7 +565,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;

@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "../business-ui";
 
@@ -18,7 +19,7 @@ export type EmptyAction = { label: string; run: () => void; icon?: ReactNode };
 
 const KIND_MARK: Record<EmptyKind, EmptyMark | null> = { first_run: null, no_results: "search", filtered: "filter", done: "check", error: "cloud" };
 
-export function EmptyState({ kind, mark, title, body, action, secondary, testId, compact = false }: {
+export function EmptyState({ kind, mark, title, body, action, secondary, testId, compact = false, settled = false }: {
   kind: EmptyKind;
   /** The drawing; no results, filtered and error bring their own unless one is named. */
   mark?: EmptyMark;
@@ -30,7 +31,18 @@ export function EmptyState({ kind, mark, title, body, action, secondary, testId,
   testId?: string;
   /** Inside a card or a column: less space around it. */
   compact?: boolean;
+  /** A compact, centered status for a settled balance. */
+  settled?: boolean;
 }) {
+  if (settled && kind === "done") return <div data-testid={testId} data-empty-kind={kind} className="flex justify-center py-5 text-center">
+    <div>
+      <p className="flex items-center justify-center gap-2 text-[16px] font-medium text-[#172b26] dark:text-white">
+        <CircleCheck className="h-5 w-5 shrink-0 text-[var(--cuadrao-green)]" aria-hidden="true" />{title}
+      </p>
+      {body ? <p className="mt-1 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{body}</p> : null}
+      {action ? <button type="button" onClick={action.run} className={`mt-4 ${secondaryButtonClass}`}>{action.icon}{action.label}</button> : null}
+    </div>
+  </div>;
   const drawn = mark ?? KIND_MARK[kind] ?? "inbox";
   return (
     <div

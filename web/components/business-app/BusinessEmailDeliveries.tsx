@@ -53,20 +53,20 @@ export function EmailReceivingAddress({ intake, onActivate }: { intake: Business
           setActivation("working");
           try { await onActivate(); setActivation("idle"); } catch { setActivation("failed"); }
         }}>{t("business.email.activate", "Get a receiving address")}</button>
-        {activation === "failed" ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.email.activate_failed", "Email receiving is not available for this business yet.")}</p> : null}
+        {activation === "failed" ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("business.email.activate_failed", "Email receiving is not available for this business yet.")}</p> : null}
       </div>
     );
   }
   return (
     <div data-testid="email-address">
-      <p className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.forward_to", "Forward receipts to this address:")}</p>
+      <p className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.email.forward_to", "Forward receipts to this address:")}</p>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <p className="min-w-0 break-words text-[15px] font-medium text-[#172b26] dark:text-white"><WrappingAddress address={address} /></p>
+        <p className="min-w-0 break-words text-[16px] font-medium text-[#172b26] dark:text-white"><WrappingAddress address={address} /></p>
         <CopyButton value={address} label={t("business.email.copy", "Copy address")} {...labels} testId="email-copy-address" className={`${secondaryButtonClass} shrink-0`}>
           {t("business.email.copy", "Copy address")}
         </CopyButton>
       </div>
-      <p className="mt-2 text-[13px] text-[#56635e] dark:text-white/70">{t("business.email.lands_in_bandeja", "Attachments arrive in the Bandeja, ready to review.")}</p>
+      <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.email.lands_in_bandeja", "Attachments arrive in the Bandeja, ready to review.")}</p>
     </div>
   );
 }
@@ -91,7 +91,7 @@ export function EmailAddressSection({ intake, onRetry, onActivated }: { intake: 
 
 /** The address on its own, for the Negocio page: it loads itself. */
 export function BusinessEmailAddress() {
-  const { source, revision } = useBusiness();
+  const { source, revision, reload } = useBusiness();
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -100,7 +100,7 @@ export function BusinessEmailAddress() {
     source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
     return () => { current = false; };
   }, [source, revision, attempt]);
-  return <EmailAddressSection intake={intake} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => setIntake({ status: "ready", data: next })} />;
+  return <EmailAddressSection intake={intake} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => { setIntake({ status: "ready", data: next }); reload(); }} />;
 }
 
 /** One received email: subject and where it stands, then who sent it, when, and how many files. */

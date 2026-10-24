@@ -75,7 +75,7 @@ describe("month close optimistic marks", () => {
     assert.equal(row()?.getAttribute("data-status"), "pendiente");
     assert.match(settleTask(), /Marca 4 documentos/);
     const problem = host.querySelector('[data-testid="month-close-work-problem"]');
-    assert.equal(problem?.getAttribute("role"), "alert", "a failed mark says so beside the work, not in a toast");
+    assert.equal(problem?.querySelector("[role=alert]")?.getAttribute("role"), "alert", "a failed mark says so beside the work, not in a toast");
     assert.match(problem?.textContent ?? "", /volvió al anterior/);
     assert.ok([...(problem?.querySelectorAll("button") ?? [])].some((button) => button.textContent === "Reintentar"));
     assert.equal(host.querySelector('[data-testid="month-close-close"]'), null, "Cerrar stays hidden while steps remain");
@@ -122,7 +122,7 @@ describe("month close optimistic marks", () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
     const problem = host.querySelector('[data-testid="month-close-work-problem"]');
-    assert.equal(problem?.getAttribute("role"), "alert");
+    assert.equal(problem?.querySelector("[role=alert]")?.getAttribute("role"), "alert");
     assert.match(problem?.textContent ?? "", /ya está igualada con un depósito del banco/);
     assert.match(problem?.textContent ?? "", /desiguálala en Transacciones/);
     assert.doesNotMatch(problem?.textContent ?? "", /volvió al anterior/);

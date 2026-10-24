@@ -77,7 +77,7 @@ const SCREENS = [
 ] as const;
 
 describe("one canvas for every Business screen", () => {
-  test("the canvas sits at the main area's 2rem gutter, 75rem at most, and never centres or widens per screen", async () => {
+  test("the canvas fills the main area inside its gutters while reading and form columns stay narrow", async () => {
     const page = await mount();
     for (const screen of SCREENS) {
       await page.open({ kind: screen.kind });
@@ -85,24 +85,24 @@ describe("one canvas for every Business screen", () => {
       const region = page.host.querySelector<HTMLElement>('[data-testid="workspace-panel-region"]')!;
       const canvas = page.host.querySelector<HTMLElement>('[data-testid="workspace-canvas"]')!;
       assert.match(region.className, /(^|\s)tablet:px-8(\s|$)/, `${screen.kind}: the 2rem gutter`);
-      assert.match(canvas.className, /tablet:max-w-\[75rem\]/, `${screen.kind}: one canvas width`);
+      assert.match(region.className, /(^|\s)px-4(\s|$)/, `${screen.kind}: the phone gutter`);
+      assert.match(canvas.className, /(^|\s)w-full(\s|$)/, `${screen.kind}: one fluid canvas`);
+      assert.doesNotMatch(canvas.className, /max-w-/, `${screen.kind}: no cap on the shared canvas`);
       for (const node of [region.parentElement!, canvas, canvas.firstElementChild as HTMLElement]) {
         assert.doesNotMatch(node.className, /mx-auto/, `${screen.kind}: left-aligned, never centred`);
       }
       assert.doesNotMatch(region.parentElement!.className, /max-w/, `${screen.kind}: the main area spans its width`);
       assert.equal((canvas.firstElementChild as HTMLElement).dataset.column, screen.column, `${screen.kind}'s column inside the canvas`);
+      if (screen.column === "reading") assert.match((canvas.firstElementChild as HTMLElement).className, /max-w-3xl/);
+      if (screen.column === "form") assert.match((canvas.firstElementChild as HTMLElement).className, /max-w-\[40rem\]/);
       assert.equal(document.documentElement.style.getPropertyValue("--cuadrao-canvas-max"), "", `${screen.kind}: no screen widens the canvas`);
       assert.equal(document.documentElement.style.getPropertyValue("--cuadrao-canvas-column"), "", `${screen.kind}: no screen moves the bar`);
     }
   });
 
-  test("the top bar spans the same box: its left gutter is the canvas's and its right edge ends where the canvas does", async () => {
+  test("the top bar and canvas share fixed 1rem phone and 2rem tablet gutters", async () => {
     const { WORKSPACE_BAR_PADDING_CLASS, WORKSPACE_CANVAS_CLASS } = await import("@/components/chat/workspace-canvas");
-    const canvas = Number(/max-w-\[(\d+)rem\]/.exec(WORKSPACE_CANVAS_CLASS)![1]);
-    const left = /tablet:pl-(\d+)/.exec(WORKSPACE_BAR_PADDING_CLASS)![1];
-    const right = Number(/calc\(100%-(\d+)rem\)/.exec(WORKSPACE_BAR_PADDING_CLASS)![1]);
-    assert.equal(left, "8", "2rem, the region's own tablet:px-8");
-    assert.equal(right - canvas, 2, "the bar's right edge is the canvas's: gutter plus canvas");
-    assert.match(WORKSPACE_BAR_PADDING_CLASS, /max\(2rem,/, "never closer than the gutter");
+    assert.equal(WORKSPACE_CANVAS_CLASS, "w-full");
+    assert.equal(WORKSPACE_BAR_PADDING_CLASS, "tablet:px-8");
   });
 });

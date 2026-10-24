@@ -97,10 +97,20 @@ test.skipIf(!spanishShipped)("Preferencias > Idioma offers English, saves it on 
   await act(async () => englishChoice!.click());
   await settle(act);
 
-  assert.deepEqual(patches, [{ language: "en", locale: "en-US" }]);
-  assert.equal(account.language, "en");
-  assert.equal(account.onboarding.language_confirmed, true);
+  const localPreview = process.env.NODE_ENV === "development";
+  assert.deepEqual(patches, localPreview ? [] : [{ language: "en", locale: "en-US" }]);
+  assert.equal(account.language, localPreview ? "es-419" : "en");
+  assert.equal(account.onboarding.language_confirmed, !localPreview);
   assert.equal(i18n.language, "en");
+  if (localPreview) {
+    const { commitShellLanguage } = await import("@/lib/language-features");
+    await act(async () => { await i18n.changeLanguage("es-419"); });
+    await act(async () => { await commitShellLanguage(i18n, true, "es-419", true); });
+    assert.equal(i18n.language, "en", "the preview choice survives a mock account refresh");
+    await act(async () => { await commitShellLanguage(i18n, false, "es-419", true); });
+    assert.equal(i18n.language, "es-419", "consumer account precedence stays unchanged");
+    await act(async () => { await i18n.changeLanguage("en"); });
+  }
   assert.ok(button("Preferences"), "the menu reads in English right after the save");
   assert.equal(button("Preferencias"), undefined);
   assert.equal(window.navigator.language, "en-US");

@@ -8,9 +8,11 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import type { ApiUser } from "@/lib/argus-api";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
+  BUSINESS_PREVIEW_LANGUAGE_KEY,
   ENABLED_LANGUAGES,
   normalizeEnabledLanguage,
 } from "@/lib/language-features";
+import { writeStored } from "@/lib/browser-storage";
 import { saveProfileLanguage } from "@/lib/profile-writes";
 
 type LanguageModalProps = {
@@ -65,8 +67,10 @@ export default function LanguageModal({
   }, []);
 
   const handleSelect = async (code: string) => {
-    if (!onProfileSaved) {
-      await i18n.changeLanguage(normalizeEnabledLanguage(code));
+    if (!onProfileSaved || (isBusiness && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true")) {
+      const language = normalizeEnabledLanguage(code);
+      if (isBusiness && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true") writeStored(BUSINESS_PREVIEW_LANGUAGE_KEY, language);
+      await i18n.changeLanguage(language);
       onClose();
       return;
     }

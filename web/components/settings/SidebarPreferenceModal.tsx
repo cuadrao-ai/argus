@@ -9,6 +9,7 @@ export type SidebarMode = "expanded" | "collapsed" | "hover";
 
 type SidebarPreferenceModalProps = {
   mode: SidebarMode;
+  business?: boolean;
   onSelect: (mode: SidebarMode) => void;
   onClose: () => void;
   onBack?: () => void;
@@ -20,6 +21,7 @@ type SidebarPreferenceModalProps = {
  */
 export default function SidebarPreferenceModal({
   mode,
+  business = false,
   onSelect,
   onClose,
   onBack,
@@ -51,7 +53,7 @@ export default function SidebarPreferenceModal({
           segments={[
             { key: "expanded", label: t("settings.sidebar.expanded"), icon: Layout },
             { key: "collapsed", label: t("settings.sidebar.collapsed"), icon: LayoutPanelLeft },
-            { key: "hover", label: t("settings.sidebar.hover"), icon: MousePointer2 },
+            ...(!business ? [{ key: "hover" as const, label: t("settings.sidebar.hover"), icon: MousePointer2 }] : []),
           ]}
         />
       </div>

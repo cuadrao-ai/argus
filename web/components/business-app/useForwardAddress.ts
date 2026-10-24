@@ -7,13 +7,15 @@ import { useBusiness } from "./BusinessWorkspace";
 
 /** The Business's receipt forwarding address, or null while unknown or when email intake is off. */
 export function useForwardAddress(): string | null {
-  return useSourceForwardAddress(useBusiness().source);
+  const { source, revision } = useBusiness();
+  return useSourceForwardAddress(source, revision);
 }
 
 /** The same address for a caller above the Business context; a null source reads nothing. */
-export function useSourceForwardAddress(source: BusinessDataSource | null): string | null {
+export function useSourceForwardAddress(source: BusinessDataSource | null, revision = 0): string | null {
   const [address, setAddress] = useState<string | null>(null);
   useEffect(() => {
+    setAddress(null);
     if (!source?.emailIntake) return undefined;
     let live = true;
     source.emailIntake().then((intake) => {
@@ -24,6 +26,6 @@ export function useSourceForwardAddress(source: BusinessDataSource | null): stri
     return () => {
       live = false;
     };
-  }, [source]);
+  }, [source, revision]);
   return address;
 }

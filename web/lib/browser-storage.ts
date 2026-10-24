@@ -33,6 +33,8 @@ export const LANGUAGE_STORAGE_KEY = "i18nextLng";
 export const STORAGE_REGISTRY = {
   [LANGUAGE_STORAGE_KEY]: "language",
   [THEME_STORAGE_KEY]: "appearance",
+  "cuadrao-business-preview-language": "language",
+  "cuadrao-preview-business-names-v1": "temporary",
   "argus:sidebar_mode": "layout",
   // The Business rail's own expanded, collapsed or hover choice.
   "cuadrao:business_sidebar_mode": "layout",

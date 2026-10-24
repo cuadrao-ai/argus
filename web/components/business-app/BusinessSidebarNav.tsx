@@ -25,7 +25,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
     (panel.kind === kind || recordList(panel) === kind);
   const count = (value: number | null, testId = "business-inbox-count") =>
     value !== null && value > 0 && !shell.sidebarCollapsed ? (
-      <span data-testid={testId} className="rounded-mark bg-black/5 px-2 py-0.5 text-[12px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
+      <span data-testid={testId} className="rounded-mark bg-black/5 px-2 py-0.5 text-[14px] tabular-nums text-black/60 dark:bg-white/10 dark:text-white/60">
         {value}
       </span>
     ) : null;
