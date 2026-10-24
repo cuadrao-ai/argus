@@ -3,9 +3,10 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { chromium, expect, type Page } from "@playwright/test";
+import { chromium, expect, type BrowserContext, type Page } from "@playwright/test";
 
 const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+if (process.env.EVIDENCE_EXPECTED_HEAD) assert.equal(head, process.env.EVIDENCE_EXPECTED_HEAD, "capture must use the PR head");
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/home-checkpoint-integration/evidence");
 const baseURL = "http://127.0.0.1:4417";
 const fixtureURL = "http://127.0.0.1:4418";
@@ -18,6 +19,15 @@ type Capture = { file: string; sha256: string; bytes: number; width: number; hei
 const captures: Capture[] = [];
 const checks: string[] = [];
 const errors: string[] = [];
+
+async function keepRequestsLocal(context: BrowserContext) {
+  await context.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.origin === baseURL || url.origin === fixtureURL) return route.continue();
+    errors.push(`blocked external request: ${url.origin}${url.pathname}`);
+    return route.abort();
+  });
+}
 
 async function fixture(value: Fixture) {
   const response = await fetch(`${fixtureURL}/__preview`, {
@@ -62,6 +72,7 @@ try {
     await fixture({ language: sample.language });
     const context = await browser.newContext({ viewport: { width: sample.width, height: sample.height },
       isMobile: sample.mobile, deviceScaleFactor: 1, colorScheme: sample.theme as "light" | "dark" });
+    await keepRequestsLocal(context);
     await context.addInitScript(([language, theme]) => {
       localStorage.setItem("i18nextLng", language);
       localStorage.setItem("argus-theme", theme);
@@ -130,6 +141,7 @@ try {
   ] as const) {
     await fixture({ language: "es-419", ...settings });
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, deviceScaleFactor: 1, colorScheme: "light" });
+    await keepRequestsLocal(context);
     await context.addInitScript(() => { localStorage.setItem("i18nextLng", "es-419"); localStorage.setItem("argus-theme", "light"); });
     const page = await context.newPage();
     page.on("pageerror", (error) => errors.push(`${state}: ${error.message}`));
@@ -154,11 +166,24 @@ try {
     await capture(page, `es-419-light-390x844-${state}`, "es-419", "light");
     await context.close();
   }
+  await fixture({ language: "en" });
+  const restored = await fetch(`${fixtureURL}/api/v1/business/month-close?month=${new Date().toISOString().slice(0, 7)}`).then((response) => response.json());
+  assert.equal(restored.currencies?.[0]?.by_status?.invoices?.pendiente?.count, 1, "zero variant must not mutate the normal fixture");
+  const restoredContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light" });
+  await keepRequestsLocal(restoredContext);
+  await restoredContext.addInitScript(() => { localStorage.setItem("i18nextLng", "en"); localStorage.setItem("argus-theme", "light"); });
+  const restoredPage = await restoredContext.newPage();
+  await restoredPage.goto(`${baseURL}/biz`, { waitUntil: "domcontentloaded" });
+  await expect(restoredPage.getByTestId("month-close-task-settle")).toContainText(/Mark 1 document/, { timeout: 30000 });
+  await expect(restoredPage.getByTestId("month-close-net")).toContainText(/1 document/, { timeout: 30000 });
+  checks.push("normal server projection after zero/error/refusal restores one unsettled task and one pending net document; Inbox review remains its separate server count");
+  await restoredContext.close();
 } finally {
   await browser.close();
 }
 writeFileSync(resolve(output, "manifest.json"), JSON.stringify({ head, baseURL, fixtureURL,
   source: "actual Next /biz with isolated synthetic loopback fixture API; guide is development/mock-only",
+  syntheticMockContext: true, productionAcceptance: false,
   checks, captures, pageErrors: errors }, null, 2));
 assert.deepEqual(errors, [], `uncaught browser errors: ${errors.join(" | ")}`);
 console.log(JSON.stringify({ head, captures: captures.length, checks: checks.length, output, errors }, null, 2));
