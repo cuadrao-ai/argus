@@ -99,7 +99,7 @@ body:has(.app.phone) #spacesdialog{max-width:358px}
 .invite-step .formfoot{margin-top:21px;gap:13px}.invite-step .formfoot button{font-size:16px;min-height:44px;padding:10px 21px;line-height:1.5}.invite-step .formfoot .textbtn{padding-inline:8px}
 .invite-request-error:empty{display:none}.invite-request-error{display:flex;gap:8px;margin-top:13px;font-size:14px;line-height:1.5;color:var(--error);border-radius:4px}.invite-step input[readonly]{background:var(--bg)}.invite-step .primary:disabled{background:var(--tint);color:var(--ink)}.invite-spinner{display:inline-block;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;margin-right:8px;animation:invite-spin .8s linear infinite}@keyframes invite-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.invite-spinner{animation:none}}.invite-step button:disabled{cursor:wait}
 .invite-result{margin:13px 0 21px;border-radius:8px}.invite-status{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:#735c14;background:#f2e8c9;padding:5px 8px;border-radius:4px}.dark .invite-status{color:#f2e8c9;background:#735c1433}.invite-status.is-granted{color:#2f5a49;background:#e3ebe1}.dark .invite-status.is-granted{color:#8fcbb0;background:#2f5a4933}.invite-status>span{font-size:9px}.setupbody .invite-recipient{font-size:16px;font-weight:500;margin:13px 0 8px;overflow-wrap:anywhere}.setupbody .invite-result-copy{font-size:16px;line-height:1.6;color:var(--muted);margin:0}
-@container(max-width:600px){.invite-step .formfoot{display:grid;grid-template-columns:1fr;gap:8px}.invite-step .formfoot button{width:100%;font-size:16px}.invite-step .field{grid-template-columns:1fr}.invite-step .field>.invite-access{grid-column:1;grid-row:3;margin-top:8px;justify-self:start}.invite-step .field>input{grid-row:2}.invite-step .field label{font-size:15px}.invite-step .access-help{margin-left:0}}
+@container(max-width:480px){.invite-step .formfoot{display:grid;grid-template-columns:1fr;gap:8px}.invite-step .formfoot button{width:100%;font-size:16px}.invite-step .field{grid-template-columns:1fr}.invite-step .field>.invite-access{grid-column:1;grid-row:3;margin-top:8px;justify-self:start}.invite-step .field>input{grid-row:2}.invite-step .field label{font-size:15px}.invite-step .access-help{margin-left:0}}
 
 .permission-note{background:transparent;border-radius:0;padding:13px 0;margin:4px 0 18px!important;border-top:1px solid var(--line)}
 .address-result{background:transparent;border:1px solid var(--line)}
@@ -122,11 +122,19 @@ body:has(.app.phone) #spacesdialog{max-width:358px}
 .guide-form .formfoot .primary,.guide-form .formfoot .textbtn{font-size:16px;min-height:44px;line-height:1.5}.workspace-summary{max-width:560px}.workspace-summary dl{margin:0 0 13px}.workspace-summary dt{font-size:14px;color:var(--muted);margin-top:13px}.workspace-summary dd{margin:4px 0 0;font-size:16px;overflow-wrap:anywhere}.workspace-summary button{font-size:16px;min-height:44px}.workspace-rename{max-width:560px}.workspace-rename .formfoot{margin-top:13px}.setupbody .workspace-rename p{font-size:14px;color:var(--muted);margin:0 0 13px}
 @container(max-width:400px){.alias-box{display:grid;grid-template-columns:minmax(0,1fr)}.guide-form .alias-box input{width:100%;min-width:0}.alias-domain{padding:0 12px 10px;font-size:14px;overflow-wrap:anywhere;white-space:normal}.guide-form .formfoot{display:flex;flex-direction:column;align-items:stretch}.guide-form .formfoot button{width:100%}}
 
+.invite-permissions{margin:0 0 4px}.invite-permissions-label{display:block;font-size:14px;color:var(--muted);margin-bottom:4px}.invite-permissions strong{display:block;font-size:15px;font-weight:500}.setupbody .invite-permissions p{margin:4px 0 0;font-size:14px;line-height:1.5;color:var(--muted)}
+
+.invite-surface .formfoot{display:flex;flex-direction:row-reverse;justify-content:flex-start}.invite-surface .formfoot button{width:auto}
+@container(max-width:380px){.invite-surface .formfoot{flex-direction:column}.invite-surface .formfoot button{width:100%}}
+.app:has(.invite-surface){background:var(--surface)}
+.setup.invite-surface{border:0;border-radius:0;background:transparent}.invite-surface .setupbody{padding:3px}.invite-surface .guide-form{padding-top:0;padding-bottom:0}.invite-surface .guide-destination{font-size:16px!important;line-height:1.5;margin:0 0 20px}.invite-surface .guide-destination strong{font-weight:600}.invite-surface .invite-intro{display:none}.invite-surface .guide-status:empty{display:none}
 .setup-heading-copy{min-width:0}.setup-heading-copy strong{display:block}.setup-heading-copy #setup-readiness{display:block;color:var(--muted);font-size:14px;line-height:1.5;margin-top:4px}.setup-heading-copy #setup-readiness:empty{display:none}
 .setuphead .setup-progress{position:relative;display:grid;place-items:center;width:44px;height:44px;min-width:44px;gap:0;color:var(--muted);font-size:14px;line-height:1;font-variant-numeric:tabular-nums}.setup-progress .progress-ring{position:absolute;inset:0;width:44px;height:44px;margin:0;fill:none;stroke-width:2}.progress-ring-track{stroke:var(--line)}.progress-ring #progressfill{stroke:var(--ink);stroke-dasharray:100;stroke-dashoffset:100;stroke-linecap:round;transform:rotate(-90deg);transform-origin:22px 22px}.setup-progress #progresscount{position:relative;color:var(--ink)}
 .rail-heading{display:grid;grid-template-columns:minmax(0,1fr) auto 16px;gap:12px}.rail-heading strong{grid-column:1}.rail-heading .rail-state{grid-column:2;margin:0;font-size:14px;line-height:1.5}.rail-heading .rail-chevron{grid-column:3;justify-self:end;margin:0}
 @container(max-width:600px){.setuphead{grid-template-columns:minmax(0,1fr) 44px 18px;column-gap:12px}.setuphead .setup-heading-copy{grid-column:1;grid-row:1}.setuphead .setup-progress{grid-column:2;grid-row:1}.setuphead>.chevron{grid-column:3;grid-row:1}.rail-heading{grid-template-columns:minmax(0,1fr) 16px;gap:4px 12px}.rail-heading strong{grid-column:1;grid-row:1}.rail-heading .rail-state{grid-column:1;grid-row:2;text-align:left}.rail-heading .rail-chevron{grid-column:2;grid-row:1 / span 2;align-self:center}}
-.guide-status.waiting{color:#735c14}.guide-status.attention{color:#9e2f39}.dark .guide-status.waiting{color:#f6e7c1}.dark .guide-status.attention{color:#ec9aa0}</style>
+.guide-status.waiting{color:#735c14}.guide-status.attention{color:#9e2f39}.dark .guide-status.waiting{color:#f6e7c1}.dark .guide-status.attention{color:#ec9aa0}.batch-column-headings{display:grid;grid-template-columns:minmax(0,1fr) 170px 44px;gap:8px;align-items:center;margin-top:12px;font-size:16px;font-weight:500}.batch-email-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.batch-add-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 44px;gap:8px}.batch-add-row #batch-add{grid-column:1;justify-self:end;min-height:44px;padding:0 8px;border-radius:8px;font-size:14px;font-weight:500;white-space:nowrap;color:var(--ink)}.batch-add-row #batch-add:hover:not(:disabled){background:rgba(0,0,0,.05)}.dark .batch-add-row #batch-add:hover:not(:disabled){background:rgba(255,255,255,.05)}.batch-add-row #batch-add:focus-visible{outline:2px solid currentColor;outline-offset:2px}.batch-add-row #batch-add:disabled{opacity:.4}.batch-recipients{list-style:none;padding:0;margin:0}.batch-recipient{padding:6px 0}.batch-row-fields{display:grid;grid-template-columns:minmax(0,1fr) 170px 44px;gap:8px;align-items:center}.batch-row-fields .field input{font-size:16px;min-height:48px;margin:0!important;min-width:0}.batch-row-fields .field{min-width:0}.invite-surface .guide-destination{text-align:center;margin-bottom:8px}.invite-surface .formfoot{border-top:1px solid var(--line);padding-top:20px;margin-top:24px}.batch-remove{width:44px;height:44px;font-size:24px;color:var(--muted)}.batch-error{color:#b54a4a!important;font-size:14px!important;line-height:1.4;margin:5px 0 0!important}.dark .batch-error{color:#f19b9b!important}.batch-error:empty{display:none}.batch-sent-identity{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.batch-sent-identity strong{font-size:16px;overflow-wrap:anywhere;font-weight:500}.batch-sent-identity span{font-size:14px;color:var(--muted);margin-left:auto}.batch-sent-status{font-size:14px!important;color:var(--muted);margin:6px 0 0!important}.batch-sent-status span{color:var(--green)}.batch-summary{margin:0 0 20px}.batch-summary strong{font-size:21px;font-weight:600}.batch-summary p{font-size:14px!important;margin-top:6px}.invite-surface .field label{font-size:16px}.invite-surface .field input{font-size:16px}.batch-row-fields .invite-permission-field{min-width:0}@container(max-width:480px){.batch-row-fields{grid-template-columns:minmax(0,1fr) 44px}.batch-row-fields .field{grid-column:1/-1}.batch-row-fields .invite-permission-field{grid-column:1}.batch-column-headings{display:block}.batch-add-row{grid-template-columns:minmax(0,1fr)}.batch-access-heading{display:none}.batch-recipient{padding:10px 0}.batch-email-heading{margin-bottom:0}.batch-sent-identity{display:block}.batch-sent-identity span{display:block;margin-top:4px}}
+.invite-surface .setupbody{padding-top:0!important}.invite-surface .batch-context{margin:0 0 12px -3px!important;font-size:14px!important;line-height:21px;text-align:left;color:var(--muted);overflow-wrap:anywhere}.invite-surface .batch-context strong{font-size:16px;font-weight:600;color:var(--ink)}.invite-surface .guide-form.invite-step{margin:0;padding:0!important}.invite-surface .batch-column-headings{margin-top:0}.invite-surface .formfoot{margin-top:16px;padding-top:16px}.invite-surface .formfoot button[type=submit]{width:100%}.batch-email-control{position:relative;grid-column:1/-1;min-width:0}.batch-email-control input{padding-right:38px!important}.batch-email-control input[data-validation=valid]{border-color:var(--green)!important}.batch-email-control input[data-validation=error]{border-color:var(--error)!important}.batch-validation-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none}.batch-validation-icon svg,.batch-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.batch-validation-icon svg{display:none}.batch-validation-icon[data-tone=valid]{color:var(--green)}.batch-validation-icon[data-tone=error]{color:var(--error)}.batch-validation-icon[data-tone=valid] .batch-valid-icon,.batch-validation-icon[data-tone=error] .batch-invalid-icon{display:block}.batch-remove{display:grid;place-items:center;border-radius:8px;color:rgba(0,0,0,.55)}.batch-remove:hover:not(:disabled){background:rgba(0,0,0,.05)}.dark .batch-remove{color:rgba(255,255,255,.65)}.dark .batch-remove:hover:not(:disabled){background:rgba(255,255,255,.05)}.batch-remove:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+</style>
 <header class="review"><a href="map.html" class="reviewlink">Mapa y alcance</a><a href="pilot.html" class="reviewlink">Recorrido del contador</a><strong>Inicio · Propuesta de configuración <small> / mock interactivo</small></strong><label>Situación <select id="scenario"><option value="new">Sin espacio</option><option value="invite">Acceso recibido</option><option value="client">Negocio compartido</option><option value="setup">Espacio creado</option><option value="ready">Guía cerrada</option></select></label><label>Facturación <select id="billingmode"><option value="pilot">Piloto</option><option value="demo">Demo</option></select></label><label>Tema <select id="theme"><option value="light">Claro</option><option value="dark">Oscuro</option></select></label><label>Vista <select id="viewport"><option value="desktop">Escritorio</option><option value="phone">Móvil</option></select></label></header>
 <div class="stage"><div class="app" id="app"><div class="shell"><aside class="rail" id="rail"><div class="railhead"><button id="businessmenu" class="businessmark" aria-label="Abrir menú del negocio" aria-haspopup="dialog">T</button><button class="toggle" id="toggle" aria-label="Contraer barra lateral"></button><div class="bizname" id="bizname">Tu espacio<small>Sin negocio seleccionado</small></div></div><nav><button class="navitem current" data-nav="Inicio"></button><button class="navitem" data-nav="Bandeja"></button><button class="navitem" data-nav="Transacciones"></button></nav><div class="brand"><i class="logomark"></i><span class="wordmark">cuadrao</span></div></aside><main class="workspace"><div class="topbar"><button class="mobilemark" id="mobilebusiness" aria-label="Abrir menú del negocio" aria-haspopup="dialog">C</button><button class="search" id="search" aria-label="Buscar documentos"></button><div class="actions"><button class="primary add" id="add"></button><button class="iconbtn privacy" id="privacy" aria-label="Ocultar montos"></button><button class="iconbtn profile" id="profile" aria-label="Perfil"></button></div></div><section class="setup" id="setup">
 <button class="setuphead" id="setuphead" aria-expanded="true" aria-controls="setupbody"><span class="setup-heading-copy"><strong></strong><span id="setup-readiness"></span></span><span class="setup-progress"><svg class="progress-ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="progress-ring-track" cx="22" cy="22" r="19"/><circle id="progressfill" cx="22" cy="22" r="19" pathLength="100"/></svg><span id="progresscount" aria-hidden="true"></span><span id="progressdescription" class="visually-hidden"></span></span><span id="hidetext"></span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -138,15 +146,20 @@ const $=id=>document.getElementById(id);
 let previewLanguage=new URLSearchParams(location.search).get('lang')||'es-419';
 const tr=(key,values={})=>{let text=window.workspacePreviewLocales?.[previewLanguage.startsWith('en')?'en':'es-419']?.[key]||key;for(const [name,value]of Object.entries(values))text=text.replaceAll('{'+name+'}',String(value));return text};
 const whatsappSurface=new URLSearchParams(location.search).get('surface')==='whatsapp';
+const inviteSurface=new URLSearchParams(location.search).get('surface')==='invite';
 const invoiceSurface=new URLSearchParams(location.search).get('surface')==='invoicing';
 const reviewOnly=new URLSearchParams(location.search).get('review')==='validation';
 const businessScope=new URLSearchParams(location.search).get('business');
-const key='cuadrao-workspace-guide-actions-v1'+(businessScope?'-business-'+encodeURIComponent(businessScope):'')+(reviewOnly?'-validation-review-'+(new URLSearchParams(location.search).get('case')||'existing').replace(/[^a-z0-9-]/gi,''):'');
+const guideKey='cuadrao-workspace-guide-actions-v1'+(businessScope?'-business-'+encodeURIComponent(businessScope):'')+(reviewOnly?'-validation-review-'+(new URLSearchParams(location.search).get('case')||'existing').replace(/[^a-z0-9-]/gi,''):'');
+const key=guideKey+(inviteSurface?'-invite-draft':'');
 const initial={workspace:null,draft:{name:'',country:''},collapsed:false,expansionChosen:false,view:'create',reading:null,alias:null,address:null,sender:'',senderAuthorized:false,channel:'',invitation:null,billing:null,invitationSent:false};
 let state;try{state={...initial,...JSON.parse(localStorage.getItem(key)||'null')}}catch{state={...initial}}
+let currentInvitationMember=null;
 const navigationKey=key+'-navigation-'+(invoiceSurface?'invoice':whatsappSurface?'whatsapp':'guide');
 try{const navigation=JSON.parse(sessionStorage.getItem(navigationKey)||'null');if(navigation)state={...state,view:navigation.view,collapsed:navigation.collapsed,expansionChosen:navigation.expansionChosen===true}}catch{}
+if(inviteSurface&&['pending','granted'].includes(state.invitation?.status))state.invitation=null;
 if(state.invitation?.status==='sending')state.invitation.status='draft';
+if(state.invitationBatch?.phase==='sending'){state.invitationBatch.phase='draft';for(const row of state.invitationBatch.recipients)if(row.status==='sending')row.status='draft'}
 if(new URLSearchParams(location.search).get('scene')==='invite')state={...initial,view:'invitation',receivedAccess:{name:'Panadería Aurora',country:'DO',from:'Ana Pérez'}};
 let registryTimer,registryVersion=0;
 if(state.registryResult&&state.registryResult.confirmationDraft===undefined)state.registryResult.confirmationDraft=!!state.registryResult.confirmedAt;
@@ -154,7 +167,7 @@ let pendingMethod='';
 const countries={DO:'República Dominicana',US:'Estados Unidos',CA:'Canadá'};
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const slug=v=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,26)||'mi-negocio';
-const saved=()=>{try{sessionStorage.setItem(navigationKey,JSON.stringify({view:state.view,collapsed:state.collapsed,expansionChosen:state.expansionChosen}));localStorage.setItem(key,JSON.stringify(state))}catch{$('guidestatus').textContent=tr('draft_save_error')}};
+const saved=()=>{try{sessionStorage.setItem(navigationKey,JSON.stringify({view:state.view,collapsed:state.collapsed,expansionChosen:state.expansionChosen}));localStorage.setItem(key,JSON.stringify(state));if(inviteSurface&&['pending','granted'].includes(state.invitation?.status)){const guide=JSON.parse(localStorage.getItem(guideKey)||'{}');localStorage.setItem(guideKey,JSON.stringify({...guide,invitation:state.invitation}))}}catch{$('guidestatus').textContent=tr('draft_save_error')}};
 const button=(action,label,level='quiet')=>`<button type="button" data-action="${action}" data-button-level="${level}" class="${level==='quiet'?'textbtn':level}">${label}</button>`;
 const back=(view='actions')=>`<button class="guide-back" data-action="${view}"><span aria-hidden="true">←</span>${tr('back')}</button>`;
 const destination=()=>`<p class="guide-destination">${tr('for_business')} <strong>${esc(state.workspace?.name)}</strong></p>`;
@@ -183,15 +196,17 @@ function validateForm(ids){const invalid=ids.filter(id=>!validateField(id));if(i
 function bindField(id,store,status){const input=$(id),rule=fieldRules[id];input.oninput=()=>{store(input.value);saved();if(status&&$(status))$(status).textContent='';if(input.getAttribute('aria-invalid')==='true')validateField(id)};input.onblur=()=>{const raw=input.value;input.value=rule.clean(raw);if(input.value!==raw)store(input.value);saved();if(input.value||input.getAttribute('aria-invalid')==='true')validateField(id)};if(input.tagName==='SELECT')input.onchange=()=>{store(input.value);saved();if(input.getAttribute('aria-invalid')==='true')validateField(id)}}
 function applyBusinessContext(context){
  if(!businessScope||context?.businessId!==businessScope)return;
- const previous=JSON.stringify([state.workspace,state.documentReceived,state.collapsed]);
+ const previous=JSON.stringify([state.workspace,state.documentReceived,state.collapsed,currentInvitationMember]);
+ currentInvitationMember=typeof context.currentMember?.email==='string'&&context.currentMember.email.trim()?{email:context.currentMember.email,permission:context.currentMember.permission,status:'granted'}:null;
  state.workspace={...state.workspace,name:context.name,country:context.country??state.workspace?.country??'',shared:context.shared};
  state.documentReceived=state.documentReceived===true||context.documentReceived===true;
  if(!state.expansionChosen){state.collapsed=true;state.view='actions'}
  const repaired=normalizeInvoiceProgress();
- if(repaired||previous!==JSON.stringify([state.workspace,state.documentReceived,state.collapsed])){saved();render()}
+ if(repaired||previous!==JSON.stringify([state.workspace,state.documentReceived,state.collapsed,currentInvitationMember])){saved();render()}
 }
 function render(){
  document.documentElement.lang=previewLanguage;
+ if(inviteSurface){$('setuphead').hidden=true;$('setupbody').hidden=false;document.querySelector('.setup').classList.add('invite-surface');$('guidecontent').innerHTML='<p class="batch-context">'+tr('batch_subtitle',{business:'<strong>'+esc(state.workspace?.name)+'</strong>'})+'</p>'+batchInviteView();bindBatchInvite();enhancePickers();return}
  if(invoiceSurface){renderInvoiceDossier();return}
  if(state.view==='issuer')state.view='billing';
  if(whatsappSurface){$('setuphead').hidden=true;document.querySelector('.setup').classList.add('connection-surface');$('guidecontent').innerHTML=whatsappView();renderPreviewTools();bindWhatsApp();enhancePickers();return}
@@ -244,7 +259,7 @@ function renderPreviewTools(){
  $('setup').insertAdjacentHTML('afterend',`<details id="preview-tools" class="preview-tools"><summary>${tr('preview_controls')}</summary><p>${tr('preview_data')}</p><label id="${id}-label" for="${id}">${tr(wa?'response_label':'lookup_result')}</label><select id="${id}">${options.map(([value,label])=>`<option value="${value}">${tr(label)}</option>`).join('')}</select></details>`);
 }
 function enhancePickers(){
- document.querySelectorAll('select:not([data-enhanced])').forEach(select=>{
+ document.querySelectorAll('select:not([data-enhanced]):not(#invitepermission):not([data-batch-access])').forEach(select=>{
   select.dataset.enhanced='true';select.hidden=true;select.tabIndex=-1;
   const wrapper=document.createElement('div');wrapper.className='setup-picker';select.after(wrapper);
   const label=document.querySelector(`label[for="${select.id}"]`);if(label)label.id||=select.id+'-label';
@@ -282,18 +297,129 @@ function renderRegistry(){
  $('confirmregistry').onchange=()=>{result.confirmationDraft=$('confirmregistry').checked;saved();host.querySelector('.registry-pending').textContent=confirmationLabel();$('taxstatus').textContent=''};
 }
 
+// Batch state is local to this design preview. Created invitations remain pending.
+function blankBatchRecipient(batch){return {id:String(batch.nextId++),email:'',permission:'editor',status:'draft',attempts:0}}
+function invitationBatch(){
+ if(!state.invitationBatch){
+  let known;try{known=JSON.parse(localStorage.getItem(guideKey)||'{}').invitation}catch{}
+  state.invitationBatch={recipients:[],history:known&&['pending','granted'].includes(known.status)?[known]:[],nextId:1,phase:'draft'};
+ }
+ const batch=state.invitationBatch;
+ if(batch.draft){
+  if(batch.draft.email.trim())batch.recipients.push({...blankBatchRecipient(batch),email:batch.draft.email,permission:batch.draft.permission,error:batch.draft.error});
+  delete batch.draft;
+ }
+ if(!batch.recipients.length&&batch.phase!=='success')batch.recipients.push(blankBatchRecipient(batch));
+ return batch;
+}
+function knownInvitationPeople(){
+ const byEmail=new Map();
+ for(const person of [...invitationBatch().history,state.invitation]){
+  if(!person?.email||!['pending','granted'].includes(person.status))continue;
+  const email=normalizeEmail(person.email),previous=byEmail.get(email);
+  if(!previous||person.status==='granted'||previous.status!=='granted')byEmail.set(email,{...person,email});
+ }
+ if(currentInvitationMember?.email){const email=normalizeEmail(currentInvitationMember.email);byEmail.set(email,{...currentInvitationMember,email,status:'granted',current:true})}
+ return {access:[...byEmail.values()].filter(person=>person.status==='granted'),pending:[...byEmail.values()].filter(person=>person.status==='pending')};
+}
+function batchEmailError(email,id){
+ const batch=invitationBatch(),normalized=normalizeEmail(email);
+ const invalid=fieldRules.inviteemail.check(normalized);if(invalid)return invalid;
+ if(batch.recipients.some(row=>row.id!==id&&normalizeEmail(row.email)===normalized))return tr('batch_duplicate');
+ const known=knownInvitationPeople();
+ if(known.access.some(person=>person.email===normalized))return tr('batch_member');
+ if(known.pending.some(person=>person.email===normalized))return tr('batch_pending');
+ return '';
+}
+function batchRowValidation(row){
+ if(row.status==='sent'||row.status==='sending')return {tone:'neutral',message:''};
+ const message=batchEmailError(row.email,row.id);
+ if(row.status==='error')return {tone:'error',message:message||tr('batch_send_error')};
+ if(!row.touched&&!row.error)return {tone:'neutral',message:''};
+ return message?{tone:'error',message}:{tone:'valid',message:tr('batch_email_format_valid')};
+}
+function refreshBatchValidation(){
+ for(const row of invitationBatch().recipients){
+  const input=$('batch-email-'+row.id);if(!input)continue;
+  const result=batchRowValidation(row);
+  input.dataset.validation=result.tone;input.setAttribute('aria-invalid',String(result.tone==='error'));
+  $('batch-error-'+row.id).textContent=result.tone==='error'?result.message:'';
+  $('batch-valid-'+row.id).textContent=result.tone==='valid'?result.message:'';
+  $('batch-validation-'+row.id).dataset.tone=result.tone;
+ }
+}
+function addBatchRecipient(){
+ const batch=invitationBatch();if(batch.phase==='sending')return null;
+ const row=blankBatchRecipient(batch);batch.recipients.push(row);if(batch.phase==='success')batch.phase='draft';return row.id;
+}
+function resetInvitationBatch(){
+ const batch=invitationBatch();batch.recipients=[blankBatchRecipient(batch)];batch.phase='draft';
+}
+async function sendInvitationBatch(){
+ const batch=invitationBatch();if(batch.phase==='sending')return;
+ if(batch.recipients.some(row=>row.email.trim()))batch.recipients=batch.recipients.filter(row=>row.email.trim());
+ else{batch.recipients[0].touched=true;batch.recipients[0].error=tr('invite_email_required');saved();render();focusBatchError();return}
+ let invalid=false;
+ for(const row of batch.recipients.filter(row=>row.status!=='sent')){row.touched=true;row.error=batchEmailError(row.email,row.id);if(row.error)invalid=true;else row.email=normalizeEmail(row.email)}
+ if(invalid){saved();render();focusBatchError();return}
+ const pending=batch.recipients.filter(row=>row.status!=='sent');
+ if(!pending.length){batch.phase='success';saved();render();return}
+ batch.phase='sending';for(const row of pending){row.status='sending';row.error='';row.attempts++}saved();render();
+ await new Promise(resolve=>setTimeout(resolve,650));
+ const fixture=new URLSearchParams(location.search).get('inviteResult');
+ for(const row of pending){
+  const failed=row.attempts===1&&(fixture==='error'||(fixture==='partial'&&batch.recipients.indexOf(row)%2===1));
+  row.status=failed?'error':'sent';row.error=failed?tr('batch_send_error'):'';
+  if(!failed){batch.history.push({email:row.email,permission:row.permission,status:'pending'});state.invitation={email:row.email,permission:row.permission,status:'pending'}}
+ }
+ batch.phase=batch.recipients.every(row=>row.status==='sent')?'success':'partial';saved();render();
+ const summary=$('batch-summary');if(summary)summary.focus();
+}
+function batchAccessField(id,permission,disabled=false,compact=false,email=''){
+ return `<div class="invite-permission-field"><select hidden id="${id}" data-batch-access ${disabled?'disabled':''}>${['owner','admin','editor','viewer'].map(role=>`<option value="${role}" data-description="${esc(tr('permission_'+role+'_detail'))}" ${role===permission?'selected':''}>${tr('permission_'+role)}</option>`).join('')}</select><div data-invite-permission data-key="${id}" data-compact="${compact}" data-label="${esc(tr('permission_label')+(email?' · '+email:''))}"></div></div>`;
+}
+function batchSendLabel(){
+ const batch=invitationBatch(),count=batch.recipients.filter(row=>row.status!=='sent'&&row.email.trim()).length;
+ return count>0?tr(count===1?'batch_send_one':'batch_send_count',{count}):tr('batch_send');
+}
+function updateBatchSendLabel(){const submit=$('inviteform')?.querySelector('[type=submit]');if(submit&&invitationBatch().phase==='draft')submit.textContent=batchSendLabel()}
+function batchInviteView(){
+ const batch=invitationBatch();if(batch.phase==='sending'&&!batch.recipients.some(row=>row.status==='sending'))batch.phase='draft';
+ const sending=batch.phase==='sending',success=batch.phase==='success',sent=batch.recipients.filter(row=>row.status==='sent').length;
+ const rows=batch.recipients.map(row=>{const validity=batchRowValidation(row);return `<li class="batch-recipient" data-recipient="${row.id}">${row.status==='sent'?`<div class="batch-sent-identity"><strong>${esc(row.email)}</strong><span>${tr('permission_'+row.permission)}</span></div><p class="batch-sent-status"><span aria-hidden="true">✓</span> ${tr('batch_sent_pending')}</p>`:`<div class="batch-row-fields"><div class="field"><label class="sr-only" for="batch-email-${row.id}">${tr('invite_email_label')}</label><div class="batch-email-control"><input id="batch-email-${row.id}" data-recipient-email="${row.id}" type="email" autocomplete="email" placeholder="${tr('invite_email_example')}" value="${esc(row.email)}" aria-describedby="batch-error-${row.id} batch-valid-${row.id}" aria-invalid="${validity.tone==='error'}" data-validation="${validity.tone}" ${sending?'disabled':''}><span id="batch-validation-${row.id}" class="batch-validation-icon" data-tone="${validity.tone}" aria-hidden="true"><svg class="batch-valid-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><svg class="batch-invalid-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 3v.01"/></svg></span></div><span id="batch-valid-${row.id}" class="sr-only" role="status">${validity.tone==='valid'?esc(validity.message):''}</span></div>${batchAccessField('batch-access-'+row.id,row.permission,sending,true,row.email)}<button type="button" data-remove-recipient="${row.id}" class="batch-remove" aria-label="${esc(row.email?tr('batch_remove',{email:row.email}):tr('batch_remove_empty'))}" ${sending?'disabled':''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/></svg></button></div><p id="batch-error-${row.id}" class="batch-error" role="alert">${esc(validity.tone==='error'?validity.message:'')}</p>`}</li>`}).join('');
+ const summary=success?tr(sent===1?'batch_success_one':'batch_success',{count:sent}):batch.phase==='partial'?tr('batch_partial',{sent,failed:batch.recipients.length-sent}):sending?tr('invite_sending'):'';
+ return `<section class="guide-form invite-step"><form id="inviteform" novalidate aria-busy="${sending}">${summary?`<div id="batch-summary" class="batch-summary" role="status" tabindex="-1"><strong>${summary}</strong>${sent?`<p>${tr('batch_no_access')}</p>`:''}</div>`:''}${!success?`<div class="batch-column-headings"><div class="batch-email-heading"><span>${tr('invite_email_label')}</span></div><span class="batch-access-heading">${tr('permission_label')}</span></div>`:''}${rows?`<ul class="batch-recipients" aria-label="${tr('batch_recipients')}">${rows}</ul>`:''}${!success?`<div class="batch-add-row"><button type="button" id="batch-add" ${sending?'disabled':''}><span aria-hidden="true">+</span> ${tr('batch_add_short')}</button></div>`:''}<div class="formfoot">${success?`<button type="button" data-action="invite-skip" class="primary">${tr('batch_done')}</button><button type="button" id="batch-more" class="secondary">${tr('batch_more')}</button>`:`<button type="submit" class="primary" ${sending?'disabled':''}>${sending?tr('invite_sending'):batch.phase==='partial'?tr('batch_retry'):batchSendLabel()}</button>`}</div></form></section>`;
+}
+function focusBatchError(){document.querySelector('#inviteform [aria-invalid="true"]')?.focus()}
+function bindBatchInvite(){
+ const batch=invitationBatch(),form=$('inviteform');if(!form)return;
+ if($('batch-add'))$('batch-add').onclick=()=>{const id=addBatchRecipient();if(!id)return;saved();render();$('batch-email-'+id)?.focus()};
+ if($('batch-more'))$('batch-more').onclick=()=>{resetInvitationBatch();saved();render();document.querySelector('[data-recipient-email]')?.focus()};
+ form.querySelectorAll('[data-recipient-email]').forEach(input=>{
+  const row=batch.recipients.find(row=>row.id===input.dataset.recipientEmail);
+  input.onblur=()=>{if(row.email.trim()||row.touched)row.touched=true;refreshBatchValidation();saved()};
+  input.oninput=()=>{const invalid=batchRowValidation(row).tone==='error';row.email=input.value;row.error='';row.status='draft';row.touched=invalid;const slot=input.closest('[data-recipient]')?.querySelector('[data-invite-permission]');if(slot)slot.dataset.label=tr('permission_label')+(row.email?' · '+row.email:'');const remove=input.closest('[data-recipient]')?.querySelector('[data-remove-recipient]');if(remove)remove.setAttribute('aria-label',row.email?tr('batch_remove',{email:row.email}):tr('batch_remove_empty'));refreshBatchValidation();updateBatchSendLabel();saved()};
+ });
+ for(const row of batch.recipients){const select=$('batch-access-'+row.id);if(select)select.onchange=()=>{row.permission=select.value;saved()}}
+ form.querySelectorAll('[data-remove-recipient]').forEach(button=>button.onclick=()=>{batch.recipients=batch.recipients.filter(row=>row.id!==button.dataset.removeRecipient);if(batch.recipients.every(row=>row.status==='sent')&&batch.recipients.length)batch.phase='success';else if(batch.phase!=='partial')batch.phase='draft';saved();render();(document.querySelector('[data-recipient-email]')||$('batch-summary'))?.focus()});
+ form.onsubmit=event=>{event.preventDefault();return sendInvitationBatch()};
+}
+
 function inviteView(){
  const invite=state.invitation||{email:'',status:'draft'},sending=invite.status==='sending',settled=['pending','granted'].includes(invite.status);
- const access=`<div class="invite-access"><div class="access-value"><span id="invite-access-summary">${tr('invite_access_summary')}</span><button type="button" class="access-help" aria-label="${tr('invite_access_details')}" aria-describedby="invite-access-tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></svg></button><span id="invite-access-tip" class="access-explanation" role="tooltip" hidden>${tr('invite_access_limit')}</span></div></div>`;
- if(settled)return `<section class="invite-step" aria-label="${tr('invite')}">${destination()}<div class="invite-result" role="status"><span class="invite-status ${invite.status==='granted'?'is-granted':''}"><span aria-hidden="true">●</span>${tr(invite.status==='granted'?'invite_granted':'invite_pending')}</span><p class="invite-recipient">${esc(invite.email)}</p><p class="invite-result-copy">${tr(invite.status==='granted'?'invite_granted_detail':'invite_pending_detail')}</p></div>${access}</section>`;
- return `<div class="guide-form invite-step"><p class="invite-intro">${tr('invite_purpose')}</p><form id="inviteform" novalidate aria-busy="${sending}"><fieldset>${field('inviteemail',tr('invite_email_label'),invite.email,tr('invite_email_example'),'email','email').replace('</label>','</label>'+access).replace('aria-describedby="inviteemail-feedback"','aria-describedby="invite-access-summary inviteemail-feedback"')}<div id="invite-request-error" class="invite-request-error" role="alert">${invite.status==='error'?`<span class="error-mark" aria-hidden="true">!</span><span>${tr('invite_send_error')}</span>`:''}</div><div class="formfoot"><button type="submit" class="primary">${sending?'<span class="invite-spinner" aria-hidden="true"></span>':''}${tr(sending?'invite_sending':invite.status==='error'?'invite_retry':'invite_send')}</button>${button('invite-skip',tr('invite_skip'),'secondary')}</div></fieldset></form></div>`;
+ const roles=['owner','admin','editor','viewer'];
+ const permission=roles.includes(invite.permission)?invite.permission:'editor';
+ const access=`<div class="invite-permissions" id="invite-access-summary"><span class="invite-permissions-label">${tr('invite_access')}</span><strong>${tr(invite.permission?'permission_'+permission:'invite_access_summary')}</strong><p>${tr(invite.permission?'permission_'+permission+'_detail':'invite_access_limit')}</p></div>`;
+ const permissionField=inviteSurface?`<div class="invite-permission-field"><select hidden id="invitepermission" ${sending?'disabled':''}>${roles.map(role=>`<option value="${role}" data-description="${esc(tr('permission_'+role+'_detail'))}" ${role===permission?'selected':''}>${tr('permission_'+role)}</option>`).join('')}</select><div data-invite-permission data-label="${tr('permission_label')}"></div></div>`:access;
+ if(settled)return `<section class="invite-step" aria-label="${tr('invite')}">${inviteSurface?'':destination()}<div class="invite-result" role="status"><span class="invite-status ${invite.status==='granted'?'is-granted':''}"><span aria-hidden="true">●</span>${tr(invite.status==='granted'?'invite_granted':'invite_pending')}</span><p class="invite-recipient">${esc(invite.email)}</p><p class="invite-result-copy">${tr(invite.status==='granted'?'invite_granted_detail':'invite_pending_detail')}</p></div>${access}</section>`;
+ return `<div class="guide-form invite-step"><p class="invite-intro">${tr('invite_purpose')}</p><form id="inviteform" novalidate aria-busy="${sending}"><fieldset>${field('inviteemail',tr('invite_email_label'),invite.email,tr('invite_email_example'),'email','email').replace('aria-describedby="inviteemail-feedback"','aria-describedby="inviteemail-feedback"')}${permissionField}<div id="invite-request-error" class="invite-request-error" role="alert">${invite.status==='error'?`<span class="error-mark" aria-hidden="true">!</span><span>${tr('invite_send_error')}</span>`:''}</div><div class="formfoot"><button type="submit" class="primary">${sending?'<span class="invite-spinner" aria-hidden="true"></span>':''}${tr(sending?'invite_sending':invite.status==='error'?'invite_retry':'invite_send')}</button>${button('invite-skip',tr(inviteSurface?'cancel':'invite_skip'),'secondary')}</div></fieldset></form></div>`;
 }
 function bindInvite(){
- const help=document.querySelector('.invite-step .access-help'),tip=$('invite-access-tip');if(help&&tip){help.onpointerenter=()=>tip.hidden=false;help.parentElement.onpointerleave=()=>{if(document.activeElement!==help)tip.hidden=true};help.onfocus=()=>tip.hidden=false;help.onblur=()=>tip.hidden=true;help.onclick=()=>tip.hidden=false;help.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();tip.hidden=true}};}
  const form=$('inviteform');if(!form)return;
  if(state.invitation?.status==='sending'){$('inviteemail').readOnly=true;form.querySelectorAll('button').forEach(button=>button.disabled=true)}
- bindField('inviteemail',email=>{state.invitation={email,status:'draft'};const message=$('invite-request-error');if(message)message.textContent='';form.querySelector('[type=submit]').textContent=tr('invite_send')});
- form.onsubmit=async event=>{event.preventDefault();if(state.invitation?.status==='sending'||!validateForm(['inviteemail']))return;const email=normalizeEmail($('inviteemail').value);state.invitation={email,status:'sending'};saved();render();await new Promise(resolve=>setTimeout(resolve,650));const fixture=new URLSearchParams(location.search).get('inviteResult');state.invitation={email,status:fixture==='error'?'error':fixture==='granted'?'granted':'pending'};saved();render();if(state.view==='invite'){const target=$('invite-request-error')?.textContent?$('invite-request-error'):document.querySelector('.invite-result');if(target){target.tabIndex=-1;target.focus({preventScroll:true})}}};
+ if($('invitepermission'))$('invitepermission').onchange=()=>{const permission=$('invitepermission').value;state.invitation={...state.invitation,email:$('inviteemail').value,permission,status:'draft'};saved();const detail=$('invite-permission-detail');if(detail)detail.textContent=tr('permission_'+permission+'_detail')};
+ bindField('inviteemail',email=>{state.invitation={...state.invitation,email,status:'draft'};const message=$('invite-request-error');if(message)message.textContent='';form.querySelector('[type=submit]').textContent=tr('invite_send')});
+ form.onsubmit=async event=>{event.preventDefault();if(state.invitation?.status==='sending'||!validateForm(['inviteemail']))return;const email=normalizeEmail($('inviteemail').value),permission=$('invitepermission')?.value||state.invitation?.permission;state.invitation={email,permission,status:'sending'};saved();render();await new Promise(resolve=>setTimeout(resolve,650));const fixture=new URLSearchParams(location.search).get('inviteResult');state.invitation={email,permission,status:fixture==='error'?'error':fixture==='granted'?'granted':'pending'};saved();render();if(inviteSurface||state.view==='invite'){const target=$('invite-request-error')?.textContent?$('invite-request-error'):document.querySelector('.invite-result');if(target){target.tabIndex=-1;target.focus({preventScroll:true})}}};
 
 }
 
@@ -375,6 +501,7 @@ $('guidecontent').onclick=async event=>{
  if(action.startsWith('wa-')){await whatsappAction(action);return}
  if(action==='retry-registry'){invalidateRegistry();lookupRegistry();return}
  if(action==='use-legal-name'){if(state.registryResult?.record){state.legalname=state.registryResult.record.legalName;$('legalname').value=state.legalname;clearError('legalname');$('legalname').focus();$('taxstatus').textContent=tr('legal_name_applied');saved()}return}
+ if(action==='invite-skip'&&inviteSurface){if(invitationBatch().phase==='success'){resetInvitationBatch();saved()}parent.postMessage({type:'workspace-preview-close-dossier'},location.origin);return}
  if(action==='invite-skip'){state.invitation={email:state.invitation?.email||'',status:'deferred'};show('actions');return}
  if(action==='collapse'){state.expansionChosen=true;state.collapsed=true;saved();render();$('setuphead').focus();return}
  if(action==='method-upload'){if(parent===window){$('guidestatus').textContent=tr('upload_from_home');return}parent.postMessage({type:'workspace-preview-upload'},location.origin);return}

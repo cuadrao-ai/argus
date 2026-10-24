@@ -2,7 +2,7 @@
 
 import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
-import { ArrowLeftRight, Settings2 } from "lucide-react";
+import { ArrowLeftRight, BriefcaseBusiness, Plus, Settings2, UserRoundPlus } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { businessDeadlineParts } from "@/lib/business-lifecycle-api";
 import { resolveLanguage } from "@/lib/language-features";
@@ -10,24 +10,16 @@ import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import type { ClosedGrantedSpace, GrantedSpace } from "@/lib/business-api";
 import { formatBusinessName } from "./business-format";
+const menuItemClass = "flex min-h-11 w-full items-center gap-2 rounded-item px-2 text-left text-[16px] text-[#172b26] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-40 dark:text-white dark:hover:bg-white/5";
 
-function initial(name: string): string {
-  const letter = name.trim().charAt(0);
-  return letter ? letter.toLocaleUpperCase() : "·";
-}
-
-/** The business's square mark: its initial on the brand green. */
-export function BusinessMark({ name }: { name: string }) {
-  return (
-    <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mark bg-[#2f5a49] text-[13px] font-medium text-[#fffefa]">
-      {initial(name)}
-    </span>
-  );
+/** The shared Business identity icon in expanded and collapsed navigation. */
+export function BusinessMark() {
+  return <BriefcaseBusiness aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2} />;
 }
 
 type MenuMode = "closed" | "menu" | "choose";
 
-export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, collapsed, onChoose, onOpenSettings }: {
+export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, collapsed, onChoose, onOpenSettings, onInvite, onAddBusiness, memberEmail }: {
   spaces: GrantedSpace[] | null;
   closedSpaces?: ClosedGrantedSpace[];
   chosen: GrantedSpace | null;
@@ -35,6 +27,9 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
   onChoose: (grantId: string | null) => void;
   /** Opens the Negocio page: name and RNC, team and access, receipt email. */
   onOpenSettings: () => void;
+  onInvite?: () => void;
+  onAddBusiness?: () => void;
+  memberEmail?: string | null;
 }) {
   const { t, i18n } = useTranslation();
   const held = closedSpaces.filter(space => space.role === "owner");
@@ -63,9 +58,9 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
     if (mode === "closed") return;
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      const above = rect.bottom > window.innerHeight - 220;
+      const above = rect.bottom > window.innerHeight - 370;
       setPosition({
-        left: Math.min(Math.max(8, collapsed ? rect.right + 8 : rect.left), window.innerWidth - 304),
+        left: Math.min(Math.max(8, collapsed ? rect.right + 8 : rect.left), window.innerWidth - 336),
         top: above ? rect.top - 8 : rect.bottom + 4,
         above,
       });
@@ -79,6 +74,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [mode, options, current?.grant_id, collapsed]);
+
 
   useEffect(() => {
     if (mode === "menu") menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus();
@@ -123,7 +119,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
     }
   };
 
-  const badge = <BusinessMark name={name} />;
+  const badge = <BusinessMark />;
 
   return (
     <div data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
@@ -141,7 +137,6 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
             <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[16px] font-medium leading-6 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block truncate whitespace-nowrap text-[14px] leading-5 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
           </span>
         )}
       </button></Tooltip> : (
@@ -159,7 +154,6 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
             <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[16px] font-medium leading-6 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block truncate whitespace-nowrap text-[14px] leading-5 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
           </span>
         )}
       </button>
@@ -171,19 +165,31 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
           role="menu"
           aria-label={name}
           style={{ left: Math.max(8, position.left), top: position.top, transform: position.above ? "translateY(-100%)" : undefined }}
-          className="fixed z-[100] w-72 max-w-[calc(100vw-1rem)] rounded-surface border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
+          className="fixed z-[100] w-80 max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-surface border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
-          <p className="break-words px-2 py-2 text-[16px] font-medium text-[#172b26] dark:text-white">{name}</p>
+          <div className="flex items-center gap-3 px-2 py-3 text-[#172b26] dark:text-white">
+            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-mark bg-black/[0.05] dark:bg-white/[0.08]"><BusinessMark /></span>
+            <p className="min-w-0 break-words text-[16px] font-medium">{name}</p>
+          </div>
           {mode === "menu" ? (
             <>
-              <button
-                type="button"
-                role="menuitem"
-                className="flex min-h-11 w-full items-center gap-2 rounded-item px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
-                onClick={() => { setMode("closed"); onOpenSettings(); }}
-              >
-                <Settings2 className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
-                {t("business.switcher.settings", "Business settings")}
+              <div className="mb-2 border-b border-black/10 px-2 pb-3 dark:border-white/10">
+                {memberEmail ? <p data-testid="business-member-email" className="break-words text-[16px] leading-6 text-[#172b26] dark:text-white">{memberEmail}</p> : <span aria-hidden="true" className="block h-5 w-40 rounded bg-black/[0.05] dark:bg-white/[0.08]" />}
+                <p data-testid="business-member-access" className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.your_access")} · {t(current.role === "owner" ? "workspace_setup_preview.permission_owner" : current.capabilities.includes("prepare") ? "workspace_setup_preview.permission_editor" : "workspace_setup_preview.permission_viewer")}</p>
+              </div>
+              <div className="mb-2 border-b border-black/10 pb-2 dark:border-white/10">
+                {current.role === "owner" && onInvite ? <button type="button" role="menuitem" className={menuItemClass} onClick={() => { closeToButton(); onInvite(); }}>
+                  <UserRoundPlus aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  {t("business.switcher.invite")}
+                </button> : null}
+                <button type="button" role="menuitem" className={menuItemClass} onClick={() => { setMode("closed"); onOpenSettings(); }}>
+                  <Settings2 aria-hidden="true" className="h-5 w-5 shrink-0" />
+                  {t("business.switcher.configure")}
+                </button>
+              </div>
+              <button type="button" role="menuitem" disabled={!onAddBusiness} onClick={() => { if (onAddBusiness) { setMode("closed"); onAddBusiness(); } }} className={menuItemClass}>
+                <span aria-hidden="true" className="relative h-5 w-5 shrink-0"><BriefcaseBusiness className="h-5 w-5" /><Plus style={{ bottom: -2, right: -4 }} className="absolute h-3 w-3 bg-[#fffefa] dark:bg-[var(--cuadrao-menu-surface)]" strokeWidth={2.5} /></span>
+                {t("business.switcher.add")}
               </button>
               {held.length ? <div className="mt-2 border-t border-black/10 pt-2 dark:border-white/10">
                 <p className="px-2 py-1 text-[12px]">{t("business.lifecycle.closed_group")}</p>
@@ -193,7 +199,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex min-h-11 w-full items-center gap-2 rounded-item px-2 text-left text-[16px] text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:text-white"
+                  className={menuItemClass}
                   onClick={() => setMode("choose")}
                 >
                   <ArrowLeftRight className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />

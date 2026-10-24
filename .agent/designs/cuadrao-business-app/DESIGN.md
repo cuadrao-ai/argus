@@ -188,20 +188,59 @@ The preview demonstrates them; this section does not certify backend wiring.
   Pending acceptance visible while pending; the completed guide task does not
   imply acceptance, email delivery or granted access. Draft, sending and failed
   requests do not complete the step.
-- Show the Business destination and a short access summary before sending. Put
-  secondary permission details in a short tooltip using the help pattern below. Keep the main
-  consequence visible. Do not put essential consent or destructive consequences
-  solely behind an info control.
-- Name this task “Invita a un colaborador” / “Invite a collaborator”. Explain that
-  the person receives access to help run the selected Business. Place the fixed
-  permission summary beside the email label on desktop and directly below the
-  input on phones. Use plain text and the existing help tooltip for limits; no
-  separate Access section, dividers, role chip or implied role selector.
-- Offer only permissions supported by the enforced contract. Do not invent a role
-  selector or equate record preparation with approval or administration.
-- Keep draft, sending, failure, pending invitation and granted access distinct.
-  Preserve the email after failure and offer retry. A successful request does not
-  by itself prove email delivery, acceptance or access. Render the server result.
+- Show the selected Business in 16px body type with a semibold name before the
+  invitation fields. Use “Acceso” / “Access” consistently. Permission descriptions
+  stay visible inside each access option, without a tooltip.
+- The Business-menu invitation supports one or more people. Each row owns its
+  email, access and send result. An owner can choose Owner, Admin, Editor or Viewer.
+  A single existing Owner may invite another Owner; the invitation supplies that
+  approval, and the recipient must still accept. Admins cannot grant Owner access.
+  At least one active Owner must remain. These are intended product rules; the
+  preview does not implement backend authorization or membership changes.
+- Left-align the short-task dialog title and selected Business context. Use one
+  editable recipient list with Email and Access column headings. A small Add action
+  below the last recipient appends a blank row and moves focus to its email field.
+  Align it to the email column’s right edge, above the footer divider.
+  Start and reset with one blank row. Keep access descriptions in the role options.
+  On phones, stack each email above its access selector and removal action.
+- Keep title, business subtitle and fields close together. The subtitle explains
+  collaboration in the selected Business; keep the business name at 16px semibold.
+  Trash removes a recipient row; the top-right X closes the dialog.
+- Validate nonempty emails on blur. A green outline/check means email format is
+  valid and there is no known duplicate or pending-member conflict. Its accessible
+  label says Email format valid; it never confirms an account, delivery or access.
+  Empty untouched fields stay neutral. Editing a valid field removes its check
+  until the next blur; after an error, validation updates while typing. Recompute
+  all row feedback when an email changes or a row is removed, so duplicate feedback
+  cannot stay stale. A failed send retains its error and has no green format check.
+- Every row owns its email and access; it can be edited or removed before sending.
+  A single entered email sends directly. Ignore extra blank rows when nonempty rows
+  exist; an entirely empty submission shows the required error on the first row.
+  Invalid nonempty rows and case-insensitive duplicates block submission. Identify
+  locally known pending invitations and members without inventing backend knowledge.
+  Separate the footer with a subtle divider. Send and Retry fill its width, with
+  green reserved for the primary action. The close X preserves the draft; omit
+  a duplicate Cancel action. Keep Invite more and Done after full success.
+- Keep membership and access lists under Configurar in Business settings. The
+  invitation dialog contains only the people being invited and their send results;
+  do not add current-member or pending-invitation history disclosures here.
+- The preview uses its signed-in member and confirmed local invitation history
+  only to reject self-invites, known members and pending duplicates. Missing identity
+  stays unknown. Production requires authoritative membership and invitation facts
+  for validation; the preview does not manufacture members or assign default access.
+- Sending prevents duplicate submission and keeps the recipient list visible.
+  Successful rows become read-only with their access and Pending acceptance label.
+  Failure stays beside the affected row. Retry sends only unsent rows and preserves
+  earlier successes. Full success offers Invite more and Done. Invite more clears
+  the batch; Done closes it and opens a fresh batch next time. Both preserve the
+  known invitation history and the guide's completed invitation step.
+- A created invitation completes the guide task, not acceptance. Track invitations,
+  resend/cancel and later access changes in Business settings, outside this short
+  task. Do not trap the invitation form in an acceptance-pending screen.
+- The local preview simulates sending and stores only browser-local drafts/results.
+  It never sends email or grants access. Its design-review failure fixture is a URL
+  parameter, not a customer-facing control. Production must render authoritative
+  invitation and membership results from the backend before this UI is enabled.
 - Apply the same hierarchy, labels and validation behavior in EN and ES. Check both
   themes and phone/tablet/desktop widths. Do not reduce type to fit more content.
 
@@ -539,9 +578,33 @@ both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
 Lucas set this on October 20, 2026. The left sidebar is where you work; the
 top right is who you are.
 
-- **Top left:** the business you are working in (its initial, name and your
-  role), the one name that reads first. Its menu switches business and opens
-  **Configurar negocio**. The open and close toggle sits beside it.
+- **Top left:** a neutral briefcase icon and the selected business display name
+  entered during setup. Do not show an initial badge or a role subtitle. Use the
+  same business name in the menu header; it is separate from the legal name.
+  Its menu switches business and opens **Configurar negocio**. The open and close
+  toggle sits beside it. The collapsed rail keeps the same briefcase icon.
+- The Business menu starts with a briefcase avatar placeholder and the saved
+  business name. The signed-in member email and “Your access” role form an identity
+  block directly underneath. A divider separates identity from the Invite
+  collaborator and Configure menu rows. A second divider separates Add business
+  and Switch business. Use the same plain row pattern for all actions. The email
+  is account identity, never the receiving address. Add business stays disabled
+  until its supported action is connected.
+- Invite opens a centered short-task dialog on desktop and the existing full tray
+  below the desktop breakpoint. Home keeps its position and width behind it.
+  The access picker floats beyond the dialog on desktop; on small viewports it
+  uses a nested fit tray and returns focus to the selector. Recipient rows wrap
+  access beneath email on narrow screens. Keep body type at 16px and helpers at
+  14px; scroll a long batch within the dialog or tray instead of shrinking text.
+- Choose the container by purpose:
+
+  | Container | Purpose |
+  | --- | --- |
+  | Business menu or submenu | Quick choices near the trigger, such as switching business or choosing an action. |
+  | Centered dialog, tray on small screens | One short task, such as preparing and sending invitations. |
+  | Right dossier | Inspect or edit an item while keeping its source visible, such as a receipt beside its list. |
+  | Business settings | Ongoing management of collaborators, access and invoicing configuration. |
+
 - **Then:** the screens: Inicio, Bandeja, Transacciones. Negocio is reached from the
   business menu (Configurar negocio), the one door.
 - **Foot of the rail:** the Cuadrao mark, small and quiet.

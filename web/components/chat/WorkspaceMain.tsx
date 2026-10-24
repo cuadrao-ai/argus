@@ -17,6 +17,7 @@ type ShellBridgeInput = {
   isBelowTablet: boolean;
   sidebarCollapsed: boolean;
   greetingName: string | null;
+  memberEmail?: string | null;
   openSearch?: () => void;
   resetToEmptyChatSurface: (conversationId?: string | null, view?: ChatShellView) => void;
   closeTransientSidebar: () => void;
@@ -35,6 +36,7 @@ export function useChatShellBridge({
   isBelowTablet,
   sidebarCollapsed,
   greetingName,
+  memberEmail,
   openSearch,
   resetToEmptyChatSurface,
   closeTransientSidebar,
@@ -48,6 +50,7 @@ export function useChatShellBridge({
       isBelowTablet,
       sidebarCollapsed,
       greetingName,
+      memberEmail,
       openSearch,
       showWorkspace: () => {
         resetToEmptyChatSurface(null, "workspace");
@@ -68,6 +71,7 @@ export function useChatShellBridge({
       conversationId,
       currentView,
       greetingName,
+      memberEmail,
       isBelowTablet,
       openSearch,
       resetToEmptyChatSurface,

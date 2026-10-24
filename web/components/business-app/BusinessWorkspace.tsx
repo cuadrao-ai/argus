@@ -35,10 +35,11 @@ import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessio
 import { normalizeEnabledLanguage } from "@/lib/language-features";
 import { responsiveLayoutSnapshot, subscribeResponsiveLayout } from "@/lib/responsive-layout";
 import { withBusinessSpace, type BusinessDataSource } from "./business-data";
-import { periodRange, type Period, type PeriodKey, formatBusinessName } from "./business-format";
+import { periodRange, type Period, type PeriodKey } from "./business-format";
 import { useBusinessActions, type BusinessActions } from "./business-actions";
 import { clearTitleFocusUnless } from "./bandeja-order";
 import BusinessSidebarNav, { BusinessSidebarFooter } from "./BusinessSidebarNav";
+import WorkspaceSetupPreview from "@/app/design-workspace/WorkspaceSetupPreview";
 import BusinessSwitcher, { BusinessMark } from "./BusinessSwitcher";
 import { BusinessClosedAccess, BusinessClosedOwnerBanner } from "./BusinessLifecycleControls";
 import type { ClosedGrantedSpace } from "@/lib/business-api";
@@ -282,6 +283,7 @@ function BusinessWorkspaceContent({
   const [lostAccess, setLostAccess] = useState(false);
   const clearLostAccess = useCallback(() => setLostAccess(false), []);
   const localPreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const [invitationBusiness, setInvitationBusiness] = useState<string | null>(null);
   const [previewNames, setPreviewNames] = useState<Record<string, string>>({});
   useEffect(() => {
     if (!localPreview) return;
@@ -347,6 +349,7 @@ function BusinessWorkspaceContent({
   // text, the attached receipt, and every list. Nothing of A shows under B.
   const consent = useBusinessConsent();
   const chooseBusiness = useCallback((grantId: string | null) => {
+    setInvitationBusiness(null);
     if (!canEnterBusiness(consent.accepted, grantId)) {
       consent.reopen();
       return;
@@ -596,10 +599,10 @@ function BusinessWorkspaceContent({
       bottomNavigation: (shell) => !closedAccessName && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview" && !closedAccessName,
       sidebarNav: (shell) => closedAccessName ? null : <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} />,
-      sidebarMark: () => <BusinessMark name={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} />,
+      sidebarMark: () => <BusinessMark />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
@@ -632,12 +635,13 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel]);
+  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview]);
 
   return (
     <BusinessContext.Provider value={value}>
       <ChatWorkspaceProvider value={workspace}>
         {children}
+        {localPreview && chosen?.role === "owner" && invitationBusiness === chosen.space_id ? <WorkspaceSetupPreview invitation onClose={() => setInvitationBusiness(null)} /> : null}
         <ReceiptIntakeDialog
           target={intakeTarget}
           queue={uploadQueue}
