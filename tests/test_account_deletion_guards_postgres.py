@@ -54,13 +54,15 @@ def test_auth_user_trigger_conditions_need_no_private_schema() -> None:
         "finalize_linked_guest_identity",
         "refuse_placeholder_email",
         "business_auth_retention_guard",
+        "business_fiscal_actor_retained",
     }
     for name, definition in rows:
-        if name == "business_auth_retention_guard":
+        if name in {"business_auth_retention_guard", "business_fiscal_actor_retained"}:
             assert "BEFORE DELETE" in definition and " WHEN " not in definition
             with psycopg.connect(DSN) as c:
                 assert c.execute(
-                    "select prosecdef from pg_proc where oid='argus_private.business_auth_retention_guard()'::regprocedure"
+                    "select prosecdef from pg_proc where oid=%s::regprocedure",
+                    (f"argus_private.{name}()",),
                 ).fetchone() == (True,)
             continue
         condition = definition.split(" WHEN ", 1)[1].split(" EXECUTE ", 1)[0]

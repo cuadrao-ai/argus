@@ -1,6 +1,24 @@
 {
   "schema_version": 1,
   "release_mode": "real-workflow",
+  "staging_only": {
+    "api": {
+      "manifest": "scripts/ops/staging_env_manifest.json",
+      "settings": [
+        "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
+        "CUADRAO_FISCAL_SANDBOX_BUSINESS_ID",
+        "CUADRAO_FISCAL_SANDBOX_CALLBACK_SECRET",
+        "CUADRAO_FISCAL_SANDBOX_CONTACT_ENABLED",
+        "CUADRAO_FISCAL_SANDBOX_ENABLED",
+        "CUADRAO_FISCAL_SANDBOX_MANIFEST_PATH",
+        "CUADRAO_FISCAL_SANDBOX_MANIFEST_SHA256",
+        "CUADRAO_FISCAL_SANDBOX_POLL_LIMIT",
+        "CUADRAO_FISCAL_SANDBOX_POLL_SECONDS",
+        "CUADRAO_FISCAL_SANDBOX_STORAGE_HOST",
+        "CUADRAO_FISCAL_SANDBOX_STORAGE_PATH_PREFIX"
+      ]
+    }
+  },
   "services": {
     "api": {
       "name": "argus-api",
