@@ -330,6 +330,151 @@ async def test_plain_media_log_hides_hostile_graph_payload(plain_sink) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "code,message,cause",
+    [
+        (0, "Unable to authenticate app user", "authentication_failed"),
+        (3, "Capability or permissions issue", "capability_or_permissions"),
+        (10, "Permission is either not granted TOKEN", "permission_required"),
+        (100, "(#100) Invalid parameter SECRETWORDS", "ambiguous"),
+        (104, "Access token error SECRETWORDS", "ambiguous"),
+        (200, "Provide valid app ID", "access_token_missing"),
+        (200, f"Provide valid app ID {TOKEN}", "unknown"),
+        (131005, "Permission is either not granted TOKEN", "permission_required"),
+        (131008, "Request is missing a required parameter", "required_parameter_missing"),
+        (131009, "One or more parameter values are invalid", "invalid_parameter"),
+        (190, "Your access token has expired", "token_invalid_or_expired"),
+        (131026, "Unable to deliver message", "undeliverable"),
+    ],
+)
+async def test_provider_error_codes_have_bounded_causes_in_both_sinks(
+    records, plain_sink, code: int, message: str, cause: str
+) -> None:
+    response = {
+        "error": {
+            "message": (
+                message
+                if code == 200
+                else f"{message} for 700000000000011 https://evil.example/x?token={TOKEN}"
+            ),
+            "type": "OAuthException",
+            "code": code,
+            "fbtrace_id": f"{TOKEN} 700000000000011 https://evil.example/x",
+        }
+    }
+    with pytest.raises(MediaUnavailable):
+        await _media(lambda request: httpx.Response(400, json=response)).fetch(
+            "700000000000012"
+        )
+
+    [record] = records
+    assert record["extra"]["graph_code"] == str(code)
+    assert record["extra"]["graph_cause"] == cause
+    assert f"graph_cause={cause}" in plain_sink.getvalue()
+    for secret in ("SECRETWORDS", TOKEN, "evil.example", "700000000000011", "700000000000012"):
+        assert secret not in str(record)
+        assert secret not in plain_sink.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_unknown_provider_error_code_stays_unknown_in_both_sinks(
+    records, plain_sink
+) -> None:
+    response = {
+        "error": {
+            "message": f"raw {TOKEN} 700000000000013 https://evil.example/?id=abc",
+            "type": "OAuthException",
+            "code": 7000000000,
+        }
+    }
+    with pytest.raises(MediaUnavailable):
+        await _media(lambda request: httpx.Response(400, json=response)).fetch(
+            "700000000000014"
+        )
+
+    [record] = records
+    assert record["extra"]["graph_code"] == "unknown"
+    assert record["extra"]["graph_cause"] == "unknown"
+    assert "graph_cause=unknown" in plain_sink.getvalue()
+    for secret in (TOKEN, "evil.example", "700000000000013", "700000000000014", "7000000000"):
+        assert secret not in str(record)
+        assert secret not in plain_sink.getvalue()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "graph_type,message,cause",
+    [
+        (
+            "GraphMethodException",
+            "Invalid appsecret_proof provided in the API argument",
+            "appsecret_proof_invalid",
+        ),
+        (
+            "OAuthException",
+            "Invalid appsecret_proof provided in the API argument",
+            "appsecret_proof_invalid",
+        ),
+        (
+            "GraphMethodException",
+            f"Invalid appsecret_proof provided in the API argument {TOKEN}",
+            "ambiguous",
+        ),
+        (
+            "OAuthException",
+            f"Invalid appsecret_proof provided in the API argument {TOKEN}",
+            "ambiguous",
+        ),
+    ],
+)
+async def test_code_100_uses_only_the_exact_known_appsecret_proof_message(
+    records, plain_sink, graph_type: str, message: str, cause: str
+) -> None:
+    response = {
+        "error": {
+            "message": message,
+            "type": graph_type,
+            "code": 100,
+            "fbtrace_id": f"{TOKEN} 700000000000015 https://evil.example/x",
+        }
+    }
+    with pytest.raises(MediaUnavailable):
+        await _media(lambda request: httpx.Response(400, json=response)).fetch(
+            "700000000000016"
+        )
+
+    [record] = records
+    assert record["extra"]["graph_code"] == "100"
+    assert record["extra"]["graph_type"] == graph_type
+    assert record["extra"]["graph_cause"] == cause
+    assert f"graph_cause={cause}" in plain_sink.getvalue()
+    for secret in (TOKEN, "700000000000015", "700000000000016", "evil.example"):
+        assert secret not in str(record)
+        assert secret not in plain_sink.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_malformed_provider_type_keeps_code_100_ambiguous(records, plain_sink) -> None:
+    response = {
+        "error": {
+            "message": "Invalid appsecret_proof provided in the API argument",
+            "type": [],
+            "code": 100,
+        }
+    }
+    with pytest.raises(MediaUnavailable):
+        await _media(lambda request: httpx.Response(400, json=response)).fetch(
+            "700000000000017"
+        )
+
+    [record] = records
+    assert record["extra"]["graph_code"] == "100"
+    assert "graph_type" not in record["extra"]
+    assert record["extra"]["graph_cause"] == "ambiguous"
+    assert "graph_cause=ambiguous" in plain_sink.getvalue()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "failure,expected",
     [
         ("download_status", "step=download reason=status http_status=403"),
