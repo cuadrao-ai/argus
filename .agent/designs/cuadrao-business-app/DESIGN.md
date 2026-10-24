@@ -853,7 +853,9 @@ frame, such as readable names, tax numbers or amounts.
 
 ### Inicio
 
-The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting.
+Local Home checkpoint, October 24, 2026: preserve the current implementation and the month bounds below. The proposed separation of invoicing and collaboration remains unapplied. Pending navigation, progress and color decisions, verification limits and evidence are recorded in `docs/reports/home-checkpoint-20261024.md`. This is a local design baseline, not backend or release acceptance.
+
+The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
 Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
 

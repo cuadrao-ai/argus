@@ -241,10 +241,10 @@ describe("month switcher", () => {
     expect(canStepMonth("2026-01", -1, "2026-10", "2025-06")).toBe(true);
     expect(monthPickerFloor("2026-10", null)).toBe("2026-10");
     expect(monthPickerFloor("2026-10", "2020-03")).toBe("2020-03");
-    const future = monthPickerMonths("2026-10", "2026-09").filter((option) => option.month > "2026-10");
-    expect(future.length).toBeGreaterThan(0);
-    expect(future.every((option) => !option.selectable)).toBe(true);
-    expect(monthPickerMonths("2026-10", "2026-09").some((option) => option.month === "2026-09" && option.selectable)).toBe(true);
+    expect(monthPickerMonths("2026-10", "2026-09")).toEqual([
+      { month: "2026-09", selectable: true },
+      { month: "2026-10", selectable: true },
+    ]);
   });
 
   test("a pending document due before today is overdue, and a settled one is not", () => {

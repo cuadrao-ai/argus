@@ -442,9 +442,6 @@ export function formatMonthLabel(month: string, locale: string): string {
   return `${formatted.charAt(0).toLocaleUpperCase(locale)}${formatted.slice(1)} ${month.slice(0, 4)}`;
 }
 
-/** Months after the current one stay in the list so they can be seen and not chosen. */
-export const MONTH_PICKER_FUTURE = 12;
-
 /** The first selectable month: the server's earliest month with a document, else the current month alone. */
 export function monthPickerFloor(current: string, earliest: string | null): string {
   return earliest && MONTH.test(earliest) && earliest <= current ? earliest : current;
@@ -452,13 +449,12 @@ export function monthPickerFloor(current: string, earliest: string | null): stri
 
 export type MonthChoice = { month: string; selectable: boolean };
 
-/** Months only. Past months through the current one can be chosen. Later months are present and disabled. */
+/** Offer only the server-supported history through the current month. */
 export function monthPickerMonths(current: string, earliest: string | null = null): MonthChoice[] {
   const floor = monthPickerFloor(current, earliest);
-  const end = shiftMonthKey(current, MONTH_PICKER_FUTURE);
   const months: MonthChoice[] = [];
-  for (let cursor = floor; cursor <= end; cursor = shiftMonthKey(cursor, 1)) {
-    months.push({ month: cursor, selectable: cursor <= current });
+  for (let cursor = floor; cursor <= current; cursor = shiftMonthKey(cursor, 1)) {
+    months.push({ month: cursor, selectable: true });
   }
   return months;
 }
