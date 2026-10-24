@@ -9,6 +9,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from tests import test_financial_accounts_postgres as shared
+from tests.fiscal import conftest as fixtures
+
+users = fixtures.users
+case_factory = fixtures.case_factory
+lane = fixtures.lane
 
 pytestmark = pytest.mark.skipif(not shared.DSN, reason="Disposable database required")
 
