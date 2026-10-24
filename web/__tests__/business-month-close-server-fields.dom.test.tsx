@@ -98,6 +98,24 @@ async function renderInicio(client: MonthCloseClient, review?: Parameters<typeof
 }
 
 describe("Inicio waits for the server receipt count before closing", () => {
+  test("known reading and attention groups stay separate and prevent a false ready state", async () => {
+    const { client } = serverClient({});
+    const view = await renderInicio(client, { count: 0, detail: null, reading: 1, attention: 0, open() {} });
+    try {
+      assert.ok(view.find("month-close-reading"));
+      assert.equal(view.find("month-close-checklist-ready"), null);
+      assert.equal(view.find("month-close-checklist-unknown"), null);
+      assert.equal(view.find("month-close-close"), null);
+      await view.setReview({ count: 4, detail: null, reading: 1, attention: 5, open() {} });
+      assert.match(view.text("month-close-task-review"), /4/);
+      assert.match(view.text("month-close-task-attention"), /5/);
+      assert.match(view.text("month-close-reading"), /1/);
+      assert.equal(view.find("month-close-steps-note"), null, "finishing tasks cannot promise closure while reading still blocks it");
+      assert.equal(view.find("month-close-checklist-footer"), null, "no empty footer divider remains without a status or action");
+      assert.equal(view.find("month-close-close"), null);
+      assert.equal(view.find("month-close-nothing-open")?.querySelector("button"), null);
+    } finally { await view.unmount(); }
+  });
   for (const review of [null, undefined]) {
     test(`${review === null ? "failed or loading" : "missing"} receipt counts cannot claim ready or offer close`, async () => {
       const { client } = serverClient({});
@@ -144,7 +162,7 @@ describe("Inicio waits for the server receipt count before closing", () => {
     const { client } = serverClient({});
     const view = await renderInicio(client, { count: 2, detail: null, open: () => { opened = true; } });
     try {
-      assert.match(view.text("month-close-task-review"), /Revisa 2 recibos/);
+      assert.match(view.text("month-close-task-review"), /2 por revisar en la Bandeja/);
       assert.equal(view.find("month-close-checklist-ready"), null);
       assert.equal(view.find("month-close-close"), null);
       await view.act(async () => view.find("month-close-task-review")!.querySelector("button")!.click());

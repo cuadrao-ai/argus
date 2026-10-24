@@ -28,7 +28,12 @@ and no others for these roles:
 | Necesita atención | `#9e2f39` on `#f6dfe0` |
 | Destructive confirm button | `#9e2f39` with a white label |
 
-This guide covers the light appearance. Dark appearance needs its own design.
+Both appearances use the same hierarchy and semantic roles. Home inherits the
+existing app dark canvas (`#141517`) and shared card surface (`#1f2225`). Embedded
+setup uses that same card surface, white primary text, white at 70% for secondary
+text and white at 12% for hairlines. Waiting uses `#f6e7c1`; attention uses
+`#ec9aa0`. These inks always accompany a status label. Neutral surfaces stay
+neutral; do not add green washes to instructions.
 
 ### Type
 
@@ -36,6 +41,13 @@ This guide covers the light appearance. Dark appearance needs its own design.
 - The app's scale is **16 body, 21 section title, 26 page title**. The
   golden-ratio display sizes (42 and 68) belong to the marketing site: in a
   dense money screen they push the numbers below the fold.
+- Secondary text, status labels and the setup progress count use 14px. Do not
+  shrink them at narrow widths. The progress ring remains 44px with tabular digits.
+- Business sidebar navigation and the current business name use Inter at 16px.
+  The access label and count badges use 14px; the navigation rows remain 44px tall.
+- Embedded setup and dossier previews inherit `--font-inter` and
+  `--font-space-grotesk` from the app. Do not declare a font name that bypasses
+  the loaded font tokens.
 - Input text is at least 16px.
 - Labels and headings wrap. They never truncate or clip.
 
@@ -112,13 +124,15 @@ the code, named after it, and every screen uses that owner.
 Design and check each screen at the five widths of the Argus guide. Nothing
 scrolls sideways at any width.
 
-One canvas holds every Business screen (Lucas, October 21, 2026): at most
-75rem (1200px) wide, left-aligned at the main area's 32px gutter from the
-tablet stop up. The top bar spans the same box, so the search starts at the
-canvas's left edge and the actions end at its right edge on every screen.
-Inside it, Inicio and Transacciones fill the canvas, the Bandeja keeps its
-48rem list beside the record tray, and Negocio and other forms keep a 40rem
-column at its left. No screen widens or moves the canvas. Owner:
+One fluid canvas holds every Business screen (Lucas, updated October 23, 2026).
+It fills the available main area with 32px gutters from the tablet stop up.
+When the sidebar collapses, the canvas's left edge follows it and the canvas
+widens. Its right edge stays at the same gutter. The top bar spans the same
+box, so search starts at the canvas's left edge and the actions end at its
+right edge on every screen. There is no fixed maximum width on this outer
+canvas. Inside it, Inicio and Transacciones fill the canvas, the Bandeja keeps
+its 48rem list beside the record tray, and Negocio and other forms keep a
+40rem column at its left. No screen moves the outer canvas. Owner:
 `web/components/chat/workspace-canvas.ts`. Phones keep their 16px gutters.
 
 | Name | Width |
@@ -152,6 +166,182 @@ Colour alone never carries the status. A status that looks clickable has a 44px
 target.
 
 ## 3. Components
+
+### Setup guidance and permission explanations
+
+The founder requested these clarifications during the workspace-guide review.
+The preview demonstrates them; this section does not certify backend wiring.
+
+- Neutral surfaces carry instructions, summaries and permission explanations.
+  Do not use the approved/success green wash to make ordinary information stand
+  out. Use heading size, spacing and a hairline for hierarchy. Green fills remain
+  for primary actions and confirmed positive states. Amber means waiting; red
+  means an error or attention is required. Always include a label, never color alone.
+- Mark an optional task as Optional in its heading. A field can be required to
+  perform that task without making the task compulsory. On a one-field invitation
+  form, keep the email's required semantics and validate on submit; the task's
+  Optional label and Skip for now action explain the choice without an asterisk.
+- Skip for now preserves the draft and leaves the task unfinished. Show For later,
+  never a completion check. Complete the collaborator-invitation step and advance
+  the completion wheel once the invitation is confirmed created. Derive this from
+  the existing pending or granted result, not a separate completion flag. Keep
+  Pending acceptance visible while pending; the completed guide task does not
+  imply acceptance, email delivery or granted access. Draft, sending and failed
+  requests do not complete the step.
+- Show the Business destination and a short access summary before sending. Put
+  secondary permission details in a short tooltip using the help pattern below. Keep the main
+  consequence visible. Do not put essential consent or destructive consequences
+  solely behind an info control.
+- Name this task “Invita a un colaborador” / “Invite a collaborator”. Explain that
+  the person receives access to help run the selected Business. Place the fixed
+  permission summary beside the email label on desktop and directly below the
+  input on phones. Use plain text and the existing help tooltip for limits; no
+  separate Access section, dividers, role chip or implied role selector.
+- Offer only permissions supported by the enforced contract. Do not invent a role
+  selector or equate record preparation with approval or administration.
+- Keep draft, sending, failure, pending invitation and granted access distinct.
+  Preserve the email after failure and offer retry. A successful request does not
+  by itself prove email delivery, acceptance or access. Render the server result.
+- Apply the same hierarchy, labels and validation behavior in EN and ES. Check both
+  themes and phone/tablet/desktop widths. Do not reduce type to fit more content.
+
+### Guide readiness and progress
+
+- After creation or joining, the header says the workspace is ready. Its supporting
+  line states that the remaining actions are optional. Readiness never depends on
+  finishing invoicing, uploading a document or inviting another person.
+- A compact neutral progress ring shows `n / n` in its center. It counts confirmed
+  guide outcomes, including workspace creation; it does not measure readiness.
+  Keep it visible when collapsed. Give screen readers a translated description
+  of completed guide actions. Do not add another progress bar or percentage.
+- Each unfinished optional row retains its Optional label beside any current status.
+  For later and awaiting review remain unfinished. Neither earns a completion check.
+  An invitation that was created counts as complete even while acceptance is pending;
+  the owner has finished the guide action.
+- The completed creation row becomes Your workspace. It remains expandable for
+  review and name correction. Its completion check remains visible while editing.
+- Every row puts its chevron in the same trailing column. On narrow screens, status
+  wraps below the title while the chevron stays at the far edge. Keep normal type.
+- A ready workspace starts with the guide collapsed unless the person explicitly
+  expanded it. Keep that choice through refresh. The phone's existing Add action
+  stays above the optional guide. Guide state belongs to the selected Business;
+  local preview state must never leak to another Business.
+- Use the header to collapse or expand the guide. Remove the duplicate Done for now
+  footer. Deferring a specific task still preserves its draft and optional status.
+
+### Workspace forms and recovery
+
+These decisions apply to every workspace-guide step and its Business dossier.
+They extend Forms below, including email aliases, authorized senders and invoicing.
+
+- Use the signup field pattern. Labels remain above populated inputs. Saved data
+  stays editable in the same input. Remove introductions that only repeat labels.
+  Keep one contextual group at a time. Do not split two related fields into a wizard.
+- Inputs and primary form actions use 16px text. Labels use 15px and feedback uses
+  14px. Input rows are at least 48px tall. Buttons, suggestions, radios and checkbox
+  rows have targets at least 44px tall. Stack actions when their labels need room.
+- Share the field, feedback and action styles across steps. Extra blank margins
+  must not add a second error reserve. Reserve the tallest translated feedback
+  message at the current width, including radio-group and availability errors.
+- Check only the current step on Continue. An invalid submission keeps the step
+  open, displays an inline repair message, and focuses the first invalid control.
+  Do not disable Continue merely because a user has not yet filled the fields.
+- Save drafts through Back, collapse, close and refresh. A draft is not a committed
+  change. Save or Continue applies it. Cancel leaves the saved value unchanged.
+- Completion does not lock editing. A completed workspace step opens its current
+  name and country. Edit name changes the display name of the same workspace.
+  Keep the completion count. Do not create another workspace or change its legal
+  name, country, email alias, documents or access. Business settings owns this edit
+  after the guide is dismissed. Use existing edit permissions when wired.
+- Initial creation needs name and country only. Country has no silent default.
+  Preserve an explicit saved choice. Treat it as declared operating country, not
+  verified tax jurisdiction. Unresolved fiscal conflicts require review before
+  invoicing activation, while basic use remains available. Backend enforcement,
+  country-change permissions and audit rules belong to the integration checkpoint.
+- Known invitations show the existing Business and granted access. Do not ask the
+  invitee to recreate its details. Optional tasks can be deferred without a check.
+
+### Help tooltips and disclosures
+
+- A tooltip adds one short explanation. For a fixed permission summary, it states
+  the limits. Keep the destination and permission being granted visible in the form.
+- Use the shared Tooltip visual pattern with a neutral surface, fine border and
+  readable text in both themes. An info icon has a 44px button target, an accessible
+  name and an associated tooltip. It does not navigate or open a dossier.
+- Show help on hover, keyboard focus or tap. Escape and outside interaction dismiss
+  it without closing the parent form. Keep focus on the trigger after Escape.
+  Users can move the pointer into the tooltip to read it. Keep it within the visible
+  screen and out of document flow, so opening help does not move fields or actions.
+- Use a disclosure for several sentences, technical dates or manual instructions.
+  Disclosures may contain actions and fields. Tooltips contain no interactive
+  controls and never hold required instructions, errors, consent or destructive
+  consequences. Do not replace useful help with an unexplained icon.
+- Do not use native title attributes for help copy. Keep iframe accessibility titles
+  accurate. Production integration must reuse the shared Tooltip and FormField
+  components; the local HTML preview demonstrates behavior only. Confirm touch
+  activation and hover persistence before adopting the shared tooltip unchanged.
+- Check every form in English and Spanish, both themes, and phone, tablet and
+  desktop layouts. Long feedback must wrap without clipping or horizontal scrolling.
+  Use normal text sizes and one page or sheet scroll area.
+
+### Selection controls
+
+- Dropdown pickers use the existing menu surface: 16px corners, a fine border,
+  neutral light/dark surfaces and 44px rows. Use listbox/option semantics for
+  selection, a visible selected check, keyboard navigation, Escape and outside
+  dismissal. Match the action menu visually without treating values as actions.
+- Checkboxes use rounded square corners, never sharp squares. The native input
+  and its label form one clickable row at least 44px tall. Space toggles the
+  focused checkbox; focus stays visible. Keep the input's checked semantics.
+- A checkbox edits a draft. Save or Continue applies the choice. Keep draft
+  recovery separate from a committed setting or confirmation. Immediate settings
+  use a switch when that behavior is appropriate.
+- Preview scenario controls belong outside customer forms, behind explicit
+  preview controls. Fixtures remain identified as sample data. Do not expose
+  backend state selectors as customer choices.
+
+### One receiving address across Business surfaces
+
+- The setup guide, Agregar menu, upload dossier and Business email settings use
+  the same Business receiving-address source. Reuse BusinessEmailAddress and
+  CopyButton rather than creating another address or availability model.
+- If an address exists, show it and Copy. If none exists, use the existing
+  Get a receiving address action and its loading/error states. Custom aliases and
+  renaming are unresolved capabilities, not promised setup requirements.
+- Automatic reading remains a separate Business setting across all intake channels.
+  Opening Email must not create a separate consent step.
+- A document task completes only after a received-document result. Opening upload,
+  copying an address or linking a phone does not complete it. Review-only fixtures
+  may demonstrate receipt completion; they must be isolated and labelled.
+- Preview navigation belongs to its own tab and surface. Shared saved facts may
+  update without replacing the open step; refresh restores that tab's navigation.
+
+### Business context in setup
+
+- The sidebar establishes the active Business. Do not repeat its name in routine
+  setup steps, document method selection, email setup or the invoicing guide.
+- Keep the destination visible when linking a WhatsApp sender or inviting someone.
+  A separate Business dossier may identify the Business once in its header.
+
+### Invoicing entry and saved setup
+
+- Home offers path cards, not an activation switch. Existing issuer and getting
+  started open distinct journeys in the Business dossier. Keep the main Home guide
+  compact: current status and Continue setup after a path starts.
+- Show one next action and one contextual step at a time. Reuse saved Business
+  details in the standard labelled, prefilled inputs used by signup. Do not turn
+  saved fields into separate edit disclosures.
+  Back and closing preserve progress. Basic app use does not depend on completion.
+- Keep registry match, user confirmation, authority to act and invoicing activation
+  separate. Saving details never claims activation. Legal name does not overwrite
+  the workspace display name. Source dates belong in a details disclosure.
+- Awaiting review and active each show their status and saved details in one
+  dossier view. Do not make View summary and Back cycle between two read-only
+  screens. Home uses View setup for these states, not Continue setup. A primary
+  action is present only when there is a next task to perform.
+- Render service-owned activation states. Instructions use neutral surfaces;
+  waiting uses an explicit amber status, and active requires a confirmed result.
+  Preview fixtures are identified and their controls stay outside customer forms.
 
 ### Seven states
 
@@ -316,6 +506,34 @@ Which container, screen by screen (Lucas, October 20, 2026):
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
 
+### Shell baseline, approved October 23, 2026
+
+This is the expected Business shell behavior for all current and future screens.
+The rules in [Widths](#widths) and [Sidebar and account](#sidebar-and-account)
+are one contract, including when a record tray is open.
+
+- Collapsing the left rail moves the canvas's left edge and gives the canvas
+  more width. Its right edge stays anchored to the same gutter. Expanding the
+  rail reverses this without sliding the whole surface sideways.
+- An open desktop record tray stays attached to the browser's right edge.
+  Changing the left rail does not move or resize that tray. The canvas keeps
+  its gutter beside the tray and adapts in the remaining space.
+- On narrow screens, record details use the existing full-page layout with
+  Back. Navigation stays usable and content scrolls vertically without
+  sideways overflow.
+- Light and dark themes use the same geometry and interactions. Hover labels
+  do not expand the rail. Settings and the toggle share one saved desktop mode.
+
+Future Home, onboarding and record work must preserve this baseline. A change
+requires Lucas's explicit design approval; integration must not silently
+replace it. This design approval does not authorize release or handoff.
+
+Regression coverage lives in `business-canvas.dom.test.tsx`,
+`business-sidebar-rail.dom.test.tsx`, `business-sidebar-shell.dom.test.tsx`,
+`mobile-shell-layout.test.tsx` and `sidebar-mode-state.test.ts` under
+`web/__tests__/`. Browser checks must also cover the open tray, both rail modes,
+both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
+
 ### Sidebar and account
 
 Lucas set this on October 20, 2026. The left sidebar is where you work; the
@@ -327,6 +545,24 @@ top right is who you are.
 - **Then:** the screens: Inicio, Bandeja, Transacciones. Negocio is reached from the
   business menu (Configurar negocio), the one door.
 - **Foot of the rail:** the Cuadrao mark, small and quiet.
+- **Docked sidebar, locked October 23, 2026:** Business desktop has two modes,
+  Expanded at 240px and Icons only at 64px. The sidebar sits beside the shared
+  canvas and never covers its content. Only an explicit toggle, keyboard
+  shortcut or preference selection changes its width. The canvas resizes with
+  it during the existing 200ms transition. Hover, focus, Escape and a click in
+  the page do not change the mode.
+- **Saved mode:** a new Business workspace starts Expanded. The saved Business
+  choice wins after that. The toggle and preferences update the same choice.
+  An old Business On hover preference becomes Icons only. Personal preferences
+  remain separate. At tablet widths the rail stays Icons only; phones keep the
+  existing navigation. These responsive changes do not overwrite the saved
+  desktop choice.
+- **Collapsed labels:** hovering or keyboard focus shows the existing simple
+  tooltip after 300ms. It names the destination and its shortcut when present.
+  It never opens a flyout or expands the rail. Clicking an icon navigates
+  directly. The active destination stays highlighted and each icon keeps an
+  accessible name. Escape dismisses the tooltip. Reduced motion removes the
+  width animation; the choice and navigation remain available.
 - **Opening and closing the rail** takes 200ms, ease out. Nothing inside
   changes shape: icons keep one position, labels fade, the business mark
   stays where it is, and the open header stays until the rail has closed.
@@ -386,6 +622,14 @@ a 44px target.
   (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
   `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
   onto one; never copy its colours.
+- Setup previews inherit these exports and the app stylesheet. Do not maintain a
+  second button palette in the sketch. Cancel, Skip for now and Save and close
+  use Secondary when paired with the primary form action. Change path beside
+  Continue setup is also a Secondary alternative, not a green Quiet action.
+- Copy controls use `foundation/CopyButton.tsx`. Copy the raw value; keep the label
+  stable while the icon becomes a check for two seconds. Announce success to screen
+  readers. Do not add a persistent Copied sentence or a second success notification.
+  A failed copy leaves the value selectable and shows a short inline repair message.
 - Tabs, the segmented control, icon-only round buttons, rows and menu items are
   their own components, not button levels.
 
@@ -430,6 +674,13 @@ Deshacer for all of them. An alert never stacks.
 - Never insert a banner mid-page that shifts the content. Field errors stay beside their field.
 - A failed save never shows as success. Keep the owner's input and offer one
   honest retry.
+- A failed collection or payment mark restores the item and keeps its error
+  beside that row inside Por cobrar or Por pagar. A failed Undo whose row is
+  absent stays inside the same card. Neither shifts the card headers.
+- Retry keeps the restored row and error visible, disables duplicate attempts,
+  and shows saving progress. Clear only that item's error after its save
+  succeeds. A different item's save never clears it. Keep the error announcement
+  separate from the changing retry control so progress does not repeat it.
 - Announce confirmations politely. An inline error is `role="alert"`. The
   toast type has no error or warning kind, so the compiler refuses one.
 
@@ -602,19 +853,48 @@ frame, such as readable names, tax numbers or amounts.
 
 ### Inicio
 
-The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting.
+Local Home checkpoint, October 24, 2026: preserve the current implementation and the month bounds below. The proposed separation of invoicing and collaboration remains unapplied. Pending navigation, progress and color decisions, verification limits and evidence are recorded in `docs/reports/home-checkpoint-20261024.md`. This is a local design baseline, not backend or release acceptance.
+
+The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
 Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
 
-Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the greeting row on the left, "Pendiente hoy" on the right at the greeting's 26px, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together. Narrower, one column in the order above.
+Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the greeting row on the left, "Pendiente hoy" on the right at the greeting's 26px, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
 
 "Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
 
 - A card is a small muted label, the total at 22px with its currency, and, when anything is overdue, a red line: "2 vencidas · RD$ 12,300.00", summed exactly per currency.
 - A row is a round 44px check, the name, a lateness chip ("30 días tarde" in red, "vence hoy", "vence en 8 días"; owner `formatLateness`), and the amount. A row with no due day shows its issue day instead.
 - Overdue rows come first, oldest first, then the nearest due. Four rows show, then "Ver las N".
-- The check removes the row and offers Deshacer, which sets it back to pendiente. A failed mark puts the row back and says so inline above the rows, with Reintentar when trying again can help. The toast only confirms a mark; there is no error toast.
+- The check removes the row and offers Deshacer, which sets it back to pendiente. A failed mark puts the row back and says so within the affected row, with Reintentar when trying again can help. The toast only confirms a mark; there is no error toast.
 - A Por pagar row opens its expense. A Por cobrar row is plain until an invoice has a record screen.
+
+- Keep the received-document outcome separate from opening an intake action.
+  Preview completion reads received receipt rows, not button clicks.
+- Review-ready, still-reading and attention counts are separate groups. Give each
+  its own label. Waiting uses amber; attention uses red. Never present their sum
+  as the review-ready count or imply the groups are its breakdown.
+- Floating preview diagnostics are opt-in through `?devtools=1`. They must not
+  cover Home actions in the normal review URL.
+- The phone Add action stays above the optional guide and below the header fade.
+  At rest, the fade must not tint or blur the action.
+- Both money cards keep the same label and total header in populated and empty
+  states. A confirmed empty list with a known Business currency shows a formatted
+  zero, such as RD$ 0.00. Keep server totals when supplied; never guess a currency
+  or turn an unknown amount into zero. A shared subtle divider separates the
+  total header from the body in both cards. Do not add separators between their
+  document rows; keep those rows grouped with spacing. Center the settled status, explanation
+  and action together within the available body area.
+- Either settled money card uses the shared compact empty state: a small check,
+  status, one explanation and a secondary Add action into the existing document
+  flow. Keep its outer card aligned with the row and its content grouped,
+  without a large illustration. When both balances are settled, keep the shared passive summary.
+  First-run empty states retain their useful next action.
+- Home uses the shared 16px body/control, 14px secondary and 21px section roles.
+  Its summary figures keep the explicit 22px exception. A known reading state
+  blocks a ready-to-close claim without displaying an unknown-value placeholder.
+  While reading continues, omit the promise that completing the listed tasks is
+  enough to close. Render the checklist footer only when it has a status or action.
 
 **Behavior rules (pending from Product).**
 

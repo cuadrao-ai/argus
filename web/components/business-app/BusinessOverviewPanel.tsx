@@ -1,5 +1,6 @@
 "use client";
 
+import WorkspaceSetupPreview from "@/app/design-workspace/WorkspaceSetupPreview";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { inboxCount, problemCount, readingCount } from "./inbox-count";
@@ -25,6 +26,8 @@ export default function BusinessOverviewPanel() {
 
   return (
     <section aria-labelledby="business-overview-title">
+      {isBelowTablet ? <div data-testid="inicio-actions" className="mb-5" style={{ paddingTop: 32 }}><BusinessAddMenu placement="page" /></div> : null}
+      {process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <WorkspaceSetupPreview /> : null}
       <BusinessMonthClosePanel
         monthClose={monthClose}
         header={(switcher) => (
@@ -36,15 +39,13 @@ export default function BusinessOverviewPanel() {
               </h2>
               {switcher}
             </div>
-            {isBelowTablet ? <div data-testid="inicio-actions"><BusinessAddMenu placement="page" /></div> : null}
           </>
         )}
         review={records.error ? (records.refused ? { state: "refused" } : { state: "failed", retry: reload }) : porRevisar === null ? { state: records.inbox === null ? "loading" : "unknown" } : {
           count: porRevisar,
-          detail: [
-            reading > 0 ? t("business.overview.reading", { count: reading }) : null,
-            problem > 0 ? t("business.overview.problem", { count: problem }) : null,
-          ].filter(Boolean).join(" · ") || null,
+          detail: null,
+          reading,
+          attention: problem,
           open: () => openPanel({ kind: "inbox" }),
         }}
       />

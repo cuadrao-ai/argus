@@ -32,7 +32,7 @@ export default async function BusinessPage({
   }
   return (
     <main className="min-h-[100dvh] bg-background text-foreground selection:bg-black/10 dark:selection:bg-white/20">
-      <DevModeBadge />
+      {search.devtools === "1" ? <DevModeBadge /> : null}
       <BusinessApp transferId={transferId} lifecycle={lifecycle} manageLifecycle={search.lifecycle === "manage"} />
     </main>
   );

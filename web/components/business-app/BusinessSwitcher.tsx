@@ -140,8 +140,8 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
-            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
+            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[16px] font-medium leading-6 text-[#172b26] dark:text-white">{name}</span>
+            <span className="block truncate whitespace-nowrap text-[14px] leading-5 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
           </span>
         )}
       </button></Tooltip> : (
@@ -158,8 +158,8 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
         {badge}
         {collapsed ? <span className="sr-only" data-testid="business-current-name">{name}</span> : (
           <span className="min-w-0 flex-1">
-            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[15px] font-medium leading-5 text-[#172b26] dark:text-white">{name}</span>
-            <span className="block truncate whitespace-nowrap text-[12px] leading-4 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
+            <span data-testid="business-current-name" className="block truncate whitespace-nowrap text-[16px] font-medium leading-6 text-[#172b26] dark:text-white">{name}</span>
+            <span className="block truncate whitespace-nowrap text-[14px] leading-5 text-[#56635e] dark:text-white/60">{current.role === "owner" ? t("business.switcher.role_owner", "Owner") : current.capabilities.includes("prepare") && !current.capabilities.includes("approve") ? t("business.switcher.role_editor", "Can edit") : t("business.switcher.role_viewer", "Can view")}</span>
           </span>
         )}
       </button>

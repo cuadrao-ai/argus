@@ -32,10 +32,11 @@ afterAll(async () => {
 });
 
 async function mountRail(options: { storedMode?: string; panel?: BusinessPanelState["kind"] } = {}) {
-  if (options.storedMode) window.localStorage.setItem("argus:sidebar_mode", options.storedMode);
+  if (options.storedMode) window.localStorage.setItem("cuadrao:business_sidebar_mode", options.storedMode);
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { default: ChatSidebar } = await import("@/components/sidebar/ChatSidebar");
+  const { default: SidebarShell } = await import("@/components/sidebar/SidebarShell");
   const { default: BusinessSidebarNav, BusinessSidebarFooter } = await import("@/components/business-app/BusinessSidebarNav");
   const { default: BusinessSwitcher, BusinessMark } = await import("@/components/business-app/BusinessSwitcher");
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
@@ -68,6 +69,12 @@ async function mountRail(options: { storedMode?: string; panel?: BusinessPanelSt
       prepareQuestion: () => {},
     } as unknown as ChatShellBridge;
     return (
+      <SidebarShell
+        isBelowTablet={false}
+        isDrawerOpen={false}
+        onCloseDrawer={() => {}}
+        label="Navigation"
+      >
       <ChatSidebar
         isOpen={layout.sidebarIsOpen}
         railLocked={layout.railLocked}
@@ -98,6 +105,7 @@ async function mountRail(options: { storedMode?: string; panel?: BusinessPanelSt
         headerMark={<BusinessMark name={OWN.name} />}
         footerActions={<BusinessSidebarFooter shell={shell} />}
       />
+      </SidebarShell>
     );
   }
 
@@ -125,22 +133,30 @@ const visibleLabel = (button: HTMLButtonElement | undefined) =>
   // A faded label (opacity-0) still names the row for assistive tech, as sr-only did, but is not on screen.
   [...(button?.querySelectorAll("span") ?? [])].some((span) => span.textContent && !span.className.includes("sr-only") && !/\bopacity-0\b/.test(span.className) && !span.closest('[aria-hidden="true"]'));
 
-test("a saved collapsed or hover preference does not collapse the Business rail", async () => {
+test("a fresh Business rail starts expanded even when Personal is collapsed", async () => {
+  window.localStorage.setItem("argus:sidebar_mode", "collapsed");
+  await mountRail();
+  assert.match(aside().className, /\bw-60\b/);
+  assert.equal(document.querySelector('[data-testid="sidebar-rail-toggle"]')?.getAttribute("aria-expanded"), "true");
+});
+
+test("saved collapsed or hover Business preferences start compact", async () => {
   for (const storedMode of ["collapsed", "hover"]) {
     const view = await mountRail({ storedMode });
-    assert.match(aside().className, /\bw-60\b/, storedMode);
-    assert.equal(visibleLabel(row("Inicio")), true, storedMode);
+    assert.match(aside().className, /\bw-16\b/, storedMode);
+    assert.equal(visibleLabel(row("Inicio")), false, storedMode);
     await view.act(async () => {
       aside().dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body }));
     });
-    assert.match(aside().className, /\bw-60\b/, `${storedMode} after the pointer leaves`);
+    assert.match(aside().className, /\bw-16\b/, `${storedMode} after the pointer leaves`);
+    assert.equal(window.localStorage.getItem("cuadrao:business_sidebar_mode"), "collapsed");
     for (const cleanup of cleanups.splice(0)) await cleanup();
     window.localStorage.clear();
   }
 });
 
 test("the labeled rail stacks Inicio to Transacciones under the business card, with the Cuadrao mark at the foot", async () => {
-  await mountRail();
+  await mountRail({ storedMode: "expanded" });
   assert.match(aside().className, /\bw-60\b/);
   assert.match(aside().className, /bg-\[var\(--cuadrao-cream\)\]/);
   assert.match(aside().className, /\bborder-r\b/);
@@ -170,7 +186,7 @@ test("the labeled rail stacks Inicio to Transacciones under the business card, w
 });
 
 test("the active fill is the row itself, in the approved green", async () => {
-  await mountRail({ panel: "inbox" });
+  await mountRail({ storedMode: "expanded", panel: "inbox" });
   const active = rows().filter((button) => button.getAttribute("aria-current") === "page");
   assert.equal(active.length, 1);
   assert.ok(active[0].textContent?.includes("Bandeja"));
@@ -185,13 +201,14 @@ test("the active fill is the row itself, in the approved green", async () => {
 });
 
 test("only the toggle collapses the rail to 64px icons with tooltips", async () => {
-  const view = await mountRail();
+  const view = await mountRail({ storedMode: "expanded" });
   await view.act(async () => view.rail.closeRailForDialog?.());
   assert.match(aside().className, /\bw-60\b/, "a dialog does not collapse the Business rail");
   await view.act(async () => {
     (document.querySelector('[data-testid="sidebar-rail-toggle"]') as HTMLButtonElement).click();
   });
   assert.match(aside().className, /\bw-16\b/);
+  assert.equal(window.localStorage.getItem("cuadrao:business_sidebar_mode"), "collapsed");
   assert.ok(document.querySelector('[data-testid="business-switcher"]'), "the open header stays while the rail closes, so nothing jumps");
   // The closed header takes over once the rail's 200ms close has run.
   await view.act(async () => { await new Promise((resolve) => setTimeout(resolve, 260)); });
@@ -230,8 +247,27 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
     (document.querySelector('[data-testid="sidebar-rail-toggle"]') as HTMLButtonElement).click();
   });
   assert.match(aside().className, /\bw-60\b/);
+  assert.equal(window.localStorage.getItem("cuadrao:business_sidebar_mode"), "expanded");
   assert.ok(document.querySelector('[data-testid="business-switcher"]'), "open again, the business card is back");
   assert.equal(document.querySelector('[data-testid="sidebar-rail-toggle"]')?.getAttribute("aria-label"), "Contraer");
+});
+
+test("Escape leaves the expanded Business rail docked", async () => {
+  const view = await mountRail({ storedMode: "expanded" });
+  await view.act(async () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  });
+  assert.match(aside().className, /\bw-60\b/);
+  assert.equal(window.localStorage.getItem("cuadrao:business_sidebar_mode"), "expanded");
+});
+
+test("keyboard focus moving into the canvas leaves the Business rail docked", async () => {
+  const view = await mountRail({ storedMode: "expanded" });
+  const canvasButton = document.createElement("button");
+  document.body.appendChild(canvasButton);
+  await view.act(async () => canvasButton.focus());
+  assert.match(aside().className, /\bw-60\b/);
+  assert.equal(document.activeElement, canvasButton);
 });
 
 test("the tablet strip keeps the business card and no toggle", async () => {
@@ -256,7 +292,7 @@ test("the tablet strip keeps the business card and no toggle", async () => {
 });
 
 test("the account lives at the top right, and the rail has no Negocio, Acceso or Ajustes row", async () => {
-  const view = await mountRail();
+  const view = await mountRail({ storedMode: "expanded" });
   assert.equal(row("Negocio"), undefined, "the business card's menu is the door to Negocio");
   assert.equal(row("Acceso"), undefined);
   assert.equal(row("Ajustes"), undefined);
@@ -269,7 +305,7 @@ test("the account lives at the top right, and the rail has no Negocio, Acceso or
 });
 
 test("the business card menu opens the Negocio page", async () => {
-  const view = await mountRail();
+  const view = await mountRail({ storedMode: "expanded" });
   await view.act(async () => document.querySelector<HTMLButtonElement>('[data-testid="business-switcher"] button[aria-haspopup="menu"]')!.click());
   const settings = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((item) => item.textContent?.includes("Configurar negocio"));
   await view.act(async () => settings!.click());

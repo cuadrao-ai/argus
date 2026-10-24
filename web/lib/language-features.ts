@@ -1,6 +1,8 @@
 import { LANGUAGE_STORAGE_KEY, readStored, writeStored } from "./browser-storage";
 import { businessPilotEnabled } from "./private-alpha-flags";
 
+export const BUSINESS_PREVIEW_LANGUAGE_KEY = "cuadrao-business-preview-language";
+
 export type ArgusLanguage = "en" | "es-419";
 export type ArgusLocale = "en-US" | "es-419";
 
@@ -105,7 +107,8 @@ export async function commitShellLanguage(
   accountLanguage: string | null | undefined,
   spanishEnabled: boolean = SPANISH_ENABLED,
 ): Promise<void> {
-  const next = resolveLanguage({ account: accountLanguage, device: i18n.language }, businessBuild, spanishEnabled);
+  const previewLanguage = businessBuild && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? readStored(BUSINESS_PREVIEW_LANGUAGE_KEY) : null;
+  const next = resolveLanguage({ account: previewLanguage === "en" || previewLanguage === "es-419" ? previewLanguage : accountLanguage, device: i18n.language }, businessBuild, spanishEnabled);
   if (next === i18n.language) return;
   await i18n.changeLanguage(next);
 }

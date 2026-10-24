@@ -60,17 +60,31 @@ export function useSidebarRail(workspaceId: string | undefined) {
   useEffect(() => {
     const saved = readStored(key) as SidebarMode | null;
     if (saved === "expanded" || saved === "collapsed" || saved === "hover") {
-      setSidebarMode(saved);
-      setIsSidebarOpen(saved === "expanded");
+      const normalized = business && saved === "hover" ? "collapsed" : saved;
+      if (normalized !== saved) writeStored(key, normalized);
+      setSidebarMode(normalized);
+      setIsSidebarOpen(normalized === "expanded");
+    } else {
+      setSidebarMode(business ? "expanded" : "collapsed");
+      setIsSidebarOpen(business);
     }
-  }, [key]);
+  }, [business, key]);
 
   const chooseSidebarMode = useCallback((mode: SidebarMode) => {
-    setSidebarMode(mode);
-    writeStored(key, mode);
-    setIsSidebarOpen(mode === "expanded");
-  }, [key]);
-  const toggleSidebar = useCallback(() => setIsSidebarOpen((open) => !open), []);
+    const normalized = business && mode === "hover" ? "collapsed" : mode;
+    setSidebarMode(normalized);
+    writeStored(key, normalized);
+    setIsSidebarOpen(normalized === "expanded");
+  }, [business, key]);
+  const toggleSidebar = useCallback(() => {
+    const nextOpen = !isSidebarOpen;
+    setIsSidebarOpen(nextOpen);
+    if (business) {
+      const mode = nextOpen ? "expanded" : "collapsed";
+      setSidebarMode(mode);
+      writeStored(key, mode);
+    }
+  }, [business, isSidebarOpen, key]);
   const closeRailForDialog = useCallback(() => {
     if (!business) setIsSidebarOpen(false);
   }, [business]);

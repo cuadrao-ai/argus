@@ -80,14 +80,16 @@ async function mount(overrides: { activity?: (counts: ReceiptActivityCounts) => 
     }
   };
   const text = (selector: string) => host.querySelector(selector)?.textContent ?? null;
-  // The Resumen's number is the first line of the month checklist: "Revisa N recibos en la Bandeja".
+  // The Resumen's review task shows the same server count as the Bandeja.
   const reviewTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-review"]');
-  const reviewCount = () => reviewTask()?.querySelector("p")?.textContent?.match(/^Revisa (\d+) recibos?/)?.[1] ?? null;
+  const reviewCount = () => reviewTask()?.querySelector("p")?.textContent?.match(/^(\d+) por revisar en la Bandeja/)?.[1] ?? null;
+  const attentionTask = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-task-attention"]');
+  const readingStatus = () => host.querySelector('[data-testid="resumen"] [data-testid="month-close-reading"]');
   const rows = () => host.querySelectorAll('[data-testid="bandeja-row"], [data-testid="bandeja-note"]').length;
   const segment = (key: "review" | "problem" | "all") => host.querySelector<HTMLButtonElement>(`[data-testid="bandeja-segments"] [data-segment="${key}"]`);
   const choose = (key: "review" | "problem" | "all") => act(async () => segment(key)!.click());
   await settle(() => rows() > 0 && api?.records.notes !== null && api?.records.overview !== null && reviewCount() !== null);
-  return { act, root, host, settle, text, rows, segment, choose, reviewCount, reviewTask, api: () => api!, source };
+  return { act, root, host, settle, text, rows, segment, choose, reviewCount, attentionTask, readingStatus, api: () => api!, source };
 }
 
 describe("the Bandeja and the Resumen on one saved state", () => {
@@ -148,13 +150,12 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  // Fails until Inicio reads problemCount and readingCount from inbox-count (BusinessOverviewPanel.tsx is held by another helper).
   test("the Resumen's con problema and the Con problema segment give one number", async () => {
     const page = await mount();
     await page.settle(() => page.segment("problem")?.textContent === "Con problema5");
     try {
-      assert.match(page.reviewTask()?.textContent ?? "", /5 con problema/);
-      assert.match(page.reviewTask()?.textContent ?? "", /1 todavía leyendo/);
+      assert.match(page.attentionTask()?.textContent ?? "", /5 con problema/);
+      assert.match(page.readingStatus()?.textContent ?? "", /1 todavía leyendo/);
     } finally { await page.act(async () => page.root.unmount()); }
   });
 

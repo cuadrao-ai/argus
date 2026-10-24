@@ -151,9 +151,22 @@ describe("earliest_month bounds the month picker", () => {
     expect(canStepMonth("2026-09", -1, "2026-11", "2026-08")).toBe(true);
   });
 
+  test("supported history crosses the year boundary and ends at the current month", () => {
+    expect(monthPickerMonths("2026-02", "2025-11")).toEqual([
+      { month: "2025-11", selectable: true },
+      { month: "2025-12", selectable: true },
+      { month: "2026-01", selectable: true },
+      { month: "2026-02", selectable: true },
+    ]);
+  });
+
+  test.each(["2026-12", "invalid"])("an unsupported earliest month %s offers only the current month", (earliest) => {
+    expect(monthPickerMonths("2026-11", earliest)).toEqual([{ month: "2026-11", selectable: true }]);
+  });
+
   test("a Business with no documents yet offers only the current month, not a 24-month guess", () => {
     const months = monthPickerMonths("2026-11", null);
-    expect(months.filter((choice) => choice.selectable).map((choice) => choice.month)).toEqual(["2026-11"]);
+    expect(months).toEqual([{ month: "2026-11", selectable: true }]);
     expect(canStepMonth("2026-11", -1, "2026-11", null)).toBe(false);
   });
 });

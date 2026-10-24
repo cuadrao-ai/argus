@@ -108,41 +108,28 @@ export default function SidebarHeader({
   );
 
   if (business && businessSlot) {
-    const railToggle = (
-      <Tooltip content={isOpen ? t("sidebar.close", "Close sidebar") : t("sidebar.open", "Open sidebar")} side="right">
-        <button
-          type="button"
-          onClick={onToggle}
-          data-testid="sidebar-rail-toggle"
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-black/60 transition-colors duration-200 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
-          aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
-        >
-          <SidebarSimple size={20} aria-hidden="true" />
-        </button>
-      </Tooltip>
-    );
-    // Both layouts put the mark at the same spot, and the open one stays while the rail closes, so nothing jumps.
-    if (shownOpen) {
-      return (
-        <div className="flex h-14 shrink-0 items-center gap-1 overflow-hidden pl-[10px] pr-1 pt-2">
-          <div className="min-w-0 flex-1">{businessSlot}</div>
-          {railToggle}
-        </div>
-      );
-    }
-    // Closed, the business's mark is the way back open: hovering or focusing it shows the expand icon in its place.
+    // Keep one button mounted while the header changes shape, so keyboard focus
+    // survives the close animation.
     return (
-      <div className="flex h-14 shrink-0 items-center pl-[10px] pt-2">
-        <Tooltip content={t("sidebar.open", "Open sidebar")} side="right">
+      <div className={shownOpen
+        ? "flex h-14 shrink-0 items-center gap-1 overflow-hidden pl-[10px] pr-1 pt-2"
+        : "flex h-14 shrink-0 items-center pl-[10px] pt-2"}>
+        {shownOpen ? <div className="min-w-0 flex-1">{businessSlot}</div> : null}
+        <Tooltip content={isOpen ? t("sidebar.close", "Close sidebar") : t("sidebar.open", "Open sidebar")} side="right">
           <button
             type="button"
             onClick={onToggle}
             data-testid="sidebar-rail-toggle"
-            aria-label={t("common.expand", "Expand")}
-            className="group relative flex h-11 w-11 items-center justify-center rounded-item transition-colors duration-200 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/5"
+            className={shownOpen
+              ? "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-black/60 transition-colors duration-200 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/5"
+              : "group relative flex h-11 w-11 items-center justify-center rounded-item transition-colors duration-200 hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:hover:bg-white/5"}
+            aria-label={isOpen ? t("common.collapse", "Collapse") : t("common.expand", "Expand")}
+            aria-expanded={isOpen}
           >
-            <span className="transition-opacity duration-150 ease-out group-hover:opacity-0 group-focus-visible:opacity-0">{businessMark ?? brandMark()}</span>
-            <SidebarSimple size={20} className="absolute text-black/60 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
+            {shownOpen ? <SidebarSimple size={20} aria-hidden="true" /> : <>
+              <span className="transition-opacity duration-150 ease-out group-hover:opacity-0 group-focus-visible:opacity-0">{businessMark ?? brandMark()}</span>
+              <SidebarSimple size={20} className="absolute text-black/60 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-white/60" aria-hidden="true" />
+            </>}
           </button>
         </Tooltip>
       </div>

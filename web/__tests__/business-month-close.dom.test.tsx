@@ -75,7 +75,7 @@ describe("month close optimistic marks", () => {
     assert.equal(row()?.getAttribute("data-status"), "pendiente");
     assert.match(settleTask(), /Marca 4 documentos/);
     const problem = host.querySelector('[data-testid="month-close-work-problem"]');
-    assert.equal(problem?.getAttribute("role"), "alert", "a failed mark says so beside the work, not in a toast");
+    assert.equal(problem?.querySelector("[role=alert]")?.getAttribute("role"), "alert", "a failed mark says so beside the work, not in a toast");
     assert.match(problem?.textContent ?? "", /volvió al anterior/);
     assert.ok([...(problem?.querySelectorAll("button") ?? [])].some((button) => button.textContent === "Reintentar"));
     assert.equal(host.querySelector('[data-testid="month-close-close"]'), null, "Cerrar stays hidden while steps remain");
@@ -122,7 +122,7 @@ describe("month close optimistic marks", () => {
       await new Promise((resolve) => setTimeout(resolve, 30));
     });
     const problem = host.querySelector('[data-testid="month-close-work-problem"]');
-    assert.equal(problem?.getAttribute("role"), "alert");
+    assert.equal(problem?.querySelector("[role=alert]")?.getAttribute("role"), "alert");
     assert.match(problem?.textContent ?? "", /ya está igualada con un depósito del banco/);
     assert.match(problem?.textContent ?? "", /desiguálala en Transacciones/);
     assert.doesNotMatch(problem?.textContent ?? "", /volvió al anterior/);
@@ -162,7 +162,7 @@ describe("month close optimistic marks", () => {
     host.remove();
   });
 
-  test("the month picker sends the chosen month, returns focus, and disables future months", async () => {
+  test("the month picker offers supported months only, sends the chosen month, and returns focus", async () => {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -216,11 +216,12 @@ describe("month close optimistic marks", () => {
     assert.equal(picker?.getAttribute("role"), "listbox");
     const future = document.querySelector('[data-month="2026-11"]');
     const current = document.querySelector('[data-month="2026-10"]');
-    assert.equal(future?.getAttribute("aria-disabled"), "true");
+    assert.equal(future, null);
+    assert.deepEqual(
+      [...picker!.querySelectorAll<HTMLElement>('[role="option"]')].map((option) => option.dataset.month),
+      ["2026-09", "2026-10"],
+    );
     assert.equal(current?.getAttribute("aria-selected"), "true");
-    await act(async () => {
-      future?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
     assert.equal(loads.includes("2026-11"), false);
     assert.equal(trigger.textContent, "Octubre 2026");
     assert.ok(document.querySelector('[data-testid="month-close-month-picker"]'));
