@@ -6,9 +6,10 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBusiness } from "@/components/business-app/BusinessWorkspace";
 import { primaryButtonClass } from "@/components/business-app/business-ui";
-import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
+import { Avatar } from "@/components/ui/Avatar";
+import { Tooltip } from "@/components/ui/Tooltip";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
-import { accessActionGuard, accessRoles, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor } from "./businessAccessPreviewState";
+import { accessActionGuard, accessRoles, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor, type PreviewPerson } from "./businessAccessPreviewState";
 
 const changedEvent = "workspace-preview-access-changed";
 const emptyStorage = { getItem: () => null, setItem: () => {} };
@@ -44,44 +45,45 @@ export default function BusinessAccessPreview() {
     setNotice({key:reason ? `workspace_setup_preview.access_guard_${reason}` : `workspace_setup_preview.access_${action.kind}_saved`, email:action.email});
     announceChange();
   }
-  return <section data-testid="business-access-preview" style={{maxWidth:896}} className="space-y-6">
+  function personRow(person: PreviewPerson) {
+    const pending = person.status === "pending";
+    const protectedReason = accessActionGuard(snapshot, actor, {kind:pending ? "cancel" : "remove",email:person.email});
+    const roleLabel = t(`workspace_setup_preview.permission_${person.permission}`);
+    const controls = <div className="flex shrink-0 items-center gap-1" aria-describedby={protectedReason ? `${id}-guard-${person.email}` : undefined}>
+      <div className="relative inline-grid items-center" style={{minHeight:44}}>
+        <span aria-hidden="true" className="invisible whitespace-nowrap text-[16px]" style={{paddingRight:28}}>{roleLabel}</span>
+        <select style={{position:"absolute",inset:0,width:"100%",border:0,padding:"0 28px 0 0",minHeight:44}} aria-label={t("workspace_setup_preview.access_role_for",{email:person.email})} aria-describedby={`${id}-role-${person.email}`} value={person.permission} disabled={Boolean(protectedReason)} onChange={event => act({kind:"role",email:person.email,permission:event.target.value as AccessRole})} className="appearance-none rounded-md bg-transparent text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70">
+          {accessRoles.filter(role => role !== "owner" || actor?.permission === "owner").map(role => <option key={role} value={role}>{t(`workspace_setup_preview.permission_${role}`)}</option>)}
+        </select>
+        <ChevronDown aria-hidden="true" style={{position:"absolute",right:4,top:"50%",transform:"translateY(-50%)"}} className="pointer-events-none h-4 w-4 text-black/55 dark:text-white/65" />
+      </div>
+      <span id={`${id}-role-${person.email}`} className="sr-only">{t(`workspace_setup_preview.permission_${person.permission}_detail`)}</span>
+      <button type="button" className={trashClass} disabled={Boolean(protectedReason)} aria-label={t(pending ? "workspace_setup_preview.access_cancel_for" : "workspace_setup_preview.access_remove_for",{email:person.email})} onClick={() => setConfirmation({kind:pending ? "cancel" : "remove",email:person.email})}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
+    </div>;
+    return <li key={person.email} className="flex min-h-16 flex-col gap-1 rounded-lg px-2 py-2 hover:bg-black/[0.025] focus-within:bg-black/[0.025] sm:flex-row sm:items-center sm:gap-4 dark:hover:bg-white/[0.035] dark:focus-within:bg-white/[0.035]">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <Avatar size={32} status={pending ? "pending" : null} />
+        <div className="min-w-0 flex-1">
+          <p className="break-all text-[16px] text-[#172b26] dark:text-white">{person.email}{person.current ? <span className="ml-2 text-[14px] text-black/55 dark:text-white/65">{t("workspace_setup_preview.access_you")}</span> : null}</p>
+          {pending ? <div className="flex flex-wrap items-center gap-x-3 text-[14px] text-[#56635e] dark:text-white/70"><span>{t("workspace_setup_preview.invite_pending")}</span><button type="button" className="min-h-11 rounded-md underline-offset-4 hover:underline focus-visible:outline-2" onClick={() => act({kind:"resend",email:person.email})}>{t("workspace_setup_preview.access_resend")}</button></div> : null}
+          {protectedReason ? <span id={`${id}-guard-${person.email}`} className="sr-only">{t(`workspace_setup_preview.access_guard_${protectedReason}`)}</span> : null}
+        </div>
+      </div>
+      <div className="self-end sm:self-auto">
+        {protectedReason ? <Tooltip content={t(`workspace_setup_preview.access_guard_${protectedReason}`)} side="top"><span tabIndex={0} role="group" aria-label={t("workspace_setup_preview.access_role_for",{email:person.email})} aria-describedby={`${id}-guard-${person.email}`} className="inline-flex rounded-md focus-visible:outline-2 focus-visible:outline-offset-2">{controls}</span></Tooltip> : controls}
+      </div>
+    </li>;
+  }
+  return <section data-testid="business-access-preview" style={{maxWidth:896}} className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{t("workspace_setup_preview.access_members_title")}</h2>
       <button type="button" className={primaryButtonClass} disabled={!actor} onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" aria-hidden="true" />{t("workspace_setup_preview.invite")}</button>
     </div>
-    <div className={SURFACE_CARD} style={{padding:12}}>
-      <ul className="divide-y divide-black/5 dark:divide-white/10">
-        {snapshot.members.map(person => {
-          const protectedReason = accessActionGuard(snapshot, actor, {kind:"remove",email:person.email});
-          const label = t("workspace_setup_preview.access_role_for", {email: person.email});
-          return <li key={person.email} className="flex flex-col gap-2 px-2 py-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className="min-w-0 flex-1"><p className="break-all text-[16px] text-[#172b26] dark:text-white">{person.email}{person.current ? <span className="ml-2 text-[14px] text-black/55 dark:text-white/65">{t("workspace_setup_preview.access_you")}</span> : null}</p>
-              {protectedReason ? <p id={`${id}-guard-${person.email}`} className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t(`workspace_setup_preview.access_guard_${protectedReason}`)}</p> : null}
-            </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <div className="relative"><select style={{minWidth:160,paddingRight:36,minHeight:44}} aria-label={label} aria-describedby={`${id}-role-${person.email}${protectedReason ? ` ${id}-guard-${person.email}` : ""}`} value={person.permission} disabled={Boolean(protectedReason)} onChange={event => act({kind:"role",email:person.email,permission:event.target.value as AccessRole})} className="min-h-11 appearance-none rounded-lg border border-black/15 bg-transparent py-2 pl-3 pr-9 text-[16px] text-[#172b26] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:text-white">
-                {accessRoles.filter(role => role !== "owner" || actor?.permission === "owner").map(role => <option key={role} value={role}>{t(`workspace_setup_preview.permission_${role}`)}</option>)}
-              </select><ChevronDown aria-hidden="true" style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)"}} className="pointer-events-none h-4 w-4 text-black/55 dark:text-white/65" /></div>
-              <span id={`${id}-role-${person.email}`} className="sr-only">{t(`workspace_setup_preview.permission_${person.permission}_detail`)}</span>
-              <button type="button" className={trashClass} disabled={Boolean(protectedReason)} aria-label={t("workspace_setup_preview.access_remove_for", {email:person.email})} onClick={() => setConfirmation({kind:"remove",email:person.email})}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
-            </div>
-          </li>;
-        })}
-      </ul>
-    </div>
-    <section>
-      <h3 className="mb-3 font-display text-[21px] font-medium text-[#172b26] dark:text-white">{t("workspace_setup_preview.access_pending_title")}</h3>
-      <div className={SURFACE_CARD} style={{padding:12}}>
-        {snapshot.pending.length ? <ul className="divide-y divide-black/5 dark:divide-white/10">{snapshot.pending.map(person => <li key={person.email} className="flex flex-col gap-3 px-2 py-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="min-w-0 flex-1"><p className="break-all text-[16px] text-[#172b26] dark:text-white">{person.email}</p><p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.invite_pending")}</p><button type="button" className="min-h-11 rounded-lg text-[14px] text-[#56635e] underline-offset-4 hover:underline dark:text-white/70" onClick={() => act({kind:"resend",email:person.email})}>{t("workspace_setup_preview.access_resend")}</button></div>
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <div className="relative"><select style={{minWidth:160,paddingRight:36,minHeight:44}} aria-label={t("workspace_setup_preview.access_role_for",{email:person.email})} value={person.permission} disabled={Boolean(accessActionGuard(snapshot,actor,{kind:"role",email:person.email,permission:person.permission}))} onChange={event => act({kind:"role",email:person.email,permission:event.target.value as AccessRole})} className="min-h-11 appearance-none rounded-lg border border-black/15 bg-transparent py-2 pl-3 pr-9 text-[16px] text-[#172b26] disabled:opacity-60 dark:border-white/20 dark:text-white">
-              {accessRoles.filter(role => role !== "owner" || actor?.permission === "owner").map(role => <option key={role} value={role}>{t(`workspace_setup_preview.permission_${role}`)}</option>)}
-            </select><ChevronDown aria-hidden="true" style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)"}} className="pointer-events-none h-4 w-4 text-black/55 dark:text-white/65" /></div>
-            <button type="button" className={trashClass} aria-label={t("workspace_setup_preview.access_cancel_for",{email:person.email})} onClick={() => setConfirmation({kind:"cancel",email:person.email})}><Trash2 className="h-4 w-4" aria-hidden="true" /></button></div>
-        </li>)}</ul> : <p className="px-2 py-3 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_no_pending")}</p>}
-      </div>
-    </section>
+    <ul>{snapshot.members.map(personRow)}</ul>
+    <details className="border-t border-black/10 pt-1 dark:border-white/10">
+      <summary className="min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] focus-visible:outline-2 dark:text-white/70">{t("workspace_setup_preview.access_pending_title")} · {snapshot.pending.length}</summary>
+      {snapshot.pending.length ? <ul>{snapshot.pending.map(personRow)}</ul> : <p className="px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_no_pending")}</p>}
+    </details>
     <p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{notice ? t(notice.key,{email:notice.email}) : ""}</p>
     <ConfirmDialog isOpen={confirmation !== null} title={t(confirmation?.kind === "cancel" ? "workspace_setup_preview.access_cancel_title" : "workspace_setup_preview.access_remove_title", {email:confirmation?.email})} description={t(confirmation?.kind === "cancel" ? "workspace_setup_preview.access_cancel_detail" : "workspace_setup_preview.access_remove_detail")} confirmLabel={t(confirmation?.kind === "cancel" ? "workspace_setup_preview.access_cancel" : "workspace_setup_preview.access_remove")} cancelLabel={t("common.cancel")} onCancel={() => setConfirmation(null)} onConfirm={() => {if(confirmation)act(confirmation);setConfirmation(null);}} />
     {inviting ? <WorkspaceSetupPreview invitation onClose={() => {setInviting(false);announceChange();}} /> : null}

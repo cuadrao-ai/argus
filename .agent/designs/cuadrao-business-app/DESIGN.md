@@ -223,9 +223,13 @@ The preview demonstrates them; this section does not certify backend wiring.
   a duplicate Cancel action. Keep Invite more and Done after full success.
 - Configurar exposes the Acceso / Access tab at every width, retaining its existing
   route. The local development review shows collaborators first and pending invites
-  separately. Each active row has email, an access dropdown and a neutral trash
-  button; phones stack the controls. Trash asks for confirmation. Pending rows show
-  their access, pending acceptance, Resend and a neutral cancel-invitation trash.
+  separately. Use compact, unframed rows with a 32px avatar, readable email, a quiet
+  borderless access selector and neutral trash. Do not infer names from email addresses.
+  Neutral row hover and focus replace per-row dividers; phones put controls below the
+  identity, aligned right. Keep 44px action targets and explain protected controls
+  through accessible help. Trash asks for confirmation. Pending invitations sit in a
+  small, initially collapsed disclosure with their count and one top divider. Expanded
+  rows retain access, pending acceptance, quiet Resend and cancel-invitation trash.
 - The Access panel reuses the invitation modal and its business-scoped local history.
   Resend remains pending and never grants access. Cancellation/revocation replaces
   that person's local history with a tombstone, so stale guide snapshots cannot
