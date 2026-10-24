@@ -370,3 +370,24 @@ async def test_curl_reads_multichunk_to_eof_and_bounds_total(monkeypatch, overfl
         result, media = await module.curl("GET", module.API_ORIGIN + "/invoices/id")
         assert result == body and media == "application/xml"
         assert not child.killed and child.awaited
+
+
+@pytest.mark.asyncio
+async def test_missing_pdf_parser_fails_closed(case_factory, monkeypatch):
+    case = case_factory()
+    provider_id = "01J00000000000000000000000"
+    url = f"https://{STORAGE_HOST}/users/{uuid4()}/opaque/ulid/invoice/pdf/doc-{provider_id}.pdf?private=signed"
+
+    async def addresses(*args, **kwargs):
+        return [(None, None, None, None, ("8.8.8.8", 443))]
+
+    async def fetch(*args, **kwargs):
+        return b"%PDF-1.4\n%%EOF", "application/pdf"
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", addresses)
+    monkeypatch.setattr(module, "curl", fetch)
+    monkeypatch.setattr(module.shutil, "which", lambda name: None)
+    with pytest.raises(ProviderError, match="artifact_parser_unavailable"):
+        await Provider(
+            Settings(storage_host=STORAGE_HOST, storage_path_prefix="/users/")
+        ).artifact(case, provider_id, "pdf", url)

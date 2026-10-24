@@ -127,7 +127,8 @@
         {
           "name": "CUADRAO_FISCAL_SANDBOX_MANIFEST_SHA256",
           "kind": "plain",
-          "keep_current": true
+          "keep_current": true,
+          "optional": true
         },
         {
           "name": "CUADRAO_FISCAL_SANDBOX_POLL_LIMIT",
