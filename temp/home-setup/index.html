@@ -314,9 +314,11 @@ function invitationBatch(){
 }
 function knownInvitationPeople(){
  const byEmail=new Map();
- for(const person of [...invitationBatch().history,state.invitation]){
-  if(!person?.email||!['pending','granted'].includes(person.status))continue;
+ for(const person of [state.invitation,...invitationBatch().history]){
+  if(!person?.email)continue;
   const email=normalizeEmail(person.email),previous=byEmail.get(email);
+  if(['cancelled','revoked'].includes(person.status)){byEmail.delete(email);continue}
+  if(!['pending','granted'].includes(person.status))continue;
   if(!previous||person.status==='granted'||previous.status!=='granted')byEmail.set(email,{...person,email});
  }
  if(currentInvitationMember?.email){const email=normalizeEmail(currentInvitationMember.email);byEmail.set(email,{...currentInvitationMember,email,status:'granted',current:true})}

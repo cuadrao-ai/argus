@@ -221,6 +221,20 @@ The preview demonstrates them; this section does not certify backend wiring.
   Separate the footer with a subtle divider. Send and Retry fill its width, with
   green reserved for the primary action. The close X preserves the draft; omit
   a duplicate Cancel action. Keep Invite more and Done after full success.
+- Configurar exposes the Acceso / Access tab at every width, retaining its existing
+  route. The local development review shows collaborators first and pending invites
+  separately. Each active row has email, an access dropdown and a neutral trash
+  button; phones stack the controls. Trash asks for confirmation. Pending rows show
+  their access, pending acceptance, Resend and a neutral cancel-invitation trash.
+- The Access panel reuses the invitation modal and its business-scoped local history.
+  Resend remains pending and never grants access. Cancellation/revocation replaces
+  that person's local history with a tombstone, so stale guide snapshots cannot
+  recreate access or block a later invitation. The earlier guide task stays complete.
+  Self-removal/demotion and removing the last owner are blocked with an explanation.
+  Only an owner may assign Owner. These preview controls do not enforce backend roles.
+- Synthetic accepted-member fixtures are seeded once only for fixture-space. Other
+  businesses receive no invented members. This panel is development-and-mock gated;
+  the existing live access component and its API behavior remain unchanged.
 - Keep membership and access lists under Configurar in Business settings. The
   invitation dialog contains only the people being invited and their send results;
   do not add current-member or pending-invitation history disclosures here.

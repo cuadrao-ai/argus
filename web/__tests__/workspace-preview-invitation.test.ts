@@ -328,3 +328,16 @@ test("session identity is accepted only for the selected business and is not per
   assert.equal(run("business-a"),null);
   assert.ok(!("currentInvitationMember" in state));
 });
+
+test("cancelled pending can be invited again without reviving stale guide state", async () => {
+  const {api,state,add,finish}=batchHarness();
+  state.invitation={email:"cancelled@example.test",permission:"owner",status:"pending"};
+  api.get().history.push({...state.invitation,status:"cancelled"});
+  assert.equal(api.people().pending.length,0);
+  const row=add("cancelled@example.test","editor");
+  const sending=api.send();await finish();await sending;
+  assert.equal(row.status,"sent");
+  assert.equal(api.people().pending.length,1);
+  assert.equal(api.people().pending[0].permission,"editor");
+  assert.equal(api.people().access.length,0);
+});

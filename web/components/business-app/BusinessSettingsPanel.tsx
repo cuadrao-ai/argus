@@ -5,6 +5,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness, type BusinessTab } from "./BusinessWorkspace";
 import BusinessLifecycleControls from "./BusinessLifecycleControls";
 import BusinessAccessPanel from "./BusinessAccessPanel";
+import BusinessAccessPreview from "@/app/design-workspace/BusinessAccessPreview";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import { BusinessEmailAddress, EmailHistory } from "./BusinessEmailDeliveries";
@@ -25,9 +26,10 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
   const { chosen, openPanel, source } = useBusiness();
   const { isBelowTablet } = useResponsiveLayout();
   const owner = chosen?.role === "owner";
+  const localPreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const tabs = [
     { key: "datos" as const, label: t("business.settings.tab_datos", "Details") },
-    ...(owner ? [{ key: "equipo" as const, label: isBelowTablet ? t("business.settings.tab_equipo_short", "Team") : t("business.settings.tab_equipo", "Team and access") }] : []),
+    ...(owner ? [{ key: "equipo" as const, label: t("business.settings.tab_equipo", "Access") }] : []),
     { key: "correo" as const, label: isBelowTablet ? t("business.settings.tab_correo_short", "Email") : t("business.settings.tab_correo", "Receipt email") },
   ];
   const shown = tabs.some((item) => item.key === tab) ? tab : "datos";
@@ -48,7 +50,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
           {owner && source.mode === "live" ? <BusinessLifecycleControls spaceId={chosen?.space_id} /> : null}
         </div>
       ) : null}
-      {shown === "equipo" ? <BusinessAccessPanel embedded /> : null}
+      {shown === "equipo" ? localPreview ? <BusinessAccessPreview key={chosen?.space_id} /> : <BusinessAccessPanel embedded /> : null}
       {shown === "correo" ? (
         <div className="space-y-6">
           <div className={SURFACE_CARD}><BusinessEmailAddress /></div>

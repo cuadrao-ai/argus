@@ -94,22 +94,22 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
 const params = () => new URLSearchParams(window.location.search);
 
 describe("the Negocio page", () => {
-  test("the owner sees Datos, Equipo y accesos and Correo de recibos, and each tab writes the address bar", async () => {
+  test("the owner sees Datos, Acceso and Correo de recibos, and each tab writes the address bar", async () => {
     const page = await mount("view=business", OWN);
     try {
       assert.equal(page.host.querySelector('[data-testid="business-settings"] h2')?.textContent, "Negocio");
-      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Datos", "Equipo y accesos", "Correo de recibos"]);
+      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Datos", "Acceso", "Correo de recibos"]);
       assert.equal(page.chosenTab(), "Datos");
       await page.settle(() => page.host.querySelector('input[name="business-name"]') !== null);
       assert.equal(page.host.querySelector<HTMLInputElement>('input[name="business-name"]')?.value, "Mi negocio", "the owner names the business in Datos");
       assert.equal(page.host.querySelector<HTMLInputElement>('input[name="tax-id-value"]')?.value, "131245678");
       assert.equal(page.host.textContent?.includes("Mi negocio · RNC"), false, "an editable profile shows no summary line");
 
-      await page.choose("Equipo y accesos");
+      await page.choose("Acceso");
       assert.deepEqual(page.panel(), { kind: "business", tab: "equipo" });
       assert.equal(params().get("view"), "business");
       assert.equal(params().get("tab"), "equipo");
-      assert.equal(page.chosenTab(), "Equipo y accesos");
+      assert.equal(page.chosenTab(), "Acceso");
       await page.settle(() => [...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"));
       assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"), "the team tab holds the access controls");
 
@@ -137,11 +137,11 @@ describe("the Negocio page", () => {
     }
   });
 
-  test("an old ?view=access link lands on Equipo y accesos under the new address", async () => {
+  test("an old ?view=access link lands on Acceso under the new address", async () => {
     const page = await mount("view=access", OWN);
     try {
       assert.deepEqual(page.panel(), { kind: "business", tab: "equipo" });
-      assert.equal(page.chosenTab(), "Equipo y accesos");
+      assert.equal(page.chosenTab(), "Acceso");
       assert.equal(params().get("view"), "business");
       assert.equal(params().get("tab"), "equipo");
     } finally {
@@ -275,7 +275,7 @@ test("an absent remembered membership still shows removed access", async () => {
 });
 
 
-test("only the owner finds lifecycle controls in Datos, and Equipo has none", async () => {
+test("only the owner finds lifecycle controls in Datos, and Acceso has none", async () => {
   const previousFetch = globalThis.fetch; const previousAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true";
   globalThis.fetch = async url => Response.json({ spaces: String(url).includes("owned-spaces") ? [{ space_id: "39d12d09-bebe-4992-b6dc-cb1a84d52438", name: OWN.name, grant_id: "af2d018e-6e6c-4fc7-9602-9b0b31ff9bc0", member_count: 0, reopen_until: "2026-11-20T17:45:00Z", export_windows: [], members: [] }] : [] });
@@ -285,7 +285,7 @@ test("only the owner finds lifecycle controls in Datos, and Equipo has none", as
     await page.settle(() => page.host.querySelector('[data-testid="business-lifecycle-controls"]') !== null);
     assert.ok(page.host.querySelector('a[href*="lifecycle=close"]'));
     assert.ok(page.host.querySelector('a[href*="lifecycle=transfer"]'));
-    await page.choose("Equipo y accesos");
+    await page.choose("Acceso");
     assert.equal(page.host.querySelector('[data-testid="business-lifecycle-controls"]'), null);
   } finally { await page.close(); globalThis.fetch = previousFetch; if (previousAuth === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousAuth; }
 });
