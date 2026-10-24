@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
-import { ChevronDown, Trash2, UserPlus } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBusiness } from "@/components/business-app/BusinessWorkspace";
 import { primaryButtonClass } from "@/components/business-app/business-ui";
 import { Avatar } from "@/components/ui/Avatar";
 import { Tooltip } from "@/components/ui/Tooltip";
+import AccessRolePicker from "./AccessRolePicker";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 import { accessActionGuard, accessRoles, changeAccessPreview, invitationStorageKeys, readAccessPreview, seedAccessPreview, type AccessAction, type AccessRole, type PreviewActor, type PreviewPerson } from "./businessAccessPreviewState";
 
@@ -48,15 +49,8 @@ export default function BusinessAccessPreview() {
   function personRow(person: PreviewPerson) {
     const pending = person.status === "pending";
     const protectedReason = accessActionGuard(snapshot, actor, {kind:pending ? "cancel" : "remove",email:person.email});
-    const roleLabel = t(`workspace_setup_preview.permission_${person.permission}`);
     const controls = <div className="flex shrink-0 items-center gap-1" aria-describedby={protectedReason ? `${id}-guard-${person.email}` : undefined}>
-      <div className="relative inline-grid items-center" style={{minHeight:44}}>
-        <span aria-hidden="true" className="invisible whitespace-nowrap text-[16px]" style={{paddingRight:28}}>{roleLabel}</span>
-        <select style={{position:"absolute",inset:0,width:"100%",border:0,padding:"0 28px 0 0",minHeight:44}} aria-label={t("workspace_setup_preview.access_role_for",{email:person.email})} aria-describedby={`${id}-role-${person.email}`} value={person.permission} disabled={Boolean(protectedReason)} onChange={event => act({kind:"role",email:person.email,permission:event.target.value as AccessRole})} className="appearance-none rounded-md bg-transparent text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70">
-          {accessRoles.filter(role => role !== "owner" || actor?.permission === "owner").map(role => <option key={role} value={role}>{t(`workspace_setup_preview.permission_${role}`)}</option>)}
-        </select>
-        <ChevronDown aria-hidden="true" style={{position:"absolute",right:4,top:"50%",transform:"translateY(-50%)"}} className="pointer-events-none h-4 w-4 text-black/55 dark:text-white/65" />
-      </div>
+      <AccessRolePicker variant="quiet" compact value={person.permission} disabled={Boolean(protectedReason)} label={t("workspace_setup_preview.access_role_for",{email:person.email})} options={accessRoles.filter(role => role !== "owner" || actor?.permission === "owner").map(role => ({value:role,label:t(`workspace_setup_preview.permission_${role}`),description:t(`workspace_setup_preview.permission_${role}_detail`)}))} onChange={value => act({kind:"role",email:person.email,permission:value as AccessRole})} />
       <span id={`${id}-role-${person.email}`} className="sr-only">{t(`workspace_setup_preview.permission_${person.permission}_detail`)}</span>
       <button type="button" className={trashClass} disabled={Boolean(protectedReason)} aria-label={t(pending ? "workspace_setup_preview.access_cancel_for" : "workspace_setup_preview.access_remove_for",{email:person.email})} onClick={() => setConfirmation({kind:pending ? "cancel" : "remove",email:person.email})}><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
     </div>;

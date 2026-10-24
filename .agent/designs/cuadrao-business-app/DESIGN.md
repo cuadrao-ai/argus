@@ -224,7 +224,9 @@ The preview demonstrates them; this section does not certify backend wiring.
 - Configurar exposes the Acceso / Access tab at every width, retaining its existing
   route. The local development review shows collaborators first and pending invites
   separately. Use compact, unframed rows with a 32px avatar, readable email, a quiet
-  borderless access selector and neutral trash. Do not infer names from email addresses.
+  borderless access trigger and neutral trash. The trigger reuses the invitation
+  picker: descriptive floating options on desktop and a tray on phones, never a native
+  select menu. Do not infer names from email addresses.
   Neutral row hover and focus replace per-row dividers; phones put controls below the
   identity, aligned right. Keep 44px action targets and explain protected controls
   through accessible help. Trash asks for confirmation. Pending invitations sit in a
