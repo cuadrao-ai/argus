@@ -96,7 +96,7 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
       disabled={disabled} onClick={() => setOpen(!open)}
       onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setOpen(true); } }}
       className={variant === "quiet" ? "flex min-h-11 items-center gap-2 rounded-md bg-transparent text-left text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70" : "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[#7d8a84] bg-transparent px-3 text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0]"}>
-      <span id={`${id}-value`}>{selected?.label}</span><ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span id={`${id}-value`}>{selected?.label}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
     </button>
     {!compact && variant === "field" ? <p id={`${id}-detail`} className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{selected?.description}</p> : null}
     {open && isBelowDesktop ? <BottomSheet isOpen onClose={close} title={label} closeLabel={t("common.close")} backLabel={t("common.back")} snaps="fit">
