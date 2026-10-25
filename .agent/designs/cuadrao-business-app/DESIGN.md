@@ -392,13 +392,26 @@ They extend Forms below, including email aliases, authorized senders and invoici
 - Configurar uses Perfil / Profile as the visible first tab, keeping `tab=datos`.
   In the local design preview, the existing labelled form stays on the left and
   a restrained Completa tu perfil checklist sits on the right. Phones stack them.
-  Only this preview tab uses the full canvas; the form stays at most 40rem wide.
+  Only this preview tab uses the full canvas: a flexible main card and a 20rem
+  checklist rail. The checklist has an inset neutral-gray basic section and a
+  lighter Detalles adicionales section; both stack below the form on phones.
 - Reuse the shared Business avatar, field validation and descriptive picker.
   Nombre del negocio is the workspace display name, not a separate legal name.
-  Show the saved operating country when known. Do not invent profile fields,
+  Show the saved operating country when known. Do not invent registry fields,
   completion percentages, required checklist totals or an overall completed state.
-  The provisional checklist describes known saved name and country facts only.
-- Electronic invoicing is a separate optional capability. Configure, Continue
+  Filled green checks and struck labels mean saved facts only; incomplete facts
+  use muted hollow circles. Name, valid identification, matching confirmed legal
+  name, country and address form the basic section. Email, phone, website and
+  description are additional details. Checklist actions focus their source field.
+- Address, province, municipality, business email, phone or WhatsApp, website and
+  short description are optional business-provided details, separate from registry
+  identity. They persist as one object in the existing scoped guide. An address
+  does not require province or municipality. Invalid email or website blocks save
+  until fixed or cleared; a domain may normalize to HTTPS. Shared inline errors
+  and a linked submit summary explain corrections. Failed local saves retain the
+  draft; saving contacts does not reset an unsaved identity draft.
+- Electronic invoicing lives in the main card, outside the checklist, as a
+  separate optional capability. Configure, Continue
   setup and View setup derive from the existing business-scoped guide state.
   Its entry reuses the existing dossier; changing its path stays inside that
   dossier and Back preserves the current step. Home keeps its existing flow.
@@ -410,7 +423,12 @@ They extend Forms below, including email aliases, authorized senders and invoici
   existing guide store. It makes no fiscal-profile API calls. The backend registry
   verifier and legal-name autofill remain unwired. The live fiscal profile still
   exposes one name, tax identifier and edit permission; this design does not add
-  a legal-name API contract or change backend access rules.
+  a legal-name API contract or change backend access rules. Missing legal name
+  stays Sin verificar; local confirmation timestamps are not registry sync dates.
+- Registry economic activity, regime or category, tax office, issuer authorization,
+  supporting documents, branches and currency remain future field/source decisions.
+  They are not current autofill. Invoice setup status is not issuer authorization.
+  Team management stays in Acceso; this pass adds no logo upload or team controls.
 
 ### Invoicing entry and saved setup
 

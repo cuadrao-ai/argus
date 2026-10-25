@@ -1,5 +1,5 @@
 import {expect,test} from "bun:test";
-import {readBusinessProfilePreview,saveBusinessProfilePreview} from "../app/design-workspace/businessProfilePreviewState";
+import {readBusinessProfilePreview,saveBusinessProfilePreview,normalizeBusinessProvidedDetails,saveBusinessProvidedDetails,validateBusinessProvidedDetails} from "../app/design-workspace/businessProfilePreviewState";
 import {invitationStorageKeys} from "../app/design-workspace/businessAccessPreviewState";
 function store(businessId:string,value:unknown){const values=new Map([[invitationStorageKeys(businessId).guide,JSON.stringify(value)]]);return {getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);}};}
 test("profile facts stay business scoped and a missing tax ID stays unknown",()=>{
@@ -35,4 +35,35 @@ test("saving name and tax ID preserves guide history and invalidates a stale reg
  expect(raw.invitation.email).toBe("pending@example.test");expect(raw.businessDetails.legalName).toBe("");expect(raw.legalname).toBe("");expect(raw.registryResult).toBeNull();
  saveBusinessProfilePreview(storage,"one",{name:"Updated",previous_name:"Updated",tax_id:{type:"cedula",value:"001-12345678"},previous_tax_id:updated.taxId});
  expect(readBusinessProfilePreview(storage,"one","Updated").taxId).toEqual({type:"cedula",value:"00112345678"});
+});
+
+test("contact saves stay scoped, normalize optional values, and preserve guide data",()=>{
+ const storage=store("one",{workspace:{country:"DO"},activation:{status:"in-progress",path:"existing"},invitation:{email:"assistant@example.test"}});
+ const input=normalizeBusinessProvidedDetails({address:"  Calle Sol 10  ",website:"lapalma.do",email:" office@example.test "});
+ const saved=saveBusinessProvidedDetails(storage,"one",input);
+ expect(saved.address).toBe("Calle Sol 10");expect(saved.website).toBe("https://lapalma.do");
+ expect(readBusinessProfilePreview(storage,"one","La Palma").providedDetails.email).toBe("office@example.test");
+ expect(readBusinessProfilePreview(storage,"two","Other").providedDetails.address).toBe("");
+ const raw=JSON.parse(storage.getItem(invitationStorageKeys("one").guide)!);
+ expect(raw.activation).toEqual({status:"in-progress",path:"existing"});expect(raw.invitation.email).toBe("assistant@example.test");
+ expect(raw.registryResult).toBeUndefined();expect(raw.checkedAt).toBeUndefined();
+});
+test("optional values must be valid before save and failures preserve stored facts",()=>{
+ const storage=store("one",{businessProvidedDetails:{email:"saved@example.test"}});
+ for(const website of ["javascript:alert(1)","mailto:hello@example.test","https://user:secret@example.test","not a website","https://localhost"]){
+  const input=normalizeBusinessProvidedDetails({website});
+  expect(validateBusinessProvidedDetails(input).website).toBe("website");expect(()=>saveBusinessProvidedDetails(storage,"one",input)).toThrow();
+ }
+ const input=normalizeBusinessProvidedDetails({email:"invalid"});expect(validateBusinessProvidedDetails(input).email).toBe("email");expect(()=>saveBusinessProvidedDetails(storage,"one",input)).toThrow();
+ expect(readBusinessProfilePreview(storage,"one","La Palma").providedDetails.email).toBe("saved@example.test");
+ expect(()=>saveBusinessProvidedDetails({getItem:storage.getItem,setItem:()=>{throw new Error("quota");}},"one",normalizeBusinessProvidedDetails({phone:"809 555 0100"}))).toThrow("quota");
+ expect(validateBusinessProvidedDetails(normalizeBusinessProvidedDetails({}))).toEqual({});
+});
+test("checklist uses saved valid facts without requiring province or municipality",()=>{
+ const storage=store("one",{businessDetails:{enteredRnc:"123"},businessProvidedDetails:{address:"Calle Sol",email:"invalid",website:"javascript:alert(1)"}});
+ const item=(key:string)=>readBusinessProfilePreview(storage,"one","La Palma").checklist.find(item=>item.key===key)?.complete;
+ expect(item("address")).toBe(true);expect(item("taxId")).toBe(false);expect(item("legalName")).toBe(false);expect(item("email")).toBe(false);expect(item("website")).toBe(false);
+ const draft=normalizeBusinessProvidedDetails({email:"office@example.test"});expect(draft.email).not.toBe("");expect(item("email")).toBe(false);
+ saveBusinessProvidedDetails(storage,"one",draft);expect(item("email")).toBe(true);expect(item("address")).toBe(false);
+ for(const value of ["131245678","00112345678"]){const taxId=value.length===9 ? {businessDetails:{enteredRnc:value}} : {profileTaxId:{type:"cedula",value}};expect(readBusinessProfilePreview(store("one",taxId),"one","Business").checklist.find(item=>item.key==="taxId")?.complete).toBe(true);}
 });
