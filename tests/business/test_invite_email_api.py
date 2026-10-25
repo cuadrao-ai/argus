@@ -30,8 +30,7 @@ def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
     again = alice.post(f"/access/invites/{invite['id']}/resend")
     assert again.status_code == 200
     assert again.json()["invite_delivery"] == "accepted"
-    assert len(sent) == 2
-    assert sent[0]["idempotency_key"] != sent[1]["idempotency_key"]
+    assert len(sent) == 1
     expiry = datetime.fromisoformat(
         again.json()["invites"][0]["expires_at"].replace("Z", "+00:00")
     )
@@ -41,12 +40,17 @@ def test_configured_create_and_resend_call_actual_adapter_with_canonical_labels(
     assert expiry - created == timedelta(days=7)
 
 
-def test_missing_provider_config_reports_failure_and_explicit_resend_can_retry(
+def test_transport_rejection_reports_failure_and_explicit_resend_can_retry(
     alice: Owner, monkeypatch
 ):
     monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
     monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
-    monkeypatch.setenv("ARGUS_APPROVAL_EMAIL_SMTP_PASSWORD", "")
+    from smtplib import SMTPDataError
+
+    def reject(**message):
+        raise SMTPDataError(550, b"synthetic rejection")
+
+    monkeypatch.setattr("argus.domain.business.invite_email.send_resend_email", reject)
     first = alice.post("/access", {"email": "contadora@example.test"})
     assert first.status_code == 201
     assert first.json()["invite_delivery"] == "failed"
@@ -86,3 +90,21 @@ def test_enabled_delivery_sends_without_a_postal_address(alice: Owner, monkeypat
     assert sent[0]["plain_text"].rstrip().endswith("Cuadrao LLC")
     assert "Cuadrao LLC," not in sent[0]["html"] + sent[0]["plain_text"]
     assert "Salir de la lista" not in sent[0]["html"] + sent[0]["plain_text"]
+
+
+def test_transport_timeout_stays_uncertain_without_automatic_resend(alice, monkeypatch):
+    calls = []
+    monkeypatch.setenv("CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED", "true")
+    monkeypatch.setenv("CUADRAO_APP_ORIGIN", "https://app.example.test")
+
+    def timeout(**message):
+        calls.append(message)
+        raise TimeoutError("synthetic lost response")
+
+    monkeypatch.setattr("argus.domain.business.invite_email.send_resend_email", timeout)
+    first = alice.post("/access", {"email": "contadora@example.test"})
+    assert first.json()["invite_delivery"] == "uncertain"
+    invite = first.json()["invites"][0]
+    again = alice.post(f"/access/invites/{invite['id']}/resend")
+    assert again.json()["invite_delivery"] == "uncertain"
+    assert len(calls) == 1

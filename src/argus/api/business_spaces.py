@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException, Request
-from loguru import logger
 
 from argus.api import state as api_state
 from argus.api.dependencies import problem
@@ -89,26 +88,15 @@ def configure_business_search_memory(store: SearchMemory | None) -> None:
 
 
 def accept_business_invites(user_id: str) -> None:
-    """Pending Business invites for this person's confirmed email become grants.
-
-    Every read that can be a person's first after sign-in runs it (the profile
-    and the Business listing). Idempotent, and it never blocks the read."""
-
-    store = business_access()
-    if store is None:
-        return
-    try:
-        store.accept_invites(user_id)
-    except Exception as error:  # noqa: BLE001 - the read answers; the class is logged
-        logger.warning(
-            "business_access_accept_failed", user_id=user_id, error=type(error).__name__
-        )
+    """Compatibility hook. Reading an account never accepts an invitation."""
+    return None
 
 
 def start_business_spaces(app: object) -> None:
     if api_state.PERSISTENCE_MODE != "supabase":
-        configure_business_spaces(InMemorySpaceStore())
-        configure_business_access(InMemoryAccessStore())
+        access = InMemoryAccessStore()
+        configure_business_spaces(InMemorySpaceStore(access))
+        configure_business_access(access)
         configure_business_search_memory(InMemorySearchMemory())
         return
     pool = getattr(getattr(app, "state", None), "financial_accounts_pool", None)

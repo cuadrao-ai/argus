@@ -14,7 +14,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
-import psycopg
 import pytest
 from argus.api import state as api_state
 from argus.api.main import app
@@ -119,6 +118,10 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         with Connection.connect(shared.DSN) as db:
             for user_id in created:
                 db.execute(
+                    "update public.spaces set closed_at=coalesce(closed_at,clock_timestamp()) where created_by=%s and kind='business'",
+                    (user_id,),
+                )
+                db.execute(
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
@@ -152,6 +155,13 @@ def _grant(world, owner: Person, grantee: Person) -> str:  # noqa: ANN001
         f"{API}/business/access", json={"email": grantee.email}, headers=owner.headers
     )
     assert given.status_code == 201, given.text
+    invite = next(i for i in given.json()["invites"] if i["email"] == grantee.email)
+    accepted = world.client.post(
+        f"{API}/business/invitations/{invite['id']}/accept",
+        headers=grantee.headers,
+        json={"space_id": owner.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
     listed = world.client.get(f"{API}/business/spaces", headers=grantee.headers)
     assert listed.status_code == 200, listed.text
     [found] = [s for s in listed.json()["spaces"] if s["space_id"] == owner.space_id]
@@ -347,16 +357,16 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         r for r in _ledger(bob.space_id) if r[1] != web.grant_a
     ]
 
-    # Approval never leaves the owner: the database refuses approve on a grantee's
-    # row, and the code refuses it even if such a row existed.
+    # Editing the legacy projection cannot add canonical Owner authority.
     with Connection.connect(shared.DSN) as db:
-        with pytest.raises(
-            psycopg.errors.CheckViolation, match="business_grant_approve_owner_only"
-        ):
-            db.execute(
-                "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
-                (web.grant_a,),
-            )
+        db.execute(
+            "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
+            (web.grant_a,),
+        )
+        assert db.execute(
+            "select capabilities from public.business_client_grants where id=%s",
+            (web.grant_a,),
+        ).fetchone() == (["read", "prepare"],)
     version = client.get(
         f"{API}/business/drafts/{draft_a}/dossier", headers=_as(bob, web.grant_a)
     ).json()["version"]
@@ -380,11 +390,8 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         ).json()["capabilities"]
     ) == {"read", "prepare"}
 
-    # The own-Business routes and the owner's channels refuse a chosen grant.
-    assert _code(client.get(f"{API}/business/space", headers=_as(bob, web.grant_a))) == (
-        403,
-        "business_permission_denied",
-    )
+    selected = client.get(f"{API}/business/space", headers=_as(bob, web.grant_a))
+    assert selected.status_code == 200 and selected.json()["id"] == alice.space_id
     assert _code(
         client.patch(
             f"{API}/business/space", json={"name": "Otro"}, headers=_as(bob, web.grant_a)
@@ -506,7 +513,7 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         assert answer.status_code == 200, (path, answer.text)
 
 
-def test_a_revoked_expired_or_issuer_lost_grant_stops_every_route_at_once(web) -> None:  # noqa: ANN001
+def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not(web) -> None:  # noqa: ANN001
     client, alice, bob, carol = web.client, web.alice, web.bob, web.carol
     receipt_a = _upload(web, alice, RECEIPT).json()["id"]
     draft_a = _note(web, alice, "nota de A").json()["draft_id"]
@@ -576,32 +583,71 @@ def test_a_revoked_expired_or_issuer_lost_grant_stops_every_route_at_once(web) -
         ).status_code
         == 200
     )
-    # The issuer lost owner access: Carol's own owner grant revoked ends the grant she gave.
+    # Accepted membership survives the original inviter losing authority.
     with Connection.connect(shared.DSN) as db:
         db.execute(
-            "update public.business_client_grants set revoked_at=now() where space_id=%s and grantee_id=%s and issuer_id=%s",
-            (carol.space_id, carol.id, carol.id),
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (carol.space_id, alice.id, carol.id),
         )
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where space_id=%s and grantee_id=%s",
+            (carol.space_id, carol.id),
+        )
+    assert client.get(f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)).status_code == 200
+    assert client.get(f"{API}/business/workspace", headers=carol.headers).status_code != 200
+    with Connection.connect(shared.DSN) as db:
+        assert db.execute("select count(*) from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null", (carol.space_id, carol.id)).fetchone() == (0,)
+        db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (web.grant_c,))
     everything_refused(web.grant_c, receipt_c, draft_c)
-    assert {
-        s["space_id"]
-        for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()[
-            "spaces"
-        ]
-    } == {bob.space_id}
-    # Owner access restored (the workspace read heals the owner grant once): the grant Carol gave is live again.
-    assert (
-        client.get(f"{API}/business/workspace", headers=carol.headers).status_code == 200
+    assert {s["space_id"] for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()["spaces"]} == {bob.space_id}
+
+
+@pytest.mark.parametrize("state", ["owner", "viewer", "revoked"])
+def test_default_business_bootstrap_rechecks_live_membership(web, state):
+    from argus.api.business_spaces import business_access
+
+    access = business_access()
+    space = web.alice.space_id
+    access.change_role(space, web.alice.id, web.grant_a, "owner")
+    invitation = next(
+        i for i in access.list(space, web.alice.id).invites if i.requested_role == "owner"
     )
-    assert (
-        client.get(
-            f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)
-        ).status_code
-        == 200
+    access.accept_invite(web.bob.id, space, invitation.id)
+    owner = next(
+        g.id
+        for g in access.list(space, web.bob.id).grants
+        if g.grantee_id == web.alice.id
     )
-    assert {
-        s["space_id"]
-        for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()[
-            "spaces"
-        ]
-    } == {bob.space_id, carol.space_id}
+    if state == "revoked":
+        access.revoke_grant(space, web.bob.id, owner)
+    elif state == "viewer":
+        access.change_role(space, web.bob.id, owner, state)
+
+    def snapshot():
+        with Connection.connect(shared.DSN) as db:
+            return tuple(
+                db.execute(query, (web.alice.id,)).fetchall()
+                for query in (
+                    "select to_jsonb(s) from public.spaces s where created_by=%s order by id",
+                    "select to_jsonb(g) from public.business_client_grants g where grantee_id=%s order by id",
+                    "select count(*) from public.business_action_receipts where actor_id=%s",
+                )
+            )
+
+    before = snapshot()
+    replay = web.client.post(
+        f"{API}/business/space",
+        headers=web.alice.headers,
+        json={"name": "Do not replace", "country": "DO"},
+    )
+    assert snapshot() == before
+    if state == "revoked":
+        assert replay.status_code == 404
+        assert replay.json()["code"] == "business_record_not_found"
+        assert "id" not in replay.json() and "name" not in replay.json()
+        assert access.capabilities(space, web.alice.id) == ()
+    else:
+        assert replay.status_code == 200
+        assert replay.json()["id"] == space
+        assert replay.json()["name"] == f"Negocio de {web.alice.email}"
+        assert access.granted(web.alice.id, owner).business_role == state

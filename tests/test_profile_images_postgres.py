@@ -195,8 +195,9 @@ def test_a_member_grant_carries_seen_only_after_its_own_receipt(pool, users) -> 
         ).fetchone()[0]
     created, listed = access.give(space.id, owner, email)
     assert created
-    assert [(g.owner, g.seen) for g in listed.grants] == [(True, True), (False, False)]
-    grant_id = next(g.id for g in listed.grants if not g.owner)
+    assert [(g.owner, g.seen) for g in listed.grants] == [(True, True)]
+    grant_id = access.accept_invite(member, space.id, listed.invites[0].id)
+    assert [(g.owner, g.seen) for g in access.list(space.id, owner).grants] == [(True, True), (False, False)]
     access.mark_seen(member, grant_id)
     assert [(g.owner, g.seen) for g in access.list(space.id, owner).grants] == [
         (True, True),

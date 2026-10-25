@@ -1,17 +1,9 @@
-"""Who may act in a Business: the owner's own grant and named accountants.
-
-The grant row in ``public.business_client_grants`` stays the only authority.
-This module only creates, lists and revokes those rows, plus the pending
-invites that become one when a confirmed email signs in. Every change writes
-one ``business_action_receipts`` row, so the ledger shows who gave or took
-access and when. The owner always holds read, prepare and approve on their
-own space; everyone else holds read and prepare at most, and approve is never
-handed to an agent.
-"""
+"""Canonical Business memberships, explicit invitations and legacy projections."""
 
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Protocol
@@ -25,6 +17,20 @@ from psycopg_pool import ConnectionPool
 from argus.domain.business.contracts.actions import canonical_input_hash
 from argus.domain.business.contracts.authority import ActorProvenance
 from argus.domain.business.contracts.facts import Contract
+from argus.domain.business.memberships import (
+    DeliveryState,
+    InvitationCommandResult,
+    MembershipError,
+    PostgresMembershipCommands,
+    RecipientInvitation,
+)
+from argus.domain.business.roles import (
+    ROLE_PERMISSIONS,
+    BusinessRole,
+    legacy_capabilities,
+    legacy_role,
+    promotion_requires_acceptance,
+)
 
 OWNER_CAPABILITIES = ("read", "prepare", "approve")
 MEMBER_CAPABILITIES = ("read", "prepare")
@@ -39,6 +45,7 @@ AccessAction = Literal[
     "revoke_grant",
     "revoke_invite",
     "access_seen",
+    "change_role",
 ]
 RevokeGrantResult = Literal["revoked", "own_grant", "missing"]
 
@@ -50,9 +57,9 @@ class AccessCommand(Contract):
     grant_id: UUID | None = None
     invite_id: UUID | None = None
     email: str | None = None
-    # An invite re-issued after expiry keeps its row and gets a new window: the
-    # window makes the re-issue its own ledger row.
     expires_at: datetime | None = None
+    business_role: BusinessRole | None = None
+    membership_version: int | None = None
 
 
 @dataclass(frozen=True)
@@ -67,20 +74,18 @@ class GrantedSpace:
 
     @property
     def role(self) -> str:
-        return "owner" if self.current_owner_id == self.grantee_id else "accountant"
+        return legacy_role(self.business_role)
 
     grantee_id: str = ""
     current_owner_id: str = ""
+    business_role: BusinessRole = BusinessRole.EDITOR
+
+    @property
+    def permissions(self) -> frozenset[str]:
+        return ROLE_PERMISSIONS[self.business_role]
 
     def __post_init__(self) -> None:
-        # What the grant lets this person do: approve is the owner's alone,
-        # whatever a row says, so the listing never reports it for anyone else.
-        if self.role != "owner" and "approve" in self.capabilities:
-            object.__setattr__(
-                self,
-                "capabilities",
-                tuple(c for c in self.capabilities if c != "approve"),
-            )
+        object.__setattr__(self, "capabilities", legacy_capabilities(self.business_role))
 
 
 @dataclass(frozen=True)
@@ -108,6 +113,7 @@ class AccessGrant:
     #: The grantee dismissed the "you now have access" line (their access_seen
     #: receipt), or is the owner. Until then the Business learns only their name.
     seen: bool = False
+    business_role: BusinessRole = BusinessRole.EDITOR
 
 
 @dataclass(frozen=True)
@@ -117,6 +123,8 @@ class AccessInvite:
     created_at: datetime
     expires_at: datetime
     state: Literal["pending", "expired"] = "pending"
+    requested_role: BusinessRole = BusinessRole.EDITOR
+    supersedes_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -143,16 +151,20 @@ def normalize_email(value: str) -> str:
 
 class AccessStore(Protocol):
     def ensure_owner_grant(self, space_id: str, owner_id: str) -> bool:
-        """The owner's live grant, inserted when missing. True when inserted."""
+        """Initialize a Business with no grant history. True when inserted."""
         ...
 
     def list(self, space_id: str, owner_id: str) -> AccessList: ...
 
-    def give(self, space_id: str, owner_id: str, email: str) -> tuple[bool, AccessList]:
-        """A read+prepare grant for a confirmed account, else a pending invite.
-
-        Returns ``(created, list)``; a replay returns ``False`` and the same list.
-        """
+    def give(
+        self,
+        space_id: str,
+        owner_id: str,
+        email: str,
+        role: BusinessRole = BusinessRole.EDITOR,
+        command_key: str | None = None,
+    ) -> tuple[bool, AccessList]:
+        """Create a pending invitation; exact replay creates nothing."""
         ...
 
     def resend(self, space_id: str, owner_id: str, invite_id: str) -> AccessList | None:
@@ -166,8 +178,28 @@ class AccessStore(Protocol):
     def revoke_invite(self, space_id: str, owner_id: str, invite_id: str) -> bool: ...
 
     def accept_invites(self, user_id: str) -> int:
-        """Turn the live invites for this person's confirmed email into grants."""
+        """Legacy read hook; never activates an invitation."""
         ...
+
+    def accept_invite(self, user_id: str, space_id: str, invite_id: str) -> str: ...
+
+    def change_role(
+        self, space_id: str, actor_id: str, grant_id: str, role: BusinessRole
+    ) -> AccessList: ...
+
+    def invitations_for(self, user_id: str) -> tuple[RecipientInvitation, ...]: ...
+
+    def invitation_command(
+        self, space_id: str, actor_id: str, command_key: str
+    ) -> InvitationCommandResult | None: ...
+
+    def deliver_invitation(
+        self,
+        space_id: str,
+        actor_id: str,
+        invite_id: str,
+        send: Callable[[], DeliveryState],
+    ) -> DeliveryState: ...
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
         """Every open Business where this person holds a live read grant, their
@@ -201,8 +233,8 @@ class AccessStore(Protocol):
 
 
 def _closed(row: tuple, person_id: str) -> ClosedSpace:
-    grant, space, name, _, _, current_owner, closed_at = row
-    role = "owner" if current_owner == person_id else "accountant"
+    grant, space, name, _, _, current_owner, closed_at, business_role = row
+    role = legacy_role(BusinessRole(business_role))
     return ClosedSpace(space, name, grant, role, closed_at)
 
 
@@ -212,8 +244,8 @@ def _label(display_name: str | None, username: str | None) -> str:
 
 def _lock(connection: Connection, space_id: str) -> None:
     connection.execute(
-        "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
-        (f"business_access:{space_id}",),
+        "select id from public.spaces where id=%s for update",
+        (space_id,),
     )
 
 
@@ -247,7 +279,9 @@ def _record(
         issuer_id=UUID(issuer_id),
         issuer_display_name=labels[issuer_id],
     )
-    subject = command.grant_id or command.invite_id
+    subject = command.invite_id or command.grant_id
+    if command.membership_version is not None:
+        subject = f"{subject}:{command.membership_version}"
     if command.expires_at is not None:
         subject = f"{subject}:{command.expires_at.timestamp():.6f}"
     connection.execute(
@@ -289,12 +323,7 @@ def _owner_grant_id(connection: Connection, space_id: str, owner_id: str) -> str
 def ensure_owner_grant(
     connection: Connection, space_id: str, owner_id: str
 ) -> str | None:
-    """Insert the owner's grant inside the caller's transaction.
-
-    Returns the new grant id, or ``None`` when a live one already exists or the
-    space is not this person's open Business. The receipt is written only on
-    insert, so a heal that finds the grant leaves no trace.
-    """
+    """Initialize the default Owner only when the Business has no grant history."""
 
     _lock(connection, space_id)
     row = connection.execute(
@@ -302,8 +331,7 @@ def ensure_owner_grant(
         " select s.id, s.current_owner_id, s.current_owner_id, %s::text[] from public.spaces s"
         " where s.id=%s and s.current_owner_id=%s and s.kind='business' and s.closed_at is null"
         " and not exists (select 1 from public.business_client_grants g"
-        "   where g.space_id=s.id and g.grantee_id=s.current_owner_id and g.revoked_at is null"
-        "   and (g.expires_at is null or g.expires_at > now()))"
+        "   where g.space_id=s.id)"
         " returning id::text",
         (list(OWNER_CAPABILITIES), space_id, owner_id),
     ).fetchone()
@@ -320,7 +348,7 @@ def ensure_owner_grant(
     return row[0]
 
 
-class PostgresAccessStore:
+class PostgresAccessStore(PostgresMembershipCommands):
     def __init__(self, pool: ConnectionPool) -> None:
         self.pool = pool
 
@@ -329,20 +357,19 @@ class PostgresAccessStore:
             return ensure_owner_grant(connection, space_id, owner_id) is not None
 
     def _owned(self, connection: Connection, space_id: str, owner_id: str) -> bool:
-        return (
-            connection.execute(
-                "select 1 from public.spaces where id=%s and current_owner_id=%s"
-                " and kind='business' and closed_at is null for share",
-                (space_id, owner_id),
-            ).fetchone()
-            is not None
-        )
+        from argus.domain.business.memberships import require_manager
+
+        try:
+            require_manager(connection, space_id, owner_id)
+            return True
+        except MembershipError:
+            return False
 
     def _list(self, connection: Connection, space_id: str, owner_id: str) -> AccessList:
         with connection.cursor(row_factory=dict_row) as cursor:
             grants = cursor.execute(
                 "select g.id::text, g.grantee_id::text, u.email, p.display_name, p.username,"
-                " g.capabilities, g.created_at, g.grantee_id = %s::uuid or exists("
+                " g.capabilities, g.created_at, g.business_role, g.grantee_id = %s::uuid or exists("
                 "  select 1 from public.business_action_receipts r"
                 "  where r.actor_id=g.grantee_id and r.turn_key is null"
                 "  and r.command->>'action'='access_seen' and r.command->>'grant_id'=g.id::text"
@@ -355,7 +382,7 @@ class PostgresAccessStore:
                 (owner_id, space_id, owner_id),
             ).fetchall()
             invites = cursor.execute(
-                "select id::text, email, created_at, expires_at,"
+                "select id::text, email, created_at, expires_at, requested_role, supersedes_id::text,"
                 " case when expires_at > clock_timestamp() then 'pending' else 'expired' end as state"
                 " from public.business_access_invites"
                 " where space_id=%s and revoked_at is null and accepted_at is null"
@@ -371,8 +398,9 @@ class PostgresAccessStore:
                     _label(row["display_name"], row["username"]),
                     tuple(row["capabilities"]),
                     row["created_at"],
-                    row["grantee_id"] == owner_id,
+                    row["business_role"] == "owner",
                     row["seen"],
+                    BusinessRole(row["business_role"]),
                 )
                 for row in grants
             ),
@@ -383,6 +411,8 @@ class PostgresAccessStore:
                     row["created_at"],
                     row["expires_at"],
                     row["state"],
+                    BusinessRole(row["requested_role"]),
+                    row["supersedes_id"],
                 )
                 for row in invites
             ),
@@ -400,22 +430,13 @@ class PostgresAccessStore:
     # A closed Business pauses every grant on it; the same grant reads as
     # closed, not removed, until the Business reopens or is purged.
     _LIVE_GRANTS = (
-        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities, s.current_owner_id::text, s.closed_at"
+        "select g.id::text, g.space_id::text, s.name, s.created_by::text, g.capabilities, s.current_owner_id::text, s.closed_at, g.business_role"
         " from public.business_client_grants g join public.spaces s on s.id=g.space_id"
         " join auth.users u on u.id=g.grantee_id"
         " where g.grantee_id=%s and g.revoked_at is null"
         " and (g.expires_at is null or g.expires_at > clock_timestamp())"
         " and 'read'=any(g.capabilities) and s.kind='business' and s.closed_at {state}"
         " and coalesce(u.is_anonymous,false)=false"
-        " and not exists (select 1 from public.business_client_grants lost"
-        "   where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id"
-        "   and lost.issuer_id=lost.grantee_id"
-        "   and (lost.revoked_at is not null"
-        "     or (lost.expires_at is not null and lost.expires_at <= clock_timestamp()))"
-        "   and not exists (select 1 from public.business_client_grants own"
-        "     where own.space_id=lost.space_id and own.grantee_id=lost.grantee_id"
-        "     and own.issuer_id=own.grantee_id and own.revoked_at is null"
-        "     and (own.expires_at is null or own.expires_at > clock_timestamp())))"
     )
     _GRANTED = _LIVE_GRANTS.format(state="is null")
     _CLOSED = _LIVE_GRANTS.format(state="is not null")
@@ -441,8 +462,17 @@ class PostgresAccessStore:
                 (person_id, person_id),
             ).fetchall()
         return tuple(
-            GrantedSpace(space, name, grant, owner, tuple(caps), person_id, current_owner)
-            for grant, space, name, owner, caps, current_owner, _ in rows
+            GrantedSpace(
+                space,
+                name,
+                grant,
+                owner,
+                tuple(caps),
+                person_id,
+                current_owner,
+                BusinessRole(role),
+            )
+            for grant, space, name, owner, caps, current_owner, _, role in rows
         )
 
     def granted(self, person_id: str, grant_id: str) -> GrantedSpace | None:
@@ -452,9 +482,16 @@ class PostgresAccessStore:
             ).fetchone()
         if row is None:
             return None
-        grant, space, name, owner, caps, current_owner, _ = row
+        grant, space, name, owner, caps, current_owner, _, role = row
         return GrantedSpace(
-            space, name, grant, owner, tuple(caps), person_id, current_owner
+            space,
+            name,
+            grant,
+            owner,
+            tuple(caps),
+            person_id,
+            current_owner,
+            BusinessRole(role),
         )
 
     def closed_spaces_for(self, person_id: str) -> tuple[ClosedSpace, ...]:
@@ -515,223 +552,6 @@ class PostgresAccessStore:
                 ),
             )
 
-    def give(self, space_id: str, owner_id: str, email: str) -> tuple[bool, AccessList]:
-        email = normalize_email(email)
-        with self.pool.connection() as connection, connection.transaction():
-            if not self._owned(connection, space_id, owner_id):
-                raise LookupError("business_space_missing")
-            _lock(connection, space_id)
-            owner_grant = _owner_grant_id(connection, space_id, owner_id)
-            # Only a confirmed, non-anonymous account matches; nothing about the
-            # account reaches the owner beyond the row the list shows.
-            account = connection.execute(
-                "select id::text from auth.users where lower(email)=%s"
-                " and email_confirmed_at is not null and coalesce(is_anonymous, false)=false"
-                " order by created_at limit 1",
-                (email,),
-            ).fetchone()
-            created = False
-            if account is not None:
-                grantee = account[0]
-                if _live_grant(connection, space_id, grantee) is None:
-                    grant = connection.execute(
-                        "insert into public.business_client_grants (space_id, grantee_id, issuer_id, capabilities)"
-                        " values (%s, %s, %s, %s::text[]) returning id::text",
-                        (space_id, grantee, owner_id, list(MEMBER_CAPABILITIES)),
-                    ).fetchone()[0]
-                    connection.execute(
-                        "update public.business_access_invites set accepted_at=now(), accepted_grant_id=%s"
-                        " where space_id=%s and email=%s and revoked_at is null and accepted_at is null",
-                        (grant, space_id, email),
-                    )
-                    _record(
-                        connection,
-                        space_id=space_id,
-                        actor_id=owner_id,
-                        grant_id=owner_grant,
-                        issuer_id=owner_id,
-                        command=AccessCommand(
-                            action="grant_access", grant_id=UUID(grant), email=email
-                        ),
-                    )
-                    created = True
-            else:
-                # One pending row per Business and email. A live one stays as it
-                # is; an expired one is re-issued in place with a fresh window
-                # and its own receipt; a revoked or accepted one no longer holds
-                # the slot, so a new row is born.
-                invite = connection.execute(
-                    "insert into public.business_access_invites (space_id, issuer_id, email, expires_at)"
-                    " values (%s, %s, %s, now() + %s)"
-                    " on conflict (space_id, email) where revoked_at is null and accepted_at is null"
-                    " do update set issuer_id=excluded.issuer_id, created_at=now(),"
-                    " expires_at=excluded.expires_at"
-                    " where public.business_access_invites.expires_at <= now()"
-                    " returning id::text, expires_at",
-                    (space_id, owner_id, email, INVITE_LIFETIME),
-                ).fetchone()
-                if invite is not None:
-                    _record(
-                        connection,
-                        space_id=space_id,
-                        actor_id=owner_id,
-                        grant_id=owner_grant,
-                        issuer_id=owner_id,
-                        command=AccessCommand(
-                            action="invite_access",
-                            invite_id=UUID(invite[0]),
-                            email=email,
-                            expires_at=invite[1],
-                        ),
-                    )
-                    created = True
-            return created, self._list(connection, space_id, owner_id)
-
-    def resend(self, space_id: str, owner_id: str, invite_id: str) -> AccessList | None:
-        with self.pool.connection() as connection, connection.transaction():
-            _lock(connection, space_id)
-            if not self._owned(connection, space_id, owner_id):
-                return None
-            row = connection.execute(
-                "update public.business_access_invites set created_at=statement_timestamp(),"
-                " expires_at=statement_timestamp() + %s"
-                " where id=%s and space_id=%s and issuer_id=%s"
-                " and accepted_at is null and revoked_at is null returning email, expires_at",
-                (INVITE_LIFETIME, invite_id, space_id, owner_id),
-            ).fetchone()
-            if row is None:
-                return None
-            _record(
-                connection,
-                space_id=space_id,
-                actor_id=owner_id,
-                grant_id=_owner_grant_id(connection, space_id, owner_id),
-                issuer_id=owner_id,
-                command=AccessCommand(
-                    action="invite_access",
-                    invite_id=UUID(invite_id),
-                    email=row[0],
-                    expires_at=row[1],
-                ),
-            )
-            return self._list(connection, space_id, owner_id)
-
-    def revoke_grant(
-        self, space_id: str, owner_id: str, grant_id: str
-    ) -> RevokeGrantResult:
-        with self.pool.connection() as connection, connection.transaction():
-            if not self._owned(connection, space_id, owner_id):
-                raise LookupError("business_space_missing")
-            _lock(connection, space_id)
-            row = connection.execute(
-                "select grantee_id::text from public.business_client_grants"
-                " where id=%s and space_id=%s and revoked_at is null",
-                (grant_id, space_id),
-            ).fetchone()
-            if row is None:
-                return "missing"
-            if row[0] == owner_id:
-                return "own_grant"
-            connection.execute(
-                "update public.business_client_grants set revoked_at=now() where id=%s and space_id=%s",
-                (grant_id, space_id),
-            )
-            _record(
-                connection,
-                space_id=space_id,
-                actor_id=owner_id,
-                grant_id=_owner_grant_id(connection, space_id, owner_id),
-                issuer_id=owner_id,
-                command=AccessCommand(action="revoke_grant", grant_id=UUID(grant_id)),
-            )
-            return "revoked"
-
-    def revoke_invite(self, space_id: str, owner_id: str, invite_id: str) -> bool:
-        with self.pool.connection() as connection, connection.transaction():
-            if not self._owned(connection, space_id, owner_id):
-                raise LookupError("business_space_missing")
-            row = connection.execute(
-                "update public.business_access_invites set revoked_at=now()"
-                " where id=%s and space_id=%s and revoked_at is null and accepted_at is null"
-                " returning email",
-                (invite_id, space_id),
-            ).fetchone()
-            if row is None:
-                return False
-            _record(
-                connection,
-                space_id=space_id,
-                actor_id=owner_id,
-                grant_id=_owner_grant_id(connection, space_id, owner_id),
-                issuer_id=owner_id,
-                command=AccessCommand(
-                    action="revoke_invite", invite_id=UUID(invite_id), email=row[0]
-                ),
-            )
-            return True
-
-    def accept_invites(self, user_id: str) -> int:
-        with self.pool.connection() as connection, connection.transaction():
-            person = connection.execute(
-                "select lower(email) from auth.users where id=%s and email_confirmed_at is not null"
-                " and coalesce(is_anonymous, false)=false and email is not null",
-                (user_id,),
-            ).fetchone()
-            if person is None:
-                return 0
-            with connection.cursor(row_factory=dict_row) as cursor:
-                invites = cursor.execute(
-                    "select i.id::text, i.space_id::text, i.issuer_id::text, i.email"
-                    " from public.business_access_invites i join public.spaces s on s.id=i.space_id"
-                    " where i.email=%s and i.revoked_at is null and i.accepted_at is null and i.expires_at > clock_timestamp()"
-                    " and s.current_owner_id=i.issuer_id and s.kind='business' and s.closed_at is null"
-                    " order by i.created_at",
-                    (person[0],),
-                ).fetchall()
-            accepted = 0
-            for invite in invites:
-                _lock(connection, invite["space_id"])
-                live = connection.execute(
-                    "select 1 from public.business_access_invites i join public.spaces s on s.id=i.space_id"
-                    " where i.id=%s and i.revoked_at is null and i.accepted_at is null"
-                    " and i.expires_at > clock_timestamp() and s.current_owner_id=i.issuer_id"
-                    " and s.kind='business' and s.closed_at is null for update of i",
-                    (invite["id"],),
-                ).fetchone()
-                if live is None:
-                    continue
-                grant = _live_grant(connection, invite["space_id"], user_id)
-                if grant is None:
-                    grant = connection.execute(
-                        "insert into public.business_client_grants (space_id, grantee_id, issuer_id, capabilities)"
-                        " values (%s, %s, %s, %s::text[]) returning id::text",
-                        (
-                            invite["space_id"],
-                            user_id,
-                            invite["issuer_id"],
-                            list(MEMBER_CAPABILITIES),
-                        ),
-                    ).fetchone()[0]
-                connection.execute(
-                    "update public.business_access_invites set accepted_at=now(), accepted_grant_id=%s where id=%s",
-                    (grant, invite["id"]),
-                )
-                _record(
-                    connection,
-                    space_id=invite["space_id"],
-                    actor_id=user_id,
-                    grant_id=grant,
-                    issuer_id=invite["issuer_id"],
-                    command=AccessCommand(
-                        action="accept_invite",
-                        invite_id=UUID(invite["id"]),
-                        grant_id=UUID(grant),
-                        email=invite["email"],
-                    ),
-                )
-                accepted += 1
-            return accepted
-
 
 class InMemoryAccessStore:
     """The same rules without Postgres: the local app and the offline suite.
@@ -741,11 +561,13 @@ class InMemoryAccessStore:
     """
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._grants: list[dict] = []
         self._invites: list[dict] = []
         self._accounts: dict[str, str] = {}
         self.ledger: list[AccessCommand] = []
+        self._commands: dict[tuple[str, str, str], tuple[str, BusinessRole]] = {}
+        self._command_invites: dict[tuple[str, str, str], str | None] = {}
 
     def confirm(self, user_id: str, email: str) -> None:
         with self._lock:
@@ -771,14 +593,16 @@ class InMemoryAccessStore:
         space_id: str,
         grantee_id: str,
         issuer_id: str,
-        capabilities: tuple[str, ...],
+        role: BusinessRole = BusinessRole.EDITOR,
     ) -> dict:
         grant = {
             "id": str(uuid4()),
             "space_id": space_id,
             "grantee_id": grantee_id,
             "issuer_id": issuer_id,
-            "capabilities": capabilities,
+            "capabilities": legacy_capabilities(role),
+            "business_role": role,
+            "membership_version": 0,
             "created_at": self._now(),
             "revoked_at": None,
         }
@@ -787,9 +611,9 @@ class InMemoryAccessStore:
 
     def ensure_owner_grant(self, space_id: str, owner_id: str) -> bool:
         with self._lock:
-            if self._live(space_id, owner_id) is not None:
+            if any(g["space_id"] == space_id for g in self._grants):
                 return False
-            grant = self._insert_grant(space_id, owner_id, owner_id, OWNER_CAPABILITIES)
+            grant = self._insert_grant(space_id, owner_id, owner_id, BusinessRole.OWNER)
             self.ledger.append(
                 AccessCommand(action="owner_grant", grant_id=UUID(grant["id"]))
             )
@@ -798,33 +622,23 @@ class InMemoryAccessStore:
     def capabilities(self, space_id: str, grantee_id: str) -> tuple[str, ...]:
         with self._lock:
             grant = self._live(space_id, grantee_id)
-            return grant["capabilities"] if grant else ()
+            return legacy_capabilities(grant["business_role"]) if grant else ()
 
     def _granted(self, grant: dict) -> GrantedSpace:
-        # The in-memory rows know no names (the route asks the space store)
-        # and no owners: the owner issued the grant, or holds a self-issued one.
         return GrantedSpace(
             grant["space_id"],
             "",
             grant["id"],
-            grant["issuer_id"],
-            tuple(grant["capabilities"]),
+            next(
+                g["grantee_id"]
+                for g in self._grants
+                if g["space_id"] == grant["space_id"]
+            ),
+            legacy_capabilities(grant["business_role"]),
             grant["grantee_id"],
             grant["issuer_id"],
+            grant["business_role"],
         )
-
-    def _issuer_live(self, grant: dict) -> bool:
-        """The issuer still holds owner access: an issuer whose own owner grant
-        was revoked, with no live one since, has ended every grant they gave."""
-
-        own = [
-            g
-            for g in self._grants
-            if g["space_id"] == grant["space_id"]
-            and g["grantee_id"] == grant["issuer_id"]
-            and g["issuer_id"] == g["grantee_id"]
-        ]
-        return not own or any(g["revoked_at"] is None for g in own)
 
     def spaces_for(self, person_id: str) -> tuple[GrantedSpace, ...]:
         with self._lock:
@@ -833,8 +647,7 @@ class InMemoryAccessStore:
                 for g in self._grants
                 if g["grantee_id"] == person_id
                 and g["revoked_at"] is None
-                and "read" in g["capabilities"]
-                and self._issuer_live(g)
+                and "read" in ROLE_PERMISSIONS[g["business_role"]]
             ]
         rows.sort(key=lambda g: (g["issuer_id"] != g["grantee_id"], g["created_at"]))
         return tuple(self._granted(g) for g in rows)
@@ -848,8 +661,7 @@ class InMemoryAccessStore:
                     if g["id"] == grant_id
                     and g["grantee_id"] == person_id
                     and g["revoked_at"] is None
-                    and "read" in g["capabilities"]
-                    and self._issuer_live(g)
+                    and "read" in ROLE_PERMISSIONS[g["business_role"]]
                 ),
                 None,
             )
@@ -912,14 +724,15 @@ class InMemoryAccessStore:
                     g["grantee_id"],
                     emails.get(g["grantee_id"]),
                     "Member",
-                    g["capabilities"],
+                    legacy_capabilities(g["business_role"]),
                     g["created_at"],
-                    g["grantee_id"] == owner_id,
+                    g["business_role"] == BusinessRole.OWNER,
                     g["grantee_id"] == owner_id
                     or any(
                         c.action == "access_seen" and str(c.grant_id) == g["id"]
                         for c in self.ledger
                     ),
+                    g["business_role"],
                 )
                 for g in grants
             ),
@@ -930,6 +743,8 @@ class InMemoryAccessStore:
                     i["created_at"],
                     i["expires_at"],
                     "pending" if i["expires_at"] > now else "expired",
+                    i["requested_role"],
+                    i.get("supersedes_id"),
                 )
                 for i in invites
             ),
@@ -937,110 +752,163 @@ class InMemoryAccessStore:
 
     def list(self, space_id: str, owner_id: str) -> AccessList:
         with self._lock:
+            self._manager(space_id, owner_id)
             return self._list(space_id, owner_id)
 
-    def give(self, space_id: str, owner_id: str, email: str) -> tuple[bool, AccessList]:
-        email = normalize_email(email)
+    def _manager(
+        self, space_id: str, actor_id: str, role: BusinessRole | None = None
+    ) -> dict:
+        grant = self._live(space_id, actor_id)
+        if grant is None or "manage" not in ROLE_PERMISSIONS[grant["business_role"]]:
+            raise MembershipError("business_permission_denied")
+        if role == BusinessRole.OWNER and grant["business_role"] != BusinessRole.OWNER:
+            raise MembershipError("business_permission_denied")
+        return grant
+
+    def give(
+        self,
+        space_id: str,
+        owner_id: str,
+        email: str,
+        role: BusinessRole = BusinessRole.EDITOR,
+        command_key: str | None = None,
+    ) -> tuple[bool, AccessList]:
+        role, email = BusinessRole(role), normalize_email(email)
+        if command_key is not None and (
+            not command_key.strip() or len(command_key) > 200
+        ):
+            raise MembershipError("invalid_idempotency_key")
         with self._lock:
+            self._manager(space_id, owner_id, role)
+            identity = (space_id, owner_id, command_key)
+            if command_key and identity in self._commands:
+                if self._commands[identity] != (email, role):
+                    raise MembershipError("idempotency_conflict")
+                return False, self._list(space_id, owner_id)
             account = self._accounts.get(email)
-            created = False
-            if account is not None:
-                if self._live(space_id, account) is None:
-                    grant = self._insert_grant(
-                        space_id, account, owner_id, MEMBER_CAPABILITIES
-                    )
-                    for invite in self._invites:
-                        if (
-                            invite["space_id"] == space_id
-                            and invite["email"] == email
-                            and invite["revoked_at"] is None
-                            and invite["accepted_at"] is None
-                        ):
-                            invite["accepted_at"] = self._now()
-                    self.ledger.append(
-                        AccessCommand(
-                            action="grant_access", grant_id=UUID(grant["id"]), email=email
-                        )
-                    )
-                    created = True
-            else:
-                # The same rule as Postgres: one pending row per Business and
-                # email; live stays, expired is re-issued in place, revoked or
-                # accepted no longer holds the slot.
-                pending = next(
-                    (
-                        i
-                        for i in self._invites
-                        if i["space_id"] == space_id
-                        and i["email"] == email
-                        and i["revoked_at"] is None
-                        and i["accepted_at"] is None
-                    ),
-                    None,
+            existing = self._live(space_id, account) if account else None
+            if existing:
+                if existing["business_role"] == role:
+                    if command_key:
+                        self._commands[identity] = (email, role)
+                        self._command_invites[identity] = None
+                    return False, self._list(space_id, owner_id)
+                if account == owner_id:
+                    raise MembershipError("business_self_role_change_forbidden")
+                self._manager(space_id, owner_id, existing["business_role"])
+                if not promotion_requires_acceptance(existing["business_role"], role):
+                    raise MembershipError("business_role_change_requires_member_command")
+            pending = next(
+                (
+                    i
+                    for i in self._invites
+                    if i["space_id"] == space_id
+                    and i["email"] == email
+                    and i["revoked_at"] is None
+                    and i["accepted_at"] is None
+                ),
+                None,
+            )
+            if pending and pending["expires_at"] > self._now():
+                if pending["requested_role"] != role:
+                    raise MembershipError("business_invite_role_conflict")
+                if command_key:
+                    self._commands[identity] = (email, role)
+                    self._command_invites[identity] = pending["id"]
+                return False, self._list(space_id, owner_id)
+            if pending:
+                pending["revoked_at"] = self._now()
+            created_at = self._now()
+            invite = {
+                "id": str(uuid4()),
+                "space_id": space_id,
+                "issuer_id": owner_id,
+                "email": email,
+                "requested_role": role,
+                "recipient_id": account,
+                "created_at": created_at,
+                "expires_at": created_at + INVITE_LIFETIME,
+                "accepted_at": None,
+                "accepted_grant_id": None,
+                "target_grant_id": existing["id"] if existing else None,
+                "target_version": existing["membership_version"] if existing else None,
+                "revoked_at": None,
+            }
+            self._invites.append(invite)
+            if command_key:
+                self._commands[identity] = (email, role)
+                self._command_invites[identity] = invite["id"]
+            self.ledger.append(
+                AccessCommand(
+                    action="invite_access",
+                    invite_id=UUID(invite["id"]),
+                    email=email,
+                    expires_at=invite["expires_at"],
                 )
-                if pending is not None and pending["expires_at"] > self._now():
-                    invite = None
-                elif pending is not None:
-                    pending["issuer_id"] = owner_id
-                    pending["created_at"] = self._now()
-                    pending["expires_at"] = self._now() + INVITE_LIFETIME
-                    invite = pending
-                else:
-                    invite = {
-                        "id": str(uuid4()),
-                        "space_id": space_id,
-                        "issuer_id": owner_id,
-                        "email": email,
-                        "created_at": self._now(),
-                        "expires_at": self._now() + INVITE_LIFETIME,
-                        "accepted_at": None,
-                        "revoked_at": None,
-                    }
-                    self._invites.append(invite)
-                if invite is not None:
-                    self.ledger.append(
-                        AccessCommand(
-                            action="invite_access",
-                            invite_id=UUID(invite["id"]),
-                            email=email,
-                            expires_at=invite["expires_at"],
-                        )
-                    )
-                    created = True
-            return created, self._list(space_id, owner_id)
+            )
+            return True, self._list(space_id, owner_id)
 
     def resend(self, space_id: str, owner_id: str, invite_id: str) -> AccessList | None:
         with self._lock:
+            self._manager(space_id, owner_id)
+            replacement = next(
+                (
+                    i
+                    for i in self._invites
+                    if i.get("supersedes_id") == invite_id
+                    and i["space_id"] == space_id
+                    and i["accepted_at"] is None
+                    and i["revoked_at"] is None
+                    and i["expires_at"] > self._now()
+                ),
+                None,
+            )
+            if replacement:
+                self._manager(space_id, owner_id, replacement["requested_role"])
+                return self._list(space_id, owner_id)
             invite = next(
                 (
                     i
                     for i in self._invites
-                    if i["id"] == invite_id
-                    and i["space_id"] == space_id
-                    and i["issuer_id"] == owner_id
-                    and i["accepted_at"] is None
+                    if i["space_id"] == space_id
+                    and i["id"] == invite_id
                     and i["revoked_at"] is None
+                    and i["accepted_at"] is None
                 ),
                 None,
             )
             if invite is None:
                 return None
-            now = self._now()
-            invite["created_at"], invite["expires_at"] = now, now + INVITE_LIFETIME
-            self.ledger.append(
-                AccessCommand(
-                    action="invite_access",
-                    invite_id=UUID(invite_id),
-                    email=invite["email"],
-                    expires_at=invite["expires_at"],
+            self._manager(space_id, owner_id, invite["requested_role"])
+            if invite["expires_at"] <= self._now():
+                if invite.get("target_grant_id"):
+                    live = self._live(space_id, invite["recipient_id"])
+                    if (
+                        live is None
+                        or live["id"] != invite["target_grant_id"]
+                        or live["membership_version"] != invite["target_version"]
+                    ):
+                        raise MembershipError("business_invite_membership_changed")
+                created_at = self._now()
+                invite["revoked_at"] = created_at
+                replacement = dict(
+                    invite,
+                    id=str(uuid4()),
+                    created_at=created_at,
+                    expires_at=created_at + INVITE_LIFETIME,
+                    revoked_at=None,
+                    supersedes_id=invite_id,
+                    delivery_state="pending",
                 )
-            )
+                replacement.pop("command_key", None)
+                self._invites.append(replacement)
             return self._list(space_id, owner_id)
 
     def revoke_grant(
         self, space_id: str, owner_id: str, grant_id: str
     ) -> RevokeGrantResult:
         with self._lock:
+            self._manager(space_id, owner_id)
             grant = next(
                 (
                     g
@@ -1055,14 +923,62 @@ class InMemoryAccessStore:
                 return "missing"
             if grant["grantee_id"] == owner_id:
                 return "own_grant"
+            self._manager(space_id, owner_id, grant["business_role"])
             grant["revoked_at"] = self._now()
+            grant["membership_version"] += 1
             self.ledger.append(
                 AccessCommand(action="revoke_grant", grant_id=UUID(grant_id))
             )
             return "revoked"
 
+    def change_role(
+        self, space_id: str, actor_id: str, grant_id: str, role: BusinessRole
+    ) -> AccessList:
+        role = BusinessRole(role)
+        with self._lock:
+            self._manager(space_id, actor_id, role)
+            grant = next(
+                (
+                    g
+                    for g in self._grants
+                    if g["id"] == grant_id
+                    and g["space_id"] == space_id
+                    and g["revoked_at"] is None
+                ),
+                None,
+            )
+            if grant is None:
+                raise MembershipError("business_access_not_found")
+            if grant["grantee_id"] == actor_id:
+                raise MembershipError("business_self_role_change_forbidden")
+            self._manager(space_id, actor_id, grant["business_role"])
+            if promotion_requires_acceptance(grant["business_role"], role):
+                email = next(
+                    e
+                    for e, person in self._accounts.items()
+                    if person == grant["grantee_id"]
+                )
+                return self.give(space_id, actor_id, email, role)[1]
+            if grant["business_role"] == role:
+                return self._list(space_id, actor_id)
+            grant["membership_version"] += 1
+            self.ledger.append(
+                AccessCommand(
+                    action="change_role",
+                    grant_id=UUID(grant_id),
+                    business_role=role,
+                    membership_version=grant["membership_version"],
+                )
+            )
+            grant["business_role"], grant["capabilities"] = (
+                role,
+                legacy_capabilities(role),
+            )
+            return self._list(space_id, actor_id)
+
     def revoke_invite(self, space_id: str, owner_id: str, invite_id: str) -> bool:
         with self._lock:
+            self._manager(space_id, owner_id)
             invite = next(
                 (
                     i
@@ -1076,6 +992,7 @@ class InMemoryAccessStore:
             )
             if invite is None:
                 return False
+            self._manager(space_id, owner_id, invite["requested_role"])
             invite["revoked_at"] = self._now()
             self.ledger.append(
                 AccessCommand(
@@ -1087,30 +1004,147 @@ class InMemoryAccessStore:
             return True
 
     def accept_invites(self, user_id: str) -> int:
+        return 0
+
+    def accept_invite(self, user_id: str, space_id: str, invite_id: str) -> str:
         with self._lock:
             email = next((e for e, u in self._accounts.items() if u == user_id), None)
-            if email is None:
-                return 0
-            accepted = 0
-            for invite in self._invites:
+            invite = next(
+                (
+                    i
+                    for i in self._invites
+                    if i["id"] == invite_id
+                    and i["space_id"] == space_id
+                    and i["email"] == email
+                    and i.get("recipient_id") in (None, user_id)
+                ),
+                None,
+            )
+            if invite is None:
+                raise MembershipError("business_invite_not_available")
+            if invite["accepted_at"] is not None:
+                grant = self._live(space_id, user_id)
+                if grant is None or grant["id"] != invite["accepted_grant_id"]:
+                    raise MembershipError("business_grant_not_live")
+                return grant["id"]
+            if invite["revoked_at"] is not None or invite["expires_at"] <= self._now():
+                raise MembershipError("business_invite_not_available")
+            self._manager(space_id, invite["issuer_id"], invite["requested_role"])
+            live = self._live(space_id, user_id)
+            if invite.get("target_grant_id"):
                 if (
-                    invite["email"] != email
-                    or invite["revoked_at"] is not None
-                    or invite["accepted_at"] is not None
-                    or invite["expires_at"] <= self._now()
+                    live is None
+                    or live["id"] != invite["target_grant_id"]
+                    or live["membership_version"] != invite["target_version"]
                 ):
-                    continue
-                grant = self._live(invite["space_id"], user_id) or self._insert_grant(
-                    invite["space_id"], user_id, invite["issuer_id"], MEMBER_CAPABILITIES
+                    raise MembershipError("business_invite_membership_changed")
+                grant = live
+                grant["business_role"] = invite["requested_role"]
+                grant["capabilities"] = legacy_capabilities(invite["requested_role"])
+                grant["membership_version"] += 1
+            else:
+                if live:
+                    raise MembershipError("business_membership_already_active")
+                grant = self._insert_grant(
+                    space_id, user_id, invite["issuer_id"], invite["requested_role"]
                 )
-                invite["accepted_at"] = self._now()
-                self.ledger.append(
-                    AccessCommand(
-                        action="accept_invite",
-                        invite_id=UUID(invite["id"]),
-                        grant_id=UUID(grant["id"]),
-                        email=email,
-                    )
+            invite["accepted_at"], invite["accepted_grant_id"] = self._now(), grant["id"]
+            self.ledger.append(
+                AccessCommand(
+                    action="accept_invite",
+                    invite_id=UUID(invite_id),
+                    grant_id=UUID(grant["id"]),
+                    email=email,
                 )
-                accepted += 1
-            return accepted
+            )
+            return grant["id"]
+
+    def invitations_for(self, user_id: str) -> tuple[RecipientInvitation, ...]:
+        with self._lock:
+            email = next((e for e, u in self._accounts.items() if u == user_id), None)
+            return tuple(
+                {
+                    "id": i["id"],
+                    "space_id": i["space_id"],
+                    "name": "",
+                    "requested_role": i["requested_role"],
+                    "expires_at": i["expires_at"],
+                }
+                for i in self._invites
+                if i["email"] == email
+                and i.get("recipient_id") in (None, user_id)
+                and i["revoked_at"] is None
+                and i["accepted_at"] is None
+                and i["expires_at"] > self._now()
+            )
+
+    def deliver_invitation(
+        self,
+        space_id: str,
+        actor_id: str,
+        invite_id: str,
+        send: Callable[[], DeliveryState],
+    ) -> DeliveryState:
+        with self._lock:
+            self._manager(space_id, actor_id)
+            invite = next(
+                (
+                    i
+                    for i in self._invites
+                    if i["id"] == invite_id
+                    and i["space_id"] == space_id
+                    and i["revoked_at"] is None
+                    and i["accepted_at"] is None
+                    and i["expires_at"] > self._now()
+                ),
+                None,
+            )
+            if invite is None:
+                raise MembershipError("business_invite_not_available")
+            self._manager(space_id, actor_id, invite["requested_role"])
+            if invite.get("delivery_state") == "accepted":
+                return "accepted"
+            if invite.get("delivery_state") in ("sending", "uncertain"):
+                return "uncertain"
+            invite["delivery_state"] = "sending"
+            try:
+                invite["delivery_state"] = send()
+            except Exception:
+                invite["delivery_state"] = "uncertain"
+            return invite["delivery_state"]
+
+    def invitation_command(
+        self, space_id: str, actor_id: str, command_key: str
+    ) -> InvitationCommandResult | None:
+        with self._lock:
+            self._manager(space_id, actor_id)
+            value = self._commands.get((space_id, actor_id, command_key))
+            if value is None:
+                return None
+            invite = next(
+                (
+                    i
+                    for i in self._invites
+                    if i["id"]
+                    == self._command_invites.get((space_id, actor_id, command_key))
+                ),
+                None,
+            )
+            if invite is None:
+                return {"invite_id": None, "state": "already_member", "delivery": None}
+            state = (
+                "accepted"
+                if invite["accepted_at"]
+                else "revoked"
+                if invite["revoked_at"]
+                else "pending"
+                if invite["expires_at"] > self._now()
+                else "expired"
+            )
+            return {
+                "invite_id": invite["id"],
+                "state": state,
+                "delivery": "uncertain"
+                if invite.get("delivery_state") == "sending"
+                else invite.get("delivery_state", "pending"),
+            }

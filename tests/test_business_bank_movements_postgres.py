@@ -405,7 +405,7 @@ def test_the_accountant_reads_the_same_movements_and_strangers_none(bank) -> Non
 
     with Connection.connect(shared.DSN) as db:
         db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (bank.grant_a,),
         )
     reader = _as(bank.bob, bank.grant_a)
@@ -458,7 +458,7 @@ def _bank_request(world, surface: str, account_id: str, headers: dict):  # noqa:
 
 @pytest.mark.parametrize(
     "loss",
-    ["closed", "revoked", "expired", "issuer_revoked", "issuer_expired", "anonymous"],
+    ["closed", "revoked", "expired", "anonymous"],
 )
 def test_lost_access_refuses_bank_http_reads_and_import(bank, loss) -> None:  # noqa: ANN001
     checking = _checking(bank)
@@ -568,3 +568,16 @@ def test_import_holds_live_grant_and_business_locks_through_nested_store_work(
     monkeypatch.setattr(service, "import_statement", import_with_lock_probe)
     _import(bank, checking, _statement([("12/10/2026", "COMISION", "150.00", "")]))
     assert len(checked) == 2
+
+
+def test_accepted_bank_membership_survives_inviter_revocation(bank):
+    checking = _checking(bank)
+    _import(bank, checking, _statement([("12/10/2026", "COMISION", "150.00", "")]))
+    with Connection.connect(shared.DSN) as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (bank.alice.space_id, bank.carol.id, bank.alice.id),
+        )
+    _lose_bank_access(bank, "issuer_revoked")
+    for surface in ("movements", "suggestions", "unmatched"):
+        assert _bank_request(bank, surface, checking, _as(bank.bob, bank.grant_a)).status_code == 200

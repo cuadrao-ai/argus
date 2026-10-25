@@ -52,7 +52,7 @@ def test_an_unknown_email_becomes_one_pending_invite_the_owner_can_revoke(
     replay = alice.post("/access", {"email": "contadora@example.test"})
     assert replay.status_code == 200
     assert replay.json()["invites"] == first.json()["invites"]
-    assert replay.json()["invite_delivery"] is None
+    assert replay.json()["invite_delivery"] == "not_configured"
     assert first.json()["invite_delivery"] == "not_configured"
     assert alice.post("/access", {"email": "not-an-address"}).status_code == 422
     gone = alice.client.delete(
@@ -78,7 +78,14 @@ def test_a_confirmed_account_gets_read_and_prepare_and_loses_it_at_once(
     space_id = alice.scope().owner.space_id
     given = alice.post("/access", {"email": "BOB@example.test"})
     assert given.status_code == 201, given.text
-    grants = given.json()["grants"]
+    invitation = given.json()["invites"][0]
+    assert (
+        bob.post(
+            f"/invitations/{invitation['id']}/accept", {"space_id": space_id}
+        ).status_code
+        == 200
+    )
+    grants = alice.get("/access").json()["grants"]
     assert [(g["owner"], g["capabilities"], g["email"]) for g in grants] == [
         (True, ["read", "prepare", "approve"], None),
         (False, ["read", "prepare"], "bob@example.test"),
@@ -91,7 +98,7 @@ def test_a_confirmed_account_gets_read_and_prepare_and_loses_it_at_once(
     assert revoked.status_code == 204
     assert store.capabilities(space_id, bob.person) == ()
     assert [g["owner"] for g in alice.get("/access").json()["grants"]] == [True]
-    assert [c.action for c in store.ledger][-2:] == ["grant_access", "revoke_grant"]
+    assert [c.action for c in store.ledger][-2:] == ["accept_invite", "revoke_grant"]
 
 
 def test_the_owner_cannot_revoke_their_own_grant(alice: Owner) -> None:  # noqa: F811
@@ -110,7 +117,7 @@ def test_the_owner_cannot_revoke_their_own_grant(alice: Owner) -> None:  # noqa:
     )
 
 
-def test_a_pending_invite_turns_into_a_grant_when_that_email_signs_in(
+def test_a_pending_invite_requires_acceptance_after_sign_in(
     alice: Owner,  # noqa: F811
     bob: Owner,  # noqa: F811
 ) -> None:
@@ -123,6 +130,14 @@ def test_a_pending_invite_turns_into_a_grant_when_that_email_signs_in(
     assert store.capabilities(alice.scope().owner.space_id, bob.person) == ()
     store.confirm(bob.person, "bob@example.test")
     accept_business_invites(bob.person)
+    assert store.capabilities(alice.scope().owner.space_id, bob.person) == ()
+    assert (
+        bob.post(
+            f"/invitations/{invited.json()['invites'][0]['id']}/accept",
+            {"space_id": alice.scope().owner.space_id},
+        ).status_code
+        == 200
+    )
     assert store.capabilities(alice.scope().owner.space_id, bob.person) == (
         "read",
         "prepare",
@@ -133,7 +148,7 @@ def test_a_pending_invite_turns_into_a_grant_when_that_email_signs_in(
     assert "accept_invite" in [c.action for c in store.ledger]
 
 
-def test_the_first_spaces_read_after_sign_in_lists_the_client_business(
+def test_the_first_spaces_read_does_not_accept_an_invitation(
     biz: TestClient,
     identities,  # noqa: ANN001
     alice: Owner,  # noqa: F811
@@ -150,7 +165,15 @@ def test_the_first_spaces_read_after_sign_in_lists_the_client_business(
 
     first = newcomer.get("/spaces")
     assert first.status_code == 200, first.text
-    [client_business] = first.json()["spaces"]
+    assert first.json()["spaces"] == []
+    assert (
+        newcomer.post(
+            f"/invitations/{invited.json()['invites'][0]['id']}/accept",
+            {"space_id": alice.scope().owner.space_id},
+        ).status_code
+        == 200
+    )
+    [client_business] = newcomer.get("/spaces").json()["spaces"]
     assert (
         client_business["space_id"],
         client_business["role"],
@@ -202,7 +225,7 @@ def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(
         and fresh["expires_at"] > invite["expires_at"]
     )
     assert [c.action for c in store.ledger].count("invite_access") == 2
-    assert len([i for i in store._invites if i["email"] == "contadora@example.test"]) == 1
+    assert len([i for i in store._invites if i["email"] == "contadora@example.test"]) == 2
     # Revoked: a new invite is born beside the revoked row.
     gone = alice.client.delete(
         f"/api/v1/business/access/invites/{fresh['id']}", headers=alice.auth
@@ -210,10 +233,21 @@ def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(
     assert gone.status_code == 204
     reborn = alice.post("/access", {"email": "contadora@example.test"})
     assert reborn.status_code == 201 and len(reborn.json()["invites"]) == 1
-    assert len([i for i in store._invites if i["email"] == "contadora@example.test"]) == 2
+    assert len([i for i in store._invites if i["email"] == "contadora@example.test"]) == 3
     # Accepted: the confirmed account holds the grant; re-inviting it creates nothing.
     store.confirm(bob.person, "bob@example.test")
-    assert alice.post("/access", {"email": "bob@example.test"}).status_code == 201
+    pending = alice.post("/access", {"email": "bob@example.test"})
+    assert pending.status_code == 201
+    invite = next(
+        i for i in pending.json()["invites"] if i["email"] == "bob@example.test"
+    )
+    assert (
+        bob.post(
+            f"/invitations/{invite['id']}/accept",
+            {"space_id": alice.scope().owner.space_id},
+        ).status_code
+        == 200
+    )
     replay = alice.post("/access", {"email": "bob@example.test"})
     assert replay.status_code == 200
     assert "bob@example.test" not in [i["email"] for i in replay.json()["invites"]]

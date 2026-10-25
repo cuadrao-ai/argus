@@ -133,9 +133,12 @@ def _service_over(
         business_actions=actions,
         business_preparation_required=pool is not None,
     )
+    from argus.api.business_spaces import business_access
     from argus.domain.business.receipt_consent import BusinessReceiptConsentStore
 
-    service.business_receipt_consent = BusinessReceiptConsentStore(pool)
+    service.business_receipt_consent = BusinessReceiptConsentStore(
+        pool, access_resolver=business_access if pool is None else None
+    )
     return service
 
 

@@ -24,16 +24,19 @@ from fastapi import (
 )
 from fastapi.concurrency import run_in_threadpool
 from loguru import logger
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api import business_search
 from argus.api.business import (
     BusinessContext,
     BusinessPerson,
-    own_business_only,
+    MembershipRoute,
+    manager_only,
     owner_only,
+    owner_required_problem,
     require_business,
     require_business_document_write,
+    require_business_management,
     require_business_person,
     require_business_surface,
     require_business_workspace,
@@ -59,10 +62,13 @@ from argus.api.business_schemas import (
     BusinessAccount,
     BusinessConsent,
     BusinessExpense,
+    BusinessInvitationAcceptance,
+    BusinessInvitationBatchResult,
     BusinessNamePrompt,
     BusinessNameTarget,
     BusinessNamingState,
     BusinessOverview,
+    BusinessRecipientInvitation,
     BusinessSearch,
     BusinessSpaceInfo,
     BusinessSpaces,
@@ -88,7 +94,6 @@ from argus.api.business_schemas import (
     UpdatePage,
 )
 from argus.api.business_spaces import (
-    accept_business_invites,
     business_access,
     business_spaces,
     space_missing_problem,
@@ -118,6 +123,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.country import DEFAULT_COUNTRY
 from argus.domain.business.document_type import parse_document_type
 from argus.domain.business.lifecycle import REOPEN_WINDOW
+from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.scope import BusinessScope
 from argus.domain.business.search import SearchKind
 from argus.domain.business.service import BusinessError
@@ -149,6 +155,7 @@ def _no_store(response: Response) -> None:
 
 router = APIRouter(
     prefix="/business",
+    route_class=MembershipRoute,
     tags=["business"],
     dependencies=[Depends(require_business_surface), Depends(_no_store)],
     responses={
@@ -259,9 +266,8 @@ def get_space(
     request: Request,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
-    # The own Business only: a client's name comes from the listing.
-    own_business_only(request, person.person_id)
-    space = person.spaces.open_space(person.person_id)
+    scope = working_scope(request, person.spaces, person.person_id)
+    space = person.spaces.get(scope.owner.space_id) if scope else None
     if space is None:
         raise space_missing_problem(request)
     return space_payload(space)
@@ -279,8 +285,8 @@ def _naming(space: Space) -> dict[str, Any]:
 def get_business_name(
     request: Request, person: Annotated[BusinessPerson, Depends(require_business_person)]
 ) -> dict[str, Any]:
-    own_business_only(request, person.person_id)
-    space = person.spaces.open_space(person.person_id)
+    scope = working_scope(request, person.spaces, person.person_id)
+    space = person.spaces.get(scope.owner.space_id) if scope else None
     if space is None:
         raise space_missing_problem(request)
     return _naming(space)
@@ -292,12 +298,14 @@ def claim_business_name_prompt(
     body: BusinessNameTarget,
     person: Annotated[BusinessPerson, Depends(require_business_person)],
 ) -> dict[str, Any]:
-    own_business_only(request, person.person_id)
-    space = person.spaces.open_space(person.person_id)
+    scope = working_scope(request, person.spaces, person.person_id)
+    space = person.spaces.get(scope.owner.space_id) if scope else None
     if space is None or space.id != str(body.space_id):
         raise space_missing_problem(request)
+    if "manage" not in scope.permissions:
+        raise owner_required_problem(request)
     show = person.spaces.claim_naming_visit(person.person_id, str(body.space_id))
-    current = person.spaces.open_space(person.person_id)
+    current = person.spaces.get(str(body.space_id))
     if current is None or current.id != str(body.space_id):
         raise space_missing_problem(request)
     return {**_naming(current), "show_prompt": show and current.name_required}
@@ -309,7 +317,11 @@ def save_business_name(
     body: SaveBusinessName,
     person: Annotated[BusinessPerson, Depends(require_business_person)],
 ) -> dict[str, Any]:
-    own_business_only(request, person.person_id)
+    scope = working_scope(request, person.spaces, person.person_id)
+    if scope is None or scope.owner.space_id != str(body.space_id):
+        raise space_missing_problem(request)
+    if "manage" not in scope.permissions:
+        raise owner_required_problem(request)
     space = person.spaces.rename(person.person_id, body.name, str(body.space_id))
     if space is None:
         raise space_missing_problem(request)
@@ -348,7 +360,6 @@ def list_spaces(
 
     _no_store(response)
     access = _access_store(request)
-    accept_business_invites(person.person_id)
     seen = access.seen_grants(person.person_id)
     granted = access.spaces_for(person.person_id)
     logos = picture_urls("business", [found.space_id for found in granted])
@@ -361,6 +372,8 @@ def list_spaces(
                 "logo_url": logos[found.space_id],
                 "grant_id": found.grant_id,
                 "role": found.role,
+                "business_role": found.business_role,
+                "permissions": sorted(found.permissions),
                 "capabilities": list(found.capabilities),
                 "access_seen": found.role == "owner" or found.grant_id in seen,
             }
@@ -433,10 +446,9 @@ def start_space(
     body: StartBusinessSpace,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
-    """Idempotent: an existing space is returned unchanged, with 200.
+    """Create the default Business or return it unchanged with live read access.
 
-    A new space is born with the owner's grant. An old space without one gets
-    it here, once."""
+    An unavailable default Business returns 404 without restoring membership."""
 
     from argus.api.routers.business_lifecycle import lifecycle_problem
     from argus.domain.business.lifecycle import BusinessLifecycleError
@@ -449,7 +461,12 @@ def start_space(
         )
     except BusinessLifecycleError as error:
         raise lifecycle_problem(request, error) from None
-    _access_store(request).ensure_owner_grant(space.id, person.person_id)
+    access = _access_store(request)
+    initialized = access.ensure_owner_grant(space.id, person.person_id)
+    if not initialized and "read" not in access.capabilities(space.id, person.person_id):
+        raise lifecycle_problem(
+            request, BusinessLifecycleError("business_record_not_found")
+        )
     response.status_code = 201 if created else 200
     return space_payload(space)
 
@@ -479,6 +496,8 @@ def _access(found: AccessList) -> dict[str, Any]:
                 "display_name": grant.display_name,
                 "photo_url": photos.get(grant.grantee_id),
                 "capabilities": list(grant.capabilities),
+                "business_role": grant.business_role,
+                "permissions": sorted(ROLE_PERMISSIONS[grant.business_role]),
                 "created_at": grant.created_at,
                 "owner": grant.owner,
             }
@@ -491,10 +510,112 @@ def _access(found: AccessList) -> dict[str, Any]:
                 "created_at": invite.created_at,
                 "expires_at": invite.expires_at,
                 "state": invite.state,
+                "requested_role": invite.requested_role,
             }
             for invite in found.invites
         ],
     }
+
+
+class AcceptInvitationBody(BaseModel):
+    space_id: UUID
+
+
+class ChangeMemberRole(BaseModel):
+    role: BusinessRole
+
+
+class InvitationRecipient(GiveBusinessAccess):
+    command_key: str = Field(min_length=1, max_length=200)
+
+
+class InvitationBatch(BaseModel):
+    recipients: list[InvitationRecipient] = Field(min_length=1, max_length=50)
+
+
+@router.post("/access/invitations", response_model=BusinessInvitationBatchResult)
+def invite_recipients(
+    body: InvitationBatch,
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> dict:
+    from argus.api.business_invite_delivery import deliver_invite
+    from argus.domain.business.memberships import MembershipError
+
+    manager_only(request, context)
+    space_id, actor_id = context.scope.owner.space_id, context.scope.acting_person_id
+    store = _access_store(request)
+    results = []
+    for recipient in body.recipients:
+        try:
+            _, listing = store.give(
+                space_id, actor_id, recipient.email, recipient.role, recipient.command_key
+            )
+            command = store.invitation_command(space_id, actor_id, recipient.command_key)
+            if command is None:
+                command = {"invite_id": None, "state": "already_member", "delivery": None}
+            if command["state"] == "pending":
+                invite = next(i for i in listing.invites if i.id == command["invite_id"])
+                command["delivery"] = deliver_invite(
+                    request, listing, invite, space_id, actor_id
+                )
+            results.append(
+                {
+                    "command_key": recipient.command_key,
+                    "email": recipient.email,
+                    **command,
+                }
+            )
+        except (MembershipError, InvalidEmail) as error:
+            results.append(
+                {
+                    "command_key": recipient.command_key,
+                    "email": recipient.email,
+                    "state": "refused",
+                    "code": getattr(error, "code", "invalid_email"),
+                }
+            )
+    return {"results": results}
+
+
+@router.get("/invitations", response_model=list[BusinessRecipientInvitation])
+def list_invitations(
+    request: Request, person: Annotated[BusinessPerson, Depends(require_business_person)]
+) -> list[dict]:
+    return list(_access_store(request).invitations_for(person.person_id))
+
+
+@router.post(
+    "/invitations/{invite_id}/accept", response_model=BusinessInvitationAcceptance
+)
+def accept_invitation(
+    invite_id: UUID,
+    body: AcceptInvitationBody,
+    request: Request,
+    person: Annotated[BusinessPerson, Depends(require_business_person)],
+) -> dict[str, str]:
+    grant_id = _access_store(request).accept_invite(
+        person.person_id, str(body.space_id), str(invite_id)
+    )
+    return {"space_id": str(body.space_id), "grant_id": grant_id}
+
+
+@router.patch("/access/grants/{grant_id}", response_model=BusinessAccess)
+def change_member_role(
+    grant_id: UUID,
+    body: ChangeMemberRole,
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+) -> dict[str, Any]:
+    manager_only(request, context)
+    return _access(
+        _access_store(request).change_role(
+            context.scope.owner.space_id,
+            context.scope.acting_person_id,
+            str(grant_id),
+            body.role,
+        )
+    )
 
 
 @router.get("/access", response_model=BusinessAccess)
@@ -503,12 +624,10 @@ def list_access(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
-    owner_only(request, context)
-    """Who can act in the owner's Business: live grants and pending invites."""
+    manager_only(request, context)
 
     response.headers.update(NO_STORE)
     store = _access_store(request)
-    store.ensure_owner_grant(context.scope.owner.space_id, context.scope.acting_person_id)
     return _access(
         store.list(context.scope.owner.space_id, context.scope.acting_person_id)
     )
@@ -520,12 +639,9 @@ def give_access(
     response: Response,
     body: GiveBusinessAccess,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
-    """A read+prepare grant for a confirmed account, else a pending invite.
-
-    The reply is the access list either way, so nothing about an unknown
-    email is revealed beyond what the list shows. A replay answers 200."""
-    owner_only(request, context)
+    manager_only(request, context)
 
     response.headers.update(NO_STORE)
     store = _access_store(request)
@@ -534,9 +650,14 @@ def give_access(
     if spaces is None:
         raise space_missing_problem(request)
     require_business_name(request, spaces, space_id)
-    store.ensure_owner_grant(space_id, owner_id)
     try:
-        created, found = store.give(space_id, owner_id, body.email)
+        created, found = store.give(
+            space_id,
+            owner_id,
+            body.email,
+            body.role,
+            idempotency_key,
+        )
     except InvalidEmail:
         raise problem(
             request,
@@ -548,7 +669,7 @@ def give_access(
         ) from None
     response.status_code = 201 if created else 200
     payload = _access(found)
-    if created:
+    if found.invites:
         invite = next(
             (i for i in found.invites if i.email == body.email.strip().lower()), None
         )
@@ -568,8 +689,8 @@ def resend_access_invite(
     response: Response,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
-    owner_only(request, context)
-    space_id, owner_id = context.scope.owner.space_id, context.scope.person_id
+    manager_only(request, context)
+    space_id, owner_id = context.scope.owner.space_id, context.scope.acting_person_id
     found = _access_store(request).resend(space_id, owner_id, str(invite_id))
     if found is None:
         raise problem(
@@ -583,7 +704,9 @@ def resend_access_invite(
     response.headers.update(NO_STORE)
     from argus.api.business_invite_delivery import deliver_invite
 
-    invite = next(i for i in found.invites if i.id == str(invite_id))
+    invite = next((i for i in found.invites if i.id == str(invite_id)), None)
+    if invite is None:
+        invite = next(i for i in found.invites if i.supersedes_id == str(invite_id))
     return {
         **_access(found),
         "invite_delivery": deliver_invite(request, found, invite, space_id, owner_id),
@@ -596,7 +719,7 @@ def revoke_access_grant(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> Response:
-    owner_only(request, context)
+    manager_only(request, context)
     store = _access_store(request)
     result = store.revoke_grant(
         context.scope.owner.space_id, context.scope.acting_person_id, str(grant_id)
@@ -628,7 +751,7 @@ def revoke_access_invite(
     request: Request,
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> Response:
-    owner_only(request, context)
+    manager_only(request, context)
     store = _access_store(request)
     if not store.revoke_invite(
         context.scope.owner.space_id, context.scope.acting_person_id, str(invite_id)
@@ -650,8 +773,12 @@ def rename_space(
     body: RenameBusinessSpace,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
-    own_business_only(request, person.person_id)
-    space = person.spaces.rename(person.person_id, body.name)
+    scope = working_scope(request, person.spaces, person.person_id)
+    if scope is None:
+        raise space_missing_problem(request)
+    if "manage" not in scope.permissions:
+        raise owner_required_problem(request)
+    space = person.spaces.rename(person.person_id, body.name, scope.owner.space_id)
     if space is None:
         raise space_missing_problem(request)
     return space_payload(space)
@@ -661,13 +788,6 @@ def rename_space(
 def get_workspace(
     context: Annotated[BusinessContext, Depends(require_business_workspace)],
 ) -> dict[str, Any]:
-    # An old own space without the owner's grant gets it here, once, with one
-    # ledger row; a client's Business is read as it is.
-    store = business_access()
-    if store is not None and context.scope.acting_as_owner:
-        store.ensure_owner_grant(
-            context.scope.owner.space_id, context.scope.acting_person_id
-        )
     space_id = context.scope.owner.space_id
     workspace = {
         **context.service.workspace(context.scope),
@@ -685,9 +805,9 @@ def create_account(
     response: Response,
     body: CreateBusinessAccount,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    context: BusinessContext = Depends(require_business),  # noqa: B008
+    context: BusinessContext = Depends(require_business_management),  # noqa: B008
 ) -> dict[str, Any]:
-    owner_only(request, context)
+    manager_only(request, context)
     key = _required_idempotency_key(request, idempotency_key)
     try:
         account, created = context.service.create_account(
@@ -962,7 +1082,6 @@ async def prepare_receipt(
     context: BusinessContext = Depends(require_business_document_write),  # noqa: B008
 ) -> dict[str, Any]:
     # Sending a document to the AI provider is the owner's choice alone.
-    owner_only(request, context)
     try:
         if consent != "true":
             raise DocumentServiceError("document_extraction_consent_required")

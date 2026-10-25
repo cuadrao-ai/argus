@@ -17,9 +17,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from argus.api import state as api_state
 from argus.api.business import (
     BusinessContext,
-    owner_only,
+    manager_only,
     require_business,
-    require_business_document_write,
+    require_business_management,
 )
 from argus.api.client_ip import resolve_client_ip
 from argus.api.dependencies import problem
@@ -264,7 +264,7 @@ def _refuse_alias(request: Request, report: dict) -> None:
 def create_receiving_address(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
     body: Annotated[AliasBody | None, Body()] = None,
 ) -> dict[str, Any]:
     """One address per Business. The Business owner owns the captured documents;
@@ -272,7 +272,7 @@ def create_receiving_address(
     A replay or a concurrent create returns the one live address."""
 
     # The address is the owner's to create or stop; a grantee only sees it.
-    owner_only(request, context)
+    manager_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
@@ -293,7 +293,7 @@ def create_receiving_address(
     try:
         actor = BusinessActions(pool, hub.sink).resolve_actor(
             TrustedActor(
-                actor_id=UUID(context.scope.person_id),
+                actor_id=UUID(context.scope.acting_person_id),
                 actor_kind="member",
                 space_id=UUID(space_id),
             )
@@ -307,7 +307,7 @@ def create_receiving_address(
             recipient=f"{report['alias']}@{domain}",
             space_id=space_id,
             principal_id=actor.owner_id,
-            granted_by=context.scope.person_id,
+            granted_by=context.scope.acting_person_id,
             grant_id=str(actor.grant_id),
             alias=report["alias"],
             alias_normalized=report["alias"],
@@ -331,11 +331,11 @@ def create_receiving_address(
 @router.delete("", status_code=204)
 def stop_receiving(
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> Response:
-    owner_only(request, context)
+    manager_only(request, context)
     _runtime(request).store.deactivate_routes(
-        context.scope.owner.space_id, actor_id=context.scope.person_id
+        context.scope.owner.space_id, actor_id=context.scope.acting_person_id
     )
     return Response(status_code=204, headers=NO_STORE)
 
@@ -372,10 +372,10 @@ def _public_alias(report: dict) -> dict[str, Any]:
 def alias_availability(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
     alias: Annotated[str, Query(min_length=1, max_length=80)],
 ) -> dict[str, Any]:
-    owner_only(request, context)
+    manager_only(request, context)
     _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
@@ -391,10 +391,10 @@ def alias_availability(
 def alias_suggestion(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
     name: Annotated[str | None, Query(max_length=80)] = None,
 ) -> dict[str, Any]:
-    owner_only(request, context)
+    manager_only(request, context)
     _limit_alias_lookup(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
@@ -413,12 +413,12 @@ def alias_suggestion(
 def change_receiving_address(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
     body: AliasBody,
 ) -> dict[str, Any]:
     """Replace the live alias. The old alias is reserved and deliveries stay put."""
 
-    owner_only(request, context)
+    manager_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     space_id = context.scope.owner.space_id
@@ -436,7 +436,7 @@ def change_receiving_address(
             alias_normalized=report["alias"],
             recipient=f"{report['alias']}@{domain}",
             review_required=report["review_required"],
-            actor_id=context.scope.person_id,
+            actor_id=context.scope.acting_person_id,
         )
     except AliasTaken:
         logger.bind(route_id=current.id).warning("email_alias_unavailable")
@@ -484,10 +484,10 @@ def list_senders(
 def authorize_sender(
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
     body: SenderBody,
 ) -> dict[str, Any]:
-    owner_only(request, context)
+    manager_only(request, context)
     response.headers.update(NO_STORE)
     value = _sender_value(body.kind, body.value)
     if value is None:
@@ -506,7 +506,7 @@ def authorize_sender(
         for item in runtime.store.list_senders(space_id)
     )
     rule = runtime.store.upsert_sender(
-        space_id, body.kind, value, body.status, actor_id=context.scope.person_id
+        space_id, body.kind, value, body.status, actor_id=context.scope.acting_person_id
     )
     if existed:
         response.status_code = 200
@@ -517,13 +517,13 @@ def authorize_sender(
 def remove_sender(
     sender_id: UUID,
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> Response:
-    owner_only(request, context)
+    manager_only(request, context)
     removed = _runtime(request).store.remove_sender(
         context.scope.owner.space_id,
         str(sender_id),
-        actor_id=context.scope.person_id,
+        actor_id=context.scope.acting_person_id,
     )
     if removed is None:
         raise _problem(
@@ -668,10 +668,10 @@ def retry(
     delivery_id: UUID,
     request: Request,
     response: Response,
-    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> dict[str, Any]:
     # Re-running a delivery runs under the owner's grant: the owner's call alone.
-    owner_only(request, context)
+    manager_only(request, context)
     response.headers.update(NO_STORE)
     runtime = _runtime(request)
     if not runtime.enabled():

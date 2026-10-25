@@ -68,14 +68,6 @@ def test_a_space_is_born_with_the_owner_grant_and_healed_once(pool, users) -> No
                 space_id=UUID(space.id),
             ),
         ).require("approve")
-        # An old space without the grant gets it once; a space that has it is left alone.
-        db.execute(
-            "delete from public.business_client_grants where space_id=%s", (space.id,)
-        )
-        db.execute(
-            "delete from public.business_action_receipts where space_id=%s", (space.id,)
-        )
-    assert access.ensure_owner_grant(space.id, users["owner"]) is True
     assert access.ensure_owner_grant(space.id, users["owner"]) is False
     assert spaces.create(users["owner"], "Otro")[1] is False
     with psycopg.connect(shared.DSN) as db:
@@ -95,7 +87,9 @@ def test_an_accountant_reads_and_prepares_but_never_approves_and_loses_access_at
     with psycopg.connect(shared.DSN) as db:
         email = _confirm(db, users["other"])
     created, listed = access.give(space.id, users["owner"], email.upper())
-    assert created
+    assert created and listed.invites
+    access.accept_invite(users["other"], space.id, listed.invites[0].id)
+    listed = access.list(space.id, users["owner"])
     assert [(g.owner, g.capabilities) for g in listed.grants] == [
         (True, ("read", "prepare", "approve")),
         (False, ("read", "prepare")),
@@ -127,7 +121,12 @@ def test_an_accountant_reads_and_prepares_but_never_approves_and_loses_access_at
     with psycopg.connect(shared.DSN) as db:
         with pytest.raises(ActionError):
             authorize(db, accountant)
-        assert _ledger(db, space.id) == ["owner_grant", "grant_access", "revoke_grant"]
+        assert _ledger(db, space.id) == [
+            "owner_grant",
+            "invite_access",
+            "accept_invite",
+            "revoke_grant",
+        ]
     assert [g.owner for g in access.list(space.id, users["owner"]).grants] == [True]
     assert access.revoke_grant(space.id, users["owner"], grant_id) == "missing"
 
@@ -169,7 +168,8 @@ def test_an_invite_waits_for_a_confirmed_email_then_becomes_the_grant(
     assert access.accept_invites(users["other"]) == 0
     with psycopg.connect(shared.DSN) as db:
         _confirm(db, users["other"])
-    assert access.accept_invites(users["other"]) == 1
+    assert access.accept_invites(users["other"]) == 0
+    access.accept_invite(users["other"], space.id, listed.invites[0].id)
     assert access.accept_invites(users["other"]) == 0
     after = access.list(space.id, users["owner"])
     assert after.invites == ()
@@ -245,7 +245,7 @@ def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(pool, users) -> 
         assert db.execute(
             "select count(*) from public.business_access_invites where space_id=%s and email=%s",
             (space.id, email),
-        ).fetchone() == (2,)
+        ).fetchone() == (3,)
     # Accepted: the confirmed account holds the grant; re-inviting it creates nothing.
     with psycopg.connect(shared.DSN) as db:
         other = db.execute(
@@ -253,7 +253,9 @@ def test_re_inviting_an_expired_email_makes_a_fresh_live_invite(pool, users) -> 
         ).fetchone()[0]
         _confirm(db, users["other"])
         db.commit()
-    created, _ = access.give(space.id, users["owner"], other)
+    created, pending = access.give(space.id, users["owner"], other)
     assert created
+    invitation = next(i for i in pending.invites if i.email == other)
+    access.accept_invite(users["other"], space.id, invitation.id)
     created, after = access.give(space.id, users["owner"], other)
     assert not created and other not in [i.email for i in after.invites]

@@ -218,16 +218,24 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         if scope.actor_id is not None:
             # A chosen grant: its own capabilities, never approve for a member.
             held = business_access().capabilities(scope.owner.space_id, scope.actor_id)
-            capabilities = set(held) & {"read", "prepare"}
+            capabilities = set(held)
             if not scope.acting_as_owner:
                 needed = (
                     "read"
-                    if request.method == "GET" or _needs_only_read(request)
+                    if (
+                        request.method == "GET"
+                        and not request.url.path.endswith("/source")
+                    )
+                    or _needs_only_read(request)
                     else (
-                        "approve" if request.url.path.endswith("/confirm") else "prepare"
+                        "download"
+                        if request.url.path.endswith("/source")
+                        else "approve"
+                        if request.url.path.endswith("/confirm")
+                        else "prepare"
                     )
                 )
-                if needed not in capabilities:
+                if needed not in scope.permissions:
                     raise action_problem(
                         request,
                         Refused(
@@ -276,10 +284,19 @@ def scoped_legacy(request, documents, hub, user_id, scope):
         record = actions.record_context(context)
         capability = (
             "read"
-            if request.method == "GET" or _needs_only_read(request)
-            else ("approve" if request.url.path.endswith("/confirm") else "prepare")
+            if (request.method == "GET" and not request.url.path.endswith("/source"))
+            or _needs_only_read(request)
+            else (
+                "download"
+                if request.url.path.endswith("/source")
+                else "approve"
+                if request.url.path.endswith("/confirm")
+                else "prepare"
+            )
         )
-        if capability not in record.capabilities:
+        from argus.domain.business.roles import ROLE_PERMISSIONS
+
+        if capability not in ROLE_PERMISSIONS[context.business_role]:
             raise ActionError("permission_denied", "business_permission_denied")
     except ValueError:
         raise action_problem(
@@ -303,6 +320,7 @@ def scoped_legacy(request, documents, hub, user_id, scope):
             actor_id=user_id,
             grant_id=str(context.grant_id),
             role="owner" if context.is_current_owner else "accountant",
+            business_role=context.business_role,
             **({"country": scope.country, "currency": scope.currency} if scope else {}),
         ),
         BusinessService(scoped_documents, imports, _captured),

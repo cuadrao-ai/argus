@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine, Iterator
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request, Response
+from fastapi.routing import APIRoute
 
 from argus.api.business_spaces import (
     business_access,
@@ -21,6 +23,7 @@ from argus.api.ingestion import IngestionContext, require_ingestion_context
 from argus.api.whatsapp import whatsapp_runtime
 from argus.domain.business.config import business_pilot_enabled
 from argus.domain.business.contracts.dossier import RecordContext
+from argus.domain.business.memberships import MembershipError
 from argus.domain.business.scope import BusinessScope, resolve_business_scope
 from argus.domain.business.service import BusinessService
 from argus.domain.business.spaces import SpaceStore
@@ -111,7 +114,8 @@ def chosen_scope(request: Request, user_id: str) -> BusinessScope | None:
         owner=BusinessSpace(found.space_id),
         actor_id=user_id,
         grant_id=found.grant_id,
-        role=found.role,  # type: ignore[arg-type]
+        role=found.role,
+        business_role=found.business_role,
         country=space.country,
         currency=space.currency,
     )
@@ -135,6 +139,31 @@ def owner_only(request: Request, context: BusinessContext) -> None:
         raise owner_required_problem(request)
 
 
+def manager_only(request: Request, context: BusinessContext) -> None:
+    if "manage" not in context.scope.permissions:
+        raise owner_required_problem(request)
+
+
+class MembershipRoute(APIRoute):
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        original = super().get_route_handler()
+
+        async def handler(request: Request) -> Response:
+            try:
+                return await original(request)
+            except MembershipError as error:
+                raise problem(
+                    request,
+                    status_code=403,
+                    code=error.code,
+                    title="Forbidden",
+                    detail="This Business action is not allowed.",
+                    headers=NO_STORE,
+                ) from None
+
+        return handler
+
+
 def own_business_only(request: Request, user_id: str) -> None:
     """A route about the caller's own Business: under a chosen client grant it
     is refused (a dead grant is refused first, the same way as everywhere)."""
@@ -149,7 +178,28 @@ def working_scope(
 ) -> BusinessScope | None:
     """The Business the caller is working in: the chosen grant's, else their own."""
 
-    return chosen_scope(request, user_id) or resolve_business_scope(spaces, user_id)
+    selected = chosen_scope(request, user_id)
+    if selected is not None:
+        return selected
+    scope = resolve_business_scope(spaces, user_id)
+    if scope is None:
+        return None
+    access = business_access()
+    found = (
+        next(
+            (g for g in access.spaces_for(user_id) if g.space_id == scope.owner.space_id),
+            None,
+        )
+        if access
+        else None
+    )
+    if found is None:
+        raise grant_not_live_problem(request)
+    from dataclasses import replace
+
+    return replace(
+        scope, grant_id=found.grant_id, role=found.role, business_role=found.business_role
+    )
 
 
 @dataclass(frozen=True)
@@ -235,3 +285,34 @@ def require_business_document_write(
     context: DocumentContext = Depends(require_document_context),  # noqa: B008
 ) -> BusinessContext:
     return _context(request, context.service, context.service.hub, context.user_id)
+
+
+def require_business_management(
+    request: Request,
+    context: Annotated[BusinessContext, Depends(require_business_document_write)],
+) -> Iterator[BusinessContext]:
+    """Keep the actor's live management permission locked through the write."""
+    manager_only(request, context)
+    pool = getattr(request.app.state, "financial_accounts_pool", None)
+    if pool is None:
+        yield context
+        return
+    from uuid import UUID
+
+    from argus.domain.business.authority import ActionError, authorize
+    from argus.domain.business.contracts.authority import TrustedActor
+
+    with pool.connection() as connection, connection.transaction():
+        try:
+            authorize(
+                connection,
+                TrustedActor(
+                    actor_id=UUID(context.scope.acting_person_id),
+                    actor_kind="member",
+                    space_id=UUID(context.scope.owner.space_id),
+                ),
+                UUID(context.scope.grant_id),
+            ).require("manage")
+        except ActionError:
+            raise owner_required_problem(request) from None
+        yield context

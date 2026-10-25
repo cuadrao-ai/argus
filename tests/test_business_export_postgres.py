@@ -118,10 +118,11 @@ def test_live_read_grant_required_and_no_foreign_owner_substitution(actions, use
         )
     with service.authority.pool.connection() as db:
         db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (grant,),
         )
-    assert export_package(service.authority, context, PERIOD, InMemorySourceObjects())
+    with pytest.raises(ActionError, match="business_permission_denied"):
+        export_package(service.authority, context, PERIOD, InMemorySourceObjects())
     with service.authority.pool.connection() as db:
         db.execute(
             "update public.business_client_grants set revoked_at=now() where id=%s",
@@ -142,7 +143,9 @@ def attachment(actions, request):
 
     media_type = getattr(request, "param", "application/pdf")
     content = (
-        (Path(__file__).parent / "document_extraction_fixtures/receipt-dop.png").read_bytes()
+        (
+            Path(__file__).parent / "document_extraction_fixtures/receipt-dop.png"
+        ).read_bytes()
         if media_type == "image/png"
         else b"synthetic original\x00\xff"
     )
@@ -271,7 +274,7 @@ def test_actual_export_api_read_only_accountant_anchor_and_no_fallback(actions, 
     draft, _ = shared.create(service, context)
     with service.authority.pool.connection() as db:
         db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (grant,),
         )
     app = FastAPI()
@@ -294,6 +297,13 @@ def test_actual_export_api_read_only_accountant_anchor_and_no_fallback(actions, 
     query = "start=2026-10-01&end=2026-10-31"
     with TestClient(app) as client:
         assert client.get(f"/business/exports?{query}").status_code == 404
+        refused = client.get(f"/business/exports?{query}&draft_id={draft}")
+        assert refused.status_code == 403 and not refused.content.startswith(b"PK")
+        with service.authority.pool.connection() as db:
+            db.execute(
+                "update public.business_client_grants set business_role='editor' where id=%s",
+                (grant,),
+            )
         result = client.get(f"/business/exports?{query}&draft_id={draft}")
         assert result.status_code == 200
         manifest = json.loads(unpack(result.content)["manifest.json"])
@@ -321,6 +331,10 @@ def test_foreign_business_draft_and_source_never_enter_export(actions, users):
     with service.authority.pool.connection() as db:
         foreign_space = space(db, users["other"])
         db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (foreign_space, users["other"], users["other"]),
+        )
+        db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,ARRAY['read','prepare'])",
             (foreign_space, users["owner"], users["other"]),
         )
@@ -330,7 +344,7 @@ def test_foreign_business_draft_and_source_never_enter_export(actions, users):
     foreign_draft, _ = shared.create(service, foreign)
     foreign_source = service.dossier(foreign, foreign_draft).sources[0].id
     with pytest.raises(ActionError, match="business_record_not_found"):
-        service.context_for_draft(context.actor.actor_id, foreign_draft)
+        service.context_for_draft(UUID(users["guest"]), foreign_draft)
     content = export_package(service.authority, context, PERIOD, InMemorySourceObjects())
     manifest = json.loads(unpack(content)["manifest.json"])
     assert [row["draft_id"] for row in manifest["unresolved_drafts"]] == [str(local)]
@@ -408,8 +422,10 @@ def test_failed_image_rebuild_never_serves_original(actions, attachment, monkeyp
 
     service, context, _ = actions
     objects, _, _ = attachment
+
     def failed(**_kwargs):
         raise DocumentExtractionError("image_unreadable")
+
     monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", failed)
     files = unpack(export_package(service.authority, context, PERIOD, objects))
     source = json.loads(files["manifest.json"])["sources"][0]
@@ -417,17 +433,30 @@ def test_failed_image_rebuild_never_serves_original(actions, attachment, monkeyp
     assert len(objects.objects) == 1
 
 
-@pytest.mark.parametrize("attachment", [
-    "application/pdf", "text/plain", "text/csv", "application/xml", "text/xml",
-    "message/rfc822", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-], indirect=True)
-def test_nonimage_exports_preserve_exact_original_without_producer(actions, attachment, monkeypatch):
+@pytest.mark.parametrize(
+    "attachment",
+    [
+        "application/pdf",
+        "text/plain",
+        "text/csv",
+        "application/xml",
+        "text/xml",
+        "message/rfc822",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+    indirect=True,
+)
+def test_nonimage_exports_preserve_exact_original_without_producer(
+    actions, attachment, monkeypatch
+):
     from argus.domain.ingestion.documents import rebuilt
 
     service, context, _ = actions
     objects, _, content = attachment
+
     def forbidden(**_kwargs):
         pytest.fail("non-image export invoked image producer")
+
     monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", forbidden)
     before = dict(objects.objects)
     files = unpack(export_package(service.authority, context, PERIOD, objects))
@@ -439,12 +468,15 @@ def test_nonimage_exports_preserve_exact_original_without_producer(actions, atta
 
 @pytest.mark.parametrize("attachment", ["image/png"], indirect=True)
 @pytest.mark.parametrize("change", ["revocation", "disconnect", "identity"])
-def test_export_rechecks_access_after_image_build(actions, attachment, monkeypatch, change):
+def test_export_rechecks_access_after_image_build(
+    actions, attachment, monkeypatch, change
+):
     from argus.domain.ingestion.documents import rebuilt
 
     service, context, grant = actions
     objects, _, _ = attachment
     original = rebuilt.ensure_rebuilt_image
+
     def changed(**kwargs):
         original(**kwargs)
         if change == "identity":
@@ -455,16 +487,30 @@ def test_export_rechecks_access_after_image_build(actions, attachment, monkeypat
             draft = store.draft(**key)
             content = store.source(**key) + b"changed source"
             store.forget(**key)
-            store.capture(user_id=context.owner_id, draft=draft.model_copy(update={
-                "sha256": hashlib.sha256(content).hexdigest(), "size_bytes": len(content),
-            }), content=content)
+            store.capture(
+                user_id=context.owner_id,
+                draft=draft.model_copy(
+                    update={
+                        "sha256": hashlib.sha256(content).hexdigest(),
+                        "size_bytes": len(content),
+                    }
+                ),
+                content=content,
+            )
             return
         with service.authority.pool.connection() as db:
             db.execute("set local lock_timeout='1s'")
             if change == "revocation":
-                db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (grant,))
+                db.execute(
+                    "update public.business_client_grants set revoked_at=now() where id=%s",
+                    (grant,),
+                )
             else:
-                db.execute("update public.financial_source_connections set status='disconnected',disconnected_at=now() where id=%s", (kwargs["connection_id"],))
+                db.execute(
+                    "update public.financial_source_connections set status='disconnected',disconnected_at=now() where id=%s",
+                    (kwargs["connection_id"],),
+                )
+
     monkeypatch.setattr(rebuilt, "ensure_rebuilt_image", changed)
     if change == "revocation":
         with pytest.raises(ActionError, match="business_record_not_found"):
@@ -472,7 +518,9 @@ def test_export_rechecks_access_after_image_build(actions, attachment, monkeypat
     else:
         files = unpack(export_package(service.authority, context, PERIOD, objects))
         source = json.loads(files["manifest.json"])["sources"][0]
-        assert source["availability"] == ("source_changed" if change == "identity" else "unavailable")
+        assert source["availability"] == (
+            "source_changed" if change == "identity" else "unavailable"
+        )
         assert source["file"] is None
 
 

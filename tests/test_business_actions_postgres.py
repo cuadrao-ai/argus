@@ -40,6 +40,11 @@ def actions(users, request):
     capabilities = ["read", "prepare", "approve"] if owner_acts else ["read", "prepare"]
     with Connection.connect(shared.DSN) as db:
         space_id = space(db, users["owner"])
+        if not owner_acts:
+            db.execute(
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+                (space_id, users["owner"], users["owner"]),
+            )
         grant = db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
             " values (%s,%s,%s,%s) returning id",
@@ -160,7 +165,7 @@ def test_revocation_and_cross_client_non_disclosure(actions, users):
     service, context, grant = actions
     draft, _ = create(service, context)
     with pytest.raises(ActionError, match="business_record_not_found"):
-        service.context_for_draft(UUID(users["owner"]), draft)
+        service.context_for_draft(UUID(users["guest"]), draft)
     with service.authority.pool.connection() as db:
         db.execute(
             "update public.business_client_grants set revoked_at=now() where id=%s",
@@ -379,11 +384,16 @@ def test_owner_uncertainty_escalates_question_without_inventing_answer(actions):
 
 
 @pytest.mark.owner_acts
-def test_approval_rechecks_grant_after_preview_before_claim(actions, monkeypatch):
+def test_approval_rechecks_grant_after_preview_before_claim(actions, users, monkeypatch):
     from argus.domain.business.contracts.actions import ApproveExpense
 
     service, context, grant = actions
     draft = ready(service, context)
+    with service.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (context.actor.space_id, users["other"], context.owner_id),
+        )
     preview = service.imports.money.preview
 
     def revoke_after_preview(**kwargs):
@@ -871,7 +881,7 @@ def test_owner_funds_approval_recovers_without_bank_movement(actions, monkeypatc
         )
 
 
-def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch):
+def test_owner_workspace_uses_existing_live_membership(actions, monkeypatch):
     from types import SimpleNamespace
 
     from argus.api.business import require_business_surface
@@ -909,8 +919,16 @@ def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch)
         )
     spaces = PostgresSpaceStore(service.authority.pool)
     monkeypatch.setattr("argus.api.business.business_spaces", lambda: spaces)
+    from argus.domain.business.access import PostgresAccessStore
+
+    monkeypatch.setattr(
+        "argus.api.business.business_access",
+        lambda: PostgresAccessStore(service.authority.pool),
+    )
     monkeypatch.setenv("ARGUS_BUSINESS_CHAT_ENABLED", "false")
-    hub = SimpleNamespace(sink=service.imports)
+    hub = SimpleNamespace(
+        sink=service.imports, connections=SimpleNamespace(list=lambda **kwargs: [])
+    )
     documents = SimpleNamespace(hub=hub)
     app = FastAPI()
     app.state.financial_accounts_pool = service.authority.pool
@@ -946,18 +964,16 @@ def test_owner_workspace_read_never_grants_draft_authority(actions, monkeypatch)
         assert [a["id"] for a in response.json()["accounts"]] == [account_ids[0]]
         assert response.headers["cache-control"] == "no-store"
         receipts = client.get("/business/receipts")
-        assert receipts.status_code == 404
-        assert receipts.json()["detail"]["code"] == "business_record_not_found"
+        assert receipts.status_code == 200
         for person in (str(context.actor.actor_id), str(uuid4())):
             acting_as(person)
             refused = client.get("/business/workspace")
             assert refused.status_code == 404
             assert refused.json()["detail"]["code"] == "business_space_missing"
-    with pytest.raises(ActionError, match="business_record_not_found"):
-        service.resolve_actor(
-            TrustedActor(
-                actor_id=context.owner_id,
-                actor_kind="member",
-                space_id=context.actor.space_id,
-            )
+    assert service.resolve_actor(
+        TrustedActor(
+            actor_id=context.owner_id,
+            actor_kind="member",
+            space_id=context.actor.space_id,
         )
+    ).is_current_owner

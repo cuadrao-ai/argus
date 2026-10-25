@@ -189,7 +189,7 @@ def build_world(pool, owner, space):
         )
         connection.execute(
             "insert into public.business_client_grants(id,space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,%s,array['read','prepare'])",
+            " values (%s,%s,%s,%s,array['read','prepare','approve'])",
             (actions.grant_id, space, owner, owner),
         )
     return World(

@@ -47,7 +47,9 @@ def _grant(alice: Owner, bob: Owner) -> str:  # noqa: F811
     store.confirm(bob.person, "bob@example.test")
     given = alice.post("/access", {"email": "bob@example.test"})
     assert given.status_code == 201, given.text
-    [grant] = [g for g in given.json()["grants"] if not g["owner"]]
+    invite = given.json()["invites"][0]
+    store.accept_invite(bob.person, alice.scope().owner.space_id, invite["id"])
+    [grant] = [g for g in alice.get("/access").json()["grants"] if not g["owner"]]
     return grant["id"]
 
 
@@ -139,14 +141,14 @@ def test_with_the_chosen_grant_the_accountant_reads_and_prepares_the_clients_bus
         403,
         "business_permission_denied",
     )
-    # Sending a document to the AI provider is the owner's choice alone.
+    # Preparing needs a separate prior reading consent, even with Editor access.
     assert (
         bob.post(
             f"/receipts/{receipt_id}/prepare",
             key=str(uuid4()),
             **{**headers, "X-Extraction-Consent": "true"},
         ).status_code
-        == 403
+        == 409
     )
     # A grantee's consent header is ignored: the owner's setting is off, so the
     # receipt is saved unread and the provider is never called.
@@ -267,13 +269,9 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
 
     grant = _grant(alice, bob)
     headers = {GRANT: grant}
-    assert (
-        get_as(bob, "/space", grant).status_code,
-        get_as(bob, "/space", grant).json()["code"],
-    ) == (
-        403,
-        "business_permission_denied",
-    )
+    selected = get_as(bob, "/space", grant)
+    assert selected.status_code == 200
+    assert selected.json()["id"] == alice.get("/space").json()["id"]
     renamed = bob.client.patch(
         BASE + "/space", json={"name": "Otro nombre"}, headers={**bob.auth, **headers}
     )
@@ -384,7 +382,8 @@ def _chat_under_grant(client, store, space_a, space_b, as_person) -> None:  # no
     store.ensure_owner_grant(space_a, ALICE)
     store.ensure_owner_grant(space_b, BOB)
     store.confirm(BOB, "bob@example.test")
-    created, _ = store.give(space_a, ALICE, "bob@example.test")
+    created, listing = store.give(space_a, ALICE, "bob@example.test")
+    store.accept_invite(BOB, space_a, listing.invites[0].id)
     assert created is True
     [grant] = [s.grant_id for s in store.spaces_for(BOB) if s.role == "accountant"]
     # A stored conversation belongs to its space's owner, so Business chat under a
@@ -420,32 +419,24 @@ def _chat_under_grant(client, store, space_a, space_b, as_person) -> None:  # no
     assert (dead.status_code, dead.json()["code"]) == (403, "business_grant_not_live")
 
 
-def test_a_grant_ends_when_its_issuer_loses_owner_access(
+def test_accepted_membership_survives_issuer_loss_and_cannot_heal_issuer(
     alice: Owner,  # noqa: F811
     bob: Owner,  # noqa: F811
 ) -> None:
-    from datetime import datetime, timezone
+    from argus.domain.business.roles import BusinessRole
 
     grant = _grant(alice, bob)
-    assert get_as(bob, "/receipts", grant).status_code == 200
     store = business_access()
-    assert store is not None
-    own = next(
-        g
-        for g in store._grants
-        if g["grantee_id"] == alice.person and g["issuer_id"] == alice.person
-    )
-    own["revoked_at"] = datetime.now(timezone.utc)
-    refused = get_as(bob, "/receipts", grant)
-    assert (refused.status_code, refused.json()["code"]) == (
-        403,
-        "business_grant_not_live",
-    )
-    assert [s["role"] for s in _listed(bob)] == ["owner"]
-    # Owner access restored: the grant Alice gave is live again, as given.
-    assert store.ensure_owner_grant(alice.scope().owner.space_id, alice.person) is True
+    space = alice.scope().owner.space_id
+    upgrade = store.give(space, alice.person, "bob@example.test", BusinessRole.OWNER)[
+        1
+    ].invites[0]
+    store.accept_invite(bob.person, space, upgrade.id)
+    original = next(g for g in store._grants if g["grantee_id"] == alice.person)
+    assert store.revoke_grant(space, bob.person, original["id"]) == "revoked"
     assert get_as(bob, "/receipts", grant).status_code == 200
-    assert [s["role"] for s in _listed(bob)] == ["owner", "accountant"]
+    assert store.ensure_owner_grant(space, alice.person) is False
+    assert len(store.spaces_for(bob.person)) == 2
 
 
 def test_the_listing_never_reports_approve_for_a_grantee_and_nothing_is_in_scope_without_a_business(
@@ -480,13 +471,16 @@ def test_the_chat_routes_and_the_email_retry_refuse_a_chosen_grant(
 
     client = chat_client
     space_a = _start_space(ALICE)
-    _start_space(BOB)
+    space_b = _start_space(BOB)
     previous = business_access()
     store = InMemoryAccessStore()
     configure_business_access(store)
     try:
         store.confirm(BOB, "bob@example.test")
-        store.give(space_a, ALICE, "bob@example.test")
+        store.ensure_owner_grant(space_a, ALICE)
+        store.ensure_owner_grant(space_b, BOB)
+        _, listing = store.give(space_a, ALICE, "bob@example.test")
+        store.accept_invite(BOB, space_a, listing.invites[0].id)
         [grant] = [s.grant_id for s in store.spaces_for(BOB) if s.role == "accountant"]
         own = _create(client, BOB, "Mi chat", surface="business")
         personal = _create(client, BOB, "Mi chat personal")

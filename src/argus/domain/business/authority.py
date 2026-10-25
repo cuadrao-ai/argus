@@ -13,6 +13,7 @@ from argus.domain.business.contracts.authority import (
     Capability,
     TrustedActor,
 )
+from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole, Permission
 from argus.domain.owner_scope import BusinessSpace
 
 
@@ -34,10 +35,11 @@ class ActionContext:
     owner_id: str
     space_name: str
     current_owner_id: str
+    business_role: BusinessRole = BusinessRole.OWNER
 
     @property
     def is_current_owner(self) -> bool:
-        return str(self.actor.actor_id) == self.current_owner_id
+        return self.business_role == BusinessRole.OWNER
 
     @property
     def scope(self) -> BusinessSpace:
@@ -49,9 +51,10 @@ class Authorization:
     context: ActionContext
     provenance: ActorProvenance
     capabilities: frozenset[Capability]
+    permissions: frozenset[Permission]
 
-    def require(self, capability: Capability) -> None:
-        if capability not in self.capabilities:
+    def require(self, capability: Permission) -> None:
+        if capability not in self.permissions:
             raise ActionError("permission_denied", "business_permission_denied")
 
 
@@ -64,9 +67,12 @@ def authorize(
     actor: TrustedActor,
     grant_id: UUID | None = None,
 ) -> Authorization:
+    connection.execute(
+        "select id from public.spaces where id=%s for share", (actor.space_id,)
+    )
     with connection.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
-            """select g.id, g.issuer_id, g.capabilities,
+            """select g.id, g.issuer_id, g.capabilities, g.business_role,
                 s.created_by::text as owner_id, s.current_owner_id::text, s.name,
                 p.display_name as actor_name, p.username as actor_username,
                 i.display_name as issuer_name, i.username as issuer_username
@@ -82,15 +88,6 @@ def authorize(
                 and 'read'=any(g.capabilities)
                 and s.kind='business' and s.closed_at is null
                 and coalesce(u.is_anonymous,false)=false
-                and not exists (select 1 from public.business_client_grants lost
-                    where lost.space_id=g.space_id and lost.grantee_id=g.issuer_id
-                    and lost.issuer_id=lost.grantee_id
-                    and (lost.revoked_at is not null
-                        or (lost.expires_at is not null and lost.expires_at <= clock_timestamp()))
-                    and not exists (select 1 from public.business_client_grants own
-                        where own.space_id=lost.space_id and own.grantee_id=lost.grantee_id
-                        and own.issuer_id=own.grantee_id and own.revoked_at is null
-                        and (own.expires_at is null or own.expires_at > clock_timestamp())))
             order by cardinality(g.capabilities) desc, g.created_at, g.id
             limit 1 for share of g, s""",
             (actor.space_id, actor.actor_id, grant_id, grant_id),
@@ -107,15 +104,13 @@ def authorize(
             # The close paused this grant; it was not removed.
             raise ActionError("permission_denied", "business_closed")
         raise ActionError("not_found", "business_record_not_found")
-    capabilities = frozenset(row["capabilities"])
+    role = BusinessRole(row["business_role"])
+    capabilities = ROLE_PERMISSIONS[role]
     if actor.actor_kind != "member":
         capabilities &= {"read", "prepare"}
-    if str(actor.actor_id) != row["current_owner_id"]:
-        # Approval is the owner's alone, whatever a grant row says.
-        capabilities -= {"approve"}
     return Authorization(
         context=ActionContext(
-            actor, row["id"], row["owner_id"], row["name"], row["current_owner_id"]
+            actor, row["id"], row["owner_id"], row["name"], row["current_owner_id"], role
         ),
         provenance=ActorProvenance(
             actor_id=actor.actor_id,
@@ -127,7 +122,8 @@ def authorize(
                 row["issuer_name"], row["issuer_username"]
             ),
         ),
-        capabilities=capabilities,
+        capabilities=capabilities & {"read", "prepare", "approve"},
+        permissions=capabilities,
     )
 
 

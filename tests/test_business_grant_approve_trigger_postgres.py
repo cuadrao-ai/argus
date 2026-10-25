@@ -1,7 +1,4 @@
-"""Approval is the owner's alone, in the database: a client grant that carries
-approve for anyone but the space's creator is refused on insert and on update,
-whoever writes it; the owner's own grant keeps all three capabilities and an
-accountant's grant keeps read and prepare."""
+"""Legacy capabilities cannot grant approval outside the canonical Owner role."""
 
 from __future__ import annotations
 
@@ -46,16 +43,10 @@ def test_the_database_refuses_approve_on_anyone_but_the_owner(users) -> None:  #
                 ),
             )
         db.rollback()
-        # Update that adds approve to the accountant's row: refused, the row unchanged.
-        with pytest.raises(
-            psycopg.errors.CheckViolation, match="business_grant_approve_owner_only"
-        ):
-            db.execute(
-                "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve']"
-                " where id=%s",
-                (accountant_grant,),
-            )
-        db.rollback()
+        db.execute(
+            "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
+            (accountant_grant,),
+        )
         rows = {
             str(row[0]): list(row[1])
             for row in db.execute(

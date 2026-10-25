@@ -155,7 +155,7 @@ def test_capture_refuses_agent_read_only_and_revoked_authority(actions):
     assert counts(service, context) == (0, 0, 0, 0)
     with service.authority.pool.connection() as db:
         db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (grant,),
         )
     assert note(service, context).code == "business_permission_denied"
@@ -173,7 +173,10 @@ def test_capture_refuses_agent_read_only_and_revoked_authority(actions):
 def test_foreign_candidate_is_not_found_and_leaves_no_source(actions, users):
     service, context, _ = actions
     with service.authority.pool.connection() as db:
+        from argus.domain.business.access import ensure_owner_grant
+
         foreign_space = space(db, users["other"])
+        ensure_owner_grant(db, foreign_space, users["other"])
         db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,ARRAY['read','prepare'])",
             (foreign_space, users["owner"], users["other"]),
@@ -295,7 +298,7 @@ def test_capture_api_owner_scope_and_accountant_append(actions, users):
     from fastapi.testclient import TestClient
 
     service, accountant, _ = actions
-    actor = UUID(users["owner"])
+    actor = UUID(users["guest"])
     app = FastAPI()
     app.include_router(router)
     spaces = PostgresSpaceStore(service.authority.pool)
@@ -317,11 +320,7 @@ def test_capture_api_owner_scope_and_accountant_append(actions, users):
             client.post("/business/captures", json=body, headers=headers).status_code
             == 404
         )
-        with service.authority.pool.connection() as db:
-            db.execute(
-                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,ARRAY['read','prepare'])",
-                (accountant.actor.space_id, actor, users["owner"]),
-            )
+        actor = UUID(users["owner"])
         response = client.post("/business/captures", json=body, headers=headers)
         assert response.status_code == 200, response.text
         draft = response.json()["draft_id"]
