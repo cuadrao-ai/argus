@@ -2404,6 +2404,20 @@
         "count_one": "{{count}} registro",
         "count_other": "{{count}} registros",
         "no_results": "No hay registros con estos filtros",
+        "overview": {
+          "approval": {
+            "title": "Por aprobar",
+            "description": "Esperando aprobación"
+          },
+          "export": {
+            "title": "Listos para exportar",
+            "description": "Puedes incluirlos en tu exportación"
+          },
+          "review": {
+            "title": "Por revisar",
+            "description": "Necesitan una revisión"
+          }
+        },
         "period_summary": "Resumen del período · {{period}}",
         "search": "Buscar en registros…",
         "type": "Tipo"

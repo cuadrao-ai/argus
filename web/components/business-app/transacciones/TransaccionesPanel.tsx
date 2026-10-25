@@ -20,6 +20,7 @@ import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { recordRowKey, RecordsList, RecordsTable } from "./TransaccionesRecords";
 import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
+import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
@@ -115,6 +116,7 @@ export default function TransaccionesPanel() {
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
+        {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview /> : null}
         {!igualar ? <RecordsToolbar filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <><DensityMenu state={densityState} /><BusinessAddMenu placement="header" /></>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (

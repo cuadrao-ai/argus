@@ -2404,6 +2404,20 @@
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "no_results": "No records match these filters",
+        "overview": {
+          "approval": {
+            "title": "Awaiting approval",
+            "description": "Waiting for approval"
+          },
+          "export": {
+            "title": "Ready to export",
+            "description": "You can include them in your export"
+          },
+          "review": {
+            "title": "To review",
+            "description": "Need a review"
+          }
+        },
         "period_summary": "Period summary · {{period}}",
         "search": "Search records…",
         "type": "Type"
