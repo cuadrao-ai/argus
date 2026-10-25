@@ -2403,6 +2403,63 @@
         "clear": "Clear filters",
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
+        "filters": {
+          "account": {
+            "card": "Business card",
+            "checking": "Checking account",
+            "owner": "Owner funds"
+          },
+          "amount": {
+            "choose_currency": "Choose a currency before setting an amount.",
+            "currency": "Currency",
+            "invalid": "Use valid amounts and a maximum at least as large as the minimum.",
+            "max": "To",
+            "min": "From"
+          },
+          "apply": "Apply",
+          "attachment": {
+            "any": "Any",
+            "hint": "This refers to the attached file, not the NCF.",
+            "with": "With attachment",
+            "without": "Without attachment"
+          },
+          "category": {
+            "dining": "Meals",
+            "none": "Uncategorized",
+            "other": "Other",
+            "transport": "Transport"
+          },
+          "date": {
+            "from": "From",
+            "invalid": "Choose a valid period of up to 366 days.",
+            "to": "To"
+          },
+          "document": {
+            "credit_note": "Credit note",
+            "invoice": "Invoice",
+            "receipt": "Receipt"
+          },
+          "fiscal": {
+            "b01": "B01 · Tax credit",
+            "b02": "B02 · Consumer",
+            "e31": "E31 · Electronic tax credit",
+            "e32": "E32 · Electronic consumer"
+          },
+          "groups": {
+            "account": "Account",
+            "amount": "Currency and amount",
+            "attachment": "Attachment",
+            "category": "Category",
+            "counterparty": "Counterparty",
+            "document": "Document type",
+            "fiscal": "Fiscal type",
+            "review": "Review"
+          },
+          "record": "Record",
+          "remove": "Remove filter",
+          "search": "Search…",
+          "title": "Filters"
+        },
         "no_results": "No records match these filters",
         "overview": {
           "approval": {
@@ -2420,7 +2477,16 @@
         },
         "period_summary": "Period summary · {{period}}",
         "search": "Search records…",
-        "type": "Type"
+        "type": "Type",
+        "views": {
+          "title": "Views",
+          "empty": "You have no saved views yet.",
+          "name": "View name",
+          "placeholder": "E.g. Expenses without documents",
+          "duplicate": "You already have a view with this name.",
+          "save": "Save view",
+          "export": "Export results"
+        }
       },
       "title": "Records",
       "coverage": "Bank up to date through {{day}}.",

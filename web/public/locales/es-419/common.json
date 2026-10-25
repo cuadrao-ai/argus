@@ -2403,6 +2403,63 @@
         "clear": "Limpiar filtros",
         "count_one": "{{count}} registro",
         "count_other": "{{count}} registros",
+        "filters": {
+          "account": {
+            "card": "Tarjeta del negocio",
+            "checking": "Cuenta corriente",
+            "owner": "Dinero del dueño"
+          },
+          "amount": {
+            "choose_currency": "Elige una moneda para definir el monto.",
+            "currency": "Moneda",
+            "invalid": "Usa montos válidos y un máximo igual o mayor al mínimo.",
+            "max": "Hasta",
+            "min": "Desde"
+          },
+          "apply": "Aplicar",
+          "attachment": {
+            "any": "Cualquiera",
+            "hint": "Se refiere al archivo adjunto, no al NCF.",
+            "with": "Con documento",
+            "without": "Sin documento"
+          },
+          "category": {
+            "dining": "Comidas",
+            "none": "Sin categoría",
+            "other": "Otros",
+            "transport": "Transporte"
+          },
+          "date": {
+            "from": "Desde",
+            "invalid": "Elige un período válido de hasta 366 días.",
+            "to": "Hasta"
+          },
+          "document": {
+            "credit_note": "Nota de crédito",
+            "invoice": "Factura",
+            "receipt": "Recibo"
+          },
+          "fiscal": {
+            "b01": "B01 · Crédito fiscal",
+            "b02": "B02 · Consumo",
+            "e31": "E31 · Crédito fiscal electrónico",
+            "e32": "E32 · Consumo electrónico"
+          },
+          "groups": {
+            "account": "Cuenta",
+            "amount": "Moneda y monto",
+            "attachment": "Comprobante",
+            "category": "Categoría",
+            "counterparty": "Contraparte",
+            "document": "Tipo de documento",
+            "fiscal": "Tipo fiscal",
+            "review": "Revisión"
+          },
+          "record": "Registro",
+          "remove": "Quitar filtro",
+          "search": "Buscar…",
+          "title": "Filtros"
+        },
         "no_results": "No hay registros con estos filtros",
         "overview": {
           "approval": {
@@ -2420,7 +2477,16 @@
         },
         "period_summary": "Resumen del período · {{period}}",
         "search": "Buscar en registros…",
-        "type": "Tipo"
+        "type": "Tipo",
+        "views": {
+          "title": "Vistas",
+          "empty": "Todavía no tienes vistas guardadas.",
+          "name": "Nombre de la vista",
+          "placeholder": "Ej. Gastos sin documento",
+          "duplicate": "Ya tienes una vista con este nombre.",
+          "save": "Guardar vista",
+          "export": "Exportar resultados"
+        }
       },
       "title": "Registros",
       "coverage": "Banco al día hasta el {{day}}.",

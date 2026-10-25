@@ -90,7 +90,7 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
     return (
       <>
         <aside data-testid="rail">{workspace?.sidebarNav?.(shell as never)}</aside>
-        <header data-testid="top-bar">{workspace?.headerActions?.(shell as never)}</header>
+        <header data-testid="top-bar">{below ? null : workspace?.headerSearch?.(shell as never)}{workspace?.headerActions?.(shell as never)}</header>
         {below ? <footer data-testid="tabs">{workspace?.bottomNavigation?.(shell as never)}</footer> : null}
       </>
     );
@@ -174,7 +174,7 @@ describe("the gate", () => {
     assert.ok([...rail.querySelectorAll("button")].some((button) => button.textContent?.includes("Registros")), "the rail names Registros");
     assert.ok(!rail.textContent?.includes("Gastos"));
     await page.settle(() => page.records().length > 0, "the saved records");
-    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Registros");
+    assert.equal(page.host.querySelector('[data-testid="top-bar"] h1')?.textContent, "Registros");
     await page.settle(() => page.records().some((node) => node.dataset.kind === "venta"), "the ventas");
     assert.deepEqual([...new Set(page.records().map((node) => node.dataset.kind))].sort(), ["gasto", "venta"], "the ventas come from the expenses read with kind=income");
     for (const absent of ["transacciones-segments", "transacciones-run", "transacciones-grid"]) assert.equal(document.querySelector(`[data-testid="${absent}"]`), null, `${absent} stays behind the flag`);
@@ -293,7 +293,7 @@ describe("the gate", () => {
     assert.ok(third, "the rail names Registros");
     await page.click(third!);
     await page.ready();
-    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Registros");
+    assert.equal(page.host.querySelector('[data-testid="top-bar"] h1')?.textContent, "Registros");
   });
 
   test("the rail shows the server's Por igualar count; null means bank matching is off, not zero", async () => {
