@@ -156,7 +156,7 @@ const initial={workspace:null,draft:{name:'',country:''},collapsed:false,expansi
 let state;try{state={...initial,...JSON.parse(localStorage.getItem(key)||'null')}}catch{state={...initial}}
 addEventListener('storage',event=>{
  if(event.key!==key)return;
- try{const next=JSON.parse(event.newValue||'{}');if(next.alias===state.alias&&next.address===state.address)return;state.alias=next.alias??null;state.address=next.address??null;if(['email','email-edit','senders'].includes(state.view))render()}catch{}
+ try{const next=JSON.parse(event.newValue||'{}');if(next.alias===state.alias&&next.address===state.address&&next.reading===state.reading)return;state.reading=next.reading??null;state.alias=next.alias??null;state.address=next.address??null;if(['email','email-edit','senders'].includes(state.view))render()}catch{}
 });
 let currentInvitationMember=null;
 const navigationKey=key+'-navigation-'+(invoiceSurface?'invoice':whatsappSurface?'whatsapp':'guide');

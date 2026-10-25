@@ -3,6 +3,7 @@
 import {useState} from "react";
 import {ChevronRight,Mail,MessageCircle} from "lucide-react";
 import {useTranslation} from "react-i18next";
+import ReceiptReadingPreview from "@/app/design-workspace/ReceiptReadingPreview";
 import WorkspaceSetupPreview from "@/app/design-workspace/WorkspaceSetupPreview";
 import {receptionPreviewEvent,useReceptionPreview} from "@/app/design-workspace/BusinessEmailAliasPreview";
 import {useBusiness} from "./BusinessWorkspace";
@@ -27,7 +28,7 @@ export default function BusinessReception() {
         <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">WhatsApp</span><span className="mt-1 block text-[14px] text-[#56635e] dark:text-white/70">{connection.linked ? t("business.reception.whatsapp_connected",{last4:connection.last4 ?? "",business:chosen?.name}) : t("business.reception.whatsapp_connect",{business:chosen?.name})}</span></span><ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true"/>
       </button> : null}
     </div>
-    <div className={SURFACE_CARD}><ReceiptReadingControl key={chosen?.space_id} variant="inline"/></div>
+    <div className={SURFACE_CARD}>{localPreview ? <ReceiptReadingPreview key={chosen?.space_id}/> : <ReceiptReadingControl key={chosen?.space_id} variant="inline"/>}</div>
     {section === "history" ? <EmailHistory onClose={()=>setSection(null)}/> : null}
     {section === "whatsapp" ? <WorkspaceSetupPreview reception="whatsapp" onProfileChange={()=>window.dispatchEvent(new Event(receptionPreviewEvent))} onClose={()=>{setSection(null);window.dispatchEvent(new Event(receptionPreviewEvent));}}/> : null}
   </div>;

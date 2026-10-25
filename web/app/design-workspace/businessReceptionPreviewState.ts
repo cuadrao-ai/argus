@@ -9,7 +9,7 @@ function read(storage: Pick<Storage,"getItem">, businessId: string): Record<stri
 export function readReceptionPreview(storage: Pick<Storage,"getItem">, businessId: string) {
   const guide = read(storage,businessId);
   const whatsapp = guide.whatsapp as {linked?: boolean; last4?: string} | undefined;
-  return {address: typeof guide.alias === "string" && guide.alias && typeof guide.address === "string" ? guide.address : null, linked: whatsapp?.linked === true, last4: typeof whatsapp?.last4 === "string" ? whatsapp.last4 : null};
+  return {reading: guide.reading === true,address: typeof guide.alias === "string" && guide.alias && typeof guide.address === "string" ? guide.address : null, linked: whatsapp?.linked === true, last4: typeof whatsapp?.last4 === "string" ? whatsapp.last4 : null};
 }
 export function aliasError(storage: GuideStorage, businessId: string, alias: string, domain: string): "required" | "format" | "taken" | "locked" | null {
   if (readReceptionPreview(storage,businessId).address) return "locked";
@@ -40,4 +40,8 @@ export function suggestedReceptionAliases(businessName: string, fallback: string
   if(base.length < 3) base = `${base || "1"}-recibos`;
   const candidates = [base,base.replaceAll("-",""),`${shorten(base,24)}-recibos`,`${shorten(base,30)}-1`,`${shorten(base,30)}-2`];
   return [...new Set(candidates.filter(candidate=>aliasPattern.test(candidate)))].slice(0,3);
+}
+
+export function saveReceptionReading(storage: Pick<Storage,"getItem"|"setItem">,businessId: string,enabled: boolean) {
+  storage.setItem(invitationStorageKeys(businessId).guide,JSON.stringify({...read(storage,businessId),reading:enabled}));
 }

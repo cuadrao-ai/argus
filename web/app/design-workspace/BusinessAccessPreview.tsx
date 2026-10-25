@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBusiness } from "@/components/business-app/BusinessWorkspace";
 import { primaryButtonClass } from "@/components/business-app/business-ui";
+import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
 import { Avatar } from "@/components/ui/Avatar";
 import { Tooltip } from "@/components/ui/Tooltip";
 import AccessRolePicker from "./AccessRolePicker";
@@ -68,7 +69,7 @@ export default function BusinessAccessPreview() {
       </div>
     </li>;
   }
-  return <section data-testid="business-access-preview" style={{maxWidth:896}} className="space-y-4">
+  return <section data-testid="business-access-preview" style={{maxWidth:896}} className={`${SURFACE_CARD} space-y-4`}>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="font-display text-[21px] font-medium text-[#172b26] dark:text-white">{t("workspace_setup_preview.access_members_title")}</h2>
       <button type="button" className={primaryButtonClass} disabled={!actor} onClick={() => setInviting(true)}><UserPlus className="h-4 w-4" aria-hidden="true" />{t("workspace_setup_preview.invite")}</button>

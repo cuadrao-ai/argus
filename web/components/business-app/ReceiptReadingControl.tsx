@@ -148,7 +148,7 @@ function ReadingRow({ titleId, title, reading, changeLabel, onChange }: { titleI
   );
 }
 
-function InlineReading({reading, failed = false, onChange}: {reading: ReceiptReading | null; failed?: boolean; onChange?: (enabled: boolean) => Promise<void>}) {
+export function InlineReading({reading, failed = false, onChange}: {reading: Pick<ReceiptReading,"enabled"|"can_change"|"available"|"disclosure"> | null; failed?: boolean; onChange?: (enabled: boolean) => Promise<void>}) {
   const {t} = useTranslation();
   return <div data-testid="receipt-reading-inline" data-enabled={reading ? String(reading.enabled) : "unknown"}>
     <div className="flex items-center justify-between gap-4">
