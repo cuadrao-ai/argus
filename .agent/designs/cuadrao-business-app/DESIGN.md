@@ -613,6 +613,29 @@ Which container, screen by screen (Lucas, October 20, 2026):
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
 
+### Dossier gradient, approved October 24, 2026
+
+All web desktop dossiers use the same static pine gradient, including profile
+forms and record trays. The shared `AdaptivePanel` desktop drawer owns it through
+[`adaptive-panel.module.css`](../../../web/components/ui/adaptive-panel.module.css).
+Individual dossiers do not define their own gradient.
+
+- The gradient uses `--cuadrao-green`, which supplies the correct green for each
+  theme. Its strength is 8% in light mode and 6% in dark mode.
+- The color starts at the bottom edge and fades to transparent 25% of the way
+  up the panel. The existing panel background remains underneath.
+- The gradient stays anchored to the panel while its content scrolls. It has no
+  animation and does not indicate loading, recording, success, or progress.
+- Fields, validation, buttons, spacing, and scrolling keep their existing rules.
+  The gradient does not move actions or add empty space below a form.
+- Phone sheets and narrow-screen record pages remain plain. Centered dialogs
+  and popovers do not inherit this treatment.
+- Sign-in and signup keep their separate horizontal gradient and approved
+  12% light and 10% dark strengths. Dossiers use the softer values above.
+
+Visual checks cover light and dark desktop dossiers, a long scrolling record,
+and a narrow phone layout. The gradient must not reduce text or control clarity.
+
 ### Shell baseline, approved October 23, 2026
 
 This is the expected Business shell behavior for all current and future screens.
