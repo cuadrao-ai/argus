@@ -33,7 +33,7 @@ async function setup() {
   return { act, root, host, settle, I18nextProvider, i18n };
 }
 
-async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace | null, collapsed = false, closedSpaces: ClosedGrantedSpace[] = []) {
+async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace | null, collapsed = false, closedSpaces: ClosedGrantedSpace[] = [], invite = false) {
   const env = await setup();
   const { default: BusinessSwitcher } = await import("@/components/business-app/BusinessSwitcher");
   const chosenIds: (string | null)[] = [];
@@ -41,7 +41,7 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
   await env.act(async () => {
     env.root.render(
       <env.I18nextProvider i18n={env.i18n}>
-        <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenSettings={() => opened.push("settings")} />
+        <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={collapsed} onChoose={(id) => chosenIds.push(id)} onOpenSettings={() => opened.push("settings")} onInvite={invite ? () => opened.push("access") : undefined} memberEmail="member@example.test" />
       </env.I18nextProvider>,
     );
   });
@@ -52,6 +52,25 @@ async function mountSwitcher(spaces: GrantedSpace[] | null, chosen: GrantedSpace
 const key = (target: Element, key: string) => target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 
 describe("the Business mark menu", () => {
+  test("owner invite reuses access navigation and member identity is separate from the Business", async () => {
+    const page = await mountSwitcher([OWN, CLIENT], OWN, false, [], true);
+    await page.act(async () => (page.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement).click());
+    assert.equal(document.querySelector('[data-testid="business-member-email"]')?.textContent, "member@example.test");
+    assert.equal(document.querySelector('[data-testid="business-member-access"]')?.textContent, "Tu acceso · Dueño");
+    assert.equal(document.querySelector('[data-testid="business-member-access"]')?.parentElement, document.querySelector('[data-testid="business-member-email"]')?.parentElement);
+    const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+    assert.deepEqual(items.map(item => item.textContent?.trim()), ["Invitar colaborador", "Configurar", "Añadir negocio", "Cambiar de negocio"]);
+    assert.equal(items[2].disabled, true, "creation is not connected by this design preview");
+    await page.act(async () => items[0].click());
+    assert.deepEqual(page.opened, ["access"]);
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    await page.act(async () => page.root.unmount());
+    const client = await mountSwitcher([CLIENT], CLIENT, false, [], true);
+    await client.act(async () => (client.host.querySelector("button[aria-haspopup=menu]") as HTMLButtonElement).click());
+    assert.ok(!document.querySelector('[role="menu"]')?.textContent?.includes("Invitar colaborador"));
+    await client.act(async () => client.root.unmount());
+  });
+
   test("the English default is Spanish in the collapsed label and open options", async () => {
     const unnamed = { ...CLIENT, name: "My business" };
     const page = await mountSwitcher([OWN, unnamed], unnamed, true);
@@ -80,7 +99,7 @@ describe("the Business mark menu", () => {
     await page.act(async () => button.click());
     await page.settle();
     const items = [...document.querySelectorAll('[role="menuitem"]')];
-    assert.deepEqual(items.map((item) => item.textContent?.trim()), ["Configurar negocio"]);
+    assert.deepEqual(items.map((item) => item.textContent?.trim()), ["Configurar", "Añadir negocio"]);
     await page.act(async () => (items[0] as HTMLButtonElement).click());
     assert.deepEqual(page.opened, ["settings"]);
     assert.equal(document.querySelector('[role="menu"]'), null, "the menu closes as the Negocio page opens");
@@ -96,21 +115,20 @@ describe("the Business mark menu", () => {
     await page.act(async () => button.click());
     await page.settle();
     const items = [...document.querySelectorAll('[role="menuitem"]')];
-    assert.deepEqual(items.map((item) => item.textContent?.trim()), ["Configurar negocio"]);
+    assert.deepEqual(items.map((item) => item.textContent?.trim()), ["Configurar", "Añadir negocio"]);
     await page.act(async () => page.root.unmount());
   });
 
-  test("the open card names the business and the person's role in it; collapsed, only the initial shows", async () => {
-    const spanish = (await import("@/public/locales/es-419/common.json")).default;
+  test("the header names the business without a role and keeps the briefcase when collapsed", async () => {
     const owner = await mountSwitcher([OWN, CLIENT], OWN);
-    assert.equal(owner.host.querySelector("button[aria-haspopup=menu]")?.textContent, "FFerretería LunaDueño");
+    assert.equal(owner.host.querySelector("button[aria-haspopup=menu]")?.textContent, "Ferretería Luna");
     await owner.act(async () => owner.root.unmount());
     const client = await mountSwitcher([OWN, CLIENT], CLIENT);
-    assert.equal(client.host.querySelector("button[aria-haspopup=menu]")?.textContent, `CColmado Peña${spanish.business.switcher.role_editor}`);
+    assert.equal(client.host.querySelector("button[aria-haspopup=menu]")?.textContent, "Colmado Peña");
     assert.ok(!client.host.textContent?.includes("Dueño"));
     await client.act(async () => client.root.unmount());
     const collapsed = await mountSwitcher([OWN], OWN, true);
-    assert.equal(collapsed.host.querySelector('button[aria-haspopup=menu] [aria-hidden="true"]')?.textContent, "F");
+    assert.ok(collapsed.host.querySelector("svg.lucide-briefcase-business"));
     assert.ok(!collapsed.host.textContent?.includes("Dueño"), "the collapsed rail shows no role line");
     await collapsed.act(async () => collapsed.root.unmount());
   });
@@ -127,9 +145,17 @@ describe("the Business mark menu", () => {
     const change = [...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes("Cambiar de negocio")) as HTMLButtonElement;
     await page.act(async () => change.click());
     await page.settle();
-    const list = document.querySelector('[role="listbox"]') as HTMLElement;
+    let list = document.querySelector('[role="listbox"]') as HTMLElement;
     assert.ok(list, "the listbox opened");
+    assert.ok(document.querySelector('[data-testid="business-member-email"]'), "desktop parent identity remains visible");
+    assert.ok(change.isConnected, "the parent switch action remains in place");
     assert.equal(document.activeElement, list, "focus moves into the list");
+    await page.act(async () => key(list, "ArrowLeft"));
+    assert.equal(document.activeElement, change, "Left returns focus to the parent action");
+    await page.act(async () => key(change, "ArrowRight"));
+    assert.ok(document.querySelector('[role="listbox"]'), "Right opens the submenu");
+    list = document.querySelector('[role="listbox"]') as HTMLElement;
+
     const options = [...document.querySelectorAll('[role="option"]')];
     assert.deepEqual(options.map((o) => o.getAttribute("aria-selected")), ["false", "true", "false"]);
     assert.ok(options[0].textContent?.includes("Ferretería Luna"));
@@ -156,6 +182,10 @@ describe("the Business mark menu", () => {
     await page.act(async () => { key(again, "Escape"); });
     assert.equal(document.querySelector('[role="listbox"]'), null);
     assert.deepEqual(page.chosenIds, [null]);
+    assert.ok(document.querySelector('[role="menu"]'), "Escape closes the submenu first");
+    assert.equal(document.activeElement, changeAgain);
+    await page.act(async () => { key(changeAgain, "Escape"); });
+    assert.equal(document.querySelector('[role="menu"]'), null);
     await page.act(async () => page.root.unmount());
   });
 
@@ -269,10 +299,10 @@ describe("the chosen grant rides on every API call", () => {
 
 
 for (const [capabilities, label] of [[["read", "prepare"], "Editar"], [["read"], "Ver"]] as const) {
-  test(`member label comes from capabilities as ${label}`, async () => {
+  test(`member header omits the ${label} role subtitle`, async () => {
     const member = { ...CLIENT, capabilities: [...capabilities] };
     const page = await mountSwitcher([member], member);
-    try { assert.ok(page.host.textContent?.includes(label)); assert.equal(page.host.textContent?.includes("Contador"), false); }
+    try { assert.ok(!page.host.textContent?.includes(label)); assert.equal(page.host.textContent?.includes("Contador"), false); }
     finally { await page.act(async () => page.root.unmount()); }
   });
 }

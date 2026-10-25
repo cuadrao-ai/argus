@@ -254,3 +254,11 @@ describe("bottom sheet accessibility and touch baseline", () => {
     expect(markup).toContain("Open conversation");
   });
 });
+
+
+test("larger form headings are opt-in and preserve rich business context", () => {
+  const normal=renderSheet({description:"Business context"});
+  expect(normal).toContain("text-[17px]");expect(normal).toContain("text-[13px]");expect(normal).not.toContain("text-[21px]");
+  const form=renderSheet({headerSize:"large",description:<>Para <strong>La Palma</strong></>});
+  expect(form).toContain("text-[21px]");expect(form).toContain("text-[14px]");expect(form).toContain("Para <strong>La Palma</strong>");expect(form).toContain("aria-describedby=");
+});

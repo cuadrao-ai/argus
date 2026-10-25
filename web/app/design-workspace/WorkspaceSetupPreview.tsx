@@ -7,6 +7,9 @@ import { BusinessEmailAddress } from "@/components/business-app/BusinessEmailDel
 import { CopyButton } from "@/components/business-app/foundation/CopyButton";
 import { useTranslation } from "react-i18next";
 import { TABLET_MIN_WIDTH_PX } from "@/lib/responsive-layout";
+import InvitationAccessPicker from "./InvitationAccessPicker";
+import InvitationPreviewModal from "./InvitationPreviewModal";
+import { fieldClass, fieldLabelClass } from "@/components/ui/form-field";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { useBusiness } from "@/components/business-app/BusinessWorkspace";
 
@@ -25,23 +28,28 @@ function PreviewCopy({ slot }: { slot: HTMLElement }) {
 }
 
 /** Local review adapter. The sketch remains the single source for the card. */
-export default function WorkspaceSetupPreview() {
+export default function WorkspaceSetupPreview({ invitation, profileInvoicing, reception, embedded = false, onClose, onProfileChange }: { invitation?: boolean; profileInvoicing?: boolean; reception?: "whatsapp"; embedded?: boolean; onClose?: () => void; onProfileChange?: () => void } = {}) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(410);
   const [copySlots, setCopySlots] = useState<HTMLElement[]>([]);
+  const [accessSlots, setAccessSlots] = useState<HTMLElement[]>([]);
   const [emailSlot, setEmailSlot] = useState<HTMLElement | null>(null);
   const dossierFrame = useRef<HTMLIFrameElement>(null);
-  const [dossier, setDossier] = useState<"whatsapp" | "invoicing" | null>(null);
+  const [dossier, setDossier] = useState<"whatsapp" | "invoicing" | null>(profileInvoicing ? "invoicing" : reception ?? null);
   const [dossierHeight, setDossierHeight] = useState(700);
   const { t, i18n } = useTranslation();
-  const { actions, chosen, records, renamePreviewBusiness } = useBusiness();
+  const { actions, bridge, chosen, records, renamePreviewBusiness } = useBusiness();
+  const memberEmail = bridge?.memberEmail;
   const context = useMemo(() => chosen ? {
     businessId: chosen.space_id,
     name: chosen.name,
     country: records?.workspace?.country ?? null,
     shared: chosen.role !== "owner",
     documentReceived: Boolean(records?.inbox?.length),
-  } : null, [chosen, records?.workspace?.country, records?.inbox]);
+    currentMember: memberEmail ? { email: memberEmail, permission: chosen.role } : null,
+  } : null, [memberEmail, chosen, records?.workspace?.country, records?.inbox]);
+  const invitationFixture = typeof window !== "undefined" && invitation ? new URLSearchParams(window.location.search).get("inviteResult") : null;
+  const fixtureQuery = ["partial", "error"].includes(invitationFixture ?? "") ? `&inviteResult=${invitationFixture}` : "";
   const scope = chosen ? `?business=${encodeURIComponent(chosen.space_id)}` : "";
   const upload = chosen?.role !== "accountant"
     ? actions.create.find((action) => action.id === "upload_receipt")
@@ -75,8 +83,12 @@ export default function WorkspaceSetupPreview() {
         const level = el.dataset.buttonLevel || (el.classList.contains("primary") ? "primary" : el.classList.contains("secondary") ? "secondary" : "quiet");
         el.dataset.buttonLevel = level;
         const classes = buttonLevels[level];
-        if (classes) el.className = `${classes} text-[16px]`;
+        if (classes) el.className = `${el.closest(".invite-surface .formfoot")
+          ? classes.replace("rounded-full", "rounded-lg")
+          : classes} text-[16px]`;
       }
+      for (const input of doc.querySelectorAll<HTMLInputElement>("#inviteemail, [data-recipient-email]")) input.className = fieldClass;
+      for (const label of doc.querySelectorAll<HTMLElement>('label[for="inviteemail"]')) label.className = fieldLabelClass;
       for (const link of doc.querySelectorAll<HTMLAnchorElement>('a.wa-open')) {
         link.className = `wa-open ${window.innerWidth < TABLET_MIN_WIDTH_PX ? primaryButtonClass : secondaryButtonClass} text-[16px]`;
       }
@@ -85,13 +97,16 @@ export default function WorkspaceSetupPreview() {
         slots.push(slot);
       }
     }
+    const access = Array.from(frame.current?.contentDocument?.querySelectorAll<HTMLElement>("[data-invite-permission]") ?? []);
+    setAccessSlots(previous => previous.length === access.length && previous.every((slot, i) => slot === access[i]) ? previous : access);
     setEmailSlot(frame.current?.contentDocument?.querySelector<HTMLElement>("[data-business-email]") ?? null);
     setCopySlots(previous => previous.length === slots.length && previous.every((slot, i) => slot === slots[i]) ? previous : slots);
   }, []);
   const syncAppearance = useCallback(() => {
     inheritControls();
     const homeCard = document.querySelector<HTMLElement>('[data-testid="month-close-checklist"], [data-testid="month-close-income"]');
-    const surface = homeCard ? getComputedStyle(homeCard).backgroundColor : undefined;
+    const modal = invitation ? document.querySelector<HTMLElement>("[data-invitation-modal]") : null;
+    const surface = modal ? getComputedStyle(modal).backgroundColor : homeCard ? getComputedStyle(homeCard).backgroundColor : undefined;
     for (const target of [frame.current, dossierFrame.current]) target?.contentWindow?.postMessage({
       type: "workspace-preview-theme",
       context,
@@ -101,7 +116,7 @@ export default function WorkspaceSetupPreview() {
       dark: document.documentElement.classList.contains("dark"),
       font: getComputedStyle(document.body).fontFamily,
     }, window.location.origin);
-  }, [i18n.resolvedLanguage, i18n.language, inheritControls, context]);
+  }, [i18n.resolvedLanguage, i18n.language, inheritControls, context, invitation]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -117,11 +132,14 @@ export default function WorkspaceSetupPreview() {
       }
       if (event.data?.type === "workspace-preview-rename" && event.data.businessId === chosen?.space_id && typeof event.data.name === "string") renamePreviewBusiness?.(event.data.name);
       if (event.data?.type === "workspace-preview-ready") syncAppearance();
-      if (event.data?.type === "workspace-preview-render") inheritControls();
+      if (event.data?.type === "workspace-preview-render") { inheritControls(); if (fromDossier) onProfileChange?.(); }
       if (fromGuide && event.data?.type === "workspace-preview-whatsapp-settings") setDossier("whatsapp");
       if (fromGuide && event.data?.type === "workspace-preview-invoicing") setDossier("invoicing");
-      if (fromDossier && event.data?.type === "workspace-preview-close-dossier") setDossier(null);
-      if (fromDossier && event.data?.type === "workspace-preview-whatsapp-connected") setDossier(null);
+      if (event.data?.type === "workspace-preview-close-dossier") {
+        if (fromGuide && invitation) onClose?.();
+        if (fromDossier) { setDossier(null); if(profileInvoicing || reception) onClose?.(); }
+      }
+      if (fromDossier && event.data?.type === "workspace-preview-whatsapp-connected") { setDossier(null); if (reception) onClose?.(); }
       if (event.data?.type === "workspace-preview-upload") {
         upload?.run();
         frame.current?.contentWindow?.postMessage({
@@ -134,7 +152,7 @@ export default function WorkspaceSetupPreview() {
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [upload, syncAppearance, inheritControls, chosen?.space_id, renamePreviewBusiness]);
+  }, [upload, syncAppearance, inheritControls, chosen?.space_id, renamePreviewBusiness, invitation, profileInvoicing, reception, onClose, onProfileChange]);
   useEffect(() => {
     const observer = new MutationObserver(syncAppearance);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
@@ -142,17 +160,19 @@ export default function WorkspaceSetupPreview() {
     window.addEventListener("resize", syncAppearance);
     return () => { observer.disconnect(); window.removeEventListener("resize", syncAppearance); };
   }, [syncAppearance]);
-  return <>{emailSlot?.isConnected ? createPortal(<BusinessEmailAddress />, emailSlot) : null}{copySlots.filter(slot => slot.isConnected).map((slot, index) => createPortal(<PreviewCopy slot={slot} />, slot, String(index)))}<iframe
+  const guide = <iframe
     ref={frame}
     key={chosen?.space_id ?? "unselected"}
-    src={`/design-workspace/card${scope}`}
-    title={t("workspace_setup_preview.setup", "Set up your workspace")}
+    src={`/design-workspace/card${scope}${invitation ? `${scope ? "&" : "?"}surface=invite${fixtureQuery}` : ""}`}
+    title={t(invitation ? "workspace_setup_preview.batch_title" : "workspace_setup_preview.setup")}
     onLoad={syncAppearance}
-    className="mb-8 block w-full border-0"
+    className={`${invitation ? "" : "mb-8 "}block w-full border-0`}
     style={{ height }}
-  />
-    {dossier ? <AdaptivePanel title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} closeLabel={t("common.close", "Close")} onClose={() => setDossier(null)} width="lg" snaps={["full"]} initialSnap="full">
-      <iframe key={`${chosen?.space_id ?? "unselected"}:${dossier}`} ref={dossierFrame} src={`/design-workspace/card${scope}${scope ? "&" : "?"}surface=${dossier}`} title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} onLoad={syncAppearance} className="block w-full border-0" style={{ height: dossierHeight }} />
+  />;
+  const dossierContent = <iframe key={`${chosen?.space_id ?? "unselected"}:${dossier}`} ref={dossierFrame} src={`/design-workspace/card${scope}${scope ? "&" : "?"}surface=${dossier}${profileInvoicing ? "&entry=profile" : ""}`} title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} onLoad={syncAppearance} className="block w-full border-0" style={{ height: dossierHeight }} />;
+  return <>{accessSlots.filter(slot => slot.isConnected).map(slot => createPortal(<InvitationAccessPicker slot={slot} />, slot, slot.dataset.key ?? "access"))}{emailSlot?.isConnected ? createPortal(<BusinessEmailAddress />, emailSlot) : null}{copySlots.filter(slot => slot.isConnected).map((slot, index) => createPortal(<PreviewCopy slot={slot} />, slot, String(index)))}{invitation ? <InvitationPreviewModal frame={frame} onClose={() => onClose?.()}>{guide}</InvitationPreviewModal> : profileInvoicing || reception ? null : guide}
+    {dossier ? embedded ? dossierContent : <AdaptivePanel title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} closeLabel={t("common.close", "Close")} onClose={() => {setDossier(null);if(profileInvoicing || reception)onClose?.();}} width="lg" snaps={["full"]} initialSnap="full">
+      {dossierContent}
     </AdaptivePanel> : null}
   </>;
 }

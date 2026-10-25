@@ -29,7 +29,8 @@ function renderInvoiceDossier(){
  clearTimeout(registryTimer);registryVersion++;if(state.registryResult?.status==='checking')state.registryResult=null;
  const activation=invoiceState();$('setuphead').hidden=true;$('setup').classList.add('connection-surface','invoice-surface');$('setupbody').hidden=false;
  let body='';
- if(!activation.path){body=`<h2 id="invoice-heading" tabindex="-1">${tr('invoice_title')}</h2>${button('invoice-choose-path',tr('invoice_change_path'),'primary')}`}
+ if(new URLSearchParams(location.search).get('entry')==='profile'&&(!activation.path||state.view==='billing-paths')){body=invoicePaths()}
+ else if(!activation.path){body=`<h2 id="invoice-heading" tabindex="-1">${tr('invoice_title')}</h2>${button('invoice-choose-path',tr('invoice_change_path'),'primary')}`}
  else if(['active','awaiting-verification'].includes(activation.status)){body=invoiceSummary()}
  else if(activation.status==='needs-information'&&activation.step!=='details'){body=`<h2 id="invoice-heading" tabindex="-1">${tr('invoice_needs_title')}</h2><p>${tr('invoice_needs_body')}</p><div class="formfoot">${button('invoice-details',tr('invoice_edit_details'),'primary')}</div>`}
  else if(activation.step==='details')body=invoiceDetails();
@@ -37,14 +38,16 @@ function renderInvoiceDossier(){
  else if(activation.step==='checks'){body=`<h2 id="invoice-heading" tabindex="-1">${tr(activation.path==='existing'?'invoice_existing_review':'invoice_checks')}</h2><p>${tr(activation.path==='existing'?'invoice_existing_intro':'invoice_checks_intro')}</p>${activation.path==='existing'?`<p class="invoice-note">${tr('invoice_existing_limit')}</p>`:''}${invoiceSummary()}<div class="formfoot">${button('invoice-request-review',tr('invoice_request_review'),'primary')}</div>`}
  else if(activation.path==='existing'){body=`<h2 id="invoice-heading" tabindex="-1">${tr('invoice_existing_review')}</h2><p>${tr('invoice_existing_intro')}</p><p class="invoice-note">${tr('invoice_existing_limit')}</p><div class="formfoot">${button('invoice-details',tr('invoice_review_details'),'primary')}</div>`}
  else body=invoiceDetails();
+ const choosingProfilePath=new URLSearchParams(location.search).get('entry')==='profile'&&state.view==='billing-paths';
  const editable=activation.path&&!['awaiting-verification','active'].includes(activation.status);
- $('guidecontent').innerHTML=`<section class="guide-form invoice-dossier"><header class="invoice-context">${destination()}${invoiceBadge()}</header>${editable&&activation.step!=='overview'?button('invoice-back',tr('invoice_back')):''}${body}${editable?`<div class="invoice-path-change">${button('invoice-choose-path',tr('invoice_change_path'))}</div>`:''}<p class="invoice-preview-note">${tr('invoice_preview')}</p></section>`;
+ $('guidecontent').innerHTML=`<section class="guide-form invoice-dossier"><header class="invoice-context">${destination()}${invoiceBadge()}</header>${editable&&(activation.step!=='overview'||choosingProfilePath)?button('invoice-back',tr('invoice_back')):''}${body}${editable&&!choosingProfilePath?`<div class="invoice-path-change">${button('invoice-choose-path',tr('invoice_change_path'))}</div>`:''}<p class="invoice-preview-note">${tr('invoice_preview')}</p></section>`;
  renderInvoicePreviewTools();bindForms();bindInvoice();enhancePickers();
 }
 function invoiceAction(action){
  let activation={...invoiceState()};
  if(action.startsWith('invoice-start-')){const path=action.slice('invoice-start-'.length);if(activation.path!==path)activation={...activation,path,status:'in-progress',step:'overview'};state.activation=activation;state.view='billing';saved();if(invoiceSurface){render();$('invoice-heading')?.focus({preventScroll:true})}else{render();parent.postMessage({type:'workspace-preview-invoicing'},location.origin)}return}
- if(action==='invoice-choose-path'){state.view='billing-paths';state.collapsed=false;saved();if(invoiceSurface)parent.postMessage({type:'workspace-preview-close-dossier'},location.origin);else render();return}
+ if(action==='invoice-choose-path'){state.view='billing-paths';state.collapsed=false;saved();if(invoiceSurface&&new URLSearchParams(location.search).get('entry')!=='profile')parent.postMessage({type:'workspace-preview-close-dossier'},location.origin);else render();return}
+ if(action==='invoice-back'&&new URLSearchParams(location.search).get('entry')==='profile'&&state.view==='billing-paths'){state.view='billing';saved();render();return}
  if(action==='invoice-open'){parent.postMessage({type:'workspace-preview-invoicing'},location.origin);return}
  if(action==='invoice-close'){saved();parent.postMessage({type:'workspace-preview-close-dossier'},location.origin);return}
  if(action==='invoice-request-review'){activation.status='awaiting-verification';activation.step='overview'}

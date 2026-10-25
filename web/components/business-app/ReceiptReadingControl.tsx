@@ -21,7 +21,7 @@ import { showToast } from "./foundation/toasts";
  * (a dash while it is unknown) and, for whoever may change it, the button that
  * opens the same sheet.
  */
-export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice" }: { showWhenOn?: boolean; variant?: "notice" | "row" }) {
+export default function ReceiptReadingControl({ showWhenOn = false, variant = "notice" }: { showWhenOn?: boolean; variant?: "notice" | "row" | "inline" }) {
   const { source, reload, chosen } = useBusiness();
   const consent = useBusinessConsent();
   const { t, i18n } = useTranslation();
@@ -48,12 +48,14 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
   }, [source, language, businessKey]);
   const reading = consent.accepted ? stored : null;
   const isRow = variant === "row";
-  if (!reading || (reading.enabled && !showWhenOn && !isRow)) {
+  const isInline = variant === "inline";
+  if (!reading || (reading.enabled && !showWhenOn && !isRow && !isInline)) {
+    if (isInline) return <InlineReading reading={null} />;
     return isRow ? <ReadingRow titleId={titleId} title={t("business.activity.sheet_title", "Receipt reading")} reading={null} /> : null;
   }
 
   const change = async (enabled: boolean) => {
-    if (!source.setReceiptReading) return;
+    if (!source.setReceiptReading || !reading.can_change) return;
     const current = generation.current;
     const controller = new AbortController();
     mutation.current = controller;
@@ -64,7 +66,7 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
       setReading(next);
       setOpen(false);
       reload();
-      showToast({ kind: "success", text: next.enabled ? t("business.activity.turned_on", "Receipt reading is on.") : t("business.activity.turned_off", "Receipt reading is off.") });
+      if (!isInline) showToast({ kind: "success", text: next.enabled ? t("business.activity.turned_on", "Receipt reading is on.") : t("business.activity.turned_off", "Receipt reading is off.") });
     } catch (error) {
       if (generation.current === current && !controller.signal.aborted) setFailed(true);
       throw error;
@@ -72,6 +74,8 @@ export default function ReceiptReadingControl({ showWhenOn = false, variant = "n
       if (mutation.current === controller) mutation.current = null;
     }
   };
+
+  if (isInline) return <InlineReading reading={reading} failed={failed} onChange={source.setReceiptReading ? change : undefined} />;
 
   const line = reading.enabled
     ? t("business.activity.reading_on", "Receipt reading is on.")
@@ -142,4 +146,19 @@ function ReadingRow({ titleId, title, reading, changeLabel, onChange }: { titleI
       ) : null}
     </div>
   );
+}
+
+export function InlineReading({reading, failed = false, onChange}: {reading: Pick<ReceiptReading,"enabled"|"can_change"|"available"|"disclosure"> | null; failed?: boolean; onChange?: (enabled: boolean) => Promise<void>}) {
+  const {t} = useTranslation();
+  return <div data-testid="receipt-reading-inline" data-enabled={reading ? String(reading.enabled) : "unknown"}>
+    <div className="flex items-center justify-between gap-4">
+      <h2 className="text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.reception.reading_title")}</h2>
+      {reading ? <Switch label={t("business.activity.switch_label")} testId="receipt-reading-switch" checked={reading.enabled} disabled={!reading.can_change || !onChange || (!reading.enabled && !reading.available)} onChange={onChange ?? (() => {})} /> : <span className="text-[14px] text-[#56635e] dark:text-white/70">{t("business.activity.state_unknown")}</span>}
+    </div>
+    <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.reception.reading_body")}</p>
+    <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.reception.reading_off")}</p>
+    {reading?.disclosure ? <p className="mt-3 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{reading.disclosure}</p> : null}
+    {reading && !reading.enabled && !reading.available ? <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.activity.unavailable")}</p> : null}
+    {failed ? <div role="alert" className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]"><p>{t("business.activity.error")}</p><button type="button" className={quietButtonClass} onClick={() => void onChange?.(!reading?.enabled).catch(() => undefined)}>{t("common.retry")}</button></div> : null}
+  </div>;
 }

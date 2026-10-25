@@ -43,6 +43,8 @@ neutral; do not add green washes to instructions.
   dense money screen they push the numbers below the fold.
 - Secondary text, status labels and the setup progress count use 14px. Do not
   shrink them at narrow widths. The progress ring remains 44px with tabular digits.
+- The sidebar and Business menu share the same 40px neutral square business avatar
+  with a 20px briefcase fallback. Keep the trigger and switching behavior unchanged.
 - Business sidebar navigation and the current business name use Inter at 16px.
   The access label and count badges use 14px; the navigation rows remain 44px tall.
 - Embedded setup and dossier previews inherit `--font-inter` and
@@ -188,20 +190,82 @@ The preview demonstrates them; this section does not certify backend wiring.
   Pending acceptance visible while pending; the completed guide task does not
   imply acceptance, email delivery or granted access. Draft, sending and failed
   requests do not complete the step.
-- Show the Business destination and a short access summary before sending. Put
-  secondary permission details in a short tooltip using the help pattern below. Keep the main
-  consequence visible. Do not put essential consent or destructive consequences
-  solely behind an info control.
-- Name this task “Invita a un colaborador” / “Invite a collaborator”. Explain that
-  the person receives access to help run the selected Business. Place the fixed
-  permission summary beside the email label on desktop and directly below the
-  input on phones. Use plain text and the existing help tooltip for limits; no
-  separate Access section, dividers, role chip or implied role selector.
-- Offer only permissions supported by the enforced contract. Do not invent a role
-  selector or equate record preparation with approval or administration.
-- Keep draft, sending, failure, pending invitation and granted access distinct.
-  Preserve the email after failure and offer retry. A successful request does not
-  by itself prove email delivery, acceptance or access. Render the server result.
+- Show the selected Business in 16px body type with a semibold name before the
+  invitation fields. Use “Acceso” / “Access” consistently. Permission descriptions
+  stay visible inside each access option, without a tooltip.
+- The Business-menu invitation supports one or more people. Each row owns its
+  email, access and send result. An owner can choose Owner, Admin, Editor or Viewer.
+  A single existing Owner may invite another Owner; the invitation supplies that
+  approval, and the recipient must still accept. Admins cannot grant Owner access.
+  At least one active Owner must remain. These are intended product rules; the
+  preview does not implement backend authorization or membership changes.
+- Left-align the short-task dialog title and selected Business context. Use one
+  editable recipient list with Email and Access column headings. A small Add action
+  below the last recipient appends a blank row and moves focus to its email field.
+  Align it to the email column’s right edge, above the footer divider.
+  Start and reset with one blank row. Keep access descriptions in the role options.
+  On phones, stack each email above its access selector and removal action.
+- Keep title, business subtitle and fields close together. The subtitle explains
+  collaboration in the selected Business; keep the business name at 16px semibold.
+  Trash removes a recipient row; the top-right X closes the dialog.
+- Validate nonempty emails on blur. A green outline/check means email format is
+  valid and there is no known duplicate or pending-member conflict. Its accessible
+  label says Email format valid; it never confirms an account, delivery or access.
+  Empty untouched fields stay neutral. Editing a valid field removes its check
+  until the next blur; after an error, validation updates while typing. Recompute
+  all row feedback when an email changes or a row is removed, so duplicate feedback
+  cannot stay stale. A failed send retains its error and has no green format check.
+  This compact batch form keeps empty feedback collapsed; show errors beside their
+  recipient and let the dialog or tray scroll. Do not reserve a blank error row for
+  every person. This is the batch-form exception to the general Forms reserve rule.
+- Every row owns its email and access; it can be edited or removed before sending.
+  A single entered email sends directly. Ignore extra blank rows when nonempty rows
+  exist; an entirely empty submission shows the required error on the first row.
+  Invalid nonempty rows and case-insensitive duplicates block submission. Identify
+  locally known pending invitations and members without inventing backend knowledge.
+  Separate the footer with a subtle divider. Send and Retry fill its width, with
+  green reserved for the primary action. The close X preserves the draft; omit
+  a duplicate Cancel action. Keep Invite more and Done after full success.
+- Configurar exposes the Acceso / Access tab at every width, retaining its existing
+  route. The local development review shows collaborators first and pending invites
+  separately. Use compact, unframed rows with a 32px avatar, readable email, a quiet
+  borderless access trigger and neutral trash. The trigger reuses the invitation
+  picker: descriptive floating options on desktop and a tray on phones, never a native
+  select menu. Do not infer names from email addresses.
+  Neutral row hover and focus replace per-row dividers; phones put controls below the
+  identity, aligned right. Keep 44px action targets and explain protected controls
+  through accessible help. Trash asks for confirmation. Pending invitations sit in a
+  small, initially collapsed disclosure with their count and one top divider. Expanded
+  rows retain access, pending acceptance, quiet Resend and cancel-invitation trash.
+- The Access panel reuses the invitation modal and its business-scoped local history.
+  Resend remains pending and never grants access. Cancellation/revocation replaces
+  that person's local history with a tombstone, so stale guide snapshots cannot
+  recreate access or block a later invitation. The earlier guide task stays complete.
+  Self-removal/demotion and removing the last owner are blocked with an explanation.
+  Only an owner may assign Owner. These preview controls do not enforce backend roles.
+- Synthetic accepted-member fixtures are seeded once only for fixture-space. Other
+  businesses receive no invented members. This panel is development-and-mock gated;
+  the existing live access component and its API behavior remain unchanged.
+- Keep membership and access lists under Configurar in Business settings. The
+  invitation dialog contains only the people being invited and their send results;
+  do not add current-member or pending-invitation history disclosures here.
+- The preview uses its signed-in member and confirmed local invitation history
+  only to reject self-invites, known members and pending duplicates. Missing identity
+  stays unknown. Production requires authoritative membership and invitation facts
+  for validation; the preview does not manufacture members or assign default access.
+- Sending prevents duplicate submission and keeps the recipient list visible.
+  Successful rows become read-only with their access and Pending acceptance label.
+  Failure stays beside the affected row. Retry sends only unsent rows and preserves
+  earlier successes. Full success offers Invite more and Done. Invite more clears
+  the batch; Done closes it and opens a fresh batch next time. Both preserve the
+  known invitation history and the guide's completed invitation step.
+- A created invitation completes the guide task, not acceptance. Track invitations,
+  resend/cancel and later access changes in Business settings, outside this short
+  task. Do not trap the invitation form in an acceptance-pending screen.
+- The local preview simulates sending and stores only browser-local drafts/results.
+  It never sends email or grants access. Its design-review failure fixture is a URL
+  parameter, not a customer-facing control. Production must render authoritative
+  invitation and membership results from the backend before this UI is enabled.
 - Apply the same hierarchy, labels and validation behavior in EN and ES. Check both
   themes and phone/tablet/desktop widths. Do not reduce type to fit more content.
 
@@ -322,6 +386,49 @@ They extend Forms below, including email aliases, authorized senders and invoici
   setup steps, document method selection, email setup or the invoicing guide.
 - Keep the destination visible when linking a WhatsApp sender or inviting someone.
   A separate Business dossier may identify the Business once in its header.
+
+### Business profile
+
+- Configurar uses Perfil / Profile as the visible first tab, keeping `tab=datos`.
+  In the local design preview, the existing labelled form stays on the left and
+  a restrained Completa tu perfil checklist sits on the right. Phones stack them.
+  Only this preview tab uses the full canvas: a flexible main card and a 20rem
+  checklist rail. The checklist has an inset neutral-gray basic section and a
+  lighter Detalles adicionales section; both stack below the form on phones.
+- Reuse the shared Business avatar, field validation and descriptive picker.
+  Nombre del negocio is the workspace display name, not a separate legal name.
+  Show the saved operating country when known. Do not invent registry fields,
+  completion percentages, required checklist totals or an overall completed state.
+  Filled green checks and struck labels mean saved facts only; incomplete facts
+  use muted hollow circles. Name, valid identification, matching confirmed legal
+  name, country and address form the basic section. Email, phone, website and
+  description are additional details. Checklist actions focus their source field.
+- Address, province, municipality, business email, phone or WhatsApp, website and
+  short description are optional business-provided details, separate from registry
+  identity. They persist as one object in the existing scoped guide. An address
+  does not require province or municipality. Invalid email or website blocks save
+  until fixed or cleared; a domain may normalize to HTTPS. Shared inline errors
+  and a linked submit summary explain corrections. Failed local saves retain the
+  draft; saving contacts does not reset an unsaved identity draft.
+- Electronic invoicing lives in the main card, outside the checklist, as a
+  separate optional capability. Configure, Continue
+  setup and View setup derive from the existing business-scoped guide state.
+  Its entry reuses the existing dossier; changing its path stays inside that
+  dossier and Back preserves the current step. Home keeps its existing flow.
+- A displayed legal name comes only from a confirmed registry match whose RNC
+  still matches the current business tax identifier. A changed RNC clears the
+  stale registry result and derived legal-name draft. An entered tax identifier
+  alone is not verified, and saving profile details does not activate invoicing.
+- This profile form uses a development-and-mock-only local source adapter and the
+  existing guide store. It makes no fiscal-profile API calls. The backend registry
+  verifier and legal-name autofill remain unwired. The live fiscal profile still
+  exposes one name, tax identifier and edit permission; this design does not add
+  a legal-name API contract or change backend access rules. Missing legal name
+  stays Sin verificar; local confirmation timestamps are not registry sync dates.
+- Registry economic activity, regime or category, tax office, issuer authorization,
+  supporting documents, branches and currency remain future field/source decisions.
+  They are not current autofill. Invoice setup status is not issuer authorization.
+  Team management stays in Acceso; this pass adds no logo upload or team controls.
 
 ### Invoicing entry and saved setup
 
@@ -506,6 +613,29 @@ Which container, screen by screen (Lucas, October 20, 2026):
   range, which opens under its segment and in a sheet on a phone).
 - **Alerts:** closing a month, deleting, removing someone's access.
 
+### Dossier gradient, approved October 24, 2026
+
+All web desktop dossiers use the same static pine gradient, including profile
+forms and record trays. The shared `AdaptivePanel` desktop drawer owns it through
+[`adaptive-panel.module.css`](../../../web/components/ui/adaptive-panel.module.css).
+Individual dossiers do not define their own gradient.
+
+- The gradient uses `--cuadrao-green`, which supplies the correct green for each
+  theme. Its strength is 8% in light mode and 6% in dark mode.
+- The color starts at the bottom edge and fades to transparent 25% of the way
+  up the panel. The existing panel background remains underneath.
+- The gradient stays anchored to the panel while its content scrolls. It has no
+  animation and does not indicate loading, recording, success, or progress.
+- Fields, validation, buttons, spacing, and scrolling keep their existing rules.
+  The gradient does not move actions or add empty space below a form.
+- Phone sheets and narrow-screen record pages remain plain. Centered dialogs
+  and popovers do not inherit this treatment.
+- Sign-in and signup keep their separate horizontal gradient and approved
+  12% light and 10% dark strengths. Dossiers use the softer values above.
+
+Visual checks cover light and dark desktop dossiers, a long scrolling record,
+and a narrow phone layout. The gradient must not reduce text or control clarity.
+
 ### Shell baseline, approved October 23, 2026
 
 This is the expected Business shell behavior for all current and future screens.
@@ -539,9 +669,33 @@ both themes and narrow viewports; DOM tests alone do not prove pixel geometry.
 Lucas set this on October 20, 2026. The left sidebar is where you work; the
 top right is who you are.
 
-- **Top left:** the business you are working in (its initial, name and your
-  role), the one name that reads first. Its menu switches business and opens
-  **Configurar negocio**. The open and close toggle sits beside it.
+- **Top left:** a neutral briefcase icon and the selected business display name
+  entered during setup. Do not show an initial badge or a role subtitle. Use the
+  same business name in the menu header; it is separate from the legal name.
+  Its menu switches business and opens **Configurar negocio**. The open and close
+  toggle sits beside it. The collapsed rail keeps the same briefcase icon.
+- The Business menu starts with a briefcase avatar placeholder and the saved
+  business name. The signed-in member email and “Your access” role form an identity
+  block directly underneath. A divider separates identity from the Invite
+  collaborator and Configure menu rows. A second divider separates Add business
+  and Switch business. Use the same plain row pattern for all actions. The email
+  is account identity, never the receiving address. Add business stays disabled
+  until its supported action is connected.
+- Invite opens a centered short-task dialog on desktop and the existing full tray
+  below the desktop breakpoint. Home keeps its position and width behind it.
+  The access picker floats beyond the dialog on desktop; on small viewports it
+  uses a nested fit tray and returns focus to the selector. Recipient rows wrap
+  access beneath email on narrow screens. Keep body type at 16px and helpers at
+  14px; scroll a long batch within the dialog or tray instead of shrinking text.
+- Choose the container by purpose:
+
+  | Container | Purpose |
+  | --- | --- |
+  | Business menu or submenu | Quick choices near the trigger, such as switching business or choosing an action. |
+  | Centered dialog, tray on small screens | One short task, such as preparing and sending invitations. |
+  | Right dossier | Inspect or edit an item while keeping its source visible, such as a receipt beside its list. |
+  | Business settings | Ongoing management of collaborators, access and invoicing configuration. |
+
 - **Then:** the screens: Inicio, Bandeja, Transacciones. Negocio is reached from the
   business menu (Configurar negocio), the one door.
 - **Foot of the rail:** the Cuadrao mark, small and quiet.

@@ -49,6 +49,7 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { useMonthCloseSource } = await import("@/components/business-app/BusinessMonthClosePanel");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { useChatAccountBoundary } = await import("@/components/chat/useChatAccountBoundary");
@@ -74,8 +75,10 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   let boundaryState: { expired: boolean } = { expired: false };
   let api: ReturnType<typeof useBusiness> | null = null;
   let cleared = 0;
+  let monthClose: ReturnType<typeof useMonthCloseSource> | null = null;
   function Probe() {
     api = useBusiness();
+    monthClose = useMonthCloseSource();
     const [typed, setTyped] = useState("");
     return (
       <div>
@@ -113,10 +116,30 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   };
   await settle();
   const text = (id: string) => host.querySelector(`[data-testid="${id}"]`)?.textContent ?? null;
-  return { act, root, host, settle, text, reads, api: () => api!, boundary: () => boundaryState, cleared: () => cleared, fire: (session: { user: { id: string } } | null) => act(async () => { listener?.(session ? "SIGNED_IN" : "SIGNED_OUT", session); }) };
+  return { act, root, host, settle, text, reads, api: () => api!, monthClose: () => monthClose!, boundary: () => boundaryState, cleared: () => cleared, fire: (session: { user: { id: string } } | null) => act(async () => { listener?.(session ? "SIGNED_IN" : "SIGNED_OUT", session); }) };
 }
 
 describe("switching Business inside one signed-in account", () => {
+  test("preview names belong to every directory entry and remain correct after switching", async () => {
+    const nodeEnv = process.env.NODE_ENV;
+    const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+    localStorage.setItem("cuadrao-preview-business-names-v1", JSON.stringify({ "s-own": "La Palma", "s-a": "Colmado Nuevo" }));
+    const page = await mount();
+    try {
+      assert.deepEqual(page.api().spaces?.map(space => space.name), ["La Palma", "Colmado Nuevo", "Taller Brito"]);
+      assert.equal(page.api().chosen, page.api().spaces?.[0]);
+      await page.act(async () => page.api().chooseBusiness(A.grant_id));
+      assert.equal(page.api().chosen?.name, "Colmado Nuevo");
+      assert.equal(page.api().spaces?.[0].name, "La Palma");
+      assert.equal(OWN.name, "Ferretería Luna", "source directory is not mutated");
+    } finally {
+      await page.act(async () => page.root.unmount());
+      localStorage.removeItem("cuadrao-preview-business-names-v1");
+      Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+    }
+  });
+
   test("twelve switches between A, B and the own Business with typed text never show the account-changed screen; the record, its address and the lists are cleared on each switch", async () => {
     const page = await mount();
     assert.equal(page.text("probe-panel"), "receipt", "landed on a receipt from the address");
@@ -177,4 +200,74 @@ describe("switching Business inside one signed-in account", () => {
     assert.equal(page.reads.length, reads);
     await page.act(async () => page.root.unmount());
   });
+});
+
+test("a newly created local owner business stays selected with empty scoped records",async()=>{
+ const nodeEnv=process.env.NODE_ENV,mockAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+ Object.assign(process.env,{NODE_ENV:"development",NEXT_PUBLIC_MOCK_AUTH:"true"});
+ const {createLocalBusiness,LOCAL_BUSINESS_KEY,LOCAL_BUSINESS_EVENT}=await import("@/app/design-workspace/localBusinessPreview");
+ const page=await mount();
+ const business=createLocalBusiness(localStorage,"Taller Vacío","CA",{kind:"default"},"local-business-empty-test");
+ try{await page.act(async()=>{window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));page.api().chooseBusiness(business.id);});assert.equal(page.api().chosen?.space_id,business.id);await page.settle();assert.equal(page.api().chosen?.space_id,business.id);assert.equal(page.api().chosen?.role,"owner");assert.equal(page.api().records.workspace?.country,"CA");assert.deepEqual(page.api().records.inbox,[]);assert.deepEqual(await page.api().source.access(),{grants:[],invites:[]});assert.equal(page.api().spaces?.find(space=>space.space_id===business.id)?.name,"Taller Vacío");assert.equal(page.api().source.mode,"fixture");assert.equal(page.api().records.error,false);assert.ok(page.api().spaces?.some(space=>space.space_id===OWN.space_id));await page.act(async()=>page.api().chooseBusiness(null));await page.settle();assert.equal(page.api().chosen?.space_id,OWN.space_id);}
+ finally{await page.act(async()=>page.root.unmount());localStorage.removeItem(LOCAL_BUSINESS_KEY);localStorage.removeItem("cuadrao-identity-v1:business:local-business-empty-test");Object.assign(process.env,{NODE_ENV:nodeEnv,NEXT_PUBLIC_MOCK_AUTH:mockAuth});}
+});
+
+
+test("local selection survives a preview reload without sending a synthetic grant header", async () => {
+  const nodeEnv = process.env.NODE_ENV;
+  const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  const { synchronizeBusinessAccount, setChosenGrant, getChosenGrant, chosenGrantHeader } = await import("@/lib/business-grant");
+  const key = "argus:business-grant:v1";
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    synchronizeBusinessAccount("local-owner");
+    setChosenGrant("local-business-persisted");
+    const saved = localStorage.getItem(key)!;
+    assert.deepEqual(chosenGrantHeader(), {});
+    synchronizeBusinessAccount(null);
+    localStorage.setItem(key, saved);
+    synchronizeBusinessAccount("local-owner");
+    assert.equal(getChosenGrant(), "local-business-persisted");
+    synchronizeBusinessAccount(null);
+    Object.assign(process.env, { NODE_ENV: "production" });
+    localStorage.setItem(key, saved);
+    synchronizeBusinessAccount("local-owner");
+    assert.equal(getChosenGrant(), null);
+  } finally {
+    setChosenGrant(null);
+    synchronizeBusinessAccount(null);
+    Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+  }
+});
+
+
+test("preview settlement survives switching businesses without leaking to another business", async () => {
+  const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const { currentMonthKey } = await import("@/lib/business-month-close");
+  const page = await mount();
+  const month = currentMonthKey();
+  try {
+    await page.act(async () => page.api().chooseBusiness(A.grant_id));
+    await page.settle();
+    const selected = page.monthClose();
+    const original = await selected.client.load(month, selected.scopeKey!);
+    const pending = original.documents.find(item => item.kind === "receipt" && item.status === "pendiente")!;
+    assert.ok(pending);
+    await selected.client.markPagado(pending.id, selected.scopeKey!);
+    await page.act(async () => page.api().chooseBusiness(B.grant_id));
+    await page.settle();
+    const other = page.monthClose();
+    const otherBook = await other.client.load(month, other.scopeKey!);
+    assert.equal(otherBook.documents.find(item => item.id === pending.id)?.status, "pendiente");
+    await page.act(async () => page.api().chooseBusiness(A.grant_id));
+    await page.settle();
+    const returned = page.monthClose();
+    const returnedBook = await returned.client.load(month, returned.scopeKey!);
+    assert.equal(returnedBook.documents.find(item => item.id === pending.id)?.status, "pagado");
+  } finally {
+    await page.act(async () => page.root.unmount());
+    page.host.remove();
+    Object.assign(process.env, previousEnv);
+  }
 });
