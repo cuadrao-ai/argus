@@ -256,3 +256,51 @@ cream clapper/highlights, sage folds and a restrained lime detail; centered squa
 composition, readable at 88px on white and charcoal; transparent background,
 no envelope, text, badge, motion lines, dramatic glow, drop shadow or background
 shapes. Original generated image retained outside the repository.
+
+## Personal invitation and history, October 25
+
+Added account-menu Invitar a Cuadrao with a hand-heart icon, a copyable invitation
+link, one email field, send feedback, derived counts, and an internal history view.
+Desktop uses a centered dialog; phones use the shared full-height sheet. Rewards
+and a header shortcut are deferred. This does not invite collaborators or grant
+access to the selected Business.
+
+Model the Domain keeps the counts derived from local invitation rows. Each row has
+an ID, normalized email, creation date, and status. The preview creates pending
+rows only, rejects duplicate emails regardless of case, and resets after a simulated
+send. Back preserves a draft. Copy success uses the shared icon/check feedback;
+a failed copy selects the link and shows an inline correction.
+
+This is available only in Business development mode with mock auth. The link is
+https://cuadrao.example/i/piloto and has no recipient landing. Sending uses a local
+timer, makes no request, and delivers no email. Rows live in ProfileMenu memory and
+reset on reload or remount, including a responsive shell remount. No backend,
+migration, hosted change, push, or orchestrator message was made.
+
+Deferred backend requirements for the next authorized handoff:
+
+- Keep general invitations account-scoped and separate from Business membership.
+  Joining Cuadrao must never grant access to the inviter's Businesses.
+- Define server-owned unique links, eligibility, quotas, expiration, and revocation.
+  Founder decision remains open: does a pilot invitation admit the recipient
+  directly or place them in an approval queue?
+- Send email on the server with idempotency, duplicate handling, rate limits, abuse
+  controls, and clear retryable failures. A request accepted for sending is distinct
+  from delivered email and a joined account.
+- Persist authorized history and counts across reloads and devices. Copying a link
+  must not count as an email sent. Joined requires a confirmed backend event.
+- Limit history and recipient data to the authorized inviter. Avoid account
+  enumeration. Define handling for existing accounts and expired invitations.
+
+Hosted acceptance must prove real email delivery, the recipient landing and
+admission policy, creation of the recipient's own Business, and no access to the
+inviter's Business. Verify isolation between accounts, durable history on another
+device, duplicate requests, invalid or expired links, send failures, and rate limits.
+Local layout and simulated success are not evidence for any of those checks.
+
+Local verification: 15 focused invitation and account-settings tests pass, with one
+existing skip. Scoped ESLint and diff whitespace checks pass. Browser checks cover
+Spanish and English, light and dark, desktop and phone, including a 320px viewport.
+Verified validation, copy, send/reset, duplicate prevention, empty/pending history,
+and close/reopen retention. Browser evidence stays outside Git. Physical-device
+and hosted acceptance remain unverified.

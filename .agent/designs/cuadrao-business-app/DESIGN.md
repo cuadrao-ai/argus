@@ -863,6 +863,27 @@ must remain distinct when the backend is connected. Final dismissal moves focus
 to the empty heading; View all returns focus to the filter. Phones keep the shared
 content-sized bottom sheet.
 
+### Personal invitation to Cuadrao, local design preview
+
+The account menu opens Invitar a Cuadrao with a hand-heart icon. This invitation
+introduces someone to Cuadrao for their own business and grants no Business access.
+Rewards and a header shortcut are outside this checkpoint.
+
+Use a centered, flat desktop dialog and the shared phone sheet. Center the
+hand-heart, title, and short explanation. Link and Copy share a row; email and
+Send share the next row. Stack these controls on phones. Reuse FormField validation,
+44px actions, CopyButton feedback, theme colors, and close/focus behavior.
+
+A quiet divider introduces sent and joined counts. Invitation history opens
+inside the same surface with Back, keeping the email draft. Show newest invitations
+first with email, date, and quiet status. Copying a link does not raise sent counts.
+
+The current implementation requires Business development mode with mock auth.
+It uses a reserved example-domain link and in-memory simulated sends. Counts derive
+from those local rows; joined remains zero. Closing and reopening preserves rows
+while ProfileMenu remains mounted. Reloading or remounting clears them. Real delivery,
+recipient acceptance, durable history, and pilot admission remain backend work.
+
 ### Toasts and saves
 
 - One toast at a time, from one presenter, clear of the page's controls.

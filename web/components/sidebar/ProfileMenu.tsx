@@ -16,6 +16,7 @@ import ProfileDeleteRequestDialog, {
   type DeleteRequestState,
 } from "./ProfileDeleteRequestDialog";
 import ProfileDetailsDialog from "./ProfileDetailsDialog";
+import CuadraoInvitationPreview, { type LocalInvitation } from "./CuadraoInvitationPreview";
 import ProfileSettingsPanels, {
   type SettingsPanel,
 } from "./ProfileSettingsPanels";
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   Database,
   HelpCircle,
+  HandHeart,
   Keyboard,
   Link2,
   LogOut,
@@ -116,7 +118,7 @@ type ProfileMenuProps = {
 };
 
 // Derived from the panel registry, so a new settings panel needs no edit here.
-type ActiveModal = null | SettingsPanel | "profile";
+type ActiveModal = null | SettingsPanel | "profile" | "invite-cuadrao";
 
 type SubMenu = null | "data" | "settings" | "help" | "feedback";
 
@@ -143,6 +145,8 @@ export default function ProfileMenu({
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
+  const invitationPreviewAvailable = isBusiness && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const [localInvitations, setLocalInvitations] = useState<LocalInvitation[]>([]);
   const legalHref = cuadraoLegalLinks();
   const switchLabelsShown = useSwitchLabelsShown();
   const { isBelowDesktop } = useResponsiveLayout();
@@ -909,7 +913,10 @@ export default function ProfileMenu({
   }
 
   // ── Active modal rendering ──────────────────────────────────────────────
-  if (activeModal !== null && activeModal !== "profile") {
+  if (activeModal === "invite-cuadrao" && invitationPreviewAvailable) {
+    return <CuadraoInvitationPreview invitations={localInvitations} onSent={(invitation) => setLocalInvitations((rows) => [...rows, invitation])} returnFocusRef={anchorRef} onClose={() => { setActiveModal(null); onClose(); }} />;
+  }
+  if (activeModal !== null && activeModal !== "profile" && activeModal !== "invite-cuadrao") {
     return (
       <ProfileSettingsPanels
         panel={activeModal}
@@ -1025,6 +1032,8 @@ export default function ProfileMenu({
         {t("settings.profile.title", "Profile")}
         <span className="ml-auto flex shrink-0">{quickJumpBadge("profile")}</span>
       </button>
+
+      {invitationPreviewAvailable ? <button type="button" onClick={() => openModal("invite-cuadrao")} className={`font-display flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}><HandHeart className="h-4 w-4 text-black/50 dark:text-white/50" aria-hidden="true" />{t("cuadrao_invitation.title")}</button> : null}
 
       {/* Data */}
       <div
