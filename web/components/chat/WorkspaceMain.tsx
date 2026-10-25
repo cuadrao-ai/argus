@@ -19,6 +19,7 @@ type ShellBridgeInput = {
   greetingName: string | null;
   memberEmail?: string | null;
   openSearch?: () => void;
+  openPersonalInvitation?: (trigger: HTMLElement) => void;
   resetToEmptyChatSurface: (conversationId?: string | null, view?: ChatShellView) => void;
   closeTransientSidebar: () => void;
 };
@@ -38,6 +39,7 @@ export function useChatShellBridge({
   greetingName,
   memberEmail,
   openSearch,
+  openPersonalInvitation,
   resetToEmptyChatSurface,
   closeTransientSidebar,
 }: ShellBridgeInput): ShellBridgeWithSlots {
@@ -52,6 +54,7 @@ export function useChatShellBridge({
       greetingName,
       memberEmail,
       openSearch,
+      openPersonalInvitation,
       showWorkspace: () => {
         resetToEmptyChatSurface(null, "workspace");
         closeTransientSidebar();
@@ -74,6 +77,7 @@ export function useChatShellBridge({
       memberEmail,
       isBelowTablet,
       openSearch,
+      openPersonalInvitation,
       resetToEmptyChatSurface,
       sidebarCollapsed,
     ],

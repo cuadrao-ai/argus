@@ -28,6 +28,7 @@ export type ChatShellBridge = Readonly<{
   memberEmail?: string | null;
   /** Opens the shared search. Absent when this shell has no search. */
   openSearch?: () => void;
+  openPersonalInvitation?: (trigger: HTMLElement) => void;
   /** Shows the workspace's main panel, leaving any open conversation. */
   showWorkspace: () => void;
   /** Opens an empty conversation, like New chat. */

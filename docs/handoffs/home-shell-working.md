@@ -304,3 +304,17 @@ Spanish and English, light and dark, desktop and phone, including a 320px viewpo
 Verified validation, copy, send/reset, duplicate prevention, empty/pending history,
 and close/reopen retention. Browser evidence stays outside Git. Physical-device
 and hosted acceptance remain unverified.
+
+## Invitation header shortcut, October 25
+
+Added a desktop hand-heart before the privacy eye. The account-menu entry remains
+on desktop and phone. Both desktop entries use the same ProfileMenu invitation
+state through a typed request carrying its opener. Closing restores focus to that
+opener. The Model the Domain principle keeps one history owner instead of creating
+another invitation store for the shortcut. The development/mock-auth guard remains.
+
+Verified on the existing local server at desktop and 390px phone widths in light
+and dark themes. The shortcut is absent from the phone header. A simulated send
+from the shortcut appears in the account-menu history, and Escape returns focus
+to each opener. No backend work or hosted changes. The preceding invitation
+backend requirements and hosted acceptance criteria still apply to both entries.

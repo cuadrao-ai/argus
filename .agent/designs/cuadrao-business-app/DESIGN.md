@@ -739,7 +739,7 @@ top right is who you are.
 - **Top bar:** spans the one canvas. From the tablet stop up, Inicio shows the
   current localized date in small muted uppercase above the welcome greeting on
   the left, using the existing display font. Its search field sits near the right,
-  followed by **Ocultar montos**, notifications and the account. Other desktop
+  followed by the invitation hand-heart, **Ocultar montos**, notifications and the account. Other desktop
   screens omit the greeting and search field; Cmd K still opens search. Business
   search opens below the field with aligned right edges, and expands left from
   that fixed edge within the viewport. Without the field, it uses the same header
@@ -867,7 +867,10 @@ content-sized bottom sheet.
 
 The account menu opens Invitar a Cuadrao with a hand-heart icon. This invitation
 introduces someone to Cuadrao for their own business and grants no Business access.
-Rewards and a header shortcut are outside this checkpoint.
+Desktop also shows the same hand-heart before the privacy eye, with a 44px target
+and shared tooltip. Both entry points open the same dialog and invitation history.
+Closing returns focus to the opener. Phones retain only the account-menu entry.
+Rewards remain outside this checkpoint.
 
 Use a centered, flat desktop dialog and the shared phone sheet. Center the
 hand-heart, title, and short explanation. Link and Copy share a row; email and

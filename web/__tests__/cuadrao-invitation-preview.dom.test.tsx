@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { act, useState } from "react";
+import { act, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { LocalInvitation } from "@/components/sidebar/CuadraoInvitationPreview";
 
@@ -105,4 +105,56 @@ test("clipboard failure leaves the link selected and gives a visible correction"
     await click(button("Copiar"));
     assert.doesNotMatch(document.body.textContent ?? "", /Selecciona el enlace y cópialo manualmente/);
   } finally { Object.defineProperty(navigator.clipboard, "writeText", { configurable: true, value: original }); await page.cleanup(); }
+});
+
+
+test("header and profile entries share history and restore their own focus", async () => {
+  const previousMode = process.env.NODE_ENV;
+  const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  const previousFetch = globalThis.fetch;
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  globalThis.fetch = (async () => Response.json({ user: { id: "inviter", email: "owner@example.test" }, available: false })) as typeof fetch;
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width: 1280, height: 900 });
+  const { default: ProfileMenu } = await import("@/components/sidebar/ProfileMenu");
+  const { ChatWorkspaceProvider } = await import("@/components/chat/ChatWorkspace");
+  const { I18nextProvider } = await import("react-i18next");
+  const i18n = (await import("i18next")).default.createInstance();
+  const es = (await import("@/public/locales/es-419/common.json")).default;
+  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: es } } });
+  const host = document.createElement("div"); document.body.append(host);
+  const root = createRoot(host);
+  function Harness() {
+    const anchorRef = useRef<HTMLButtonElement>(null);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [request, setRequest] = useState<import("@/components/sidebar/ProfileMenu").InvitationOpenRequest | null>(null);
+    return <I18nextProvider i18n={i18n}><ChatWorkspaceProvider value={{ conversationSurface: "business" } as import("@/components/chat/ChatWorkspace").ChatWorkspace}>
+      <button onClick={(event) => { const trigger = event.currentTarget; setRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger })); }}>Header invite</button>
+      <button ref={anchorRef} onClick={() => setMenuOpen(true)}>Profile trigger</button>
+      <ProfileMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} onLogout={() => {}} anchorRef={anchorRef} placement="header" invitationOpenRequest={request} />
+    </ChatWorkspaceProvider></I18nextProvider>;
+  }
+  try {
+    await act(async () => root.render(<Harness />));
+    const header = button("Header invite"); const profile = button("Profile trigger");
+    await click(header);
+    assert.equal(document.querySelectorAll('[data-testid="cuadrao-invitation-dialog"]').length, 1);
+    await enter("one@example.test"); await click(button("Enviar")); await finishSend();
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    assert.equal(document.activeElement, header);
+    assert.equal(document.querySelector('[data-testid="cuadrao-invitation-dialog"]'), null);
+    profile!.focus(); await click(profile); await click(button("Invitar a Cuadrao"));
+    assert.equal(document.querySelector('[data-testid="referral-sent-count"]')?.textContent, "1");
+    await click(button("Historial de invitaciones"));
+    assert.match(document.body.textContent ?? "", /one@example.test/);
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    assert.equal(document.activeElement, profile);
+    await click(header);
+    assert.equal(document.querySelector('[data-testid="referral-sent-count"]')?.textContent, "1");
+  } finally {
+    await act(async () => root.unmount()); host.remove();
+    globalThis.fetch = previousFetch;
+    Object.assign(process.env, { NODE_ENV: previousMode });
+    if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
+  }
 });
