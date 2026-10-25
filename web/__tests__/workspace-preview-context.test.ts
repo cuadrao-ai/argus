@@ -11,7 +11,7 @@ const invoiceFunction = invoice.slice(0, invoice.indexOf("function invoiceStatus
 
 test("selected Business context preserves drafts and expansion while receipt outcomes update", () => {
   const state = { workspace: { name: "Old", country: "DO" }, workspaceNameDraft: "Unfinished edit", expansionChosen: false, collapsed: false, view: "create" };
-  const env = { state, businessScope: "a", saved() {}, render() {} };
+  const env = { state, currentInvitationMember: null, businessScope: "a", saved() {}, render() {} };
   runInNewContext(`${invoiceFunction}\n${contextFunction}\napplyBusinessContext({businessId:'other',name:'Wrong',country:'US',documentReceived:true});`, env);
   assert.equal(state.workspace.name, "Old");
   runInNewContext(`${invoiceFunction}\n${contextFunction}\napplyBusinessContext({businessId:'a',name:'Current',country:null,documentReceived:true});`, env);
@@ -42,4 +42,23 @@ test("a restored incomplete review state becomes needs information without losin
   runInNewContext(`${invoiceFunction}\ninvoiceState();`, { state, saved() { saves++; } });
   assert.equal(state.activation.status, "awaiting-verification");
   assert.equal(saves, 1);
+});
+
+
+test("Profile invoicing changes its path in place and Back retains the saved step", () => {
+  const state = { activation: { path: "new", status: "in-progress", step: "details" }, view: "billing", collapsed: false };
+  const messages: unknown[] = [];
+  let renders = 0;
+  const env = { state, invoiceSurface: true, location: {search:"?entry=profile",origin:"http://localhost"}, URLSearchParams, saved(){}, render(){renders++;}, parent:{postMessage(message:unknown){messages.push(message);}}, $(){return null;} };
+  runInNewContext(`${invoice}\ninvoiceAction('invoice-choose-path');`,env);
+  assert.equal(state.view,"billing-paths");assert.equal(messages.length,0);
+  runInNewContext(`${invoice}\ninvoiceAction('invoice-back');`,env);
+  assert.equal(state.view,"billing");assert.equal(state.activation.step,"details");assert.equal(renders,2);
+});
+
+test("Home invoicing retains its existing return to guide for choosing another path", () => {
+  const state = { activation: {path:"new",status:"in-progress",step:"details"},view:"billing",collapsed:false };
+  const messages: {type:string}[] = [];
+  runInNewContext(`${invoice}\ninvoiceAction('invoice-choose-path');`,{state,invoiceSurface:true,location:{search:"",origin:"http://localhost"},URLSearchParams,saved(){},render(){},parent:{postMessage(message:{type:string}){messages.push(message);}}});
+  assert.equal(state.view,"billing-paths");assert.equal(messages[0]?.type,"workspace-preview-close-dossier");
 });

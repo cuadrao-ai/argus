@@ -94,12 +94,12 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
 const params = () => new URLSearchParams(window.location.search);
 
 describe("the Negocio page", () => {
-  test("the owner sees Datos, Acceso and Correo de recibos, and each tab writes the address bar", async () => {
+  test("the owner sees Perfil, Acceso and Correo de recibos, and each tab writes the address bar", async () => {
     const page = await mount("view=business", OWN);
     try {
       assert.equal(page.host.querySelector('[data-testid="business-settings"] h2')?.textContent, "Negocio");
-      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Datos", "Acceso", "Correo de recibos"]);
-      assert.equal(page.chosenTab(), "Datos");
+      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Acceso", "Correo de recibos"]);
+      assert.equal(page.chosenTab(), "Perfil");
       await page.settle(() => page.host.querySelector('input[name="business-name"]') !== null);
       assert.equal(page.host.querySelector<HTMLInputElement>('input[name="business-name"]')?.value, "Mi negocio", "the owner names the business in Datos");
       assert.equal(page.host.querySelector<HTMLInputElement>('input[name="tax-id-value"]')?.value, "131245678");
@@ -117,7 +117,7 @@ describe("the Negocio page", () => {
       assert.equal(params().get("tab"), "correo");
       assert.equal(page.chosenTab(), "Correo de recibos");
 
-      await page.choose("Datos");
+      await page.choose("Perfil");
       assert.equal(params().get("view"), "business");
       assert.equal(params().get("tab"), "datos");
     } finally {
@@ -125,12 +125,12 @@ describe("the Negocio page", () => {
     }
   });
 
-  test("an accountant sees Datos and Correo de recibos only, and a team link shows Datos", async () => {
+  test("an accountant sees Perfil and Correo de recibos only, and a team link shows Perfil", async () => {
     const page = await mount("view=business&tab=equipo", CLIENT);
     try {
       await page.settle(() => page.tabs().length === 2);
-      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Datos", "Correo de recibos"]);
-      assert.equal(page.chosenTab(), "Datos");
+      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Correo de recibos"]);
+      assert.equal(page.chosenTab(), "Perfil");
       assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"), false);
     } finally {
       await page.close();

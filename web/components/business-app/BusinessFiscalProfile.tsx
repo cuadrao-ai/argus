@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useContext, useEffect, useId, useState } from "react";
+import { type FormEvent, type ReactNode, useContext, useEffect, useId, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,7 +25,7 @@ type Field = "name" | "number";
 /** A refusal the server explains; retrying the same values cannot help. */
 type Problem = { text: string; retry: boolean };
 
-export default function BusinessFiscalProfile({ draftId }: { draftId?: string }) {
+export default function BusinessFiscalProfile({ draftId, renderTaxIdControl }: { draftId?: string; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
   const { t, i18n } = useTranslation();
   const workspace = useContext(BusinessContext);
   const base = useId();
@@ -149,7 +149,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
             onChange={(event) => setName(event.target.value)}
           />
           <div className="grid gap-x-[13px] gap-y-[13px] tablet:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
-            <SelectField
+            {renderTaxIdControl ? renderTaxIdControl({value:kind,label:t("business.dgii.tax_id_type", "Tax id"),disabled:busy,onChange:setKind}) : <SelectField
               id={`${base}-kind`}
               name="tax-id-type"
               label={t("business.dgii.tax_id_type", "Tax id")}
@@ -159,7 +159,7 @@ export default function BusinessFiscalProfile({ draftId }: { draftId?: string })
             >
               <option value="rnc">{t("business.dgii.tax_id_rnc", "RNC")}</option>
               <option value="cedula">{t("business.dgii.tax_id_cedula", "Cédula")}</option>
-            </SelectField>
+            </SelectField>}
             <FormField
               id={ids.number}
               name="tax-id-value"

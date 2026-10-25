@@ -9,8 +9,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 
 export type AccessRoleOption = {value:string;label:string;description:string};
-export default function AccessRolePicker({options,value,onChange,label,disabled=false,compact=false,variant="field",ownerDocument,portalRoot}: {
-  options:AccessRoleOption[];value:string;onChange:(value:string)=>void;label:string;disabled?:boolean;compact?:boolean;variant?:"field"|"quiet";ownerDocument?:Document;portalRoot?:Element|null;
+export default function AccessRolePicker({options,value,onChange,label,disabled=false,compact=false,variant="field",showDetail=true,ownerDocument,portalRoot}: {
+  options:AccessRoleOption[];value:string;onChange:(value:string)=>void;label:string;disabled?:boolean;compact?:boolean;variant?:"field"|"quiet";showDetail?:boolean;ownerDocument?:Document;portalRoot?:Element|null;
 }) {
   const { isBelowDesktop } = useResponsiveLayout();
   const { t } = useTranslation();
@@ -99,20 +99,20 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
           close();
         }}
         className="flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2.5 text-left text-[#172b26] hover:bg-black/5 focus:bg-black/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0] dark:text-white dark:hover:bg-white/5 dark:focus:bg-white/5">
-        <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{option.label}</span><span className="mt-1 block text-[14px] leading-snug text-[#56635e] dark:text-white/70">{option.description}</span></span>
+        <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{option.label}</span>{option.description ? <span className="mt-1 block text-[14px] leading-snug text-[#56635e] dark:text-white/70">{option.description}</span> : null}</span>
         <Check aria-hidden="true" className={`h-4 w-4 shrink-0 ${option.value === value ? "" : "invisible"}`} />
       </button>)}
   </>;
   return <>
     {variant === "field" ? <label id={`${id}-label`} className={compact ? isBelowDesktop ? "mb-1 block text-[14px] font-medium" : "sr-only" : "mb-2 block text-[16px] font-medium"}>{compact && isBelowDesktop ? t("workspace_setup_preview.permission_label") : label}</label> : null}
     <button ref={trigger} type="button" role="combobox" aria-haspopup="listbox" aria-expanded={open}
-      aria-labelledby={compact || variant === "quiet" ? undefined : `${id}-label ${id}-value`} aria-label={compact || variant === "quiet" ? `${label} ${selected?.label ?? ""}` : undefined} aria-describedby={compact || variant === "quiet" ? undefined : `${id}-detail`} aria-controls={open ? id : undefined}
-      disabled={disabled} onClick={() => setOpen(!open)}
+      aria-labelledby={compact || variant === "quiet" ? undefined : `${id}-label ${id}-value`} aria-label={compact || variant === "quiet" ? `${label} ${selected?.label ?? ""}` : undefined} aria-describedby={compact || variant === "quiet" || !showDetail || !selected?.description ? undefined : `${id}-detail`} aria-controls={open ? id : undefined}
+      style={{minHeight:variant === "field" ? 48 : 44}} disabled={disabled} onClick={() => setOpen(!open)}
       onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setOpen(true); } }}
       className={variant === "quiet" ? "flex min-h-11 items-center gap-2 rounded-md bg-transparent text-left text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70" : "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[#7d8a84] bg-transparent px-3 text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0]"}>
       <span id={`${id}-value`}>{selected?.label}</span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform duration-150 ease-out motion-reduce:transition-none ${open ? "rotate-180" : ""}`} aria-hidden="true" />
     </button>
-    {!compact && variant === "field" ? <p id={`${id}-detail`} className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{selected?.description}</p> : null}
+    {!compact && variant === "field" && showDetail && selected?.description ? <p id={`${id}-detail`} className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{selected?.description}</p> : null}
     {open && isBelowDesktop ? <BottomSheet isOpen onClose={close} title={label} closeLabel={t("common.close")} backLabel={t("common.back")} snaps="fit">
       <div ref={list} id={id} role="listbox" aria-label={label} onKeyDown={moveOptionFocus} className="p-2">{choices}</div>
     </BottomSheet> : open && destination ? createPortal(<div ref={list} id={id} role="listbox" aria-label={label}

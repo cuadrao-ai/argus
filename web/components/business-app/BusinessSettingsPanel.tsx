@@ -5,6 +5,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness, type BusinessTab } from "./BusinessWorkspace";
 import BusinessLifecycleControls from "./BusinessLifecycleControls";
 import BusinessAccessPanel from "./BusinessAccessPanel";
+import BusinessProfilePreview from "@/app/design-workspace/BusinessProfilePreview";
 import BusinessAccessPreview from "@/app/design-workspace/BusinessAccessPreview";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
 import ReceiptReadingControl from "./ReceiptReadingControl";
@@ -39,7 +40,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
       <div className="mb-6">
         <SegmentedControl testId="business-settings-tabs" label={t("business.settings.title", "Business")} value={shown} onChange={(next) => openPanel({ kind: "business", tab: next })} segments={tabs} fill={isBelowTablet} />
       </div>
-      {shown === "datos" ? (
+      {shown === "datos" ? localPreview ? <BusinessProfilePreview key={chosen?.space_id} /> : (
         <div className="space-y-6">
           <div className={SURFACE_CARD}>
             <h2 className="font-display text-[16px] font-medium text-[#172b26] dark:text-white">{t("business.settings.datos_title", "Name and RNC")}</h2>

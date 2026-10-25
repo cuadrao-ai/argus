@@ -387,6 +387,31 @@ They extend Forms below, including email aliases, authorized senders and invoici
 - Keep the destination visible when linking a WhatsApp sender or inviting someone.
   A separate Business dossier may identify the Business once in its header.
 
+### Business profile
+
+- Configurar uses Perfil / Profile as the visible first tab, keeping `tab=datos`.
+  In the local design preview, the existing labelled form stays on the left and
+  a restrained Completa tu perfil checklist sits on the right. Phones stack them.
+  Only this preview tab uses the full canvas; the form stays at most 40rem wide.
+- Reuse the shared Business avatar, field validation and descriptive picker.
+  Nombre del negocio is the workspace display name, not a separate legal name.
+  Show the saved operating country when known. Do not invent profile fields,
+  completion percentages, required checklist totals or an overall completed state.
+  The provisional checklist describes known saved name and country facts only.
+- Electronic invoicing is a separate optional capability. Configure, Continue
+  setup and View setup derive from the existing business-scoped guide state.
+  Its entry reuses the existing dossier; changing its path stays inside that
+  dossier and Back preserves the current step. Home keeps its existing flow.
+- A displayed legal name comes only from a confirmed registry match whose RNC
+  still matches the current business tax identifier. A changed RNC clears the
+  stale registry result and derived legal-name draft. An entered tax identifier
+  alone is not verified, and saving profile details does not activate invoicing.
+- This profile form uses a development-and-mock-only local source adapter and the
+  existing guide store. It makes no fiscal-profile API calls. The backend registry
+  verifier and legal-name autofill remain unwired. The live fiscal profile still
+  exposes one name, tax identifier and edit permission; this design does not add
+  a legal-name API contract or change backend access rules.
+
 ### Invoicing entry and saved setup
 
 - Home offers path cards, not an activation switch. Existing issuer and getting

@@ -28,14 +28,14 @@ function PreviewCopy({ slot }: { slot: HTMLElement }) {
 }
 
 /** Local review adapter. The sketch remains the single source for the card. */
-export default function WorkspaceSetupPreview({ invitation, onClose }: { invitation?: boolean; onClose?: () => void } = {}) {
+export default function WorkspaceSetupPreview({ invitation, profileInvoicing, onClose }: { invitation?: boolean; profileInvoicing?: boolean; onClose?: () => void } = {}) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(410);
   const [copySlots, setCopySlots] = useState<HTMLElement[]>([]);
   const [accessSlots, setAccessSlots] = useState<HTMLElement[]>([]);
   const [emailSlot, setEmailSlot] = useState<HTMLElement | null>(null);
   const dossierFrame = useRef<HTMLIFrameElement>(null);
-  const [dossier, setDossier] = useState<"whatsapp" | "invoicing" | null>(null);
+  const [dossier, setDossier] = useState<"whatsapp" | "invoicing" | null>(profileInvoicing ? "invoicing" : null);
   const [dossierHeight, setDossierHeight] = useState(700);
   const { t, i18n } = useTranslation();
   const { actions, bridge, chosen, records, renamePreviewBusiness } = useBusiness();
@@ -137,7 +137,7 @@ export default function WorkspaceSetupPreview({ invitation, onClose }: { invitat
       if (fromGuide && event.data?.type === "workspace-preview-invoicing") setDossier("invoicing");
       if (event.data?.type === "workspace-preview-close-dossier") {
         if (fromGuide && invitation) onClose?.();
-        if (fromDossier) setDossier(null);
+        if (fromDossier) { setDossier(null); if(profileInvoicing) onClose?.(); }
       }
       if (fromDossier && event.data?.type === "workspace-preview-whatsapp-connected") setDossier(null);
       if (event.data?.type === "workspace-preview-upload") {
@@ -152,7 +152,7 @@ export default function WorkspaceSetupPreview({ invitation, onClose }: { invitat
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [upload, syncAppearance, inheritControls, chosen?.space_id, renamePreviewBusiness, invitation, onClose]);
+  }, [upload, syncAppearance, inheritControls, chosen?.space_id, renamePreviewBusiness, invitation, profileInvoicing, onClose]);
   useEffect(() => {
     const observer = new MutationObserver(syncAppearance);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
@@ -169,9 +169,9 @@ export default function WorkspaceSetupPreview({ invitation, onClose }: { invitat
     className={`${invitation ? "" : "mb-8 "}block w-full border-0`}
     style={{ height }}
   />;
-  return <>{accessSlots.filter(slot => slot.isConnected).map(slot => createPortal(<InvitationAccessPicker slot={slot} />, slot, slot.dataset.key ?? "access"))}{emailSlot?.isConnected ? createPortal(<BusinessEmailAddress />, emailSlot) : null}{copySlots.filter(slot => slot.isConnected).map((slot, index) => createPortal(<PreviewCopy slot={slot} />, slot, String(index)))}{invitation ? <InvitationPreviewModal frame={frame} onClose={() => onClose?.()}>{guide}</InvitationPreviewModal> : guide}
-    {dossier ? <AdaptivePanel title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} closeLabel={t("common.close", "Close")} onClose={() => setDossier(null)} width="lg" snaps={["full"]} initialSnap="full">
-      <iframe key={`${chosen?.space_id ?? "unselected"}:${dossier}`} ref={dossierFrame} src={`/design-workspace/card${scope}${scope ? "&" : "?"}surface=${dossier}`} title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} onLoad={syncAppearance} className="block w-full border-0" style={{ height: dossierHeight }} />
+  return <>{accessSlots.filter(slot => slot.isConnected).map(slot => createPortal(<InvitationAccessPicker slot={slot} />, slot, slot.dataset.key ?? "access"))}{emailSlot?.isConnected ? createPortal(<BusinessEmailAddress />, emailSlot) : null}{copySlots.filter(slot => slot.isConnected).map((slot, index) => createPortal(<PreviewCopy slot={slot} />, slot, String(index)))}{invitation ? <InvitationPreviewModal frame={frame} onClose={() => onClose?.()}>{guide}</InvitationPreviewModal> : profileInvoicing ? null : guide}
+    {dossier ? <AdaptivePanel title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} closeLabel={t("common.close", "Close")} onClose={() => {setDossier(null);if(profileInvoicing)onClose?.();}} width="lg" snaps={["full"]} initialSnap="full">
+      <iframe key={`${chosen?.space_id ?? "unselected"}:${dossier}`} ref={dossierFrame} src={`/design-workspace/card${scope}${scope ? "&" : "?"}surface=${dossier}${profileInvoicing ? "&entry=profile" : ""}`} title={dossier === "whatsapp" ? "WhatsApp" : t("workspace_setup_preview.invoice_title")} onLoad={syncAppearance} className="block w-full border-0" style={{ height: dossierHeight }} />
     </AdaptivePanel> : null}
   </>;
 }
