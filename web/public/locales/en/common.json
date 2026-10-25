@@ -3033,7 +3033,7 @@
         "email_recipient_mismatch": "The message did not match this address.",
         "other": "Part of this email could not be saved."
       },
-      "lands_in_bandeja": "Attachments arrive in your Bandeja, ready to review.",
+      "lands_in_bandeja": "Attachments arrive in this business’s Inbox.",
       "saved_line_one": "{{count}} receipt went to the Bandeja.",
       "saved_line_other": "{{count}} receipts went to the Bandeja.",
       "message": "Message",
@@ -3077,6 +3077,21 @@
         "button": "This is a different purchase",
         "explanation": "Confirm that these receipts are for different purchases. The expense still needs review and approval."
       }
+    },
+    "reception": {
+      "alias_customize": "Customize address",
+      "alias_format_valid": "Valid format.",
+      "alias_locked": "This address has already been customized.",
+      "alias_once": "You can customize this address once.",
+      "alias_save": "Save address",
+      "email_title": "Receiving email",
+      "history_link": "View received emails",
+      "history_title": "Received emails",
+      "reading_body": "Extracts receipt details and prepares records for review. It does not approve them automatically.",
+      "reading_off": "When turned off, receipts are saved unread.",
+      "reading_title": "AI receipt reading",
+      "whatsapp_connect": "Connect WhatsApp to send documents to {{business}}.",
+      "whatsapp_connected": "Number ending in {{last4}} connected to {{business}}."
     },
     "review": {
       "see_original": "See the receipt already saved",
@@ -3347,8 +3362,8 @@
       "profile_unverified": "Not verified",
       "profile_view": "View profile",
       "profile_website": "Website",
-      "tab_correo": "Receipt email",
-      "tab_correo_short": "Email",
+      "tab_correo": "Reception",
+      "tab_correo_short": "Reception",
       "correo_history": "History",
       "datos_title": "Name and RNC",
       "datos_body": "They appear on your 606 and 607 and on what you export."

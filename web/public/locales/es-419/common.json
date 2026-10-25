@@ -2805,7 +2805,7 @@
         "email_recipient_mismatch": "El mensaje no coincidió con esta dirección.",
         "other": "Una parte de este correo no se pudo guardar."
       },
-      "lands_in_bandeja": "Los adjuntos llegan a tu Bandeja, listos para revisar.",
+      "lands_in_bandeja": "Los adjuntos llegan a la Bandeja de este negocio.",
       "saved_line_one": "{{count}} recibo llegó a la Bandeja.",
       "saved_line_other": "{{count}} recibos llegaron a la Bandeja.",
       "message": "Mensaje",
@@ -3164,6 +3164,21 @@
         "explanation": "Confirma que estos recibos corresponden a compras distintas. El gasto todavía necesita revisión y aprobación."
       }
     },
+    "reception": {
+      "alias_customize": "Personalizar dirección",
+      "alias_format_valid": "Formato válido.",
+      "alias_locked": "Esta dirección ya fue personalizada.",
+      "alias_once": "Puedes personalizar esta dirección una sola vez.",
+      "alias_save": "Guardar dirección",
+      "email_title": "Correo de recepción",
+      "history_link": "Ver correos recibidos",
+      "history_title": "Correos recibidos",
+      "reading_body": "Extrae los datos de tus recibos y prepara los registros para revisión. No los aprueba automáticamente.",
+      "reading_off": "Si la desactivas, los recibos se guardan sin leer.",
+      "reading_title": "Lectura de recibos con IA",
+      "whatsapp_connect": "Conecta WhatsApp para enviar documentos a {{business}}.",
+      "whatsapp_connected": "Número terminado en {{last4}} conectado a {{business}}."
+    },
     "review": {
       "see_original": "Ver el recibo ya guardado",
       "rebind_note": "El acceso que preparó este recibo ya no es válido. Vincúlalo a tu acceso actual y vuelve a prepararlo.",
@@ -3347,8 +3362,8 @@
       "profile_unverified": "Sin verificar",
       "profile_view": "Ver perfil",
       "profile_website": "Sitio web",
-      "tab_correo": "Correo de recibos",
-      "tab_correo_short": "Correo",
+      "tab_correo": "Recepción",
+      "tab_correo_short": "Recepción",
       "correo_history": "Historial",
       "datos_title": "Nombre y RNC",
       "datos_body": "Salen en tu 606 y 607 y en lo que exportas."

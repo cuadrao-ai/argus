@@ -15,6 +15,7 @@ import { Settle } from "./business-skeletons";
 import { cardClass, primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { CopyButton, useCopyLabels, WrappingAddress } from "./foundation/CopyButton";
 import { EmptyState } from "./foundation/EmptyState";
+import BusinessEmailAliasPreview, {useReceptionPreview} from "@/app/design-workspace/BusinessEmailAliasPreview";
 import { resolveLanguage } from "@/lib/language-features";
 
 export type Load<T> = { status: "loading" } | { status: "error" } | { status: "ready"; data: T };
@@ -91,7 +92,9 @@ export function EmailAddressSection({ intake, onRetry, onActivated }: { intake: 
 
 /** The address on its own, for the Negocio page: it loads itself. */
 export function BusinessEmailAddress() {
-  const { source, revision, reload } = useBusiness();
+  const { source, revision, reload, chosen } = useBusiness();
+  const preview = useReceptionPreview(chosen?.space_id ?? "");
+  const localPreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const [intake, setIntake] = useState<Load<BusinessEmailIntake>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -100,7 +103,9 @@ export function BusinessEmailAddress() {
     source.emailIntake().then((data) => { if (current) setIntake({ status: "ready", data }); }).catch(() => { if (current) setIntake({ status: "error" }); });
     return () => { current = false; };
   }, [source, revision, attempt]);
-  return <EmailAddressSection intake={intake} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => { setIntake({ status: "ready", data: next }); reload(); }} />;
+  const defaultAddress = intake.status === "ready" ? businessReceivingAddress(intake.data) : null;
+  const displayed = localPreview && defaultAddress && preview.address && intake.status === "ready" ? {...intake,data:{...intake.data,receiving_address:preview.address}} : intake;
+  return <><EmailAddressSection intake={displayed} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => { setIntake({ status: "ready", data: next }); reload(); }} />{localPreview && defaultAddress && chosen ? <BusinessEmailAliasPreview key={chosen.space_id} businessId={chosen.space_id} defaultAddress={defaultAddress} canEdit={chosen.role === "owner"} /> : null}</>;
 }
 
 /** One received email: subject and where it stands, then who sent it, when, and how many files. */
@@ -112,13 +117,12 @@ export function EmailDeliveryRow({ delivery, onOpen }: { delivery: BusinessEmail
       <button type="button" data-testid="email-delivery-row" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 rounded-item px-2 py-3 text-left transition-colors hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#2f5a49] dark:hover:bg-white/[0.04]">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-item bg-black/[0.04] dark:bg-white/[0.06]"><Mail className="h-5 w-5 text-[#56635e] dark:text-white/60" aria-hidden="true" /></span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-baseline justify-between gap-3">
-            <span className="min-w-0 truncate text-[15px] font-medium text-[#172b26] dark:text-white">{delivery.subject || t("business.email.no_subject", "No subject")}</span>
+          <span className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+            <span className="min-w-0 break-words text-[15px] font-medium text-[#172b26] sm:truncate dark:text-white">{delivery.subject || t("business.email.no_subject", "No subject")}</span>
             <DeliveryState delivery={delivery} />
           </span>
-          {/* The sender gives way first; when and how many files always show. */}
-          <span className="mt-0.5 flex min-w-0 gap-1 text-[13px] text-[#56635e] dark:text-white/65">
-            <span className="min-w-0 truncate">{delivery.sender || t("business.email.no_sender", "Sender unavailable")}</span>
+          <span className="mt-0.5 flex min-w-0 flex-wrap gap-x-1 gap-y-0.5 text-[13px] text-[#56635e] sm:flex-nowrap dark:text-white/65">
+            <span className="w-full min-w-0 break-all sm:w-auto sm:truncate sm:break-normal">{delivery.sender || t("business.email.no_sender", "Sender unavailable")}</span>
             <span className="shrink-0">{` · ${formatRelativeTime(delivery.received_at, locale)} · ${t("business.email.attachments", { count: delivery.parts.length, defaultValue: "{{count}} attachments" })}`}</span>
           </span>
         </span>
@@ -294,22 +298,19 @@ export function EmailRecord({ emailId }: { emailId: string }) {
   );
 }
 
-/**
- * Every email received, newest first, under the receiving address in Negocio
- * > Correo de recibos. Opening one shows it in a sheet with a way back;
- * opening its receipt puts the email away first.
- */
-export function EmailHistory() {
+export function EmailHistory({ onClose }: { onClose?: () => void } = {}) {
   const { t } = useTranslation();
-  const { source, openPanel, records, emailRefresh } = useBusiness();
+  const { source, openPanel, records, emailRefresh, chosen } = useBusiness();
   const [opened, setOpened] = useState<string | null>(null);
   const openReceipt = (id: string) => {
     setOpened(null);
+    onClose?.();
     openPanel({ kind: "receipt", receiptId: id });
   };
   const openDelivery = records.emails?.find((item) => item.id === opened) ?? null;
+  const detail = openDelivery ? <EmailDeliveryDetail delivery={openDelivery} inbox={records.inbox} loadDetail={source.emailDelivery} retryDelivery={async (id) => { await source.retryEmailDelivery(id); emailRefresh.refresh(); }} openReceipt={openReceipt} /> : null;
 
-  return (
+  const history = (
     <section aria-labelledby="email-history-title" data-testid="email-history">
       <div className="flex items-center justify-between gap-2">
         <h3 id="email-history-title" className="text-[14px] font-medium text-[#56635e] dark:text-white/70">{t("business.settings.correo_history", "History")}</h3>
@@ -321,14 +322,14 @@ export function EmailHistory() {
       {records.emails === null && !records.emailsFailure ? <Settle pending layout="rows" rows={2} /> : null}
       {records.emails === null && records.emailsFailure ? <EmptyState kind="error" compact title={t("business.empty.email_error", "We couldn't load your emails")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: emailRefresh.refresh }} /> : null}
       {records.emails ? (records.emails.length ? (
-        <ul className={`${cardClass} divide-y divide-[#EEF0EC] p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
+        <ul className={`${onClose ? "" : cardClass} divide-y divide-[#EEF0EC] sm:p-2 dark:divide-white/[0.06]`} data-testid="business-email-deliveries">
           {records.emails.map((delivery) => <EmailDeliveryRow key={delivery.id} delivery={delivery} onOpen={() => setOpened(delivery.id)} />)}
         </ul>
       ) : (
         <p className="py-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.email.empty", "No emails received yet.")}</p>
       )) : null}
 
-      {openDelivery ? (
+      {openDelivery && !onClose ? (
         <AdaptivePanel
           title={openDelivery.subject || t("business.email.no_subject", "No subject")}
           summary={openDelivery.sender ?? undefined}
@@ -343,4 +344,7 @@ export function EmailHistory() {
       ) : null}
     </section>
   );
+  return onClose ? <AdaptivePanel title={openDelivery?.subject || t("business.reception.history_title")} summary={openDelivery ? openDelivery.sender ?? undefined : chosen?.name} closeLabel={t("common.close")} onClose={onClose} modal={false} width="lg" snaps={["full"]} initialSnap="full">
+    <div className="desktop:px-5">{openDelivery ? <><button type="button" className={quietButtonClass} onClick={() => setOpened(null)}><ArrowLeft className="h-4 w-4" aria-hidden="true" />{t("business.reception.history_title")}</button>{detail}</> : history}</div>
+  </AdaptivePanel> : history;
 }

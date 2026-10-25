@@ -5,7 +5,6 @@ import { Check, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, useBusiness } from "@/components/business-app/BusinessWorkspace";
 import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
-import ReceiptReadingControl from "@/components/business-app/ReceiptReadingControl";
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
 import { BusinessMark } from "@/components/business-app/BusinessSwitcher";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -122,7 +121,6 @@ function BusinessProfileContent() {
             <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/70" />
           </button>)}</div>
         </section>
-        <div className={SURFACE_CARD}><ReceiptReadingControl variant="row" /></div>
       </div>
       {!selected ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
         <div className="rounded-item bg-black/5 p-4 dark:bg-white/5"><h2 id="profile-next-title" className="font-display text-[21px] font-medium">{t("business.settings.profile_finish")}</h2><p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>{checklistRows("basic")}</div>

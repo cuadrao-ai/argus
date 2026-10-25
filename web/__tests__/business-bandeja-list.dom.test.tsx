@@ -517,7 +517,7 @@ describe("emails in the Bandeja", () => {
     assert.ok(emailDetail()!.textContent?.includes("colmado-oct.jpg"));
   });
 
-  test("an old link to one email opens that email, and an old Correos link lands on Correo de recibos with its history", async () => {
+  test("an old link to one email opens that email, and an old Correos link lands on Reception with the history action", async () => {
     search = "email=email-boletin";
     const linked = await mount({ width: 1280 });
     assert.deepEqual(linked.api().panel, { kind: "email", emailId: "email-boletin" });
@@ -525,19 +525,22 @@ describe("emails in the Bandeja", () => {
     search = "view=inbox&segment=emails";
     const old = await mount();
     assert.deepEqual(old.api().panel, { kind: "business", tab: "correo" });
-    await old.settle(() => old.host.querySelector('[data-testid="email-history"] [data-testid="email-delivery-row"]') !== null, "the email history");
+    await old.settle(() => [...old.host.querySelectorAll("button")].some(button=>button.textContent?.includes("Ver correos recibidos")), "the history action");
   });
 });
 
 describe("the email history in Negocio", () => {
   const emailDetail = () => document.querySelector('[data-testid="email-detail"]');
-  test("Correo de recibos keeps the receiving address on top, then a quiet Historial of every email with its refresh", async () => {
+  test("Reception keeps the address visible and opens email history in a dossier", async () => {
     const page = await mount({ panel: { kind: "business", tab: "correo" } });
-    await page.settle(() => page.host.querySelectorAll('[data-testid="email-history"] [data-testid="email-delivery-row"]').length === 5 && page.host.querySelector('[data-testid="email-copy-address"]') !== null, "the address and the history");
-    const history = page.host.querySelector('[data-testid="email-history"]')!;
+    await page.settle(() => page.host.querySelector('[data-testid="email-copy-address"]') !== null, "the receiving address");
+    assert.equal(page.host.querySelector('[data-testid="email-history"]'),null);
+    await page.act(async()=>[...page.host.querySelectorAll("button")].find(button=>button.textContent?.includes("Ver correos recibidos"))!.click());
+    await page.settle(()=>document.querySelectorAll('[data-testid="email-history"] [data-testid="email-delivery-row"]').length===5,"history dossier");
+    const history = document.querySelector('[data-testid="email-history"]')!;
     assert.equal(history.querySelector("h3")?.textContent, "Historial");
     assert.equal(history.querySelector('[data-testid="email-refresh"]')?.getAttribute("aria-label"), "Actualizar");
-    assert.ok(page.host.querySelector('[data-testid="email-address"]')!.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING, "the address comes first");
+    assert.ok(history.closest('[data-testid="side-drawer"], [role="dialog"]'), "history uses the shared panel");
     await page.act(async () => history.querySelector<HTMLButtonElement>('[data-testid="email-delivery-row"]')!.click());
     await page.settle(() => emailDetail() !== null, "the opened email");
   });

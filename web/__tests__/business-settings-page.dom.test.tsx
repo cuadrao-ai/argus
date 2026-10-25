@@ -94,11 +94,11 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
 const params = () => new URLSearchParams(window.location.search);
 
 describe("the Negocio page", () => {
-  test("the owner sees Perfil, Acceso and Correo de recibos, and each tab writes the address bar", async () => {
+  test("the owner sees Perfil, Acceso and Recepción, and each tab writes the address bar", async () => {
     const page = await mount("view=business", OWN);
     try {
       assert.equal(page.host.querySelector('[data-testid="business-settings"] h2')?.textContent, "Negocio");
-      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Acceso", "Correo de recibos"]);
+      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Acceso", "Recepción"]);
       assert.equal(page.chosenTab(), "Perfil");
       await page.settle(() => page.host.querySelector('input[name="business-name"]') !== null);
       assert.equal(page.host.querySelector<HTMLInputElement>('input[name="business-name"]')?.value, "Mi negocio", "the owner names the business in Datos");
@@ -113,9 +113,9 @@ describe("the Negocio page", () => {
       await page.settle(() => [...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"));
       assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"), "the team tab holds the access controls");
 
-      await page.choose("Correo de recibos");
+      await page.choose("Recepción");
       assert.equal(params().get("tab"), "correo");
-      assert.equal(page.chosenTab(), "Correo de recibos");
+      assert.equal(page.chosenTab(), "Recepción");
 
       await page.choose("Perfil");
       assert.equal(params().get("view"), "business");
@@ -125,11 +125,11 @@ describe("the Negocio page", () => {
     }
   });
 
-  test("an accountant sees Perfil and Correo de recibos only, and a team link shows Perfil", async () => {
+  test("an accountant sees Perfil and Recepción only, and a team link shows Perfil", async () => {
     const page = await mount("view=business&tab=equipo", CLIENT);
     try {
       await page.settle(() => page.tabs().length === 2);
-      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Correo de recibos"]);
+      assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Recepción"]);
       assert.equal(page.chosenTab(), "Perfil");
       assert.equal([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"), false);
     } finally {
@@ -177,62 +177,67 @@ describe("the Negocio page", () => {
 
   describe("Lectura de recibos", () => {
     const reading = (over: Partial<ReceiptReading> = {}): ReceiptReading => ({ scope_version: 1, enabled: false, available: true, can_change: true, disclosure: "Texto del servidor", disclosure_token: "a".repeat(64), route: null, consented_at: null, revoked_at: null, ...over });
-    const row = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="receipt-reading-row"]');
-    const state = (page: Awaited<ReturnType<typeof mount>>) => row(page)?.querySelector('[data-testid="receipt-reading-state"]')?.textContent?.trim();
+    const row = (page: Awaited<ReturnType<typeof mount>>) => page.host.querySelector('[data-testid="receipt-reading-inline"]');
+    const toggle = (page: Awaited<ReturnType<typeof mount>>) => row(page)?.querySelector<HTMLButtonElement>('[role="switch"]');
 
-    test("Datos holds one row with the state in words, and its button opens the same sheet", async () => {
-      const page = await mount("view=business", OWN, { receiptReading: async () => reading({ enabled: true }) });
+    test("Reception has the inline switch and disclosure, while Profile has neither", async () => {
+      const page = await mount("view=business", OWN, { receiptReading: async () => reading({ enabled: true }), setReceiptReading: async (_snapshot,enabled) => reading({enabled}) });
       try {
-        await page.settle(() => state(page) === "Activada");
-        assert.equal(state(page), "Activada");
-        assert.equal(row(page)?.querySelector("p")?.textContent, "Lectura de recibos");
-        assert.equal(page.host.querySelector('[data-testid="receipt-reading-control"]'), null, "the row is not the notice");
-        const change = [...(row(page)?.querySelectorAll("button") ?? [])].find((button) => button.textContent?.trim() === "Cambiar");
-        assert.ok(change);
-        await page.click(change);
-        assert.ok(document.body.querySelector('[data-testid="receipt-reading-sheet"]')?.textContent?.includes("Texto del servidor"), "the server's words sit in the sheet");
-        assert.ok(document.body.querySelector('[data-testid="receipt-reading-switch"]'));
-      } finally {
-        await page.close();
-      }
+        assert.equal(row(page),null);
+        await page.choose("Recepción");
+        await page.settle(() => toggle(page)?.getAttribute("aria-checked") === "true");
+        assert.equal(toggle(page)?.getAttribute("aria-checked"),"true");
+        assert.ok(row(page)?.textContent?.includes("Texto del servidor"));
+        assert.equal(document.querySelector('[data-testid="receipt-reading-sheet"]'),null);
+        await page.click(toggle(page)!);
+        await page.settle(() => toggle(page)?.getAttribute("aria-checked") === "false");
+        assert.equal(toggle(page)?.getAttribute("aria-checked"),"false");
+      } finally { await page.close(); }
     });
-
-    test("an off setting reads Desactivada", async () => {
-      const page = await mount("view=business", OWN, { receiptReading: async () => reading() });
+    test("an off setting stays off when an update fails and offers inline retry", async () => {
+      const page = await mount("view=business&tab=correo", OWN, { receiptReading: async () => reading(), setReceiptReading: async () => {throw new Error("offline");} });
       try {
-        await page.settle(() => state(page) === "Desactivada");
-        assert.equal(state(page), "Desactivada");
-      } finally {
-        await page.close();
-      }
+        await page.settle(() => toggle(page) != null);
+        await page.click(toggle(page)!);
+        await page.settle(() => row(page)?.querySelector('[role="alert"]') != null);
+        assert.equal(toggle(page)?.getAttribute("aria-checked"),"false");
+        assert.ok(row(page)?.querySelector('[role="alert"]')?.textContent?.includes("Reintentar"));
+      } finally { await page.close(); }
     });
-
-    test("a setting that failed to load shows a dash and no button, never a guess", async () => {
-      const page = await mount("view=business", OWN, { receiptReading: async () => { throw new Error("offline"); } });
+    test("a failed load shows unavailable and no switch rather than guessing off", async () => {
+      const page = await mount("view=business&tab=correo", OWN, { receiptReading: async () => { throw new Error("offline"); } });
       try {
-        await page.settle(() => row(page) !== null);
-        await page.settle(() => false);
+        await page.settle(() => row(page) != null);
         assert.equal(row(page)?.getAttribute("data-enabled"), "unknown");
-        assert.ok(state(page)?.startsWith("-"));
-        assert.ok(!/Activada|Desactivada/.test(state(page) ?? ""));
-        assert.equal(row(page)?.querySelector("button"), null);
-      } finally {
-        await page.close();
-      }
+        assert.ok(row(page)?.textContent?.includes("No disponible"));
+        assert.equal(toggle(page),null);
+      } finally { await page.close(); }
     });
-
-    test("whoever may not change it sees the state and no button", async () => {
-      const page = await mount("view=business", CLIENT, { receiptReading: async () => reading({ can_change: false }) });
+    test("a member without change access sees a disabled switch", async () => {
+      const page = await mount("view=business&tab=correo", CLIENT, { receiptReading: async () => reading({ can_change: false }) });
       try {
-        await page.settle(() => state(page) === "Desactivada");
-        assert.equal(state(page), "Desactivada");
-        assert.equal(row(page)?.querySelector("button"), null);
-      } finally {
-        await page.close();
-      }
+        await page.settle(() => toggle(page) != null);
+        assert.equal(toggle(page)?.getAttribute("aria-checked"),"false");
+        assert.equal(toggle(page)?.disabled,true);
+      } finally { await page.close(); }
     });
-  });
-});
+    test("received emails stay behind a quiet link and detail returns to the same dossier list", async () => {
+      const page=await mount("view=business&tab=correo",OWN);
+      try {
+        assert.equal(page.host.querySelector('[data-testid="email-history"]'),null);
+        const link=[...page.host.querySelectorAll('button')].find(button=>button.textContent?.includes("Ver correos recibidos"));
+        assert.ok(link);await page.click(link);
+        await page.settle(()=>document.querySelector('[data-testid="email-delivery-row"]') != null);
+        assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length,1);
+        await page.click(document.querySelector('[data-testid="email-delivery-row"]')!);
+        assert.ok(document.querySelector('[data-testid="email-detail"]'));
+        assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length,1);
+        const back=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==="Correos recibidos");
+        assert.ok(back);await page.click(back);
+        assert.ok(document.querySelector('[data-testid="email-history"]'));
+      }finally{await page.close();}
+    });
+  });});
 
 
 test("a remembered closed membership shows closure rather than removed access", async () => {

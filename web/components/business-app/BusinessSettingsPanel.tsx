@@ -8,20 +8,12 @@ import BusinessAccessPanel from "./BusinessAccessPanel";
 import BusinessProfilePreview from "@/app/design-workspace/BusinessProfilePreview";
 import BusinessAccessPreview from "@/app/design-workspace/BusinessAccessPreview";
 import BusinessFiscalProfile from "./BusinessFiscalProfile";
-import ReceiptReadingControl from "./ReceiptReadingControl";
-import { BusinessEmailAddress, EmailHistory } from "./BusinessEmailDeliveries";
+import BusinessReception from "./BusinessReception";
 import { formatBusinessName } from "./business-format";
 import { PanelHeading } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 
-/**
- * Negocio: everything about the business itself, apart from the person's own
- * account (which lives at the top right). One page, three tabs: its name and
- * RNC with the receipt reading row, who has access, and the address that
- * receives its receipts by email with the history of every email that arrived
- * under it.
- */
 export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: BusinessTab }) {
   const { t } = useTranslation();
   const { chosen, openPanel, source } = useBusiness();
@@ -31,7 +23,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
   const tabs = [
     { key: "datos" as const, label: t("business.settings.tab_datos", "Details") },
     ...(owner ? [{ key: "equipo" as const, label: t("business.settings.tab_equipo", "Access") }] : []),
-    { key: "correo" as const, label: isBelowTablet ? t("business.settings.tab_correo_short", "Email") : t("business.settings.tab_correo", "Receipt email") },
+    { key: "correo" as const, label: isBelowTablet ? t("business.settings.tab_correo_short", "Reception") : t("business.settings.tab_correo", "Reception") },
   ];
   const shown = tabs.some((item) => item.key === tab) ? tab : "datos";
   return (
@@ -47,17 +39,11 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
             <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("business.settings.datos_body", "They appear on your 606 and 607 and on what you export.")}</p>
             <BusinessFiscalProfile />
           </div>
-          <div className={SURFACE_CARD}><ReceiptReadingControl variant="row" /></div>
           {owner && source.mode === "live" ? <BusinessLifecycleControls spaceId={chosen?.space_id} /> : null}
         </div>
       ) : null}
       {shown === "equipo" ? localPreview ? <BusinessAccessPreview key={chosen?.space_id} /> : <BusinessAccessPanel embedded /> : null}
-      {shown === "correo" ? (
-        <div className="space-y-6">
-          <div className={SURFACE_CARD}><BusinessEmailAddress /></div>
-          <EmailHistory />
-        </div>
-      ) : null}
+      {shown === "correo" ? <BusinessReception key={chosen?.space_id} /> : null}
     </section>
   );
 }

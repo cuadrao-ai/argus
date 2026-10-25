@@ -154,6 +154,10 @@ const guideKey='cuadrao-workspace-guide-actions-v1'+(businessScope?'-business-'+
 const key=guideKey+(inviteSurface?'-invite-draft':'');
 const initial={workspace:null,draft:{name:'',country:''},collapsed:false,expansionChosen:false,view:'create',reading:null,alias:null,address:null,sender:'',senderAuthorized:false,channel:'',invitation:null,billing:null,invitationSent:false};
 let state;try{state={...initial,...JSON.parse(localStorage.getItem(key)||'null')}}catch{state={...initial}}
+addEventListener('storage',event=>{
+ if(event.key!==key)return;
+ try{const next=JSON.parse(event.newValue||'{}');if(next.alias===state.alias&&next.address===state.address)return;state.alias=next.alias??null;state.address=next.address??null;if(['email','email-edit','senders'].includes(state.view))render()}catch{}
+});
 let currentInvitationMember=null;
 const navigationKey=key+'-navigation-'+(invoiceSurface?'invoice':whatsappSurface?'whatsapp':'guide');
 try{const navigation=JSON.parse(sessionStorage.getItem(navigationKey)||'null');if(navigation)state={...state,view:navigation.view,collapsed:navigation.collapsed,expansionChosen:navigation.expansionChosen===true}}catch{}
