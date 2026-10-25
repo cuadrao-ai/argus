@@ -318,3 +318,81 @@ and dark themes. The shortcut is absent from the phone header. A simulated send
 from the shortcut appears in the account-menu history, and Escape returns focus
 to each opener. No backend work or hosted changes. The preceding invitation
 backend requirements and hosted acceptance criteria still apply to both entries.
+
+## Approved checkpoint: notifications and personal invitations, October 25
+
+Lucas approved this checkpoint and authorized the orchestrator handoff. UI head
+is 165bf01479f8640e72fa40237b29827121fe036f on
+codex/frontend-design-after-home-20261024. The bounded commit set is 6cc0795f7,
+160ec1e32, 7f9a886ea, and 165bf0147. Earlier Home work is retained on the branch.
+The design worktree remains /Users/garces/Documents/projects/repos/argus-frontend-design-20261022.
+The existing 4387 frontend and 4388 synthetic API stay with the design lane.
+Untracked design-recovery and design-startup routes are preserved and excluded.
+This handoff does not authorize backend implementation, merging, deployment,
+hosted migrations, real emails, or a change to another lane's approved scope.
+
+Approved UI includes the bell popover/phone tray, All/Unread, read-all, dismissal,
+actions, and both illustrated empty states. General invitations have link copy,
+email entry, send feedback, counts, history, and a hand-heart desktop shortcut
+before the eye. Profile-menu entry remains on both sizes. Both desktop entries
+share the existing invitation view and return focus to their own opener. Rewards
+remain deferred. General invitations are separate from collaborator invitations.
+
+Notification backend requirements and hosted acceptance:
+
+- Serve canonical recipient-authorized notices with explicit account/Business
+  scope, stable IDs, event timestamps, and valid action targets. The current UI
+  is Business-scoped. Cross-account security/product notices need an explicit
+  scope contract before connecting them; never leak notices when switching Business.
+- Persist read and dismissed state across reloads and devices. Unread counts,
+  All/Unread lists, and both empty states must derive from authorized server data.
+  Mark-all-read preserves rows in All. Dismissal is a separate state change.
+- Define retry/idempotence for mutations and reconcile failed writes honestly.
+  A request failure, loading state, or offline state must not show as an empty list.
+- On an approved hosted SHA, use separate synthetic recipients and Businesses to
+  prove isolation, revoked-access handling, valid actions, event deduplication,
+  read/dismiss persistence on another session/device, correct counts after retry,
+  and loading/empty/failure behavior. Prove EN/ES, desktop/phone and both themes
+  against actual responses. These checks remain pending, not passed locally.
+
+Personal invitation backend requirements and hosted acceptance:
+
+- Use one account-owned invitation service for both entry points, separate from
+  Business membership and its Owner/Admin/Editor/Viewer acceptance model.
+  No invitation to Cuadrao grants access to the inviter's Business.
+- Provide server-owned unique links, eligibility, expiry/revocation and quotas.
+  Open founder decision: pilot admission directly or through an approval queue.
+  The screenshot reference and local prototype do not decide that policy.
+- Implement real email delivery with idempotence, duplicate handling, abuse/rate
+  controls, safe errors/retries and recipient-bound acceptance. Distinguish queued,
+  sent, delivered and joined facts; the backend owns timestamps, counts and history.
+  Copying a link is not a sent email or a joined person.
+- Persist only authorized inviter history, avoid account enumeration, and define
+  existing-account, expired-link and repeated-acceptance behavior.
+- On an approved hosted SHA, prove real email and the recipient landing, correct
+  pilot admission, creation of the recipient's own Business, and zero access to
+  the inviter's Business. Verify cross-account isolation, reload/second-device
+  persistence, duplicate requests, retries/failures, rate limits and expired/revoked
+  links. Check both entry points, phone/desktop, EN/ES and both themes with real states.
+
+Existing ownership and collaborator-invitation foundation work is a separate
+backend batch. This packet does not replace its settled requirements: selected
+roles enforced by the server, multiple Owners, one existing Owner sufficient to
+invite another Owner, access pending until recipient acceptance, immediate
+revocation, concurrent last-owner protection, and historical document custody.
+
+Proof is local only. Prior notification evidence has 26 focused tests passing;
+final shortcut evidence has 23 focused top-bar/account/invitation tests passing.
+Scoped lint has no errors, with two existing ChatSidebar unused-prop warnings.
+Browser checks cover desktop and phone in both themes, EN/ES for the full layouts,
+shared history, copy feedback, validation and focus. No physical-device, real email,
+durable backend, CI/release or hosted acceptance is claimed by this checkpoint.
+Screenshots remain outside Git in the task visualization folder. Do not reuse the
+fixed example-domain link or sample notifications as real production data.
+
+Orchestrator request: acknowledge both backend requirement sets and add their
+hosted acceptance gates to the existing coordinated-release plan. Confirm whether
+the design lane is clear to move to Talonario, and identify any concrete ownership
+or contract dependency first. Talonario is still a design discussion about movements
+and matching supporting files; this request does not authorize its implementation.
+Keep frontend ownership and the existing preview with this lane while responding.
