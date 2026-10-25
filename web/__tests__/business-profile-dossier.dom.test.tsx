@@ -77,3 +77,24 @@ test("identity marks its required field, validates on submit and confirms a succ
     await page.type("business-name","Another draft");expect(document.querySelector('[data-testid="business-fiscal-profile"] [role="status"]')?.textContent).toBe("");
   }finally{await page.close();}
 });
+
+
+test.each([["es-419","Ver perfil","Todavía no hay datos de contacto guardados."],["en","View profile","No contact details have been saved yet."]])("%s opens the saved profile card and returns focus to its action",async(locale,label,emptyHint)=>{
+  const page=await mount(locale);try{
+    const trigger=page.button(label);await page.click(trigger);
+    const card=document.querySelector('[data-testid="business-profile-card"]')!;
+    expect(card.textContent).toContain("La Palma");expect(card.textContent).toContain(emptyHint);expect(card.querySelector("input,button,a")).toBeNull();expect(card.querySelector("img")).toBeNull();
+    expect(page.host.querySelector("#profile-next-title")).toBeNull();expect(document.querySelectorAll('[data-testid="side-drawer"]')).toHaveLength(1);
+    await page.click(document.querySelector<HTMLButtonElement>('[data-testid="side-drawer"] button[aria-label]')!);
+    await act(async()=>new Promise(resolve=>requestAnimationFrame(resolve)));expect(document.activeElement).toBe(trigger);expect(page.host.querySelector("#profile-next-title")).not.toBeNull();
+  }finally{await page.close();}
+});
+
+test("profile card displays saved contact details after an unsaved edit is discarded",async()=>{
+  const page=await mount();try{
+    await page.click(page.button("Ubicación y contacto"));await page.type("profile-email","saved@example.com");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    await page.type("profile-email","draft@example.com");await page.click(page.button("Ver perfil"));expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    await page.click(document.querySelector<HTMLButtonElement>('[data-testid="confirm-dialog-confirm"]')!);
+    const card=document.querySelector('[data-testid="business-profile-card"]')!;expect(card.textContent).toContain("saved@example.com");expect(card.textContent).not.toContain("draft@example.com");expect(card.querySelectorAll("dt")).toHaveLength(1);expect(card.querySelector("input")).toBeNull();
+  }finally{await page.close();}
+});

@@ -14,6 +14,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import AccessRolePicker from "./AccessRolePicker";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
 import { readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
+import {quietButtonClass} from "@/components/business-app/business-ui";
+import BusinessProfileCard from "./BusinessProfileCard";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 
@@ -21,7 +23,7 @@ const changedEvent = "workspace-preview-profile-changed";
 const emptyStorage = {getItem:()=>null,setItem:()=>{}};
 // eslint-disable-next-line no-restricted-syntax -- The development-only profile reuses the business-scoped guide store.
 const storage = () => typeof window === "undefined" ? emptyStorage : window.localStorage;
-type ProfileSection = "identity" | "contact" | "presence" | "invoicing";
+type ProfileSection = "card" | "identity" | "contact" | "presence" | "invoicing";
 type Selection = {section:ProfileSection|null;trigger?:HTMLElement};
 const checklistSection: Record<ProfileChecklistKey,ProfileSection> = {name:"identity",taxId:"identity",legalName:"identity",country:"identity",address:"contact",email:"contact",phone:"contact",website:"presence",description:"presence"};
 
@@ -92,13 +94,13 @@ function BusinessProfileContent() {
     if(dirty)setPending(next);else applySelection(next);
   };
   const close = ()=>select({section:null});
-  const selectedTitle = sections.find(section=>section.key === selected)?.title ?? "";
+  const selectedTitle = selected === "card" ? t("business.settings.profile_overview") : sections.find(section=>section.key === selected)?.title ?? "";
   const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
     <span aria-hidden="true" style={item.complete ? undefined : {borderColor:"currentColor",opacity:0.35}} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : "border border-black/25 dark:border-white/35"}`}>{item.complete ? <Check className="h-3 w-3"/> : null}</span>
     <span style={item.complete ? {textDecoration:"line-through"} : undefined} className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}<span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span></span>
   </button></li>)}</ul>;
   const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
-    {selected === "identity" ? <>
+    {selected === "card" ? <BusinessProfileCard profile={profile} logoUrl={chosen?.logo_url} /> : selected === "identity" ? <>
       <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
       <dl className="mt-5 space-y-5 text-[16px]">
         <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>
@@ -111,7 +113,7 @@ function BusinessProfileContent() {
     <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
       <div className="min-w-0 space-y-6">
         <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
-          <div className="mb-5 flex items-center gap-3"><BusinessMark /><div className="min-w-0"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}</div></div>
+          <div className="mb-5 flex items-center gap-3"><BusinessMark /><div className="min-w-0 flex-1"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}</div><button type="button" className={`${quietButtonClass} shrink-0`} aria-expanded={selected === "card"} aria-controls={selected === "card" ? "profile-section-dossier" : undefined} onClick={event=>select({section:"card",trigger:event.currentTarget})}>{t("business.settings.profile_view")}</button></div>
           <div className="divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} type="button" className="profile-section-row focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
             <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/70" />
           </button>)}</div>
