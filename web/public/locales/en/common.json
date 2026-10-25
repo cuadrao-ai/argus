@@ -2976,8 +2976,39 @@
       "more": "More actions"
     },
     "notifications": {
+      "all": "All",
+      "body": "Your invitations and updates will appear here.",
+      "dismiss": "Dismiss: {{title}}",
+      "empty_unread": "You're all caught up.",
+      "filter": "Filter notifications",
+      "mark_all": "Mark all read",
+      "samples": {
+        "access": {
+          "title": "Invitation accepted",
+          "body": "Someone accepted your invitation to {{business}}.",
+          "action": "View team"
+        },
+        "channel": {
+          "title": "Receiving channels",
+          "body": "Check the address and receiving channels for {{business}}.",
+          "action": "View channels"
+        },
+        "profile": {
+          "title": "Make it your Business",
+          "body": "Personalize the logo, description, and details for {{business}}.",
+          "action": "View profile"
+        }
+      },
+      "times": {
+        "recent": "5 min",
+        "earlier": "1 h",
+        "yesterday": "Yesterday"
+      },
       "title": "Notifications",
-      "body": "Your invitations and updates will appear here."
+      "unread": "Unread",
+      "unread_count_one": "{{count}} unread notification",
+      "unread_count_other": "{{count}} unread notifications",
+      "unread_label": "Unread notification"
     },
     "amounts": {
       "hide": "Hide amounts"

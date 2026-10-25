@@ -617,7 +617,7 @@ function BusinessWorkspaceContent({
         </button> : null}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
         <AmountsToggle />
-        {localPreview ? <BusinessNotifications /> : null}
+        {localPreview ? <BusinessNotifications businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,
       headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,

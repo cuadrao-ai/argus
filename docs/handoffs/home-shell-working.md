@@ -195,3 +195,35 @@ Ownership remains in the design lane. No backend assignment, orchestrator messag
 - Verified mobile-width dark layout, mobile Business switcher, and switching back to owner restores owner controls. Checked light desktop visually. No browser console errors observed in the prototype.
 - Corrected invitation wording to match confirmed-email access, mobile menu entry, hidden owner-only channel forms, and role-sensitive configuration labels.
 - These are synthetic browser checks, not backend integration, real-device, or hosted acceptance. Full accessibility and responsive release checks remain for a later approved checkpoint.
+
+
+## Notification list, local preview, October 25
+
+Implemented the compact bell popover and shared phone sheet in the design lane.
+Three synthetic notices cover an accepted invitation, receiving channels, and
+profile customization. Two begin unread. Samples require development mode,
+mock auth, an explicit preview prop, and a selected Business. Direct or nonmock
+use stays empty. Visible copy uses the selected Business name; the sample does
+not grant access or claim a real delivery.
+
+All/Unread, mark all read, per-row dismiss, and quiet settings actions work in
+memory. Read and dismiss state is keyed by Business and notice, survives closing
+and switching Business, and resets when the shell unmounts. Actions open existing
+Configurar tabs for equipo, correo, and datos. No storage or network calls were
+added. The nested filter uses the shared overlay stack, keeps focus inside the
+panel, and receives Escape before the parent. Dismiss moves focus to the filter.
+
+Deferred backend and hosted work: define canonical recipient and Business
+permissions; obtain authorized notices from the backend; persist read/dismiss
+state across devices; validate each action target against current access; define
+actual event and delivery timestamps. Existing settings access checks remain the
+authority. This preview is not evidence of real notifications, delivery, durable
+state, or hosted readiness. Backend, migrations, push, deployment, and orchestrator
+handoff remain out of scope. This frontend change is a local checkpoint commit.
+
+Verification: 21 focused notification and top-bar tests pass; scoped ESLint and
+`git diff --check` pass. Browser checks covered Spanish/light and English/dark on
+desktop and a 390px phone viewport, with no horizontal overflow. Verified the
+custom filter, nested Escape, read-all and dismiss focus, empty unread state, and
+the Recepción action. Screenshots are stored outside Git in the task visualization
+folder. These are local browser checks, not physical-device or hosted acceptance.

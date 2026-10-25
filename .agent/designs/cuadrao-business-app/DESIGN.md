@@ -835,6 +835,23 @@ screen, Deshacer included, because stacked undos act on work the owner has
 moved past. Marks in a row share one toast ("3 facturas cobradas") with one
 Deshacer for all of them. An alert never stacks.
 
+### Business notification list, local design preview
+
+The bell opens a compact, flat 400px popover with a 16px radius and a hairline
+border on desktop. Width and height stay inside the viewport; only the list
+scrolls. Phones use the shared bottom sheet. The header uses a quiet double-check
+control to mark all read, with a full accessible label, and a close control.
+
+Rows show a small unread dot, a bold unread title, a muted timestamp, and quiet
+action and dismiss controls with 44px targets. Product updates have a subtle
+neutral tint. All/Unread is a compact inline menu with arrow-key navigation;
+Escape closes that menu first and returns focus to its trigger. Dismissing a row
+returns focus to the filter. The list never repeats task or inbox counts.
+
+This local design uses three sample notices only in development with mock auth
+and the preview prop. Read and dismiss state belongs to the selected Business
+and lasts only while this shell is mounted. Direct and nonmock use is empty.
+
 ### Toasts and saves
 
 - One toast at a time, from one presenter, clear of the page's controls.

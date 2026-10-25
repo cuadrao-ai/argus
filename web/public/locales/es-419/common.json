@@ -2748,8 +2748,39 @@
       "more": "Más acciones"
     },
     "notifications": {
+      "all": "Todas",
+      "body": "Tus invitaciones y avisos aparecerán aquí.",
+      "dismiss": "Descartar: {{title}}",
+      "empty_unread": "Ya estás al día.",
+      "filter": "Filtrar notificaciones",
+      "mark_all": "Marcar todas como leídas",
+      "samples": {
+        "access": {
+          "title": "Invitación aceptada",
+          "body": "Una persona aceptó tu invitación a {{business}}.",
+          "action": "Ver equipo"
+        },
+        "channel": {
+          "title": "Canales de recepción",
+          "body": "Consulta la dirección y los canales de {{business}}.",
+          "action": "Ver canales"
+        },
+        "profile": {
+          "title": "Dale tu toque al negocio",
+          "body": "Personaliza el logo, la descripción y los datos de {{business}}.",
+          "action": "Ver perfil"
+        }
+      },
+      "times": {
+        "recent": "5 min",
+        "earlier": "1 h",
+        "yesterday": "Ayer"
+      },
       "title": "Notificaciones",
-      "body": "Tus invitaciones y avisos aparecerán aquí."
+      "unread": "Sin leer",
+      "unread_count_one": "{{count}} notificación sin leer",
+      "unread_count_other": "{{count}} notificaciones sin leer",
+      "unread_label": "Notificación sin leer"
     },
     "amounts": {
       "hide": "Ocultar montos"
