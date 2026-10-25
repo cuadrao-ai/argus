@@ -34,7 +34,7 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,group="all"
       maxLength={providedDetailLimits[field]} error={checks.errorOf(field)} success={success} reserveMessages={reserveMessages}
       onBlur={()=>checks.blur(field)} onChange={event=>{setDraft(current=>({...current,[field]:event.target.value}));setFeedback(null);}} />;
   });
-  const saveButton = <button type="submit" form={`${id}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} rounded-item! h-12 w-full`} disabled={unchanged}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
+  const saveButton = <button style={footerTarget === undefined ? undefined : {borderRadius:"var(--radius-item)"}} type="submit" form={`${id}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full`} disabled={unchanged}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
   const status = <p role={feedback === "failed" ? "alert" : "status"} className={`${feedback ? "" : "sr-only"} text-[14px] ${feedback === "failed" ? "text-[#9e2f39] dark:text-[#ec9aa0]" : "text-[#56635e] dark:text-white/70"}`}>{feedback ? t(`business.settings.profile_details_${feedback}`) : ""}</p>;
   const actions = footerTarget === undefined ? <div className="flex min-h-11 flex-wrap items-center gap-3">{saveButton}{status}</div> : <div className="flex flex-col gap-2">{status}{saveButton}</div>;
   return <section aria-label={t(group === "presence" ? "business.settings.profile_presence_title" : "business.settings.profile_contact_title")}>
