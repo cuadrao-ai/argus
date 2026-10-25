@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronRight, X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Check, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, useBusiness } from "@/components/business-app/BusinessWorkspace";
 import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
@@ -45,7 +45,6 @@ function BusinessProfileContent() {
   const [dirty,setDirty] = useState(false);
   const [pending,setPending] = useState<Selection|null>(null);
   const opener = useRef<HTMLElement|null>(null);
-  const dossierTitle = useRef<HTMLHeadingElement>(null);
   const refresh = useCallback(()=>window.dispatchEvent(new Event(changedEvent)),[]);
   const subscribe = useCallback((listener:()=>void) => {
     window.addEventListener("storage",listener);window.addEventListener(changedEvent,listener);
@@ -92,7 +91,6 @@ function BusinessProfileContent() {
     if(next.section === selected)return;
     if(dirty)setPending(next);else applySelection(next);
   };
-  useEffect(()=>{if(selected && !isBelowDesktop)dossierTitle.current?.focus();},[selected,isBelowDesktop]);
   const close = ()=>select({section:null});
   const selectedTitle = sections.find(section=>section.key === selected)?.title ?? "";
   const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
@@ -109,8 +107,8 @@ function BusinessProfileContent() {
     </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={next=>{const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
   </div>;
   return <>
-    <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}.profile-dossier{position:sticky;top:24px;max-height:calc(100dvh - 48px);overflow-y:auto}.profile-dossier-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.profile-dossier-close{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;border-radius:50%}.profile-dossier-close:hover{background:rgba(0,0,0,.05)}.dark .profile-dossier-close:hover{background:rgba(255,255,255,.05)}[data-profile-dossier-content] iframe{max-width:100%}`}</style>
-    <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr) minmax(22rem,1.1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
+    <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}`}</style>
+    <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
       <div className="min-w-0 space-y-6">
         <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
           <div className="mb-5 flex items-center gap-3"><BusinessMark /><div className="min-w-0"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}</div></div>
@@ -120,14 +118,12 @@ function BusinessProfileContent() {
         </section>
         <div className={SURFACE_CARD}><ReceiptReadingControl variant="row" /></div>
       </div>
-      {selected && !isBelowDesktop ? <aside id="profile-section-dossier" role="region" aria-labelledby="profile-section-title" className={`${SURFACE_CARD} profile-dossier`} onKeyDown={event=>{if(event.key === "Escape" && !event.defaultPrevented){event.preventDefault();close();}}}>
-        <div className="profile-dossier-header"><h2 id="profile-section-title" ref={dossierTitle} tabIndex={-1} className="font-display text-[21px] font-medium">{selectedTitle}</h2><button type="button" aria-label={t("common.close")} onClick={close} className="profile-dossier-close focus-visible:outline-2"><X className="h-5 w-5" aria-hidden="true" /></button></div>{dossier}
-      </aside> : !selected ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
+      {!selected ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
         <div className="rounded-item bg-black/5 p-4 dark:bg-white/5"><h2 id="profile-next-title" className="font-display text-[21px] font-medium">{t("business.settings.profile_finish")}</h2><p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>{checklistRows("basic")}</div>
         <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</div>
       </aside> : null}
     </div>
-    {selected && isBelowDesktop ? <AdaptivePanel title={selectedTitle} onClose={close} onBack={close} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier">{dossier}</div></AdaptivePanel> : null}
+    {selected ? <AdaptivePanel title={selectedTitle} modal={false} width="lg" onClose={close} onBack={isBelowDesktop ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}</div></AdaptivePanel> : null}
     <ConfirmDialog isOpen={pending !== null} title={t("business.settings.profile_discard_title")} description={t("business.settings.profile_discard_detail")} confirmLabel={t("business.settings.profile_discard")} cancelLabel={t("business.settings.profile_keep_editing")} onCancel={()=>setPending(null)} onConfirm={()=>{if(pending)applySelection(pending);}} />
   </>;
 }
