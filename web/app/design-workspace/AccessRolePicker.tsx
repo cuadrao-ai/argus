@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -23,12 +23,24 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
   const id = useId();
   const selected = options.find(option => option.value === value);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); };
+  const focusOption = useCallback((index: number) => {
+    const option = items.current[index];
+    if (!option) return;
+    option.focus({ preventScroll: true });
+    let viewport = option.parentElement;
+    while (viewport && viewport !== document.body && !/^(auto|scroll)$/.test(getComputedStyle(viewport).overflowY)) viewport = viewport.parentElement;
+    if (!viewport || viewport === document.body) return;
+    const itemBounds = option.getBoundingClientRect();
+    const viewBounds = viewport.getBoundingClientRect();
+    if (itemBounds.top < viewBounds.top) viewport.scrollTop += itemBounds.top - viewBounds.top;
+    else if (itemBounds.bottom > viewBounds.bottom) viewport.scrollTop += itemBounds.bottom - viewBounds.bottom;
+  }, []);
   const moveOptionFocus = (event: {key:string;preventDefault:()=>void}) => {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return false;
     event.preventDefault();
     const index = items.current.indexOf(document.activeElement as HTMLButtonElement);
     const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
-    items.current[next]?.focus({preventScroll:true});
+    focusOption(next);
     return true;
   };
   useOverlayLayer({ isOpen: open && !isBelowDesktop, overlayId: id, containerRef: list, onEscape: close,
@@ -64,9 +76,11 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
     if (list.current) observer.observe(list.current);
     window.addEventListener("resize", place);
     document.addEventListener("scroll", place, true);
-    items.current[options.findIndex(option => option.value === value)]?.focus({ preventScroll: true });
     return () => { observer.disconnect(); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true); };
   }, [open, sourceDocument, value, options, isBelowDesktop]);
+  useLayoutEffect(() => {
+    if (open && !isBelowDesktop && position.width) focusOption(options.findIndex(option => option.value === value));
+  }, [open, isBelowDesktop, position.width, position.maxHeight, focusOption, options, value]);
   useEffect(() => {
     if (!open || isBelowDesktop || !sourceDocument) return;
     const outside = (event: PointerEvent) => {
@@ -84,7 +98,7 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
           onChange(option.value);
           close();
         }}
-        className="flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2.5 text-left text-[#172b26] hover:bg-black/5 focus:bg-black/5 focus:outline-none dark:text-white dark:hover:bg-white/5 dark:focus:bg-white/5">
+        className="flex min-h-11 w-full items-center gap-3 rounded-item px-3 py-2.5 text-left text-[#172b26] hover:bg-black/5 focus:bg-black/5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0] dark:text-white dark:hover:bg-white/5 dark:focus:bg-white/5">
         <span className="min-w-0 flex-1"><span className="block text-[16px] font-medium">{option.label}</span><span className="mt-1 block text-[14px] leading-snug text-[#56635e] dark:text-white/70">{option.description}</span></span>
         <Check aria-hidden="true" className={`h-4 w-4 shrink-0 ${option.value === value ? "" : "invisible"}`} />
       </button>)}

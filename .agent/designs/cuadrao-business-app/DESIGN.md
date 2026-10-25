@@ -43,6 +43,8 @@ neutral; do not add green washes to instructions.
   dense money screen they push the numbers below the fold.
 - Secondary text, status labels and the setup progress count use 14px. Do not
   shrink them at narrow widths. The progress ring remains 44px with tabular digits.
+- The sidebar and Business menu share the same 40px neutral square business avatar
+  with a 20px briefcase fallback. Keep the trigger and switching behavior unchanged.
 - Business sidebar navigation and the current business name use Inter at 16px.
   The access label and count badges use 14px; the navigation rows remain 44px tall.
 - Embedded setup and dossier previews inherit `--font-inter` and
@@ -213,6 +215,9 @@ The preview demonstrates them; this section does not certify backend wiring.
   until the next blur; after an error, validation updates while typing. Recompute
   all row feedback when an email changes or a row is removed, so duplicate feedback
   cannot stay stale. A failed send retains its error and has no green format check.
+  This compact batch form keeps empty feedback collapsed; show errors beside their
+  recipient and let the dialog or tray scroll. Do not reserve a blank error row for
+  every person. This is the batch-form exception to the general Forms reserve rule.
 - Every row owns its email and access; it can be edited or removed before sending.
   A single entered email sends directly. Ignore extra blank rows when nonempty rows
   exist; an entirely empty submission shows the required error on the first row.

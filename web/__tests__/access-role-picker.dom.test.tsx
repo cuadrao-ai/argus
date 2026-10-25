@@ -52,6 +52,25 @@ test("desktop reuses descriptive options, keyboard selection and trigger focus r
     assert.equal(document.activeElement,view.trigger);
   }finally{await view.close();}
 });
+test("keyboard navigation reveals clipped options without scrolling the page",async()=>{
+  const view=await mount();try{
+    await view.click(view.trigger);
+    const list=document.querySelector<HTMLElement>('[role="listbox"]')!;
+    const options=[...list.querySelectorAll<HTMLButtonElement>('[role="option"]')];
+    list.style.overflowY="auto";
+    list.getBoundingClientRect=()=>new DOMRect(0,100,300,120);
+    options.forEach((option,index)=>{option.getBoundingClientRect=()=>new DOMRect(0,100+index*80-list.scrollTop,300,80);});
+    document.documentElement.scrollTop=50;
+    await view.key("End");
+    assert.equal(document.activeElement,options[2]);
+    assert.equal(list.scrollTop,120);
+    assert.equal(document.documentElement.scrollTop,50);
+    await view.key("Home");
+    assert.equal(document.activeElement,options[0]);
+    assert.equal(list.scrollTop,0);
+    assert.equal(document.documentElement.scrollTop,50);
+  }finally{document.documentElement.scrollTop=0;await view.close();}
+});
 test("Escape and outside press dismiss the desktop popup without changing access",async()=>{
   const view=await mount();try{
     await view.click(view.trigger);await view.key("Escape");await view.idle();

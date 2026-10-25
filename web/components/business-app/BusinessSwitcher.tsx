@@ -14,7 +14,7 @@ const menuItemClass = "flex min-h-11 w-full items-center gap-2 rounded-item px-2
 
 /** The shared Business identity icon in expanded and collapsed navigation. */
 export function BusinessMark() {
-  return <BriefcaseBusiness aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={2} />;
+  return <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-mark bg-black/[0.05] dark:bg-white/[0.08]"><BriefcaseBusiness className="h-5 w-5" strokeWidth={2} /></span>;
 }
 
 type MenuMode = "closed" | "menu" | "choose";
@@ -168,7 +168,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
           className="fixed z-[100] w-80 max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-surface border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]"
         >
           <div className="flex items-center gap-3 px-2 py-3 text-[#172b26] dark:text-white">
-            <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-mark bg-black/[0.05] dark:bg-white/[0.08]"><BusinessMark /></span>
+            <BusinessMark />
             <p className="min-w-0 break-words text-[16px] font-medium">{name}</p>
           </div>
           {mode === "menu" ? (
