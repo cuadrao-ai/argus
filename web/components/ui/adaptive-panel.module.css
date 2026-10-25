@@ -1,0 +1,12 @@
+.dossier {
+  --dossier-gradient-strength: 8%;
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--cuadrao-green) var(--dossier-gradient-strength), transparent),
+    transparent 25%
+  );
+}
+
+:global(.dark) .dossier {
+  --dossier-gradient-strength: 6%;
+}

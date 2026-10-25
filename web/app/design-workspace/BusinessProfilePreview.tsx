@@ -113,13 +113,6 @@ function BusinessProfileContent() {
   </div>;
   return <>
     <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}
-      [data-testid="side-drawer"]:has(#profile-section-dossier) {
-        --profile-gradient-strength: 8%;
-        background-image: linear-gradient(to top, color-mix(in srgb, var(--cuadrao-green) var(--profile-gradient-strength), transparent), transparent 25%);
-      }
-      .dark [data-testid="side-drawer"]:has(#profile-section-dossier) {
-        --profile-gradient-strength: 6%;
-      }
     `}</style>
     <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
       <div className="min-w-0 space-y-6">

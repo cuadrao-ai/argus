@@ -9,6 +9,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import BottomSheet, { type SheetSnap } from "@/components/ui/BottomSheet";
 import { useSheetStack } from "@/components/ui/sheetStack";
+import styles from "./adaptive-panel.module.css";
 
 /**
  * The one sheet: for anything done while the page stays in view (a form, a
@@ -273,7 +274,7 @@ function DrawerPanel({
       hidden={hidden}
       onKeyDown={onKeyDown}
       style={{ width: `min(${bounds.preferred}px, ${bounds.maxVw}vw)`, minWidth: `${bounds.min}px` }}
-      className={`${className} flex flex-col border-l border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1b1d20] ${hasBelow ? "" : "cuadrao-side-drawer-enter"}`}
+      className={`${className} ${styles.dossier} flex flex-col border-l border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1b1d20] ${hasBelow ? "" : "cuadrao-side-drawer-enter"}`}
     >
       <div className="flex shrink-0 items-start gap-2 border-b border-[#DCE0DA] px-5 py-4 dark:border-white/10">
         {hasBelow && dismissible ? (
