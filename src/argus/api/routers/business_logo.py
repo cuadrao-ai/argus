@@ -8,7 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from argus.api.business import BusinessContext, require_business_workspace
+from argus.api.business import BusinessContext, require_business_management
 from argus.api.business_schemas import BusinessSpaceInfo
 from argus.api.business_spaces import (
     business_access,
@@ -33,21 +33,25 @@ from argus.domain.profile_images import (
 router = APIRouter()
 
 _RESPONSES = {
-    403: {"description": "`business_permission_denied`: the live grant does not hold `prepare`."},
+    403: {
+        "description": "`business_permission_denied`: the live grant does not hold `prepare`."
+    },
     413: {"description": "`image_too_large`: the picture is over 5 MiB."},
     415: {"description": "`image_media_type_unsupported`: not a JPEG, PNG or WebP."},
-    422: {"description": "`image_invalid`: not one still picture of at least 64 pixels on each side and at most 25 million pixels in all (`context.reason`: `undecodable`, `too_small`, `animated`, `too_many_pixels`)."},
-    503: {"description": "`profile_images_unavailable` or `profile_image_storage_unavailable`: pictures cannot be served or saved right now."},
+    422: {
+        "description": "`image_invalid`: not one still picture of at least 64 pixels on each side and at most 25 million pixels in all (`context.reason`: `undecodable`, `too_small`, `animated`, `too_many_pixels`)."
+    },
+    503: {
+        "description": "`profile_images_unavailable` or `profile_image_storage_unavailable`: pictures cannot be served or saved right now."
+    },
 }
 
 
 def _require_editor(request: Request, context: BusinessContext) -> None:
     """The owner, or a member whose chosen grant holds prepare."""
 
-    if context.scope.acting_as_owner:
-        return
     found = business_access().granted(context.scope.actor_id, context.scope.grant_id)
-    if found is None or "prepare" not in found.capabilities:
+    if found is None or "manage" not in found.permissions:
         raise problem(
             request,
             status_code=403,
@@ -68,7 +72,7 @@ def _payload(request: Request, space_id: str) -> dict[str, Any]:
 @router.put("/logo", response_model=BusinessSpaceInfo, responses=_RESPONSES)
 async def put_logo(
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> dict[str, Any]:
     """Replace the Business logo with the raw picture in the body
     (`Content-Type: image/jpeg`, `image/png` or `image/webp`, at most 5 MiB).
@@ -90,7 +94,7 @@ async def put_logo(
 @router.delete("/logo", status_code=204, responses={k: _RESPONSES[k] for k in (403, 503)})
 def delete_logo(
     request: Request,
-    context: Annotated[BusinessContext, Depends(require_business_workspace)],
+    context: Annotated[BusinessContext, Depends(require_business_management)],
 ) -> Response:
     """Remove the Business logo; removing an absent logo is a 204 too."""
 

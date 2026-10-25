@@ -252,12 +252,25 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     assert _invite_state(accountant.email) == [False]
     assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
 
-    # On the allowlist, the first listing after sign-in already names the client.
+    # Allowlisting permits sign-in; the recipient must still accept explicitly.
     _allow(accountant.email)
     _signed_in(world, accountant)
     first = client.get(f"{API}/business/spaces", headers=accountant.headers)
     assert first.status_code == 200, first.text
-    [business] = first.json()["spaces"]
+    assert first.json()["spaces"] == []
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
+    [invitation] = client.get(
+        f"{API}/business/invitations", headers=accountant.headers
+    ).json()
+    accepted = client.post(
+        f"{API}/business/invitations/{invitation['id']}/accept",
+        headers=accountant.headers,
+        json={"space_id": world.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
+    [business] = client.get(f"{API}/business/spaces", headers=accountant.headers).json()[
+        "spaces"
+    ]
     assert (
         business["space_id"],
         business["role"],
@@ -379,7 +392,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     assert _code(refused) == (403, "business_permission_denied")
 
 
-def test_a_first_profile_read_also_turns_the_invite_into_the_grant(world) -> None:  # noqa: ANN001
+def test_profile_and_listing_reads_leave_invitation_pending(world) -> None:  # noqa: ANN001
     accountant = _credentials(world, "perfil")
     _invite(world, accountant.email)
     _allow(accountant.email)
@@ -388,9 +401,9 @@ def test_a_first_profile_read_also_turns_the_invite_into_the_grant(world) -> Non
 
     me = world.client.get(f"{API}/me", headers=accountant.headers)
     assert me.status_code == 200, me.text
-    assert _grants_and_accepts(world.space_id, accountant.id) == (1, 1)
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
     listed = world.client.get(f"{API}/business/spaces", headers=accountant.headers)
     assert [
         (s["space_id"], s["role"], s["capabilities"]) for s in listed.json()["spaces"]
-    ] == [(world.space_id, "accountant", ["read", "prepare"])]
-    assert _grants_and_accepts(world.space_id, accountant.id) == (1, 1)
+    ] == []
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)

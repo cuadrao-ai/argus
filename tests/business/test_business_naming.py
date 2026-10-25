@@ -111,23 +111,30 @@ def test_accountant_never_claims_or_renames_another_business(biz, identities):
     space = biz.post(base + "/space", headers=owner, json={}).json()
     access = business_access()
     access.confirm(identities[BOB]["id"], "accountant@example.test")
-    access.give(space["id"], identities[ALICE]["id"], "accountant@example.test")
+    _, listing = access.give(
+        space["id"], identities[ALICE]["id"], "accountant@example.test"
+    )
+    access.accept_invite(identities[BOB]["id"], space["id"], listing.invites[0].id)
     grant = access.spaces_for(identities[BOB]["id"])[0]
     accountant = {"Authorization": f"Bearer {BOB}", "X-Business-Grant": grant.grant_id}
-    for response in [
-        biz.get(base + "/space/name", headers=accountant),
-        biz.post(
-            base + "/space/name-prompt",
-            headers=accountant,
-            json={"space_id": space["id"]},
-        ),
-        biz.patch(
-            base + "/space/name",
-            headers=accountant,
-            json={"space_id": space["id"], "name": "Changed"},
-        ),
-    ]:
-        assert response.status_code == 403
+    assert biz.get(base + "/space/name", headers=accountant).status_code == 200
+    for response, expected in zip(
+        [
+            biz.post(
+                base + "/space/name-prompt",
+                headers=accountant,
+                json={"space_id": space["id"]},
+            ),
+            biz.patch(
+                base + "/space/name",
+                headers=accountant,
+                json={"space_id": space["id"], "name": "Changed"},
+            ),
+        ],
+        [403, 404],
+        strict=True,
+    ):
+        assert response.status_code == expected
     assert not biz.get(base + "/space/name", headers=owner).json()["name_prompt_seen"]
 
 

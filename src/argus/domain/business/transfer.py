@@ -98,6 +98,11 @@ class PostgresBusinessTransfer:
             if closed_at is not None:
                 raise BusinessLifecycleError("business_record_not_found")
             _lock(db, space_id)
+            if not db.execute(
+                "select 1 from public.spaces where id=%s and current_owner_id=%s",
+                (space_id, owner_id),
+            ).fetchone():
+                raise BusinessLifecycleError("business_record_not_found")
             db.execute(
                 "update public.business_ownership_transfers set status='expired',resolved_at=clock_timestamp()"
                 " where space_id=%s and status='pending' and expires_at<=clock_timestamp()",
@@ -264,10 +269,6 @@ class PostgresBusinessTransfer:
             if accept:
                 self._target(db, command[1], command[6], command[2])
                 db.execute(
-                    "update public.business_client_grants set capabilities=%s::text[] where space_id=%s and grantee_id=%s and revoked_at is null",
-                    (list(MEMBER_CAPABILITIES), command[1], command[2]),
-                )
-                db.execute(
                     "update public.business_receipt_reading_consents set revoked_at=clock_timestamp() where space_id=%s and revoked_at is null",
                     (command[1],),
                 )
@@ -276,20 +277,24 @@ class PostgresBusinessTransfer:
                     (transfer_id, command[1]),
                 )
                 db.execute(
+                    "update public.business_client_grants set capabilities=%s::text[],business_role='editor' where space_id=%s and grantee_id=%s and revoked_at is null",
+                    (list(MEMBER_CAPABILITIES), command[1], command[2]),
+                )
+                db.execute(
                     "update public.spaces set current_owner_id=%s where id=%s",
                     (actor_id, command[1]),
                 )
                 db.execute(
-                    "update public.business_client_grants set issuer_id=%s where space_id=%s",
-                    (actor_id, command[1]),
+                    "update public.business_client_grants set issuer_id=%s where space_id=%s and issuer_id=%s",
+                    (actor_id, command[1], command[2]),
                 )
                 db.execute(
-                    "update public.business_client_grants set capabilities=%s::text[],expires_at=null where id=%s",
+                    "update public.business_client_grants set capabilities=%s::text[],business_role='owner',expires_at=null where id=%s",
                     (list(OWNER_CAPABILITIES), command[6]),
                 )
                 db.execute(
-                    "update public.business_access_invites set issuer_id=%s where space_id=%s",
-                    (actor_id, command[1]),
+                    "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and issuer_id=%s and accepted_at is null and revoked_at is null",
+                    (command[1], command[2]),
                 )
             row = db.execute(
                 f"update public.business_ownership_transfers set status=%s,resolved_at=%s where id=%s returning {_COLUMNS}",

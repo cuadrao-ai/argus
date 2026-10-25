@@ -19,6 +19,7 @@ from argus.domain.business.contracts.dossier import RecordContext
 from argus.domain.business.country import CountryCode
 from argus.domain.business.document_type import DocumentType
 from argus.domain.business.receipts import Attention
+from argus.domain.business.roles import BusinessRole, Permission
 from argus.domain.business.search import SearchKind
 from argus.domain.business.spaces import MAX_NAME_LENGTH
 from argus.domain.financial_search import query_text
@@ -73,6 +74,8 @@ class GrantedSpaceInfo(_Wire):
     logo_url: str | None = None
     grant_id: str
     role: Literal["owner", "accountant"]
+    business_role: BusinessRole = BusinessRole.EDITOR
+    permissions: list[Permission] = Field(default_factory=list)
     capabilities: list[Literal["read", "prepare", "approve"]]
     #: Whether the one-time "you now have access" line was dismissed; always true for the own Business.
     access_seen: bool
@@ -144,6 +147,8 @@ class BusinessAccessGrant(_Wire):
     created_at: datetime
     #: The owner's own grant; it cannot be revoked here.
     owner: bool
+    business_role: BusinessRole = BusinessRole.EDITOR
+    permissions: list[Permission] = Field(default_factory=list)
 
 
 class BusinessAccessInvite(_Wire):
@@ -152,15 +157,49 @@ class BusinessAccessInvite(_Wire):
     created_at: datetime
     expires_at: datetime
     state: Literal["pending", "expired"]
+    requested_role: BusinessRole = BusinessRole.EDITOR
 
 
 class BusinessAccess(_Wire):
     grants: list[BusinessAccessGrant]
     invites: list[BusinessAccessInvite]
-    invite_delivery: Literal["not_configured", "accepted", "failed"] | None = None
+    invite_delivery: (
+        Literal["not_configured", "accepted", "failed", "uncertain"] | None
+    ) = None
+
+
+class BusinessRecipientInvitation(_Wire):
+    id: str
+    space_id: str
+    name: str
+    requested_role: BusinessRole
+    expires_at: datetime
+
+
+class BusinessInvitationAcceptance(_Wire):
+    space_id: str
+    grant_id: str
+
+
+class BusinessInvitationResult(_Wire):
+    command_key: str
+    email: str
+    invite_id: str | None = None
+    state: Literal[
+        "already_member", "accepted", "revoked", "pending", "expired", "refused"
+    ]
+    delivery: (
+        Literal["pending", "accepted", "failed", "not_configured", "uncertain"] | None
+    ) = None
+    code: str | None = None
+
+
+class BusinessInvitationBatchResult(_Wire):
+    results: list[BusinessInvitationResult]
 
 
 class GiveBusinessAccess(_Wire):
+    role: BusinessRole = BusinessRole.EDITOR
     email: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=3, max_length=254)
     ]

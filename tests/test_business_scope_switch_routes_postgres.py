@@ -14,7 +14,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 
-import psycopg
 import pytest
 from argus.api import state as api_state
 from argus.api.main import app
@@ -152,6 +151,13 @@ def _grant(world, owner: Person, grantee: Person) -> str:  # noqa: ANN001
         f"{API}/business/access", json={"email": grantee.email}, headers=owner.headers
     )
     assert given.status_code == 201, given.text
+    invite = next(i for i in given.json()["invites"] if i["email"] == grantee.email)
+    accepted = world.client.post(
+        f"{API}/business/invitations/{invite['id']}/accept",
+        headers=grantee.headers,
+        json={"space_id": owner.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
     listed = world.client.get(f"{API}/business/spaces", headers=grantee.headers)
     assert listed.status_code == 200, listed.text
     [found] = [s for s in listed.json()["spaces"] if s["space_id"] == owner.space_id]
@@ -347,16 +353,16 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         r for r in _ledger(bob.space_id) if r[1] != web.grant_a
     ]
 
-    # Approval never leaves the owner: the database refuses approve on a grantee's
-    # row, and the code refuses it even if such a row existed.
+    # Editing the legacy projection cannot add canonical Owner authority.
     with Connection.connect(shared.DSN) as db:
-        with pytest.raises(
-            psycopg.errors.CheckViolation, match="business_grant_approve_owner_only"
-        ):
-            db.execute(
-                "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
-                (web.grant_a,),
-            )
+        db.execute(
+            "update public.business_client_grants set capabilities=ARRAY['read','prepare','approve'] where id=%s",
+            (web.grant_a,),
+        )
+        assert db.execute(
+            "select capabilities from public.business_client_grants where id=%s",
+            (web.grant_a,),
+        ).fetchone() == (["read", "prepare"],)
     version = client.get(
         f"{API}/business/drafts/{draft_a}/dossier", headers=_as(bob, web.grant_a)
     ).json()["version"]

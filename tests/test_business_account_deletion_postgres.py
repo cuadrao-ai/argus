@@ -324,11 +324,22 @@ def test_departing_member_history_stays_anonymous_and_current_owner_can_read(cus
 
     w = custody
     other = w["users"]["other"]
+    from argus.domain.business.access import PostgresAccessStore
+    from argus.domain.business.memberships import MembershipError
+    from argus.domain.business.roles import BusinessRole
+
+    access = PostgresAccessStore(w["pool"])
     with w["pool"].connection() as db:
-        db.execute(
-            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities) values(%s,%s,%s,array['read','prepare'])",
-            (w["space"], other, w["old"]),
-        )
+        email = db.execute(
+            "update auth.users set email_confirmed_at=now() where id=%s returning email",
+            (other,),
+        ).fetchone()[0]
+    _, listing = access.give(w["space"], w["old"], email, BusinessRole.EDITOR)
+    original = listing.invites[0]
+    grant = access.accept_invite(other, w["space"], original.id)
+    upgrade = access.change_role(w["space"], w["old"], grant, BusinessRole.ADMIN).invites[
+        0
+    ]
     actor = TrustedActor(
         actor_id=UUID(other), actor_kind="member", space_id=UUID(w["space"])
     )
@@ -341,6 +352,24 @@ def test_departing_member_history_stays_anonymous_and_current_owner_can_read(cus
         ).fetchone()[0]
     assert before > 0
     assert command(w).delete_account(user_id=other).status == "done"
+    with w["pool"].connection() as db:
+        invitations = db.execute(
+            "select id::text,recipient_id::text,accepted_at is not null,revoked_at is not null,target_grant_id::text from public.business_access_invites where id=any(%s::uuid[]) order by accepted_at nulls last",
+            ([original.id, upgrade.id],),
+        ).fetchall()
+        assert len(invitations) == 2
+        assert invitations[0][0] == original.id and invitations[0][2] is True
+        assert invitations[1][0] == upgrade.id and invitations[1][3] is True
+        assert invitations[1][4] == grant
+        assert invitations[0][1] == invitations[1][1] and invitations[0][1] != other
+        db.execute(
+            "update auth.users set email=%s,email_confirmed_at=now(),is_anonymous=false where id=%s",
+            (email, w["users"]["guest"]),
+        )
+    assert access.invitations_for(w["users"]["guest"]) == ()
+    for invitation in (original, upgrade):
+        with pytest.raises(MembershipError):
+            access.accept_invite(w["users"]["guest"], w["space"], invitation.id)
     with w["pool"].connection() as db:
         assert retained_dependencies(db, other) == ()
         alias = db.execute(

@@ -586,8 +586,9 @@ class AccountDeletionService:
             if row is None:
                 if connection.execute(
                     "select 1 from public.spaces where kind='business'"
-                    " and current_owner_id=%s and closed_at is null",
-                    (user_id,),
+                    " and closed_at is null and (current_owner_id=%s or exists(select 1 from public.business_client_grants g"
+                    " where g.space_id=spaces.id and g.grantee_id=%s and g.business_role='owner' and g.revoked_at is null))",
+                    (user_id, user_id),
                 ).fetchone():
                     raise AccountDeletionRejected("business_owner_must_exit")
                 if existing_only:

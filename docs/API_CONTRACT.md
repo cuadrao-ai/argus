@@ -9400,7 +9400,7 @@ missing write capability returns 403. Stale versions and same-key/different-inpu
 requests return 409; invalid facts or unresolved approval blockers return 422.
 An uncertain financial effect is `outcome_unknown`, not success or safe retry.
 
-`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named read grant; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows.
+`GET /business/exports?start=YYYY-MM-DD&end=YYYY-MM-DD&draft_id=<optional UUID>` returns a no-store `application/zip` containing `records.csv`, `records.xlsx`, `unresolved.csv`, original non-image attachments and rebuilt image JPEGs under the existing `originals/` archive folder and `manifest.json`. Dates are required and inclusive, covering 1–366 days. The optional canonical draft anchor selects its Business through existing `context_for_draft` and the actual caller's live named export permission; absent anchor selects only the authenticated owner's existing Business. There is no space bootstrap, guessed accountant destination or caller authority. Missing/foreign/inaccessible anchors return 404 `business_record_not_found`; no own Business returns 404 `business_space_missing`; existing capability/availability refusals are preserved. Invalid ranges return 422 and bounded collection/archive overflow returns 413 with the specific export code. A single authorized canonical snapshot supplies current recorded money, exact funding/source links and separately labeled unresolved/undated drafts. Image copies are built lazily outside snapshot locks. Source reads and final response release recheck the same grant and source identity, with existing grant/Business/source locks; authorization failure aborts the response. Missing downloadable copies and source links are explicit in the manifest and never counted as complete evidence. Unresolved or undated drafts never contribute to recorded-money totals. Amount/kind/date/account/category/receipt facts are not invented or converted, and the export writes no ledger, draft or permission. `records.csv` and the first `records.xlsx` sheet hold one row per recorded activity with the columns `Fecha`, `Proveedor`, `RNC`, `NCF`, `Tipo de gasto`, `Forma de pago`, `Subtotal`, `ITBIS`, `Total`, `Moneda`, `Estado`, in that order. The supplier and fiscal facts come from the approved revision, the expense type and payment form from its 606 declaration (a suggested type stays empty), `Subtotal` is the total less a known ITBIS, and `Estado` is the activity's DGII reconciliation disposition. The second sheet keeps the internal ids and canonical fields without the note, the third the unresolved drafts; `manifest.json` `records` keeps the canonical rows.
 
 **DGII period export.** The same authorized ZIP additionally contains
 `dgii/606-607.xlsx` and `dgii/summary.json`. TXT names are
@@ -9681,11 +9681,10 @@ person starts their space, every route below except POST `/space` answers 404
   version from the words the screen shows in both languages, so an edited
   wording asks everyone again. A version that is not 16 lowercase hex
   characters is 422.
-- Access (owner only, the grant in `business_client_grants` is the only
-  authority). Starting a space creates the owner's own grant (read, prepare,
-  approve) in the same transaction; POST `/business/space` and GET
-  `/business/workspace` give an older space that grant once, with one ledger
-  row, never a duplicate.
+- Access (Owner or Admin management). `business_client_grants.business_role`
+  is the canonical authority. Starting a Business creates its Owner grant in
+  the same transaction. A revoked or demoted Owner is never healed from
+  `current_owner_id`, a header, an old token, or a read.
   - A person who holds a grant on another Business works inside it by naming
     that grant: `X-Business-Grant: <grant_id>` on any Business call. The
     server loads that grant row, requires it to be the caller's and live
@@ -9696,11 +9695,9 @@ person starts their space, every route below except POST `/space` answers 404
     stops a session mid-way and the header reveals nothing about any Business.
     GET `/api/v1/business/spaces` lists every Business the caller may enter
     through a live grant, their own first: `{spaces: [{space_id, name,
-    logo_url, grant_id, role: owner|accountant, capabilities, access_seen}]}`; names
-    come from the spaces. Before it lists, the caller's pending invites
-    become grants through the same idempotent accept that GET `/me` runs, so
-    the first listing after sign-in already names an invited client's
-    Business; a failed accept never fails the listing. `access_seen` is the server's memory of the one-time
+    logo_url, grant_id, role: owner|accountant, capabilities, business_role,
+    permissions, access_seen}]}`; names come from the spaces. Listing, profile
+    reads and sign-in never accept invitations. `access_seen` is the server's memory of the one-time
     "you now have access" line, per grant: POST
     `/api/v1/business/spaces/{grant_id}/seen` (204, idempotent, one
     `access_seen` ledger row by the person) records it; it is always true
@@ -9813,50 +9810,94 @@ person starts their space, every route below except POST `/space` answers 404
     rows. The export's records gain `personal`, `fiscal_value` and
     `include_606` (`yes`, `no` or empty); a personal expense stays in the
     export with its mark.
-  - GET `/api/v1/business/access` returns `{grants: [{id, email, display_name,
-    photo_url, capabilities, created_at, owner}], invites: [{id, email, created_at,
-    expires_at, state}]}`: live grants, the owner first, and unaccepted, unrevoked
-    invites. `state` is `pending` or `expired`, computed by the server.
-    `photo_url` is the member's signed profile photo URL, or null: null
-    without a photo, and null until that member has dismissed their one-time
-    access line (their `access_seen` receipt). A grant the owner creates by
-    email reveals the person's name only until they act on it.
-  - POST `/api/v1/business/access` takes `{email}`. A confirmed account with
-    that email (case-insensitive) gets a read and prepare grant, never
-    approve; any other email gets a pending invite that lasts 7 days and
-    becomes the same grant the first time that confirmed email signs in (on
-    GET `/me`, or on GET `/business/spaces`, whichever the client reads
-    first). The reply is the access list in both cases, 201 when something
-    new was created and 200 on a replay, so an unknown email reveals nothing.
-    422 `invalid_email` without one address. An expired pending invite is
-    re-issued in place by a new POST with the same email: the same invite id,
-    a fresh 7-day `expires_at` and its own ledger receipt (201); a live one is
-    left as it is (200), and a revoked or accepted one no longer holds the
-    slot, so a new invite is born beside it.
-  - POST `/api/v1/business/access/invites/{id}/resend` is owner-only and
-    resets an unaccepted, unrevoked invite to seven days from this request.
-    Missing or foreign invites answer 404 `business_access_not_found`. No list,
-    sign-in or background process renews or sends an invite. Expired invites
-    grant no access. Accepted memberships are unchanged. Create and explicit
-    resend use the shared Cuadrao account email, never a Supabase invitation
-    token. Its button opens ordinary sign-in/sign-up. Email delivery is
-    `not_configured` until `CUADRAO_BUSINESS_INVITE_EMAIL_ENABLED=true` and the
-    existing `CUADRAO_APP_ORIGIN` (legacy `ARGUS_APP_ORIGIN`) are configured.
-    The renderer also requires the existing `MARKETING_POSTAL_ADDRESS`; missing
-    or invalid address configuration fails delivery and preserves the invite for
-    explicit resend. Account mail has no unsubscribe link.
-    This build leaves activation off. The sender is
-    `Cuadrao <no-responder@mail.cuadrao.ai>` with Reply-To `hola@cuadrao.ai`.
-    A configured send reports `accepted` or `failed` in `invite_delivery`;
-    `accepted` means provider acceptance, not receipt. Failure leaves the invite
-    saved and the owner can explicitly resend. Ordinary replays never send.
-  - DELETE `/api/v1/business/access/grants/{id}` revokes a grant at once; 409
-    `owner_grant_required` for the owner's own grant; 404
-    `business_access_not_found` otherwise. DELETE
-    `/api/v1/business/access/invites/{id}` revokes a pending invite.
-  - Every change writes one `business_action_receipts` row (`owner_grant`,
-    `grant_access`, `invite_access`, `accept_invite`, `revoke_grant`,
-    `revoke_invite`). No firm, role or many-client feature exists.
+  - GET `/api/v1/business/access` returns the existing `grants` and `invites`
+    lists. Grants add `business_role` and `permissions`; invitations add
+    `requested_role`. Legacy `owner`, `capabilities`, profile photo and timestamp
+    fields remain. Pending invitations expose the same shape for known and
+    unknown recipient accounts.
+  - POST `/api/v1/business/access` takes `{email, role?}`; omitted `role` is
+    `editor` for old clients. Every new invitation remains pending for seven
+    days, including confirmed accounts. It confers no access until explicit
+    acceptance. An optional `Idempotency-Key` binds the actor, Business,
+    normalized email and requested role. Exact replay converges; changed input
+    with the same key is refused. New invitation returns 201, replay 200.
+  - POST `/api/v1/business/access/invitations` takes `recipients` (1–50 entries),
+    each `{email, role, command_key}`. Results are per recipient and include
+    `command_key`, `email`, `invite_id`, `state`, and `delivery`, or a refusal
+    code. Successful entries are not rolled back by another person's failure.
+    A canceled/expired/accepted command replay cannot create another membership
+    or invitation. Clients retry the same key for the same intent.
+  - GET `/api/v1/business/invitations` lists current pending invitations for the
+    verified recipient, bound to the known account ID when one existed at
+    invitation creation and to the current email. POST
+    `/api/v1/business/invitations/{invite_id}/accept` takes `{space_id}` and
+    activates that exact invitation for that recipient. The database checks
+    expiry after acquiring the Business lock and checks the actual inviter's
+    current authority. Owner invitations require a still-authorized Owner.
+    Wrong recipient, Business, revoked or expired generation is refused.
+    An accepted replay returns the existing live grant; removal cannot be undone
+    by replay. Acceptance does not record document-reading or AI consent.
+  - POST `/api/v1/business/access/invites/{id}/resend` retries an unaccepted,
+    unrevoked invitation. A live generation keeps its ID and expiry; successful
+    delivery is not repeated. An expired generation becomes terminal and a new
+    seven-day generation gets a new ID. Repeating the old resend converges on
+    that replacement; the old ID can never accept. Missing, canceled and
+    accepted invitations return 404 `business_access_not_found`.
+  - Email activation remains separate and off unless configured. Delivery is
+    `not_configured`, `accepted`, `failed`, or `uncertain`. `accepted` means
+    transport acceptance, not recipient receipt. Known rejection can retry;
+    timeout, crash or unknown send outcome cannot automatically retry. A durable
+    send claim precedes transport. This avoids automatic duplicates after an
+    uncertain result but may conservatively leave an unsent message uncertain;
+    it is not an exactly-once delivery guarantee. Reads never send email.
+  - PATCH `/api/v1/business/access/grants/{id}` takes `{role}`. Promotion to Owner
+    or Admin creates a pending invitation and preserves the current membership
+    until recipient acceptance. Viewer-to-Editor promotion is immediate.
+    All demotions, including Owner-to-Admin, are immediate. The invitation pins the membership version, so a
+    later removal or role change invalidates the old upgrade. Self-demotion and
+    self-removal are refused. The final live Owner cannot be removed or demoted.
+  - DELETE `/api/v1/business/access/grants/{id}` revokes immediately; 409
+    `owner_grant_required` for the caller's own grant and 404
+    `business_access_not_found` for a missing grant. DELETE
+    `/api/v1/business/access/invites/{id}` cancels a pending invitation.
+    Admin cannot grant Owner, change/remove an Owner, or approve an Owner invite.
+  - Access changes retain the existing action ledger and add `change_role` with
+    the canonical role and membership version. Old action receipts stay intact.
+
+#### Business canonical roles and compatibility
+
+| Role | Read records | Prepare/upload | Approve financial records | Manage Business/members | Invite Owner | Original/download/export |
+| --- | --- | --- | --- | --- | --- | --- |
+| Owner | Yes | Yes | Yes | Yes | Yes | Yes |
+| Admin | Yes | Yes | No | Yes | No | Yes |
+| Editor | Yes | Yes | No | No | No | Yes |
+| Viewer | Yes | No | No | No | No | No |
+
+`permissions` is derived from the canonical role. Legacy `role` remains `owner`
+for every Owner and `accountant` for the other roles. Legacy `capabilities` stays
+within `read`, `prepare`, `approve`; it cannot distinguish Admin from Editor and
+is not independently writable authority. Agents never approve. Viewer can read
+receipt and record metadata, but original-object and export endpoints refuse
+before returning bytes. Metadata does not include a signed original URL. The
+Personal document route remains Personal-only. This does not prevent copying
+visible record data and introduces no new document renderer.
+
+A co-Owner can own a separate default Business and still manage, approve, close
+and reopen the selected shared Business. Name reads/writes honor the selected
+grant and require management permission for writes. `spaces.created_by` remains
+record custody. `current_owner_id` remains the legacy default/transfer anchor;
+it cannot restore membership. The one-open-created/default Business restriction
+is retained. The existing transfer command requires a live Owner who also
+matches that anchor; this batch adds no co-Owner transfer workflow. Transfer
+cancels pending invitations whose actual issuer loses the necessary authority,
+while invitations from other authorized Owners/Admins survive without changing
+issuer. Accepted memberships survive inviter loss independently.
+
+Existing paths and legacy fields remain, but invitation behavior intentionally
+changes: old clients must wire explicit acceptance. The existing web Owner
+selection assumption also needs client work before co-Owners with another
+Business are usable there. Viewer original-preview wiring needs a later client
+pass. Backend/API proof does not claim unchanged clients work end to end.
 
 Each fact keeps its owner. A receipt is a document draft (`id` is its
 connection id). Its review is the import event its purchase created, composed
@@ -10460,8 +10501,9 @@ is changed by this checkpoint.
 
 #### Business current ownership and transfer, draft October 18, 2026
 
-This unmounted domain slice separates current owner authority from record custody.
-`spaces.current_owner_id` owns the former. Existing financial `user_id` and
+This legacy domain slice separates the default/transfer anchor from record custody.
+`spaces.current_owner_id` owns that anchor; canonical active Owner membership
+now owns ordinary Business authority. Existing financial `user_id` and
 `spaces.created_by` keep custody. A transfer requests an existing live Editar
 member and exact current name. It changes no authority until that same member
 accepts. Acceptance serializes with close, checks the current owner and live

@@ -36,7 +36,10 @@ def world(users):  # noqa: ANN001
                 (users["other"],),
             ).fetchone()[0]
         _, listing = access.give(space.id, users["owner"], email)
-        member = next(g for g in listing.grants if not g.owner)
+        access.accept_invite(users["other"], space.id, listing.invites[0].id)
+        member = next(
+            g for g in access.list(space.id, users["owner"]).grants if not g.owner
+        )
         yield pool, space, users, access, member
 
 
@@ -92,7 +95,7 @@ def test_close_denies_existing_grants_and_reopen_restores_them_without_invites(w
                 "select count(*) from public.business_access_invites where space_id=%s",
                 (space.id,),
             ).fetchone()[0]
-            == 0
+            == 1
         )
 
 

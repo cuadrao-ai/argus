@@ -615,13 +615,14 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: 'A read+prepare grant for a confirmed account, else a pending invite.
-
-
-        The reply is the access list either way, so nothing about an unknown
-
-        email is revealed beyond what the list shows. A replay answers 200.'
       parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
       - name: X-Business-Grant
         in: header
         required: false
@@ -667,6 +668,61 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /api/v1/business/access/grants/{grant_id}:
+    patch:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: grant_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeMemberRole'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessAccess'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       tags:
       - financial-accounts
@@ -694,6 +750,56 @@ paths:
       responses:
         '204':
           description: Successful Response
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/access/invitations:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationBatch'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessInvitationBatchResult'
         '403':
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
@@ -3494,6 +3600,108 @@ paths:
                   enum:
                   - '606'
                   - '607'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/invitations:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BusinessRecipientInvitation'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/invitations/{invite_id}/accept:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: invite_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationBody'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessInvitationAcceptance'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -14005,6 +14213,14 @@ components:
       type: object
       required:
       - version
+    AcceptInvitationBody:
+      properties:
+        space_id:
+          type: string
+          format: uuid
+      type: object
+      required:
+      - space_id
     AcceptInvitationRequest:
       properties:
         token:
@@ -16061,6 +16277,7 @@ components:
             - not_configured
             - accepted
             - failed
+            - uncertain
           - type: 'null'
       additionalProperties: false
       type: object
@@ -16097,6 +16314,21 @@ components:
           format: date-time
         owner:
           type: boolean
+        business_role:
+          $ref: '#/components/schemas/BusinessRole'
+          default: editor
+        permissions:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+            - manage
+            - download
+            - export
+            - assign_owner
+          type: array
       additionalProperties: false
       type: object
       required:
@@ -16123,6 +16355,9 @@ components:
           enum:
           - pending
           - expired
+        requested_role:
+          $ref: '#/components/schemas/BusinessRole'
+          default: editor
       additionalProperties: false
       type: object
       required:
@@ -16535,6 +16770,66 @@ components:
           - type: 'null'
       additionalProperties: false
       type: object
+    BusinessInvitationAcceptance:
+      properties:
+        space_id:
+          type: string
+        grant_id:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - space_id
+      - grant_id
+    BusinessInvitationBatchResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/BusinessInvitationResult'
+          type: array
+      additionalProperties: false
+      type: object
+      required:
+      - results
+    BusinessInvitationResult:
+      properties:
+        command_key:
+          type: string
+        email:
+          type: string
+        invite_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        state:
+          type: string
+          enum:
+          - already_member
+          - accepted
+          - revoked
+          - pending
+          - expired
+          - refused
+        delivery:
+          anyOf:
+          - type: string
+            enum:
+            - pending
+            - accepted
+            - failed
+            - not_configured
+            - uncertain
+          - type: 'null'
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - command_key
+      - email
+      - state
     BusinessLifecycleResponse:
       properties:
         space_id:
@@ -16696,6 +16991,34 @@ components:
       - ready_to_review_count
       - last_received_at
       - last_confirmed_at
+    BusinessRecipientInvitation:
+      properties:
+        id:
+          type: string
+        space_id:
+          type: string
+        name:
+          type: string
+        requested_role:
+          $ref: '#/components/schemas/BusinessRole'
+        expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - space_id
+      - name
+      - requested_role
+      - expires_at
+    BusinessRole:
+      type: string
+      enum:
+      - owner
+      - admin
+      - editor
+      - viewer
     BusinessSearch:
       properties:
         expenses:
@@ -16953,6 +17276,13 @@ components:
       required:
       - id
       - kind
+    ChangeMemberRole:
+      properties:
+        role:
+          $ref: '#/components/schemas/BusinessRole'
+      type: object
+      required:
+      - role
     ChatActionPayload:
       properties:
         type:
@@ -20792,6 +21122,9 @@ components:
       - accounts
     GiveBusinessAccess:
       properties:
+        role:
+          $ref: '#/components/schemas/BusinessRole'
+          default: editor
         email:
           type: string
           maxLength: 254
@@ -21239,6 +21572,21 @@ components:
           enum:
           - owner
           - accountant
+        business_role:
+          $ref: '#/components/schemas/BusinessRole'
+          default: editor
+        permissions:
+          items:
+            type: string
+            enum:
+            - read
+            - prepare
+            - approve
+            - manage
+            - download
+            - export
+            - assign_owner
+          type: array
         capabilities:
           items:
             type: string
@@ -22230,6 +22578,17 @@ components:
       required:
       - event
       - preview
+    InvitationBatch:
+      properties:
+        recipients:
+          items:
+            $ref: '#/components/schemas/InvitationRecipient'
+          type: array
+          maxItems: 50
+          minItems: 1
+      type: object
+      required:
+      - recipients
     InvitationCreated:
       properties:
         id:
@@ -22298,6 +22657,24 @@ components:
       - name
       - expires_at
       - available
+    InvitationRecipient:
+      properties:
+        role:
+          $ref: '#/components/schemas/BusinessRole'
+          default: editor
+        email:
+          type: string
+          maxLength: 254
+          minLength: 3
+        command_key:
+          type: string
+          maxLength: 200
+          minLength: 1
+      additionalProperties: false
+      type: object
+      required:
+      - email
+      - command_key
     InvitePreview:
       properties:
         kind:

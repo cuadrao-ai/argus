@@ -138,26 +138,35 @@ class PostgresSpaceStore:
         return existing, False
 
     def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
-        with self._pool.connection() as connection:
+        from argus.domain.business.memberships import require_manager
+
+        with self._pool.connection() as connection, connection.transaction():
+            require_manager(connection, space_id, person_id)
             row = connection.execute(
-                "update public.spaces set business_name_prompt_seen_at = now()"
-                " where id = public.business_space_of(%s) and id = %s::uuid"
-                " and business_name_prompt_seen_at is null and name = any(%s)"
-                " returning id",
-                (person_id, space_id, list(DEFAULT_SPACE_NAMES.values())),
+                "update public.spaces set business_name_prompt_seen_at=now() where id=%s"
+                " and business_name_prompt_seen_at is null and name=any(%s) returning id",
+                (space_id, list(DEFAULT_SPACE_NAMES.values())),
             ).fetchone()
         return row is not None
 
     def rename(
         self, person_id: str, name: str, space_id: str | None = None
     ) -> Space | None:
-        with self._pool.connection() as connection:
+        from argus.domain.business.memberships import require_manager
+
+        with self._pool.connection() as connection, connection.transaction():
+            if space_id is None:
+                row = connection.execute(
+                    "select public.business_space_of(%s)", (person_id,)
+                ).fetchone()
+                space_id = str(row[0]) if row and row[0] else None
+            if space_id is None:
+                return None
+            require_manager(connection, space_id, person_id)
             row = connection.execute(
-                "update public.spaces set name = %s"
-                " where id = public.business_space_of(%s) and (%s::uuid is null or id = %s::uuid)"
-                " returning id::text, name, created_by::text,"
-                " business_name_prompt_seen_at is not null, country, currency",
-                (name, person_id, space_id, space_id),
+                "update public.spaces set name=%s where id=%s returning id::text,name,created_by::text,"
+                " business_name_prompt_seen_at is not null,country,currency",
+                (name, space_id),
             ).fetchone()
         return Space(*row) if row else None
 
@@ -192,7 +201,8 @@ class PostgresSpaceStore:
 
 
 class InMemorySpaceStore:
-    def __init__(self) -> None:
+    def __init__(self, access=None) -> None:
+        self.access = access
         self._lock = threading.Lock()
         self._spaces: dict[str, Space] = {}
         self._consents: dict[tuple[str, str], datetime] = {}
@@ -225,6 +235,9 @@ class InMemorySpaceStore:
     def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
         with self._lock:
             space = self._spaces.get(person_id)
+            if self.access is not None:
+                self.access._manager(space_id, person_id)
+                space = next((s for s in self._spaces.values() if s.id == space_id), None)
             if (
                 space is None
                 or space.id != space_id
@@ -232,7 +245,7 @@ class InMemorySpaceStore:
                 or not space.name_required
             ):
                 return False
-            self._spaces[person_id] = replace(space, name_prompt_seen=True)
+            self._spaces[space.custodian_id] = replace(space, name_prompt_seen=True)
             return True
 
     def rename(
@@ -240,10 +253,15 @@ class InMemorySpaceStore:
     ) -> Space | None:
         with self._lock:
             current = self._spaces.get(person_id)
+            if space_id is not None and self.access is not None:
+                self.access._manager(space_id, person_id)
+                current = next(
+                    (s for s in self._spaces.values() if s.id == space_id), None
+                )
             if current is None or (space_id is not None and current.id != space_id):
                 return None
             space = replace(current, name=name)
-            self._spaces[person_id] = space
+            self._spaces[current.custodian_id] = space
             return space
 
     def consent_accepted_at(self, person_id: str, version: str) -> datetime | None:
