@@ -626,7 +626,7 @@ function BusinessWorkspaceContent({
         <AmountsToggle />
         {localPreview ? <BusinessNotifications businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} title={shell.currentView === "workspace" && panel.kind === "transactions" && !closedAccessName ? t("business.transactions.title") : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,

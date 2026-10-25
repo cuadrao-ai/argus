@@ -7,7 +7,7 @@ import styles from "./business-header.module.css";
 import HomeGreeting from "./HomeGreeting";
 import { useHomeClock } from "./home-greeting";
 
-export default function BusinessHeader({ home, name, onSearch }: { home: boolean; name: string | null; onSearch?: () => void }) {
+export default function BusinessHeader({ home, name, title, onSearch }: { home: boolean; name: string | null; title?: string; onSearch?: () => void }) {
   const { i18n } = useTranslation();
   const clock = useHomeClock(home);
   const date = clock?.date;
@@ -20,7 +20,10 @@ export default function BusinessHeader({ home, name, onSearch }: { home: boolean
           <h1 id="business-overview-title" className={`${styles.greeting} font-display`}><HomeGreeting period={clock?.period ?? null} name={name} /></h1>
         </div>
         {onSearch ? <div className={styles.search}><HeaderSearch onOpen={onSearch} /></div> : null}
-      </> : null}
+      </> : title ? <div className={styles.welcome}>
+        <span aria-hidden="true" className={styles.date} style={{ height: "1.5em" }} />
+        <h1 className={`${styles.greeting} font-display`}>{title}</h1>
+      </div> : null}
     </div>
   );
 }

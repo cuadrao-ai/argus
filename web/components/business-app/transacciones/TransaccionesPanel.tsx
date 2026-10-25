@@ -98,7 +98,7 @@ export default function TransaccionesPanel() {
       <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>
+            {phone || panel.kind !== "transactions" ? <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2> : null}
             {igualar ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">{phone ? null : run}<BusinessAddMenu placement="header" /></div>
