@@ -60,6 +60,3 @@
 @media(prefers-reduced-motion:reduce) { .popover { animation:none; } .chevron { transition:none; } }
 
 .viewsList { padding:12px; }
-.viewActions { display:flex; align-items:center; justify-content:flex-end; gap:8px; width:100%; padding-top:8px; }
-.viewActions .trigger { min-height:36px; border-color:transparent; background:transparent; font-size:13px; }
-.viewActions .trigger:disabled { opacity:.45; cursor:default; }
