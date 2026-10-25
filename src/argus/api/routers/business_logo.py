@@ -1,6 +1,4 @@
-"""The Business logo: replaced or removed by the owner, or by a member whose
-live grant holds ``prepare`` (the web's Editar), under the same grant header
-every Business route takes."""
+"""Business logos are managed by a live Owner or Admin in the selected Business."""
 
 from __future__ import annotations
 
@@ -34,7 +32,7 @@ router = APIRouter()
 
 _RESPONSES = {
     403: {
-        "description": "`business_permission_denied`: the live grant does not hold `prepare`."
+        "description": "`business_permission_denied`: the live grant does not hold `manage`."
     },
     413: {"description": "`image_too_large`: the picture is over 5 MiB."},
     415: {"description": "`image_media_type_unsupported`: not a JPEG, PNG or WebP."},
@@ -47,9 +45,7 @@ _RESPONSES = {
 }
 
 
-def _require_editor(request: Request, context: BusinessContext) -> None:
-    """The owner, or a member whose chosen grant holds prepare."""
-
+def _require_manager(request: Request, context: BusinessContext) -> None:
     found = business_access().granted(context.scope.actor_id, context.scope.grant_id)
     if found is None or "manage" not in found.permissions:
         raise problem(
@@ -78,7 +74,7 @@ async def put_logo(
     (`Content-Type: image/jpeg`, `image/png` or `image/webp`, at most 5 MiB).
     It is stored as a 256 px WebP square with its metadata dropped."""
 
-    _require_editor(request, context)
+    _require_manager(request, context)
     images = require_profile_images(request)
     media_type, content = await read_image_upload(request)
     space_id = context.scope.owner.space_id
@@ -98,7 +94,7 @@ def delete_logo(
 ) -> Response:
     """Remove the Business logo; removing an absent logo is a 204 too."""
 
-    _require_editor(request, context)
+    _require_manager(request, context)
     images = require_profile_images(request)
     try:
         images.remove(business(context.scope.owner.space_id))

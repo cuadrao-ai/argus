@@ -563,6 +563,10 @@ def test_workflow_worker_never_reads_a_business_receipt_once_reading_is_off(
             "values(%s,%s,'business','Reading proof')",
             (scope.space_id, owner),
         )
+    from argus.domain.business.access import ensure_owner_grant
+
+    with pool.connection() as connection:
+        ensure_owner_grant(connection, scope.space_id, owner)
     setting = reading_setting(pool)
     turn_reading(setting, scope.space_id, owner)
     objects = source_objects()

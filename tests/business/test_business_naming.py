@@ -131,7 +131,7 @@ def test_accountant_never_claims_or_renames_another_business(biz, identities):
                 json={"space_id": space["id"], "name": "Changed"},
             ),
         ],
-        [403, 404],
+        [403, 403],
         strict=True,
     ):
         assert response.status_code == expected

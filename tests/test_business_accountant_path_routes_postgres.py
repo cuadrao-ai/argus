@@ -1,10 +1,7 @@
-"""The owner-to-accountant path over HTTP, on the real app, Auth and Postgres,
-with public account access off: an invited email that is not on the private
-alpha allowlist is refused at signup, login and every authenticated request,
-and its invite stays pending; with an allowlist row, the brand-new confirmed
-account holds the grant from its first Business listing (or its first profile
-read), works in the client's Business, answers the 606 question on a Personal
-receipt and downloads the export, and approval stays the owner's."""
+"""Invited recipients pass Auth admission and explicitly accept before Business access.
+Profile and listing reads keep pending invitations unchanged; financial approval
+remains Owner-only after an Editor joins.
+"""
 
 from __future__ import annotations
 
@@ -202,6 +199,10 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         with Connection.connect(shared.DSN) as db:
             for user_id in found.created:
                 db.execute(
+                    "update public.spaces set closed_at=coalesce(closed_at,clock_timestamp()) where created_by=%s and kind='business'",
+                    (user_id,),
+                )
+                db.execute(
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
@@ -212,6 +213,12 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 db.execute(
                     "delete from public.private_alpha_allowlist where email=%s", (email,)
                 )
+            db.execute("set constraints all deferred")
+            db.execute(
+                "delete from public.financial_activity_groups where user_id=any(%s::uuid[])",
+                (found.created,),
+            )
+            db.execute("delete from public.spaces where created_by=any(%s::uuid[])", (found.created,))
         for user_id in found.created:
             try:
                 gateway.delete_auth_user(user_id)

@@ -318,12 +318,10 @@ def save_business_name(
     person: Annotated[BusinessPerson, Depends(require_business_person)],
 ) -> dict[str, Any]:
     scope = working_scope(request, person.spaces, person.person_id)
-    if (
-        scope is None
-        or scope.owner.space_id != str(body.space_id)
-        or "manage" not in scope.permissions
-    ):
+    if scope is None or scope.owner.space_id != str(body.space_id):
         raise space_missing_problem(request)
+    if "manage" not in scope.permissions:
+        raise owner_required_problem(request)
     space = person.spaces.rename(person.person_id, body.name, str(body.space_id))
     if space is None:
         raise space_missing_problem(request)
@@ -772,8 +770,10 @@ def rename_space(
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
     scope = working_scope(request, person.spaces, person.person_id)
-    if scope is None or "manage" not in scope.permissions:
+    if scope is None:
         raise space_missing_problem(request)
+    if "manage" not in scope.permissions:
+        raise owner_required_problem(request)
     space = person.spaces.rename(person.person_id, body.name, scope.owner.space_id)
     if space is None:
         raise space_missing_problem(request)

@@ -50,9 +50,13 @@ def close_owned_business(pool, user_id: str):
     from argus.domain.business.access import ensure_owner_grant
     from argus.domain.business.spaces import PostgresSpaceStore
 
-    space = PostgresSpaceStore(pool).open_space(user_id)
     with pool.connection() as db:
-        ensure_owner_grant(db, space.id, user_id)
+        space_id = db.execute(
+            "select id::text from public.spaces where current_owner_id=%s and kind='business' and closed_at is null",
+            (user_id,),
+        ).fetchone()[0]
+        ensure_owner_grant(db, space_id, user_id)
+    space = PostgresSpaceStore(pool).open_space(user_id)
     return PostgresBusinessLifecycle(pool).close(
         owner_id=user_id,
         space_id=space.id,
@@ -340,6 +344,8 @@ def test_departing_member_history_stays_anonymous_and_current_owner_can_read(cus
     upgrade = access.change_role(w["space"], w["old"], grant, BusinessRole.ADMIN).invites[
         0
     ]
+    access.accept_invite(other, w["space"], upgrade.id)
+    pending = access.change_role(w["space"], w["old"], grant, BusinessRole.OWNER).invites[0]
     actor = TrustedActor(
         actor_id=UUID(other), actor_kind="member", space_id=UUID(w["space"])
     )
@@ -355,11 +361,12 @@ def test_departing_member_history_stays_anonymous_and_current_owner_can_read(cus
     with w["pool"].connection() as db:
         invitations = db.execute(
             "select id::text,recipient_id::text,accepted_at is not null,revoked_at is not null,target_grant_id::text from public.business_access_invites where id=any(%s::uuid[]) order by accepted_at nulls last",
-            ([original.id, upgrade.id],),
+            ([original.id, upgrade.id, pending.id],),
         ).fetchall()
-        assert len(invitations) == 2
+        assert len(invitations) == 3
         assert invitations[0][0] == original.id and invitations[0][2] is True
-        assert invitations[1][0] == upgrade.id and invitations[1][3] is True
+        assert invitations[1][0] == upgrade.id and invitations[1][2] is True
+        assert invitations[2][0] == pending.id and invitations[2][3] is True
         assert invitations[1][4] == grant
         assert invitations[0][1] == invitations[1][1] and invitations[0][1] != other
         db.execute(
@@ -367,7 +374,7 @@ def test_departing_member_history_stays_anonymous_and_current_owner_can_read(cus
             (email, w["users"]["guest"]),
         )
     assert access.invitations_for(w["users"]["guest"]) == ()
-    for invitation in (original, upgrade):
+    for invitation in (original, upgrade, pending):
         with pytest.raises(MembershipError):
             access.accept_invite(w["users"]["guest"], w["space"], invitation.id)
     with w["pool"].connection() as db:

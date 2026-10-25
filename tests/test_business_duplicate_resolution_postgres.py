@@ -101,7 +101,7 @@ def test_current_authority_is_required_even_on_replay(actions, change, replay):
     with service.authority.pool.connection() as db:
         if change == "read_only":
             db.execute(
-                "update public.business_client_grants set capabilities=array['read'] where id=%s",
+                "update public.business_client_grants set business_role='viewer' where id=%s",
                 (grant,),
             )
         elif change == "closed":
@@ -488,7 +488,7 @@ def test_api_denies_read_only_and_reports_stale_both_versions(actions):
         assert response.status_code == 409, response.text
     with service.authority.pool.connection() as db:
         db.execute(
-            "update public.business_client_grants set capabilities=array['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (grant,),
         )
     response = post_resolution(service, context, second, command)

@@ -153,7 +153,7 @@ def test_unavailable_preparer_cannot_bind(
 ) -> None:
     assignments = {
         "revoked": "revoked_at=clock_timestamp()",
-        "read_only": "capabilities=array['read']",
+        "read_only": "business_role='viewer'",
         "expired": "created_at=now()-interval '2 days', expires_at=now()-interval '1 day'",
     }
     db.execute(

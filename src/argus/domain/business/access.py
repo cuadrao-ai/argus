@@ -818,6 +818,7 @@ class InMemoryAccessStore:
                 return False, self._list(space_id, owner_id)
             if pending:
                 pending["revoked_at"] = self._now()
+            created_at = self._now()
             invite = {
                 "id": str(uuid4()),
                 "space_id": space_id,
@@ -825,8 +826,8 @@ class InMemoryAccessStore:
                 "email": email,
                 "requested_role": role,
                 "recipient_id": account,
-                "created_at": self._now(),
-                "expires_at": self._now() + INVITE_LIFETIME,
+                "created_at": created_at,
+                "expires_at": created_at + INVITE_LIFETIME,
                 "accepted_at": None,
                 "accepted_grant_id": None,
                 "target_grant_id": existing["id"] if existing else None,
@@ -888,12 +889,13 @@ class InMemoryAccessStore:
                         or live["membership_version"] != invite["target_version"]
                     ):
                         raise MembershipError("business_invite_membership_changed")
-                invite["revoked_at"] = self._now()
+                created_at = self._now()
+                invite["revoked_at"] = created_at
                 replacement = dict(
                     invite,
                     id=str(uuid4()),
-                    created_at=self._now(),
-                    expires_at=self._now() + INVITE_LIFETIME,
+                    created_at=created_at,
+                    expires_at=created_at + INVITE_LIFETIME,
                     revoked_at=None,
                     supersedes_id=invite_id,
                     delivery_state="pending",

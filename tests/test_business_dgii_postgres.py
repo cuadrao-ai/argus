@@ -445,6 +445,10 @@ def test_fiscal_profile_api_and_column_privileges_keep_owner_boundary(actions, u
             "value": "199990013",
         }
         with service.authority.pool.connection() as db:
+            db.execute(
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+                (context.actor.space_id, users["other"], context.owner_id),
+            )
             assert (
                 db.execute(
                     "select has_column_privilege('authenticated','public.spaces','business_rnc','SELECT')"

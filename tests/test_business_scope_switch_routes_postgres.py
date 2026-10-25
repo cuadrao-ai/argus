@@ -118,6 +118,10 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         with Connection.connect(shared.DSN) as db:
             for user_id in created:
                 db.execute(
+                    "update public.spaces set closed_at=coalesce(closed_at,clock_timestamp()) where created_by=%s and kind='business'",
+                    (user_id,),
+                )
+                db.execute(
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
@@ -386,11 +390,8 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         ).json()["capabilities"]
     ) == {"read", "prepare"}
 
-    # The own-Business routes and the owner's channels refuse a chosen grant.
-    assert _code(client.get(f"{API}/business/space", headers=_as(bob, web.grant_a))) == (
-        403,
-        "business_permission_denied",
-    )
+    selected = client.get(f"{API}/business/space", headers=_as(bob, web.grant_a))
+    assert selected.status_code == 200 and selected.json()["id"] == alice.space_id
     assert _code(
         client.patch(
             f"{API}/business/space", json={"name": "Otro"}, headers=_as(bob, web.grant_a)
@@ -512,7 +513,7 @@ def test_every_route_binds_to_the_chosen_grant_and_a_record_of_another_business_
         assert answer.status_code == 200, (path, answer.text)
 
 
-def test_a_revoked_expired_or_issuer_lost_grant_stops_every_route_at_once(web) -> None:  # noqa: ANN001
+def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not(web) -> None:  # noqa: ANN001
     client, alice, bob, carol = web.client, web.alice, web.bob, web.carol
     receipt_a = _upload(web, alice, RECEIPT).json()["id"]
     draft_a = _note(web, alice, "nota de A").json()["draft_id"]
@@ -582,32 +583,20 @@ def test_a_revoked_expired_or_issuer_lost_grant_stops_every_route_at_once(web) -
         ).status_code
         == 200
     )
-    # The issuer lost owner access: Carol's own owner grant revoked ends the grant she gave.
+    # Accepted membership survives the original inviter losing authority.
     with Connection.connect(shared.DSN) as db:
         db.execute(
-            "update public.business_client_grants set revoked_at=now() where space_id=%s and grantee_id=%s and issuer_id=%s",
-            (carol.space_id, carol.id, carol.id),
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (carol.space_id, alice.id, carol.id),
         )
+        db.execute(
+            "update public.business_client_grants set revoked_at=now() where space_id=%s and grantee_id=%s",
+            (carol.space_id, carol.id),
+        )
+    assert client.get(f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)).status_code == 200
+    assert client.get(f"{API}/business/workspace", headers=carol.headers).status_code != 200
+    with Connection.connect(shared.DSN) as db:
+        assert db.execute("select count(*) from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null", (carol.space_id, carol.id)).fetchone() == (0,)
+        db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (web.grant_c,))
     everything_refused(web.grant_c, receipt_c, draft_c)
-    assert {
-        s["space_id"]
-        for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()[
-            "spaces"
-        ]
-    } == {bob.space_id}
-    # Owner access restored (the workspace read heals the owner grant once): the grant Carol gave is live again.
-    assert (
-        client.get(f"{API}/business/workspace", headers=carol.headers).status_code == 200
-    )
-    assert (
-        client.get(
-            f"{API}/business/receipts/{receipt_c}", headers=_as(bob, web.grant_c)
-        ).status_code
-        == 200
-    )
-    assert {
-        s["space_id"]
-        for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()[
-            "spaces"
-        ]
-    } == {bob.space_id, carol.space_id}
+    assert {s["space_id"] for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()["spaces"]} == {bob.space_id}

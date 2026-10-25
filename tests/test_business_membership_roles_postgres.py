@@ -661,3 +661,39 @@ def test_expired_upgrade_resend_refuses_changed_membership(pool, users):
     with pytest.raises(MembershipError, match="business_invite_membership_changed"):
         access.resend(space.id, users["owner"], upgrade.id)
     assert access.granted(users["other"], grant).business_role == BusinessRole.EDITOR
+
+
+@pytest.mark.parametrize("database_role", ["postgres", "service_role"])
+def test_terminal_invitation_rewrite_requires_real_custody_claim(
+    pool, users, database_role
+):
+    access, space, invitation = invite_member(pool, users, BusinessRole.EDITOR)
+    access.accept_invite(users["other"], space.id, invitation.id)
+    with psycopg.connect(shared.DSN) as db, db.transaction(force_rollback=True):
+        db.execute(
+            "select set_config('argus.business_custody_space',%s,true)", (space.id,)
+        )
+        db.execute(
+            "select set_config('argus.business_departure_actor',%s,true)",
+            (users["owner"],),
+        )
+        db.execute(
+            "insert into argus_private.business_custody_changes(space_id,table_name,old_row,new_row)"
+            " select space_id,'business_access_invites',to_jsonb(i),to_jsonb(i)||jsonb_build_object('historical_issuer_id',%s::text)"
+            " from public.business_access_invites i where id=%s",
+            (users["other"], invitation.id),
+        )
+        db.execute("set local role " + database_role)
+        for column in ("historical_issuer_id", "issuer_id", "recipient_id"):
+            with pytest.raises((psycopg.errors.CheckViolation, psycopg.errors.InsufficientPrivilege)), db.transaction():
+                db.execute(
+                    f"update public.business_access_invites set {column}=%s where id=%s",
+                    (
+                        users["owner"] if column == "recipient_id" else users["other"],
+                        invitation.id,
+                    ),
+                )
+        assert db.execute(
+            "select historical_issuer_id,accepted_at is not null,requested_role from public.business_access_invites where id=%s",
+            (invitation.id,),
+        ).fetchone() == (None, True, "editor")

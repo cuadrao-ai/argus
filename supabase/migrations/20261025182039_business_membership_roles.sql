@@ -152,7 +152,30 @@ create trigger business_owner_consent_revoked after update on public.business_cl
 
 create function argus_private.business_invite_terminal() returns trigger
 language plpgsql set search_path='' as $$
+declare m record; expected jsonb;
 begin
+    if current_user='postgres' and (old.accepted_at is not null or old.revoked_at is not null)
+        and current_setting('argus.business_custody_space',true)=old.space_id::text then
+        select moves.departing_user_id::text as u,r.custodian_id::text as p,
+            r.deleted_actor_id::text as a,s.current_owner_id::text as owner into m
+        from argus_private.business_custody_moves moves
+        join argus_private.business_custody_reservations r on r.space_id=moves.space_id
+        join public.spaces s on s.id=moves.space_id
+        join argus_private.account_deletion_runs d on d.id=moves.deletion_run_id
+        join argus_private.account_placeholders p on p.id=r.custodian_id
+        join auth.users u on u.id=p.id
+        where moves.space_id=old.space_id and d.user_id=moves.departing_user_id
+            and d.claim_id=moves.claim_id and d.claimed_until>clock_timestamp() and d.status<>'done'
+            and u.banned_until>clock_timestamp() and u.raw_app_meta_data->>'placeholder'='true';
+        if found and old.issuer_id::text=m.u then
+            expected:=argus_private.business_custody_identity_json(to_jsonb(old),m.u,m.p,m.a)
+                ||jsonb_build_object('issuer_id',coalesce(nullif(m.owner,m.u),m.p),'historical_issuer_id',m.a);
+            if expected=to_jsonb(new) and exists(
+                select 1 from argus_private.business_custody_changes where space_id=old.space_id
+                    and table_name=tg_table_name and old_row=to_jsonb(old) and new_row=to_jsonb(new)
+            ) then return new; end if;
+        end if;
+    end if;
     if current_user='postgres' and (old.accepted_at is not null or old.revoked_at is not null)
         and argus_private.business_custody_identity_change(tg_table_name,to_jsonb(old),to_jsonb(new)) then
         return new;

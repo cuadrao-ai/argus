@@ -4,6 +4,8 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from argus.domain.business.access import ensure_owner_grant
+from argus.domain.business.memberships import MembershipError
 from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
 
@@ -26,6 +28,8 @@ def naming():
             )
             for owner in owners
         ]
+        for owner, space_id in zip(owners, spaces, strict=False):
+            ensure_owner_grant(connection, space_id, owner)
     with ConnectionPool(DSN, min_size=1, max_size=8) as pool:
         yield PostgresSpaceStore(pool), owners, spaces
     with psycopg.connect(DSN) as connection:
@@ -56,8 +60,10 @@ def test_concurrent_claims_have_one_winner_and_survive_new_store(naming):
 
 def test_wrong_owner_and_closed_business_cannot_claim_or_rename(naming):
     store, owners, spaces = naming
-    assert not store.claim_naming_visit(owners[1], spaces[0])
-    assert store.rename(owners[1], "Changed", spaces[0]) is None
+    with pytest.raises(MembershipError):
+        store.claim_naming_visit(owners[1], spaces[0])
+    with pytest.raises(MembershipError):
+        store.rename(owners[1], "Changed", spaces[0])
     with psycopg.connect(DSN) as connection:
         connection.execute(
             "update public.spaces set closed_at = now() where id = %s", (spaces[0],)
@@ -68,8 +74,11 @@ def test_wrong_owner_and_closed_business_cannot_claim_or_rename(naming):
                 (owners[0],),
             ).fetchone()[0]
         )
-    assert not store.claim_naming_visit(owners[0], spaces[0])
-    assert store.rename(owners[0], "Changed", spaces[0]) is None
+        ensure_owner_grant(connection, new, owners[0])
+    with pytest.raises(MembershipError):
+        store.claim_naming_visit(owners[0], spaces[0])
+    with pytest.raises(MembershipError):
+        store.rename(owners[0], "Changed", spaces[0])
     assert store.claim_naming_visit(owners[0], new)
     assert store.open_space(owners[0]).id == new
 

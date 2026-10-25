@@ -211,3 +211,24 @@ def test_existing_member_promotion_acceptance_boundary(
         assert business_access().granted(bob.person, grant).business_role == requested
     else:
         assert changed.json()["invites"] == []
+
+
+@pytest.mark.parametrize("role", ["editor", "viewer"])
+@pytest.mark.parametrize("path", ["/space", "/space/name"])
+def test_name_routes_refuse_live_non_managers_but_hide_foreign_scope(
+    alice, bob, role, path
+):
+    grant = join(alice, bob, role)
+    headers = {**bob.auth, "X-Business-Grant": grant}
+    body = {"name": "Changed"}
+    if path.endswith("/name"):
+        body["space_id"] = alice.scope().owner.space_id
+    refused = bob.client.patch("/api/v1/business" + path, json=body, headers=headers)
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "business_permission_denied"
+    if path.endswith("/name"):
+        body["space_id"] = str(uuid4())
+        missing = bob.client.patch("/api/v1/business" + path, json=body, headers=headers)
+        assert missing.status_code == 404
+        assert missing.json()["code"] == "business_space_missing"
+    assert alice.get("/space").json()["name"] == "Colmado"

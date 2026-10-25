@@ -3748,7 +3748,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BusinessSpaceInfo'
         '403':
-          description: '`business_permission_denied`: the live grant does not hold `prepare`.'
+          description: '`business_permission_denied`: the live grant does not hold `manage`.'
         '413':
           description: '`image_too_large`: the picture is over 5 MiB.'
         '415':
@@ -3788,7 +3788,7 @@ paths:
         '204':
           description: Successful Response
         '403':
-          description: '`business_permission_denied`: the live grant does not hold `prepare`.'
+          description: '`business_permission_denied`: the live grant does not hold `manage`.'
         '503':
           $ref: '#/components/responses/AuthSessionVerificationUnavailable'
         '422':

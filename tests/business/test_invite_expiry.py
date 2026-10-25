@@ -58,3 +58,24 @@ def test_exact_expiry_boundary(offset, expected):
     else:
         with pytest.raises(MembershipError):
             store.accept_invite(person, space, listed.invites[0].id)
+
+
+def test_each_invitation_generation_has_exact_lifetime_with_advancing_clock():
+    store = InMemoryAccessStore()
+    now = datetime(2026, 10, 18, 3, tzinfo=timezone.utc)
+
+    def tick():
+        nonlocal now
+        now += timedelta(microseconds=1)
+        return now
+
+    store._now = tick
+    space, owner = str(uuid4()), str(uuid4())
+    store.ensure_owner_grant(space, owner)
+    _, listing = store.give(space, owner, "person@example.test")
+    first = listing.invites[0]
+    now = first.expires_at
+    second = store.resend(space, owner, first.id).invites[0]
+    assert first.id != second.id
+    assert first.expires_at - first.created_at == timedelta(days=7)
+    assert second.expires_at - second.created_at == timedelta(days=7)

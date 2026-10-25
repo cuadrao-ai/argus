@@ -55,9 +55,10 @@ def test_auth_user_trigger_conditions_need_no_private_schema() -> None:
         "refuse_placeholder_email",
         "business_auth_retention_guard",
         "business_fiscal_actor_retained",
+        "business_invitation_auth_retention",
     }
     for name, definition in rows:
-        if name in {"business_auth_retention_guard", "business_fiscal_actor_retained"}:
+        if name in {"business_auth_retention_guard", "business_fiscal_actor_retained", "business_invitation_auth_retention"}:
             assert "BEFORE DELETE" in definition and " WHEN " not in definition
             with psycopg.connect(DSN) as c:
                 assert c.execute(

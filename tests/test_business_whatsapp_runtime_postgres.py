@@ -155,7 +155,7 @@ async def test_actual_graph_interrupted_provider_is_not_reinvoked(world, runtime
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("withdrawal", ["consent", "grant"])
-async def test_actual_pending_reply_rechecks_live_authority(world, runtime, withdrawal):
+async def test_actual_pending_reply_rechecks_live_authority(world, runtime, withdrawal, users):
     worker, interpreter, consent = runtime
     message = world.message()
     world.captures.capture(message)
@@ -164,6 +164,10 @@ async def test_actual_pending_reply_rechecks_live_authority(world, runtime, with
         consent.revoke(world.owner)
     else:
         with world.pool.connection() as db:
+            db.execute(
+                "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+                (world.space, users["other"], world.owner),
+            )
             db.execute(
                 "update business_client_grants set revoked_at=clock_timestamp() where id=%s",
                 (world.actions.grant_id,),
@@ -219,7 +223,7 @@ async def test_actual_graph_receives_only_completed_conversation_history(world, 
 
 @pytest.mark.asyncio
 async def test_actual_dependencies_do_not_enable_model_without_explicit_consent(
-    world, runtime
+    world, runtime, users
 ):
     worker, interpreter, _ = runtime
     message = world.message()
@@ -227,6 +231,10 @@ async def test_actual_dependencies_do_not_enable_model_without_explicit_consent(
     assert await worker(with_consent=False, sending=False).run_once()
     assert world.states(message) == [("pending",)]
     with world.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (world.space, users["other"], world.owner),
+        )
         db.execute(
             "delete from business_client_grants where id=%s", (world.actions.grant_id,)
         )

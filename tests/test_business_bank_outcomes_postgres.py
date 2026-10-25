@@ -397,7 +397,7 @@ def test_the_accountant_igualar_and_a_reader_cannot(bank) -> None:  # noqa: ANN0
     )
     with Connection.connect(shared.DSN) as db:
         db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (bank.grant_a,),
         )
     refused = _post(bank, f"/movements/{line['id']}/unmatch", accountant)
