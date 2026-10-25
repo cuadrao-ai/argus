@@ -3,6 +3,45 @@
 Status: local design only. No handoff, push, deployment or hosted flag change.
 Base: fe233679257035ea2dce8998b510868be9989632.
 
+## Deferred greeting and ownership integration, October 25, 2026
+
+The approved Home greeting uses the viewer's local clock and the saved preferred
+name already supplied by the account shell. It introduces no new profile field,
+timezone service, auth behavior or API. Both languages and phone/desktop reuse
+one greeting implementation. A browser-session sentinel contains only `1`; no
+name or greeting text is persisted by this UI behavior. Actual account-profile
+persistence and auth remain backend integration responsibilities.
+
+The ownership backend batch is not merged or deployed. A later wiring change
+must address `BusinessWorkspace.tsx`, currently around line 327: the directory
+effect clears `chosenGrant` whenever the selected membership has role `owner`.
+That treats every Owner membership as the default Business. A person who already
+owns Business B and accepts co-Owner access to Business A must remain in selected
+Business A. Do not infer the default Business from the role alone. This UI pass
+records the dependency and does not change selection logic.
+
+Hosted acceptance for a later authorized checkpoint must prove:
+
+- A preferred name saved through the real profile API survives reload, sign-in
+  and another device, and appears in Home. An absent name has no comma or fallback
+  identity. Local preview text does not prove profile persistence.
+- After accepting Owner access to A while already owning B, selecting A remains
+  selected across reload and sign-in. A's records, actions, permission checks and
+  invitation context stay scoped to A. Pending acceptance grants no access.
+- Both languages, both themes and desktop/phone show the correct local greeting
+  at a time boundary and after resume, without hydration errors or animation
+  replay. Real auth and profile responses must be used for hosted evidence.
+
+These are deferred backend requirements and hosted criteria, not a sent handoff,
+backend authorization or release acceptance.
+
+Local browser review on the existing port 4387 checked 1731px desktop and 389px
+phone in Spanish/light and English/dark. The current afternoon greeting was
+correct. Home navigation, desktop/phone changes and language changes did not
+replay it, and neither width had horizontal overflow. The reviewer restored
+Spanish/light desktop. Boundary, first-animation and reduced-motion behavior are
+covered by focused automated tests; this is not physical-device or hosted proof.
+
 ## Approved sidebar behavior
 
 The founder selected B with simple tooltips on October 23, 2026. This supersedes the earlier local overlay experiment.

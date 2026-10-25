@@ -3264,7 +3264,14 @@
       "copy_forward_failed": "Could not copy. Your forwarding address is {{address}}",
       "export_records": "Export records",
       "greeting": "Welcome, {{name}}",
+      "greeting_named": "{{greeting}}, {{name}}",
       "greeting_unnamed": "Welcome",
+      "greetings": {
+        "afternoon": "Good afternoon",
+        "evening": "Good evening",
+        "late_night": "Late-night session",
+        "morning": "Good morning"
+      },
       "title": "My business",
       "problem_one": "{{count}} with a problem",
       "problem_other": "{{count}} with a problem",

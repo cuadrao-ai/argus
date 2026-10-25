@@ -748,6 +748,16 @@ top right is who you are.
   beside each content heading on desktop. On Inicio it sits beside Pendiente hoy;
   in Transacciones it keeps Igualar sugerencias beside it. Phones keep Agregar ▾
   at the top of each screen instead.
+  Home greets by the viewer's local time on desktop and phone: 05:00–11:59
+  Buenos días / Good morning; 12:00–17:59 Buenas tardes / Good afternoon;
+  18:00–22:59 Buenas noches / Good evening; 23:00–04:59 Noche de enfoque /
+  Late-night session. Add a comma and the saved preferred name only when present.
+  Reuse the sign-in typewriter on the first visible Home appearance in a browser
+  tab's session. Reserve the whole phrase's layout and expose it once to assistive
+  technology. Reduced motion is static. Navigation, reload, viewport, language,
+  name and time-period changes do not replay it. Store only a session sentinel,
+  never the greeting or name. Local date and period refresh at boundaries and
+  when the page resumes; server rendering does not guess the viewer's clock.
   Content scrolls under the bar through a soft fade in the surface's own
   color, on every screen the bar is on. A screen starts 32px below the bar
   (16px on a phone), and Inicio's cards sit 24px apart from the tablet up.

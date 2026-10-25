@@ -1,22 +1,21 @@
 "use client";
 
 import WorkspaceSetupPreview from "@/app/design-workspace/WorkspaceSetupPreview";
-import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { inboxCount, problemCount, readingCount } from "./inbox-count";
 import { useBusiness } from "./BusinessWorkspace";
 import BusinessAddMenu from "./BusinessAddMenu";
 import BusinessMonthClosePanel, { useMonthCloseSource } from "./BusinessMonthClosePanel";
+import HomeGreeting from "./foundation/HomeGreeting";
+import { useHomeClock } from "./foundation/home-greeting";
 
 export default function BusinessOverviewPanel() {
-  const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
   const { records, openPanel, bridge, reload } = useBusiness();
   const porRevisar = inboxCount(records);
   const reading = readingCount(records) ?? 0;
   const problem = problemCount(records) ?? 0;
-  const name = bridge?.greetingName?.trim();
-  const greeting = name ? t("business.overview.greeting", { name, defaultValue: "Welcome, {{name}}" }) : t("business.overview.greeting_unnamed", "Welcome");
+  const clock = useHomeClock(isBelowTablet);
   const monthClose = useMonthCloseSource();
 
   return (
@@ -30,7 +29,7 @@ export default function BusinessOverviewPanel() {
           <>
             <div data-testid="inicio-greeting-row" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               {isBelowTablet ? <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
-                {greeting}
+                <HomeGreeting period={clock?.period ?? null} name={bridge?.greetingName} />
               </h2> : null}
               {switcher}
             </div>

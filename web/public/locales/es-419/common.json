@@ -3173,7 +3173,14 @@
       "copy_forward_failed": "No se pudo copiar. Tu dirección de reenvío es {{address}}",
       "export_records": "Exportar registros",
       "greeting": "Hola, {{name}}",
+      "greeting_named": "{{greeting}}, {{name}}",
       "greeting_unnamed": "Hola",
+      "greetings": {
+        "afternoon": "Buenas tardes",
+        "evening": "Buenas noches",
+        "late_night": "Noche de enfoque",
+        "morning": "Buenos días"
+      },
       "problem_one": "{{count}} con problema",
       "problem_other": "{{count}} con problema",
       "reading_one": "{{count}} todavía leyendo",

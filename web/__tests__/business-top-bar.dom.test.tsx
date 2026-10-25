@@ -119,7 +119,8 @@ describe("the Business top bar on a desktop", () => {
     assert.deepEqual(page.searches, ["open"]);
     const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
     assert.deepEqual(order, ["header-search", "amounts-toggle"]);
-    assert.equal(page.bar().querySelector("h1")?.textContent, "Hola, Ana");
+    const greeting = page.bar().querySelector("h1")!;
+    assert.match(greeting.querySelector(".sr-only")?.textContent ?? greeting.textContent ?? "", /^(Buenos días|Buenas tardes|Buenas noches|Noche de enfoque), Ana$/);
     assert.ok(page.bar().querySelector("time")?.getAttribute("datetime"));
     assert.equal(page.screen().querySelector("#business-overview-title"), null, "no duplicate desktop greeting");
   });
