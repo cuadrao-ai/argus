@@ -131,7 +131,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);};
   const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
-  const saveButton = <button style={footerTarget === undefined ? undefined : {borderRadius:"var(--radius-item)"}} type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full`} disabled={busy || unchanged}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
+  const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} h-12 w-full rounded-item`} disabled={busy || unchanged}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
   const status = <p role="status" className={`${saved ? "" : "sr-only"} text-[14px] text-[#56635e] dark:text-white/70`}>{saved ? t("business.settings.profile_details_saved") : ""}</p>;
   const actions = footerTarget === undefined ? <div className="flex min-h-11 flex-wrap items-center gap-3 pt-2">{saveButton}{status}</div> : <div className="flex flex-col gap-2">{status}{saveButton}</div>;
   return (

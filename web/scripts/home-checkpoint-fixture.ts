@@ -22,14 +22,14 @@ for (const language of ['es-419', 'en'] as const) {
   await installBreakpointFixture(page, { language, emptyChat: true });
 }
 const headers = {
-  'Access-Control-Allow-Origin': 'http://127.0.0.1:4417',
+  'Access-Control-Allow-Origin': process.env.EVIDENCE_WEB_BASE_URL ?? 'http://127.0.0.1:4417',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type, x-argus-user-id, x-request-id, x-argus-client-capabilities',
   'Content-Type': 'application/json',
 };
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers });
-Bun.serve({ hostname: '127.0.0.1', port: 4418, async fetch(request) {
+Bun.serve({ hostname: '127.0.0.1', port: Number(process.env.EVIDENCE_FIXTURE_PORT ?? '4418'), async fetch(request) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
   const url = new URL(request.url), path = url.pathname;
   if (path === '/__preview' && request.method === 'POST') {

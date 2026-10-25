@@ -270,8 +270,8 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         assert.ok(mark, "the business mark is in the header");
         assert.equal(mark.getAttribute("aria-haspopup"), "menu");
         assert.equal(page.host.textContent?.includes("Tu negocio"), false);
-        await page.settle(() => page.host.querySelector('[data-testid="closed-rail-mark"]')?.textContent === "M");
-        assert.equal(page.host.querySelector('[data-testid="closed-rail-mark"]')?.textContent, "M", "the closed rail's mark is the business's initial");
+        await page.settle(() => page.host.querySelector('[data-testid="closed-rail-mark"] svg.lucide-briefcase-business') !== null);
+        assert.ok(page.host.querySelector('[data-testid="closed-rail-mark"] svg.lucide-briefcase-business'), "the closed rail shows the default business mark");
         assert.equal(accountInHeader, true, "a desktop Business puts the account at the top right");
         assert.deepEqual([...page.host.querySelectorAll("footer button")], [], "the foot has no row");
         const brand = page.host.querySelector('footer [data-testid="sidebar-brand"]');
@@ -281,8 +281,8 @@ describe("§1.8 line 102: danger, Crear, sidebar labels, empty states, headings 
         await page.click(mark);
         const items = [...document.querySelectorAll('[role="menuitem"]')];
         assert.equal(items.some((item) => item.textContent?.includes("Equipo y accesos")), false);
-        const settings = items.find((item) => item.textContent?.includes("Configurar negocio"));
-        assert.ok(settings, "Configurar negocio is in the menu");
+        const settings = items.find((item) => item.textContent?.trim() === "Configurar");
+        assert.ok(settings, "Configurar is in the menu");
         await page.click(settings);
         assert.deepEqual(page.business().panel, { kind: "business" }, "the menu opens the Negocio page");
       } finally {

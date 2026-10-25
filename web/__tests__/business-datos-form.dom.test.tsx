@@ -63,7 +63,7 @@ describe("Negocio, Datos", () => {
     const form = await mount({ name: "Ferretería Luna", tax_id: { type: "rnc", value: rnc() } });
     try {
       const labels = [...form.host.querySelectorAll("label")].map((label) => [label.textContent, form.host.querySelector(`#${CSS.escape(label.htmlFor)}`)?.tagName]);
-      assert.deepEqual(labels, [["Nombre del negocio", "INPUT"], ["Identificación", "SELECT"], ["Número", "INPUT"]]);
+      assert.deepEqual(labels, [["Nombre del negocio *", "INPUT"], ["Identificación", "SELECT"], ["Número(Opcional)", "INPUT"]]);
       assert.equal(form.field("tax-id-value").type, "text");
       assert.equal(form.field("tax-id-value").inputMode, "numeric");
       assert.equal(form.note("tax-id-value"), "9 dígitos. Puedes usar guiones.");

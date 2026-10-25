@@ -1214,8 +1214,8 @@ function sampleClientFor(source: object, empty = false): MonthCloseClient {
 export function useMonthCloseSource(): MonthCloseSource {
   const { chosen, source, spaces } = useBusiness();
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
-  const scopeKey = spaces === null ? null : chosen && (chosen.role !== "owner" || chosen.space_id.startsWith(LOCAL_BUSINESS_PREFIX)) ? chosen.grant_id : "own";
-  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
+  const scopeKey = spaces === null ? null : chosen && (chosen.role !== "owner" || chosen.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) ? chosen.grant_id : "own";
+  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
 }
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode }) {

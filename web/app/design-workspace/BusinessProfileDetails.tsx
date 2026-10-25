@@ -16,7 +16,8 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,group="all"
   const visibleFields = providedDetailFields.filter(field=>group === "all" || (group === "presence" ? field === "website" || field === "description" : field !== "website" && field !== "description"));
   const errors = validateBusinessProvidedDetails(normalizeBusinessProvidedDetails(draft));
   const message = (field:ProvidedDetailField) => errors[field] ? t(`business.settings.profile_error_${errors[field]}`,{count:providedDetailLimits[field]}) : null;
-  const rules = Object.fromEntries(providedDetailFields.map(field=>[field,()=>visibleFields.includes(field) ? message(field) : null])) as FieldRules<ProvidedDetailField>;
+  const rules = {} as FieldRules<ProvidedDetailField>;
+  for (const field of providedDetailFields) rules[field] = () => visibleFields.includes(field) ? message(field) : null;
   const checks = useFieldChecks(rules,draft);
   const normalized = normalizeBusinessProvidedDetails(draft);
   const unchanged = visibleFields.every(field=>normalized[field] === saved[field]);

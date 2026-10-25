@@ -27,7 +27,7 @@ test("optional invalid fields show blur errors and linked submit summary, then n
   await form.type("email","invalid");expect(form.field("email").getAttribute("aria-invalid")).toBeNull();await form.blur("email");expect(form.field("email").getAttribute("aria-invalid")).toBe("true");
   await form.type("website","javascript:alert(1)");await form.save();expect(form.writes).toHaveLength(0);
   const summary=form.host.querySelector('[data-testid="form-error-summary"]')!;expect(summary.querySelectorAll("a")).toHaveLength(2);
-  await act(async()=>summary.querySelector<HTMLAnchorElement>("a")!.click());expect(document.activeElement).toBe(form.field("email"));
+  await act(async()=>summary.querySelector<HTMLAnchorElement>("a")!.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true})));expect(document.activeElement).toBe(form.field("email"));
   await form.type("email","");await form.type("website","lapalma.do");await form.save();expect(form.writes).toHaveLength(1);expect(form.writes[0].website).toBe("https://lapalma.do");expect(form.field("website").value).toBe("https://lapalma.do");expect(form.host.textContent).toContain("Datos guardados.");
  }finally{await form.close();}
 });

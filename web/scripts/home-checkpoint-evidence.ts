@@ -8,8 +8,8 @@ import { chromium, expect, type BrowserContext, type Page } from "@playwright/te
 const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 if (process.env.EVIDENCE_EXPECTED_HEAD) assert.equal(head, process.env.EVIDENCE_EXPECTED_HEAD, "capture must use the PR head");
 const output = resolve(process.env.EVIDENCE_OUTPUT ?? "../temp/home-checkpoint-integration/evidence");
-const baseURL = "http://127.0.0.1:4417";
-const fixtureURL = "http://127.0.0.1:4418";
+const baseURL = process.env.EVIDENCE_WEB_BASE_URL ?? "http://127.0.0.1:4417";
+const fixtureURL = process.env.EVIDENCE_FIXTURE_BASE_URL ?? "http://127.0.0.1:4418";
 assert.equal(new URL(baseURL).hostname, "127.0.0.1");
 assert.equal(new URL(fixtureURL).hostname, "127.0.0.1");
 mkdirSync(output, { recursive: true });
@@ -131,6 +131,35 @@ try {
       await capture(page, `${key}-icons-rail`, sample.language, sample.theme);
       checks.push(`shared shell rail changes from ${expanded.width}px to ${icons.width}px without moving Home offscreen`);
     }
+    await context.close();
+  }
+  for (const sample of [
+    { width: 390, height: 844, mobile: true },
+    { width: 820, height: 900, mobile: false },
+    { width: 1440, height: 900, mobile: false },
+  ]) {
+    await fixture({ language: "es-419" });
+    const context = await browser.newContext({ viewport: { width: sample.width, height: sample.height },
+      isMobile: sample.mobile, deviceScaleFactor: 1, colorScheme: "light" });
+    await keepRequestsLocal(context);
+    await context.addInitScript(() => { localStorage.setItem("i18nextLng", "es-419"); localStorage.setItem("argus-theme", "light"); });
+    const page = await context.newPage();
+    page.on("pageerror", (error) => errors.push(`design-${sample.width}: ${error.message}`));
+    const key = `es-419-light-${sample.width}x${sample.height}`;
+    for (const [tab, name] of [["datos", "profile"], ["equipo", "access"], ["correo", "reception"]] as const) {
+      await page.goto(`${baseURL}/biz?view=business&tab=${tab}`, { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId("business-settings")).toBeVisible({ timeout: 30000 });
+      await capture(page, `${key}-${name}`, "es-419", "light");
+      checks.push(`${key}: ${name} preview rendered without horizontal overflow`);
+      if (tab === "datos") {
+        await page.getByRole("button", { name: "Cambiar imagen" }).click();
+        await capture(page, `${key}-identity-editor`, "es-419", "light");
+      }
+    }
+    await page.getByTestId("business-switcher").locator('button[aria-haspopup="menu"]').click();
+    await page.getByRole("menuitem", { name: "Añadir negocio" }).click();
+    await capture(page, `${key}-create-business`, "es-419", "light");
+    checks.push(`${key}: mock-only create Business preview opens from the switcher`);
     await context.close();
   }
   for (const [state, settings] of [

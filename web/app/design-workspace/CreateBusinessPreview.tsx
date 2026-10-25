@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { withViewportPortal } from "@/components/ui/withViewportPortal";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -37,7 +37,7 @@ function readDraft() {
     return { name: "", country: "", appearance: DEFAULT_APPEARANCE };
   }
 }
-export default function CreateBusinessPreview({
+function CreateBusinessPreviewSurface({
   onClose,
   onCreated,
 }: {
@@ -257,7 +257,7 @@ export default function CreateBusinessPreview({
         <div className="p-4">{content}</div>
       </AdaptivePanel>
     );
-  return createPortal(
+  return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/25 p-4 dark:bg-black/60"
       onMouseDown={(event) => {
@@ -296,7 +296,7 @@ export default function CreateBusinessPreview({
         </div>
         {content}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
+export default withViewportPortal(CreateBusinessPreviewSurface);

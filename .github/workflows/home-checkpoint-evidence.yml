@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   home-synthetic-evidence:
-    if: github.head_ref == 'codex/home-checkpoint-integration-20261024'
+    if: github.head_ref == 'codex/home-checkpoint-integration-20261024' || github.head_ref == 'codex/design-checkpoint-integration-20261025'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
