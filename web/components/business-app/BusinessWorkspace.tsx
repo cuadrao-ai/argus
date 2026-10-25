@@ -57,10 +57,9 @@ import ComposerAttachControl from "./ComposerAttachControl";
 import { ReceiptUploadQueue, composerUploadDisposition, type IntakeTarget } from "./receipt-upload-queue";
 import ReceiptIntakeDialog from "./ReceiptIntakeDialog";
 import ExportRecordsPanel from "./ExportRecordsPanel";
-import BusinessAddMenu from "./BusinessAddMenu";
 import { AmountsToggle } from "./foundation/AmountsToggle";
 import BusinessNotifications from "./foundation/BusinessNotifications";
-import { HeaderSearch } from "./foundation/HeaderSearch";
+import BusinessHeader from "./foundation/BusinessHeader";
 import { useMonthCloseSource } from "./BusinessMonthClosePanel";
 import { useReceiptInboxRefresh } from "./useReceiptInboxRefresh";
 import { useBusinessSearch } from "./useBusinessSearch";
@@ -617,11 +616,10 @@ function BusinessWorkspaceContent({
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
         </button> : null}
         {shell.isBelowTablet && shell.openSearch ? <PhoneSearchButton label={t("common.search", "Buscar")} onSearch={shell.openSearch} /> : null}
-        {shell.isBelowTablet ? null : <BusinessAddMenu placement="header" />}
         <AmountsToggle />
         {localPreview ? <BusinessNotifications /> : null}
       </>,
-      headerSearch: (shell) => shell.openSearch ? <HeaderSearch onOpen={shell.openSearch} /> : null,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,

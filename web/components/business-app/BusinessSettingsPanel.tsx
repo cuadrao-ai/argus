@@ -13,6 +13,7 @@ import { formatBusinessName } from "./business-format";
 import { PanelHeading } from "./business-ui";
 import { SURFACE_CARD } from "./foundation/surfaces";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import BusinessAddMenu from "./BusinessAddMenu";
 
 export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: BusinessTab }) {
   const { t } = useTranslation();
@@ -28,7 +29,7 @@ export default function BusinessSettingsPanel({ tab = "datos" }: { tab?: Busines
   const shown = tabs.some((item) => item.key === tab) ? tab : "datos";
   return (
     <section data-testid="business-settings">
-      <PanelHeading title={t("business.settings.title", "Business")} subtitle={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} />
+      <PanelHeading title={t("business.settings.title", "Business")} subtitle={formatBusinessName(chosen?.name, t("business.overview.title", "My business"))} action={isBelowTablet ? undefined : <BusinessAddMenu placement="header" />} />
       <div className="mb-6">
         <SegmentedControl testId="business-settings-tabs" label={t("business.settings.title", "Business")} value={shown} onChange={(next) => openPanel({ kind: "business", tab: next })} segments={tabs} fill={isBelowTablet} />
       </div>

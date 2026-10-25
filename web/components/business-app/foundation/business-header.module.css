@@ -1,0 +1,45 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 21px;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.welcome {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.date {
+  display: block;
+  overflow: hidden;
+  color: #56635e;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.greeting {
+  overflow: hidden;
+  color: #172b26;
+  font-size: clamp(24px, 2.3vw, 32px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search {
+  flex: 0 1 380px;
+  min-width: 160px;
+}
+
+:global(.dark) .date { color: rgb(255 255 255 / 0.6); }
+:global(.dark) .greeting { color: white; }

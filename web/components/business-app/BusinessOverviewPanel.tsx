@@ -8,11 +8,6 @@ import { useBusiness } from "./BusinessWorkspace";
 import BusinessAddMenu from "./BusinessAddMenu";
 import BusinessMonthClosePanel, { useMonthCloseSource } from "./BusinessMonthClosePanel";
 
-/**
- * Inicio: a greeting, then what it takes to close the month. Its actions live
- * in the top bar's Agregar from the tablet stop up; a phone keeps Agregar at
- * the top of the screen.
- */
 export default function BusinessOverviewPanel() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
@@ -30,13 +25,13 @@ export default function BusinessOverviewPanel() {
       {process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <WorkspaceSetupPreview /> : null}
       <BusinessMonthClosePanel
         monthClose={monthClose}
+        headingAction={isBelowTablet ? undefined : <BusinessAddMenu placement="header" />}
         header={(switcher) => (
           <>
-            {/* The greeting and the month share one row; a phone wraps the month under it. */}
             <div data-testid="inicio-greeting-row" className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
+              {isBelowTablet ? <h2 id="business-overview-title" className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">
                 {greeting}
-              </h2>
+              </h2> : null}
               {switcher}
             </div>
           </>

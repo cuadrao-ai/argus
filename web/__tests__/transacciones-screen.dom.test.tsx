@@ -678,14 +678,15 @@ describe("Transacciones keyboard and buttons", () => {
     assert.equal(page.row("mv-ferreteria")!.querySelector('[data-row-action="rechazar"] kbd')?.textContent, "N");
   });
 
-  test("one primary in the page, Igualar sugerencias; the top bar's Agregar stays primary, as on every screen", async () => {
+  test("the content heading keeps Igualar sugerencias alongside Agregar", async () => {
     const page = await mount();
     await page.ready();
     const primaries = [...page.screen()!.querySelectorAll('[data-primary="true"]')];
-    assert.equal(primaries.length, 1);
+    assert.equal(primaries.length, 2);
     assert.equal(primaries[0].getAttribute("data-testid"), "transacciones-run");
     const add = document.querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
-    assert.ok(add, "Agregar stays in the top bar");
+    assert.ok(page.screen()!.contains(add), "Agregar is in the content heading");
+    assert.equal(document.querySelector('[data-testid="top-bar"] [data-testid="business-primary-upload"]'), null);
     assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/);
     assert.equal(add.getAttribute("data-primary"), "true");
   });

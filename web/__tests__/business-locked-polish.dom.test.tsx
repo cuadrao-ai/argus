@@ -119,10 +119,10 @@ describe("§1.8 line 100: the Business is named by its name, and Argus is not na
     await mark.close();
     const page = await mount(() => <BusinessOverviewPanel />, ownSpace("Colmado Lucía"));
     await page.settle(() => page.business().spaces !== null);
-    assert.equal(overviewTitle(page), "Hola");
+    assert.equal(overviewTitle(page), null, "the desktop greeting belongs to the top bar");
     const row = page.host.querySelector('[data-testid="inicio-greeting-row"]');
     assert.match(row?.className ?? "", /flex-wrap/, "a phone wraps the month under the greeting");
-    assert.deepEqual([...(row?.children ?? [])].map((child) => child.id || child.getAttribute("data-testid")), ["business-overview-title", "month-close-switcher"], "the greeting on the left, the month on the right, one row");
+    assert.deepEqual([...(row?.children ?? [])].map((child) => child.id || child.getAttribute("data-testid")), ["month-close-switcher"], "the month stays above the checklist");
     await page.close();
   });
 

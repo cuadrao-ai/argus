@@ -28,6 +28,7 @@ import { DecisionHistoryView } from "@/components/sidebar/command-palette/Decisi
 import { RunDossierView } from "@/components/sidebar/command-palette/RunDossierView";
 import CommandPaletteRowActions from "@/components/sidebar/command-palette/CommandPaletteRowActions";
 import pointerAffordances from "@/components/sidebar/pointerAffordances.module.css";
+import { useBusinessSearchPlacement } from "./command-palette/useBusinessSearchPlacement";
 import { commandPaletteRowActions } from "@/components/sidebar/command-palette/rowActionItems";
 import CommandPaletteDossierSheet from "@/components/sidebar/command-palette/CommandPaletteDossierSheet";
 import { BottomSheet } from "@/components/ui/BottomSheet";
@@ -312,6 +313,7 @@ function ChatCommandPaletteSurface({
   const paletteRef = useRef<HTMLDivElement>(null);
   const [isDossierSheetOpen, setIsDossierSheetOpen] = useState(false);
   const effectiveLayoutMode = hasPreviewPane ? effectivePaletteLayout(layoutMode, isBelowTablet) : "collapsed";
+  const businessSearchStyle = useBusinessSearchPlacement(surface === "business" && workspaceSearch !== null && !isBelowTablet, effectiveLayoutMode);
   const rowActionVariant = paletteRowActionVariant(isBelowDesktop);
   const shortcutLegend = useCommandPaletteShortcutLegend();
   const [dossierPaneState, setDossierPaneState] = useState<DossierPaneState>(
@@ -1411,6 +1413,8 @@ function ChatCommandPaletteSurface({
       />
 
       <div
+        style={businessSearchStyle}
+        data-testid={workspaceIsSheet ? "workspace-search-panel" : undefined}
         className={workspaceIsSheet ? workspaceSheetPanelClass : `relative flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[18px] border border-black/10 bg-white transition-all duration-300 dark:border-white/10 dark:bg-[#1b1d20] ${
           effectiveLayoutMode === "expanded"
             ? "h-[78dvh] w-[94vw] max-w-6xl"

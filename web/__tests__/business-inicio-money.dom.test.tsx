@@ -511,7 +511,7 @@ describe("Inicio in two columns", () => {
     async markPendiente() { throw new Error("no undo"); },
     async closeMonth() { throw new Error("no close"); },
   });
-  async function renderView(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"]) {
+  async function renderView(client: MonthCloseClient, review?: Parameters<typeof import("../components/business-app/BusinessMonthClosePanel").BusinessMonthCloseView>[0]["review"], headingAction = false) {
     const { act } = await import("react");
     const { createRoot } = await import("react-dom/client");
     const i18next = (await import("i18next")).default;
@@ -524,11 +524,30 @@ describe("Inicio in two columns", () => {
     document.body.appendChild(host);
     const root = createRoot(host);
     await act(async () => {
-      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} review={review} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
+      root.render(<I18nextProvider i18n={i18n}><BusinessMonthCloseView client={client} now={now} review={review} headingAction={headingAction ? <button data-testid="home-heading-add">Agregar</button> : undefined} header={(switcher) => <div data-testid="inicio-greeting-row"><h2>Hola</h2>{switcher}</div>} /></I18nextProvider>);
     });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     return { act, host, close: async () => { await act(async () => root.unmount()); host.remove(); } };
   }
+
+  for (const state of ["loading", "error", "empty", "ready"] as const) test(`desktop Pendiente hoy keeps one Add action when the month is ${state}`, async () => {
+    const base = clientOf(state === "ready" ? [document_({ status: "pendiente" })] : []);
+    const client: MonthCloseClient = state === "loading" ? {
+      ...base,
+      load: async () => new Promise<never>(() => {}),
+      openItems: async () => new Promise<never>(() => {}),
+    } : state === "error" ? { ...base, load: async () => { throw new MonthCloseError("unavailable", "Unavailable"); } } : base;
+    const view = await renderView(client, undefined, true);
+    try {
+      assert.equal(view.host.querySelectorAll('[data-testid="month-close-money"]').length, 1);
+      assert.equal(view.host.querySelectorAll('[data-testid="home-heading-add"]').length, 1);
+      assert.ok(view.host.querySelector('[data-testid="month-close-money"] [data-testid="home-heading-add"]'));
+      if (state === "loading") assert.ok(view.host.querySelector('[data-testid="month-close-money-loading"]'));
+      if (state === "error") assert.ok(view.host.querySelector('[data-testid="month-close-error"]'));
+      if (state === "empty") assert.ok(view.host.querySelector('[data-testid="month-close-empty"]'));
+      if (state === "error" || state === "empty") assert.ok(view.host.querySelector('[data-testid="month-close-nothing-open"]'), "independently loaded open items retain their confirmed empty state");
+    } finally { await view.close(); }
+  });
 
   test("38fr and 62fr, 24px apart: greeting beside Pendiente hoy, the checklist beside Por cobrar and Por pagar, then the month's figures as two cards on the same columns", async () => {
     const view = await renderView(createMockMonthCloseClient({ now }));

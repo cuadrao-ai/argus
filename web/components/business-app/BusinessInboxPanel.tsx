@@ -289,11 +289,11 @@ export default function BusinessInboxPanel() {
         <PanelHeading
           title={t("business.inbox.title", "Inbox")}
           action={
-            chosen?.role === "accountant" ? (
+            <div className="flex flex-wrap items-center gap-3">{chosen?.role === "accountant" ? (
               <button type="button" data-testid="business-primary-review" onClick={openReview} className={primaryButtonClass}>
                 {t("business.inbox.review_receipts", "Revisar recibos")}
               </button>
-            ) : null
+            ) : null}{isBelowTablet ? null : <BusinessAddMenu placement="header" />}</div>
           }
         />
         <ReceiptReadingControl />

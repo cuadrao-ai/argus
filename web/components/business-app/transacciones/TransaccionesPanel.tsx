@@ -97,7 +97,7 @@ export default function TransaccionesPanel() {
             <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>
             <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p>
           </div>
-          {phone ? null : run}
+          {phone ? null : <div className="flex flex-wrap items-center gap-3">{run}<BusinessAddMenu placement="header" /></div>}
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {igualar ? (

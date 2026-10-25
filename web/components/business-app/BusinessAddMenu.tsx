@@ -11,10 +11,9 @@ import { showToast } from "./foundation/toasts";
 
 /**
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
- * registros, Copiar dirección de reenvío). It sits in the top bar
- * from the tablet stop up and at the top of each screen on a phone, where the
- * thumb reaches it. A contador, who adds nothing, gets the menu alone.
- * The top bar never changes per screen: Agregar is primary everywhere.
+ * registros, Copiar dirección de reenvío). It sits beside the content heading
+ * from the tablet stop up and at the top of each screen on a phone.
+ * A contador, who adds nothing, gets the menu alone.
  */
 export default function BusinessAddMenu({ placement }: { placement: "header" | "page" }) {
   const { t } = useTranslation();

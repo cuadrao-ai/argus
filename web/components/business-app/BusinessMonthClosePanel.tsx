@@ -64,7 +64,7 @@ const MONEY_ROWS = 4;
 /**
  * Inicio in two columns once its canvas is wide enough (56rem, about a
  * 1024px screen with the rail closed): 38fr for the month, 62fr for what is
- * pending, 24px apart. Row 1 holds the greeting and the Pendiente hoy heading
+ * pending, 24px apart. Row 1 holds the month and the Pendiente hoy heading
  * at one height; row 2 the checklist beside Por cobrar and Por pagar; row 3
  * the month's figures as two cards on the same columns. Cards in a row end
  * together. Narrower, it is one column in reading order.
@@ -349,8 +349,9 @@ type BusinessMonthCloseViewProps = {
   review?: MonthCloseReview | null;
   /** Opens Agregar; an empty month offers it as its next step. */
   onAdd?: () => void;
-  /** Places the month switcher, so Inicio can set it on its greeting row. Alone by default. */
+  /** Places the month switcher with the phone greeting or above the desktop checklist. */
   header?: (switcher: ReactNode) => ReactNode;
+  headingAction?: ReactNode;
   /** What a Por cobrar or Por pagar row opens; null leaves the row plain. */
   openDocument?: (document: MonthCloseDocument) => (() => void) | null;
   /** The Business's own currency: the figures' default and the first in its menu. Null while unknown. */
@@ -371,6 +372,7 @@ function BusinessMonthCloseContent({
   review,
   onAdd,
   header = (switcher) => switcher,
+  headingAction,
   openDocument,
   businessCurrency = null,
 }: BusinessMonthCloseViewProps) {
@@ -886,9 +888,12 @@ function BusinessMonthCloseContent({
   function moneySection() {
     return (
       <section id="month-close-money" aria-labelledby="month-close-money-title" data-testid="month-close-money" className={`scroll-mt-6 pt-4 tablet:pt-6 ${WIDE.money}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 id="month-close-money-title" className={`font-display text-[21px] font-medium text-black dark:text-white ${WIDE.moneyTitle}`}>
           {t("business.month_close.pending_today", "Pending today")}
         </h3>
+        {headingAction}
+        </div>
         <div className={`mt-3 ${WIDE.moneyBody}`}>
           {moneyBody()}
         </div>
@@ -1038,7 +1043,7 @@ function BusinessMonthCloseContent({
           />
         </div>
         {/* An empty month still owes or is owed what earlier months left pending. */}
-        {openItems && (openItems.cuentas_por_cobrar.count > 0 || openItems.cuentas_por_pagar.count > 0) ? moneySection() : null}
+        {!headingAction && openItems && (openItems.cuentas_por_cobrar.count > 0 || openItems.cuentas_por_pagar.count > 0) ? moneySection() : null}
         </>
       ) : (
         <>
@@ -1173,11 +1178,12 @@ function BusinessMonthCloseContent({
             </div>
           </section>
 
-          {moneySection()}
+          {headingAction ? null : moneySection()}
 
           {locked ? <div className={WIDE.full}>{renderList("month-close-rows", t("business.month_close.locked_title", "Documents in this month"), lockedRows, "", "closed")}</div> : null}
         </>
       )}
+      {headingAction ? moneySection() : null}
 
       <ConfirmDialog
         isOpen={confirming}
@@ -1218,7 +1224,7 @@ export function useMonthCloseSource(): MonthCloseSource {
   return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id?.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
 }
 
-export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode }) {
+export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header, headingAction }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode; headingAction?: ReactNode }) {
   const { chosen, actions, openPanel, records } = useBusiness();
   const add = canAddRecords(chosen) ? actions.create.find((action) => action.id === "upload_receipt") : undefined;
   // An open item carries only its activity id. A receipt's is its saved expense's id; an invoice has no record screen yet.
@@ -1232,6 +1238,7 @@ export default function BusinessMonthClosePanel({ monthClose, onMonthChange, rev
       review={review}
       onAdd={add?.run}
       header={header}
+      headingAction={headingAction}
       openDocument={openDocument}
       businessCurrency={businessWorkspaceCurrency(records?.workspace)}
     />

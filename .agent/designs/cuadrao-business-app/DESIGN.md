@@ -736,12 +736,18 @@ top right is who you are.
   Nothing plays on first paint or while the rail opens or closes. Reduced
   motion swaps the weight at once and moves nothing. The rail and the phone tabs share one owner:
   `components/business-app/nav-glyphs.tsx` and its stylesheet.
-- **Top bar:** spans the one canvas and never changes per screen. Search on the left, always
-  visible (its placeholder says what it finds). On the right: **Agregar ▾**,
-  the one global action, whose menu holds Exportar registros and Copiar
-  dirección de reenvío; the **Ocultar montos** eye, which
-  blurs every amount for screen sharing; then the account. No screen repeats
-  these buttons. Phones keep Agregar ▾ at the top of each screen instead.
+- **Top bar:** spans the one canvas. From the tablet stop up, Inicio shows the
+  current localized date in small muted uppercase above the welcome greeting on
+  the left, using the existing display font. Its search field sits near the right,
+  followed by **Ocultar montos**, notifications and the account. Other desktop
+  screens omit the greeting and search field; Cmd K still opens search. Business
+  search opens below the field with aligned right edges, and expands left from
+  that fixed edge within the viewport. Without the field, it uses the same header
+  region as its anchor. Personal search and phone search keep their own layouts.
+  **Agregar ▾**, with Exportar registros and Copiar dirección de reenvío, belongs
+  beside each content heading on desktop. On Inicio it sits beside Pendiente hoy;
+  in Transacciones it keeps Igualar sugerencias beside it. Phones keep Agregar ▾
+  at the top of each screen instead.
   Content scrolls under the bar through a soft fade in the surface's own
   color, on every screen the bar is on. A screen starts 32px below the bar
   (16px on a phone), and Inicio's cards sit 24px apart from the tablet up.
@@ -768,10 +774,9 @@ a 44px target.
   the nearest of the four.
 - A sheet's X is its only way to leave. Do not add Listo or Hecho to a sheet
   just to close it. A footer button names the next step (Guardar, Aprobar).
-- The top bar's Agregar is the green primary on every screen (Lucas, October
-  21, 2026). "One per screen" counts the page's content only, never the top
-  bar: Igualar sugerencias is Transacciones' one primary in the page while
-  Agregar stays green above it.
+- Agregar stays green beside the content heading on desktop (Lucas, October 25,
+  2026). Transacciones also keeps its existing Igualar sugerencias action beside
+  it. This placement replaces the earlier global top-bar action rule.
 - `components/business-app/business-ui.tsx` owns the classes
   (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
   `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
@@ -1009,11 +1014,11 @@ frame, such as readable names, tax numbers or amounts.
 
 Local Home checkpoint, October 24, 2026: preserve the current implementation and the month bounds below. The proposed separation of invoicing and collaboration remains unapplied. Pending navigation, progress and color decisions, verification limits and evidence are recorded in `docs/reports/home-checkpoint-20261024.md`. This is a local design baseline, not backend or release acceptance.
 
-The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
+The month is a 16px control above the checklist, not a second title. On desktop the greeting lives only in the top bar. A phone keeps the month beside its content greeting and wraps it underneath when needed. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
-Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
+Order: the month control, with the content greeting on phones only; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
 
-Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the greeting row on the left, "Pendiente hoy" on the right at the greeting's 26px, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
+Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the month control on the left, "Pendiente hoy" and Agregar on the right, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
 
 "Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
 
