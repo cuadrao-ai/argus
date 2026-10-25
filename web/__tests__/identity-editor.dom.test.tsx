@@ -176,3 +176,76 @@ test("file decoding uses CSP-safe data bytes and bounds the saved source", async
     HTMLCanvasElement.prototype.toDataURL = originalData;
   }
 });
+
+
+test("an explicit default identity overrides the prior avatar and stays selected on reopen", async () => {
+  const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { SavedIdentityMark, useIdentityAppearance } = await import("@/components/identity/IdentityMark");
+  const { identityKey, saveAppearance, IDENTITY_EVENT } = await import("@/lib/identity-appearance");
+  const scope = "person:default-regression";
+  let stored: IdentityAppearance | null = null;
+  function Probe() {
+    stored = useIdentityAppearance(scope);
+    return <SavedIdentityMark scope={scope} fallback={<span>Prior avatar</span>} />;
+  }
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => root.render(<Probe />));
+    assert.equal(host.textContent, "Prior avatar");
+    assert.equal(stored, null);
+    await act(async () => {
+      saveAppearance(localStorage, scope, { kind: "default" });
+      window.dispatchEvent(new Event(IDENTITY_EVENT));
+    });
+    assert.equal(host.textContent, "", "saved default must replace the old avatar");
+    assert.ok(host.querySelector("svg"));
+    await act(async () => root.render(<Probe key="reopened" />));
+    assert.deepEqual(stored, { kind: "default" });
+    assert.equal(host.textContent, "");
+    Object.assign(process.env, { NODE_ENV: "production" });
+    await act(async () => root.render(<Probe key="production" />));
+    assert.equal(host.textContent, "Prior avatar", "production ignores local overrides");
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    localStorage.removeItem(identityKey(scope));
+    Object.assign(process.env, previousEnv);
+  }
+});
+
+for (const scenario of [
+  { width: 512, height: 512, mode: "fill" as const, zoom: 4, viewport: 256, dx: 20, dy: 12, expectedX: 20, expectedY: 12 },
+  { width: 512, height: 256, mode: "fill" as const, zoom: 2, viewport: 192, dx: 18, dy: -12, expectedX: 18, expectedY: -12 },
+  { width: 512, height: 512, mode: "fit" as const, zoom: 1, viewport: 256, dx: 20, dy: 12, expectedX: 0, expectedY: 0 },
+]) {
+  test(`crop follows pointer distance at ${scenario.zoom}x with ${scenario.width}x${scenario.height} image in ${scenario.viewport}px frame`, async () => {
+    const page = await mount({
+      kind: "image", source: "data:image/png;base64,YQ==", rendered: "data:image/png;base64,YQ==",
+      width: scenario.width, height: scenario.height,
+      crop: { mode: scenario.mode, zoom: scenario.zoom, x: 0, y: 0 },
+    }, () => {});
+    try {
+      await page.act(async () => page.button("Ajustar imagen").click());
+      const image = page.host.querySelector("svg image")!;
+      const frame = image.parentElement!.parentElement!;
+      Object.defineProperty(frame, "clientWidth", { value: scenario.viewport });
+      frame.setPointerCapture = () => {};
+      const x = Number(image.getAttribute("x"));
+      const y = Number(image.getAttribute("y"));
+      await page.act(async () => frame.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 80, clientY: 80, pointerId: 1 })));
+      await page.act(async () => frame.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: 80 + scenario.dx, clientY: 80 + scenario.dy, pointerId: 1 })));
+      const movedX = (Number(image.getAttribute("x")) - x) * scenario.viewport / 256;
+      const movedY = (Number(image.getAttribute("y")) - y) * scenario.viewport / 256;
+      assert.ok(Math.abs(movedX - scenario.expectedX) < 0.001, `horizontal movement ${movedX}px should be ${scenario.expectedX}px`);
+      assert.ok(Math.abs(movedY - scenario.expectedY) < 0.001, `vertical movement ${movedY}px should be ${scenario.expectedY}px`);
+    } finally {
+      await page.act(async () => page.root.unmount());
+      page.host.remove();
+    }
+  });
+}

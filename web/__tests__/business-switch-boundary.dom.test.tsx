@@ -49,6 +49,7 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   const { I18nextProvider } = await import("react-i18next");
   const spanish = (await import("@/public/locales/es-419/common.json")).default;
   const { BusinessWorkspaceProvider, useBusiness } = await import("@/components/business-app/BusinessWorkspace");
+  const { useMonthCloseSource } = await import("@/components/business-app/BusinessMonthClosePanel");
   const { BusinessConsentTestProvider } = await import("@/components/business-app/business-consent-context");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { useChatAccountBoundary } = await import("@/components/chat/useChatAccountBoundary");
@@ -74,8 +75,10 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   let boundaryState: { expired: boolean } = { expired: false };
   let api: ReturnType<typeof useBusiness> | null = null;
   let cleared = 0;
+  let monthClose: ReturnType<typeof useMonthCloseSource> | null = null;
   function Probe() {
     api = useBusiness();
+    monthClose = useMonthCloseSource();
     const [typed, setTyped] = useState("");
     return (
       <div>
@@ -113,7 +116,7 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
   };
   await settle();
   const text = (id: string) => host.querySelector(`[data-testid="${id}"]`)?.textContent ?? null;
-  return { act, root, host, settle, text, reads, api: () => api!, boundary: () => boundaryState, cleared: () => cleared, fire: (session: { user: { id: string } } | null) => act(async () => { listener?.(session ? "SIGNED_IN" : "SIGNED_OUT", session); }) };
+  return { act, root, host, settle, text, reads, api: () => api!, monthClose: () => monthClose!, boundary: () => boundaryState, cleared: () => cleared, fire: (session: { user: { id: string } } | null) => act(async () => { listener?.(session ? "SIGNED_IN" : "SIGNED_OUT", session); }) };
 }
 
 describe("switching Business inside one signed-in account", () => {
@@ -234,5 +237,37 @@ test("local selection survives a preview reload without sending a synthetic gran
     setChosenGrant(null);
     synchronizeBusinessAccount(null);
     Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+  }
+});
+
+
+test("preview settlement survives switching businesses without leaking to another business", async () => {
+  const previousEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const { currentMonthKey } = await import("@/lib/business-month-close");
+  const page = await mount();
+  const month = currentMonthKey();
+  try {
+    await page.act(async () => page.api().chooseBusiness(A.grant_id));
+    await page.settle();
+    const selected = page.monthClose();
+    const original = await selected.client.load(month, selected.scopeKey!);
+    const pending = original.documents.find(item => item.kind === "receipt" && item.status === "pendiente")!;
+    assert.ok(pending);
+    await selected.client.markPagado(pending.id, selected.scopeKey!);
+    await page.act(async () => page.api().chooseBusiness(B.grant_id));
+    await page.settle();
+    const other = page.monthClose();
+    const otherBook = await other.client.load(month, other.scopeKey!);
+    assert.equal(otherBook.documents.find(item => item.id === pending.id)?.status, "pendiente");
+    await page.act(async () => page.api().chooseBusiness(A.grant_id));
+    await page.settle();
+    const returned = page.monthClose();
+    const returnedBook = await returned.client.load(month, returned.scopeKey!);
+    assert.equal(returnedBook.documents.find(item => item.id === pending.id)?.status, "pagado");
+  } finally {
+    await page.act(async () => page.root.unmount());
+    page.host.remove();
+    Object.assign(process.env, previousEnv);
   }
 });
