@@ -135,25 +135,13 @@ export default function IdentityEditor({
             }}
             onPointerMove={(event) => {
               if (!drag.current) return;
+              const position = (start: number, distance: number, imageSize: number) => {
+                const travel = Math.abs(imageSize - 256) * event.currentTarget.clientWidth / 256;
+                return travel === 0 ? 0 : Math.max(-1, Math.min(1, start + 2 * distance / travel));
+              };
               change({
-                x: Math.max(
-                  -1,
-                  Math.min(
-                    1,
-                    drag.current.crop.x +
-                      (event.clientX - drag.current.x) /
-                        (event.currentTarget.clientWidth / 2),
-                  ),
-                ),
-                y: Math.max(
-                  -1,
-                  Math.min(
-                    1,
-                    drag.current.crop.y +
-                      (event.clientY - drag.current.y) /
-                        (event.currentTarget.clientWidth / 2),
-                  ),
-                ),
+                x: position(drag.current.crop.x, event.clientX - drag.current.x, frame.width),
+                y: position(drag.current.crop.y, event.clientY - drag.current.y, frame.height),
               });
             }}
             onPointerUp={() => {

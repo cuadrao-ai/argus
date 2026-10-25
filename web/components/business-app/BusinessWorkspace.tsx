@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import CreateBusinessPreview from "@/app/design-workspace/CreateBusinessPreview";
-import {withLocalBusinessPreview,useLocalBusinessDirectory,localBusinessGrant,LOCAL_BUSINESS_PREFIX,LOCAL_BUSINESS_EVENT} from "@/app/design-workspace/localBusinessPreview";
+import {createLocalBusinessPreviewSource,useLocalBusinessDirectory,localBusinessGrant,LOCAL_BUSINESS_PREFIX,LOCAL_BUSINESS_EVENT} from "@/app/design-workspace/localBusinessPreview";
 import { readStored, writeStored } from "@/lib/browser-storage";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -266,7 +266,8 @@ function BusinessWorkspaceContent({
   // workspace-scoped source is in effect, so the first fetch is already scoped.
   const onRecord = directRecord && (panel.kind === "receipt" || panel.kind === "draft");
   const scopedSource = onRecord ? apiSource : workspaceSource;
-  const source = useMemo(()=>localPreview?withLocalBusinessPreview(scopedSource,undefined,()=>chosenGrant):scopedSource,[scopedSource,localPreview,chosenGrant]);
+  const previewSourceFor = useMemo(() => createLocalBusinessPreviewSource(scopedSource), [scopedSource]);
+  const source = localPreview ? previewSourceFor(chosenGrant) : scopedSource;
   const [initialView] = useState<ChatShellView>(() =>
     shellViewFromSearch(new URLSearchParams(searchParams.toString())),
   );

@@ -8,7 +8,7 @@ import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/busin
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
 import IdentityEditor from "@/components/identity/IdentityEditor";
 import {useIdentityAppearance} from "@/components/identity/IdentityMark";
-import {saveAppearance,IDENTITY_EVENT} from "@/lib/identity-appearance";
+import {saveAppearance,IDENTITY_EVENT,DEFAULT_APPEARANCE} from "@/lib/identity-appearance";
 import { BusinessMark } from "@/components/business-app/BusinessSwitcher";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
@@ -41,7 +41,7 @@ function BusinessProfileContent() {
   const {isBelowDesktop} = useResponsiveLayout();
   const businessId = chosen?.space_id ?? "";
   const name = chosen?.name ?? "";
-  const appearance = useIdentityAppearance(`business:${businessId}`);
+  const appearance = useIdentityAppearance(`business:${businessId}`) ?? DEFAULT_APPEARANCE;
   const country = records.workspace?.country;
   const canEdit = chosen?.role === "owner";
   const [footerTarget,setFooterTarget] = useState<HTMLDivElement|null>(null);

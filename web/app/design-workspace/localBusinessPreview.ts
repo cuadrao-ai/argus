@@ -115,6 +115,17 @@ function browserStorage(): StorageLike | null {
     return null;
   }
 }
+export function createLocalBusinessPreviewSource(base: BusinessDataSource) {
+  const sources = new Map<string | null, BusinessDataSource>();
+  return (grant: string | null) => {
+    let source = sources.get(grant);
+    if (!source) {
+      source = withLocalBusinessPreview(base, undefined, () => grant);
+      sources.set(grant, source);
+    }
+    return source;
+  };
+}
 export function withLocalBusinessPreview(
   base: BusinessDataSource,
   storage: () => StorageLike | null = browserStorage,

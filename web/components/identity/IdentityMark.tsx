@@ -11,7 +11,7 @@ import {
   parseAppearance,
   type IdentityAppearance,
 } from "@/lib/identity-appearance";
-export function useIdentityAppearance(scope: string) {
+export function useIdentityAppearance(scope: string): IdentityAppearance | null {
   const subscribe = useCallback((listener: () => void) => {
     window.addEventListener("storage", listener);
     window.addEventListener(IDENTITY_EVENT, listener);
@@ -34,7 +34,7 @@ export function useIdentityAppearance(scope: string) {
     try {
       return parseAppearance(JSON.parse(raw));
     } catch {
-      return DEFAULT_APPEARANCE;
+      return null;
     }
   }, [raw]);
 }
@@ -102,11 +102,11 @@ export function SavedIdentityMark({
   fallback?: React.ReactNode;
 }) {
   const appearance = useIdentityAppearance(scope);
-  return appearance.kind === "default" && fallback ? (
+  return !appearance && fallback ? (
     <>{fallback}</>
   ) : (
     <IdentityMark
-      appearance={appearance}
+      appearance={appearance ?? DEFAULT_APPEARANCE}
       name={name}
       business={business}
       size={size}
