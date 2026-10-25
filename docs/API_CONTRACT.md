@@ -9669,6 +9669,13 @@ person starts their space, every route below except POST `/space` answers 404
   role does not mean clear the grant header. Creation does not change the default. No accounts, receipts, aliases, image,
   fiscal setup or documents are copied or provisioned. Actor locking serializes
   this operation with legacy bootstrap. No read or sign-in creates a Business.
+  Creation accepts no appearance field and starts with default appearance. An
+  optional avatar is saved by profile PATCH after creation; an optional image
+  requires asset upload followed by profile PATCH against the returned ID. Keep
+  the original creation key stable, with separate upload/save keys. If appearance
+  fails, report that the Business exists but its appearance is pending or failed;
+  retry appearance on that same Business, never create another Business to retry.
+  Only name, country and creator Owner creation are atomic in the create command.
 - GET/PATCH `/api/v1/business/spaces/{space_id}/profile` use a stable Business ID.
   Every request checks current membership; reads need `read`, saves need `manage`
   (Owner/Admin). If `X-Business-Grant` is supplied, it must name the same Business.
