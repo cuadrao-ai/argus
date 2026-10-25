@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useContext, useEffect, useId, useState } from "react";
+import { type FormEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -22,13 +22,15 @@ function digitsOf(raw: string): string {
 }
 
 type Field = "name" | "number";
+export type FiscalProfileDraft = {name:string;kind:TaxIdType;value:string};
 /** A refusal the server explains; retrying the same values cannot help. */
 type Problem = { text: string; retry: boolean };
 
-export default function BusinessFiscalProfile({ draftId, renderTaxIdControl }: { draftId?: string; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
+export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange }: { draftId?: string; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
   const { t, i18n } = useTranslation();
   const workspace = useContext(BusinessContext);
   const base = useId();
+  const restoredDraft = useRef(initialDraft);
   const [profile, setProfile] = useState<FiscalProfile | null>(null);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<TaxIdType>("rnc");
@@ -47,9 +49,10 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl }: {
       .then((next) => {
         if (!live) return;
         setProfile(next);
-        setName(next.name);
-        setKind(next.tax_id?.type ?? "rnc");
-        setValue(next.tax_id?.value ?? "");
+        setName(restoredDraft.current?.name ?? next.name);
+        setKind(restoredDraft.current?.kind ?? next.tax_id?.type ?? "rnc");
+        setValue(restoredDraft.current?.value ?? next.tax_id?.value ?? "");
+        restoredDraft.current = null;
       })
       .catch(() => {
         if (live) setLoadFailed(true);
@@ -114,6 +117,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl }: {
     name.trim() === profile.name &&
     (value.trim() ? digitsOf(value) : "") === (profile.tax_id?.value ?? "") &&
     (value.trim() ? kind : profile.tax_id?.type ?? kind) === (profile.tax_id?.type ?? kind);
+  useEffect(() => { if(profile)onDraftChange?.({name,kind,value}); }, [profile,name,kind,value,onDraftChange]);
+  useEffect(() => { onDirtyChange?.(profile !== null && !unchanged); }, [profile, unchanged, onDirtyChange]);
   const ids: Record<Field, string> = { name: `${base}-name`, number: `${base}-number` };
   const labels: Record<Field, string> = {
     name: t("business.dgii.business_name", "Business name"),

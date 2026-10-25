@@ -1,18 +1,19 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Check } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Check, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, useBusiness } from "@/components/business-app/BusinessWorkspace";
-import BusinessFiscalProfile from "@/components/business-app/BusinessFiscalProfile";
+import BusinessFiscalProfile, {type FiscalProfileDraft} from "@/components/business-app/BusinessFiscalProfile";
 import ReceiptReadingControl from "@/components/business-app/ReceiptReadingControl";
 import { SURFACE_CARD } from "@/components/business-app/foundation/surfaces";
 import { BusinessMark } from "@/components/business-app/BusinessSwitcher";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import AccessRolePicker from "./AccessRolePicker";
-import { secondaryButtonClass } from "@/components/business-app/business-ui";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
-import { readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, type ProfileChecklistKey } from "./businessProfilePreviewState";
+import { readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 
@@ -20,8 +21,16 @@ const changedEvent = "workspace-preview-profile-changed";
 const emptyStorage = {getItem:()=>null,setItem:()=>{}};
 // eslint-disable-next-line no-restricted-syntax -- The development-only profile reuses the business-scoped guide store.
 const storage = () => typeof window === "undefined" ? emptyStorage : window.localStorage;
+type ProfileSection = "identity" | "contact" | "presence" | "invoicing";
+type Selection = {section:ProfileSection|null;trigger?:HTMLElement};
+const checklistSection: Record<ProfileChecklistKey,ProfileSection> = {name:"identity",taxId:"identity",legalName:"identity",country:"identity",address:"contact",email:"contact",phone:"contact",website:"presence",description:"presence"};
 
 export default function BusinessProfilePreview() {
+  const {chosen} = useBusiness();
+  return <BusinessProfileContent key={chosen?.space_id ?? ""} />;
+}
+
+function BusinessProfileContent() {
   const workspace = useBusiness();
   const {chosen,records,renamePreviewBusiness} = workspace;
   const {t} = useTranslation();
@@ -30,8 +39,14 @@ export default function BusinessProfilePreview() {
   const name = chosen?.name ?? "";
   const country = records.workspace?.country;
   const canEdit = chosen?.role === "owner";
-  const [invoicing,setInvoicing] = useState(false);
-  const form = useRef<HTMLDivElement>(null);
+  const [selected,setSelected] = useState<ProfileSection|null>(null);
+  const [fiscalDraft,setFiscalDraft] = useState<FiscalProfileDraft|null>(null);
+  const [providedDraft,setProvidedDraft] = useState<BusinessProvidedDetails|null>(null);
+  const [dirty,setDirty] = useState(false);
+  const [pending,setPending] = useState<Selection|null>(null);
+  const opener = useRef<HTMLElement|null>(null);
+  const dossierTitle = useRef<HTMLHeadingElement>(null);
+  const refresh = useCallback(()=>window.dispatchEvent(new Event(changedEvent)),[]);
   const subscribe = useCallback((listener:()=>void) => {
     window.addEventListener("storage",listener);window.addEventListener(changedEvent,listener);
     return ()=>{window.removeEventListener("storage",listener);window.removeEventListener(changedEvent,listener);};
@@ -47,52 +62,72 @@ export default function BusinessProfilePreview() {
       if(!canEdit) throw new Error("permission_denied");
       saveBusinessProfilePreview(storage(),businessId,input);
       renamePreviewBusiness?.(input.name);
-      window.dispatchEvent(new Event(changedEvent));
+      refresh();
       return {name:input.name,tax_id:input.tax_id,can_edit:canEdit};
     },
-  }),[workspace.source,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness]);
+  }),[workspace.source,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh]);
   const formContext = useMemo(()=>({...workspace,source:localSource,reload:()=>{}}),[workspace,localSource]);
   const countryLabel = profile.country ? t(`workspace_setup_preview.country_${profile.country.toLowerCase()}`,{defaultValue:profile.country}) : null;
   const labels: Record<ProfileChecklistKey,string> = {
     name:t("workspace_setup_preview.business_name"),taxId:t("business.dgii.tax_id_type"),legalName:t("workspace_setup_preview.legal_name"),country:t("workspace_setup_preview.operating_country"),address:t("business.settings.profile_address"),email:t("business.settings.profile_email"),phone:t("business.settings.profile_phone"),website:t("business.settings.profile_website"),description:t("business.settings.profile_description"),
   };
-  const focusField = (key:ProfileChecklistKey)=>{
-    const selector = key === "name" ? '[name="business-name"]' : key === "taxId" ? '[name="tax-id-value"]' : key === "legalName" ? '[data-profile-legal]' : key === "country" ? '[data-profile-country]' : `[name="profile-${key}"]`;
-    form.current?.querySelector<HTMLElement>(selector)?.focus();
+  const details = profile.providedDetails;
+  const sections: {key:ProfileSection;title:string;summary:string}[] = [
+    {key:"identity",title:t("business.settings.profile_identity_title"),summary:[profile.taxId ? `${t(`business.dgii.tax_id_${profile.taxId.type}`)} ${profile.taxId.value}` : t("business.settings.profile_identity_empty"),profile.legalName].filter(Boolean).join(" · ")},
+    {key:"contact",title:t("business.settings.profile_contact_title"),summary:[details.address,details.email || details.phone].filter(Boolean).join(" · ") || t("business.settings.profile_contact_empty")},
+    {key:"presence",title:t("business.settings.profile_presence_title"),summary:[details.description,details.website].filter(Boolean).join(" · ") || t("business.settings.profile_presence_empty")},
+    {key:"invoicing",title:t("workspace_setup_preview.invoice_title"),summary:t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)},
+  ];
+  const applySelection = ({section,trigger}:Selection)=>{
+    if(trigger) opener.current = trigger;
+    setFiscalDraft(null);setProvidedDraft(null);setDirty(false);setSelected(section);setPending(null);
+    refresh();
+    if(section === null) requestAnimationFrame(()=>{
+      const checklistKey = opener.current?.dataset.profileChecklist;
+      const target = checklistKey ? document.querySelector<HTMLElement>(`[data-profile-checklist="${checklistKey}"]`) : opener.current;
+      target?.focus();
+    });
   };
-  const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" disabled={!canEdit || (item.key === "country" && !profile.country)} onClick={()=>focusField(item.key)} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
+  const select = (next:Selection)=>{
+    if(next.section === selected)return;
+    if(dirty)setPending(next);else applySelection(next);
+  };
+  useEffect(()=>{if(selected && !isBelowDesktop)dossierTitle.current?.focus();},[selected,isBelowDesktop]);
+  const close = ()=>select({section:null});
+  const selectedTitle = sections.find(section=>section.key === selected)?.title ?? "";
+  const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
     <span aria-hidden="true" style={item.complete ? undefined : {borderColor:"currentColor",opacity:0.35}} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : "border border-black/25 dark:border-white/35"}`}>{item.complete ? <Check className="h-3 w-3"/> : null}</span>
     <span style={item.complete ? {textDecoration:"line-through"} : undefined} className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}<span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span></span>
   </button></li>)}</ul>;
+  const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
+    {selected === "identity" ? <>
+      <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
+      <dl className="mt-5 space-y-5 text-[16px]">
+        <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>
+        {countryLabel ? <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.operating_country")}</dt><dd>{countryLabel}</dd></div> : null}
+      </dl>
+    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={next=>{const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
+  </div>;
   return <>
-    <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
+    <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}.profile-dossier{position:sticky;top:24px;max-height:calc(100dvh - 48px);overflow-y:auto}.profile-dossier-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.profile-dossier-close{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;border-radius:50%}.profile-dossier-close:hover{background:rgba(0,0,0,.05)}.dark .profile-dossier-close:hover{background:rgba(255,255,255,.05)}[data-profile-dossier-content] iframe{max-width:100%}`}</style>
+    <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr) minmax(22rem,1.1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
       <div className="min-w-0 space-y-6">
-        <section ref={form} className={SURFACE_CARD}>
-          <div className="flex items-center gap-3">
-            <BusinessMark />
-            <h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>
-          </div>
-          <div data-profile-identity><style>{"[data-profile-identity] form{max-width:none}"}</style><BusinessContext.Provider value={formContext}><BusinessFiscalProfile renderTaxIdControl={props=><div><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} /></div>} /></BusinessContext.Provider></div>
-          {countryLabel ? <dl data-profile-country tabIndex={-1} className="mt-5 text-[16px]"><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.operating_country")}</dt><dd>{countryLabel}</dd></dl> : null}
-          <dl data-profile-legal tabIndex={-1} className="mt-5 text-[16px]"><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></dl>
-          <BusinessProfileDetails key={businessId} saved={profile.providedDetails} canEdit={canEdit} onSave={details=>{const next=saveBusinessProvidedDetails(storage(),businessId,details);window.dispatchEvent(new Event(changedEvent));return next;}} />
-          <div className="mt-6 border-t border-black/10 pt-6 dark:border-white/10">
-            <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="text-[16px] font-medium">{t("workspace_setup_preview.invoice_title")}</h3><span className="text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.optional")}</span></div>
-            <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)}</p>
-            {canEdit ? <button type="button" onClick={()=>setInvoicing(true)} className={`${secondaryButtonClass} mt-4`}>{t(profile.invoice.action === "configure" ? "business.settings.profile_invoice_configure" : `workspace_setup_preview.invoice_${profile.invoice.action}`)}</button> : null}
-          </div>
+        <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
+          <div className="mb-5 flex items-center gap-3"><BusinessMark /><div className="min-w-0"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}</div></div>
+          <div className="divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} type="button" className="profile-section-row focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
+            <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/70" />
+          </button>)}</div>
         </section>
         <div className={SURFACE_CARD}><ReceiptReadingControl variant="row" /></div>
       </div>
-      <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
-        <div className="rounded-item bg-black/5 p-4 dark:bg-white/5">
-          <h2 id="profile-next-title" className="font-display text-[21px] font-medium">{t("business.settings.profile_finish")}</h2>
-          <p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>
-          {checklistRows("basic")}
-        </div>
+      {selected && !isBelowDesktop ? <aside id="profile-section-dossier" role="region" aria-labelledby="profile-section-title" className={`${SURFACE_CARD} profile-dossier`} onKeyDown={event=>{if(event.key === "Escape" && !event.defaultPrevented){event.preventDefault();close();}}}>
+        <div className="profile-dossier-header"><h2 id="profile-section-title" ref={dossierTitle} tabIndex={-1} className="font-display text-[21px] font-medium">{selectedTitle}</h2><button type="button" aria-label={t("common.close")} onClick={close} className="profile-dossier-close focus-visible:outline-2"><X className="h-5 w-5" aria-hidden="true" /></button></div>{dossier}
+      </aside> : !selected ? <aside className="rounded-surface border border-[#DCE0DA] bg-[#FFFEFA] p-2 dark:border-white/10 dark:bg-[#1f2225]" aria-labelledby="profile-next-title">
+        <div className="rounded-item bg-black/5 p-4 dark:bg-white/5"><h2 id="profile-next-title" className="font-display text-[21px] font-medium">{t("business.settings.profile_finish")}</h2><p className="mt-2 text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.settings.profile_finish_detail")}</p>{checklistRows("basic")}</div>
         <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</div>
-      </aside>
+      </aside> : null}
     </div>
-    {invoicing ? <WorkspaceSetupPreview profileInvoicing onClose={()=>{setInvoicing(false);window.dispatchEvent(new Event(changedEvent));}} /> : null}
+    {selected && isBelowDesktop ? <AdaptivePanel title={selectedTitle} onClose={close} onBack={close} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier">{dossier}</div></AdaptivePanel> : null}
+    <ConfirmDialog isOpen={pending !== null} title={t("business.settings.profile_discard_title")} description={t("business.settings.profile_discard_detail")} confirmLabel={t("business.settings.profile_discard")} cancelLabel={t("business.settings.profile_keep_editing")} onCancel={()=>setPending(null)} onConfirm={()=>{if(pending)applySelection(pending);}} />
   </>;
 }
