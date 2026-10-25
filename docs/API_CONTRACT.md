@@ -9718,7 +9718,11 @@ person starts their space, every route below except POST `/space` answers 404
   does not change saved appearance. A later profile PATCH references that asset ID
   and crop; another Business's asset returns `404 business_image_not_found`.
   Saved image responses include `image: {asset_id, width, height, source_url,
-  rendered_url}`. These signed URLs last about an hour and are response-only; clients
+  rendered_url}`. `source_url` is nullable: it is signed only when the actor has
+  current canonical `download` permission for this Business. Viewer receives null
+  and no source signature is minted; the rendered avatar, dimensions and crop remain
+  visible. Owner/Admin/Editor retain source access. These signed URLs last about an
+  hour and are response-only; clients
   never send durable data URLs, paths or signed URLs. Source and 512px render objects
   use separate immutable keys derived from source bytes and the versioned crop
   recipe, each at most the existing bucket's 1 MiB limit. Stale or unauthorized

@@ -6,7 +6,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
-from argus.api.business import BusinessPerson, require_business_person
+from argus.api.business import BusinessPerson, chosen_scope, require_business_person
+from argus.api.business_spaces import business_access
 from argus.api.dependencies import problem
 from argus.api.documents import NO_STORE
 from argus.api.profile_images import (
@@ -44,7 +45,7 @@ class WorkspaceImageLinks(BaseModel):
     asset_id: str
     width: int
     height: int
-    source_url: str
+    source_url: str | None = None
     rendered_url: str | None = None
 
 
@@ -53,12 +54,17 @@ class BusinessProfile(WorkspaceSnapshot):
 
 
 def _links(
-    request: Request, asset: WorkspaceAsset, appearance: ImageAppearance | None = None
+    request: Request,
+    asset: WorkspaceAsset,
+    appearance: ImageAppearance | None = None,
+    *,
+    include_source: bool = True,
 ) -> WorkspaceImageLinks:
     images = require_profile_images(request)
-    paths = [asset.source_path]
-    if appearance is not None:
-        paths.append(asset.render_path(appearance.crop))
+    paths = [asset.source_path] if include_source else []
+    render_path = asset.render_path(appearance.crop) if appearance is not None else None
+    if render_path is not None:
+        paths.append(render_path)
     urls = images.objects.signed_urls(paths, 3600)
     if any(not urls.get(path) for path in paths):
         raise ProfileImageStorageUnavailable("image_url_unavailable")
@@ -66,8 +72,8 @@ def _links(
         asset_id=asset.id,
         width=asset.width,
         height=asset.height,
-        source_url=urls[paths[0]],
-        rendered_url=urls[paths[1]] if len(paths) > 1 else None,
+        source_url=urls.get(asset.source_path),
+        rendered_url=urls.get(render_path) if render_path is not None else None,
     )
 
 
@@ -79,7 +85,29 @@ def profile_response(
         asset = person.spaces.workspace_asset(
             person.person_id, snapshot.space_id, snapshot.appearance.asset_id
         )
-        image = _links(request, asset, snapshot.appearance)
+        selected = chosen_scope(request, person.person_id)
+        if selected is not None:
+            permissions = selected.permissions
+        else:
+            access = business_access()
+            grant = (
+                next(
+                    (
+                        entry
+                        for entry in access.spaces_for(person.person_id)
+                        if entry.space_id == snapshot.space_id
+                    ),
+                    None,
+                )
+                if access is not None
+                else None
+            )
+            if grant is None:
+                raise WorkspaceError("business_record_not_found")
+            permissions = grant.permissions
+        image = _links(
+            request, asset, snapshot.appearance, include_source="download" in permissions
+        )
     return BusinessProfile(**snapshot.model_dump(), image=image)
 
 

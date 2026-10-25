@@ -457,3 +457,106 @@ def test_same_creator_additional_business_starts_empty_on_existing_api(web):
     reread = web.client.get(path, headers=fresh_headers)
     assert reread.status_code == 200, reread.text
     assert reread.json() == saved.json()
+
+
+@pytest.mark.skipif(
+    not os.getenv("ARGUS_LOCAL_SUPABASE_URL"), reason="Local Auth and Storage required"
+)
+def test_profile_image_source_tracks_live_download_permission(web, pool, monkeypatch):
+    import logging
+    from io import BytesIO
+    from urllib.parse import urlsplit
+
+    import httpx
+    from argus.api.profile_images import profile_images
+    from argus.domain.business.roles import BusinessRole
+    from PIL import Image
+
+    monkeypatch.setattr(logging.getLogger("httpx"), "disabled", True)
+    owner = web.alice
+    path = f"/api/v1/business/spaces/{owner.space_id}/profile"
+    content = BytesIO()
+    Image.new("RGB", (180, 90), "green").save(content, format="PNG")
+    objects = profile_images().objects
+    signed_source = []
+    original_sign = objects.signed_urls
+
+    def sign(paths, expires_in):
+        signed_source.append(any(path.endswith("-source.webp") for path in paths))
+        return original_sign(paths, expires_in)
+
+    def fetch_size(url):
+        location = urlsplit(url)
+        assert location.hostname in ("localhost", "127.0.0.1")
+        response = httpx.get(url)
+        assert response.status_code == 200
+        return Image.open(BytesIO(response.content)).size
+
+    try:
+        upload = web.client.post(
+            f"/api/v1/business/spaces/{owner.space_id}/appearance/assets",
+            headers={
+                **owner.headers,
+                "Idempotency-Key": "upload",
+                "Content-Type": "image/png",
+            },
+            content=content.getvalue(),
+        )
+        assert upload.status_code == 200
+        saved = web.client.patch(
+            path,
+            headers={**owner.headers, "Idempotency-Key": "save"},
+            json={
+                "expected_revision": 0,
+                "appearance": {
+                    "kind": "image",
+                    "asset_id": upload.json()["asset_id"],
+                    "crop": {"mode": "fill", "zoom": 2},
+                },
+            },
+        )
+        assert saved.status_code == 200
+        monkeypatch.setattr(objects, "signed_urls", sign)
+        headers = {**web.bob.headers, "X-Business-Grant": web.grant_a}
+        editor = web.client.get(path, headers=headers)
+        assert editor.status_code == 200
+        assert fetch_size(editor.json()["image"]["source_url"]) == (180, 90)
+        assert signed_source == [True]
+        access = PostgresAccessStore(pool)
+        access.change_role(owner.space_id, owner.id, web.grant_a, BusinessRole.VIEWER)
+        storage_url = os.environ["ARGUS_LOCAL_SUPABASE_URL"] + "/storage/v1/object"
+        assert urlsplit(storage_url).hostname in ("localhost", "127.0.0.1")
+        source_path = urlsplit(upload.json()["source_url"]).path.split(
+            "/profile-images/", 1
+        )[1]
+        storage_headers = {
+            "apikey": os.environ["ARGUS_LOCAL_SUPABASE_ANON_KEY"],
+            "Authorization": web.bob.headers["Authorization"],
+        }
+        direct = httpx.get(
+            storage_url + "/authenticated/profile-images/" + source_path,
+            headers=storage_headers,
+        )
+        assert direct.status_code in (400, 401, 403, 404)
+        signature = httpx.post(
+            storage_url + "/sign/profile-images/" + source_path,
+            headers=storage_headers,
+            json={"expiresIn": 60},
+        )
+        assert signature.status_code in (400, 401, 403, 404)
+        for request_headers in (headers, web.bob.headers):
+            signed_source.clear()
+            viewer = web.client.get(path, headers=request_headers)
+            assert viewer.status_code == 200
+            image = viewer.json()["image"]
+            source_available = bool(image.get("source_url"))
+            assert source_available is False
+            assert signed_source == [False]
+            assert fetch_size(image["rendered_url"]) == (512, 512)
+            assert (image["width"], image["height"]) == (180, 90)
+            assert viewer.json()["appearance"] == saved.json()["appearance"]
+        access.revoke_grant(owner.space_id, owner.id, web.grant_a)
+        refused = web.client.get(path, headers=headers)
+        assert refused.status_code == 403
+    finally:
+        objects.remove_identity(owner.space_id)

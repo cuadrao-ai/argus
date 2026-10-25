@@ -197,3 +197,69 @@ def test_appearance_storage_failure_keeps_saved_revision(biz, monkeypatch):
     current = biz.get(BASE + f"/spaces/{first['id']}/profile", headers=AUTH).json()
     assert current["revision"] == 0
     assert current["appearance"] == {"kind": "default"}
+
+
+@pytest.mark.parametrize("role", list(BusinessRole))
+def test_profile_image_source_requires_download_permission(
+    biz, identities, role, monkeypatch
+):
+    from urllib.parse import urlsplit
+
+    from argus.api.profile_images import profile_images
+    from argus.domain.business.roles import ROLE_PERMISSIONS
+
+    first = biz.post(BASE + "/space", headers=AUTH, json={"name": "Colmado"}).json()
+    content = BytesIO()
+    Image.new("RGB", (180, 90), "red").save(content, format="PNG")
+    uploaded = biz.post(
+        BASE + f"/spaces/{first['id']}/appearance/assets",
+        headers={**AUTH, "Idempotency-Key": "upload", "Content-Type": "image/png"},
+        content=content.getvalue(),
+    )
+    assert uploaded.status_code == 200
+    path = BASE + f"/spaces/{first['id']}/profile"
+    saved = biz.patch(
+        path,
+        headers={**AUTH, "Idempotency-Key": "save"},
+        json={
+            "expected_revision": 0,
+            "appearance": {
+                "kind": "image",
+                "asset_id": uploaded.json()["asset_id"],
+                "crop": {"mode": "fill", "zoom": 2},
+            },
+        },
+    )
+    assert saved.status_code == 200
+    access = business_access()
+    actor, other = identities[ALICE]["id"], identities[BOB]["id"]
+    access.confirm(other, "other@example.test")
+    _, listing = access.give(first["id"], actor, "other@example.test", role)
+    access.accept_invite(other, first["id"], listing.invites[0].id)
+    headers = {
+        "Authorization": f"Bearer {BOB}",
+        "X-Business-Grant": access.spaces_for(other)[0].grant_id,
+    }
+    objects = profile_images().objects
+    signed_paths = []
+    original_sign = objects.signed_urls
+
+    def sign(paths, expires_in):
+        signed_paths.extend(paths)
+        return original_sign(paths, expires_in)
+
+    monkeypatch.setattr(objects, "signed_urls", sign)
+    response = biz.get(path, headers=headers)
+    assert response.status_code == 200
+    image = response.json()["image"]
+    objects = profile_images().objects
+    rendered = objects.read(urlsplit(image["rendered_url"]).path.lstrip("/"))
+    assert Image.open(BytesIO(rendered)).size == (512, 512)
+    source_available = bool(image.get("source_url"))
+    if source_available:
+        source = objects.read(urlsplit(image["source_url"]).path.lstrip("/"))
+        assert Image.open(BytesIO(source)).size == (180, 90)
+    can_download = "download" in ROLE_PERMISSIONS[role]
+    assert source_available == can_download
+    source_signed = any(path.endswith("-source.webp") for path in signed_paths)
+    assert source_signed == can_download

@@ -31494,7 +31494,9 @@ components:
         height:
           type: integer
         source_url:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
         rendered_url:
           anyOf:
           - type: string
@@ -31504,7 +31506,6 @@ components:
       - asset_id
       - width
       - height
-      - source_url
     argus__api__routers__financial_connections_gmail__SyncResponse:
       properties:
         connection:
