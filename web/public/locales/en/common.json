@@ -2398,7 +2398,17 @@
       "form_summary_only": "Summary only"
     },
     "transactions": {
-      "title": "Transactions",
+      "layout": {
+        "all_types": "All types",
+        "clear": "Clear filters",
+        "count_one": "{{count}} record",
+        "count_other": "{{count}} records",
+        "no_results": "No records match these filters",
+        "period_summary": "Period summary · {{period}}",
+        "search": "Search records…",
+        "type": "Type"
+      },
+      "title": "Records",
       "coverage": "Bank up to date through {{day}}.",
       "run": "Match suggestions",
       "run_short": "Match",
@@ -2792,7 +2802,7 @@
       "label": "Business",
       "overview": "Home",
       "inbox": "Inbox",
-      "transactions": "Transactions",
+      "transactions": "Records",
       "business": "Business"
     },
     "lifecycle": {

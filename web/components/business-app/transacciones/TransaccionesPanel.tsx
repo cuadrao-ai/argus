@@ -18,7 +18,8 @@ import { DENSITIES, DENSITY_ROW_PX, setTableDensity, useTableDensity, type Densi
 import { headerCurrency, inHeaderOrder, perCurrency, SEGMENTS, suggestionRun, tableCounts, type CurrencyTotals, type IgualarView, type Money, type OtherCurrency, type RecordsTotals } from "./transacciones-model";
 import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
-import { RecordsList, RecordsTable } from "./TransaccionesRecords";
+import { recordRowKey, RecordsList, RecordsTable } from "./TransaccionesRecords";
+import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
 import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
@@ -67,6 +68,9 @@ export default function TransaccionesPanel() {
   const porIgualar = counts?.porIgualar ?? null;
   const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
+  const [filter, setFilter] = useState<RecordsFilter>(EMPTY_RECORDS_FILTER);
+  const query = filter.query.trim().toLocaleLowerCase(locale);
+  const visibleRecords = saved?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query))) ?? null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
   const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
@@ -76,7 +80,8 @@ export default function TransaccionesPanel() {
     if (!cameFrom) focusedFor.current = null;
     if (!cameFrom || !saved || focusedFor.current === cameFrom) return;
     focusedFor.current = cameFrom;
-    (rowNodes.current.get(cameFrom) ?? screen.current)?.focus();
+    const restored = saved.find((row) => row.opens?.kind === "expense" && row.opens.expenseId === cameFrom);
+    (restored ? rowNodes.current.get(recordRowKey(restored)) : screen.current)?.focus();
   }, [cameFrom, saved]);
   const add = actions.create.find((action) => action.id === "upload_receipt");
 
@@ -91,34 +96,33 @@ export default function TransaccionesPanel() {
   return (
     <PullToRefresh onRefresh={controller.refresh}>
       <section ref={screen} tabIndex={-1} data-testid="transacciones" className="pb-6 outline-none">
-        {phone ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
         <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <h2 className="font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{t("business.transactions.title")}</h2>
-            <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p>
+            {igualar ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/65">{subtitle}</p> : null}
           </div>
-          {phone ? null : <div className="flex flex-wrap items-center gap-3">{run}<BusinessAddMenu placement="header" /></div>}
+          <div className="flex flex-wrap items-center gap-3">{phone ? null : run}<BusinessAddMenu placement="header" /></div>
         </div>
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          {igualar ? (
-            <SegmentedControl
-              testId="transacciones-segments"
-              label={t("business.transactions.segments.label")}
-              fill={phone}
-              value={segment}
-              onChange={controller.choose}
-              segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
-            />
-          ) : null}
+        {igualar ? <div className="mb-4 flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            testId="transacciones-segments"
+            label={t("business.transactions.segments.label")}
+            fill={phone}
+            value={segment}
+            onChange={controller.choose}
+            segments={SEGMENTS.map((key) => ({ key, label: t(`business.transactions.segments.${key}`), count: key === "por_igualar" ? porIgualar : null }))}
+          />
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
-        </div>
+        </div> : null}
+        {!igualar ? <RecordsToolbar filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <DensityMenu state={densityState} />} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
             <MonthCurrencyMenu currencies={controller.currencyMenu.choices} value={controller.currencyMenu.value} businessCurrency={controller.businessCurrency} onChoose={controller.chooseCurrency} note={<OtherCurrencies others={bank?.otherCurrencies ?? []} onChoose={controller.chooseCurrency} />} />
           </div>
         ) : null}
+        {!igualar ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
           : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
@@ -135,7 +139,9 @@ export default function TransaccionesPanel() {
                 ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
                 : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
             </div>
-          ) : phone ? <RecordsList records={saved} rowRef={rowRef} /> : <RecordsTable records={saved} density={density} rowRef={rowRef} />
+          ) : visibleRecords?.length === 0 ? (
+            <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} action={{ label: t("business.transactions.layout.clear"), run: () => setFilter(EMPTY_RECORDS_FILTER) }} /></div>
+          ) : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
         ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (
           <div className={cardClass}>
             <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
@@ -154,6 +160,7 @@ export default function TransaccionesPanel() {
             <LoadMore controller={controller} view={bank} />
           </>
         )}
+        {saved ? <p data-testid="records-count" aria-live="polite" className="mt-4 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.count", { count: visibleRecords?.length ?? 0 })}</p> : null}
         {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
       </section>
     </PullToRefresh>
@@ -211,9 +218,9 @@ function RecordsSummary({ totals, header, locale, loading }: { totals: RecordsTo
   const { t } = useTransaccionesWords();
   const cells = { entradas: <Unknown />, salidas: <MoneyList totals={totals ? inHeaderOrder(totals.salidas, header) : null} header={header} locale={locale} /> };
   return (
-    <dl data-testid="transacciones-summary" data-mode="records" className="mb-4 grid grid-cols-2 overflow-hidden rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
-      {(["entradas", "salidas"] as const).map((key, index) => (
-        <div key={key} data-total={key} className={`min-w-0 border-[#DCE0DA] px-4 py-3 dark:border-white/10 ${index ? "border-l" : ""}`}>
+    <dl data-testid="transacciones-summary" data-mode="records" className="mb-4 grid grid-cols-2 gap-4 border-y border-[#DCE0DA] py-3 tablet:flex tablet:gap-12 dark:border-white/10">
+      {(["entradas", "salidas"] as const).map((key) => (
+        <div key={key} data-total={key} className="min-w-0 tablet:min-w-40">
           <dt className="text-[13px] text-[#56635e] dark:text-white/65">{t(`business.transactions.totals.${key}`)}</dt>
           <dd className="mt-1 text-[17px] font-medium text-[#172b26] dark:text-white">
             {loading ? <span aria-hidden="true" className="block h-5 w-28 animate-pulse rounded-mark bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.08]" /> : cells[key]}

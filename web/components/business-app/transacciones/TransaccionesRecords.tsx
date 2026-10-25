@@ -15,6 +15,7 @@ import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
+export const recordRowKey = (row: RecordRow) => `${row.kind}:${row.id}`;
 
 /** The proof column for a saved record: the receipt icon when a file backs it, a dash that says "no receipt" when none does, a dash that says "no data" when no read says. An empty cell is a question. */
 function Proof({ row }: { row: RecordRow }) {
@@ -41,16 +42,16 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
   const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const tabStop = focusedId && rows.some((row) => row.id === focusedId) ? focusedId : rows[0]?.id;
+  const tabStop = focusedId && rows.some((row) => recordRowKey(row) === focusedId) ? focusedId : rows[0] ? recordRowKey(rows[0]) : undefined;
 
   const onKeyDown = (event: KeyboardEvent<HTMLTableElement>) => {
-    const id = (event.target as HTMLElement).closest<HTMLTableRowElement>("tr[data-record-id]")?.dataset.recordId;
-    const index = rows.findIndex((row) => row.id === id);
+    const id = (event.target as HTMLElement).closest<HTMLTableRowElement>("tr[data-record-id]")?.dataset.recordKey;
+    const index = rows.findIndex((row) => recordRowKey(row) === id);
     if (index < 0) return;
     const move = (to: number) => {
       const target = rows[Math.max(0, Math.min(rows.length - 1, to))];
-      setFocusedId(target.id);
-      (event.currentTarget.querySelector(`tr[data-record-id="${CSS.escape(target.id)}"]`) as HTMLElement | null)?.focus();
+      setFocusedId(recordRowKey(target));
+      (event.currentTarget.querySelector(`tr[data-record-key="${CSS.escape(recordRowKey(target))}"]`) as HTMLElement | null)?.focus();
     };
     if (event.key === "ArrowDown") move(index + 1);
     else if (event.key === "ArrowUp") move(index - 1);
@@ -87,14 +88,14 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
             const open = opens ? isOpenRecord(panel, opens) : false;
             return (
               <tr
-                key={row.id}
-                ref={(node) => rowRef(row.id, node)}
-                data-record-id={row.id}
+                key={recordRowKey(row)}
+                ref={(node) => rowRef(recordRowKey(row), node)}
+                data-record-id={row.id} data-record-key={recordRowKey(row)}
                 data-kind={row.kind}
                 aria-selected={open}
-                tabIndex={row.id === tabStop ? 0 : -1}
+                tabIndex={recordRowKey(row) === tabStop ? 0 : -1}
                 style={{ height: DENSITY_ROW_PX[density] }}
-                onFocus={(event) => { if (event.target === event.currentTarget) setFocusedId(row.id); }}
+                onFocus={(event) => { if (event.target === event.currentTarget) setFocusedId(recordRowKey(row)); }}
                 onClick={opens ? () => openPanel(opens) : undefined}
                 className={`group outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)] ${opens ? "cursor-pointer" : ""}`}
               >
@@ -139,9 +140,9 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
         );
         const rowClass = "flex min-h-16 w-full min-w-0 items-center gap-3 py-2.5 pl-4 pr-3 text-left";
         return (
-          <li key={row.id} data-record-id={row.id} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className="border-b border-[#DCE0DA] last:border-b-0 aria-[current=true]:bg-[#eef3ec] dark:border-white/10 dark:aria-[current=true]:bg-[#24302b]">
+          <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className="border-b border-[#DCE0DA] last:border-b-0 aria-[current=true]:bg-[#eef3ec] dark:border-white/10 dark:aria-[current=true]:bg-[#24302b]">
             {opens ? (
-              <button ref={(node) => rowRef(row.id, node)} type="button" onClick={() => openPanel(opens)} className={`${rowClass} rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]`}>
+              <button ref={(node) => rowRef(recordRowKey(row), node)} type="button" onClick={() => openPanel(opens)} className={`${rowClass} rounded-item focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--cuadrao-green)]`}>
                 {body}
                 <ChevronRight className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/50" aria-hidden="true" />
               </button>

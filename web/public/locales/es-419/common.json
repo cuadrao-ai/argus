@@ -2398,7 +2398,17 @@
       "form_summary_only": "Solo resumen"
     },
     "transactions": {
-      "title": "Transacciones",
+      "layout": {
+        "all_types": "Todos los tipos",
+        "clear": "Limpiar filtros",
+        "count_one": "{{count}} registro",
+        "count_other": "{{count}} registros",
+        "no_results": "No hay registros con estos filtros",
+        "period_summary": "Resumen del período · {{period}}",
+        "search": "Buscar en registros…",
+        "type": "Tipo"
+      },
+      "title": "Registros",
       "coverage": "Banco al día hasta el {{day}}.",
       "run": "Igualar sugerencias",
       "run_short": "Igualar",
@@ -3030,7 +3040,7 @@
       "inbox": "Bandeja",
       "label": "Negocio",
       "overview": "Inicio",
-      "transactions": "Transacciones",
+      "transactions": "Registros",
       "business": "Negocio"
     },
     "lifecycle": {

@@ -171,10 +171,10 @@ describe("the gate", () => {
   test("with igualar off, the third screen is still Transacciones: the period's saved gastos and ventas, no igualar parts, Entradas unknown", async () => {
     const page = await mount({ enabled: false });
     const rail = page.host.querySelector('[data-testid="business-sidebar-nav"]')!;
-    assert.ok([...rail.querySelectorAll("button")].some((button) => button.textContent?.includes("Transacciones")), "the rail names Transacciones");
+    assert.ok([...rail.querySelectorAll("button")].some((button) => button.textContent?.includes("Registros")), "the rail names Registros");
     assert.ok(!rail.textContent?.includes("Gastos"));
     await page.settle(() => page.records().length > 0, "the saved records");
-    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Transacciones");
+    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Registros");
     await page.settle(() => page.records().some((node) => node.dataset.kind === "venta"), "the ventas");
     assert.deepEqual([...new Set(page.records().map((node) => node.dataset.kind))].sort(), ["gasto", "venta"], "the ventas come from the expenses read with kind=income");
     for (const absent of ["transacciones-segments", "transacciones-run", "transacciones-grid"]) assert.equal(document.querySelector(`[data-testid="${absent}"]`), null, `${absent} stays behind the flag`);
@@ -183,6 +183,48 @@ describe("the gate", () => {
     assert.deepEqual([...summary.querySelectorAll("[data-total]")].map((cell) => cell.getAttribute("data-total")), ["entradas", "salidas"]);
     assert.equal(summary.querySelector('[data-total="entradas"] dd')?.textContent, "-sin dato");
     assert.match(summary.querySelector('[data-total="salidas"]')?.textContent ?? "", /RD\$\s?\d/);
+  });
+
+  test("records filters keep the table contract and period totals while narrowing saved rows", async () => {
+    const page = await mount({ enabled: false });
+    await page.settle(() => page.records().length > 0, "the saved records");
+    const total = page.records().length;
+    const summary = document.querySelector('[data-testid="transacciones-summary"]')!.textContent;
+    const toolbar = document.querySelector('[data-testid="records-toolbar"]')!;
+    await page.click([...toolbar.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Tipo:"))!);
+    await page.click([...toolbar.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === "Gasto")!);
+    assert.ok(page.records().length < total);
+    assert.ok(page.records().every((row) => row.dataset.kind === "gasto"));
+    assert.equal(document.querySelector('[data-testid="transacciones-summary"]')!.textContent, summary);
+    assert.match(page.body(), /Resumen del período/);
+    assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, `${page.records().length} registros`);
+    await page.click([...toolbar.querySelectorAll("button")].find((button) => button.textContent?.includes("Limpiar filtros"))!);
+    assert.equal(page.records().length, total);
+    const period = [...toolbar.querySelectorAll("button")].find((button) => button.getAttribute("aria-label")?.startsWith("Período:") || button.getAttribute("aria-label")?.startsWith("Periodo:"))!;
+    await page.click(period);
+    assert.ok(toolbar.querySelector('[role="dialog"]'));
+    await page.key(document.activeElement!, "Escape");
+    assert.equal(toolbar.querySelector('[role="dialog"]'), null);
+    assert.equal(document.activeElement, period);
+  });
+
+  test("search keeps same-id purchases and sales distinct on desktop and phone", async () => {
+    const item = { id: "shared-id", merchant: "Nube Hosting", amount: "24.00", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null };
+    for (const width of [1440, 390]) {
+      const source = await recordsOf([item, { ...item, id: "other-id", merchant: "Comedor" }], {}, [item]);
+      const page = await mount({ enabled: false, width, transacciones: source });
+      await page.settle(() => page.records().length === 3, "three saved records");
+      assert.equal(new Set(page.records().map((row) => row.dataset.recordKey)).size, 3);
+      const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
+      await page.act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      assert.equal(page.records().length, 2);
+      assert.deepEqual(page.records().map((row) => row.dataset.kind).sort(), ["gasto", "venta"]);
+      assert.equal(document.querySelector('[data-testid="records-count"]')?.textContent, "2 registros");
+      await page.unmount();
+    }
   });
 
   test("the Comprobante column is never an empty cell: a gasto without a receipt reads as a short dash", async () => {
@@ -247,11 +289,11 @@ describe("the gate", () => {
   test("with the flag on, the rail reads Transacciones and opens the new screen", async () => {
     const page = await mount({ view: null });
     const rail = page.host.querySelector('[data-testid="business-sidebar-nav"]')!;
-    const third = [...rail.querySelectorAll("button")].find((button) => button.textContent?.includes("Transacciones"));
-    assert.ok(third, "the rail names Transacciones");
+    const third = [...rail.querySelectorAll("button")].find((button) => button.textContent?.includes("Registros"));
+    assert.ok(third, "the rail names Registros");
     await page.click(third!);
     await page.ready();
-    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Transacciones");
+    assert.equal(page.screen()?.querySelector("h2")?.textContent, "Registros");
   });
 
   test("the rail shows the server's Por igualar count; null means bank matching is off, not zero", async () => {
@@ -271,7 +313,7 @@ describe("the gate", () => {
 
   test("a phone's tabs read Transacciones too", async () => {
     const page = await mount({ width: 390 });
-    assert.match(page.host.querySelector('[data-testid="business-bottom-tabs"]')?.textContent ?? "", /Transacciones/);
+    assert.match(page.host.querySelector('[data-testid="business-bottom-tabs"]')?.textContent ?? "", /Registros/);
   });
 });
 
