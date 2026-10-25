@@ -20,7 +20,19 @@ export default function BusinessProfileDetails({saved,canEdit,onSave,group="all"
   const normalized = normalizeBusinessProvidedDetails(draft);
   const unchanged = visibleFields.every(field=>normalized[field] === saved[field]);
   useEffect(()=>{onDirtyChange?.(!unchanged);},[unchanged,onDirtyChange]);
-  const fields = (names:ProvidedDetailField[]) => names.map(field=><FormField key={field} id={`${id}-${field}`} name={`profile-${field}`} label={t(`business.settings.profile_${field}`)} value={draft[field]} disabled={!canEdit} type={field === "email" ? "email" : field === "website" ? "url" : field === "phone" ? "tel" : "text"} autoComplete={field === "email" ? "email" : field === "phone" ? "tel" : field === "address" ? "street-address" : field === "province" ? "address-level1" : field === "municipality" ? "address-level2" : "off"} maxLength={providedDetailLimits[field]} error={checks.errorOf(field)} reserveMessages={field === "email" || field === "website" ? [t(`business.settings.profile_error_${field}`)] : []} onBlur={()=>checks.blur(field)} onChange={event=>{setDraft(current=>({...current,[field]:event.target.value}));setFeedback(null);}} />);
+  const fields = (names:ProvidedDetailField[]) => names.map(field=>{
+    const hasFormatCheck = field === "email" || field === "website";
+    const success = hasFormatCheck && normalized[field] && checks.isValid(field) ? t(`business.settings.profile_format_${field}`) : undefined;
+    const reserveMessages = hasFormatCheck ? [t(`business.settings.profile_error_${field}`),t("business.settings.profile_error_length",{count:providedDetailLimits[field]}),t(`business.settings.profile_format_${field}`)] : [];
+    return <FormField key={field} id={`${id}-${field}`} name={`profile-${field}`}
+      label={t(`business.settings.profile_${field}`)} placeholder={t(`business.settings.profile_placeholder_${field}`)}
+      value={draft[field]} disabled={!canEdit}
+      type={field === "email" ? "email" : field === "website" ? "url" : field === "phone" ? "tel" : "text"}
+      autoComplete={field === "email" ? "email" : field === "website" ? "url" : field === "phone" ? "tel" : field === "address" ? "street-address" : field === "province" ? "address-level1" : field === "municipality" ? "address-level2" : "off"}
+      autoCapitalize={hasFormatCheck ? "none" : undefined} spellCheck={hasFormatCheck ? false : undefined}
+      maxLength={providedDetailLimits[field]} error={checks.errorOf(field)} success={success} reserveMessages={reserveMessages}
+      onBlur={()=>checks.blur(field)} onChange={event=>{setDraft(current=>({...current,[field]:event.target.value}));setFeedback(null);}} />;
+  });
   return <section aria-label={t(group === "presence" ? "business.settings.profile_presence_title" : "business.settings.profile_contact_title")}>
     <p className="mb-5 mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("business.settings.profile_details_hint")}</p>
     <form noValidate className="space-y-4" onSubmit={event=>{

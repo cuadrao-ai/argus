@@ -35,6 +35,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const [name, setName] = useState("");
   const [kind, setKind] = useState<TaxIdType>("rnc");
   const [value, setValue] = useState("");
+  const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -84,6 +85,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     event.preventDefault();
     if (!profile || busy || !checks.submit()) return;
     setBusy(true);
+    setSaved(false);
     setProblem(null);
     try {
       const next = await write(
@@ -100,6 +102,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
       setKind(next.tax_id?.type ?? kind);
       setValue(next.tax_id?.value ?? "");
       checks.reset();
+      setSaved(true);
       if (next.name !== profile.name) workspace?.reload();
     } catch (error) {
       const code = (error as { code?: string }).code;
@@ -124,6 +127,8 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
     name: t("business.dgii.business_name", "Business name"),
     number: t("business.dgii.tax_id_value", "Number"),
   };
+  const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);};
+  const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
   return (
     <div className="mt-[21px]" data-testid="business-fiscal-profile">
@@ -144,23 +149,27 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
           <FormField
             id={ids.name}
             name="business-name"
-            label={labels.name}
+            label={<>{labels.name}<span aria-hidden="true"> *</span></>}
+            required
+            aria-required="true"
+            placeholder={t("workspace_setup_preview.business_name_example")}
+            reserveMessages={[t("business.dgii.business_name_required")]}
             error={checks.errorOf("name")}
             autoComplete="organization"
             maxLength={80}
             value={name}
             disabled={busy}
             onBlur={() => checks.blur("name")}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {setName(event.target.value);setSaved(false);}}
           />
           <div className="grid gap-x-[13px] gap-y-[13px] tablet:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
-            {renderTaxIdControl ? renderTaxIdControl({value:kind,label:t("business.dgii.tax_id_type", "Tax id"),disabled:busy,onChange:setKind}) : <SelectField
+            {renderTaxIdControl ? renderTaxIdControl({value:kind,label:t("business.dgii.tax_id_type", "Tax id"),disabled:busy,onChange:changeKind}) : <SelectField
               id={`${base}-kind`}
               name="tax-id-type"
               label={t("business.dgii.tax_id_type", "Tax id")}
               value={kind}
               disabled={busy}
-              onChange={(event) => setKind(event.target.value as TaxIdType)}
+              onChange={(event) => changeKind(event.target.value as TaxIdType)}
             >
               <option value="rnc">{t("business.dgii.tax_id_rnc", "RNC")}</option>
               <option value="cedula">{t("business.dgii.tax_id_cedula", "Cédula")}</option>
@@ -168,12 +177,10 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
             <FormField
               id={ids.number}
               name="tax-id-value"
-              label={labels.number}
-              hint={
-                kind === "rnc"
-                  ? t("business.dgii.tax_id_hint_rnc", "9 digits. Hyphens are fine.")
-                  : t("business.dgii.tax_id_hint_cedula", "11 digits. Hyphens are fine.")
-              }
+              label={<>{labels.number}<span className="ml-1 text-[14px] font-normal text-[#56635e] dark:text-white/70">({t("workspace_setup_preview.optional")})</span></>}
+              placeholder={t(`business.dgii.tax_id_example_${kind}`)}
+              hint={numberHint}
+              reserveMessages={[numberHint,t("business.dgii.error.tax_id_not_digits"),t(`business.dgii.tax_id_length_${kind}`),t("business.dgii.error.tax_id_all_zero")]}
               error={checks.errorOf("number")}
               inputMode="numeric"
               autoComplete="off"
@@ -182,13 +189,14 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               value={value}
               disabled={busy}
               onBlur={() => checks.blur("number")}
-              onChange={(event) => setValue(event.target.value)}
+              onChange={(event) => {setValue(event.target.value);setSaved(false);}}
             />
           </div>
-          <div className="pt-2">
+          <div className="flex min-h-11 flex-wrap items-center gap-3 pt-2">
             <button type="submit" className={secondaryButtonClass} disabled={busy || unchanged}>
               {t("business.dgii.save_profile", "Save")}
             </button>
+            <p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{saved ? t("business.settings.profile_details_saved") : ""}</p>
           </div>
           {problem ? (
             <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">

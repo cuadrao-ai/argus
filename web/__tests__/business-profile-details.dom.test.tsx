@@ -37,3 +37,18 @@ test("a failed save keeps the draft and announces failure without success",async
 test("unrelated saved-state updates do not discard a contact draft",async()=>{
  const form=await mount();try{await form.type("address","Unfinished address");await form.render(normalizeBusinessProvidedDetails({phone:"809 555 0100"}));expect(form.field("address").value).toBe("Unfinished address");expect(form.field("phone").value).toBe("");}finally{await form.close();}
 });
+
+test.each([
+ ["es-419","Formato de correo válido.","Formato de sitio web válido."],
+ ["en","Valid email format.","Valid website format."],
+])("%s optional fields use examples and only show format success after a check",async(locale,emailMessage,websiteMessage)=>{
+ const form=await mount(false,locale);try{
+  for(const field of ["address","province","municipality","email","phone","website","description"]){expect(form.field(field).placeholder.length).toBeGreaterThan(0);expect(form.field(field).required).toBe(false);}
+  const note=(name:string)=>document.getElementById(`${form.field(name).id}-note`);
+  await form.type("email","hello@example.com");expect(note("email")?.textContent).toBe("");await form.blur("email");expect(note("email")?.textContent).toBe(emailMessage);expect(form.field("email").getAttribute("aria-describedby")).toBe(note("email")?.id ?? null);
+  await form.type("email","next@example.com");expect(note("email")?.textContent).toBe("");await form.blur("email");expect(note("email")?.textContent).toBe(emailMessage);
+  await form.type("website","example.com");expect(note("website")?.textContent).toBe("");await form.blur("website");expect(note("website")?.textContent).toBe(websiteMessage);
+  await form.type("website","");expect(note("website")?.textContent).toBe("");expect(form.field("website").getAttribute("aria-invalid")).toBeNull();
+  await form.type("address","Calle Sol 10");await form.blur("address");expect(note("address")).toBeNull();
+ }finally{await form.close();}
+});

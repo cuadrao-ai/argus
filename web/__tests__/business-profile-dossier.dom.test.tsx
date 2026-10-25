@@ -61,3 +61,19 @@ test("identity edits protect closing and invoicing reuses the same single right 
     await page.click(page.button("Electronic invoicing"));expect(document.querySelector('iframe[src*="surface=invoicing"][src*="entry=profile"]')).not.toBeNull();expect(document.querySelectorAll('[data-testid="side-drawer"]')).toHaveLength(1);
   }finally{await page.close();}
 });
+
+test("identity marks its required field, validates on submit and confirms a successful save",async()=>{
+  const page=await mount();try{
+    await page.click(page.button("Identidad y datos fiscales"));
+    const name=document.querySelector<HTMLInputElement>('[name="business-name"]')!;
+    const number=document.querySelector<HTMLInputElement>('[name="tax-id-value"]')!;
+    expect(name.required).toBe(true);expect(name.getAttribute("aria-required")).toBe("true");expect(name.placeholder).toContain("Ej.");expect(number.required).toBe(false);expect(number.inputMode).toBe("numeric");expect(number.type).toBe("text");expect(number.placeholder).toBe("Ej. 131-23456-7");
+    await page.type("business-name","");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    expect(name.getAttribute("aria-invalid")).toBe("true");expect(document.querySelector('[data-testid="form-error-summary"]')).not.toBeNull();
+    await page.type("business-name","La Palma actualizada");expect(name.getAttribute("aria-invalid")).toBeNull();
+    await page.type("tax-id-value","123");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);expect(number.getAttribute("aria-invalid")).toBe("true");
+    await page.type("tax-id-value","");await page.click(document.querySelector<HTMLButtonElement>('button[type="submit"]')!);
+    expect(document.querySelector('[data-testid="business-fiscal-profile"] [role="status"]')?.textContent).toBe("Datos guardados.");
+    await page.type("business-name","Another draft");expect(document.querySelector('[data-testid="business-fiscal-profile"] [role="status"]')?.textContent).toBe("");
+  }finally{await page.close();}
+});
