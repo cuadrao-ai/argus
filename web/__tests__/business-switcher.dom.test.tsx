@@ -145,9 +145,17 @@ describe("the Business mark menu", () => {
     const change = [...document.querySelectorAll('[role="menuitem"]')].find((item) => item.textContent?.includes("Cambiar de negocio")) as HTMLButtonElement;
     await page.act(async () => change.click());
     await page.settle();
-    const list = document.querySelector('[role="listbox"]') as HTMLElement;
+    let list = document.querySelector('[role="listbox"]') as HTMLElement;
     assert.ok(list, "the listbox opened");
+    assert.ok(document.querySelector('[data-testid="business-member-email"]'), "desktop parent identity remains visible");
+    assert.ok(change.isConnected, "the parent switch action remains in place");
     assert.equal(document.activeElement, list, "focus moves into the list");
+    await page.act(async () => key(list, "ArrowLeft"));
+    assert.equal(document.activeElement, change, "Left returns focus to the parent action");
+    await page.act(async () => key(change, "ArrowRight"));
+    assert.ok(document.querySelector('[role="listbox"]'), "Right opens the submenu");
+    list = document.querySelector('[role="listbox"]') as HTMLElement;
+
     const options = [...document.querySelectorAll('[role="option"]')];
     assert.deepEqual(options.map((o) => o.getAttribute("aria-selected")), ["false", "true", "false"]);
     assert.ok(options[0].textContent?.includes("Ferretería Luna"));
@@ -174,6 +182,10 @@ describe("the Business mark menu", () => {
     await page.act(async () => { key(again, "Escape"); });
     assert.equal(document.querySelector('[role="listbox"]'), null);
     assert.deepEqual(page.chosenIds, [null]);
+    assert.ok(document.querySelector('[role="menu"]'), "Escape closes the submenu first");
+    assert.equal(document.activeElement, changeAgain);
+    await page.act(async () => { key(changeAgain, "Escape"); });
+    assert.equal(document.querySelector('[role="menu"]'), null);
     await page.act(async () => page.root.unmount());
   });
 

@@ -117,7 +117,7 @@ export function Switch({ checked, onChange, label, stateLabels, disabled = false
       >
         {words ? <>
           <span className={`absolute inset-y-0 left-0 flex items-center pl-2 text-[11px] font-medium text-[#FFFEFA] transition-opacity duration-[250ms] ease-out dark:text-[#172b26] ${on ? "opacity-100" : "opacity-0"}`}>{words.on}</span>
-          <span className={`absolute inset-y-0 right-0 flex items-center pr-2 text-[11px] font-medium text-[#56635e] transition-opacity duration-[250ms] ease-out ${on ? "opacity-0" : "opacity-100"}`}>{words.off}</span>
+          <span className={`absolute inset-y-0 right-0 flex items-center pr-2 text-[11px] font-medium text-[#56635e] dark:text-white/80 transition-opacity duration-[250ms] ease-out ${on ? "opacity-0" : "opacity-100"}`}>{words.off}</span>
         </> : null}
         <span
           ref={knob}

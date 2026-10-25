@@ -117,6 +117,26 @@ async function mount(listed: GrantedSpace[] = [OWN, A, B]) {
 }
 
 describe("switching Business inside one signed-in account", () => {
+  test("preview names belong to every directory entry and remain correct after switching", async () => {
+    const nodeEnv = process.env.NODE_ENV;
+    const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+    localStorage.setItem("cuadrao-preview-business-names-v1", JSON.stringify({ "s-own": "La Palma", "s-a": "Colmado Nuevo" }));
+    const page = await mount();
+    try {
+      assert.deepEqual(page.api().spaces?.map(space => space.name), ["La Palma", "Colmado Nuevo", "Taller Brito"]);
+      assert.equal(page.api().chosen, page.api().spaces?.[0]);
+      await page.act(async () => page.api().chooseBusiness(A.grant_id));
+      assert.equal(page.api().chosen?.name, "Colmado Nuevo");
+      assert.equal(page.api().spaces?.[0].name, "La Palma");
+      assert.equal(OWN.name, "Ferretería Luna", "source directory is not mutated");
+    } finally {
+      await page.act(async () => page.root.unmount());
+      localStorage.removeItem("cuadrao-preview-business-names-v1");
+      Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+    }
+  });
+
   test("twelve switches between A, B and the own Business with typed text never show the account-changed screen; the record, its address and the lists are cleared on each switch", async () => {
     const page = await mount();
     assert.equal(page.text("probe-panel"), "receipt", "landed on a receipt from the address");

@@ -276,7 +276,7 @@ function BusinessWorkspaceContent({
   const [revision, setRevision] = useState(0);
   // The chosen Business: a grant id the client remembers, proven by the server on every request.
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
-  const [spaces, setSpaces] = useState<GrantedSpace[] | null>(null);
+  const [directorySpaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [closedSpaces, setClosedSpaces] = useState<ClosedGrantedSpace[]>([]);
   const [closedAccess, setClosedAccess] = useState(false);
   const [accessRevision, setAccessRevision] = useState(0);
@@ -292,10 +292,10 @@ function BusinessWorkspaceContent({
       if (cached && typeof cached === "object" && !Array.isArray(cached)) setPreviewNames(Object.fromEntries(Object.entries(cached).filter(([, name]) => typeof name === "string" && name.trim() && [...name].length <= 80)));
     } catch { /* A damaged preview cache leaves the source name intact. */ }
   }, [localPreview]);
-  const chosen = useMemo(() => {
-    const space = spaces?.find((space) => (chosenGrant ? space.grant_id === chosenGrant : space.role === "owner"));
-    return space ? { ...space, name: localPreview ? previewNames[space.space_id] || space.name : space.name } : null;
-  }, [spaces, chosenGrant, localPreview, previewNames]);
+  const spaces = useMemo(() => localPreview
+    ? directorySpaces?.map(space => previewNames[space.space_id] ? { ...space, name: previewNames[space.space_id] } : space) ?? null
+    : directorySpaces, [directorySpaces, localPreview, previewNames]);
+  const chosen = useMemo(() => spaces?.find(space => chosenGrant ? space.grant_id === chosenGrant : space.role === "owner") ?? null, [spaces, chosenGrant]);
   const renamePreviewBusiness = useCallback((name: string) => {
     if (!localPreview || !chosen || chosen.role !== "owner" || !name.trim() || [...name.trim()].length > 80) return;
     setPreviewNames(current => {
