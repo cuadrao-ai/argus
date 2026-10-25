@@ -697,3 +697,77 @@ def test_terminal_invitation_rewrite_requires_real_custody_claim(
             "select historical_issuer_id,accepted_at is not null,requested_role from public.business_access_invites where id=%s",
             (invitation.id,),
         ).fetchone() == (None, True, "editor")
+
+
+@pytest.mark.parametrize("mutation", ["delete", "demote", "revoke"])
+@pytest.mark.parametrize("consenting_member", ["owner", "other"])
+def test_membership_loss_invalidates_only_that_owners_original_consents(
+    pool, users, mutation, consenting_member
+):
+    from psycopg.types.json import Jsonb
+
+    from tests.business_reading_support import reading_setting
+
+    access, space, invitation = invite_member(pool, users, BusinessRole.OWNER)
+    removed_grant = access.accept_invite(users["other"], space.id, invitation.id)
+    actor = users[consenting_member]
+    actor_grant = next(
+        g for g in access.list(space.id, actor).grants if g.grantee_id == actor
+    )
+    setting = reading_setting(pool)
+    shown = setting.status(space.id, users["owner"])
+    setting.set(
+        space.id,
+        users["owner"],
+        actor_id=actor,
+        enabled=True,
+        version=1,
+        disclosure_token=shown["disclosure_token"],
+        idempotency_key="explicit-owner-reading",
+    )
+    with pool.connection() as db:
+        db.execute(
+            "insert into public.business_ai_consents(space_id,owner_id,consenting_actor_id,grant_id,issuer_id,scope_version,purpose,disclosure,route,route_hash,idempotency_key,input_hash) values(%s,%s,%s,%s,%s,1,'business_ai_receipt_reading','Synthetic disclosure',%s,%s,'explicit-owner-ai',%s)",
+            (
+                space.id,
+                actor,
+                actor,
+                actor_grant.id,
+                users["owner"],
+                Jsonb({"provider": "fake"}),
+                "1" * 64,
+                "2" * 64,
+            ),
+        )
+
+    def consent_rows():
+        with pool.connection() as db:
+            return tuple(
+                db.execute(query, (space.id,)).fetchone()[0]
+                for query in (
+                    "select to_jsonb(c) from public.business_receipt_reading_consents c where space_id=%s",
+                    "select to_jsonb(c) from public.business_ai_consents c where space_id=%s",
+                )
+            )
+
+    before = consent_rows()
+    assert all(row["owner_id"] == actor and row["revoked_at"] is None for row in before)
+    if mutation == "delete":
+        with pool.connection() as db:
+            db.execute(
+                "delete from public.business_client_grants where id=%s", (removed_grant,)
+            )
+    elif mutation == "demote":
+        access.change_role(space.id, users["owner"], removed_grant, BusinessRole.EDITOR)
+    else:
+        access.revoke_grant(space.id, users["owner"], removed_grant)
+    should_remain_enabled = consenting_member == "owner"
+    assert setting.status(space.id, users["owner"])["enabled"] == should_remain_enabled
+    after = consent_rows()
+    for original, saved in zip(before, after, strict=True):
+        assert (saved["revoked_at"] is None) == should_remain_enabled
+        assert {k: v for k, v in saved.items() if k != "revoked_at"} == {
+            k: v for k, v in original.items() if k != "revoked_at"
+        }
+    assert "approve" in access.capabilities(space.id, users["owner"])
+    assert "approve" not in access.capabilities(space.id, users["other"])

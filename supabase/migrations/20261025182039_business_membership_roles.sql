@@ -137,17 +137,18 @@ create function argus_private.business_owner_consent_revoked() returns trigger
 language plpgsql set search_path='' as $$
 begin
     if old.business_role='owner' and old.revoked_at is null
-        and (new.business_role<>'owner' or new.revoked_at is not null) then
+        and (tg_op='DELETE' or new.business_role<>'owner' or new.revoked_at is not null) then
         update public.business_receipt_reading_consents set revoked_at=clock_timestamp()
-            where space_id=new.space_id and owner_id=new.grantee_id and revoked_at is null;
+            where space_id=old.space_id and owner_id=old.grantee_id and revoked_at is null;
         update public.business_ai_consents set revoked_at=clock_timestamp()
-            where space_id=new.space_id and owner_id=new.grantee_id and revoked_at is null;
+            where space_id=old.space_id and owner_id=old.grantee_id and revoked_at is null;
     end if;
+    if tg_op='DELETE' then return old; end if;
     return new;
 end;
 $$;
 revoke all on function argus_private.business_owner_consent_revoked() from public,anon,authenticated;
-create trigger business_owner_consent_revoked after update on public.business_client_grants
+create trigger business_owner_consent_revoked after update or delete on public.business_client_grants
     for each row execute function argus_private.business_owner_consent_revoked();
 
 create function argus_private.business_invite_terminal() returns trigger

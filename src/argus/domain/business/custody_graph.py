@@ -250,6 +250,10 @@ class PostgresBusinessCustodyGraph:
                 "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null",
                 (space_id, departing_user_id, departing_user_id),
             )
+            db.execute(
+                "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
+                (space_id, departing_user_id),
+            )
             scope = self._scope(db, space_id, departing_user_id)
             graph = self._lock_graph(db, scope, departing_user_id)
             copies = self._copies(db, space_id, graph)
@@ -627,10 +631,6 @@ class PostgresBusinessCustodyGraph:
             )
         db.execute(
             "delete from public.business_receipt_read_states where space_id=%s and person_id=%s",
-            (scope["s"], user),
-        )
-        db.execute(
-            "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
             (scope["s"], user),
         )
         db.execute(
