@@ -355,7 +355,7 @@ export default function IdentityEditor({
                       <span
                         className={
                           draft.kind === "avatar" && draft.token === theme.token
-                            ? `relative ${business ? "rounded-mark" : "rounded-full"} ring-2 ring-[#2f5a49] ring-offset-2 dark:ring-[#8fcbb0] dark:ring-offset-[#1f2225]`
+                            ? `relative inline-flex ${business ? "rounded-mark" : "rounded-full"} ring-2 ring-[#2f5a49] ring-offset-2 dark:ring-[#8fcbb0] dark:ring-offset-[#1f2225]`
                             : ""
                         }
                       >
@@ -372,7 +372,8 @@ export default function IdentityEditor({
                         draft.token === theme.token ? (
                           <Check
                             aria-hidden="true"
-                            className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-[#2f5a49] p-0.5 text-white dark:bg-[#8fcbb0] dark:text-[#172b26]"
+                            style={{ bottom: -4, right: -4 }}
+                            className="absolute h-4 w-4 rounded-full bg-[#2f5a49] p-0.5 text-white dark:bg-[#8fcbb0] dark:text-[#172b26]"
                           />
                         ) : null}
                       </span>
