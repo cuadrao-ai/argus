@@ -7,6 +7,9 @@
 
 import { readStored, removeStored, writeStored } from "./browser-storage";
 
+export const LOCAL_BUSINESS_PREFIX = "local-business-";
+const localGrant = (value: string) => /^local-business-[a-z0-9-]{1,64}$/i.test(value);
+
 const KEY = "argus:business-grant:v1";
 let current: string | null | undefined;
 let owner: string | null = null;
@@ -14,10 +17,11 @@ const listeners = new Set<() => void>();
 
 function read(): string | null {
   const stored = readStored(KEY);
-  if (!stored || !owner) return null;
+  if (!stored) return null;
   try {
     const choice = JSON.parse(stored);
-    return choice.userId === owner && typeof choice.grantId === "string" && /^[0-9a-f-]{36}$/i.test(choice.grantId) ? choice.grantId : null;
+    const previewLocal = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && typeof choice.grantId === "string" && localGrant(choice.grantId);
+    return choice.userId === owner && typeof choice.grantId === "string" && ((Boolean(owner) && /^[0-9a-f-]{36}$/i.test(choice.grantId)) || previewLocal) ? choice.grantId : null;
   } catch { return null; }
 }
 
@@ -58,7 +62,7 @@ export const GRANT_HEADER = "X-Business-Grant";
 
 export function chosenGrantHeader(): Record<string, string> {
   const grant = getChosenGrant();
-  return grant ? { [GRANT_HEADER]: grant } : {};
+  return grant && !grant.startsWith(LOCAL_BUSINESS_PREFIX) ? { [GRANT_HEADER]: grant } : {};
 }
 
 /** A refusal that means the chosen grant is no longer the caller's or live. */

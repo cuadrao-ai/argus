@@ -3,6 +3,8 @@
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { profileSubmenuClass } from "@/components/sidebar/profileMenuPlacement";
+import {SavedIdentityMark} from "@/components/identity/IdentityMark";
+import {LOCAL_BUSINESS_PREFIX} from "@/app/design-workspace/localBusinessPreview";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, BriefcaseBusiness, Check, ChevronRight, Plus, Settings2, UserRoundPlus } from "lucide-react";
@@ -16,7 +18,8 @@ import { formatBusinessName } from "./business-format";
 const menuItemClass = "flex min-h-11 w-full items-center gap-2 rounded-item px-2 text-left text-[16px] text-[#172b26] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] disabled:opacity-40 dark:text-white dark:hover:bg-white/5";
 
 /** The shared Business identity icon in expanded and collapsed navigation. */
-export function BusinessMark() {
+export function BusinessMark({businessId,name}:{businessId?:string;name?:string} = {}) {
+  if(businessId)return <SavedIdentityMark scope={`business:${businessId}`} name={name} business/>;
   return <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-mark bg-black/[0.05] dark:bg-white/[0.08]"><BriefcaseBusiness className="h-5 w-5" strokeWidth={2} /></span>;
 }
 
@@ -119,7 +122,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
 
   const choose = (space: GrantedSpace) => {
     setMode("closed");
-    onChoose(space.role === "owner" ? null : space.grant_id);
+    onChoose(space.role === "owner" && !space.space_id.startsWith(LOCAL_BUSINESS_PREFIX) ? null : space.grant_id);
     buttonRef.current?.focus();
   };
 
@@ -204,13 +207,13 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
           onClick={() => choose(space)}
           className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-item px-2 text-[16px] ${index === active ? "bg-black/5 dark:bg-white/10" : ""}`}
         >
-          <span className="min-w-0 flex-1 break-words">{optionName}</span>
+          <BusinessMark businessId={space.space_id} name={optionName}/><span className="min-w-0 flex-1 break-words">{optionName}</span>
           {space.grant_id === current.grant_id ? <Check aria-hidden="true" className="h-4 w-4 shrink-0" /> : null}
         </li>
       );
     })}
   </ul>);
-  const badge = <BusinessMark />;
+  const badge = <BusinessMark businessId={current.space_id} name={name} />;
 
   return (
     <div data-testid="business-switcher" data-switchable={canSwitch ? "true" : "false"}>
@@ -256,7 +259,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
       ) : createPortal(
         <div ref={menuRef} id={menuId} role="menu" aria-label={name} style={{ left: position.left, top: position.top }} className="fixed z-[100] w-80 max-w-[calc(100vw-1rem)] rounded-surface border border-[#dce0da] bg-[#fffefa] p-2 dark:border-white/10 dark:bg-[var(--cuadrao-menu-surface)]">
           <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
-            <div className="flex items-center gap-3 px-2 py-3 text-[#172b26] dark:text-white"><BusinessMark /><p className="min-w-0 break-words text-[16px] font-medium">{name}</p></div>
+            <div className="flex items-center gap-3 px-2 py-3 text-[#172b26] dark:text-white"><BusinessMark businessId={current.space_id} name={name}/><p className="min-w-0 break-words text-[16px] font-medium">{name}</p></div>
             {rootRows}
           </div>
           {mode === "choose" ? choices : null}

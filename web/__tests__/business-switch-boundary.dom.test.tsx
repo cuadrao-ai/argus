@@ -198,3 +198,41 @@ describe("switching Business inside one signed-in account", () => {
     await page.act(async () => page.root.unmount());
   });
 });
+
+test("a newly created local owner business stays selected with empty scoped records",async()=>{
+ const nodeEnv=process.env.NODE_ENV,mockAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+ Object.assign(process.env,{NODE_ENV:"development",NEXT_PUBLIC_MOCK_AUTH:"true"});
+ const {createLocalBusiness,LOCAL_BUSINESS_KEY,LOCAL_BUSINESS_EVENT}=await import("@/app/design-workspace/localBusinessPreview");
+ const page=await mount();
+ const business=createLocalBusiness(localStorage,"Taller Vacío","CA",{kind:"default"},"local-business-empty-test");
+ try{await page.act(async()=>{window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));page.api().chooseBusiness(business.id);});assert.equal(page.api().chosen?.space_id,business.id);await page.settle();assert.equal(page.api().chosen?.space_id,business.id);assert.equal(page.api().chosen?.role,"owner");assert.equal(page.api().records.workspace?.country,"CA");assert.deepEqual(page.api().records.inbox,[]);assert.deepEqual(await page.api().source.access(),{grants:[],invites:[]});assert.equal(page.api().spaces?.find(space=>space.space_id===business.id)?.name,"Taller Vacío");assert.equal(page.api().source.mode,"fixture");assert.equal(page.api().records.error,false);assert.ok(page.api().spaces?.some(space=>space.space_id===OWN.space_id));await page.act(async()=>page.api().chooseBusiness(null));await page.settle();assert.equal(page.api().chosen?.space_id,OWN.space_id);}
+ finally{await page.act(async()=>page.root.unmount());localStorage.removeItem(LOCAL_BUSINESS_KEY);localStorage.removeItem("cuadrao-identity-v1:business:local-business-empty-test");Object.assign(process.env,{NODE_ENV:nodeEnv,NEXT_PUBLIC_MOCK_AUTH:mockAuth});}
+});
+
+
+test("local selection survives a preview reload without sending a synthetic grant header", async () => {
+  const nodeEnv = process.env.NODE_ENV;
+  const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  const { synchronizeBusinessAccount, setChosenGrant, getChosenGrant, chosenGrantHeader } = await import("@/lib/business-grant");
+  const key = "argus:business-grant:v1";
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    synchronizeBusinessAccount("local-owner");
+    setChosenGrant("local-business-persisted");
+    const saved = localStorage.getItem(key)!;
+    assert.deepEqual(chosenGrantHeader(), {});
+    synchronizeBusinessAccount(null);
+    localStorage.setItem(key, saved);
+    synchronizeBusinessAccount("local-owner");
+    assert.equal(getChosenGrant(), "local-business-persisted");
+    synchronizeBusinessAccount(null);
+    Object.assign(process.env, { NODE_ENV: "production" });
+    localStorage.setItem(key, saved);
+    synchronizeBusinessAccount("local-owner");
+    assert.equal(getChosenGrant(), null);
+  } finally {
+    setChosenGrant(null);
+    synchronizeBusinessAccount(null);
+    Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+  }
+});

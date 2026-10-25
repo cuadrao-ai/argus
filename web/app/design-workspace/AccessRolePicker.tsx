@@ -9,7 +9,8 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 
 export type AccessRoleOption = {value:string;label:string;description:string};
-export default function AccessRolePicker({options,value,onChange,label,disabled=false,compact=false,variant="field",showDetail=true,ownerDocument,portalRoot}: {
+export default function AccessRolePicker({options,value,onChange,label,disabled=false,compact=false,variant="field",showDetail=true,ownerDocument,portalRoot,id:controlId,onBlur,invalid,describedBy}: {
+  id?:string;onBlur?:()=>void;invalid?:boolean;describedBy?:string;
   options:AccessRoleOption[];value:string;onChange:(value:string)=>void;label:string;disabled?:boolean;compact?:boolean;variant?:"field"|"quiet";showDetail?:boolean;ownerDocument?:Document;portalRoot?:Element|null;
 }) {
   const { isBelowDesktop } = useResponsiveLayout();
@@ -104,9 +105,9 @@ export default function AccessRolePicker({options,value,onChange,label,disabled=
       </button>)}
   </>;
   return <>
-    {variant === "field" ? <label id={`${id}-label`} className={compact ? isBelowDesktop ? "mb-1 block text-[14px] font-medium" : "sr-only" : "mb-2 block text-[16px] font-medium"}>{compact && isBelowDesktop ? t("workspace_setup_preview.permission_label") : label}</label> : null}
-    <button ref={trigger} type="button" role="combobox" aria-haspopup="listbox" aria-expanded={open}
-      aria-labelledby={compact || variant === "quiet" ? undefined : `${id}-label ${id}-value`} aria-label={compact || variant === "quiet" ? `${label} ${selected?.label ?? ""}` : undefined} aria-describedby={compact || variant === "quiet" || !showDetail || !selected?.description ? undefined : `${id}-detail`} aria-controls={open ? id : undefined}
+    {variant === "field" ? <label htmlFor={controlId} id={`${id}-label`} className={compact ? isBelowDesktop ? "mb-1 block text-[14px] font-medium" : "sr-only" : "mb-2 block text-[16px] font-medium"}>{compact && isBelowDesktop ? t("workspace_setup_preview.permission_label") : label}</label> : null}
+    <button ref={trigger} id={controlId} onBlur={onBlur} aria-invalid={invalid||undefined} type="button" role="combobox" aria-haspopup="listbox" aria-expanded={open}
+      aria-labelledby={compact || variant === "quiet" ? undefined : `${id}-label ${id}-value`} aria-label={compact || variant === "quiet" ? `${label} ${selected?.label ?? ""}` : undefined} aria-describedby={[describedBy,compact || variant === "quiet" || !showDetail || !selected?.description ? undefined : `${id}-detail`].filter(Boolean).join(" ") || undefined} aria-controls={open ? id : undefined}
       style={{minHeight:variant === "field" ? 48 : 44}} disabled={disabled} onClick={() => setOpen(!open)}
       onKeyDown={event => { if (["ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); setOpen(true); } }}
       className={variant === "quiet" ? "flex min-h-11 items-center gap-2 rounded-md bg-transparent text-left text-[16px] text-[#56635e] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed dark:text-white/70" : "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[#7d8a84] bg-transparent px-3 text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:focus-visible:outline-[#8fcbb0]"}>

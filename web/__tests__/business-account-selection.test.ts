@@ -41,3 +41,24 @@ test("unowned legacy persisted choices cannot become another account's context",
   synchronizeBusinessAccount("legacy-reader");
   expect(getChosenGrant()).toBeNull();
 });
+
+
+test("mock local selection restores with no authenticated owner and never enters API headers", async () => {
+  const nodeEnv = process.env.NODE_ENV;
+  const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  synchronizeBusinessAccount(null);
+  try {
+    setChosenGrant("local-business-mock");
+    const saved = readStored("argus:business-grant:v1")!;
+    expect(JSON.parse(saved).userId).toBeNull();
+    // A fresh module models a page reload before any auth listener runs.
+    const modulePath = "../lib/business-grant.ts?mock-page-reload";
+    const fresh: typeof import("@/lib/business-grant") = await import(modulePath);
+    expect(fresh.getChosenGrant()).toBe("local-business-mock");
+    expect(fresh.chosenGrantHeader()).toEqual({});
+  } finally {
+    setChosenGrant(null);
+    Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+  }
+});

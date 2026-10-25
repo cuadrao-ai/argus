@@ -1,5 +1,6 @@
 "use client";
 
+import {SavedIdentityMark} from "@/components/identity/IdentityMark";
 import {useState} from "react";
 import Image from "next/image";
 import {Globe,Mail,MapPin,Phone} from "lucide-react";
@@ -17,7 +18,7 @@ function SavedBusinessMark({source}:{source:string|null|undefined}) {
   return <Image unoptimized src={url.href} alt="" aria-hidden="true" width={40} height={40} referrerPolicy="no-referrer" onError={()=>setFailed(true)} className="h-10 w-10 shrink-0 rounded-mark object-cover" />;
 }
 
-export default function BusinessProfileCard({profile,logoUrl}:{profile:SavedBusinessProfile;logoUrl?:string|null}) {
+export default function BusinessProfileCard({profile,logoUrl,businessId}:{profile:SavedBusinessProfile;logoUrl?:string|null;businessId?:string}) {
   const {t} = useTranslation();
   const details = profile.providedDetails;
   const country = profile.country ? t(`workspace_setup_preview.country_${profile.country.toLowerCase()}`,{defaultValue:profile.country}) : null;
@@ -30,7 +31,7 @@ export default function BusinessProfileCard({profile,logoUrl}:{profile:SavedBusi
   ].filter(item=>item.value);
   return <article data-testid="business-profile-card" aria-label={profile.name} className="min-w-0">
     <div className="flex items-center gap-3">
-      <SavedBusinessMark key={logoUrl} source={logoUrl} />
+      <SavedIdentityMark scope={businessId?`business:${businessId}`:""} name={profile.name} business fallback={<SavedBusinessMark key={logoUrl} source={logoUrl}/>}/>
       <div className="min-w-0"><h3 className="font-display text-[21px] font-medium" style={{overflowWrap:"anywhere"}}>{profile.name}</h3>{country ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{country}</p> : null}</div>
     </div>
     {details.description ? <p className="mt-5 text-[16px] leading-relaxed" style={{overflowWrap:"anywhere"}}>{details.description}</p> : null}
