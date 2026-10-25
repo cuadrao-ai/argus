@@ -9654,6 +9654,72 @@ person starts their space, every route below except POST `/space` answers 404
   `country` is `DO`, `US` or `CA`, default `DO`, else 422. It is set once: a
   later call with another country returns the existing space unchanged. The
   space's `currency` follows its country (`DOP`, `USD`, `CAD`).
+- POST `/api/v1/business/spaces` explicitly creates an additional empty Business.
+  Required JSON is `{name, country}`; country is `DO`, `US` or `CA` and name uses
+  the existing trimmed 1–80 character rule. `Idempotency-Key` is required, 1–200
+  nonblank characters. The actor must have an existing open legacy default slot,
+  otherwise `409 business_default_required`. Slot existence does not expose its
+  data or restore revoked access. The legacy POST above remains first bootstrap.
+  Creation and creator Owner membership commit together. Response is the existing
+  `{id, name, country, currency, logo_url}` shape, 201 on first commit and 200 on
+  replay. Reuse of a key with different normalized input is `409 idempotency_conflict`.
+  Distinct keys may create more Businesses. Replay checks current access to the
+  returned Business and never restores grants. To select the returned ID, refresh GET `/spaces`, match `space_id`, and send
+  that row's `grant_id` as `X-Business-Grant`, including for Owner rows. An Owner
+  role does not mean clear the grant header. Creation does not change the default. No accounts, receipts, aliases, image,
+  fiscal setup or documents are copied or provisioned. Actor locking serializes
+  this operation with legacy bootstrap. No read or sign-in creates a Business.
+- GET/PATCH `/api/v1/business/spaces/{space_id}/profile` use a stable Business ID.
+  Every request checks current membership; reads need `read`, saves need `manage`
+  (Owner/Admin). If `X-Business-Grant` is supplied, it must name the same Business.
+  Missing/foreign targets return 404; revoked grants and insufficient permissions
+  return 403 where the existing grant contract applies. All responses are no-store.
+  GET returns `{space_id, name, country, currency, revision, details, appearance,
+  image}`. PATCH requires `Idempotency-Key` and `{expected_revision, name?, details?,
+  appearance?}`. Omitted fields remain unchanged. Name is the canonical display
+  name in `spaces.name`; explicit null/empty names fail validation. Country and
+  fiscal identity are not editable here. A stale revision returns
+  `409 business_workspace_stale` without changing saved state. Legacy rename and
+  fiscal display-name writers also advance this revision. A no-op does not advance
+  it. Replay checks current permission and returns the current saved projection,
+  without reapplying an older draft. Reusing a key with a changed command conflicts.
+  Keys are scoped by actor and operation; save/upload commands include the Business
+  ID in their compared payload, so a key cannot silently be reused for another Business.
+- `details` contains optional Business-provided strings `address` (200), `province`
+  (80), `municipality` (80), `email` (254), `phone` (40), `website` (2048), and
+  `description` (280). Limits apply after trimming/normalization. PATCH merges only
+  supplied detail keys, preserving independent contact/presence saves. A supplied
+  null or empty string clears that detail; `details: null` clears all seven.
+  Empty values read as `""`. Address does not require province/municipality.
+  Optional email must have a basic email shape. Websites without a scheme gain
+  `https://`; only HTTP(S), a dotted hostname, no whitespace and no userinfo are
+  accepted. Saving does not verify these facts or activate invoicing.
+- Appearance is `{kind: "default"}`, `{kind: "avatar", token, mark}`, or
+  `{kind: "image", asset_id, crop}`. Avatar tokens are `ocean`, `ember`, `gold`,
+  `slate`, `teal`, `indigo`, `plum`; mark is `initials` or `icon`. Crop is
+  `{mode: "fit"|"fill", zoom: 1..4, x: -1..1, y: -1..1}` with finite numbers.
+  The geometry matches the approved identity editor: fit uses the smaller scale,
+  fill the larger; zoom multiplies it, and x/y shift by half the absolute remaining
+  frame width/height. Appearance null or default resets the saved identity.
+  Cancel sends no PATCH and preserves it. Personal photos and invoice logos are separate.
+- POST `/api/v1/business/spaces/{space_id}/appearance/assets` stages an immutable
+  image and requires current `manage` plus `Idempotency-Key`. Body is raw JPEG,
+  PNG or WebP, nonempty and at most 10 MiB. Oversize/type/decode errors are 413/415/422.
+  Decoded images are bounded to 40 million pixels; animations are refused. The
+  server strips metadata and normalizes the source to at most 1280 pixels per side.
+  It returns `{asset_id, width, height, source_url, rendered_url: null}`. Upload alone
+  does not change saved appearance. A later profile PATCH references that asset ID
+  and crop; another Business's asset returns `404 business_image_not_found`.
+  Saved image responses include `image: {asset_id, width, height, source_url,
+  rendered_url}`. These signed URLs last about an hour and are response-only; clients
+  never send durable data URLs, paths or signed URLs. Source and 512px render objects
+  use separate immutable keys derived from source bytes and the versioned crop
+  recipe, each at most the existing bucket's 1 MiB limit. Stale or unauthorized
+  saves do not write render objects. Storage failure is 503, never false save success.
+  Reset/replacement hides the former image but does not promise immediate physical
+  deletion: staged and historical assets remain scoped to the Business until its
+  existing purge removes the exact identity prefix. Failed pre-commit uploads may
+  also leave unreferenced objects there; purge covers those objects too.
 - GET `/api/v1/business/space` returns `{id, name, country, currency, logo_url}`, or 404
   `business_space_missing` before the space is started. The web bootstrap reads
   this endpoint before creation. It sends POST only after that exact 404, and

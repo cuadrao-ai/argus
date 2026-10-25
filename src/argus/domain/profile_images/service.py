@@ -49,6 +49,10 @@ class ProfileImages:
         self._objects = objects
         self._ttl = url_ttl_seconds
 
+    @property
+    def objects(self) -> ProfileImageObjects:
+        return self._objects
+
     def urls(self, kind: Kind, ids: Sequence[str]) -> dict[str, str | None]:
         """A signed URL per id, or None for a subject with no picture."""
 
@@ -58,7 +62,9 @@ class ProfileImages:
             [subject.path for subject in subjects.values()], self._ttl
         )
         return {
-            subject_id: _versioned(signed.get(subjects[subject_id].path), rows[subject_id])
+            subject_id: _versioned(
+                signed.get(subjects[subject_id].path), rows[subject_id]
+            )
             if subject_id in rows
             else None
             for subject_id in ids
@@ -86,6 +92,8 @@ class ProfileImages:
         """The object alone: the row goes with its auth user or its space."""
 
         self._objects.remove(subject.path)
+        if subject.kind == "business":
+            self._objects.remove_identity(subject.id)
 
 
 def _versioned(url: str | None, row: StoredImage) -> str | None:

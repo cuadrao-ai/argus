@@ -3447,6 +3447,51 @@ claims produce one winner. Renaming preserves the timestamp. Client roles have
 no direct write grant on this state. Required naming for owner invites and
 exports derives from the current name, independently of this timestamp.
 
+### Durable Business workspace identity
+
+`20261025223500_business_workspace_persistence.sql` adds
+`spaces.business_legacy_default`, `business_workspace_revision`,
+`business_provided_details`, and `business_appearance`. Existing open and historical
+rows retain the default marker. The unique open default index is scoped to marked
+rows and `current_owner_id`; explicit additional rows are unmarked. Both types keep
+`current_owner_id` as the legacy transfer anchor and `created_by` as custody.
+`business_space_of` resolves only a marked open row with live membership. Closing A
+never promotes B. Reopening a marked historical row still conflicts with another
+marked open default, while an additional row does not consume that slot. Legacy
+transfer eligibility remains conservative; transfer of an additional row does not
+move the marked default. Directory ordering puts the live marked default first.
+
+Workspace details and appearance are Business-scoped JSON objects, written only
+through the service. The revision trigger covers changes to canonical display name,
+provided details and appearance, including writes by legacy naming/fiscal routes.
+No change to these values means no revision increment. Country stays immutable.
+
+`argus_private.business_workspace_commands` stores `(actor_id, operation,
+command_key)` as its primary key, normalized JSON payload, target `space_id` and
+creation time. Operations are create/save/upload. Current permission is required
+before replay. Actor FK cascades remove transient command metadata on account
+deletion; Business FK cascades remove it on Business purge. This ledger is not
+membership authority or historical document custody.
+
+`argus_private.business_workspace_assets` stores server-minted asset ID, Business
+FK, normalized source SHA-256, bounded width/height and creation time; the Business
+and digest pair is unique. It records staged and formerly selected source assets
+until Business purge, independently of current appearance. Both new tables enable
+RLS, revoke all client privileges, and grant service-role SELECT/INSERT only.
+
+Images use the existing private profile-images bucket, under the exact
+`business/{space_id}/identity/` prefix. Flat source keys include the normalized
+byte digest; render keys include that digest and versioned normalized crop recipe.
+No image data URL or signed URL is persisted. Sources normalize to at most 1280 px;
+renders are 512 px; each stored WebP stays at most 1 MiB and contains no upload metadata.
+The invoice logo at `business/{space_id}/256.webp` and personal photos are unchanged.
+Saved reset/crop changes do not destroy historical assets immediately. The existing
+Business purge erases all identity objects before deleting metadata, including
+unreferenced blobs from failed transactions, with retry-safe paginated deletion.
+Storage absence holds purge while assets or identity objects remain. Account
+retention keeps assets with their Business; the existing detach rule still precedes
+a person's storage deletion. No new hosted bucket or configuration is required.
+
 ### Profile photos and Business logos
 
 `20261021040000_profile_images.sql` adds the private `profile-images` Storage
