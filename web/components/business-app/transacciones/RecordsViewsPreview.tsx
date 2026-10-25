@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bookmark, Download } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import type { Period } from "../business-format";
 import type { RecordsFilter } from "./RecordsToolbar";
 import type { PreviewFilters } from "./records-filter-preview-model";
@@ -39,6 +39,5 @@ export function RecordsViewActionsPreview({ names, save }: { names: string[]; sa
     <RecordsPreviewPopover label={t("business.transactions.layout.views.save")} icon={<Bookmark size={16} aria-hidden="true" />} width={340}>
       {(close) => <SaveViewForm names={names} save={save} close={close} />}
     </RecordsPreviewPopover>
-    <button type="button" disabled className={styles.trigger}><Download size={16} aria-hidden="true" />{t("business.transactions.layout.views.export")}</button>
   </div>;
 }

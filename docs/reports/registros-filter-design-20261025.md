@@ -10,8 +10,10 @@ The new controls are enabled only in development with mock auth, at desktop
 widths. Filter selections and calendar dates do not query or change the table.
 The existing text search and Venta/Gasto selection retain their behavior. Named
 views capture those selections, the preview date and advanced filters in memory;
-refresh clears them. Export is a disabled layout control. The overview cards
-retain illustrative counts. Phone and hosted behavior are unchanged.
+refresh clears them. Export is consolidated in the existing Agregar menu. That
+entry retains its existing period-based behavior; filtered-result export still
+needs wiring. The overview cards retain illustrative counts. Phone and hosted
+behavior are unchanged.
 
 ## Product decisions for later wiring
 
