@@ -227,3 +227,32 @@ desktop and a 390px phone viewport, with no horizontal overflow. Verified the
 custom filter, nested Escape, read-all and dismiss focus, empty unread state, and
 the Recepción action. Screenshots are stored outside Git in the task visualization
 folder. These are local browser checks, not physical-device or hosted acceptance.
+
+## Notification empty states, October 25
+
+Added a shared decorative bell to no-notifications and no-unread states. The
+Model the Domain principle keeps these states derived from notice counts; there
+is no separate empty-state flag. View all restores existing read notices, and
+final dismissal retains focus inside the panel. No backend work or handoff.
+
+Prove It Works verification: 26 focused notification and top-bar tests pass.
+Scoped ESLint and diff whitespace checks pass. Local browser review covered
+desktop and 390px phone viewports, Spanish and English, light and dark themes.
+The image loaded at 88px, text remained readable, and no horizontal overflow
+was observed. Verified View all, final dismissal focus, and hidden list tools
+when no notices remain. Evidence screenshots are outside Git in the task
+visualization folder. This is not physical-phone or hosted acceptance.
+
+Backend acceptance remains deferred: only show these empty states after a
+successful authorized response, distinguish loading/offline/failure, and preserve
+recipient/Business isolation plus durable read/dismiss state across reloads and
+devices. Marking all read must not remove rows from the All view.
+
+Artwork: built-in image generation, transparent output copied unchanged to
+web/public/images/notifications/quiet-bell.png. Style reference was the existing
+web/public/images/auth/confirmation-envelope.png. Prompt: a single upright,
+gently tilted notification bell with rounded paper/clay forms, forest-green body,
+cream clapper/highlights, sage folds and a restrained lime detail; centered square
+composition, readable at 88px on white and charcoal; transparent background,
+no envelope, text, badge, motion lines, dramatic glow, drop shadow or background
+shapes. Original generated image retained outside the repository.

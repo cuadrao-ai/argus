@@ -2749,9 +2749,12 @@
     },
     "notifications": {
       "all": "Todas",
-      "body": "Tus invitaciones y avisos aparecerán aquí.",
       "dismiss": "Descartar: {{title}}",
-      "empty_unread": "Ya estás al día.",
+      "empty_all_body": "Aquí aparecerán los avisos de tu cuenta.",
+      "empty_all_body_business": "Aquí aparecerán los avisos de tu cuenta y de {{business}}.",
+      "empty_all_title": "Todo tranquilo por aquí",
+      "empty_unread_body": "No tienes avisos sin leer.",
+      "empty_unread_title": "Estás al día",
       "filter": "Filtrar notificaciones",
       "mark_all": "Marcar todas como leídas",
       "samples": {
@@ -2780,7 +2783,8 @@
       "unread": "Sin leer",
       "unread_count_one": "{{count}} notificación sin leer",
       "unread_count_other": "{{count}} notificaciones sin leer",
-      "unread_label": "Notificación sin leer"
+      "unread_label": "Notificación sin leer",
+      "view_all": "Ver todas"
     },
     "amounts": {
       "hide": "Ocultar montos"

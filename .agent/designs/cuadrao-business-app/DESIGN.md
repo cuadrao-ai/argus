@@ -852,6 +852,17 @@ This local design uses three sample notices only in development with mock auth
 and the preview prop. Read and dismiss state belongs to the selected Business
 and lasts only while this shell is mounted. Direct and nonmock use is empty.
 
+Notification empty states share a static 88px bell illustration in the auth
+envelope's rounded forest-green, cream, sage, and lime style. Use transparent
+artwork with a subtle theme-aware backdrop. Keep the panel title left-aligned
+and center the illustration, 16px state heading, and 14px explanatory copy.
+No notifications hides the filter and mark-all control and has no CTA. Nothing
+unread keeps the filter and offers a quiet View all action that restores the read
+list. These states derive from the available notice lists. Loading and failures
+must remain distinct when the backend is connected. Final dismissal moves focus
+to the empty heading; View all returns focus to the filter. Phones keep the shared
+content-sized bottom sheet.
+
 ### Toasts and saves
 
 - One toast at a time, from one presenter, clear of the page's controls.

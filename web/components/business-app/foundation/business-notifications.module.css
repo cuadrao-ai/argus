@@ -39,7 +39,14 @@
 .rowAction { font-size: 14px; min-width: 44px; }
 .dismiss { display: flex; flex-shrink: 0; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: 50%; color: var(--notification-muted); }
 .dismiss:focus-visible, .filterTrigger:focus-visible, .filterOption:focus-visible { outline: 2px solid var(--cuadrao-green); outline-offset: 2px; }
-.empty { padding: 20px; font-size: 14px; line-height: 1.5; color: var(--notification-muted); }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 260px; padding: 12px 24px 16px; text-align: center; }
+.emptyArt { display: grid; place-items: center; flex-shrink: 0; width: 104px; height: 96px; margin-bottom: 8px; border-radius: 50%; background: radial-gradient(ellipse, rgb(227 235 225 / 45%), transparent 70%); }
+.emptyArt img { width: 88px; height: 88px; object-fit: contain; }
+:global(.dark) .emptyArt { background: radial-gradient(ellipse, rgb(143 203 176 / 12%), transparent 70%); }
+.emptyTitle { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.4; }
+.emptyTitle:focus-visible { outline: 2px solid var(--cuadrao-green); outline-offset: 4px; border-radius: 4px; }
+.emptyDescription { max-width: 280px; margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--notification-muted); overflow-wrap: anywhere; }
+.emptyAction { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 4px; }
 .sheetBody { display: flex; flex-direction: column; max-height: calc(80dvh - 100px); padding-bottom: 12px; }
 @keyframes appear { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }

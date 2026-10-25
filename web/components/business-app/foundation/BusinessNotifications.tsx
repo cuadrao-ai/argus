@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 import { Bell, Check, CheckCheck, ChevronDown, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
@@ -83,6 +84,8 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const emptyHeadingRef = useRef<HTMLHeadingElement>(null);
+  const focusEmptyRef = useRef(false);
   const panelId = useId();
   const titleId = useId();
   const unreadId = useId();
@@ -92,6 +95,7 @@ export default function BusinessNotifications({ businessId, businessName, previe
   const isUnread = (notice: Notice) => notice.unread && !read[keyFor(notice)];
   const unread = notices.filter(isUnread);
   const visible = filter === "unread" ? unread : notices;
+  const state = !notices.length ? "empty-all" : !visible.length ? "empty-unread" : "populated";
   const close = () => { setOpen(false); triggerRef.current?.focus(); };
   useOverlayLayer({
     isOpen: open && !isBelowTablet,
@@ -102,15 +106,23 @@ export default function BusinessNotifications({ businessId, businessName, previe
   });
   useEffect(() => { if (open && !isBelowTablet) closeRef.current?.focus(); }, [open, isBelowTablet]);
 
+  useEffect(() => {
+    if (state === "empty-all" && focusEmptyRef.current) {
+      emptyHeadingRef.current?.focus();
+      focusEmptyRef.current = false;
+    }
+  }, [state]);
+  const focusFilter = () => bodyRef.current?.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')?.focus();
+
   const markAll = <Tooltip content={t("business.notifications.mark_all")} side="bottom"><button type="button" aria-label={t("business.notifications.mark_all")} className={`${quietButtonClass} ${styles.markAll}`} disabled={!unread.length} onClick={() => {
-    bodyRef.current?.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')?.focus();
+    focusFilter();
     setRead((current) => ({ ...current, ...Object.fromEntries(unread.map((notice) => [keyFor(notice), true])) }));
   }}><CheckCheck aria-hidden="true" size={17} /></button></Tooltip>;
   const body = <div ref={bodyRef} className={styles.body}>
     <div className={styles.toolbar}>
       {businessName ? <p className={styles.businessName}>{businessName}</p> : null}
-      <NotificationFilter value={filter} onChange={setFilter} />
-      {isBelowTablet ? markAll : null}
+      {notices.length ? <NotificationFilter value={filter} onChange={setFilter} /> : null}
+      {isBelowTablet && notices.length ? markAll : null}
     </div>
     <div className={styles.list}>
       {visible.length ? <ul>
@@ -128,12 +140,20 @@ export default function BusinessNotifications({ businessId, businessName, previe
               onAction?.(notice.target);
             }}>{t(`business.notifications.samples.${notice.id}.action`)}</button>
             <button type="button" className={styles.dismiss} aria-label={t("business.notifications.dismiss", { title: t(`business.notifications.samples.${notice.id}.title`) })} onClick={() => {
-              bodyRef.current?.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')?.focus();
+              if (notices.length === 1) focusEmptyRef.current = true;
+              else focusFilter();
               setDismissed((current) => ({ ...current, [keyFor(notice)]: true }));
             }}><X aria-hidden="true" size={14} /></button>
           </div>
         </li>)}
-      </ul> : <p className={styles.empty}>{t(filter === "unread" ? "business.notifications.empty_unread" : "business.notifications.body")}</p>}
+      </ul> : <div className={styles.empty} data-notification-state={state}>
+        <div className={styles.emptyArt}><Image src="/images/notifications/quiet-bell.png" alt="" width={88} height={88} sizes="88px" /></div>
+        <h3 ref={emptyHeadingRef} tabIndex={-1} className={styles.emptyTitle}>{t(state === "empty-all" ? "business.notifications.empty_all_title" : "business.notifications.empty_unread_title")}</h3>
+        <p className={styles.emptyDescription}>{state === "empty-unread"
+          ? t("business.notifications.empty_unread_body")
+          : t(businessName ? "business.notifications.empty_all_body_business" : "business.notifications.empty_all_body", { business: businessName })}</p>
+        <div className={styles.emptyAction}>{state === "empty-unread" ? <button type="button" className={`${quietButtonClass} ${styles.rowAction}`} onClick={() => { focusFilter(); setFilter("all"); }}>{t("business.notifications.view_all")}</button> : null}</div>
+      </div>}
     </div>
   </div>;
 
@@ -149,7 +169,7 @@ export default function BusinessNotifications({ businessId, businessName, previe
     {open && !isBelowTablet ? <div id={panelId} role="dialog" aria-labelledby={titleId} data-testid="business-notifications-popover" className={`${styles.popover} absolute right-0 top-full z-[70] mt-2 rounded-surface border border-[#DCE0DA] bg-[var(--cuadrao-menu-surface)] text-[#172b26] dark:border-white/10 dark:text-white`}>
       <div className={styles.heading}>
         <h2 id={titleId} className="flex-1 text-[16px] font-semibold">{title}</h2>
-        {markAll}
+        {notices.length ? markAll : null}
         <button ref={closeRef} type="button" aria-label={t("common.close")} onClick={close} className={styles.dismiss}><X className="h-4 w-4" aria-hidden="true" /></button>
       </div>
       {body}

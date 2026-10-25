@@ -44,7 +44,7 @@ test("desktop notifications open from the bell, dismiss with Escape, and return 
     const panel = page.host.querySelector('[role="dialog"]')!;
     assert.ok(panel);
     assert.equal(page.trigger.getAttribute("aria-controls"), panel.id);
-    assert.match(panel.textContent ?? "", /Tus invitaciones y avisos aparecerán aquí/);
+    assert.match(panel.textContent ?? "", /Aquí aparecerán los avisos de tu cuenta y de Colmado Luna/);
     assert.equal(document.activeElement?.getAttribute("aria-label"), "Cerrar");
     assert.equal(panel.querySelectorAll("[data-notice]").length, 0);
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
@@ -59,7 +59,7 @@ test("desktop notifications close on an outside pointer without stealing focus",
   try {
     assert.equal(page.trigger.getAttribute("aria-label"), "Notifications");
     await act(async () => page.trigger.click());
-    assert.match(page.host.textContent ?? "", /Your invitations and updates will appear here/);
+    assert.match(page.host.textContent ?? "", /Updates for your account and Colmado Luna will appear here/);
     await act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
     assert.equal(page.host.querySelector('[role="dialog"]'), null);
   } finally { await page.close(); }
@@ -109,7 +109,7 @@ test("filter keyboard navigation and nested Escape preserve the notification pan
     await act(async () => button("Marcar todas como leídas")!.focus());
     await click(button("Marcar todas como leídas"));
     assert.equal(document.activeElement, filter);
-    assert.equal(rows().length, 0); assert.match(page.host.textContent ?? "", /Ya estás al día/);
+    assert.equal(rows().length, 0); assert.match(page.host.textContent ?? "", /Estás al día/);
     await click(filter); await click(document.querySelectorAll('[role="menuitemradio"]')[0]);
     assert.equal(rows().length, 3); assert.equal(unread().length, 0);
     assert.equal(page.trigger.getAttribute("aria-describedby"), null);
@@ -157,5 +157,59 @@ test("phone nested Escape closes the filter before the shared sheet", async () =
     assert.equal(page.trigger.getAttribute("aria-expanded"), "true");
     await key("Escape"); assert.equal(page.trigger.getAttribute("aria-expanded"), "false");
     assert.equal(document.activeElement, page.trigger);
+  } finally { await page.close(); }
+});
+
+for (const width of [1280, 390]) {
+  test(`empty notifications hide list tools and preserve focus after final dismissal at ${width}px`, async () => {
+    const page = await mount(width, "es-419", true);
+    try {
+      await click(page.trigger);
+      for (const title of ["Invitación aceptada", "Canales de recepción", "Dale tu toque al negocio"]) {
+        await click(button(`Descartar: ${title}`));
+      }
+      const empty = document.querySelector('[data-notification-state="empty-all"]')!;
+      assert.ok(empty);
+      assert.match(empty.textContent ?? "", /Todo tranquilo por aquí/);
+      assert.match(empty.textContent ?? "", /Colmado Luna/);
+      assert.equal(button("Filtrar notificaciones"), null);
+      assert.equal(button("Marcar todas como leídas"), null);
+      assert.equal(button("Ver todas"), null);
+      assert.equal(document.activeElement, empty.querySelector("h3"));
+      const art = empty.querySelector("img")!;
+      assert.equal(art.getAttribute("alt"), "");
+      assert.match(art.getAttribute("src") ?? "", /quiet-bell/);
+      await key("Escape");
+      assert.equal(document.activeElement, page.trigger);
+    } finally { await page.close(); }
+  });
+
+  test(`empty unread offers a way back to the read list at ${width}px`, async () => {
+    const page = await mount(width, "en", true);
+    try {
+      await click(page.trigger);
+      await click(button("Filter notifications"));
+      await click(document.querySelectorAll('[role="menuitemradio"]')[1]);
+      await click(button("Mark all read"));
+      const empty = document.querySelector('[data-notification-state="empty-unread"]')!;
+      assert.ok(empty);
+      assert.match(empty.textContent ?? "", /You're all caught up/);
+      assert.match(empty.textContent ?? "", /You have no unread notifications/);
+      await click(button("View all"));
+      assert.equal(rows().length, 3);
+      assert.equal(document.activeElement, button("Filter notifications"));
+      assert.equal(document.querySelector('[data-notification-state]'), null);
+    } finally { await page.close(); }
+  });
+}
+
+test("empty notifications without a Business name use generic account copy", async () => {
+  const page = await mount(1280, "en");
+  try {
+    await page.render("business-a", "");
+    await click(page.trigger);
+    const empty = document.querySelector('[data-notification-state="empty-all"]')!;
+    assert.match(empty.textContent ?? "", /Updates for your account will appear here/);
+    assert.doesNotMatch(empty.textContent ?? "", /undefined|{{business}}/);
   } finally { await page.close(); }
 });

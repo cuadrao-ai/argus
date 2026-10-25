@@ -2977,9 +2977,12 @@
     },
     "notifications": {
       "all": "All",
-      "body": "Your invitations and updates will appear here.",
       "dismiss": "Dismiss: {{title}}",
-      "empty_unread": "You're all caught up.",
+      "empty_all_body": "Updates for your account will appear here.",
+      "empty_all_body_business": "Updates for your account and {{business}} will appear here.",
+      "empty_all_title": "All quiet here",
+      "empty_unread_body": "You have no unread notifications.",
+      "empty_unread_title": "You're all caught up",
       "filter": "Filter notifications",
       "mark_all": "Mark all read",
       "samples": {
@@ -3008,7 +3011,8 @@
       "unread": "Unread",
       "unread_count_one": "{{count}} unread notification",
       "unread_count_other": "{{count}} unread notifications",
-      "unread_label": "Unread notification"
+      "unread_label": "Unread notification",
+      "view_all": "View all"
     },
     "amounts": {
       "hide": "Hide amounts"
