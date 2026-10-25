@@ -2975,6 +2975,10 @@
     "add_menu": {
       "more": "More actions"
     },
+    "notifications": {
+      "title": "Notifications",
+      "body": "Your invitations and updates will appear here."
+    },
     "amounts": {
       "hide": "Hide amounts"
     },

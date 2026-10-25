@@ -1,0 +1,33 @@
+.popover {
+  width: 20rem;
+  padding: 21px;
+  transform-origin: top right;
+  animation: appear 180ms ease-out;
+}
+
+.heading {
+  gap: 13px;
+  margin-bottom: 13px;
+}
+
+.close {
+  margin: -13px -13px -13px 0;
+}
+
+.sheetBody {
+  padding: 0 21px 21px;
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover { animation: fade 120ms ease-out; }
+}

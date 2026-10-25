@@ -2747,6 +2747,10 @@
     "add_menu": {
       "more": "Más acciones"
     },
+    "notifications": {
+      "title": "Notificaciones",
+      "body": "Tus invitaciones y avisos aparecerán aquí."
+    },
     "amounts": {
       "hide": "Ocultar montos"
     },
