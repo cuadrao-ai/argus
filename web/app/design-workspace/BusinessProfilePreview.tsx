@@ -128,7 +128,7 @@ function BusinessProfileContent() {
         <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</div>
       </aside> : null}
     </div>
-    {selected ? <AdaptivePanel title={selectedTitle} summary={businessContext} headerSize="large" footer={hasEditableForm ? <div ref={setFooterTarget} data-footer-slot="" /> : undefined} modal={false} width="lg" onClose={close} onBack={isBelowDesktop ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}</div></AdaptivePanel> : null}
+    {selected ? <AdaptivePanel title={selectedTitle} summary={businessContext} headerSize="large" modal={false} width="lg" onClose={close} onBack={isBelowDesktop ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}{hasEditableForm ? <div ref={setFooterTarget} data-footer-slot="" className="mt-6 border-t border-[#DCE0DA] pt-4 empty:hidden dark:border-white/10" /> : null}</div></AdaptivePanel> : null}
     <ConfirmDialog isOpen={pending !== null} title={t("business.settings.profile_discard_title")} description={t("business.settings.profile_discard_detail")} confirmLabel={t("business.settings.profile_discard")} cancelLabel={t("business.settings.profile_keep_editing")} onCancel={()=>setPending(null)} onConfirm={()=>{if(pending)applySelection(pending);}} />
   </>;
 }
