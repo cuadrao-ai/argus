@@ -2,6 +2,7 @@
 
 import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { LOCAL_BUSINESS_PREFIX } from "@/lib/business-grant";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { setCurrencyView, useCurrencyView } from "@/lib/business-currency-view";
 import { referenceCode } from "@/lib/failure-screen";
@@ -39,12 +40,12 @@ function useTransaccionesSource(): TransaccionesSource {
   const scope = chosen?.space_id ?? "own";
   return useMemo(() => {
     if (override) return override;
-    const ventas = readVentas(source.mode === "fixture" ? sampleVentasServer : undefined);
+    const localEmpty = source.mode === "fixture" && scope.startsWith(LOCAL_BUSINESS_PREFIX);
+    const ventas = localEmpty ? async () => [] : readVentas(source.mode === "fixture" ? sampleVentasServer : undefined);
     const saved = createRecordsTransaccionesSource({ expenses: source.expenses, ventas, overview: source.overview, workspace: source.workspace, ownerFunds });
-    if (!igualar) return saved;
+    if (!igualar || localEmpty) return saved;
     return createBankTransaccionesSource(source.mode === "fixture" && transport === "sample" ? createSampleBankServer() : undefined, saved);
     // A new Business starts a new source, so nothing decided in one shows in another.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [override, igualar, transport, source, ownerFunds, scope]);
 }
 

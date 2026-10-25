@@ -135,7 +135,8 @@ export default function BusinessPanel() {
   // On a desktop a record opens in a tray beside its list; below it the record is the whole page.
   const tray = record && !isBelowDesktop ? recordList(record) : null;
   const shown = tray ?? panel.kind;
-  const column = SCREEN_COLUMN[shown] ?? "reading";
+  const profilePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && panel.kind === "business" && (!panel.tab || panel.tab === "datos");
+  const column = profilePreview ? "canvas" : SCREEN_COLUMN[shown] ?? "reading";
   return (
     <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />

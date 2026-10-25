@@ -1,4 +1,5 @@
 "use client";
+import { LOCAL_BUSINESS_PREFIX } from "@/lib/business-grant";
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -1200,12 +1201,12 @@ export type MonthCloseSource = { client: MonthCloseClient; scopeKey: string | nu
 /** The month close the selected Business reads. One per view, so the sample books Inicio closes are the books its export sees. */
 // One sample book per sample source, so Inicio and an export opened from the top bar see the same closed months.
 const SAMPLE_CLIENTS = new WeakMap<object, MonthCloseClient>();
-function sampleClientFor(source: object): MonthCloseClient {
+function sampleClientFor(source: object, empty = false): MonthCloseClient {
   const known = SAMPLE_CLIENTS.get(source);
   if (known) return known;
   // `?currencies=two` on the preview adds dollar documents to the open month.
   const dollars = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("currencies") === "two";
-  const made = createMockMonthCloseClient({ dollars });
+  const made = createMockMonthCloseClient({ dollars, empty });
   SAMPLE_CLIENTS.set(source, made);
   return made;
 }
@@ -1213,8 +1214,8 @@ function sampleClientFor(source: object): MonthCloseClient {
 export function useMonthCloseSource(): MonthCloseSource {
   const { chosen, source, spaces } = useBusiness();
   // One key per Business, known before the first load: the own Business is "own" before and after the list arrives.
-  const scopeKey = spaces === null ? null : chosen && chosen.role !== "owner" ? chosen.grant_id : "own";
-  return { client: source.mode === "fixture" ? sampleClientFor(source) : monthCloseClient, scopeKey };
+  const scopeKey = spaces === null ? null : chosen && (chosen.role !== "owner" || chosen.space_id.startsWith(LOCAL_BUSINESS_PREFIX)) ? chosen.grant_id : "own";
+  return { client: source.mode === "fixture" ? sampleClientFor(source, chosen?.space_id.startsWith(LOCAL_BUSINESS_PREFIX)) : monthCloseClient, scopeKey };
 }
 
 export default function BusinessMonthClosePanel({ monthClose, onMonthChange, review, header }: { monthClose: MonthCloseSource; onMonthChange?: (month: string) => void; review?: MonthCloseReview | null; header?: (switcher: ReactNode) => ReactNode }) {

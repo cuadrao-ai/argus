@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { LogoutOptions } from "@/lib/account-deletion-api";
@@ -8,6 +8,7 @@ import type { ApiUser } from "@/lib/argus-api";
 import ProfileMenu from "@/components/sidebar/ProfileMenu";
 
 export default function BusinessPhoneAccount({
+  avatar,
   onLogout,
   onFeedback,
   onHistoryMutated,
@@ -16,6 +17,7 @@ export default function BusinessPhoneAccount({
   onOpenKeyboardShortcuts,
   settingsOpenRequest = 0,
 }: {
+  avatar?: ReactNode;
   onLogout: (options?: LogoutOptions) => void;
   onFeedback?: (type: "bug" | "feature" | "general") => void;
   onHistoryMutated?: () => void;
@@ -59,7 +61,7 @@ export default function BusinessPhoneAccount({
         onClick={() => setOpen((value) => !value)}
         className="flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-white text-black/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5a49] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/70"
       >
-        <User className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+        {avatar ?? <User className="h-5 w-5" strokeWidth={2} aria-hidden="true" />}
       </button>
     </div>
   );

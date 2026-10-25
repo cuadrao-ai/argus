@@ -453,6 +453,7 @@ export async function startBusinessSpace(language: ArgusLanguage): Promise<Busin
 export type GrantedSpace = {
   space_id: string;
   name: string;
+  logo_url?: string | null;
   grant_id: string;
   role: "owner" | "accountant";
   capabilities: ("read" | "prepare" | "approve")[];

@@ -107,18 +107,25 @@ function controlProps(id: string, hint: ReactNode, error: string | null | undefi
 
 type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "className"> & {
   ref?: Ref<HTMLInputElement>;
+  inputSuffix?: string;
   /** Never "number": a code or a postal code is not a quantity, so it stays text with inputMode="numeric". */
   type?: "text" | "email" | "tel" | "url" | "search";
 };
 
 /** A text field. Codes and numbers that are not quantities pass inputMode="numeric" and stay text. */
-export function FormField({ id, label, hint, error, success, reserveMessages, ...input }: FrameProps & InputProps) {
+export function FormField({ id, label, hint, error, success, reserveMessages, inputSuffix, ...input }: FrameProps & InputProps) {
   return (
     <FieldFrame id={id} label={label} hint={hint} error={error} success={success} reserveMessages={reserveMessages}>
-      <div className="relative">
+      {inputSuffix ? <div data-input-suffix aria-invalid={error ? true : undefined} className={`${fieldClass} flex flex-wrap items-center focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--cuadrao-green)]`} style={{height:"auto",padding:0}}>
+        <div className="relative min-w-0" style={{flex:"1 1 10rem"}}>
+          <input type="text" {...input} {...controlProps(id, success || hint, error)} aria-describedby={[`${id}-suffix`,error || success || hint ? noteId(id) : null].filter(Boolean).join(" ")} className={`${fieldClass}${success && !error ? " pr-11" : ""}`} style={{marginTop:0,borderWidth:0,outline:"none",boxShadow:"none",background:"transparent"}} />
+          {success && !error ? <Check aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-5 w-5 text-[#2f5a49] dark:text-[#8fcbb0]" /> : null}
+        </div>
+        <span id={`${id}-suffix`} className="max-w-full break-all px-3 py-3 text-[14px] text-[#56635e] dark:text-white/65">{inputSuffix}</span>
+      </div> : <div className="relative">
         <input type="text" {...input} {...controlProps(id, success || hint, error)} className={`${fieldClass}${success && !error ? " pr-11" : ""}`} />
         {success && !error ? <Check aria-hidden="true" className="pointer-events-none absolute bottom-3 right-3 h-5 w-5 text-[#2f5a49] dark:text-[#8fcbb0]" /> : null}
-      </div>
+      </div>}
     </FieldFrame>
   );
 }

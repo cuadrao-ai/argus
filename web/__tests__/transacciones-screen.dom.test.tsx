@@ -690,3 +690,29 @@ describe("Transacciones keyboard and buttons", () => {
     assert.equal(add.getAttribute("data-primary"), "true");
   });
 });
+
+
+test("new local business has no sample sales or bank movements", async () => {
+  const nodeEnv = process.env.NODE_ENV;
+  const mockAuth = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  const { createLocalBusiness, LOCAL_BUSINESS_KEY, LOCAL_BUSINESS_EVENT } = await import("@/app/design-workspace/localBusinessPreview");
+  const page = await mount({ enabled: true });
+  const local = createLocalBusiness(localStorage, "Taller vacío", "CA", { kind: "default" }, "local-business-no-sales");
+  try {
+    await page.act(async () => {
+      window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));
+      page.api().chooseBusiness(local.id);
+      page.api().openPanel({ kind: "transactions" });
+    });
+    await page.settle(() => Boolean(page.screen()?.querySelector('[data-mode="records"]')) && page.api().records.workspace?.country === "CA", "empty local transactions");
+    assert.equal(page.records().length, 0);
+    assert.equal(page.rows().length, 0);
+    assert.doesNotMatch(page.body(), /Cliente Colmado|Panadería Luna/);
+  } finally {
+    await page.unmount();
+    localStorage.removeItem(LOCAL_BUSINESS_KEY);
+    localStorage.removeItem("cuadrao-identity-v1:business:local-business-no-sales");
+    Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
+  }
+});

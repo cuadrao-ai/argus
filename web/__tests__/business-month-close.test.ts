@@ -603,3 +603,14 @@ describe("Pendiente hoy order and the sample books' overdue", () => {
     expect((await mock.openItems()).cuentas_por_cobrar.items.some((item) => item.id === "inv-luna")).toBe(true);
   });
 });
+
+
+test("a new local business has no seeded month figures or outstanding invoices", async () => {
+  const client = createMockMonthCloseClient({ empty: true, now: new Date("2026-10-25T12:00:00Z") });
+  const month = await client.load("2026-10", "local-business-empty");
+  expect(month.documents).toEqual([]);
+  expect(month.figures).toEqual([]);
+  const open = await client.openItems("local-business-empty");
+  expect(open.cuentas_por_cobrar.items).toEqual([]);
+  expect(open.cuentas_por_pagar.items).toEqual([]);
+});

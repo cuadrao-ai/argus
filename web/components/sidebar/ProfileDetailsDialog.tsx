@@ -3,7 +3,12 @@
 import { Tooltip } from "@/components/ui/Tooltip";
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
-import { useId, useRef } from "react";
+import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import {useResponsiveLayout} from "@/components/layout/useResponsiveLayout";
+import IdentityEditor from "@/components/identity/IdentityEditor";
+import {SavedIdentityMark,useIdentityAppearance} from "@/components/identity/IdentityMark";
+import {saveAppearance,IDENTITY_EVENT,identityPreviewEnabled} from "@/lib/identity-appearance";
+import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronUp, Edit2, X } from "lucide-react";
 
@@ -139,16 +144,28 @@ function ProfileDetailsDialogSurface({
 }: ProfileDetailsDialogProps) {
   const { t } = useTranslation();
   const overlayId = useId();
+  const {isBelowDesktop} = useResponsiveLayout();
+  const [editingImage,setEditingImage] = useState(false);
+  const identityScope = profile?.id?`person:${profile.id}`:"";
+  const savedAppearance = useIdentityAppearance(identityScope);
   const profileModalRef = useRef<HTMLDivElement>(null);
 
   useModalSurface({
-    isOpen: true,
+    isOpen: !(editingImage&&isBelowDesktop),
     overlayId,
     containerRef: profileModalRef,
-    onDismiss: closeProfileModal,
-    onEscape,
+    onDismiss: editingImage?()=>setEditingImage(false):closeProfileModal,
+    onEscape: editingImage?()=>setEditingImage(false):onEscape,
     returnFocusRef,
   });
+
+  // eslint-disable-next-line no-restricted-syntax -- Local preview photo only; no profile API mutation.
+  const imageEditor = profile ? <IdentityEditor onBack={()=>setEditingImage(false)} saved={savedAppearance??{kind:"avatar",token:profile.avatar_theme??"ocean",mark:"initials"}} name={profile.display_name??profile.email??""} onSave={appearance=>{saveAppearance(window.localStorage,identityScope,appearance);window.dispatchEvent(new Event(IDENTITY_EVENT));setEditingImage(false);}}/> : null;
+  if(editingImage && profile){
+    if(isBelowDesktop)return <AdaptivePanel title={t("identity.photo")} closeLabel={t("common.close")} onClose={()=>setEditingImage(false)} backLabel={t("common.back")} snaps={["full"]} initialSnap="full"><div className="p-4">{imageEditor}</div></AdaptivePanel>;
+    return <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/25 p-4 dark:bg-black/60"><div ref={profileModalRef} role="dialog" aria-modal="true" aria-label={t("identity.photo")} className="max-h-[90dvh] w-full max-w-sm overflow-y-auto rounded-surface bg-white p-5 text-[#172b26] dark:bg-[#1f2225] dark:text-white"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-display text-[24px] font-medium">{t("identity.photo")}</h2><button type="button" className="flex min-h-11 min-w-11 items-center justify-center rounded-item" aria-label={t("common.close")} onClick={()=>setEditingImage(false)}><X className="h-5 w-5"/></button></div>{imageEditor}</div></div>;
+  }
+
 
   return (
     <>
@@ -190,7 +207,7 @@ function ProfileDetailsDialogSurface({
                 <button
                   ref={avatarTriggerRef}
                   type="button"
-                  onClick={toggleAvatarPicker}
+                  onClick={identityPreviewEnabled()?()=>setEditingImage(true):toggleAvatarPicker}
                   className="group relative flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full outline-none transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-black/30 dark:focus-visible:ring-white/50"
                   aria-label={t(
                     "settings.profile.avatar_theme.change",
@@ -204,7 +221,7 @@ function ProfileDetailsDialogSurface({
                     className={`flex h-full w-full items-center justify-center rounded-full text-[16px] font-bold ${avatarClassName}`}
                     style={avatarStyle}
                   >
-                    {profileInitial(profile)}
+                    <SavedIdentityMark scope={identityScope} name={profile?.display_name??""} size={48} fallback={profileInitial(profile)}/>
                   </span>
                   <span
                     className="pointer-events-none absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-1 ring-black/10 dark:bg-[#2b2e33] dark:text-white dark:ring-white/15"
@@ -218,7 +235,7 @@ function ProfileDetailsDialogSurface({
                   className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-[16px] font-bold ${avatarClassName}`}
                   style={avatarStyle}
                 >
-                  {profileInitial(profile)}
+                  <SavedIdentityMark scope={identityScope} name={profile?.display_name??""} size={48} fallback={profileInitial(profile)}/>
                 </div>
               )}
               <div className="flex min-w-0 flex-1 flex-col">

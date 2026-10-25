@@ -101,7 +101,8 @@ type BottomSheetProps = {
   initialSnap?: SheetSnap;
   titleHidden?: boolean;
   /** A line under the title; it is what the peek snap shows. */
-  description?: string;
+  description?: ReactNode;
+  headerSize?: "default" | "large";
   /** Pinned below the scrolling body, for a sticky primary action. */
   footer?: ReactNode;
   initialFocusRef?: RefObject<HTMLElement | null>;
@@ -120,6 +121,7 @@ export function BottomSheetSurface({
   initialSnap,
   titleHidden = false,
   description,
+  headerSize = "default",
   footer,
   initialFocusRef,
   children,
@@ -244,11 +246,11 @@ export function BottomSheetSurface({
               </button>
             ) : null}
             <div className="min-w-0 flex-1 pt-2">
-              <h2 id={headingId} className={titleHidden ? "sr-only" : "font-display text-[17px] font-medium tracking-tight text-black dark:text-white"}>
+              <h2 id={headingId} className={titleHidden ? "sr-only" : `font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium tracking-tight text-black dark:text-white`}>
                 {title}
               </h2>
               {description ? (
-                <p id={descriptionId} className="mt-1 text-[13px] leading-relaxed text-[#56635e] dark:text-white/70">
+                <p id={descriptionId} className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} leading-relaxed text-[#56635e] dark:text-white/70`}>
                   {description}
                 </p>
               ) : null}

@@ -656,6 +656,8 @@ export function openItemsFrom(documents: readonly MonthCloseDocument[], today: s
 }
 
 export type MockMonthCloseOptions = {
+  /** A newly created local workspace has no sample activity. */
+  empty?: boolean;
   now?: Date;
   /** The open month also holds settled dollar documents, so the figures have two currencies. */
   dollars?: boolean;
@@ -672,7 +674,7 @@ export function createMockMonthCloseClient(options: MockMonthCloseOptions = {}):
   function book(scope = "default") {
     const existing = books.get(scope);
     if (existing) return existing;
-    const created = { documents: monthCloseSampleDocuments(now, options.dollars), closedAt: new Map<string, string>() };
+    const created = { documents: options.empty ? [] : monthCloseSampleDocuments(now, options.dollars), closedAt: new Map<string, string>() };
     books.set(scope, created);
     return created;
   }

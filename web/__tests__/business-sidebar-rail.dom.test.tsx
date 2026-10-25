@@ -102,7 +102,7 @@ async function mountRail(options: { storedMode?: string; panel?: BusinessPanelSt
         profileSlot={profileSlot}
         primaryNav={<BusinessSidebarNav shell={shell} />}
         headerSlot={<BusinessSwitcher spaces={[OWN]} chosen={OWN} collapsed={shell.sidebarCollapsed} onChoose={() => {}} onOpenSettings={() => opened.push("settings")} />}
-        headerMark={<BusinessMark name={OWN.name} />}
+        headerMark={<BusinessMark />}
         footerActions={<BusinessSidebarFooter shell={shell} />}
       />
       </SidebarShell>
@@ -176,7 +176,8 @@ test("the labeled rail stacks Inicio to Transacciones under the business card, w
   while (header && header.tagName !== "ASIDE" && !header.querySelector('[data-testid="business-switcher"]')) header = header.parentElement;
   assert.ok(header?.querySelector('[data-testid="business-switcher"]'), "the business card sits beside the toggle at the top");
   assert.equal(header?.querySelector('[data-testid="business-current-name"]')?.textContent, "Ferretería Luna");
-  assert.ok(header?.textContent?.includes("Dueño"), "the card names the role");
+  assert.ok(!header?.textContent?.includes("Dueño"), "the business name has no role subtitle");
+  assert.ok(header?.querySelector("svg.lucide-briefcase-business"), "the business uses the shared briefcase icon");
   assert.equal(header?.textContent?.includes("cuadrao"), false, "the product mark left the top");
   const brand = aside().querySelector('[data-testid="sidebar-brand"]') as HTMLElement;
   assert.ok(brand?.querySelector('img[src*="cuadrao-mark"]'));
@@ -218,10 +219,10 @@ test("only the toggle collapses the rail to 64px icons with tooltips", async () 
   assert.equal(document.querySelector('[data-testid="business-switcher"]'), null, "the closed rail drops the business card");
   assert.equal(expand.getAttribute("aria-label"), "Expandir");
   const face = expand.querySelector(":scope > span")!;
-  assert.equal(face.textContent, "F", "the business's initial is the button's face");
+  assert.ok(face.querySelector("svg.lucide-briefcase-business"), "the collapsed face uses the same briefcase");
   assert.match(face.className, /group-hover:opacity-0/, "hovering fades the mark out");
   assert.match(face.className, /group-focus-visible:opacity-0/, "focusing fades the mark out");
-  const icon = expand.querySelector("svg")!;
+  const icon = expand.querySelector(":scope > svg")!;
   assert.match(icon.getAttribute("class") ?? "", /\bopacity-0\b/, "the expand icon waits hidden");
   assert.match(icon.getAttribute("class") ?? "", /group-hover:opacity-100/);
   assert.match(icon.getAttribute("class") ?? "", /group-focus-visible:opacity-100/);
@@ -307,7 +308,7 @@ test("the account lives at the top right, and the rail has no Negocio, Acceso or
 test("the business card menu opens the Negocio page", async () => {
   const view = await mountRail({ storedMode: "expanded" });
   await view.act(async () => document.querySelector<HTMLButtonElement>('[data-testid="business-switcher"] button[aria-haspopup="menu"]')!.click());
-  const settings = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((item) => item.textContent?.includes("Configurar negocio"));
+  const settings = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((item) => item.textContent?.includes("Configurar"));
   await view.act(async () => settings!.click());
   assert.deepEqual(view.opened, ["settings"]);
 });
