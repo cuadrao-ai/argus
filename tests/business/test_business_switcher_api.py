@@ -276,8 +276,8 @@ def test_the_own_business_routes_and_the_owner_channels_refuse_a_chosen_grant(
         BASE + "/space", json={"name": "Otro nombre"}, headers={**bob.auth, **headers}
     )
     assert (renamed.status_code, renamed.json()["code"]) == (
-        404,
-        "business_space_missing",
+        403,
+        "business_permission_denied",
     )
     # Without the header Bob's own space is his to read and rename.
     assert bob.get("/space").status_code == 200

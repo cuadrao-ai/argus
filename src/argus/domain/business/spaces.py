@@ -133,8 +133,8 @@ class PostgresSpaceStore:
         if created is not None:
             return Space(*created), True
         existing = self.open_space(person_id)
-        if existing is None:  # pragma: no cover - the conflict means it exists
-            raise LookupError("business space vanished during create")
+        if existing is None:
+            raise BusinessLifecycleError("business_record_not_found")
         return existing, False
 
     def claim_naming_visit(self, person_id: str, space_id: str) -> bool:
@@ -221,6 +221,10 @@ class InMemorySpaceStore:
         with self._lock:
             existing = self._spaces.get(person_id)
             if existing is not None:
+                if self.access is not None and "read" not in self.access.capabilities(
+                    existing.id, person_id
+                ):
+                    raise BusinessLifecycleError("business_record_not_found")
                 return existing, False
             space = Space(
                 str(uuid.uuid4()),

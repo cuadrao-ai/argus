@@ -232,3 +232,37 @@ def test_name_routes_refuse_live_non_managers_but_hide_foreign_scope(
         assert missing.status_code == 404
         assert missing.json()["code"] == "business_space_missing"
     assert alice.get("/space").json()["name"] == "Colmado"
+
+
+@pytest.mark.parametrize("state", ["owner", "viewer", "revoked"])
+def test_default_business_bootstrap_rechecks_live_membership(alice, bob, state):
+    from copy import deepcopy
+
+    from argus.api.business_spaces import business_spaces
+
+    access = business_access()
+    spaces = business_spaces()
+    space = alice.scope().owner.space_id
+    join(alice, bob, "owner")
+    owner = next(
+        g.id
+        for g in access.list(space, bob.person).grants
+        if g.grantee_id == alice.person
+    )
+    if state == "revoked":
+        access.revoke_grant(space, bob.person, owner)
+    elif state == "viewer":
+        access.change_role(space, bob.person, owner, state)
+    before = deepcopy((spaces._spaces, access._grants, access.ledger))
+    replay = alice.start({"name": "Do not replace", "country": "DO"})
+    assert (spaces._spaces, access._grants, access.ledger) == before
+    if state == "revoked":
+        assert replay.status_code == 404
+        assert replay.json()["code"] == "business_record_not_found"
+        assert "id" not in replay.json() and "name" not in replay.json()
+        assert access.capabilities(space, alice.person) == ()
+    else:
+        assert replay.status_code == 200
+        assert replay.json()["id"] == space
+        assert replay.json()["name"] == "Colmado"
+        assert access.granted(alice.person, owner).business_role == state

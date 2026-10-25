@@ -600,3 +600,54 @@ def test_revoked_and_expired_memberships_stop_routes_while_inviter_loss_does_not
         db.execute("update public.business_client_grants set revoked_at=now() where id=%s", (web.grant_c,))
     everything_refused(web.grant_c, receipt_c, draft_c)
     assert {s["space_id"] for s in client.get(f"{API}/business/spaces", headers=bob.headers).json()["spaces"]} == {bob.space_id}
+
+
+@pytest.mark.parametrize("state", ["owner", "viewer", "revoked"])
+def test_default_business_bootstrap_rechecks_live_membership(web, state):
+    from argus.api.business_spaces import business_access
+
+    access = business_access()
+    space = web.alice.space_id
+    access.change_role(space, web.alice.id, web.grant_a, "owner")
+    invitation = next(
+        i for i in access.list(space, web.alice.id).invites if i.requested_role == "owner"
+    )
+    access.accept_invite(web.bob.id, space, invitation.id)
+    owner = next(
+        g.id
+        for g in access.list(space, web.bob.id).grants
+        if g.grantee_id == web.alice.id
+    )
+    if state == "revoked":
+        access.revoke_grant(space, web.bob.id, owner)
+    elif state == "viewer":
+        access.change_role(space, web.bob.id, owner, state)
+
+    def snapshot():
+        with Connection.connect(shared.DSN) as db:
+            return tuple(
+                db.execute(query, (web.alice.id,)).fetchall()
+                for query in (
+                    "select to_jsonb(s) from public.spaces s where created_by=%s order by id",
+                    "select to_jsonb(g) from public.business_client_grants g where grantee_id=%s order by id",
+                    "select count(*) from public.business_action_receipts where actor_id=%s",
+                )
+            )
+
+    before = snapshot()
+    replay = web.client.post(
+        f"{API}/business/space",
+        headers=web.alice.headers,
+        json={"name": "Do not replace", "country": "DO"},
+    )
+    assert snapshot() == before
+    if state == "revoked":
+        assert replay.status_code == 404
+        assert replay.json()["code"] == "business_record_not_found"
+        assert "id" not in replay.json() and "name" not in replay.json()
+        assert access.capabilities(space, web.alice.id) == ()
+    else:
+        assert replay.status_code == 200
+        assert replay.json()["id"] == space
+        assert replay.json()["name"] == f"Negocio de {web.alice.email}"
+        assert access.granted(web.alice.id, owner).business_role == state

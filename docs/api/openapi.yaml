@@ -5288,12 +5288,10 @@ paths:
       tags:
       - financial-accounts
       - business
-      description: 'Idempotent: an existing space is returned unchanged, with 200.
+      description: 'Create the default Business or return it unchanged with live read access.
 
 
-        A new space is born with the owner''s grant. An old space without one gets
-
-        it here, once.'
+        An unavailable default Business returns 404 without restoring membership.'
       parameters:
       - name: X-Business-Grant
         in: header

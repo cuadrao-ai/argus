@@ -446,10 +446,9 @@ def start_space(
     body: StartBusinessSpace,
     person: BusinessPerson = Depends(require_business_person),  # noqa: B008
 ) -> dict[str, Any]:
-    """Idempotent: an existing space is returned unchanged, with 200.
+    """Create the default Business or return it unchanged with live read access.
 
-    A new space is born with the owner's grant. An old space without one gets
-    it here, once."""
+    An unavailable default Business returns 404 without restoring membership."""
 
     from argus.api.routers.business_lifecycle import lifecycle_problem
     from argus.domain.business.lifecycle import BusinessLifecycleError
@@ -462,7 +461,12 @@ def start_space(
         )
     except BusinessLifecycleError as error:
         raise lifecycle_problem(request, error) from None
-    _access_store(request).ensure_owner_grant(space.id, person.person_id)
+    access = _access_store(request)
+    initialized = access.ensure_owner_grant(space.id, person.person_id)
+    if not initialized and "read" not in access.capabilities(space.id, person.person_id):
+        raise lifecycle_problem(
+            request, BusinessLifecycleError("business_record_not_found")
+        )
     response.status_code = 201 if created else 200
     return space_payload(space)
 

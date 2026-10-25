@@ -9645,7 +9645,9 @@ person starts their space, every route below except POST `/space` answers 404
 
 - POST `/api/v1/business/space` takes `{name?, language?, country?}` and
   answers 201 `{id, name, country, currency}` with a new space, or 200 with the
-  existing one unchanged.
+  existing one unchanged when the caller still has live read access. An
+  unavailable or revoked default Business returns `404 business_record_not_found`;
+  replay neither restores membership nor creates a second Business.
   Without `name` the space is named "Mi negocio", or "My business" when
   `language` is `en`. Concurrent calls create one space. A name is 1 to 80
   characters after trimming, else 422.
