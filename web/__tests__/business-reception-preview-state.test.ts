@@ -1,5 +1,5 @@
 import {expect,test} from "bun:test";
-import {aliasError,readReceptionPreview,saveReceptionAlias} from "../app/design-workspace/businessReceptionPreviewState";
+import {aliasError,readReceptionPreview,saveReceptionAlias,suggestedReceptionAliases} from "../app/design-workspace/businessReceptionPreviewState";
 import {invitationStorageKeys} from "../app/design-workspace/businessAccessPreviewState";
 function memory() {
   const values=new Map<string,string>();
@@ -22,4 +22,15 @@ test("format and local collisions reject without writing another business",()=>{
   expect(aliasError(storage,"b","palma","recibos.example")).toBe("taken");
   expect(()=>saveReceptionAlias(storage,"b","palma","other@recibos.example")).toThrow("taken");
   expect(readReceptionPreview(storage,"b").address).toBeNull();
+});
+
+test("business-name suggestions are deterministic, distinct and valid even at name boundaries",()=>{
+  const storage=memory();
+  expect(suggestedReceptionAliases("La Palma","nombre-del-negocio")).toEqual(["la-palma","lapalma","la-palma-recibos"]);
+  for(const name of ["Café Ñúñez","A B","1 2","A","12","---","","公司","x".repeat(80),"La Palma ".repeat(20)]) {
+    const aliases=suggestedReceptionAliases(name,"nombre-del-negocio");
+    expect(aliases).toHaveLength(3);expect(new Set(aliases).size).toBe(3);
+    for(const alias of aliases)expect(aliasError(storage,"test",alias,"recibos.example")).toBeNull();
+  }
+  expect(suggestedReceptionAliases("Café Ñúñez","nombre-del-negocio")[0]).toBe("cafe-nunez");
 });

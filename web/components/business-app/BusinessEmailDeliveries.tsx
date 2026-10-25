@@ -105,7 +105,7 @@ export function BusinessEmailAddress() {
   }, [source, revision, attempt]);
   const defaultAddress = intake.status === "ready" ? businessReceivingAddress(intake.data) : null;
   const displayed = localPreview && defaultAddress && preview.address && intake.status === "ready" ? {...intake,data:{...intake.data,receiving_address:preview.address}} : intake;
-  return <><EmailAddressSection intake={displayed} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => { setIntake({ status: "ready", data: next }); reload(); }} />{localPreview && defaultAddress && chosen ? <BusinessEmailAliasPreview key={chosen.space_id} businessId={chosen.space_id} defaultAddress={defaultAddress} canEdit={chosen.role === "owner"} /> : null}</>;
+  return <><EmailAddressSection intake={displayed} onRetry={() => setAttempt((value) => value + 1)} onActivated={(next) => { setIntake({ status: "ready", data: next }); reload(); }} />{localPreview && defaultAddress && chosen ? <BusinessEmailAliasPreview key={chosen.space_id} businessId={chosen.space_id} businessName={chosen.name} defaultAddress={defaultAddress} canEdit={chosen.role === "owner"} /> : null}</>;
 }
 
 /** One received email: subject and where it stands, then who sent it, when, and how many files. */

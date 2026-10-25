@@ -3518,7 +3518,7 @@
     "alias_format": "Usa de 3 a 32 letras, números o guiones.",
     "alias_label": "Nombre de la dirección",
     "alias_required": "Escribe un nombre para tu dirección.",
-    "alias_suggestions": "Nombres sugeridos",
+    "alias_suggestions": "Sugerencias:",
     "alias_taken": "Ese nombre no está disponible. Prueba otro.",
     "alias_title": "Elige tu dirección de correo",
     "back": "Volver",

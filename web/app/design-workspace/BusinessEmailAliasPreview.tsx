@@ -4,7 +4,7 @@ import {useEffect,useId,useState} from "react";
 import {useTranslation} from "react-i18next";
 import {FormField,useFieldChecks} from "@/components/ui/FormField";
 import {primaryButtonClass,quietButtonClass} from "@/components/business-app/business-ui";
-import {aliasError,readReceptionPreview,saveReceptionAlias} from "./businessReceptionPreviewState";
+import {aliasError,readReceptionPreview,saveReceptionAlias,suggestedReceptionAliases} from "./businessReceptionPreviewState";
 
 const unavailableStorage = {length:0,key:()=>null,getItem:()=>null,setItem:()=>{throw new Error("storage_unavailable");}};
 function storage() {
@@ -22,7 +22,7 @@ export function useReceptionPreview(businessId: string) {
   },[businessId]);
   return snapshot?.businessId === businessId ? snapshot.value : {address:null,linked:false,last4:null};
 }
-export default function BusinessEmailAliasPreview({businessId,defaultAddress,canEdit}:{businessId:string;defaultAddress:string;canEdit:boolean}) {
+export default function BusinessEmailAliasPreview({businessId,businessName,defaultAddress,canEdit}:{businessId:string;businessName:string;defaultAddress:string;canEdit:boolean}) {
   const {t}=useTranslation();
   const saved=useReceptionPreview(businessId);
   const [open,setOpen]=useState(false);
@@ -30,6 +30,7 @@ export default function BusinessEmailAliasPreview({businessId,defaultAddress,can
   const [failed,setFailed]=useState(false);
   const id=useId();
   const domain=defaultAddress.slice(defaultAddress.lastIndexOf("@")+1);
+  const suggestions=suggestedReceptionAliases(businessName,t("workspace_setup_preview.alias_example"));
   const issue=()=>aliasError(storage(),businessId,alias.trim().toLowerCase(),domain);
   const checks=useFieldChecks({alias:()=>{const error=issue();return error ? t(error === "locked" ? "business.reception.alias_locked" : `workspace_setup_preview.alias_${error}`) : null;}},{alias});
   if(saved.address) return <p className="mt-2 text-[14px] text-[#56635e] dark:text-white/70">{t("business.reception.alias_locked")}</p>;
@@ -39,7 +40,11 @@ export default function BusinessEmailAliasPreview({businessId,defaultAddress,can
     event.preventDefault();if(!checks.submit()){document.getElementById(id)?.focus();return;}
     try{saveReceptionAlias(storage(),businessId,alias.trim().toLowerCase(),defaultAddress);window.dispatchEvent(new Event(receptionPreviewEvent));setOpen(false);}catch{setFailed(true);}
   }}>
-    <FormField id={id} name="receiving-alias" label={t("workspace_setup_preview.alias_label")} placeholder={t("workspace_setup_preview.alias_example")} value={alias} required autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={32} onChange={event=>{setAlias(event.target.value);setFailed(false);}} onBlur={()=>checks.blur("alias")} error={checks.errorOf("alias")} hint={`@${domain}`} success={checks.isValid("alias") ? t("business.reception.alias_format_valid") : undefined} />
+    <FormField id={id} name="receiving-alias" label={t("workspace_setup_preview.alias_label")} placeholder={t("workspace_setup_preview.alias_example")} value={alias} required autoComplete="off" autoCapitalize="none" spellCheck={false} maxLength={32} onChange={event=>{setAlias(event.target.value);setFailed(false);}} onBlur={()=>checks.blur("alias")} error={checks.errorOf("alias")} inputSuffix={`@${domain}`} reserveMessages={[]} success={checks.isValid("alias") ? t("business.reception.alias_format_valid") : undefined} />
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" role="group" aria-label={t("workspace_setup_preview.alias_suggestions")}>
+      <span className="text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.alias_suggestions")}</span>
+      {suggestions.map(suggestion=><button key={suggestion} type="button" className={`${quietButtonClass} max-w-full break-all`} onClick={()=>{checks.reset();setAlias(suggestion);setFailed(false);document.getElementById(id)?.focus();}}>{suggestion}</button>)}
+    </div>
     <p className="text-[14px] leading-relaxed text-[#56635e] dark:text-white/70">{t("business.reception.alias_once")} {t("workspace_setup_preview.alias_change_note")}</p>
     {failed ? <p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t("workspace_setup_preview.draft_save_error")}</p> : null}
     <div className="flex flex-wrap gap-2"><button type="submit" className={primaryButtonClass}>{t("business.reception.alias_save")}</button><button type="button" className={quietButtonClass} onClick={()=>setOpen(false)}>{t("common.cancel")}</button></div>

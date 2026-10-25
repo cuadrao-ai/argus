@@ -198,3 +198,19 @@ describe("the shared form field", () => {
     }
   });
 });
+
+test("a fixed suffix remains associated with only the editable input alongside validation",async()=>{
+  const {FormField}=await import("@/components/ui/FormField");
+  const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+  try {
+    await act(async()=>root.render(<FormField id="alias-suffix" label="Alias" value="palma" readOnly inputSuffix="@recibos.example" success="Formato válido"/>));
+    const input=host.querySelector<HTMLInputElement>("input")!;
+    assert.equal(input.value,"palma");assert.equal(input.getAttribute("aria-describedby"),"alias-suffix-suffix alias-suffix-note");
+    assert.equal(host.querySelector("#alias-suffix-suffix")?.textContent,"@recibos.example");
+    assert.equal(host.querySelectorAll("input").length,1);assert.ok(host.querySelector('[data-input-suffix]')?.contains(host.querySelector('#alias-suffix-suffix')));
+    assert.ok(input.parentElement?.querySelector('svg'),"the validation check stays beside the editable part");
+    await act(async()=>root.render(<FormField id="alias-suffix" label="Alias" value="bad" readOnly inputSuffix="@recibos.example" error="Corrige el nombre"/>));
+    assert.equal(input.getAttribute("aria-invalid"),"true");assert.equal(input.parentElement?.querySelector('svg'),null);
+    assert.equal(input.getAttribute("aria-describedby"),"alias-suffix-suffix alias-suffix-note");
+  }finally{await act(async()=>root.unmount());}
+});

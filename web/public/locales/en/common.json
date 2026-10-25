@@ -3518,7 +3518,7 @@
     "alias_format": "Use 3 to 32 letters, numbers or hyphens.",
     "alias_label": "Address name",
     "alias_required": "Enter a name for your address.",
-    "alias_suggestions": "Suggested names",
+    "alias_suggestions": "Suggestions:",
     "alias_taken": "That name is unavailable. Try another.",
     "alias_title": "Choose your email address",
     "back": "Back",
