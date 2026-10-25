@@ -41,6 +41,7 @@ function BusinessProfileContent() {
   const name = chosen?.name ?? "";
   const country = records.workspace?.country;
   const canEdit = chosen?.role === "owner";
+  const [footerTarget,setFooterTarget] = useState<HTMLDivElement|null>(null);
   const [selected,setSelected] = useState<ProfileSection|null>(null);
   const [fiscalDraft,setFiscalDraft] = useState<FiscalProfileDraft|null>(null);
   const [providedDraft,setProvidedDraft] = useState<BusinessProvidedDetails|null>(null);
@@ -94,6 +95,8 @@ function BusinessProfileContent() {
     if(dirty)setPending(next);else applySelection(next);
   };
   const close = ()=>select({section:null});
+  const hasEditableForm = canEdit && (selected === "identity" || selected === "contact" || selected === "presence");
+  const businessContext = selected !== "card" && selected !== "invoicing" ? <>{t("workspace_setup_preview.for_business")} <strong className="font-semibold text-[#152d26] dark:text-white">{profile.name}</strong></> : undefined;
   const selectedTitle = selected === "card" ? t("business.settings.profile_overview") : sections.find(section=>section.key === selected)?.title ?? "";
   const checklistRows = (section:"basic"|"additional")=><ul className="mt-3">{profile.checklist.filter(item=>item.section===section).map(item=><li key={item.key}><button type="button" data-profile-checklist={item.key} onClick={event=>select({section:checklistSection[item.key],trigger:event.currentTarget})} className="flex min-h-11 w-full items-center gap-3 rounded-item text-left text-[16px] focus-visible:outline-2 focus-visible:outline-offset-2">
     <span aria-hidden="true" style={item.complete ? undefined : {borderColor:"currentColor",opacity:0.35}} className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${item.complete ? "bg-[#2f5a49] text-white dark:bg-[#8fcbb0] dark:text-[#13211c]" : "border border-black/25 dark:border-white/35"}`}>{item.complete ? <Check className="h-3 w-3"/> : null}</span>
@@ -101,12 +104,12 @@ function BusinessProfileContent() {
   </button></li>)}</ul>;
   const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
     {selected === "card" ? <BusinessProfileCard profile={profile} logoUrl={chosen?.logo_url} /> : selected === "identity" ? <>
-      <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
+      <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
       <dl className="mt-5 space-y-5 text-[16px]">
         <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>
         {countryLabel ? <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.operating_country")}</dt><dd>{countryLabel}</dd></div> : null}
       </dl>
-    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={next=>{const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
+    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={next=>{const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
   </div>;
   return <>
     <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}`}</style>
@@ -125,7 +128,7 @@ function BusinessProfileContent() {
         <div className="px-4 pb-3 pt-5"><h3 className="text-[16px] font-medium">{t("business.settings.profile_additional")}</h3>{checklistRows("additional")}</div>
       </aside> : null}
     </div>
-    {selected ? <AdaptivePanel title={selectedTitle} modal={false} width="lg" onClose={close} onBack={isBelowDesktop ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}</div></AdaptivePanel> : null}
+    {selected ? <AdaptivePanel title={selectedTitle} summary={businessContext} headerSize="large" footer={hasEditableForm ? <div ref={setFooterTarget} data-footer-slot="" /> : undefined} modal={false} width="lg" onClose={close} onBack={isBelowDesktop ? close : undefined} backLabel={t("business.settings.profile_overview")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" returnFocusRef={opener}><div id="profile-section-dossier" style={{padding:isBelowDesktop ? undefined : 20}}>{dossier}</div></AdaptivePanel> : null}
     <ConfirmDialog isOpen={pending !== null} title={t("business.settings.profile_discard_title")} description={t("business.settings.profile_discard_detail")} confirmLabel={t("business.settings.profile_discard")} cancelLabel={t("business.settings.profile_keep_editing")} onCancel={()=>setPending(null)} onConfirm={()=>{if(pending)applySelection(pending);}} />
   </>;
 }

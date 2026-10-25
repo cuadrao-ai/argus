@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, type ReactNode, useContext, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -12,7 +13,7 @@ import {
 import { randomId } from "@/lib/random-id";
 import { ErrorSummary, FormField, SelectField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
 import { BusinessContext } from "./BusinessWorkspace";
-import { quietButtonClass, secondaryButtonClass } from "./business-ui";
+import { primaryButtonClass, quietButtonClass, secondaryButtonClass } from "./business-ui";
 import { Settle } from "./business-skeletons";
 
 const LENGTH = { rnc: 9, cedula: 11 } as const;
@@ -26,7 +27,7 @@ export type FiscalProfileDraft = {name:string;kind:TaxIdType;value:string};
 /** A refusal the server explains; retrying the same values cannot help. */
 type Problem = { text: string; retry: boolean };
 
-export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange }: { draftId?: string; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
+export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onDirtyChange, initialDraft, onDraftChange, footerTarget }: { draftId?: string; footerTarget?: HTMLElement | null; initialDraft?: FiscalProfileDraft | null; onDraftChange?: (draft:FiscalProfileDraft) => void; onDirtyChange?: (dirty: boolean) => void; renderTaxIdControl?: (props: {value: TaxIdType; label: string; disabled: boolean; onChange: (value: TaxIdType) => void}) => ReactNode }) {
   const { t, i18n } = useTranslation();
   const workspace = useContext(BusinessContext);
   const base = useId();
@@ -130,6 +131,9 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
   const changeKind = (next:TaxIdType)=>{setKind(next);setSaved(false);};
   const numberHint = t(kind === "rnc" ? "business.dgii.tax_id_hint_rnc" : "business.dgii.tax_id_hint_cedula");
   const taxIdTitle = profile?.tax_id?.type === "cedula" ? t("business.dgii.tax_id_cedula", "Cédula") : t("business.dgii.tax_id_rnc", "RNC");
+  const saveButton = <button type="submit" form={`${base}-form`} className={footerTarget === undefined ? secondaryButtonClass : `${primaryButtonClass} rounded-item! h-12 w-full`} disabled={busy || unchanged}>{t(footerTarget === undefined ? "business.dgii.save_profile" : "business.settings.profile_save_changes")}</button>;
+  const status = <p role="status" className={`${saved ? "" : "sr-only"} text-[14px] text-[#56635e] dark:text-white/70`}>{saved ? t("business.settings.profile_details_saved") : ""}</p>;
+  const actions = footerTarget === undefined ? <div className="flex min-h-11 flex-wrap items-center gap-3 pt-2">{saveButton}{status}</div> : <div className="flex flex-col gap-2">{status}{saveButton}</div>;
   return (
     <div className="mt-[21px]" data-testid="business-fiscal-profile">
       {profile === null && !loadFailed ? <Settle pending layout="form" /> : null}
@@ -140,7 +144,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
         </p>
       ) : null}
       {profile?.can_edit ? (
-        <form noValidate onSubmit={(event) => void save(event)} className="max-w-[34rem] space-y-[13px]">
+        <form id={`${base}-form`} noValidate onSubmit={(event) => void save(event)} className="max-w-[34rem] space-y-[13px]">
           <ErrorSummary
             key={checks.attempt}
             title={t("common.form_summary", "Check these fields to continue:")}
@@ -192,12 +196,7 @@ export default function BusinessFiscalProfile({ draftId, renderTaxIdControl, onD
               onChange={(event) => {setValue(event.target.value);setSaved(false);}}
             />
           </div>
-          <div className="flex min-h-11 flex-wrap items-center gap-3 pt-2">
-            <button type="submit" className={secondaryButtonClass} disabled={busy || unchanged}>
-              {t("business.dgii.save_profile", "Save")}
-            </button>
-            <p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{saved ? t("business.settings.profile_details_saved") : ""}</p>
-          </div>
+          {footerTarget === undefined ? actions : footerTarget ? createPortal(actions,footerTarget) : null}
           {problem ? (
             <div role="alert" className="flex items-start gap-2 text-[14px] leading-relaxed text-[#9e2f39] dark:text-[#ec9aa0]">
               <AlertCircle className="mt-[3px] h-4 w-4 shrink-0" aria-hidden="true" />

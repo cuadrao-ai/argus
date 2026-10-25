@@ -42,6 +42,7 @@ const DRAWER_WIDTH: Record<AdaptivePanelWidth, DrawerBounds> = {
 export default function AdaptivePanel({
   title,
   summary,
+  headerSize = "default",
   onClose,
   onBack,
   backLabel,
@@ -58,7 +59,8 @@ export default function AdaptivePanel({
 }: {
   title: string;
   /** One line under the title; on a phone it is what the peek snap shows. */
-  summary?: string;
+  summary?: ReactNode;
+  headerSize?: "default" | "large";
   onClose: () => void;
   /** Present on a child panel; returns to the parent instead of dismissing. */
   onBack?: () => void;
@@ -114,6 +116,7 @@ export default function AdaptivePanel({
         dismissible={dismissible}
         title={title}
         description={summary}
+        headerSize={headerSize}
         closeLabel={closeLabel}
         backLabel={stackBackLabel}
         snaps={snaps}
@@ -127,7 +130,7 @@ export default function AdaptivePanel({
     );
   }
 
-  return <SideDrawer {...{ title, summary, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, children }} />;
+  return <SideDrawer {...{ title, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, children }} />;
 }
 
 /** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
@@ -162,7 +165,8 @@ function useDrawerSpace(id: string, { preferred, min, maxVw }: DrawerBounds, dra
 
 type DrawerProps = {
   title: string;
-  summary?: string;
+  summary?: ReactNode;
+  headerSize: "default" | "large";
   titleId: string;
   overlayId: string;
   panelRef: React.RefObject<HTMLDivElement | null>;
@@ -234,6 +238,7 @@ function TrayDrawer(props: DrawerProps & StackPlace) {
 function DrawerPanel({
   title,
   summary,
+  headerSize,
   titleId,
   panelRef,
   onClose,
@@ -282,8 +287,8 @@ function DrawerPanel({
           </button>
         ) : null}
         <div className="min-w-0 flex-1 pt-2.5">
-          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="rounded-mark font-display text-[17px] font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white">{title}</h2>
-          {summary ? <p className="mt-1 text-[13px] text-[#56635e] dark:text-white/70">{summary}</p> : null}
+          <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white`}>{title}</h2>
+          {summary ? <p className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] dark:text-white/70`}>{summary}</p> : null}
         </div>
         {dismissible && !hasBelow ? (
           <button
