@@ -87,7 +87,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
       <form ref={form} noValidate className={styles.formCard} onSubmit={event => { event.preventDefault(); if (step === "review") prepareEmail(); else next(); }}>
         <div className={styles.editorStepHeader}>
           <p className={styles.muted}>{word("editor_step_count", { current: STEPS.indexOf(step) + 1, total: STEPS.length })}</p>
-          <h3 ref={stepHeading} tabIndex={-1} className={styles.editorStepTitle}>{word(`editor_step_${step}`)}</h3>
+          <h3 ref={stepHeading} tabIndex={-1} className={styles.editorStepTitle}>{word(step === "customer" ? "editor_customer_heading" : `editor_step_${step}`)}</h3>
           <p className={styles.muted}>{word(`editor_help_${step}`)}</p>
         </div>
         {step === "customer" ? <>

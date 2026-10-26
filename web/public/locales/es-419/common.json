@@ -3447,6 +3447,7 @@
       "editor_help_review": "Revisa la factura y prepara el correo para tu cliente.",
       "editor_help_terms": "Define las fechas y las instrucciones de pago.",
       "editor_item_count": "{{count}} conceptos",
+      "editor_customer_heading": "¿Para quién es esta factura?",
       "editor_item_count_one": "{{count}} concepto",
       "editor_item_count_other": "{{count}} conceptos",
       "editor_step_count": "Paso {{current}} de {{total}}",

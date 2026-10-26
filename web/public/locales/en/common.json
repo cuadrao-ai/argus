@@ -3209,6 +3209,7 @@
       "editor_help_review": "Review the invoice and prepare the email for your customer.",
       "editor_help_terms": "Set the dates and payment instructions.",
       "editor_item_count": "{{count}} items",
+      "editor_customer_heading": "Who is this invoice for?",
       "editor_item_count_one": "{{count}} item",
       "editor_item_count_other": "{{count}} items",
       "editor_step_count": "Step {{current}} of {{total}}",
