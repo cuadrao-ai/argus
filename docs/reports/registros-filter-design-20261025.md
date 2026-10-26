@@ -450,3 +450,27 @@ themes, with Spanish and English copy. A temporary three-currency presentation
 fixture verified the full dossier and phone sheet, unknown settlement values,
 Escape dismissal and focus restoration; the fixture was removed afterward.
 Fifteen focused tests and scoped ESLint passed. No backend work or handoff occurred.
+
+### Pilot search scope and checkpoint hold, 26 October 2026
+
+The approved pilot search covers customer/supplier names, current record notes
+and document numbers. Other searchable fields are deferred. Amount, date and
+currency remain structured filters. Document-content or OCR full-text search is
+not implied by this approval.
+
+Current frontend behavior matches only counterparty-name substrings, ignoring
+case, within already-loaded records and the selected period. Notes and document
+numbers are not yet searchable. The orchestrator must resolve the supported
+document-identifier fields and provide authorized Business-scoped search across
+all matching records, with bounded pagination. Rows, counts, totals and filtered
+exports must share the same search and filter definition.
+
+Hosted acceptance must find a name, a current note and a document number on a
+record outside the initially loaded page. Combine each with period and currency
+filters; verify matching counts, totals and export scope, search reset to page
+one, zero results and Business isolation. Backend search and document-field
+contracts remain dependencies; frontend owns the control and result states.
+
+These notes are held locally for the future checkpoint package. Do not send them
+or any handoff to the orchestrator until the user explicitly clears this
+checkpoint. This update does not change search behavior or authorize backend work.
