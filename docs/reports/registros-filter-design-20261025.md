@@ -78,3 +78,158 @@ design lane; no hosted acceptance is claimed here.
 
 No backend, deployment, migration, hosted acceptance or orchestrator handoff was
 performed in this design slice.
+
+
+## Phone list and pagination contract, October 25, 2026
+
+These are agreed requirements for the next design work. They are not implemented
+acceptance results. This note does not declare a checkpoint or authorize a
+handoff. The inspected frontend baseline is `ba5cf96a7`.
+
+### Phone and narrow-container presentation
+
+Keep the seven desktop columns: Contraparte, Fecha, Monto, Detalle, Categoría,
+Cuenta and Comprobante. Below the table container's useful width, show a compact
+list instead of shrinking the table or relying on horizontal scrolling. Start
+with a 700px container threshold and verify real content at that boundary,
+including when a desktop dossier narrows the list. Use one container query.
+
+Each row has a fixed, right-aligned amount slot with tabular figures and an
+explicit currency. The first line shows the counterparty and amount. The second
+line shows the relevant state and a labeled date. A due date appears only when
+provided by the record. Otherwise identify the record date. Do not substitute
+a record date for a due date or confuse review state with payment state.
+
+Keep rows thumb-sized, separated by hairlines, with consistent amount alignment.
+Long names truncate. Amounts remain complete. Proof and action icons must not
+move the amount slot. Do not put technical IDs first. Label ambiguous values,
+move sorting into a control, and keep the same active sort as the desktop table.
+
+Tapping a row opens the full record in the shared phone sheet. It exposes IDs,
+notes, documents, payments, balance, history and permitted actions as supported.
+A quick glance does not navigate to a new page. Keep any small inline disclosure
+bounded; the full record belongs in the sheet. Closing restores the source row.
+This new Registros requirement supersedes the older phone-full-page rule for
+record glances in DESIGN.md. It does not change other flows by implication.
+The design lane must update that scoped rule alongside implementation.
+
+Illustrative layout, not a claim of current field support:
+
+```text
+[Buscar registros...]       [Filtros] [Ordenar]
+
+Colmado La Esquina                 RD$10,000.00
+Cobro parcial                 Vence el 4 de mar
+------------------------------------------------
+Ferretería La Esquina               RD$2,400.00
+Por aprobar                  Fecha: 24 de oct
+
+26–50 de 238 registros           [25 por página]
+[Primera] [Anterior] [1] [2] […] [10] [Siguiente] [Última]
+```
+
+On small widths the footer can wrap into aligned lines. Page numbers remain
+bounded and direct page access remains available.
+
+### Workspace navigation and result scope
+
+Preserve the order of overview cards, controls, compact financial summary,
+records, and pagination. Use numbered pages, Anterior/Siguiente, first/last
+access and a truncated page-number range. Default to 25 rows with 50 and 100
+choices. Show the range and filtered total only when known. Loading must not
+invent a count or collapse the records area.
+
+Search, filters, sorting and page-size changes reset to page 1. Column and
+density changes preserve the page. Keep active filters visible and removable.
+Compact totals cover the entire matching set, never only the displayed page.
+Overview cards keep their separate selected-Business and page-period scope.
+
+Represent the Business, query, date basis, filters, currency, sort, page size and
+page in the URL where appropriate. Opening a detail and returning restores the
+query, selected row and scroll position. Store a stable record identity as the
+return anchor. If it is deleted or no longer matches, explain the change and
+restore the nearest valid position. Saved views remember the working setup,
+including filters, columns, sort and page size, but open on page 1.
+
+Do not insert new rows while a person reads a page. A reliable server change
+signal enables the proposed 'Hay cambios nuevos · Actualizar' state. After a
+refresh, try to restore the anchor and explain any changed position. If the page
+is no longer valid, show recovery instead of silently shifting its results.
+The design must cover loading, no results, request failure, last page, and an
+invalidated page, using explicit fixtures until the contracts exist.
+
+Selection uses explicit stable record IDs. If it spans pages, keep its total
+visible with 'Limpiar selección'. Changing Business clears selection. Filter
+changes must clear selection with feedback or explicitly expose retained hidden
+selections; they must never remain silently active. The design must settle that
+choice before wiring it.
+
+'Exportar resultados' means every matching record. 'Exportar seleccionados'
+means the explicit selected IDs. Neither means the current page. Do not present
+unsupported export scope as working. Amounts retain currency, totals stay
+separate, and amount ranges name their currency. A mixed-currency amount sort
+must not imply a common value without a defined conversion basis.
+
+### Current gaps and acceptance ownership
+
+| Control or behavior | Current inspected behavior | Remaining work and owner | Acceptance check |
+| --- | --- | --- | --- |
+| Narrow list | `TransaccionesPanel` chooses a list using `isBelowTablet`. `RecordsList` centers the amount beside text; a proof icon can move its position. | Frontend design owns the container switch, aligned rows, labels and sheet interaction. | Narrow the table on desktop and phone. Amounts stay aligned, full currency remains visible, and closing detail restores the row. |
+| Numbered pages | Saved records render the locally available set and its length. The bank path uses `LoadMore`. Neither proves this numbered-page contract. | Frontend owns controls and states. Orchestrator owns the query/count contract. | Reload page 3 directly; show its accurate range and count. First/last and truncated links work at 25, 50 and 100 rows. |
+| Filtered totals | Search and record kind filter rows locally. `RecordsSummary` still receives the source period totals. Advanced filters and named views remain preview state. | Orchestrator owns shared query semantics and persistence. Frontend consumes the same query for controls and totals. | Supplier plus DOP plus no-document filters produce matching rows, count, totals and export across multiple pages. |
+| Return position | Saved records have partial expense-row focus restoration. It is not full URL/query/scroll restoration. | Frontend owns URL and anchor restoration with backend invalid-page information. | Back restores the query and row. Removing that row gives an explanation and nearest valid position. |
+| Data changes | No shared Registros result-version contract has been verified for this requirement. | Orchestrator must identify an existing reliable signal or define the smallest missing implementation. Frontend owns refresh/recovery presentation. | Concurrent changes never silently insert or shift the viewed rows. Refresh restores the anchor or explains recovery. |
+| Export scope | `business_export.download_export` accepts only `start`, `end` and optional `draft_id`. Other query fields are rejected. | Orchestrator owns arbitrary-filter and explicit-ID export contracts. Frontend owns scope labels and feedback. | Filtered exports and selected exports contain exactly their intended records, including records beyond page 1. |
+
+The inspected saved-records path fetches `GET /business/expenses` with `from`
+and `to`, and fetches sales through the same endpoint with `kind=income`.
+Its `{items: BusinessExpense[]}` response and frontend adapter expose no numbered
+page, filtered total or server result version. Overview totals arrive separately.
+See `web/lib/business-api.ts` and `transacciones-adapter.ts`.
+
+The bank path uses `GET /business/bank/movements` with `period_start`,
+`period_end`, `segment`, optional `currency`, `limit` and `cursor`. Its response
+has `items`, `next_cursor`, `totals`, `counts` and `other_currencies`. Those
+`counts` are period-wide across segments and currencies, not the requested
+filtered-result total. No result-version field appears in that response schema.
+The Business context's client revision triggers a refetch; it is not a server
+invalidation contract. These findings cover the inspected paths, not every API.
+
+### Required checkpoint handoff, when authorized
+
+The design lane must send the following requirements with the exact checkpoint
+SHA. Do not hand off only a list of preview limitations.
+
+1. Preserve direct numbered-page navigation and filtered counts for Registros
+   and Invoicing. The orchestrator first evaluates indexed offset queries for
+   the pilot. Cursor-only navigation needs an explicit explanation of which
+   approved behavior changes. Supported sorts are allowlisted, end in a unique
+   record key, and define ties and null ordering. Measure representative
+   filtered queries rather than assuming every column is cheap to sort.
+2. Use one query definition for rows, count, financial totals and exports.
+   Include Business, date basis, filters, currency and sorting. Pagination
+   limits displayed rows only. Enforce current access and Business isolation
+   on every request, including exports. A saved URL grants no access.
+3. Deterministic ordering does not prevent offset drift between requests.
+   Identify the reliable invalidation/version signal and mark any missing
+   implementation as a dependency. Do not promise stable cross-page browsing
+   without proof or keep a database transaction open while someone browses.
+4. Define whether export captures records at request time or processing time.
+   Use a consistent read or captured dataset and report generation time and
+   scope. Reusing filters alone cannot reproduce an earlier result after data
+   changes. A frozen review session is a separate feature, not an implicit
+   requirement for a large snapshot system.
+5. For each control, supply expected behavior, actual endpoint and field
+   support, preview-only or missing behavior, owning lane and exact acceptance
+   check. Recheck this document against the checkpoint SHA. Explicitly retain
+   the period-only export gap until arbitrary filtered export is proven.
+6. Include hosted acceptance for direct-page reload, Back-to-row restoration,
+   tied sort values, filter and page-size reset, zero results, deleting the last
+   row on the last page, concurrent changes, revoked access, mixed currencies,
+   and exports spanning multiple pages. Test Business isolation for rows,
+   counts, totals and exports. No hosted acceptance is claimed by local UI tests.
+
+The eventual packet must name the exact endpoint/field contract, outstanding
+backend dependencies, frontend ownership and checkpoint SHA. Database query
+implementation remains the orchestrator's responsibility. This update records
+requirements only; it makes no backend, UI, deployment or handoff changes.
