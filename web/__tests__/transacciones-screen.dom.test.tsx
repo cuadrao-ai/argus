@@ -274,12 +274,14 @@ describe("the gate", () => {
       const key = (key: string, repeat = false) => page.act(async () => { document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, repeat, bubbles: true })); });
       await key(" ");
       assert.equal(grip.getAttribute("aria-pressed"), "true");
+      assert.equal(grip.closest("[data-column-setting]")?.getAttribute("data-picked-up"), "true");
       await key(" ", true);
       assert.equal(grip.getAttribute("aria-pressed"), "true", "holding Space must not release the column");
       await key("ArrowUp");
       assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "moneda"]);
       await key("Escape");
       assert.ok(document.querySelector('[role="dialog"]'), "Escape restores grabbed order before dismissing");
+      assert.equal(document.querySelector('[data-picked-up="true"]'), null);
       assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["contraparte", "fecha", "monto"]);
       await key(" "); await key("ArrowUp"); await key(" "); await key("Escape");
       assert.equal(document.querySelector('[role="dialog"]'), null);

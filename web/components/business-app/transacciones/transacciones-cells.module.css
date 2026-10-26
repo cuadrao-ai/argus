@@ -1,8 +1,8 @@
 .detail { display:block; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 .detail > [data-testid="record-marks"] { display:inline-flex; flex-wrap:nowrap; margin-left:8px; vertical-align:middle; }
 .detail:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; border-radius:4px; }
-.workflow { display:inline-flex; align-items:center; max-width:100%; border-radius:999px; padding:3px 8px; color:#422f29; font-size:12px; font-weight:500; line-height:1.4; white-space:nowrap; }
-:global(.dark) .workflow { color:#f8eee7; }
+.workflow { display:inline-flex; align-items:center; max-width:100%; border-radius:999px; padding:3px 8px; color:var(--workflow-ink,#422f29); font-size:12px; font-weight:500; line-height:1.4; white-space:nowrap; }
+:global(.dark) .workflow { color:var(--workflow-ink,#f8eee7); }
 .noteButton { display:block; width:100%; min-height:44px; padding:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:inherit; }
 .noteButton:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; border-radius:4px; }
 .emptyNote { color:color-mix(in srgb,var(--fg) 45%,transparent); }

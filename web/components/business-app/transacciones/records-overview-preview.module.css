@@ -22,7 +22,7 @@
 
 .review { background: #f8b69f; }
 .approval { background: #f8e28b; }
-.export { background: #f2cee1; }
+.export { --workflow-ink:#2f5a49; background:#e3ebe1; }
 
 .heading {
   display: flex;
@@ -63,12 +63,12 @@
 
 :global(.dark) .review { background: #50382f; }
 :global(.dark) .approval { background: #49412a; }
-:global(.dark) .export { background: #48333f; }
+:global(.dark) .export { --workflow-ink:#8fcbb0; background:#293b32; }
 :global(.dark) .description { color: rgb(248 238 231 / 75%); }
 
 .card { text-align:left; cursor:pointer; font:inherit; }
-.card:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:3px; }
-.card[aria-pressed="true"] { box-shadow:inset 0 0 0 2px var(--cuadrao-green); }
+.card:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.card[aria-pressed="true"] { box-shadow:inset 0 0 0 2px currentColor; }
 .card:disabled { cursor:default; }
 @media(max-width:1023px) {
   .card { min-height:112px; padding:12px; border-radius:16px; }
