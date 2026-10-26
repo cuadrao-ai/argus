@@ -55,6 +55,7 @@ test("scheduled drafts reuse the customer and source, survive nested discard, an
     assert.ok(document.querySelector('[class*="phoneList"]')?.textContent?.includes("RD$"));
     await page.click("M-001");
     await page.click("Edit draft");
+    await page.click("Next");
     await page.fill('input[id$="-description"]', "Monthly service");
     await page.click("Save draft");
     await page.close();
@@ -130,7 +131,13 @@ test("invoice picker adds a stable customer in the same panel and preserves the 
   const page = await mount();
   try {
     await page.click("Create invoice");
-    await page.fill('textarea', "Keep these terms");
+    await page.fill("#invoice-address", "Keep this address");
+    await page.click("Choose customer");
+    await page.click("Add customer");
+    await page.fill("#customer-name", "Discard customer");
+    await page.click("Back to draft");
+    await page.click("Discard changes");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "Keep this address");
     await page.click("Choose customer");
     await page.fill('input[aria-label="Search customers"]', "No matches");
     const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
@@ -143,7 +150,7 @@ test("invoice picker adds a stable customer in the same panel and preserves the 
     await page.fill("#customer-email", "new@example.test");
     await page.click("Save customer");
     assert.equal(document.querySelector<HTMLInputElement>("#invoice-name")?.value, "New customer");
-    assert.equal(document.querySelector<HTMLTextAreaElement>("textarea")?.value, "Keep these terms");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "");
     await page.click("Choose customer");
     await page.fill('input[aria-label="Search customers"]', "new@example.test");
     await page.click("New customernew@example.test");
@@ -179,7 +186,7 @@ test("phone customer creation replaces picker content inside one invoice sheet",
   const page = await mount(389);
   try {
     await page.click("Create invoice");
-    await page.fill('textarea', "Phone draft");
+    await page.fill("#invoice-address", "Phone draft");
     await page.click("Choose customer");
     assert.notEqual(document.activeElement?.getAttribute("aria-label"), "Search customers");
     await page.click("Add customer");
@@ -188,6 +195,60 @@ test("phone customer creation replaces picker content inside one invoice sheet",
     await page.fill("#customer-name", "Phone customer");
     await page.click("Save customer");
     assert.equal(document.querySelector<HTMLInputElement>("#invoice-name")?.value, "Phone customer");
-    assert.equal(document.querySelector<HTMLTextAreaElement>("textarea")?.value, "Phone draft");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "");
+  } finally { await page.unmount(); }
+});
+
+test("invoice steps open expanded, validate the current section and preserve live edits", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("M-001");
+    await page.click("Edit draft");
+    assert.equal(document.querySelector('[data-testid="side-drawer"]')?.getAttribute("data-expanded"), "true");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Customer");
+    assert.equal(document.querySelector('input[id$="-description"]'), null);
+    await page.fill("#invoice-name", "");
+    await page.click("Next");
+    assert.equal(document.querySelector("#invoice-name")?.getAttribute("aria-invalid"), "true");
+    await page.fill("#invoice-name", "Edited customer");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"] [data-editing="true"]')?.textContent?.includes("Edited customer"));
+    await page.click("Next");
+    await page.fill('input[id$="-description"]', "Live service");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"] [data-editing="true"]')?.textContent?.includes("Live service"));
+    await page.click("Next");
+    assert.ok(document.querySelector("#invoice-issuedOn"));
+    await page.fill("textarea", "Pay within 14 days");
+    await page.click("Back");
+    assert.equal(document.querySelector<HTMLInputElement>('input[id$="-description"]')?.value, "Live service");
+    await page.click("Next");
+    assert.equal(document.querySelector<HTMLTextAreaElement>("textarea")?.value, "Pay within 14 days");
+    await page.click("Next");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Review");
+    assert.equal(document.querySelector('[data-testid="invoice-customer-document"]')?.getAttribute("data-editing"), "true");
+    await page.click("Save draft");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"]'), null);
+    assert.ok(!document.querySelector('[data-testid="invoice-customer-document"] [data-editing]'));
+  } finally { await page.unmount(); }
+});
+
+test("phone keeps step data through preview and full-save validation routes to missing items", async () => {
+  const page = await mount(390);
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("Create invoice");
+    await page.click("Choose customer");
+    await page.click("Taller Brisacliente001@example.test");
+    await page.click("Save draft");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Items");
+    assert.equal(document.querySelector('input[id$="-description"]')?.getAttribute("aria-invalid"), "true");
+    assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
+    await page.fill('input[id$="-description"]', "Phone service");
+    await page.click("Preview");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"]')?.getAttribute("data-view"), "preview");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"]')?.textContent?.includes("Phone service"));
+    await page.click("Edit");
+    assert.equal(document.querySelector<HTMLInputElement>('input[id$="-description"]')?.value, "Phone service");
+    assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
   } finally { await page.unmount(); }
 });

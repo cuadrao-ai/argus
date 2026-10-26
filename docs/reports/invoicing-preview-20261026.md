@@ -161,3 +161,12 @@ The current cold-start cards disappear once an invoice exists. Preserve that tra
 Hosted acceptance remains required: visiting without saving leaves progress unchanged; successful valid saves update the relevant step; failed or invalid saves do not; existing saved data restores progress after reload and a new session; switching Businesses shows only that Business's progress; revoked access exposes no protected data; failed progress retrieval has an honest recovery state; saving the first draft transitions to the populated invoice view.
 
 Delivery hold: append this requirement to the eventual checkpoint handoff. Do not send it to the orchestrator before the user's explicit checkpoint clearance. No backend implementation or hosted verification is claimed here.
+
+
+## Expanded invoice step editor
+
+Invoice creation now opens the existing dossier expanded by default. Desktop shows the current form section on the left and the live invoice on the right. The steps are Cliente, Conceptos, Condiciones and Revisar. Next validates the current section, Back preserves edits, and the review step links back to each section. Save draft retains the existing whole-draft validity requirement and routes to the first section needing attention. Draft saving remains session-local.
+
+The preview marks the active customer, items, or terms area; review marks the whole document. These markers are editing aids and do not appear on a saved document or in print. On phone, the full-height sheet uses the shared Edit/Preview control and keeps the same draft and step. Long item lists and short viewports can still scroll within the sheet. Nested customer creation keeps the existing discard protection.
+
+Local verification: 25 focused tests passed; scoped ESLint and diff checks passed. Browser checks on the existing server covered desktop expanded layout, current-step validation, live rendering, Back preservation, save-draft transition, and phone Edit/Preview preservation and reachable footer actions. Repository-wide TypeScript checking is blocked by existing test typing errors; no invoice editor or document diagnostics were reported. No backend, hosted acceptance, push or checkpoint handoff occurred.

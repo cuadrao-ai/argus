@@ -208,3 +208,22 @@
   .workspaceSwitch { max-width:100%; overflow-x:auto; }
   .customerToolbar .create { margin-left:0; }
 }
+
+.editorStepHeader { display: grid; gap: 8px; }
+.editorStepTitle { font-size: 22px; font-weight: 600; line-height: 1.3; outline: none; }
+.editorActions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.editorActions > div { display: flex; align-items: center; gap: 8px; }
+.editorReview { display: grid; }
+.editorReviewRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; padding: 16px 0; text-align: left; border-bottom: 1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.editorReviewRow small { display: block; margin-top: 4px; color: color-mix(in srgb,var(--fg) 65%,transparent); }
+.document[data-editing="true"], .document [data-editing="true"] { outline: 1px solid var(--cuadrao-green); outline-offset: 8px; border-radius: 8px; transition: outline-color 180ms ease; }
+@media (min-width: 1024px) {
+  .editor[data-expanded="false"] .editorSwitch { display: block; margin-bottom: 21px; }
+  .editor[data-expanded="false"][data-view="preview"] .formCard { display: none; }
+  .editor[data-expanded="false"][data-view="preview"] .livePreview { display: grid; gap: 13px; }
+}
+@media (max-width: 480px) {
+  .editorActions { align-items: stretch; flex-wrap: wrap; }
+  .editorActions > div { margin-left: auto; }
+}
+@media print { .document[data-editing], .document [data-editing] { outline: none; } }
