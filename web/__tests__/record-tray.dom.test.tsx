@@ -189,7 +189,7 @@ describe("a record in the desktop tray", () => {
     assert.deepEqual(page.panel(), { kind: "receipt", receiptId: "rcpt-confirmed", list: "transactions" });
     assert.ok(page.host.querySelector('[data-record-id="exp-hosting"]'), "the list is still on the page");
     assert.equal(saved("Nube Hosting")?.getAttribute("aria-selected"), "true");
-    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Transacciones"), true);
+    assert.equal(page.host.querySelector('[data-testid="sidebar"] [aria-current="page"]')?.textContent?.includes("Registros"), true);
   });
 
   test("a link to a recorded receipt opens it beside Transacciones once it has loaded", async () => {

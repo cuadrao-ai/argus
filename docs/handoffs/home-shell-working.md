@@ -3,6 +3,45 @@
 Status: local design only. No handoff, push, deployment or hosted flag change.
 Base: fe233679257035ea2dce8998b510868be9989632.
 
+## Deferred greeting and ownership integration, October 25, 2026
+
+The approved Home greeting uses the viewer's local clock and the saved preferred
+name already supplied by the account shell. It introduces no new profile field,
+timezone service, auth behavior or API. Both languages and phone/desktop reuse
+one greeting implementation. A browser-session sentinel contains only `1`; no
+name or greeting text is persisted by this UI behavior. Actual account-profile
+persistence and auth remain backend integration responsibilities.
+
+The ownership backend batch is not merged or deployed. A later wiring change
+must address `BusinessWorkspace.tsx`, currently around line 327: the directory
+effect clears `chosenGrant` whenever the selected membership has role `owner`.
+That treats every Owner membership as the default Business. A person who already
+owns Business B and accepts co-Owner access to Business A must remain in selected
+Business A. Do not infer the default Business from the role alone. This UI pass
+records the dependency and does not change selection logic.
+
+Hosted acceptance for a later authorized checkpoint must prove:
+
+- A preferred name saved through the real profile API survives reload, sign-in
+  and another device, and appears in Home. An absent name has no comma or fallback
+  identity. Local preview text does not prove profile persistence.
+- After accepting Owner access to A while already owning B, selecting A remains
+  selected across reload and sign-in. A's records, actions, permission checks and
+  invitation context stay scoped to A. Pending acceptance grants no access.
+- Both languages, both themes and desktop/phone show the correct local greeting
+  at a time boundary and after resume, without hydration errors or animation
+  replay. Real auth and profile responses must be used for hosted evidence.
+
+These are deferred backend requirements and hosted criteria, not a sent handoff,
+backend authorization or release acceptance.
+
+Local browser review on the existing port 4387 checked 1731px desktop and 389px
+phone in Spanish/light and English/dark. The current afternoon greeting was
+correct. Home navigation, desktop/phone changes and language changes did not
+replay it, and neither width had horizontal overflow. The reviewer restored
+Spanish/light desktop. Boundary, first-animation and reduced-motion behavior are
+covered by focused automated tests; this is not physical-device or hosted proof.
+
 ## Approved sidebar behavior
 
 The founder selected B with simple tooltips on October 23, 2026. This supersedes the earlier local overlay experiment.
@@ -156,3 +195,204 @@ Ownership remains in the design lane. No backend assignment, orchestrator messag
 - Verified mobile-width dark layout, mobile Business switcher, and switching back to owner restores owner controls. Checked light desktop visually. No browser console errors observed in the prototype.
 - Corrected invitation wording to match confirmed-email access, mobile menu entry, hidden owner-only channel forms, and role-sensitive configuration labels.
 - These are synthetic browser checks, not backend integration, real-device, or hosted acceptance. Full accessibility and responsive release checks remain for a later approved checkpoint.
+
+
+## Notification list, local preview, October 25
+
+Implemented the compact bell popover and shared phone sheet in the design lane.
+Three synthetic notices cover an accepted invitation, receiving channels, and
+profile customization. Two begin unread. Samples require development mode,
+mock auth, an explicit preview prop, and a selected Business. Direct or nonmock
+use stays empty. Visible copy uses the selected Business name; the sample does
+not grant access or claim a real delivery.
+
+All/Unread, mark all read, per-row dismiss, and quiet settings actions work in
+memory. Read and dismiss state is keyed by Business and notice, survives closing
+and switching Business, and resets when the shell unmounts. Actions open existing
+Configurar tabs for equipo, correo, and datos. No storage or network calls were
+added. The nested filter uses the shared overlay stack, keeps focus inside the
+panel, and receives Escape before the parent. Dismiss moves focus to the filter.
+
+Deferred backend and hosted work: define canonical recipient and Business
+permissions; obtain authorized notices from the backend; persist read/dismiss
+state across devices; validate each action target against current access; define
+actual event and delivery timestamps. Existing settings access checks remain the
+authority. This preview is not evidence of real notifications, delivery, durable
+state, or hosted readiness. Backend, migrations, push, deployment, and orchestrator
+handoff remain out of scope. This frontend change is a local checkpoint commit.
+
+Verification: 21 focused notification and top-bar tests pass; scoped ESLint and
+`git diff --check` pass. Browser checks covered Spanish/light and English/dark on
+desktop and a 390px phone viewport, with no horizontal overflow. Verified the
+custom filter, nested Escape, read-all and dismiss focus, empty unread state, and
+the Recepción action. Screenshots are stored outside Git in the task visualization
+folder. These are local browser checks, not physical-device or hosted acceptance.
+
+## Notification empty states, October 25
+
+Added a shared decorative bell to no-notifications and no-unread states. The
+Model the Domain principle keeps these states derived from notice counts; there
+is no separate empty-state flag. View all restores existing read notices, and
+final dismissal retains focus inside the panel. No backend work or handoff.
+
+Prove It Works verification: 26 focused notification and top-bar tests pass.
+Scoped ESLint and diff whitespace checks pass. Local browser review covered
+desktop and 390px phone viewports, Spanish and English, light and dark themes.
+The image loaded at 88px, text remained readable, and no horizontal overflow
+was observed. Verified View all, final dismissal focus, and hidden list tools
+when no notices remain. Evidence screenshots are outside Git in the task
+visualization folder. This is not physical-phone or hosted acceptance.
+
+Backend acceptance remains deferred: only show these empty states after a
+successful authorized response, distinguish loading/offline/failure, and preserve
+recipient/Business isolation plus durable read/dismiss state across reloads and
+devices. Marking all read must not remove rows from the All view.
+
+Artwork: built-in image generation, transparent output copied unchanged to
+web/public/images/notifications/quiet-bell.png. Style reference was the existing
+web/public/images/auth/confirmation-envelope.png. Prompt: a single upright,
+gently tilted notification bell with rounded paper/clay forms, forest-green body,
+cream clapper/highlights, sage folds and a restrained lime detail; centered square
+composition, readable at 88px on white and charcoal; transparent background,
+no envelope, text, badge, motion lines, dramatic glow, drop shadow or background
+shapes. Original generated image retained outside the repository.
+
+## Personal invitation and history, October 25
+
+Added account-menu Invitar a Cuadrao with a hand-heart icon, a copyable invitation
+link, one email field, send feedback, derived counts, and an internal history view.
+Desktop uses a centered dialog; phones use the shared full-height sheet. Rewards
+and a header shortcut are deferred. This does not invite collaborators or grant
+access to the selected Business.
+
+Model the Domain keeps the counts derived from local invitation rows. Each row has
+an ID, normalized email, creation date, and status. The preview creates pending
+rows only, rejects duplicate emails regardless of case, and resets after a simulated
+send. Back preserves a draft. Copy success uses the shared icon/check feedback;
+a failed copy selects the link and shows an inline correction.
+
+This is available only in Business development mode with mock auth. The link is
+https://cuadrao.example/i/piloto and has no recipient landing. Sending uses a local
+timer, makes no request, and delivers no email. Rows live in ProfileMenu memory and
+reset on reload or remount, including a responsive shell remount. No backend,
+migration, hosted change, push, or orchestrator message was made.
+
+Deferred backend requirements for the next authorized handoff:
+
+- Keep general invitations account-scoped and separate from Business membership.
+  Joining Cuadrao must never grant access to the inviter's Businesses.
+- Define server-owned unique links, eligibility, quotas, expiration, and revocation.
+  Founder decision remains open: does a pilot invitation admit the recipient
+  directly or place them in an approval queue?
+- Send email on the server with idempotency, duplicate handling, rate limits, abuse
+  controls, and clear retryable failures. A request accepted for sending is distinct
+  from delivered email and a joined account.
+- Persist authorized history and counts across reloads and devices. Copying a link
+  must not count as an email sent. Joined requires a confirmed backend event.
+- Limit history and recipient data to the authorized inviter. Avoid account
+  enumeration. Define handling for existing accounts and expired invitations.
+
+Hosted acceptance must prove real email delivery, the recipient landing and
+admission policy, creation of the recipient's own Business, and no access to the
+inviter's Business. Verify isolation between accounts, durable history on another
+device, duplicate requests, invalid or expired links, send failures, and rate limits.
+Local layout and simulated success are not evidence for any of those checks.
+
+Local verification: 15 focused invitation and account-settings tests pass, with one
+existing skip. Scoped ESLint and diff whitespace checks pass. Browser checks cover
+Spanish and English, light and dark, desktop and phone, including a 320px viewport.
+Verified validation, copy, send/reset, duplicate prevention, empty/pending history,
+and close/reopen retention. Browser evidence stays outside Git. Physical-device
+and hosted acceptance remain unverified.
+
+## Invitation header shortcut, October 25
+
+Added a desktop hand-heart before the privacy eye. The account-menu entry remains
+on desktop and phone. Both desktop entries use the same ProfileMenu invitation
+state through a typed request carrying its opener. Closing restores focus to that
+opener. The Model the Domain principle keeps one history owner instead of creating
+another invitation store for the shortcut. The development/mock-auth guard remains.
+
+Verified on the existing local server at desktop and 390px phone widths in light
+and dark themes. The shortcut is absent from the phone header. A simulated send
+from the shortcut appears in the account-menu history, and Escape returns focus
+to each opener. No backend work or hosted changes. The preceding invitation
+backend requirements and hosted acceptance criteria still apply to both entries.
+
+## Approved checkpoint: notifications and personal invitations, October 25
+
+Lucas approved this checkpoint and authorized the orchestrator handoff. UI head
+is 165bf01479f8640e72fa40237b29827121fe036f on
+codex/frontend-design-after-home-20261024. The bounded commit set is 6cc0795f7,
+160ec1e32, 7f9a886ea, and 165bf0147. Earlier Home work is retained on the branch.
+The design worktree remains /Users/garces/Documents/projects/repos/argus-frontend-design-20261022.
+The existing 4387 frontend and 4388 synthetic API stay with the design lane.
+Untracked design-recovery and design-startup routes are preserved and excluded.
+This handoff does not authorize backend implementation, merging, deployment,
+hosted migrations, real emails, or a change to another lane's approved scope.
+
+Approved UI includes the bell popover/phone tray, All/Unread, read-all, dismissal,
+actions, and both illustrated empty states. General invitations have link copy,
+email entry, send feedback, counts, history, and a hand-heart desktop shortcut
+before the eye. Profile-menu entry remains on both sizes. Both desktop entries
+share the existing invitation view and return focus to their own opener. Rewards
+remain deferred. General invitations are separate from collaborator invitations.
+
+Notification backend requirements and hosted acceptance:
+
+- Serve canonical recipient-authorized notices with explicit account/Business
+  scope, stable IDs, event timestamps, and valid action targets. The current UI
+  is Business-scoped. Cross-account security/product notices need an explicit
+  scope contract before connecting them; never leak notices when switching Business.
+- Persist read and dismissed state across reloads and devices. Unread counts,
+  All/Unread lists, and both empty states must derive from authorized server data.
+  Mark-all-read preserves rows in All. Dismissal is a separate state change.
+- Define retry/idempotence for mutations and reconcile failed writes honestly.
+  A request failure, loading state, or offline state must not show as an empty list.
+- On an approved hosted SHA, use separate synthetic recipients and Businesses to
+  prove isolation, revoked-access handling, valid actions, event deduplication,
+  read/dismiss persistence on another session/device, correct counts after retry,
+  and loading/empty/failure behavior. Prove EN/ES, desktop/phone and both themes
+  against actual responses. These checks remain pending, not passed locally.
+
+Personal invitation backend requirements and hosted acceptance:
+
+- Use one account-owned invitation service for both entry points, separate from
+  Business membership and its Owner/Admin/Editor/Viewer acceptance model.
+  No invitation to Cuadrao grants access to the inviter's Business.
+- Provide server-owned unique links, eligibility, expiry/revocation and quotas.
+  Open founder decision: pilot admission directly or through an approval queue.
+  The screenshot reference and local prototype do not decide that policy.
+- Implement real email delivery with idempotence, duplicate handling, abuse/rate
+  controls, safe errors/retries and recipient-bound acceptance. Distinguish queued,
+  sent, delivered and joined facts; the backend owns timestamps, counts and history.
+  Copying a link is not a sent email or a joined person.
+- Persist only authorized inviter history, avoid account enumeration, and define
+  existing-account, expired-link and repeated-acceptance behavior.
+- On an approved hosted SHA, prove real email and the recipient landing, correct
+  pilot admission, creation of the recipient's own Business, and zero access to
+  the inviter's Business. Verify cross-account isolation, reload/second-device
+  persistence, duplicate requests, retries/failures, rate limits and expired/revoked
+  links. Check both entry points, phone/desktop, EN/ES and both themes with real states.
+
+Existing ownership and collaborator-invitation foundation work is a separate
+backend batch. This packet does not replace its settled requirements: selected
+roles enforced by the server, multiple Owners, one existing Owner sufficient to
+invite another Owner, access pending until recipient acceptance, immediate
+revocation, concurrent last-owner protection, and historical document custody.
+
+Proof is local only. Prior notification evidence has 26 focused tests passing;
+final shortcut evidence has 23 focused top-bar/account/invitation tests passing.
+Scoped lint has no errors, with two existing ChatSidebar unused-prop warnings.
+Browser checks cover desktop and phone in both themes, EN/ES for the full layouts,
+shared history, copy feedback, validation and focus. No physical-device, real email,
+durable backend, CI/release or hosted acceptance is claimed by this checkpoint.
+Screenshots remain outside Git in the task visualization folder. Do not reuse the
+fixed example-domain link or sample notifications as real production data.
+
+Orchestrator request: acknowledge both backend requirement sets and add their
+hosted acceptance gates to the existing coordinated-release plan. Confirm whether
+the design lane is clear to move to Talonario, and identify any concrete ownership
+or contract dependency first. Talonario is still a design discussion about movements
+and matching supporting files; this request does not authorize its implementation.
+Keep frontend ownership and the existing preview with this lane while responding.

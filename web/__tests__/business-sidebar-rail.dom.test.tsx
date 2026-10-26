@@ -162,7 +162,7 @@ test("the labeled rail stacks Inicio to Transacciones under the business card, w
   assert.match(aside().className, /\bborder-r\b/);
   assert.deepEqual(
     rows().map((button) => button.textContent?.replace(/Ctrl.*$|⌘.*$/, "").replace(/\d+$/, "").trim()),
-    ["Inicio", "Bandeja", "Transacciones"],
+    ["Inicio", "Bandeja", "Registros"],
   );
   for (const button of rows()) {
     assert.match(button.className, /\bh-11\b/, button.textContent ?? "");
@@ -170,7 +170,7 @@ test("the labeled rail stacks Inicio to Transacciones under the business card, w
     assert.equal(visibleLabel(button), true, button.textContent ?? "");
   }
   const nav = document.querySelector('[data-testid="business-sidebar-nav"]') as HTMLElement;
-  assert.ok(nav.contains(row("Transacciones")!));
+  assert.ok(nav.contains(row("Registros")!));
   // The smallest box holding the toggle that also holds the business card: the header row.
   let header = document.querySelector('[data-testid="sidebar-rail-toggle"]')?.parentElement ?? null;
   while (header && header.tagName !== "ASIDE" && !header.querySelector('[data-testid="business-switcher"]')) header = header.parentElement;

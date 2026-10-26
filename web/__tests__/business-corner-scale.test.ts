@@ -39,10 +39,92 @@ const PERSONAL_BRANCHES: Record<string, number> = {
   "components/sidebar/ProfileMenu.tsx": 0,
 };
 
-/** Inline radii that are not ad hoc, each with why. */
-const INLINE_RADIUS_ALLOWED: Record<string, string> = {
-  "components/ui/Switch.tsx": "a pill computed from the rail and knob geometry, so the curves stay concentric",
+/** Geometry approved at the cleared design checkpoint. New values or selectors need review. */
+const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
+  "components/business-app/foundation/range-picker.module.css": [
+    ".preset | border-radius | 8px",
+    ".icon,.today,.load | border-radius | 999px",
+    ".day | border-radius | 999px",
+    ".start | border-radius | 999px 0 0 999px",
+    ".end | border-radius | 0 999px 999px 0",
+    ".single | border-radius | 999px",
+    ".confirm | border-radius | 999px",
+    ".mobile .preset | border-radius | 999px"
+  ],
+  "components/business-app/foundation/business-notifications.module.css": [
+    ".bellDot | border-radius | 50%",
+    ".filterTrigger, .filterOption | border-radius | 12px",
+    ".filterMenu | border-radius | 16px",
+    ".dot | border-radius | 50%",
+    ".dismiss | border-radius | 50%",
+    ".emptyArt | border-radius | 50%",
+    ".emptyTitle:focus-visible | border-radius | 4px"
+  ],
+  "components/business-app/transacciones/records-filter-preview.module.css": [
+    ".trigger | border-radius | 999px",
+    ".count | border-radius | 999px",
+    ".popover | border-radius | 16px",
+    ".group | border-radius | 8px",
+    ".choice input | border-radius | 4px",
+    ".choice input[type=radio] | border-radius | 50%",
+    ".choice input[type=radio]:checked::after | border-radius | 50%",
+    ".input | border-radius | 8px",
+    ".search | border-radius | 999px",
+    ".currency | border-radius | 999px",
+    ".clear | border-radius | 999px",
+    ".apply | border-radius | 999px",
+    ".chip | border-radius | 999px",
+    ".iconButton | border-radius | 999px",
+    ".day | border-radius | 999px",
+    ".columnRow | border-radius | 8px",
+    ".grip | border-radius | 999px"
+  ],
+  "components/business-app/transacciones/records-loading-preview.module.css": [
+    ".bar | border-radius | 4px",
+    ".sort | border-radius | 999px",
+    ".pageSize | border-radius | 999px"
+  ],
+  "components/business-app/transacciones/records-overview-preview.module.css": [
+    ".card | border-radius | 30px",
+    ".card | border-radius | 16px"
+  ],
+  "components/business-app/transacciones/records-results-preview.module.css": [
+    ".metric | border-radius | 26px",
+    ".breakdown | border-radius | 8px",
+    ".currencyGroup | border-radius | 20px",
+    ".exclusions summary | border-radius | 50%",
+    ".exclusions p | border-radius | 12px",
+    ".metric | border-radius | 20px"
+  ],
+  "components/business-app/transacciones/records-annotations-preview.module.css": [
+    ".icon | border-radius | 999px",
+    ".dialog | border-radius | 16px",
+    ".textarea | border-radius | 8px",
+    ".footer > button | border-radius | var(--radius-item)",
+    ".image | border-radius | 8px",
+    ".fileLink | border-radius | 999px"
+  ],
+  "components/business-app/transacciones/records-page.module.css": [
+    ".pages button | border-radius | 999px",
+    ".option | border-radius | 8px",
+    ".list | border-radius | 16px",
+    ".row:focus-visible | border-radius | 8px",
+    ".sortHeading:focus-visible | border-radius | 4px"
+  ],
+  "components/business-app/transacciones/transacciones-cells.module.css": [
+    ".detail:focus-visible | border-radius | 4px",
+    ".workflow | border-radius | 999px",
+    ".noteButton:focus-visible | border-radius | 4px"
+  ]
 };
+function cssGeometry(source: string): string[] {
+  return [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((block) => [...block[2].matchAll(/(border(?:-[a-z]+)*-radius)\s*:\s*([^;}\n]+)/g)].map((radius) => `${block[1].trim().replace(/\s+/g, " ")} | ${radius[1]} | ${radius[2].trim()}`));
+}
+function unapprovedGeometry(path: string, source: string): string[] {
+  if (path.endsWith(".css")) return cssGeometry(source).filter((entry) => !APPROVED_GEOMETRY[path]?.includes(entry));
+  const kept = path === "components/ui/Switch.tsx" ? source.replace(/borderRadius:\s*(?:RAIL_H|KNOB) \/ 2/g, "") : path === "components/ui/BottomSheet.tsx" ? source.replace('fullScreen && snap === "full" ? { borderRadius: 0, paddingTop: "env(safe-area-inset-top)" } : {}', "") : source;
+  return /\bborderRadius\b|border(?:-[a-z]+)*-radius\s*:/.test(kept) ? [path] : [];
+}
 
 describe("Business corners come from one scale", () => {
   test("the scale is defined once, as Tailwind theme tokens: 4, 8 and 16", () => {
@@ -74,7 +156,15 @@ describe("Business corners come from one scale", () => {
   });
 
   test("no Business file sets an inline or CSS radius outside the allowlist", () => {
-    const offenders = STRICT.filter((path) => /\bborderRadius\b|border(?:-[a-z]+)*-radius\s*:/.test(read(path))).filter((path) => !(path in INLINE_RADIUS_ALLOWED));
+    const offenders = STRICT.flatMap((path) => unapprovedGeometry(path, read(path)).map((entry) => `${path}: ${entry}`));
     assert.deepEqual(offenders, []);
   });
+});
+
+test("approved geometry rejects a changed value, a new selector and unconditional fullscreen corners", () => {
+  assert.deepEqual(unapprovedGeometry("components/business-app/transacciones/records-overview-preview.module.css", ".card { border-radius:30px; }"), []);
+  assert.ok(unapprovedGeometry("components/business-app/transacciones/records-overview-preview.module.css", ".card { border-radius:31px; }").length);
+  assert.ok(unapprovedGeometry("components/business-app/transacciones/records-overview-preview.module.css", ".new { border-radius:30px; }").length);
+  assert.ok(unapprovedGeometry("components/ui/BottomSheet.tsx", "style={{ borderRadius: 0 }}").length);
+  assert.ok(unapprovedGeometry("components/ui/Switch.tsx", "style={{ borderRadius: 12 }}").length);
 });

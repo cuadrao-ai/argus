@@ -49,7 +49,7 @@ test("the shortcut list reads its words from the catalog in Spanish and in Engli
     edit: "Editar dato",
     overview: "Ir a Inicio",
     inbox: "Ir a Bandeja",
-    transactions: "Ir a Transacciones",
+    transactions: "Ir a Registros",
     sidebar: "Mostrar u ocultar barra lateral",
     settings: "Ajustes",
   });
@@ -60,7 +60,7 @@ test("the shortcut list reads its words from the catalog in Spanish and in Engli
     edit: "Edit a detail",
     overview: "Go to Home",
     inbox: "Go to Inbox",
-    transactions: "Go to Transactions",
+    transactions: "Go to Records",
     sidebar: "Show or hide the sidebar",
     settings: "Settings",
   });

@@ -16,6 +16,7 @@ import ProfileDeleteRequestDialog, {
   type DeleteRequestState,
 } from "./ProfileDeleteRequestDialog";
 import ProfileDetailsDialog from "./ProfileDetailsDialog";
+import CuadraoInvitationPreview, { type LocalInvitation } from "./CuadraoInvitationPreview";
 import ProfileSettingsPanels, {
   type SettingsPanel,
 } from "./ProfileSettingsPanels";
@@ -33,6 +34,7 @@ import {
   ChevronRight,
   Database,
   HelpCircle,
+  HandHeart,
   Keyboard,
   Link2,
   LogOut,
@@ -94,8 +96,11 @@ import { useQuickJump } from "@/components/keyboard/useQuickJump";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type InvitationOpenRequest = Readonly<{ id: number; trigger: HTMLElement }>;
+
 type ProfileMenuProps = {
   isOpen: boolean;
+  invitationOpenRequest?: InvitationOpenRequest | null;
   onClose: () => void;
   onLogout: (options?: LogoutOptions) => void;
   onFeedback?: (type: "bug" | "feature" | "general") => void;
@@ -116,7 +121,7 @@ type ProfileMenuProps = {
 };
 
 // Derived from the panel registry, so a new settings panel needs no edit here.
-type ActiveModal = null | SettingsPanel | "profile";
+type ActiveModal = null | SettingsPanel | "profile" | "invite-cuadrao";
 
 type SubMenu = null | "data" | "settings" | "help" | "feedback";
 
@@ -130,6 +135,7 @@ const LEGAL_LINK_IDS = ["terms", "privacy"] as const;
 
 export default function ProfileMenu({
   isOpen,
+  invitationOpenRequest,
   onClose,
   onLogout,
   onFeedback,
@@ -143,6 +149,10 @@ export default function ProfileMenu({
 }: ProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const isBusiness = useConversationSurface() === "business";
+  const invitationPreviewAvailable = isBusiness && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const [localInvitations, setLocalInvitations] = useState<LocalInvitation[]>([]);
+  const previousInvitationRequest = useRef(invitationOpenRequest?.id);
+  const invitationReturnFocusRef = useRef<HTMLElement | null>(null);
   const legalHref = cuadraoLegalLinks();
   const switchLabelsShown = useSwitchLabelsShown();
   const { isBelowDesktop } = useResponsiveLayout();
@@ -468,6 +478,7 @@ export default function ProfileMenu({
 
   const openModal = useCallback(
     (modal: ActiveModal) => {
+      if (modal === "invite-cuadrao") invitationReturnFocusRef.current = anchorRef.current;
       setActiveModal(modal);
       if (asSheet) return;
       // The popover has nowhere to sit behind a dialog, so it closes. A sheet
@@ -475,8 +486,16 @@ export default function ProfileMenu({
       setActiveSubmenu(null);
       onClose();
     },
-    [asSheet, onClose],
+    [anchorRef, asSheet, onClose],
   );
+
+  useEffect(() => {
+    if (!invitationOpenRequest || invitationOpenRequest.id === previousInvitationRequest.current) return;
+    previousInvitationRequest.current = invitationOpenRequest.id;
+    if (!invitationPreviewAvailable) return;
+    openModal("invite-cuadrao");
+    invitationReturnFocusRef.current = invitationOpenRequest.trigger;
+  }, [invitationOpenRequest, invitationPreviewAvailable, openModal]);
 
   const handleOpenKeyboardShortcuts = useCallback(() => {
     setActiveSubmenu(null);
@@ -909,7 +928,10 @@ export default function ProfileMenu({
   }
 
   // ── Active modal rendering ──────────────────────────────────────────────
-  if (activeModal !== null && activeModal !== "profile") {
+  if (activeModal === "invite-cuadrao" && invitationPreviewAvailable) {
+    return <CuadraoInvitationPreview invitations={localInvitations} onSent={(invitation) => setLocalInvitations((rows) => [...rows, invitation])} returnFocusRef={invitationReturnFocusRef} onClose={() => { setActiveModal(null); onClose(); }} />;
+  }
+  if (activeModal !== null && activeModal !== "profile" && activeModal !== "invite-cuadrao") {
     return (
       <ProfileSettingsPanels
         panel={activeModal}
@@ -1025,6 +1047,8 @@ export default function ProfileMenu({
         {t("settings.profile.title", "Profile")}
         <span className="ml-auto flex shrink-0">{quickJumpBadge("profile")}</span>
       </button>
+
+      {invitationPreviewAvailable ? <button type="button" onClick={() => openModal("invite-cuadrao")} className={`font-display flex min-h-11 w-full items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-black hover:bg-black/5 dark:text-white dark:hover:bg-white/5${rootRow}`}><HandHeart className="h-4 w-4 text-black/50 dark:text-white/50" aria-hidden="true" />{t("cuadrao_invitation.title")}</button> : null}
 
       {/* Data */}
       <div

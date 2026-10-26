@@ -115,6 +115,16 @@ export default function ReceiptHistory({ history, accounts, sources = [], approv
       const verified = key === "rnc" && line === null && after?.state === "known" && after.verified && !before?.verified;
       events.push({ id: `${revision.version}-${key}`, at, line: verified ? t("business.history.rnc_verified", "RNC verified") : line, who });
     }
+    if (revision.after_current_note !== undefined && revision.after_current_note !== null && revision.before_current_note !== revision.after_current_note) {
+      const field = t("business.transactions.columns.notas");
+      const after = revision.after_current_note || t("business.dossier.not_recorded", "Not recorded");
+      const line = revision.before_current_note ? t("business.history.changed", { field, before: revision.before_current_note, after }) : t("business.history.set", { field, after });
+      events.push({ id: `${revision.version}-current-note`, at, line, who, testId: "history-current-note" });
+    }
+    const attachments = revision.source_ids.map((id) => sources.find((source) => source.id === id)).filter((source) => source?.kind === "attachment");
+    if (revision.before && attachments.length && same(revision.before, revision.after)) {
+      events.push({ id: `${revision.version}-supporting`, at, line: `${t("business.transactions.layout.annotations.linked_evidence")} · ${attachments.map((source) => source?.kind === "attachment" ? source.filename ?? t("business.transactions.layout.annotations.received_document") : "").join(", ")}`, who, testId: "history-supporting" });
+    }
     if (revision.after_dgii && !same(revision.before_dgii, revision.after_dgii)) {
       events.push({ id: `${revision.version}-dgii`, at, line: `${t("business.dossier.fiscal_details", "Fiscal details")} · ${revision.after_dgii.form}`, who, detail: <FiscalRevision declaration={revision.after_dgii} /> });
     }

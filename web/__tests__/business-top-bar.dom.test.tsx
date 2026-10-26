@@ -5,7 +5,7 @@ import type { BusinessDataSource } from "@/components/business-app/business-data
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 
 // The real workspace over the sample source, with the top bar the workspace
-// hands the chat shell (search field, Agregar ▾, the eye) beside the screen
+// hands the chat shell (Home greeting, search field, the eye) beside the screen
 // the panel router shows.
 mock.module("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(""),
@@ -34,7 +34,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 
-async function mount({ width = 1280, grant = null, overrides = {} }: { width?: number; grant?: string | null; overrides?: Partial<BusinessDataSource> } = {}) {
+async function mount({ width = 1280, grant = null, overrides = {}, renderPanel = true }: { width?: number; grant?: string | null; overrides?: Partial<BusinessDataSource>; renderPanel?: boolean } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
@@ -54,8 +54,9 @@ async function mount({ width = 1280, grant = null, overrides = {} }: { width?: n
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
   const source = { ...createFixtureBusinessDataSource({ chatAvailable: true }), captures: async () => ({ items: [] }), ...overrides };
   const searches: string[] = [];
+  const invitationTriggers: HTMLElement[] = [];
   const below = width < 720;
-  const shell = { currentView: "workspace", conversationId: null, isBelowTablet: below, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: () => searches.push("open") };
+  const shell = { currentView: "workspace", conversationId: null, greetingName: "Ana", isBelowTablet: below, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined, openSearch: () => searches.push("open"), openPersonalInvitation: (trigger: HTMLElement) => invitationTriggers.push(trigger) };
   let api: ReturnType<typeof useBusiness> | null = null;
   function TopBar() {
     const workspace = useChatWorkspace();
@@ -78,7 +79,7 @@ async function mount({ width = 1280, grant = null, overrides = {} }: { width?: n
       <BusinessConsentTestProvider accepted>
         <BusinessWorkspaceProvider source={source as BusinessDataSource}>
           <TopBar />
-          <Probe />
+          {renderPanel ? <Probe /> : null}
         </BusinessWorkspaceProvider>
       </BusinessConsentTestProvider>
     </I18nextProvider>
@@ -105,11 +106,11 @@ async function mount({ width = 1280, grant = null, overrides = {} }: { width?: n
     await act(async () => within.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!.click());
     return menuItems();
   };
-  return { act, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, unmount, api: () => api! };
+  return { act, ready, host, bar, screen, settle, open, openMenu, menuItems, searches, invitationTriggers, unmount, api: () => api! };
 }
 
 describe("the Business top bar on a desktop", () => {
-  test("the search field reads like a field, opens the one search, and sits before Agregar, the eye and nothing else from the workspace", async () => {
+  test("Home greets the signed-in person, shows today's date, and places search before the eye", async () => {
     const page = await mount();
     const search = page.bar().querySelector<HTMLButtonElement>('[data-testid="header-search"]')!;
     assert.ok(search, "the top bar carries the search field");
@@ -118,12 +119,17 @@ describe("the Business top bar on a desktop", () => {
     await page.act(async () => search.click());
     assert.deepEqual(page.searches, ["open"]);
     const order = [...page.bar().querySelectorAll("[data-testid]")].map((node) => node.getAttribute("data-testid")).filter((id) => ["header-search", "add-menu-header", "amounts-toggle"].includes(id!));
-    assert.deepEqual(order, ["header-search", "add-menu-header", "amounts-toggle"]);
+    assert.deepEqual(order, ["header-search", "amounts-toggle"]);
+    const greeting = page.bar().querySelector("h1")!;
+    assert.match(greeting.querySelector(".sr-only")?.textContent ?? greeting.textContent ?? "", /^(Buenos días|Buenas tardes|Buenas noches|Noche de enfoque), Ana$/);
+    assert.ok(page.bar().querySelector("time")?.getAttribute("datetime"));
+    assert.equal(page.screen().querySelector("#business-overview-title"), null, "no duplicate desktop greeting");
   });
 
   test("the owner's Agregar opens the upload, and its menu offers Exportar registros and Copiar dirección de reenvío", async () => {
     const page = await mount();
-    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
+    await page.ready();
+    const menu = page.screen().querySelector('[data-testid="add-menu-header"]')!;
     const add = menu.querySelector<HTMLButtonElement>('[data-testid="business-primary-upload"]')!;
     assert.equal(add.textContent, "Agregar");
     await page.ready();
@@ -139,7 +145,8 @@ describe("the Business top bar on a desktop", () => {
 
   test("a copy the browser refuses opens Negocio, Correo de recibos, where the address is, and shows no toast", async () => {
     const page = await mount();
-    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
+    await page.ready();
+    const menu = page.screen().querySelector('[data-testid="add-menu-header"]')!;
     await page.ready();
     await page.openMenu(menu);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("refused"); } } });
@@ -153,13 +160,13 @@ describe("the Business top bar on a desktop", () => {
   test("an owner without a forwarding address gets no Copiar dirección", async () => {
     const page = await mount({ overrides: { emailIntake: async () => ({ enabled: false, receiving_address: null }) as never } });
     await page.ready();
-    assert.deepEqual((await page.openMenu(page.bar())).map((item) => item.textContent), ["Exportar registros"]);
+    assert.deepEqual((await page.openMenu(page.screen())).map((item) => item.textContent), ["Exportar registros"]);
   });
 
   test("a contador gets the menu alone, with no Agregar and no copy of the owner's address", async () => {
     const page = await mount({ grant: "fixture-grant-client" });
     await page.settle(() => page.api().chosen?.role === "accountant", "the client business");
-    const menu = page.bar().querySelector('[data-testid="add-menu-header"]')!;
+    const menu = page.screen().querySelector('[data-testid="add-menu-header"]')!;
     assert.equal(menu.querySelector('[data-testid="business-primary-upload"]'), null);
     const trigger = menu.querySelector<HTMLButtonElement>('[data-testid="add-menu-more"]')!;
     assert.equal(trigger.getAttribute("aria-haspopup"), "menu");
@@ -172,28 +179,33 @@ describe("the Business top bar on a desktop", () => {
     await page.ready();
     await page.open({ kind });
     assert.equal(document.querySelector('[data-testid="export-records-panel"]'), null);
-    const exportItem = (await page.openMenu(page.bar())).find((item) => item.textContent === "Exportar registros")!;
+    const exportItem = (await page.openMenu(page.screen())).find((item) => item.textContent === "Exportar registros")!;
     await page.act(async () => exportItem.click());
     await page.settle(() => document.querySelector('[data-testid="export-records-panel"]') !== null, "the export sheet");
     assert.equal(page.api().panel.kind, kind, "the screen underneath stays");
     assert.equal(document.querySelectorAll('[data-testid="export-records-panel"]').length, 1);
   });
 
-  test("the top bar never changes per screen: Agregar is the green primary on Inicio, the Bandeja, Transacciones and Negocio", async () => {
+  test("Agregar belongs to each content heading, while the search field belongs only to Home", async () => {
     const page = await mount();
+    await page.ready();
     for (const kind of ["overview", "inbox", "transactions", "business"] as const) {
       await page.open({ kind });
       await page.settle(() => page.api().panel.kind === kind, kind);
-      const add = page.bar().querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
+      const add = page.screen().querySelector<HTMLElement>('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]')!;
       assert.match(add.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
       assert.equal(add.getAttribute("data-primary"), "true", kind);
-      assert.match(page.bar().querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
+      assert.match(page.screen().querySelector('[data-testid="add-menu-more"]')!.className, /bg-\[var\(--cuadrao-green\)\]/, kind);
+      assert.equal(page.bar().querySelector('[data-testid="add-menu-header"]'), null);
+      assert.equal(Boolean(page.bar().querySelector('[data-testid="header-search"]')), kind === "overview");
+      assert.ok(page.bar().querySelector('[data-business-search-anchor]'), "Cmd K keeps its anchor on every screen");
     }
   });
 
   test("the menu has no Ver correos: an email is how a receipt arrived, not a place", async () => {
     const page = await mount();
-    const items = (await page.openMenu(page.bar())).map((item) => item.textContent);
+    await page.ready();
+    const items = (await page.openMenu(page.screen())).map((item) => item.textContent);
     assert.equal(items.includes("Ver correos"), false);
   });
 });
@@ -244,10 +256,49 @@ describe("the Business top bar on a phone", () => {
     assert.deepEqual(page.searches, ["open"]);
     for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
-      await page.settle(() => page.screen().querySelector('[data-testid="add-menu-page"]') !== null, `${kind}'s Agregar`);
-      const menu = page.screen().querySelector('[data-testid="add-menu-page"]')!;
+      const placement = kind === "transactions" ? "header" : "page";
+      const selector = `[data-testid="add-menu-${placement}"]`;
+      await page.settle(() => page.screen().querySelector(selector) !== null, `${kind}'s Agregar`);
+      const menu = page.screen().querySelector(selector)!;
       assert.equal(menu.querySelector('[data-testid="business-primary-upload"]')?.textContent, "Agregar", kind);
-      assert.equal(page.screen().querySelectorAll('[data-testid="add-menu-page"]').length, 1, kind);
+      assert.equal(page.screen().querySelectorAll('[data-testid="business-primary-upload"]').length, 1, kind);
     }
   });
+});
+
+for (const width of [1280, 390]) {
+  test(`personal invitation shortcut is desktop-only at ${width}px`, async () => {
+    const previousMode = process.env.NODE_ENV;
+    const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+    try {
+      const page = await mount({ width, renderPanel: false });
+      const shortcut = page.bar().querySelector<HTMLButtonElement>('[data-testid="personal-invitation-shortcut"]');
+      assert.equal(Boolean(shortcut), width >= 720);
+      if (shortcut) {
+        const actions = [...page.bar().querySelectorAll('[data-testid="personal-invitation-shortcut"], [data-testid="amounts-toggle"]')];
+        assert.equal(actions[0], shortcut);
+        assert.equal(shortcut.getAttribute("aria-label"), "Invitar a Cuadrao");
+        await page.act(async () => shortcut.click());
+        assert.deepEqual(page.invitationTriggers, [shortcut]);
+      }
+      await page.unmount();
+    } finally {
+      Object.assign(process.env, { NODE_ENV: previousMode });
+      if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+      else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
+    }
+  });
+}
+
+test("personal invitation shortcut stays hidden outside mock auth", async () => {
+  const previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "false";
+  try {
+    const page = await mount();
+    assert.equal(page.bar().querySelector('[data-testid="personal-invitation-shortcut"]'), null);
+  } finally {
+    if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH;
+    else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock;
+  }
 });

@@ -7,6 +7,32 @@
     "empty": "No messages yet",
     "unavailable": "Open the conversation for details"
   },
+  "cuadrao_invitation": {
+    "back": "Back to invitation",
+    "copied": "Invitation link copied",
+    "copy": "Copy",
+    "copy_failed": "Could not copy. Select the link and copy it manually.",
+    "email_duplicate": "You already invited this email address.",
+    "email_invalid": "Enter a valid email address.",
+    "email_label": "Invite by email",
+    "email_placeholder": "name@example.com",
+    "email_valid": "Email address looks valid",
+    "history_empty_body": "Invitations you send by email will appear here.",
+    "history_empty_title": "Your invitations start here",
+    "history_title": "Invitation history",
+    "joined": "Joined",
+    "link_label": "Your invitation link",
+    "send": "Send",
+    "sending": "Sending…",
+    "sent": "Sent",
+    "sent_confirmation": "Invitation sent to {{email}}",
+    "separate_business": "This invitation does not give access to your businesses.",
+    "status_joined": "Joined Cuadrao",
+    "status_pending": "Pending acceptance",
+    "subtitle": "Share Cuadrao with someone who has their own business.",
+    "summary": "Your invitations",
+    "title": "Invite to Cuadrao"
+  },
   "common": {
     "and": "and",
     "archive": "Archive",
@@ -2187,6 +2213,28 @@
     }
   },
   "business": {
+    "date_range": {
+      "complete_dates": "Complete both dates",
+      "confirm": "Confirm period",
+      "from": "From",
+      "invalid_date": "Enter a valid date in {{format}} format.",
+      "invalid_range": "Choose an end date on or after the start, within {{count}} days.",
+      "more_months": "Show more months",
+      "pick_end": "Choose the end date",
+      "pick_start": "Choose the start date",
+      "preset": {
+        "custom": "Custom",
+        "last_30": "Last 30 days",
+        "last_7": "Last 7 days",
+        "last_quarter": "Previous quarter",
+        "today": "Today",
+        "yesterday": "Yesterday"
+      },
+      "presets": "Quick periods",
+      "title": "Choose a period",
+      "to": "To",
+      "valid_date": "Valid date"
+    },
     "date_picker": {
       "next_month": "Next month",
       "open": "Open calendar",
@@ -2372,8 +2420,200 @@
       "form_summary_only": "Summary only"
     },
     "transactions": {
-      "title": "Transactions",
+      "layout": {
+        "all_types": "All types",
+        "annotations": {
+          "actions_for": "Actions for {{name}}",
+          "add_attachment": "Add attachment",
+          "add_note": "Add note",
+          "attachment_for": "Attachment for {{name}}",
+          "choose_file": "Add files",
+        "drop_release": "Drop files to select them",
+        "drop_title": "Drag your files here",
+          "current_note": "Current note",
+          "duplicates_one": "This file is already selected.",
+          "duplicates_other": "These {{count}} files are already selected.",
+          "edit_note_for": "Edit note for {{name}}",
+          "empty_file": "This file is empty. Choose another.",
+          "invalid_name": "Use a valid file name of up to 255 characters.",
+          "keep_local_preview": "Keep",
+          "linked_evidence": "Linked attachments",
+          "linked_unavailable": "This record has a linked attachment, but it cannot be opened here.",
+          "linked_unknown": "We could not confirm the linked attachments for this record.",
+          "local_files_one": "1 file in local preview",
+          "local_files_other": "{{count}} files in local preview",
+          "local_only": "These files have not been uploaded or linked. Your selection is cleared on reload.",
+          "local_preview": "Local preview, not linked",
+          "no_attachment": "No attachment",
+          "no_linked_attachment": "No linked attachments.",
+          "open_attachment": "Open attachment",
+          "open_linked_attachment": "Open linked attachment",
+          "preparing_preview": "Preparing preview...",
+          "preview_failed": "We could not prepare the preview. No files were added.",
+          "preview_file": "Preview file",
+          "received_document": "Received document",
+          "received_unavailable": "Linking received documents is not available yet.",
+          "record_actions": "Record actions",
+          "too_large": "The file exceeds the allowed size.",
+          "unsupported": "This file type is not allowed."
+        },
+        "clear": "Clear filters",
+        "clear_search": "Clear search",
+        "column_attachment": "Attachment",
+        "column_state": "Status",
+        "column_type": "Type",
+        "count_one": "{{count}} record",
+        "count_other": "{{count}} records",
+        "filters": {
+          "back": "All filters",
+          "account": {
+            "card": "Business card",
+            "checking": "Checking account",
+            "owner": "Owner funds"
+          },
+          "amount": {
+            "choose_currency": "Choose a currency before setting an amount.",
+            "currency": "Currency",
+            "invalid": "Use valid amounts and a maximum at least as large as the minimum.",
+            "max": "To",
+            "min": "From"
+          },
+          "apply": "Apply",
+          "attachment": {
+            "any": "Any",
+            "hint": "This refers to the attached file, not the NCF.",
+            "with": "With attachment",
+            "without": "Without attachment"
+          },
+          "category": {
+            "dining": "Meals",
+            "none": "Uncategorized",
+            "other": "Other",
+            "transport": "Transport"
+          },
+          "currency": "Currency",
+          "date": {
+            "from": "From",
+            "invalid": "Choose a valid period of up to 366 days.",
+            "to": "To"
+          },
+          "document": {
+            "credit_note": "Credit note",
+            "invoice": "Invoice",
+            "receipt": "Receipt"
+          },
+          "fiscal": {
+            "b01": "B01 · Tax credit",
+            "b02": "B02 · Consumer",
+            "e31": "E31 · Electronic tax credit",
+            "e32": "E32 · Electronic consumer"
+          },
+          "groups": {
+            "account": "Account",
+            "amount": "Currency and amount",
+            "attachment": "Attachment",
+            "category": "Category",
+            "counterparty": "Counterparty",
+            "document": "Document type",
+            "fiscal": "Fiscal type",
+            "review": "Review"
+          },
+          "no_matches": "No options match this search.",
+          "record": "Record",
+          "remove": "Remove filter",
+          "search": "Search…",
+          "select_all": "Select all",
+          "select_results": "Select results",
+          "title": "Filters",
+          "visible_selection_hint": "Only visible results change. Other selections are kept."
+        },
+        "no_period_records": "No records in this period.",
+        "no_results": "No records match these filters",
+        "overview": {
+          "approval": {
+            "title": "Awaiting approval",
+            "description": "Waiting for approval"
+          },
+          "export": {
+            "title": "Ready to export",
+            "description": "You can include them in your export"
+          },
+          "review": {
+            "title": "To review",
+            "description": "Need a review"
+          }
+        },
+        "period_summary": "Period summary · {{period}}",
+        "reset_period": "Reset period",
+        "results": {
+          "basis": "Confirmed amounts",
+          "breakdown": "View breakdown",
+          "breakdown_title": "Breakdown by currency",
+          "currencies": "Amounts in {{count}} currencies",
+          "exclusions": "Excluded amounts",
+          "metrics": {
+            "collected": "Collected",
+            "expenses": "Expenses",
+            "invoiced": "Invoiced",
+            "paid": "Paid",
+            "payable": "To pay",
+            "receivable": "To collect"
+          },
+          "personal_one": "{{count}} personal",
+          "personal_other": "{{count}} personal",
+          "restore": "Restore defaults",
+          "title": "Results summary",
+          "unavailable": "{{count}} without financial verification",
+          "unconfirmed": "{{count}} unconfirmed",
+          "view_currencies": "View all {{count}} currencies"
+        },
+        "search": "Search records…",
+        "settings": {
+          "cancelled": "Column order restored.",
+          "columns": "Columns",
+          "dropped": "Column placed.",
+          "fixed": "Always visible · fixed first",
+          "grabbed": "Column picked up. Use the arrow keys to move it.",
+          "height": "Row height",
+          "instructions": "Drag to reorder. With a keyboard, focus the six-dot handle and press Space, then ↑ or ↓. Space places it; Esc cancels.",
+          "move": "Move {{name}}",
+          "position": "{{name}}, position {{position}} of {{count}}",
+          "required": "Always visible",
+          "restore": "Restore defaults"
+        },
+        "type": "Type",
+        "views": {
+          "title": "Views",
+          "empty": "You have no saved views yet.",
+          "name": "View name",
+          "placeholder": "E.g. Expenses without documents",
+          "duplicate": "You already have a view with this name.",
+          "save": "Save view",
+          "export": "Export results"
+        },
+        "workflow": {
+          "approval": "Awaiting approval",
+          "ready": "Ready",
+          "review": "To review",
+          "unknown": "Status unavailable"
+        }
+      },
+      "title": "Records",
       "coverage": "Bank up to date through {{day}}.",
+      "reporting": {
+        "access_unavailable": "You do not have access to this feature.",
+        "financial_cards_pending": "Amount unavailable.",
+        "invalid_page": "Records changed. Open the last available page.",
+        "pending_contract": "This feature is not connected yet.",
+        "records_only": "The ZIP includes only filtered records. It does not include original files.",
+        "refresh": "Refresh",
+        "reload": "Reload",
+        "report_changed": "Records changed. Refresh before exporting.",
+        "retry": "Retry",
+        "unavailable": "This feature is not available right now.",
+        "uncertain_view": "We could not confirm whether it was saved. Try again.",
+        "view_changed": "The view changed. Reload to continue. Your draft is kept."
+      },
       "run": "Match suggestions",
       "run_short": "Match",
       "unknown": "unknown",
@@ -2381,7 +2621,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "monto": "Amount {{currency}}", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
@@ -2398,6 +2638,27 @@
         "no_lleva": { "cargo_banco": "Bank charge, needs no proof", "entre_cuentas": "Between your accounts, needs no proof", "compra_informal": "Informal purchase, no proof", "monto_cero": "Zero amount, needs no proof", "personal": "Personal, needs no proof" }
       },
       "reasons": { "title": "Why does it need no proof?", "cargo_banco": "Bank charge", "entre_cuentas": "Between my accounts", "compra_informal": "Informal purchase", "personal": "Personal" },
+      "pagination": {
+        "amount_fallback": "Sorted by date. Choose one currency in Filters to sort by amount again.",
+        "amount_largest": "Amount: largest first",
+        "amount_requires_currency": "Choose one currency in Filters to sort by amount.",
+        "amount_smallest": "Amount: smallest first",
+        "first": "First page",
+        "label": "Record pages",
+        "last": "Last page",
+        "name_ascending": "Counterparty: A–Z",
+        "name_descending": "Counterparty: Z–A",
+        "newest": "Newest first",
+        "next": "Next page",
+        "oldest": "Oldest first",
+        "page": "Page {{page}}",
+        "page_size": "Records per page",
+        "per_page": "{{count}} per page",
+        "previous": "Previous page",
+        "range": "{{from}}–{{to}} of {{count}} records",
+        "record_date": "Date: {{date}}",
+        "sort": "Sort"
+      },
       "records": { "detail": { "gasto": "Expense", "venta": "Sale" }, "proof": "Receipt attached", "empty_title": "Your expenses and sales show here", "empty_body": "Every expense and sale you approve in the Inbox shows here on its date.", "filtered_title": "No expenses or sales in this period", "filtered_body": "There may be some in other months.", "error_title": "We couldn't load your expenses and sales" },
       "why": { "title": "Why we suggest it", "amount": "The amount is exact", "date_same": "It is from the same day", "date_one": "The document is from one day before", "date_many": "The document is from {{count}} days before", "date_after_one": "The document is from one day after", "date_after_many": "The document is from {{count}} days after", "name": "The name looks like the bank's" },
       "actions": { "igualar": "Match", "rechazar": "Not this one", "sin_comprobante": "No proof", "desigualar": "Unmatch", "agregar": "Add proof", "more": "More actions for {{name}}", "add_for": "Add proof for {{name}}", "open_for": "Open {{name}}" },
@@ -2766,7 +3027,7 @@
       "label": "Business",
       "overview": "Home",
       "inbox": "Inbox",
-      "transactions": "Transactions",
+      "transactions": "Records",
       "business": "Business"
     },
     "lifecycle": {
@@ -2974,6 +3235,45 @@
     },
     "add_menu": {
       "more": "More actions"
+    },
+    "notifications": {
+      "all": "All",
+      "dismiss": "Dismiss: {{title}}",
+      "empty_all_body": "Updates for your account will appear here.",
+      "empty_all_body_business": "Updates for your account and {{business}} will appear here.",
+      "empty_all_title": "All quiet here",
+      "empty_unread_body": "You have no unread notifications.",
+      "empty_unread_title": "You're all caught up",
+      "filter": "Filter notifications",
+      "mark_all": "Mark all read",
+      "samples": {
+        "access": {
+          "title": "Invitation accepted",
+          "body": "Someone accepted your invitation to {{business}}.",
+          "action": "View team"
+        },
+        "channel": {
+          "title": "Receiving channels",
+          "body": "Check the address and receiving channels for {{business}}.",
+          "action": "View channels"
+        },
+        "profile": {
+          "title": "Make it your Business",
+          "body": "Personalize the logo, description, and details for {{business}}.",
+          "action": "View profile"
+        }
+      },
+      "times": {
+        "recent": "5 min",
+        "earlier": "1 h",
+        "yesterday": "Yesterday"
+      },
+      "title": "Notifications",
+      "unread": "Unread",
+      "unread_count_one": "{{count}} unread notification",
+      "unread_count_other": "{{count}} unread notifications",
+      "unread_label": "Unread notification",
+      "view_all": "View all"
     },
     "amounts": {
       "hide": "Hide amounts"
@@ -3260,7 +3560,14 @@
       "copy_forward_failed": "Could not copy. Your forwarding address is {{address}}",
       "export_records": "Export records",
       "greeting": "Welcome, {{name}}",
+      "greeting_named": "{{greeting}}, {{name}}",
       "greeting_unnamed": "Welcome",
+      "greetings": {
+        "afternoon": "Good afternoon",
+        "evening": "Good evening",
+        "late_night": "Late-night session",
+        "morning": "Good morning"
+      },
       "title": "My business",
       "problem_one": "{{count}} with a problem",
       "problem_other": "{{count}} with a problem",

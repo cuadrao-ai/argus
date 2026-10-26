@@ -31,6 +31,7 @@ type MoneyInputProps = {
   value: string | null;
   onValueChange: (change: MoneyInputChange) => void;
   allowNegative?: boolean;
+  allowZero?: boolean;
   disabled?: boolean;
   /** A backend recording error code such as amount_precision. */
   serverError?: string | null;
@@ -54,6 +55,7 @@ export default function MoneyInput({
   value,
   onValueChange,
   allowNegative = false,
+  allowZero = false,
   disabled = false,
   serverError = null,
   description = null,
@@ -68,6 +70,7 @@ export default function MoneyInput({
   const rulesFor = (code: string): MoneyRules => ({
     currency: code,
     allowNegative,
+    allowZero,
     commaDecimal: typeof navigator !== "undefined" && localeUsesCommaDecimal(navigator.language),
   });
   const rules = rulesFor(currency);

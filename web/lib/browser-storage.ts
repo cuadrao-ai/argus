@@ -40,6 +40,7 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_sidebar_mode": "layout",
   // Whether money amounts show blurred, for sharing a screen or working in public.
   "cuadrao:hide_amounts": "layout",
+  "cuadrao:home-greeting-seen": "temporary",
   "cuadrao:recovery-session:v1": "temporary",
   // Whether every switch shows its Sí and No words, until the account keeps the choice.
   "cuadrao:switch_labels": "appearance",

@@ -10,6 +10,21 @@ const root = join(import.meta.dir, "..");
 
 function privateReads(source: string, fields = privateKeys): Array<{ key: string; expression: string; node: ts.Node }> {
   const file = ts.createSourceFile("surface.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const cssBindings = new Set(file.statements.flatMap((node) => ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.endsWith(".module.css") && node.importClause?.name ? [node.importClause.name.text] : []));
+  const shadowed = new Set<string>();
+  const findShadows = (node: ts.Node): void => {
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isFunctionDeclaration(node)) && node.name && ts.isIdentifier(node.name)) shadowed.add(node.name.text);
+    ts.forEachChild(node, findShadows);
+  };
+  findShadows(file);
+  const cssAttribute = (node: ts.Node): boolean => {
+    if (!(ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) || !ts.isIdentifier(node.expression) || !cssBindings.has(node.expression.text) || shadowed.has(node.expression.text)) return false;
+    for (let parent = node.parent; parent; parent = parent.parent) {
+      if (ts.isJsxAttribute(parent)) return ["className", "style"].includes(parent.name.getText(file));
+      if (ts.isJsxElement(parent) || ts.isJsxSelfClosingElement(parent) || ts.isStatement(parent)) return false;
+    }
+    return false;
+  };
   const aliases = new Map<string, string>();
   const reads: Array<{ key: string; expression: string; node: ts.Node }> = [];
   const literal = (node: ts.Node | undefined): string | undefined => node && ts.isStringLiteralLike(node)
@@ -23,7 +38,7 @@ function privateReads(source: string, fields = privateKeys): Array<{ key: string
       : ts.isElementAccessExpression(node) ? literal(node.argumentExpression)
       : ts.isBindingElement(node) ? (node.propertyName?.getText(file).replace(/["']/g, "") ?? node.name.getText(file))
       : undefined;
-    if (key && fields.has(key)) reads.push({ key, expression: node.getText(file), node });
+    if (key && fields.has(key) && !cssAttribute(node)) reads.push({ key, expression: node.getText(file), node });
     ts.forEachChild(node, visit);
   }
   visit(file);
@@ -87,6 +102,18 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("private artifact prose AST boundary", () => {
+  test("CSS module classes are distinct from retained artifact prose", () => {
+    expect(privateReads('import cells from "./cells.module.css"; const view = <div className={cells.breakdown} style={{ color: cells.quick_take }} />')).toHaveLength(0);
+    for (const source of [
+      'const styles = artifact; const view = <div className={styles.breakdown} />',
+      'import styles from "./data"; const view = <div className={styles.breakdown} />',
+      'import styles from "./cells.module.css"; const view = <div>{artifact.breakdown}</div>',
+      'import styles from "./cells.module.css"; const view = <div>{styles.breakdown}</div>',
+      'import styles from "./cells.module.css"; function view(styles) { return <div className={styles.breakdown} /> }',
+    ]) expect(privateReads(source).length).toBeGreaterThan(0);
+  });
+
+
   test("retained root prose has only exact generic transcript readers", () => {
     expect(rootReaderInventory()).toEqual({
       // These props already contain boundary-localized output, not source prose.

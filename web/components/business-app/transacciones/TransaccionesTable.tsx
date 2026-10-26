@@ -8,7 +8,7 @@ import ActionMenu from "../ActionMenu";
 import { formatRelativeDay, todayIso } from "../business-format";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { headerCurrency, segmentSections, type IgualarView, type Movement, type Section } from "./transacciones-model";
-import { AccountLabel, KeyHint, SignedAmount, StateIcon, Truncated, Unknown } from "./transacciones-parts";
+import { AccountLabel, amountColumnSize, KeyHint, SignedAmount, StateIcon, Truncated, Unknown } from "./transacciones-parts";
 import { commandForKey, useRowCommands, type Command } from "./transacciones-commands";
 import { useTransaccionesWords } from "./transacciones-words";
 import { movementName, type TransaccionesController } from "./useTransacciones";
@@ -46,6 +46,7 @@ export function TransaccionesTable({ controller, view, density, onSegmentStep, o
   const sections = segmentSections(view);
   const rows = sections.flatMap((section) => section.rows);
   const header = headerCurrency(view.movements, view.accountCurrency);
+  const amountSize = amountColumnSize(rows.map((row) => row.money), header, locale);
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const table = useRef<HTMLTableElement>(null);
@@ -109,9 +110,10 @@ export function TransaccionesTable({ controller, view, density, onSegmentStep, o
         data-testid="transacciones-grid"
         data-density={density}
         onKeyDown={onKeyDown}
+        style={{ minWidth: amountSize.minTableWidth }}
         className="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white"
       >
-        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.width ? { width: column.width } : undefined} />)}</colgroup>
+        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.key === "monto" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
         <thead>
           <tr>
             {COLUMNS.map((column) => {

@@ -7,6 +7,32 @@
     "empty": "Todavía no hay mensajes",
     "unavailable": "Abre la conversación para ver los detalles"
   },
+  "cuadrao_invitation": {
+    "back": "Volver a la invitación",
+    "copied": "Enlace de invitación copiado",
+    "copy": "Copiar",
+    "copy_failed": "No se pudo copiar. Selecciona el enlace y cópialo manualmente.",
+    "email_duplicate": "Ya invitaste a este correo electrónico.",
+    "email_invalid": "Escribe un correo electrónico válido.",
+    "email_label": "Invitar por correo",
+    "email_placeholder": "nombre@ejemplo.com",
+    "email_valid": "El correo tiene un formato válido",
+    "history_empty_body": "Aquí aparecerán las invitaciones que envíes por correo.",
+    "history_empty_title": "Tus invitaciones empiezan aquí",
+    "history_title": "Historial de invitaciones",
+    "joined": "Se unieron",
+    "link_label": "Tu enlace de invitación",
+    "send": "Enviar",
+    "sending": "Enviando…",
+    "sent": "Enviadas",
+    "sent_confirmation": "Invitación enviada a {{email}}",
+    "separate_business": "La invitación no da acceso a tus negocios.",
+    "status_joined": "Se unió a Cuadrao",
+    "status_pending": "Pendiente de aceptación",
+    "subtitle": "Comparte Cuadrao con alguien que tenga su propio negocio.",
+    "summary": "Tus invitaciones",
+    "title": "Invitar a Cuadrao"
+  },
   "common": {
     "and": "y",
     "archive": "Archivar",
@@ -2187,6 +2213,28 @@
     }
   },
   "business": {
+    "date_range": {
+      "complete_dates": "Completa ambas fechas",
+      "confirm": "Confirmar período",
+      "from": "Desde",
+      "invalid_date": "Escribe una fecha válida en formato {{format}}.",
+      "invalid_range": "Elige una fecha final posterior o igual al inicio, hasta {{count}} días.",
+      "more_months": "Mostrar más meses",
+      "pick_end": "Elige la fecha final",
+      "pick_start": "Elige la fecha inicial",
+      "preset": {
+        "custom": "Personalizado",
+        "last_30": "Últimos 30 días",
+        "last_7": "Últimos 7 días",
+        "last_quarter": "Trimestre anterior",
+        "today": "Hoy",
+        "yesterday": "Ayer"
+      },
+      "presets": "Períodos rápidos",
+      "title": "Elige el período",
+      "to": "Hasta",
+      "valid_date": "Fecha válida"
+    },
     "date_picker": {
       "next_month": "Mes siguiente",
       "open": "Abrir calendario",
@@ -2372,8 +2420,200 @@
       "form_summary_only": "Solo resumen"
     },
     "transactions": {
-      "title": "Transacciones",
+      "layout": {
+        "all_types": "Todos los tipos",
+        "annotations": {
+          "actions_for": "Acciones de {{name}}",
+          "add_attachment": "Agregar adjunto",
+          "add_note": "Agregar nota",
+          "attachment_for": "Adjunto de {{name}}",
+          "choose_file": "Agregar archivos",
+        "drop_release": "Suelta los archivos para seleccionarlos",
+        "drop_title": "Arrastra tus archivos aquí",
+          "current_note": "Nota actual",
+          "duplicates_one": "Este archivo ya está en la selección.",
+          "duplicates_other": "Estos {{count}} archivos ya están en la selección.",
+          "edit_note_for": "Editar nota de {{name}}",
+          "empty_file": "El archivo está vacío. Elige otro.",
+          "invalid_name": "Usa un nombre de archivo válido de hasta 255 caracteres.",
+          "keep_local_preview": "Conservar",
+          "linked_evidence": "Adjuntos vinculados",
+          "linked_unavailable": "El registro tiene un adjunto vinculado, pero no se puede abrir aquí.",
+          "linked_unknown": "No pudimos confirmar los adjuntos vinculados de este registro.",
+          "local_files_one": "1 archivo en vista previa local",
+          "local_files_other": "{{count}} archivos en vista previa local",
+          "local_only": "Estos archivos no se han subido ni vinculado. La selección se pierde al recargar.",
+          "local_preview": "Vista previa local, sin vincular",
+          "no_attachment": "Sin adjunto",
+          "no_linked_attachment": "Sin adjuntos vinculados.",
+          "open_attachment": "Abrir adjunto",
+          "open_linked_attachment": "Abrir adjunto vinculado",
+          "preparing_preview": "Preparando vista previa...",
+          "preview_failed": "No pudimos preparar la vista previa. No se agregó ningún archivo.",
+          "preview_file": "Ver archivo",
+          "received_document": "Documento recibido",
+          "received_unavailable": "Vincular documentos recibidos aún no está disponible.",
+          "record_actions": "Acciones del registro",
+          "too_large": "El archivo supera el tamaño permitido.",
+          "unsupported": "Este tipo de archivo no está permitido."
+        },
+        "clear": "Limpiar filtros",
+        "clear_search": "Limpiar búsqueda",
+        "column_attachment": "Adjunto",
+        "column_state": "Estado",
+        "column_type": "Tipo",
+        "count_one": "{{count}} registro",
+        "count_other": "{{count}} registros",
+        "filters": {
+          "back": "Todos los filtros",
+          "account": {
+            "card": "Tarjeta del negocio",
+            "checking": "Cuenta corriente",
+            "owner": "Dinero del dueño"
+          },
+          "amount": {
+            "choose_currency": "Elige una moneda para definir el monto.",
+            "currency": "Moneda",
+            "invalid": "Usa montos válidos y un máximo igual o mayor al mínimo.",
+            "max": "Hasta",
+            "min": "Desde"
+          },
+          "apply": "Aplicar",
+          "attachment": {
+            "any": "Cualquiera",
+            "hint": "Se refiere al archivo adjunto, no al NCF.",
+            "with": "Con documento",
+            "without": "Sin documento"
+          },
+          "category": {
+            "dining": "Comidas",
+            "none": "Sin categoría",
+            "other": "Otros",
+            "transport": "Transporte"
+          },
+          "currency": "Moneda",
+          "date": {
+            "from": "Desde",
+            "invalid": "Elige un período válido de hasta 366 días.",
+            "to": "Hasta"
+          },
+          "document": {
+            "credit_note": "Nota de crédito",
+            "invoice": "Factura",
+            "receipt": "Recibo"
+          },
+          "fiscal": {
+            "b01": "B01 · Crédito fiscal",
+            "b02": "B02 · Consumo",
+            "e31": "E31 · Crédito fiscal electrónico",
+            "e32": "E32 · Consumo electrónico"
+          },
+          "groups": {
+            "account": "Cuenta",
+            "amount": "Moneda y monto",
+            "attachment": "Adjunto",
+            "category": "Categoría",
+            "counterparty": "Contraparte",
+            "document": "Tipo de documento",
+            "fiscal": "Tipo fiscal",
+            "review": "Revisión"
+          },
+          "no_matches": "No hay opciones con esa búsqueda.",
+          "record": "Registro",
+          "remove": "Quitar filtro",
+          "search": "Buscar…",
+          "select_all": "Seleccionar todo",
+          "select_results": "Seleccionar resultados",
+          "title": "Filtros",
+          "visible_selection_hint": "Solo cambia los resultados visibles. Las demás selecciones se conservan."
+        },
+        "no_period_records": "No hay registros en este período.",
+        "no_results": "No hay registros con estos filtros",
+        "overview": {
+          "approval": {
+            "title": "Por aprobar",
+            "description": "Esperando aprobación"
+          },
+          "export": {
+            "title": "Listos para exportar",
+            "description": "Puedes incluirlos en tu exportación"
+          },
+          "review": {
+            "title": "Por revisar",
+            "description": "Necesitan una revisión"
+          }
+        },
+        "period_summary": "Resumen del período · {{period}}",
+        "reset_period": "Restablecer período",
+        "results": {
+          "basis": "Importes confirmados",
+          "breakdown": "Ver desglose",
+          "breakdown_title": "Desglose por moneda",
+          "currencies": "Importes en {{count}} monedas",
+          "exclusions": "Importes excluidos",
+          "metrics": {
+            "collected": "Cobrado",
+            "expenses": "Gastos",
+            "invoiced": "Facturado",
+            "paid": "Pagado",
+            "payable": "Por pagar",
+            "receivable": "Por cobrar"
+          },
+          "personal_one": "{{count}} personal",
+          "personal_other": "{{count}} personales",
+          "restore": "Restaurar valores iniciales",
+          "title": "Resumen de resultados",
+          "unavailable": "{{count}} sin verificación financiera",
+          "unconfirmed": "{{count}} sin confirmar",
+          "view_currencies": "Ver las {{count}} monedas"
+        },
+        "search": "Buscar en registros…",
+        "settings": {
+          "cancelled": "Orden de columnas restaurado.",
+          "columns": "Columnas",
+          "dropped": "Columna colocada.",
+          "fixed": "Siempre visible · fija al inicio",
+          "grabbed": "Columna seleccionada. Usa las flechas para moverla.",
+          "height": "Altura de filas",
+          "instructions": "Arrastra para ordenar. Con teclado, enfoca el asa de seis puntos y pulsa Espacio, luego ↑ o ↓. Espacio confirma; Esc cancela.",
+          "move": "Mover {{name}}",
+          "position": "{{name}}, posición {{position}} de {{count}}",
+          "required": "Siempre visible",
+          "restore": "Restaurar valores iniciales"
+        },
+        "type": "Tipo",
+        "views": {
+          "title": "Vistas",
+          "empty": "Todavía no tienes vistas guardadas.",
+          "name": "Nombre de la vista",
+          "placeholder": "Ej. Gastos sin documento",
+          "duplicate": "Ya tienes una vista con este nombre.",
+          "save": "Guardar vista",
+          "export": "Exportar resultados"
+        },
+        "workflow": {
+          "approval": "Por aprobar",
+          "ready": "Listo",
+          "review": "Por revisar",
+          "unknown": "Estado no disponible"
+        }
+      },
+      "title": "Registros",
       "coverage": "Banco al día hasta el {{day}}.",
+      "reporting": {
+        "access_unavailable": "No tienes acceso a esta función.",
+        "financial_cards_pending": "Monto no disponible.",
+        "invalid_page": "Los registros cambiaron. Abre la última página disponible.",
+        "pending_contract": "Esta función aún no está conectada.",
+        "records_only": "El ZIP incluye solo los registros filtrados. No incluye archivos originales.",
+        "refresh": "Actualizar",
+        "reload": "Recargar",
+        "report_changed": "Los registros cambiaron. Actualiza antes de exportar.",
+        "retry": "Reintentar",
+        "unavailable": "Esta función no está disponible ahora.",
+        "uncertain_view": "No pudimos confirmar si se guardó. Inténtalo de nuevo.",
+        "view_changed": "La vista cambió. Recarga para continuar. Tu borrador se conserva."
+      },
       "run": "Igualar sugerencias",
       "run_short": "Igualar",
       "unknown": "sin dato",
@@ -2381,7 +2621,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "monto": "Monto {{currency}}", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {
@@ -2398,6 +2638,27 @@
         "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "monto_cero": "Monto cero, no lleva comprobante", "personal": "Personal, no lleva comprobante" }
       },
       "reasons": { "title": "¿Por qué no lleva comprobante?", "cargo_banco": "Cargo del banco", "entre_cuentas": "Entre mis cuentas", "compra_informal": "Compra informal", "personal": "Personal" },
+      "pagination": {
+        "amount_fallback": "Ordenados por fecha. Elige una moneda en Filtros para volver a ordenar por monto.",
+        "amount_largest": "Monto: mayor primero",
+        "amount_requires_currency": "Elige una moneda en Filtros para ordenar por monto.",
+        "amount_smallest": "Monto: menor primero",
+        "first": "Primera página",
+        "label": "Páginas de registros",
+        "last": "Última página",
+        "name_ascending": "Contraparte: A–Z",
+        "name_descending": "Contraparte: Z–A",
+        "newest": "Más recientes primero",
+        "next": "Página siguiente",
+        "oldest": "Más antiguos primero",
+        "page": "Página {{page}}",
+        "page_size": "Registros por página",
+        "per_page": "{{count}} por página",
+        "previous": "Página anterior",
+        "range": "{{from}}–{{to}} de {{count}} registros",
+        "record_date": "Fecha: {{date}}",
+        "sort": "Ordenar"
+      },
       "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos y ventas", "empty_body": "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
       "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },
@@ -2747,6 +3008,45 @@
     "add_menu": {
       "more": "Más acciones"
     },
+    "notifications": {
+      "all": "Todas",
+      "dismiss": "Descartar: {{title}}",
+      "empty_all_body": "Aquí aparecerán los avisos de tu cuenta.",
+      "empty_all_body_business": "Aquí aparecerán los avisos de tu cuenta y de {{business}}.",
+      "empty_all_title": "Todo tranquilo por aquí",
+      "empty_unread_body": "No tienes avisos sin leer.",
+      "empty_unread_title": "Estás al día",
+      "filter": "Filtrar notificaciones",
+      "mark_all": "Marcar todas como leídas",
+      "samples": {
+        "access": {
+          "title": "Invitación aceptada",
+          "body": "Una persona aceptó tu invitación a {{business}}.",
+          "action": "Ver equipo"
+        },
+        "channel": {
+          "title": "Canales de recepción",
+          "body": "Consulta la dirección y los canales de {{business}}.",
+          "action": "Ver canales"
+        },
+        "profile": {
+          "title": "Dale tu toque al negocio",
+          "body": "Personaliza el logo, la descripción y los datos de {{business}}.",
+          "action": "Ver perfil"
+        }
+      },
+      "times": {
+        "recent": "5 min",
+        "earlier": "1 h",
+        "yesterday": "Ayer"
+      },
+      "title": "Notificaciones",
+      "unread": "Sin leer",
+      "unread_count_one": "{{count}} notificación sin leer",
+      "unread_count_other": "{{count}} notificaciones sin leer",
+      "unread_label": "Notificación sin leer",
+      "view_all": "Ver todas"
+    },
     "amounts": {
       "hide": "Ocultar montos"
     },
@@ -2965,7 +3265,7 @@
       "inbox": "Bandeja",
       "label": "Negocio",
       "overview": "Inicio",
-      "transactions": "Transacciones",
+      "transactions": "Registros",
       "business": "Negocio"
     },
     "lifecycle": {
@@ -3169,7 +3469,14 @@
       "copy_forward_failed": "No se pudo copiar. Tu dirección de reenvío es {{address}}",
       "export_records": "Exportar registros",
       "greeting": "Hola, {{name}}",
+      "greeting_named": "{{greeting}}, {{name}}",
       "greeting_unnamed": "Hola",
+      "greetings": {
+        "afternoon": "Buenas tardes",
+        "evening": "Buenas noches",
+        "late_night": "Noche de enfoque",
+        "morning": "Buenos días"
+      },
       "problem_one": "{{count}} con problema",
       "problem_other": "{{count}} con problema",
       "reading_one": "{{count}} todavía leyendo",

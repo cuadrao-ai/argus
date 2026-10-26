@@ -1,0 +1,79 @@
+.cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:0 0 20px; }
+
+@media (min-width: 1024px) {
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin: 0 0 28px;
+  }
+}
+
+.card {
+  display: flex;
+  min-width: 0;
+  min-height: 180px;
+  flex-direction: column;
+  padding: 22px;
+  border: 1px solid rgb(50 35 30 / 8%);
+  border-radius: 30px;
+  color: #422f29;
+}
+
+.review { background: #f8b69f; }
+.approval { background: #f8e28b; }
+.export { --workflow-ink:#2f5a49; background:#B8D0BE; }
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  line-height: 1.4;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.heading svg { flex-shrink: 0; }
+
+.count {
+  margin: auto 0 0;
+  padding-top: 24px;
+  font-size: 44px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.035em;
+}
+
+.description {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgb(66 47 41 / 80%);
+}
+
+:global(.dark) .card {
+  color: #f8eee7;
+  border-color: rgb(255 255 255 / 9%);
+}
+
+:global(.dark) .review { background: #50382f; }
+:global(.dark) .approval { background: #49412a; }
+:global(.dark) .export { --workflow-ink:#8fcbb0; background:#293b32; }
+:global(.dark) .description { color: rgb(248 238 231 / 75%); }
+
+.card { text-align:left; cursor:pointer; font:inherit; }
+.card:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.card[aria-pressed="true"] { box-shadow:inset 0 0 0 2px currentColor; }
+.card:disabled { cursor:default; }
+@media(max-width:1023px) {
+  .card { min-height:112px; padding:12px; border-radius:16px; }
+  .heading { font-size:10px; gap:6px; text-align:left; flex-direction:column; align-items:flex-start; }
+  .heading svg { width:17px; height:17px; }
+  .count { padding-top:12px; font-size:28px; }
+  .description { display:none; }
+}

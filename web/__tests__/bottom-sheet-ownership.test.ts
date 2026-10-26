@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import ts from "typescript";
 import { join, relative } from "node:path";
 
 /**
@@ -56,6 +57,20 @@ function sourceFiles(): string[] {
     }
   };
   for (const root of SCAN_ROOTS) walk(join(WEB_ROOT, root));
+  return found;
+}
+
+function declaresModal(source: string): boolean {
+  const tree = ts.createSourceFile("surface.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxAttribute(node) && node.name.getText(tree) === "aria-modal") {
+      const value = node.initializer;
+      found ||= !value || (ts.isStringLiteral(value) ? value.text !== "false" : !ts.isJsxExpression(value) || value.expression?.kind !== ts.SyntaxKind.FalseKeyword);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
   return found;
 }
 
@@ -120,7 +135,7 @@ describe("bottom sheet ownership", () => {
     // behind the scrim, which is how the drawer shipped.
     const offenders = FILES.filter(
       (file) =>
-        /aria-modal="true"/.test(file.source) &&
+        declaresModal(file.source) &&
         !UNMANAGED_MODAL_DEBT.has(file.path) &&
         !/useModalSurface/.test(file.source),
     ).map((file) => file.path);
@@ -131,7 +146,7 @@ describe("bottom sheet ownership", () => {
     // Otherwise one Escape dismisses two levels.
     const offenders = FILES.filter(
       (file) =>
-        /aria-modal="true"/.test(file.source) &&
+        declaresModal(file.source) &&
         !UNMANAGED_MODAL_DEBT.has(file.path) &&
         !/useModalSurface/.test(file.source),
     ).map((file) => file.path);
@@ -203,4 +218,13 @@ describe("bottom sheet ownership", () => {
 test("every fixed full-screen overlay uses the viewport portal owner", () => {
   const offenders = FILES.filter((file) => /\bfixed inset-0\b/.test(file.source) && !file.source.includes("withViewportPortal(")).map((file) => file.path);
   expect(offenders).toEqual([]);
+});
+
+test("modal detection ignores selector strings while real unmanaged markup still requires ownership", () => {
+  expect(declaresModal(`document.querySelector('[aria-modal="true"]')`)).toBe(false);
+  expect(declaresModal('// <div aria-modal="true" />')).toBe(false);
+  expect(declaresModal('<div aria-modal="true" />')).toBe(true);
+  expect(declaresModal('<section aria-modal={true} />')).toBe(true);
+  expect(declaresModal('<section aria-modal={open} />')).toBe(true);
+  expect(declaresModal('<section aria-modal={false} />')).toBe(false);
 });

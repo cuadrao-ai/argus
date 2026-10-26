@@ -357,6 +357,11 @@ They extend Forms below, including email aliases, authorized senders and invoici
 - Checkboxes use rounded square corners, never sharp squares. The native input
   and its label form one clickable row at least 44px tall. Space toggles the
   focused checkbox; focus stays visible. Keep the input's checked semantics.
+- A parent checkbox derives its checked, empty or mixed state from its children.
+  Set the native `indeterminate` property and `aria-checked="mixed"` together.
+  Clicking mixed selects all; clicking all clears. In searchable lists it applies
+  to visible matches only and preserves hidden selections, explained beside the
+  control. With no matches, disable the parent and leave it unchecked.
 - A checkbox edits a draft. Save or Continue applies the choice. Keep draft
   recovery separate from a committed setting or confirmation. Immediate settings
   use a switch when that behavior is appropriate.
@@ -606,8 +611,10 @@ Which container, screen by screen (Lucas, October 20, 2026):
 - **Pages:** Inicio, Bandeja, Transacciones, Novedades, Acceso.
 - **Record tray:** a receipt, draft, email or expense opens beside its list on
   desktop, without a scrim, so another row can be opened straight away. On a
-  phone it is a full page with a way back. It is the one sheet that is not
-  modal.
+  phone it is a full page with a way back, except a Registros record glance:
+  that opens in the shared modal bottom sheet and returns to the same list
+  position when closed (October 25, 2026). The desktop record tray remains
+  non-modal.
 - **Sheets:** Agregar, Exportar registros, settings, forms and lists.
 - **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
   range, which opens under its segment and in a sheet on a phone).
@@ -736,12 +743,28 @@ top right is who you are.
   Nothing plays on first paint or while the rail opens or closes. Reduced
   motion swaps the weight at once and moves nothing. The rail and the phone tabs share one owner:
   `components/business-app/nav-glyphs.tsx` and its stylesheet.
-- **Top bar:** spans the one canvas and never changes per screen. Search on the left, always
-  visible (its placeholder says what it finds). On the right: **Agregar ▾**,
-  the one global action, whose menu holds Exportar registros and Copiar
-  dirección de reenvío; the **Ocultar montos** eye, which
-  blurs every amount for screen sharing; then the account. No screen repeats
-  these buttons. Phones keep Agregar ▾ at the top of each screen instead.
+- **Top bar:** spans the one canvas. From the tablet stop up, Inicio shows the
+  current localized date in small muted uppercase above the welcome greeting on
+  the left, using the existing display font. Its search field sits near the right,
+  followed by the invitation hand-heart, **Ocultar montos**, notifications and the account. Other desktop
+  screens omit the greeting and search field; Cmd K still opens search. Business
+  search opens below the field with aligned right edges, and expands left from
+  that fixed edge within the viewport. Without the field, it uses the same header
+  region as its anchor. Personal search and phone search keep their own layouts.
+  **Agregar ▾**, with Exportar registros and Copiar dirección de reenvío, belongs
+  beside each content heading on desktop. On Inicio it sits beside Pendiente hoy;
+  in Transacciones it keeps Igualar sugerencias beside it. Phones keep Agregar ▾
+  at the top of each screen instead.
+  Home greets by the viewer's local time on desktop and phone: 05:00–11:59
+  Buenos días / Good morning; 12:00–17:59 Buenas tardes / Good afternoon;
+  18:00–22:59 Buenas noches / Good evening; 23:00–04:59 Noche de enfoque /
+  Late-night session. Add a comma and the saved preferred name only when present.
+  Reuse the sign-in typewriter on the first visible Home appearance in a browser
+  tab's session. Reserve the whole phrase's layout and expose it once to assistive
+  technology. Reduced motion is static. Navigation, reload, viewport, language,
+  name and time-period changes do not replay it. Store only a session sentinel,
+  never the greeting or name. Local date and period refresh at boundaries and
+  when the page resumes; server rendering does not guess the viewer's clock.
   Content scrolls under the bar through a soft fade in the surface's own
   color, on every screen the bar is on. A screen starts 32px below the bar
   (16px on a phone), and Inicio's cards sit 24px apart from the tablet up.
@@ -768,10 +791,9 @@ a 44px target.
   the nearest of the four.
 - A sheet's X is its only way to leave. Do not add Listo or Hecho to a sheet
   just to close it. A footer button names the next step (Guardar, Aprobar).
-- The top bar's Agregar is the green primary on every screen (Lucas, October
-  21, 2026). "One per screen" counts the page's content only, never the top
-  bar: Igualar sugerencias is Transacciones' one primary in the page while
-  Agregar stays green above it.
+- Agregar stays green beside the content heading on desktop (Lucas, October 25,
+  2026). Transacciones also keeps its existing Igualar sugerencias action beside
+  it. This placement replaces the earlier global top-bar action rule.
 - `components/business-app/business-ui.tsx` owns the classes
   (`primaryButtonClass`, `secondaryButtonClass`, `quietButtonClass`,
   `dangerButtonClass`, `dangerConfirmButtonClass`). Compose a width or a margin
@@ -819,6 +841,58 @@ One toast at a time (Lucas, October 21, 2026): the newest replaces the one on
 screen, Deshacer included, because stacked undos act on work the owner has
 moved past. Marks in a row share one toast ("3 facturas cobradas") with one
 Deshacer for all of them. An alert never stacks.
+
+### Business notification list, local design preview
+
+The bell opens a compact, flat 400px popover with a 16px radius and a hairline
+border on desktop. Width and height stay inside the viewport; only the list
+scrolls. Phones use the shared bottom sheet. The header uses a quiet double-check
+control to mark all read, with a full accessible label, and a close control.
+
+Rows show a small unread dot, a bold unread title, a muted timestamp, and quiet
+action and dismiss controls with 44px targets. Product updates have a subtle
+neutral tint. All/Unread is a compact inline menu with arrow-key navigation;
+Escape closes that menu first and returns focus to its trigger. Dismissing a row
+returns focus to the filter. The list never repeats task or inbox counts.
+
+This local design uses three sample notices only in development with mock auth
+and the preview prop. Read and dismiss state belongs to the selected Business
+and lasts only while this shell is mounted. Direct and nonmock use is empty.
+
+Notification empty states share a static 88px bell illustration in the auth
+envelope's rounded forest-green, cream, sage, and lime style. Use transparent
+artwork with a subtle theme-aware backdrop. Keep the panel title left-aligned
+and center the illustration, 16px state heading, and 14px explanatory copy.
+No notifications hides the filter and mark-all control and has no CTA. Nothing
+unread keeps the filter and offers a quiet View all action that restores the read
+list. These states derive from the available notice lists. Loading and failures
+must remain distinct when the backend is connected. Final dismissal moves focus
+to the empty heading; View all returns focus to the filter. Phones keep the shared
+content-sized bottom sheet.
+
+### Personal invitation to Cuadrao, local design preview
+
+The account menu opens Invitar a Cuadrao with a hand-heart icon. This invitation
+introduces someone to Cuadrao for their own business and grants no Business access.
+Desktop also shows the same hand-heart before the privacy eye, with a 44px target
+and shared tooltip. Both entry points open the same dialog and invitation history.
+Closing returns focus to the opener. Phones retain only the account-menu entry.
+Rewards remain outside this checkpoint.
+
+Use a centered, flat desktop dialog and the shared phone sheet. Center the
+hand-heart, title, and short explanation. Link and Copy share a row; email and
+Send share the next row. Stack these controls on phones. Reuse FormField validation,
+44px actions, CopyButton feedback, theme colors, and close/focus behavior.
+
+A quiet divider introduces sent and joined counts. Invitation history opens
+inside the same surface with Back, keeping the email draft. Show newest invitations
+first with email, date, and quiet status. Copying a link does not raise sent counts.
+
+The current implementation requires Business development mode with mock auth.
+It uses a reserved example-domain link and in-memory simulated sends. Counts derive
+from those local rows; joined remains zero. Closing and reopening preserves rows
+while ProfileMenu remains mounted. Reloading or remounting clears them. Real delivery,
+recipient acceptance, durable history, and pilot admission remain backend work.
 
 ### Toasts and saves
 
@@ -1009,11 +1083,11 @@ frame, such as readable names, tax numbers or amounts.
 
 Local Home checkpoint, October 24, 2026: preserve the current implementation and the month bounds below. The proposed separation of invoicing and collaboration remains unapplied. Pending navigation, progress and color decisions, verification limits and evidence are recorded in `docs/reports/home-checkpoint-20261024.md`. This is a local design baseline, not backend or release acceptance.
 
-The month is a 16px control at the right of the greeting row, not a second title; a phone wraps it under the greeting. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
+The month is a 16px control above the checklist, not a second title. On desktop the greeting lives only in the top bar. A phone keeps the month beside its content greeting and wraps it underneath when needed. The picker shows only the current month and supported past months, bounded by the service-provided current and earliest month. Future months are omitted, not shown disabled. When no earlier supported month is known, show the current month alone. Keep the month control visible even with one option so later bulk-upload history uses the same control.
 
-Order: the greeting row; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
+Order: the month control, with the content greeting on phones only; "Para cerrar <mes>" with the month's figures (Ingresos, Gastos, Resultado neto, ITBIS) directly under it; then "Pendiente hoy", an h3 that holds Por cobrar and Por pagar side by side from the tablet stop up and stacked on a phone. Those two cards cover every month, so they sit apart from the month block.
 
-Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the greeting row on the left, "Pendiente hoy" on the right at the greeting's 26px, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
+Two columns once the canvas is 56rem or wider (Lucas, October 21, 2026): 38fr and 62fr, 24px apart. Row 1: the month control on the left, "Pendiente hoy" and Agregar on the right, one height and baseline. Row 2: "Para cerrar <mes>" beside Por cobrar and Por pagar. Row 3: the month's figures as two cards on the same columns, Ingresos and Gastos on the left, Resultado neto and ITBIS on the right over the Por cobrar and Por pagar columns. Cards in a row end together, including empty states. Keep the label at the shared top edge and center a compact empty-state group in the available body height. Do not shorten one card in isolation or leave a hole above the figures row. Narrower, one column in the order above.
 
 "Cerrar <mes>" shows only when the month can close. While steps remain, one quiet line takes its place: "Cuando termines los 3 pasos, podrás cerrar octubre."
 
@@ -1155,3 +1229,84 @@ approved copy:
 
 - PLACEHOLDER: "Te faltan 3 documentos de octubre."
 - PLACEHOLDER: "No pudimos confirmar el proveedor. Revísalo antes de exportar."
+
+### Registros local preview: filters and table preferences
+
+In the development mock preview, phone Filters uses the full-height sheet: a group list opens one group editor, Back keeps the draft, Apply commits, and close/Escape discards. Navigation rows are buttons with chevrons; the desktop rail keeps tabs. Date format belongs in the input placeholder, with the message slot reserved for validation.
+
+Desktop preview table preferences are local memory only, including saved views. They do not invoke the production `/me` density persistence described above. Contraparte stays visible and fixed first; Monto and Moneda stay visible but can move independently. Other columns may hide or reorder. Column movement preserves focus; Space grabs/drops, arrows move, and Escape cancels the grabbed order. A picked-up column has a full-row outline and tint plus a filled handle, in both themes. The instruction area keeps its height while showing pickup feedback. A visible drop marker shows the actual insertion edge. Changing columns or row height preserves the current page. Phone list composition does not change with desktop column preferences.
+
+### Registros local preview: record cells and annotations
+
+Activity dates in the Registros preview show the year in the selected language, for example `25 oct 2026` or `Oct 25, 2026`. A calendar day does not shift with the device time zone. Missing or invalid dates show a dash. This rule applies to the table, narrow list and loaded-record glance; other recent-time displays keep their existing wording.
+
+Estado uses a small colored text label from the top overview palette. Registros is an explicit exception to the global status-dot rule above; its labels have no inner dot. Review uses peach, approval uses yellow, and ready uses soft sage (#B8D0BE) with forest-green ink (#2f5a49), with the corresponding dark colors. The ready overview card and Listo status pill share the #B8D0BE background in the light theme. The overview keeps the same neutral text and icon colors as the other cards; the shared dark background stays muted deep green. Overview selection edges and keyboard focus rings use that same neutral card ink in both themes. The Listo label uses green ink; the primary action keeps its solid green fill. The row label is Listo or Ready. The top card keeps Listos para exportar. Workflow does not describe payment state.
+
+The desktop table shows separate Monto and Moneda columns, adjacent by default. Monto shows the exact original-currency number, aligned right with tabular digits and the shared privacy mask. Moneda shows RD$ or US$ through `currencySymbol`; filters retain DOP and USD. Both columns remain visible. Each column moves independently through its own drag handle or keyboard controls. Narrow rows keep the amount and currency together at the upper right.
+
+Notas shows only the current note on one line, with a tooltip for the full text. Empty notes use a quiet dash at rest on desktop. Hovering or focusing any part of the row reveals a pencil in the same slot; touch keeps the pencil visible. Clicking a note opens a compact editor on desktop or the shared sheet on a phone. Notes allow 500 characters with the same quiet, right-aligned current/limit counter as feedback. The counter describes the field without announcing each keystroke. Existing longer local notes stay intact on open and must be shortened before saving. Save applies the local value; Cancel, close and Escape discard the draft. There are no author, history, edited or activity indicators. Adjunto replaces Comprobante in preview table/settings/filter/glance labels. A known missing attachment uses a dash at rest on desktop and reveals a quiet plus when any part of the row is hovered or focused. Touch keeps the plus visible. The action retains a 44px target without shifting content; unknown remains a dash. Existing evidence opens its original record path. A local file can be selected, validated and previewed for that record, without uploading it.
+
+One in-memory annotation map is keyed by Business and stable record kind plus ID. Saved local values survive filtering, paging, viewport changes and the loaded-record glance. They do not persist across refresh or reach the backend. Permissions use the existing prepare capability. Narrow rows offer visible Notes and Attachment icon buttons with 44px targets, stacked in the right-side action slot and separate from the row-open button. Related-record grouping and a new writing flow remain deferred.
+
+
+### Registros preview sorting
+
+Fecha, Monto and Contraparte are sortable through full header buttons. Only the active column shows an arrow and aria-sort. Fecha starts newest first, Monto starts largest magnitude first, and Contraparte starts locale-aware A–Z. Clicking the active header reverses it. The phone sort picker offers the same six orders and shares the selected sort. Local named views keep that sort with their column and summary preferences.
+
+Sort the whole filtered loaded set before slicing a page. Changing sort returns to page one, without changing result counts or financial totals. Missing or invalid sort values remain last in both directions. Equal values use stable record kind and ID. Monto compares exact original-currency magnitudes and is available only when the entire filtered set has one known currency. With mixed currencies, its header and phone options explain how to choose a currency in Filtros. If filters make an active amount sort unavailable, show an explicit date-order fallback notice and the date arrow. Retain the intended amount order so it resumes when the results again have one currency. No conversion or mixed-currency numeric comparison is implied.
+
+### Registros evidence and payment relationships, 26 October 2026
+
+Keep three intents separate: add a new document through the existing intake; add supporting evidence to an existing activity through Adjunto; and Igualar an imported bank movement with an existing activity. Linking evidence never creates another purchase, changes the amount or marks the activity paid. A cash purchase can remain valid without a bank movement. Por revisar does not make every unmatched document incomplete.
+
+The approved evidence design allows several attachments per activity. Add appends; it never replaces an existing attachment. Preserve the original file and its Business. A document already linked elsewhere needs an explicit conflict explanation; never move it automatically. No unlink action is available until its contract, permissions and any payment effects are defined. Existing evidence stays linked when a download is temporarily unavailable.
+
+Con documento means linked evidence only, not verified, approved, fiscally accepted or paid. Sin documento and Sin movimiento vinculado are separate conditions. The local attachment filter reads only the loaded record's known evidence state: Con documento includes true, Sin documento includes false, and neither includes unknown. A selected local File is a preview that disappears on refresh, not a durable link, and must say so in the editor and its saved local presentation. It never changes that filter state or fiscal completeness.
+
+Reuse of an already received document is a backend-dependent design path. Keep its selector unavailable until a complete authorized candidate list and link eligibility are supplied; the current inbox omits confirmed and dismissed documents. Device selection does not bypass that missing link contract or start a second ingestion flow. Editing follows the existing prepare capability; read-only access offers only authorized reads. Matching remains behind its existing default-off gate and needs the shared partial-payment contract before release. Future checkpoint notes and acceptance cases live in the Registros report; this rule records design intent, not a backend handoff or activation.
+
+
+### Registros attachment form and loading alignment, 26 October 2026
+
+The annotation footer follows the collaborator invitation form: one full-width
+primary action with the item radius (8px), separated by one hairline. The X closes;
+no duplicate Cancel button. This full-width form action is an exception to the pill
+shape used for toolbar and file-picker buttons. On phone the sheet owns the footer
+divider and safe-area padding, without a second inner divider.
+
+Attachment selection uses the receipt intake's dashed inset, file-upload icon,
+format/size guidance, pill file-picker action, and desktop drag/paste affordances.
+Phone wording offers file selection. Supporting evidence selection must not start
+new-document intake or claim a durable upload/link while it remains local-only.
+
+Registros loading retains its overview and toolbar. Pending rows follow the same
+visible columns/order, pinned identity, density, container breakpoint, phone
+identity/value/state layout and pagination footprint as loaded records. Use the
+shared delayed shimmer and reduced-motion behavior, not generic list placeholders.
+Command-K focuses the mounted Records search and must not steal focus from an open
+overlay; Home retains its existing global search.
+
+### Registros metric shelf, 26 October 2026
+
+The sales and expense summary uses three compact metric cards, with the rounded
+shape, icon placement and neutral text of the overview cards. Use quieter neutral,
+sage and cream surfaces, with dark-theme equivalents. The cards remain read-only
+until the amount drill-down contract is connected. Todos still hides this summary.
+
+Show at most two currency rows in each metric, in the same order across all three
+cards. Do not add currencies together or create a second currency filter. When
+more than two currencies occur, one shared action opens every currency in the
+existing dossier. Group that breakdown by currency, with total, settled amount
+and balance inside each group. Phone uses the shared sheet. Close or Escape
+returns focus to the trigger. Retain the dossier gradient and privacy masking.
+
+On narrow containers, stack the three cards with labels on the left and amounts
+aligned on the right. Keep unknown settlement values unknown. Exclusions remain
+available through the first card's information control. Existing financial
+eligibility and filters retain their current meaning.
+
+Financial summaries appear automatically for the Sales or Expenses record filter.
+The mixed Todos view has no financial summary. There is no summary visibility
+preference or separate Summary settings tab. Desktop table settings contain
+Columns and Row height. Phone retains Filters and Sort without an empty settings
+shortcut. A display preference must never change record eligibility or totals.

@@ -180,12 +180,13 @@ describe("the Bandeja and the Resumen on one saved state", () => {
     await page.act(async () => page.root.unmount());
   });
 
-  test("a desktop Inicio and Bandeja repeat no top-bar action, and the accountant's Bandeja keeps one Revisar recibos", async () => {
+  test("desktop Inicio and Bandeja each offer Agregar, and the accountant's Bandeja keeps one Revisar recibos", async () => {
     const owner = await mount();
     for (const id of ["resumen", "bandeja"]) {
       const screen = owner.host.querySelector(`[data-testid="${id}"]`)!;
-      assert.equal(screen.querySelectorAll('[data-primary="true"]').length, 0, `${id} has no primary of its own`);
-      for (const gone of ["inicio-actions", "inicio-export", "inicio-forward-copy", "inicio-primary-review", "add-menu-page", "business-primary-upload"]) {
+      assert.equal(screen.querySelectorAll('[data-primary="true"]').length, 1, `${id} has one primary`);
+      assert.equal(screen.querySelectorAll('[data-testid="business-primary-upload"]').length, 1);
+      for (const gone of ["inicio-actions", "inicio-export", "inicio-forward-copy", "inicio-primary-review", "add-menu-page"]) {
         assert.equal(screen.querySelector(`[data-testid="${gone}"]`), null, `${id} has no ${gone}`);
       }
     }

@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
+import { greetingPeriod } from "@/components/business-app/foundation/home-greeting";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
 
 mock.module("next/navigation", () => ({
@@ -16,7 +17,7 @@ mock.module("next/navigation", () => ({
 const root = join(import.meta.dir, "..");
 
 beforeAll(() => {
-  GlobalRegistrator.register({ url: "http://localhost/biz" });
+  GlobalRegistrator.register({ url: "http://localhost/biz", width: 390, height: 844 });
   Object.defineProperty(window.navigator, "language", { configurable: true, value: "en-US" });
   Object.defineProperty(window.navigator, "languages", { configurable: true, value: ["en-US", "en"] });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -125,19 +126,23 @@ describe("Business stays in Spanish for an en-US browser", () => {
     return visible;
   }
 
-  const spanishCopy = ["Mi negocio", "Hola", "en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Comercio", "Fecha"];
-  const englishCopy = ["Welcome", "in the Inbox", "Income", "Add", "Write it", "Saved as", "Purchase", "Merchant", "Date"];
+  const spanishCopy = ["Mi negocio", "en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Se guardan como", "Compra", "Comercio", "Fecha"];
+  const englishCopy = ["in the Inbox", "Income", "Add", "Write it", "Saved as", "Purchase", "Merchant", "Date"];
   const retiredEnglishCopy = ["Upload receipts", "Record expense", "Open inbox", "Actual expenses", "to review"];
 
   test("an en-US browser with a Spanish account sees overview, the Agregar sheet, and receipt review in Spanish", async () => {
-    const visible = await renderShown("es-419", ["en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Comercio"]);
+    const greeting = spanish.business.overview.greetings[greetingPeriod(new Date().getHours())];
+    const visible = await renderShown("es-419", [greeting, "en la Bandeja", "Ingresos", "Agregar", "Escríbelo", "Comercio"]);
+    assert.ok(visible.includes(greeting), greeting);
     for (const spanishText of spanishCopy) assert.ok(visible.includes(spanishText), spanishText);
     for (const englishText of [...englishCopy, ...retiredEnglishCopy]) assert.equal(visible.includes(englishText), false, englishText);
     assert.equal(window.navigator.language, "en-US");
   });
 
   test("an English account sees the same surfaces in English", async () => {
-    const visible = await renderShown("en", ["in the Inbox", "Income", "Merchant", "Write it"]);
+    const greeting = english.business.overview.greetings[greetingPeriod(new Date().getHours())];
+    const visible = await renderShown("en", [greeting, "in the Inbox", "Income", "Merchant", "Write it"]);
+    assert.ok(visible.includes(greeting), greeting);
     for (const englishText of englishCopy) assert.ok(visible.includes(englishText), englishText);
     for (const spanishText of spanishCopy) assert.equal(visible.includes(spanishText), false, spanishText);
   });

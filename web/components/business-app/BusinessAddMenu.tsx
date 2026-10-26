@@ -11,12 +11,11 @@ import { showToast } from "./foundation/toasts";
 
 /**
  * The one global action: Agregar, with a menu for the rarer ones (Exportar
- * registros, Copiar dirección de reenvío). It sits in the top bar
- * from the tablet stop up and at the top of each screen on a phone, where the
- * thumb reaches it. A contador, who adds nothing, gets the menu alone.
- * The top bar never changes per screen: Agregar is primary everywhere.
+ * registros, Copiar dirección de reenvío). It sits beside the content heading
+ * from the tablet stop up and at the top of each screen on a phone.
+ * A contador, who adds nothing, gets the menu alone.
  */
-export default function BusinessAddMenu({ placement }: { placement: "header" | "page" }) {
+export default function BusinessAddMenu({ placement, onExport, exportEnabled = true }: { placement: "header" | "page"; onExport?: () => void; exportEnabled?: boolean }) {
   const { t } = useTranslation();
   const { actions, chosen, openExport, openPanel } = useBusiness();
   const forwardAddress = useForwardAddress();
@@ -28,7 +27,7 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
     else openPanel({ kind: "business", tab: "correo" });
   };
   const more = [
-    ...(chosen?.capabilities.includes("read") ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: openExport }] : []),
+    ...(chosen?.capabilities.includes("read") && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
   const page = placement === "page";
@@ -40,11 +39,13 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
           type="button"
           data-testid="business-primary-upload"
           data-primary="true"
+          data-add-primary
+          aria-label={add.label}
           onClick={add.run}
           className={`${primaryButtonClass} rounded-r-none pl-4 pr-3 ${page ? "flex-1" : ""}`}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          {add.label}
+          <span data-add-label>{add.label}</span>
         </button>
       ) : null}
       <ActionMenu

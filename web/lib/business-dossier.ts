@@ -47,6 +47,8 @@ export type BusinessReviewQuestion = {
 };
 
 export type BusinessDraftRevision = {
+  before_current_note?: string | null;
+  after_current_note?: string | null;
   before_dgii?: DgiiDeclaration | null;
   after_dgii?: DgiiDeclaration | null;
   draft_id: string;
@@ -89,6 +91,10 @@ export type BusinessApprovalAction = "record_expense" | "record_income" | "recor
 export type RefundCandidate = { id: string; merchant: string | null; occurred_on: string; amount: string; currency: string };
 
 export type BusinessDossier = BusinessRecordContext & {
+  current_note?: string | null;
+  note_edit_available?: boolean;
+  supporting_append_available?: boolean;
+  annotation_unavailable_reason?: string | null;
   dgii?: DgiiDeclaration | null;
   /** What the e-CF XML proved by itself; null for any other source. */
   ecf_checks?: EcfVerification | null;

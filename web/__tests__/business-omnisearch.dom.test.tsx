@@ -13,6 +13,7 @@ import { useBusinessSearch } from "@/components/business-app/useBusinessSearch";
 import type { BusinessActions } from "@/components/business-app/business-actions";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import spanish from "@/public/locales/es-419/common.json";
+import { businessSearchPlacement } from "@/components/sidebar/command-palette/paletteLayout";
 
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/business" });
@@ -78,12 +79,46 @@ const group = (label: string) => document.querySelector(`[role="group"][aria-lab
 const rows = (label: string) => Array.from(group(label)?.querySelectorAll("button, [data-testid=workspace-hit-static]") ?? []).map((row) => row.textContent ?? "");
 const paletteText = () => (document.body.textContent ?? "") + Array.from(document.querySelectorAll("input")).map((field) => field.placeholder).join(" ");
 
+test("Business search keeps its right edge under the field and expands left within the viewport", () => {
+  const viewport = { width: 1440, height: 900 };
+  const anchor = { right: 1220, bottom: 62 };
+  const compact = businessSearchPlacement(viewport, anchor, "collapsed");
+  const expanded = businessSearchPlacement(viewport, anchor, "expanded");
+  assert.equal(compact.right, 220);
+  assert.equal(expanded.right, 220);
+  assert.equal(compact.top, 70);
+  assert.equal(compact.width, 512);
+  assert.equal(expanded.width, 1152);
+  assert.ok(viewport.width - expanded.right - expanded.width >= 16);
+  const narrow = businessSearchPlacement({ width: 720, height: 400 }, { right: 540, bottom: 62 }, "expanded");
+  assert.equal(narrow.width, 524);
+  assert.equal(narrow.maxHeight, 314);
+});
+
+test("Business search uses the field anchor and the stable header fallback on other screens", async () => {
+  for (const selector of ["field", "fallback"]) {
+    const anchor = document.createElement("div");
+    if (selector === "field") anchor.dataset.testid = "header-search";
+    else anchor.dataset.businessSearchAnchor = "";
+    anchor.getBoundingClientRect = () => ({ right: 800, bottom: 62 }) as DOMRect;
+    document.body.append(anchor);
+    const view = await mount();
+    try {
+      await view.openSearch();
+      const panel = document.querySelector<HTMLElement>('[data-testid="workspace-search-panel"]')!;
+      assert.equal(panel.style.position, "fixed");
+      assert.equal(panel.style.right, `${window.innerWidth - 800}px`);
+      assert.equal(panel.style.top, "70px");
+    } finally { await view.unmount(); anchor.remove(); }
+  }
+});
+
 test("on focus the search is not empty: it names what it reads and offers every screen and action, with a badge each", async () => {
   const view = await mount();
   try {
     await view.openSearch();
     assert.equal(view.input().placeholder, "Busca comercio, monto o nota");
-    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "TransaccionesPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "RecepciónPantalla"]);
+    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "RegistrosPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "RecepciónPantalla"]);
     assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Exportar registrosAcción", "Copiar dirección de reenvíoAcción"]);
     assert.ok(!/Argus/.test(paletteText()), "no Argus words on a Business search");
   } finally { await view.unmount(); }
@@ -93,8 +128,8 @@ test("screens and actions match the query without accents or case, and open wher
   const view = await mount();
   try {
     await view.openSearch();
-    await type(view.input(), "transaccion");
-    assert.deepEqual(rows("Ir a"), ["TransaccionesPantalla"]);
+    await type(view.input(), "REGÍSTRO");
+    assert.deepEqual(rows("Ir a"), ["RegistrosPantalla"]);
     await type(view.input(), "EXPORTAR");
     assert.deepEqual(rows("Acciones"), ["Exportar registrosAcción"]);
     await type(view.input(), "dirección");

@@ -21,6 +21,8 @@ export type MoneyRules = {
   currency: string;
   /** Signed fields accept negatives and zero; positive-only fields accept neither. */
   allowNegative: boolean;
+  /** Nonnegative range bounds can include zero without permitting negatives. */
+  allowZero?: boolean;
   /** The device locale writes decimals with a comma, so a typed comma is the decimal point. */
   commaDecimal: boolean;
 };
@@ -205,7 +207,7 @@ export function readMoney(display: string, rules: MoneyRules): MoneyReading {
   if (value === null) return { value: null, problem: { code: "invalid" } };
   const problem = limitProblem(logical, rules.currency);
   if (problem) return { value: null, problem };
-  if (!rules.allowNegative && !/[1-9]/.test(value)) return { value: null, problem: { code: "zero" } };
+  if (!rules.allowNegative && !rules.allowZero && !/[1-9]/.test(value)) return { value: null, problem: { code: "zero" } };
   return { value, problem: null };
 }
 

@@ -13,6 +13,7 @@ import ChatCommandPalette from "@/components/sidebar/ChatCommandPalette";
 import { KeyboardShortcutSurfaces } from "@/components/keyboard/KeyboardShortcutSurfaces";
 import { useChatKeyboardShortcuts } from "@/components/keyboard/useChatKeyboardShortcuts";
 import ChatSidebar from "@/components/sidebar/ChatSidebar";
+import type { InvitationOpenRequest } from "@/components/sidebar/ProfileMenu";
 import SidebarPreferenceModal from "@/components/settings/SidebarPreferenceModal";
 import ConversationActivityAnnouncement from "@/components/chat/ConversationActivityAnnouncement";
 import ConversationActivityRail from "@/components/chat/ConversationActivityRail";
@@ -573,7 +574,11 @@ export default function ChatInterface() {
   const surfaceFade = `${layout.businessShell ? "bg-[#F7F5EE]/80" : "bg-[#f9f9f9]/80"} dark:bg-[#141517]/80`;
   const searchEntryEnabled = omnisearchEnabled && businessSearchEntryEnabled(workspace?.id);
   const openSearch = useCallback(() => { if (searchEntryEnabled) setSearchOverlayOpen(true); }, [searchEntryEnabled]);
-  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, openSearch: searchEntryEnabled ? openSearch : undefined, resetToEmptyChatSurface, closeTransientSidebar });
+  const [invitationOpenRequest, setInvitationOpenRequest] = useState<InvitationOpenRequest | null>(null);
+  const openPersonalInvitation = useCallback((trigger: HTMLElement) => {
+    setInvitationOpenRequest((previous) => ({ id: (previous?.id ?? 0) + 1, trigger }));
+  }, []);
+  const { bridge: shellBridge, profileSlot, setProfileSlot } = useChatShellBridge({ workspace, currentView, conversationId, isBelowTablet: mobileShell.isBelowTablet, sidebarCollapsed: layout.sidebarCollapsed, greetingName, memberEmail: account?.user.email, openSearch: searchEntryEnabled ? openSearch : undefined, openPersonalInvitation, resetToEmptyChatSurface, closeTransientSidebar });
 
   function rememberCurrentConversationScroll(): void {
     const currentConversationId = readyTranscriptConversationIdRef.current;
@@ -2111,6 +2116,7 @@ export default function ChatInterface() {
           keyboardShortcuts.setKeyboardShortcutsOpen(true)
         }
         settingsOpenRequest={keyboardShortcuts.settingsOpenRequest}
+        invitationOpenRequest={invitationOpenRequest}
         mode={sidebarMode}
         omnisearchEnabled={
           searchEntryEnabled && (!isGuest || canUseOmnisearch) && !(workspace?.headerSearch && !mobileShell.isBelowTablet)
