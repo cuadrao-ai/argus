@@ -1,6 +1,6 @@
 import { describe, test } from "bun:test";
 import assert from "node:assert/strict";
-import { correctionStatus, invoiceSettlement, invoiceState, invoicePreviewSeed, hundredths, invoiceAmounts, invoiceReducer, matchesInvoice, newInvoice, validDraft } from "../components/business-app/invoicing/invoice-preview-model";
+import { correctionStatus, invoiceSettlement, invoiceState, invoicePreviewSeed, hundredths, invoiceEmailDraft, invoiceEmailErrors, invoiceDraftErrors, invoiceAmounts, invoiceReducer, matchesInvoice, newInvoice, validDraft } from "../components/business-app/invoicing/invoice-preview-model";
 
 const draft = () => ({ ...newInvoice("one", "M-001"), customer: { id: "c1", name: "Cliente de muestra", email: "test@example.test", address: "", taxId: "" }, items: [{ id: "i1", description: "Servicio", quantity: "1", price: "100.00", tax: "0" }] });
 describe("connected invoice preview", () => {
@@ -10,7 +10,7 @@ describe("connected invoice preview", () => {
     state = invoiceReducer(state, { type: "prepare", id: "one", preparation: { channel: "email", email: "recipient@example.test" } });
     const payment = { id: "pay1", amount: 4000, currency: "DOP" as const, date: draft().issuedOn, method: "transfer" as const, reference: "" };
     state = invoiceReducer(state, { type: "pay", id: "one", payment });
-    assert.deepEqual(invoiceAmounts(state[0]), { subtotal: 10000, tax: 0, total: 10000, paid: 4000, balance: 6000 });
+    assert.deepEqual(invoiceAmounts(state[0]), { subtotal: 10000, discount: 0, tax: 0, total: 10000, paid: 4000, balance: 6000 });
     state = invoiceReducer(state, { type: "pay", id: "one", payment });
     assert.equal(state[0].payments.length, 1);
     state = invoiceReducer(state, { type: "pay", id: "one", payment: { ...payment, id: "pay2", amount: 6000 } });
@@ -39,7 +39,7 @@ describe("connected invoice preview", () => {
   });
   test("rounds each line in minor units and handles maximum supported products exactly", () => {
     const item = draft().items[0];
-    assert.deepEqual(invoiceAmounts({ items: [{ ...item, quantity: "3", price: "0.05", tax: "10" }], payments: [] }), { subtotal: 15, tax: 2, total: 17, paid: 0, balance: 17 });
+    assert.deepEqual(invoiceAmounts({ items: [{ ...item, quantity: "3", price: "0.05", tax: "10" }], payments: [] }), { subtotal: 15, discount: 0, tax: 2, total: 17, paid: 0, balance: 17 });
     assert.equal(invoiceAmounts({ items: [{ ...item, quantity: "1000", price: "9999999.99", tax: "100" }], payments: [] })?.total, 1999999998000);
   });
 });
@@ -148,4 +148,31 @@ test("fiscal fixture outcomes cannot duplicate issue or invent payments and deli
     assert.equal(invoice.delivery, "not_sent");
     assert.deepEqual(invoiceReducer([invoice], { type: "issue", id: invoice.id }), [invoice]);
   }
+});
+
+
+test("item discounts reduce the taxable base using exact minor units", () => {
+  const original = draft();
+  const invoice = { ...original, items: [{ ...original.items[0], quantity: "3", price: "0.05", tax: "10", discount: "0.05" }] };
+  assert.deepEqual(invoiceAmounts(invoice), { subtotal: 15, discount: 5, tax: 1, total: 11, paid: 0, balance: 11 });
+  for (const discount of ["0.16", "-1", "1e2", "0.001"]) {
+    const invalid = { ...invoice, items: [{ ...invoice.items[0], discount }] };
+    assert.equal(invoiceAmounts(invalid), null);
+    assert.equal(invoiceDraftErrors(invalid)["i1-discount"], "discount");
+  }
+});
+
+test("email preparation is retained without issuing, delivering, or blocking draft saves", () => {
+  const original = draft();
+  assert.deepEqual(invoiceEmailDraft(original), { to: original.customer.email, cc: "", message: "" });
+  const invoice = { ...original, emailDraft: { to: "wrong", cc: "also-wrong", message: "Separate email message" } };
+  assert.deepEqual(invoiceEmailErrors(invoice.emailDraft), { to: "email", cc: "email_cc" });
+  assert.equal(validDraft(invoice), true);
+  const saved = invoiceReducer([], { type: "save", invoice })[0];
+  assert.deepEqual(saved.emailDraft, invoice.emailDraft);
+  assert.equal(saved.issuance, "draft");
+  assert.equal(saved.delivery, "not_sent");
+  assert.equal(saved.fiscal.status, "not_submitted");
+  assert.deepEqual(invoiceEmailErrors({ to: "customer@example.test", cc: "one@example.test;two@example.test", message: "" }), {});
+  assert.equal(invoiceEmailErrors({ to: "customer@example.test", cc: Array(6).fill("one@example.test").join(","), message: "" }).cc, "email_cc");
 });

@@ -227,3 +227,17 @@
   .editorActions > div { margin-left: auto; }
 }
 @media print { .document[data-editing], .document [data-editing] { outline: none; } }
+
+.itemAdjustment { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:16px; }
+.itemTotal { display:grid; justify-items:end; gap:8px; padding-top:4px; font-variant-numeric:tabular-nums; }
+.itemTotal > span { font-size:13px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.reviewTotal { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:12px 0; font-size:18px; }
+.emailPreview { border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); border-radius:16px; background:var(--cuadrao-menu-surface); overflow:hidden; }
+.emailHeaders { display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px 16px; padding:21px; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); font-size:13px; }
+.emailHeaders dt { color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.emailHeaders dd { overflow-wrap:anywhere; }
+.emailBody { display:grid; gap:16px; padding:24px; }
+.emailBody h3 { font-size:20px; font-weight:500; }
+.emailAmount { font-size:30px; font-weight:500; }
+.emailAttachment { display:flex; justify-content:space-between; gap:16px; padding:16px; border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); border-radius:8px; }
+@media(max-width:480px) { .itemAdjustment { gap:12px; } .emailBody { padding:20px; } }

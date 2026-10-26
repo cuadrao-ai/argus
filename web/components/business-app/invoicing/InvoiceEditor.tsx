@@ -9,8 +9,9 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { fieldClass, fieldLabelClass } from "@/components/ui/form-field";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
-import InvoiceDocument, { InvoiceDate, useInvoiceWords } from "./InvoiceDocument";
-import { CURRENCIES, invoiceDraftErrors, validDraft, type InvoiceCustomer, type InvoicePreview } from "./invoice-preview-model";
+import InvoiceDocument, { InvoiceDate, InvoiceMoney, useInvoiceWords } from "./InvoiceDocument";
+import InvoiceEmailPreview from "./InvoiceEmailPreview";
+import { CURRENCIES, invoiceAmounts, invoiceLineAmounts, invoiceEmailDraft, invoiceEmailErrors, invoiceDraftErrors, validDraft, type InvoiceCustomer, type InvoicePreview } from "./invoice-preview-model";
 import CustomerPicker from "./CustomerPicker";
 import CustomerForm from "./CustomerForm";
 import { customerSnapshot, type BusinessCustomer } from "./customer-preview-model";
@@ -28,6 +29,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   const [customerDirty, setCustomerDirty] = useState(false);
   const [discardCustomer, setDiscardCustomer] = useState(false);
   const [view, setView] = useState<"edit" | "preview">("edit");
+  const [reviewView, setReviewView] = useState<"invoice" | "email">("invoice");
   const [expanded, setExpanded] = useState(true);
   const [leaving, setLeaving] = useState(false);
   const [step, setStep] = useState<EditorStep>("customer");
@@ -35,7 +37,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   const [validationAttempt, setValidationAttempt] = useState(0);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const values: Record<string, string> = { ...draft.customer, issuedOn: draft.issuedOn, dueOn: draft.dueOn, items: String(draft.items.length) };
-  for (const item of draft.items) for (const key of ["description", "quantity", "price", "tax"] as const) values[`${item.id}-${key}`] = item[key];
+  for (const item of draft.items) for (const key of ["description", "quantity", "price", "tax", "discount"] as const) values[`${item.id}-${key}`] = item[key] ?? "";
   const errors = invoiceDraftErrors(draft);
   const rules: FieldRules<string> = Object.fromEntries(Object.keys(values).map(key => [key, () => errors[key] ? word(`error_${errors[key]}`) : null]));
   const checks = useFieldChecks(rules, values);
@@ -48,6 +50,19 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   const next = () => {
     if (Object.keys(errors).some(key => stepForField(key) === step)) { showErrors(step); return; }
     goTo(STEPS[Math.min(STEPS.indexOf(step) + 1, STEPS.length - 1)]);
+  };
+  const email = invoiceEmailDraft(draft);
+  const emailErrors = invoiceEmailErrors(email);
+  const emailChecks = useFieldChecks<keyof typeof email>({
+    to: () => emailErrors.to ? word("error_email") : null,
+    cc: () => emailErrors.cc ? word("error_email_cc") : null,
+    message: () => emailErrors.message ? word("error_email_message") : null,
+  }, email);
+  const updateEmail = (key: keyof typeof email, value: string) => setDraft(current => ({ ...current, emailDraft: { ...invoiceEmailDraft(current), [key]: value } }));
+  const prepareEmail = () => {
+    setReviewView("email");
+    if (!emailChecks.submit()) { requestAnimationFrame(() => form.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()); return; }
+    if (validDraft(draft)) onSave({ ...draft, emailDraft: email });
   };
   const changed = customerDirty || JSON.stringify(draft) !== JSON.stringify(initial);
   useEffect(() => {
@@ -69,7 +84,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   <section hidden={!!addingCustomer} data-testid="invoice-editor" className={styles.editor} data-expanded={expanded} data-view={view}>
     <div className={styles.editorSwitch}><SegmentedControl label={word("editor_view")} value={view} onChange={setView} fill segments={[{ key: "edit", label: word("edit") }, { key: "preview", label: word("preview") }]} /></div>
     <div className={styles.editorGrid}>
-      <form ref={form} noValidate className={styles.formCard} onSubmit={event => { event.preventDefault(); if (step === "review") save(); else next(); }}>
+      <form ref={form} noValidate className={styles.formCard} onSubmit={event => { event.preventDefault(); if (step === "review") prepareEmail(); else next(); }}>
         <div className={styles.editorStepHeader}>
           <p className={styles.muted}>{word("editor_step_count", { current: STEPS.indexOf(step) + 1, total: STEPS.length })}</p>
           <h3 ref={stepHeading} tabIndex={-1} className={styles.editorStepTitle}>{word(`editor_step_${step}`)}</h3>
@@ -87,30 +102,37 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         {(["terms", "instructions"] as const).map(key => <label className={fieldLabelClass} key={key}>{word(key)}<textarea rows={2} className={fieldClass} maxLength={500} value={draft[key]} placeholder={word(`placeholder_${key}`)} onChange={event => field(key, event.target.value)} /><span className={styles.counter}>{draft[key].length}/500</span></label>)}
         </> : null}
         {step === "items" ? <>
-        <ToolbarPicker label={word("currency")} value={draft.currency}>{close => CURRENCIES.map(currency => <button key={currency} type="button" className={styles.option} onClick={() => { setDraft(current => ({ ...current, currency })); close(); }}>{currency}</button>)}</ToolbarPicker>
+        <div className={styles.sectionHeading}><strong>{word("editor_item_count", { count: draft.items.length })}</strong><ToolbarPicker label={word("currency")} value={draft.currency}>{close => CURRENCIES.map(currency => <button key={currency} type="button" className={styles.option} onClick={() => { setDraft(current => ({ ...current, currency })); close(); }}>{currency}</button>)}</ToolbarPicker></div>
 
         {draft.items.map((item, index) => <fieldset className={styles.item} key={item.id}><legend className="sr-only">{word("item_number", { count: index + 1 })}</legend>
           <div className={styles.itemDescription}><FormField {...feedback(`${item.id}-description`)} label={word("description")} required maxLength={160} value={item.description} placeholder={word("item_placeholder")} onChange={event => setDraft(current => ({ ...current, items: current.items.map(row => row.id === item.id ? { ...row, description: event.target.value } : row) }))} /></div>
           {(["quantity", "price", "tax"] as const).map(key => <FormField key={key} {...feedback(`${item.id}-${key}`)} reserveMessages={[word(`error_${key}`)]} label={word(key)} required inputMode="decimal" maxLength={10} value={item[key]} aria-label={`${word(key)} ${index + 1}`} onChange={event => setDraft(current => ({ ...current, items: current.items.map(row => row.id === item.id ? { ...row, [key]: event.target.value } : row) }))} />)}
           <button type="button" className={styles.iconButton} disabled={draft.items.length === 1} aria-label={word("remove_item", { count: index + 1 })} onClick={() => setDraft(current => ({ ...current, items: current.items.filter(row => row.id !== item.id) }))}><Trash2 size={17} /></button>
+          <div className={styles.itemAdjustment}><FormField {...feedback(`${item.id}-discount`)} reserveMessages={[word("error_discount")]} label={word("item_discount", { currency: draft.currency })} inputMode="decimal" maxLength={10} value={item.discount ?? ""} placeholder={word("placeholder_discount")} onChange={event => setDraft(current => ({ ...current, items: current.items.map(row => row.id === item.id ? { ...row, discount: event.target.value } : row) }))} /><div className={styles.itemTotal}><span>{word("item_total")}</span><strong>{(() => { const amount = invoiceLineAmounts(item); return amount ? <InvoiceMoney amount={amount.total} currency={draft.currency} /> : "-"; })()}</strong></div></div>
         </fieldset>)}
         <button type="button" className={quietButtonClass} disabled={draft.items.length >= 50} onClick={() => setDraft(current => ({ ...current, items: [...current.items, { id: crypto.randomUUID(), description: "", quantity: "1", price: "", tax: "0" }] }))}><Plus size={17} />{word("add_item")}</button>
-        <p className={styles.muted}>{word("tax_note")}</p>
+        <p className={styles.muted}>{word("item_discount_help")}</p><p className={styles.muted}>{word("tax_note")}</p>
         <label className={fieldLabelClass}>{word("notes")}<textarea rows={2} className={fieldClass} maxLength={500} value={draft.notes} placeholder={word("placeholder_notes")} onChange={event => field("notes", event.target.value)} /><span className={styles.counter}>{draft.notes.length}/500</span></label>
         </> : null}
-        {step === "review" ? <div className={styles.editorReview}>
+        {step === "review" ? <>
+        <div className={styles.editorReview}>
           {STEPS.filter(candidate => candidate !== "review").map(candidate => <button type="button" className={styles.editorReviewRow} key={candidate} onClick={() => goTo(candidate)}><span><strong>{word(`editor_step_${candidate}`)}</strong><small>{candidate === "customer" ? draft.customer.name : candidate === "items" ? word("editor_item_count", { count: draft.items.length }) : <><InvoiceDate date={draft.issuedOn} /> · <InvoiceDate date={draft.dueOn} /></>}</small></span><span>{word("edit")}</span></button>)}
-        </div> : null}
+        </div>
+        <div className={styles.reviewTotal}><span>{word("document_total")}</span><strong>{(() => { const amount = invoiceAmounts(draft); return amount ? <InvoiceMoney amount={amount.total} currency={draft.currency} /> : "-"; })()}</strong></div>
+        <FormField id="invoice-email-to" label={word("email_to")} value={email.to} type="email" autoComplete="off" maxLength={254} placeholder={word("placeholder_email")} error={emailChecks.errorOf("to")} onBlur={() => emailChecks.blur("to")} reserveMessages={[word("error_email")]} onChange={event => updateEmail("to", event.target.value)} />
+        <FormField id="invoice-email-cc" label={word("email_cc")} value={email.cc} autoComplete="off" maxLength={1274} placeholder={word("email_cc_placeholder")} error={emailChecks.errorOf("cc")} onBlur={() => emailChecks.blur("cc")} reserveMessages={[word("error_email_cc")]} onChange={event => updateEmail("cc", event.target.value)} />
+        <label className={fieldLabelClass} htmlFor="invoice-email-message">{word("email_message")}<textarea id="invoice-email-message" rows={3} className={fieldClass} maxLength={500} value={email.message} placeholder={word("email_message_placeholder")} onChange={event => updateEmail("message", event.target.value)} /><span className={styles.counter}>{email.message.length}/500</span></label>
+        </> : null}
         {attempted.has(step) && Object.keys(errors).some(key => stepForField(key) === step) ? <p role="alert" className={styles.error}>{word("editor_check_step")}</p> : null}
         <div className={styles.footer}>
-          <p className={styles.muted}>{word("save_local")}</p>
+          <p className={styles.muted}>{word(step === "review" ? "email_local_boundary" : "save_local")}</p>
           <div className={styles.editorActions}>
-            {step !== "review" ? <button className={quietButtonClass} type="button" onClick={save}>{word("save_draft")}</button> : <span />}
-            <div>{step !== "customer" ? <button type="button" className={quietButtonClass} onClick={() => goTo(STEPS[STEPS.indexOf(step) - 1])}>{t("common.back")}</button> : null}<button className={primaryButtonClass} type="submit">{word(step === "review" ? "save_draft" : "next")}</button></div>
+            <button className={quietButtonClass} type="button" onClick={save}>{word("save_draft")}</button>
+            <div>{step !== "customer" ? <button type="button" className={quietButtonClass} onClick={() => goTo(STEPS[STEPS.indexOf(step) - 1])}>{t("common.back")}</button> : null}<button className={primaryButtonClass} type="submit">{word(step === "review" ? "email_save_preparation" : "next")}</button></div>
           </div>
         </div>
       </form>
-      <aside className={styles.livePreview}><p className={styles.muted}>{word("live_preview")}</p><InvoiceDocument invoice={draft} business={business} activeSection={step} /></aside>
+      <aside className={styles.livePreview}>{step === "review" ? <SegmentedControl label={word("review_preview")} value={reviewView} onChange={setReviewView} segments={[{ key: "invoice", label: word("invoice") }, { key: "email", label: word("email_preview") }]} /> : <p className={styles.muted}>{word("live_preview")}</p>}{step === "review" && reviewView === "email" ? <InvoiceEmailPreview invoice={draft} business={business} /> : <InvoiceDocument invoice={draft} business={business} activeSection={step} />}</aside>
     </div>
   </section>
   </AdaptivePanel>

@@ -2,7 +2,8 @@ import { todayIso } from "../business-format";
 
 export type InvoiceCurrency = "DOP" | "USD" | "EUR";
 export type InvoiceCustomer = { id: string; name: string; email: string; address: string; taxId: string };
-export type InvoiceItem = { id: string; description: string; quantity: string; price: string; tax: string };
+export type InvoiceItem = { id: string; description: string; quantity: string; price: string; tax: string; discount?: string };
+export type InvoiceEmailDraft = { to: string; cc: string; message: string };
 export type InvoicePayment = { id: string; amount: number; currency: InvoiceCurrency; date: string; method: "transfer" | "cash" | "other"; reference: string };
 export type InvoiceCorrectionKind = "full_cancellation" | "partial_credit" | "debit_adjustment";
 export type InvoiceCorrection = {
@@ -17,6 +18,7 @@ export type InvoicePreview = {
   issuedOn: string; dueOn: string; items: InvoiceItem[]; terms: string; notes: string; instructions: string;
   issuance: "draft" | "issued" | "uncertain";
   delivery: "not_sent" | "prepared" | "sent" | "failed";
+  emailDraft?: InvoiceEmailDraft;
   deliveryPreparation?: { channel: "email" | "link"; email: string };
   payments: InvoicePayment[];
   corrections: InvoiceCorrection[];
@@ -29,18 +31,39 @@ export function hundredths(text: string): number | null {
   const match = /^(\d{1,7})(?:[.,](\d{1,2}))?$/.exec(text.trim());
   return match ? Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0")) : null;
 }
+export function invoiceLineAmounts(item: InvoiceItem) {
+  const qty = hundredths(item.quantity), price = hundredths(item.price), rate = hundredths(item.tax);
+  const discount = hundredths(item.discount?.trim() || "0");
+  if (qty === null || price === null || rate === null || discount === null || qty <= 0 || qty > 100000 || rate > 10000) return null;
+  const subtotal = Number((BigInt(qty) * BigInt(price) + BigInt(50)) / BigInt(100));
+  if (discount > subtotal) return null;
+  const tax = Number((BigInt(subtotal - discount) * BigInt(rate) + BigInt(5000)) / BigInt(10000));
+  return { subtotal, discount, tax, total: subtotal - discount + tax };
+}
 export function invoiceAmounts(invoice: Pick<InvoicePreview, "items" | "payments">) {
-  let subtotal = 0, tax = 0;
+  let subtotal = 0, discount = 0, tax = 0;
   for (const item of invoice.items) {
-    const qty = hundredths(item.quantity), price = hundredths(item.price), rate = hundredths(item.tax);
-    if (qty === null || price === null || rate === null || qty <= 0 || qty > 100000 || rate > 10000) return null;
-    const base = Number((BigInt(qty) * BigInt(price) + BigInt(50)) / BigInt(100));
-    subtotal += base;
-    tax += Number((BigInt(base) * BigInt(rate) + BigInt(5000)) / BigInt(10000));
+    const line = invoiceLineAmounts(item);
+    if (!line) return null;
+    subtotal += line.subtotal;
+    discount += line.discount;
+    tax += line.tax;
   }
-  const total = subtotal + tax;
+  const total = subtotal - discount + tax;
   const paid = invoice.payments.reduce((sum, payment) => sum + payment.amount, 0);
-  return { subtotal, tax, total, paid, balance: total - paid };
+  return { subtotal, discount, tax, total, paid, balance: total - paid };
+}
+export function invoiceEmailDraft(invoice: InvoicePreview): InvoiceEmailDraft {
+  return invoice.emailDraft ?? { to: invoice.customer.email, cc: "", message: "" };
+}
+export function invoiceEmailErrors(email: InvoiceEmailDraft): Partial<Record<keyof InvoiceEmailDraft, string>> {
+  const errors: Partial<Record<keyof InvoiceEmailDraft, string>> = {};
+  const valid = (value: string) => value.length <= 254 && /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(value.trim());
+  if (!valid(email.to)) errors.to = "email";
+  const cc = email.cc.trim() ? email.cc.split(/[,;]/).map(value => value.trim()) : [];
+  if (cc.length > 5 || cc.some(value => !valid(value))) errors.cc = "email_cc";
+  if (email.message.length > 500) errors.message = "email_message";
+  return errors;
 }
 export function validIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -64,6 +87,9 @@ export function invoiceDraftErrors(invoice: InvoicePreview): Record<string, stri
     const quantity = hundredths(item.quantity), price = hundredths(item.price), tax = hundredths(item.tax);
     if (quantity === null || quantity <= 0 || quantity > 100000) errors[`${item.id}-quantity`] = "quantity";
     if (price === null) errors[`${item.id}-price`] = "price";
+    const discount = hundredths(item.discount?.trim() || "0");
+    const base = quantity !== null && price !== null ? Number((BigInt(quantity) * BigInt(price) + BigInt(50)) / BigInt(100)) : null;
+    if (discount === null || base !== null && discount > base) errors[`${item.id}-discount`] = "discount";
     if (tax === null || tax > 10000) errors[`${item.id}-tax`] = "tax";
   }
   if (invoice.items.length === 0 || invoice.items.length > 50) errors.items = "items";

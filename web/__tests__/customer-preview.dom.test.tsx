@@ -252,3 +252,41 @@ test("phone keeps step data through preview and full-save validation routes to m
     assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
   } finally { await page.unmount(); }
 });
+
+
+test("invoice review keeps item discounts and email preparation in the same draft", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("M-001");
+    await page.click("Edit draft");
+    await page.click("Next");
+    await page.fill('input[id$="-description"]', "Design service");
+    await page.fill('input[id$="-discount"]', "10");
+    await page.fill('textarea', "Invoice note");
+    await page.click("Next");
+    await page.click("Next");
+    await page.fill("#invoice-email-to", "bad-address");
+    await page.act(async () => document.querySelector<HTMLInputElement>("#invoice-email-to")!.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+    assert.equal(document.querySelector("#invoice-email-to")?.getAttribute("aria-invalid"), "true");
+    await page.fill("#invoice-email-message", "A separate message");
+    await page.click("Save preparation");
+    assert.equal(document.querySelector("#invoice-email-to")?.getAttribute("aria-invalid"), "true");
+    const preview = document.querySelector('[data-testid="invoice-email-preview"]');
+    assert.ok(preview?.textContent?.includes("A separate message"));
+    assert.ok(!preview?.textContent?.includes("Invoice note"));
+    await page.click("Save draft");
+    await page.click("Edit draft");
+    await page.click("Next");
+    assert.equal(document.querySelector<HTMLInputElement>('input[id$="-discount"]')?.value, "10");
+    await page.click("Next");
+    await page.click("Next");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-email-to")?.value, "bad-address");
+    await page.fill("#invoice-email-to", "customer@example.test");
+    await page.fill("#invoice-email-cc", "accounts@example.test");
+    await page.click("Save preparation");
+    assert.ok(!document.querySelector('[data-testid="invoice-editor"]'));
+    assert.ok(document.body.textContent?.includes("Draft"));
+    assert.ok(!document.body.textContent?.includes("Email sent"));
+  } finally { await page.unmount(); }
+});
