@@ -2557,7 +2557,7 @@
           "fixed": "Always visible · fixed first",
           "grabbed": "Column picked up. Use the arrow keys to move it.",
           "height": "Row height",
-          "instructions": "Drag a handle to reorder. With a keyboard, press Space, then ↑ or ↓. Space places it; Esc cancels.",
+          "instructions": "Drag to reorder. With a keyboard, focus the six-dot handle and press Space, then ↑ or ↓. Space places it; Esc cancels.",
           "move": "Move {{name}}",
           "position": "{{name}}, position {{position}} of {{count}}",
           "required": "Always visible",

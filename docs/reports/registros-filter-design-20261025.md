@@ -338,3 +338,9 @@ Independent review found and corrected an upward column-move boundary. Moving a 
 After that correction, six targeted checks across four files passed, including the existing table-settings pagination/reorder interaction. Scoped lint and the diff check passed.
 
 Browser verification on the existing port 4387 passed on desktop and a 391px phone viewport in light and dark themes. The final dot-free labels were checked on desktop and phone. A local note remained attached to its expense through filtering and viewport changes; Cancel preserved the saved value. The phone menu opened the shared sheet. A synthetic PNG could be selected, previewed and saved locally to one expense while the same-ID sale retained its add-file action. EN/ES label paths are covered by tests. No hosted write or new server was used.
+
+### Independent required columns, 26 October 2026
+
+Monto and Moneda start adjacent but move independently. Both remain required. The column renderer now respects the selected order instead of forcing the pair together. Keyboard handles explicitly receive focus on pointer press and ignore repeated Space keydown events. The visible hint identifies the focused handle step and indicates when a column is picked up.
+
+Local verification on port 4387 covered consecutive keyboard moves without refocusing, placement, cancellation, and unchanged Monto position while moving Moneda. The focused suite passed 60 tests; the added rendered drag-event case also passed. Mouse-drag automation did not produce a confirmed live reorder, so that live pointer check remains unverified. No backend, persistence, export, or hosted behavior changed.

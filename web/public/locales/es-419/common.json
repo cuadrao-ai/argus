@@ -2557,7 +2557,7 @@
           "fixed": "Siempre visible · fija al inicio",
           "grabbed": "Columna seleccionada. Usa las flechas para moverla.",
           "height": "Altura de filas",
-          "instructions": "Arrastra para ordenar. Con teclado, pulsa Espacio y luego ↑ o ↓. Espacio confirma; Esc cancela.",
+          "instructions": "Arrastra para ordenar. Con teclado, enfoca el asa de seis puntos y pulsa Espacio, luego ↑ o ↓. Espacio confirma; Esc cancela.",
           "move": "Mover {{name}}",
           "position": "{{name}}, posición {{position}} de {{count}}",
           "required": "Siempre visible",
