@@ -145,7 +145,11 @@ class PostgresBusinessPurge:
             if status != "started":
                 return
             named = db.execute(
-                "select 1 from public.business_logos where space_id=%s", (space,)
+                "select 1 from public.business_logos where space_id=%s"
+                " union all select 1 from argus_private.business_workspace_assets where space_id=%s"
+                " union all select 1 from storage.objects where bucket_id='profile-images'"
+                " and starts_with(name,%s) limit 1",
+                (space, space, f"business/{space}/identity/"),
             ).fetchone()
         if self.images is None:
             if named:

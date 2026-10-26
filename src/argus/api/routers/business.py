@@ -99,6 +99,8 @@ from argus.api.business_spaces import (
     space_missing_problem,
     space_payload,
 )
+from argus.api.business_workspace import router as business_workspace_router
+from argus.api.business_workspace_images import router as business_workspace_images_router
 from argus.api.dependencies import problem
 from argus.api.documents import (
     NO_STORE,
@@ -164,6 +166,8 @@ router = APIRouter(
         }
     },
 )
+router.include_router(business_workspace_router)
+router.include_router(business_workspace_images_router)
 router.include_router(business_bank_router)
 router.include_router(business_bank_movements_router)
 router.include_router(business_logo_router)

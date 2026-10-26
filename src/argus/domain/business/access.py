@@ -458,7 +458,7 @@ class PostgresAccessStore(PostgresMembershipCommands):
         with self.pool.connection() as connection:
             rows = connection.execute(
                 self._GRANTED
-                + " order by (s.current_owner_id=%s::uuid) desc, s.name, g.created_at",
+                + " order by (s.current_owner_id=%s::uuid and s.business_legacy_default) desc, s.name, g.created_at",
                 (person_id, person_id),
             ).fetchall()
         return tuple(

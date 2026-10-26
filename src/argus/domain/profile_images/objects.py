@@ -10,6 +10,7 @@ import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from typing import Any, Protocol
+from uuid import UUID
 
 import httpx
 from storage3.exceptions import StorageApiError
@@ -22,6 +23,10 @@ class ProfileImageStorageUnavailable(RuntimeError):
 
 
 class ProfileImageObjects(Protocol):
+    def read(self, path: str) -> bytes: ...
+
+    def remove_identity(self, space_id: str) -> None: ...
+
     def put(self, path: str, content: bytes, media_type: str) -> None:
         """Create or replace the object."""
         ...
@@ -48,6 +53,20 @@ class InMemoryProfileImageObjects:
         with self._lock:
             self.objects.pop(path, None)
 
+    def read(self, path: str) -> bytes:
+        with self._lock:
+            try:
+                return self.objects[path]
+            except KeyError:
+                raise ProfileImageStorageUnavailable("object_missing") from None
+
+    def remove_identity(self, space_id: str) -> None:
+        prefix = _identity_prefix(space_id)
+        with self._lock:
+            for path in list(self.objects):
+                if path.startswith(prefix):
+                    del self.objects[path]
+
     def signed_urls(self, paths: Sequence[str], expires_in: int) -> dict[str, str]:
         return {
             path: f"memory://{PROFILE_IMAGE_BUCKET}/{path}?expires_in={expires_in}"
@@ -63,18 +82,50 @@ class SupabaseProfileImageObjects:
 
     def put(self, path: str, content: bytes, media_type: str) -> None:
         with _unavailable():
-            self._bucket.upload(path, content, {"content-type": media_type, "upsert": "true"})
+            self._bucket.upload(
+                path, content, {"content-type": media_type, "upsert": "true"}
+            )
 
     def remove(self, path: str) -> None:
         with _unavailable():
             self._bucket.remove([path])
+
+    def read(self, path: str) -> bytes:
+        with _unavailable():
+            return self._bucket.download(path)
+
+    def remove_identity(self, space_id: str) -> None:
+        prefix = _identity_prefix(space_id)
+        with _unavailable():
+            previous: list[str] | None = None
+            while True:
+                rows = self._bucket.list(prefix.rstrip("/"), {"limit": 100, "offset": 0})
+                if not rows:
+                    return
+                if any(not row.get("id") or "/" in row["name"] for row in rows):
+                    raise ProfileImageStorageUnavailable("unexpected_identity_object")
+                names = [prefix + row["name"] for row in rows]
+                if names == previous:
+                    raise ProfileImageStorageUnavailable(
+                        "identity_delete_not_progressing"
+                    )
+                self._bucket.remove(names)
+                previous = names
 
     def signed_urls(self, paths: Sequence[str], expires_in: int) -> dict[str, str]:
         if not paths:
             return {}
         with _unavailable():
             signed = self._bucket.create_signed_urls(list(paths), expires_in)
-        return {entry["path"]: entry["signedURL"] for entry in signed if entry["error"] is None}
+        return {
+            entry["path"]: entry["signedURL"]
+            for entry in signed
+            if entry["error"] is None
+        }
+
+
+def _identity_prefix(space_id: str) -> str:
+    return f"business/{UUID(space_id)}/identity/"
 
 
 @contextmanager

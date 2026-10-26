@@ -5584,6 +5584,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdditionalBusiness'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessSpaceInfo'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/spaces/{grant_id}/seen:
     post:
       tags:
@@ -5632,6 +5688,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces/{space_id}/appearance/assets:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: space_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceImageLinks'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
   /api/v1/business/spaces/{space_id}/close:
     post:
       tags:
@@ -5736,6 +5864,118 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TransferResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/spaces/{space_id}/profile:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: space_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessProfile'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: space_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveWorkspace'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessProfile'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
         '422':
           description: Validation Error
           content:
@@ -15177,6 +15417,32 @@ components:
       required:
       - activity_id
       - account_id
+    AvatarAppearance:
+      properties:
+        kind:
+          type: string
+          const: avatar
+          default: avatar
+        token:
+          type: string
+          enum:
+          - ocean
+          - ember
+          - gold
+          - slate
+          - teal
+          - indigo
+          - plum
+        mark:
+          type: string
+          enum:
+          - initials
+          - icon
+      additionalProperties: false
+      type: object
+      required:
+      - token
+      - mark
     BacktestJob:
       properties:
         id:
@@ -16412,6 +16678,38 @@ components:
       - version
       - accepted_at
       description: The caller's acceptance of one wording; ``accepted_at`` is null until then.
+    BusinessDetails:
+      properties:
+        address:
+          type: string
+          maxLength: 200
+          default: ''
+        province:
+          type: string
+          maxLength: 80
+          default: ''
+        municipality:
+          type: string
+          maxLength: 80
+          default: ''
+        email:
+          type: string
+          maxLength: 254
+          default: ''
+        phone:
+          type: string
+          maxLength: 40
+          default: ''
+        website:
+          type: string
+          maxLength: 2048
+          default: ''
+        description:
+          type: string
+          maxLength: 280
+          default: ''
+      additionalProperties: false
+      type: object
     BusinessDossier:
       properties:
         space_id:
@@ -16989,6 +17287,46 @@ components:
       - ready_to_review_count
       - last_received_at
       - last_confirmed_at
+    BusinessProfile:
+      properties:
+        space_id:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        currency:
+          type: string
+        revision:
+          type: integer
+        details:
+          $ref: '#/components/schemas/BusinessDetails'
+        appearance:
+          oneOf:
+          - $ref: '#/components/schemas/DefaultAppearance'
+          - $ref: '#/components/schemas/AvatarAppearance'
+          - $ref: '#/components/schemas/ImageAppearance'
+          default:
+            kind: default
+          discriminator:
+            propertyName: kind
+            mapping:
+              avatar: '#/components/schemas/AvatarAppearance'
+              default: '#/components/schemas/DefaultAppearance'
+              image: '#/components/schemas/ImageAppearance'
+        image:
+          anyOf:
+          - $ref: '#/components/schemas/WorkspaceImageLinks'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - space_id
+      - name
+      - country
+      - currency
+      - revision
+      - details
     BusinessRecipientInvitation:
       properties:
         id:
@@ -18368,6 +18706,23 @@ components:
       - account_id
       - recipient_membership_id
       - expected_version
+    CreateAdditionalBusiness:
+      properties:
+        name:
+          type: string
+          maxLength: 80
+          minLength: 1
+        country:
+          type: string
+          enum:
+          - DO
+          - US
+          - CA
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - country
     CreateBetaInviteRequest:
       properties: {}
       additionalProperties: false
@@ -18521,6 +18876,31 @@ components:
       - membership_id
       - expected_authorization_version
       - definition
+    Crop:
+      properties:
+        mode:
+          type: string
+          enum:
+          - fit
+          - fill
+          default: fill
+        zoom:
+          type: number
+          maximum: 4.0
+          minimum: 1.0
+          default: 1
+        x:
+          type: number
+          maximum: 1.0
+          minimum: -1.0
+          default: 0
+        y:
+          type: number
+          maximum: 1.0
+          minimum: -1.0
+          default: 0
+      additionalProperties: false
+      type: object
     CurrencyBlock:
       properties:
         currency:
@@ -19268,6 +19648,14 @@ components:
       description: 'Input overrides merged over one calculation''s stored inputs, by its index
 
         in the computation; the decision is unchanged.'
+    DefaultAppearance:
+      properties:
+        kind:
+          type: string
+          const: default
+          default: default
+      additionalProperties: false
+      type: object
     DefinitionPatch:
       properties:
         name:
@@ -22289,6 +22677,22 @@ components:
       - created_at
       - closed_at
       - members
+    ImageAppearance:
+      properties:
+        kind:
+          type: string
+          const: image
+          default: image
+        asset_id:
+          type: string
+          pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+        crop:
+          $ref: '#/components/schemas/Crop'
+      additionalProperties: false
+      type: object
+      required:
+      - asset_id
+      - crop
     ImportAcceptResponse:
       properties:
         event:
@@ -29208,6 +29612,38 @@ components:
       required:
       - space_id
       - name
+    SaveWorkspace:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0.0
+        name:
+          anyOf:
+          - type: string
+            maxLength: 80
+            minLength: 1
+          - type: 'null'
+        details:
+          anyOf:
+          - $ref: '#/components/schemas/BusinessDetails'
+          - type: 'null'
+        appearance:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/DefaultAppearance'
+            - $ref: '#/components/schemas/AvatarAppearance'
+            - $ref: '#/components/schemas/ImageAppearance'
+            discriminator:
+              propertyName: kind
+              mapping:
+                avatar: '#/components/schemas/AvatarAppearance'
+                default: '#/components/schemas/DefaultAppearance'
+                image: '#/components/schemas/ImageAppearance'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
     Schedule:
       properties:
         cadence:
@@ -31049,6 +31485,27 @@ components:
       type: object
       required:
       - kind
+    WorkspaceImageLinks:
+      properties:
+        asset_id:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        source_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+        rendered_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+      type: object
+      required:
+      - asset_id
+      - width
+      - height
     argus__api__routers__financial_connections_gmail__SyncResponse:
       properties:
         connection:

@@ -299,7 +299,12 @@ class LogoObjects:
     each erase, and can be made to fail."""
 
     def __init__(self, pool, paths):
-        self.pool, self.rows, self.erased, self.fail = pool, dict.fromkeys(paths, b"webp"), [], False
+        self.pool, self.rows, self.erased, self.fail = (
+            pool,
+            dict.fromkeys(paths, b"webp"),
+            [],
+            False,
+        )
 
     def put(self, path, content, media_type):
         self.rows[path] = content
@@ -319,6 +324,70 @@ class LogoObjects:
 
     def signed_urls(self, paths, expires_in):
         return {}
+
+    def remove_identity(self, space_id):
+        for path in list(self.rows):
+            if path.startswith(f"business/{space_id}/identity/"):
+                self.remove(path)
+
+
+def test_workspace_asset_blocks_purge_without_picture_storage(custody, monkeypatch):
+    w = custody
+    remover(w, monkeypatch)
+    with w["pool"].connection() as db:
+        db.execute(
+            "insert into argus_private.business_workspace_assets(space_id,sha256,width,height) values(%s,%s,64,64)",
+            (w["space"], "a" * 64),
+        )
+    deletion.close(w)
+    expiry(w)
+    before = graph._snapshot(w)
+    outcome = deletion.command(w).resume_pending(idle_seconds=0)
+    assert outcome["pending"] == 1
+    assert graph._snapshot(w) == before
+    with w["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from argus_private.business_workspace_assets where space_id=%s",
+                (w["space"],),
+            ).fetchone()[0]
+            == 1
+        )
+
+
+def test_workspace_asset_stays_with_retained_business_until_purge(custody, monkeypatch):
+    from argus.domain.profile_images import ProfileImages
+    from argus.domain.profile_images.objects import InMemoryProfileImageObjects
+    from argus.domain.profile_images.store import PostgresProfileImageStore
+
+    w = custody
+    remover(w, monkeypatch)
+    path = f"business/{w['space']}/identity/{'b' * 64}-source.webp"
+    objects = InMemoryProfileImageObjects()
+    objects.put(path, b"synthetic-private-image", "image/webp")
+    images = ProfileImages(PostgresProfileImageStore(w["pool"]), objects)
+    with w["pool"].connection() as db:
+        db.execute(
+            "insert into argus_private.business_workspace_assets(space_id,sha256,width,height) values(%s,%s,64,64)",
+            (w["space"], "b" * 64),
+        )
+    deletion.close(w)
+    assert (
+        deletion.command(w, images=images).delete_account(user_id=w["old"]).status
+        == "done"
+    )
+    assert objects.read(path) == b"synthetic-private-image"
+    with w["pool"].connection() as db:
+        assert (
+            db.execute(
+                "select count(*) from argus_private.business_workspace_assets where space_id=%s",
+                (w["space"],),
+            ).fetchone()[0]
+            == 1
+        )
+    expiry(w)
+    assert deletion.command(w, images=images).resume_pending(idle_seconds=0)["done"] == 1
+    assert path not in objects.objects
 
 
 @pytest.fixture
@@ -391,9 +460,12 @@ def test_failed_logo_erase_keeps_the_business_and_the_sweep_retries(
     assert service.resume_pending(idle_seconds=0)["done"] == 1
     assert mine not in objects.rows
     with w["pool"].connection() as db:
-        assert db.execute(
-            "select 1 from public.spaces where id=%s", (w["space"],)
-        ).fetchone() is None
+        assert (
+            db.execute(
+                "select 1 from public.spaces where id=%s", (w["space"],)
+            ).fetchone()
+            is None
+        )
 
 
 def test_a_logo_without_picture_storage_holds_the_purge(custody, logos, monkeypatch):
