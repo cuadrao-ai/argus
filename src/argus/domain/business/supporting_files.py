@@ -11,7 +11,12 @@ from psycopg import Connection
 from pydantic import Field
 
 from argus.domain.business.actions import plans, sources
-from argus.domain.business.annotations import eligible, finish, save_annotation
+from argus.domain.business.annotations import (
+    eligible,
+    finish,
+    save_annotation,
+    supporting_source_key,
+)
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -109,7 +114,7 @@ def _attach(
             filename=command.filename,
             media_type=command.media_type,
         )
-        source_id = sources.record_source(tx, f"supporting:{receipt_id}", evidence)
+        source_id = sources.record_source(tx, supporting_source_key(receipt_id), evidence)
         sources.attach(tx, event.id, (source_id,))
         event = save_annotation(tx, event, source_ids=(source_id,))
         outcome = "appended"

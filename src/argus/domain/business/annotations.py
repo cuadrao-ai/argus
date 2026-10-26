@@ -44,6 +44,10 @@ class NoteResult(Contract):
     note: str
 
 
+def supporting_source_key(connection_id: UUID | str) -> str:
+    return f"supporting:{connection_id}"
+
+
 def annotation_available(authorization: Authorization, event: ImportEvent | None) -> bool:
     return bool(
         event

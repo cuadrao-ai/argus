@@ -12,7 +12,7 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
-from argus.domain.business.annotations import annotation_available
+from argus.domain.business.annotations import annotation_available, supporting_source_key
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -46,6 +46,15 @@ class ReportSource:
     media_type: str | None = None
     sha256: str | None = None
     source_available: bool | None = None
+    source_key: str | None = None
+
+    @property
+    def supporting_only(self) -> bool:
+        return (
+            self.kind == "attachment"
+            and self.connection_id is not None
+            and self.source_key == supporting_source_key(self.connection_id)
+        )
 
 
 @dataclass(frozen=True)
@@ -78,7 +87,7 @@ class RecordedSnapshot:
 
 
 _SOURCES = """
-select l.draft_id::text, s.id::text as source_id, s.kind,
+select l.draft_id::text, s.id::text as source_id, s.kind, s.source_key,
        s.connection_id::text, c.status as connection_status,
        d.draft->>'filename' as filename, d.draft->>'media_type' as media_type,
        coalesce(d.source_sha256, d.draft->>'sha256') as sha256,

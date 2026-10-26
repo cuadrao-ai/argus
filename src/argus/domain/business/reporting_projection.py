@@ -104,7 +104,10 @@ def project(
         fact_value(approved, "ecf") or fact_value(approved, "ncf")
     )
     document_backed = (
-        any(source.kind == "attachment" for source in sources)
+        any(
+            source.kind == "attachment" and not source.supporting_only
+            for source in sources
+        )
         or fiscal_number is not None
         or value(facts, "receipt_state") in ("fiscal_receipt", "informal_receipt")
     )
