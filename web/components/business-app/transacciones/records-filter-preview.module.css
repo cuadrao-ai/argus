@@ -39,7 +39,15 @@
 .clear { min-height:44px; padding:0 8px; border-radius:8px; color:var(--cuadrao-green); font-size:14px; }
 .apply { min-height:44px; padding:0 24px; border-radius:999px; background:var(--cuadrao-green); color:var(--cuadrao-cream); font-size:15px; font-weight:500; }
 .apply:disabled { opacity:.4; }
-.toolbarOptions { display:flex; align-items:center; gap:12px; margin-left:auto; }
+.toolbarContainer { container:records-toolbar / inline-size; }
+.toolbarSearch { position:relative; width:min(16rem,40%); }
+.toolbarSearch[data-phone=true] { width:100%; }
+.toolbarOptions { display:flex; flex-shrink:0; align-items:center; gap:12px; margin-left:auto; }
+@container records-toolbar (max-width:56rem) {
+  .toolbar :global([data-add-label]) { display:none; }
+  .toolbar :global([data-add-primary]) { width:44px; min-width:44px; padding:0; gap:0; }
+  .toolbarSearch:not([data-phone=true]) { flex:1 1 10rem; min-width:10rem; max-width:16rem; width:10rem; }
+}
 .chips { display:flex; flex-wrap:wrap; gap:4px 8px; width:100%; }
 .chip { display:inline-flex; align-items:center; gap:7px; min-height:44px; padding:0 10px; border-radius:999px; font-size:13px; color:color-mix(in srgb,var(--fg) 75%,transparent); }
 .chip span { padding:5px 0; }

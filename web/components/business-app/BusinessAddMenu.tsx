@@ -39,11 +39,13 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
           type="button"
           data-testid="business-primary-upload"
           data-primary="true"
+          data-add-primary
+          aria-label={add.label}
           onClick={add.run}
           className={`${primaryButtonClass} rounded-r-none pl-4 pr-3 ${page ? "flex-1" : ""}`}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          {add.label}
+          <span data-add-label>{add.label}</span>
         </button>
       ) : null}
       <ActionMenu

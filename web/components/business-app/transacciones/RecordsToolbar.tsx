@@ -9,6 +9,7 @@ import { customPeriod, PERIOD_PRESETS, todayIso, type Period, type PeriodKey } f
 import { usePeriodLabel } from "../BusinessPeriodControl";
 import { RangeCalendar, type DayRange } from "../foundation/RangeCalendar";
 import { primaryButtonClass, secondaryButtonClass } from "../business-ui";
+import styles from "./records-filter-preview.module.css";
 import type { RecordsViewPreferences } from "./records-view-preferences";
 import type { RecordKind } from "./transacciones-model";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -96,9 +97,9 @@ export function RecordsToolbar({ filter, onChange, period, setPeriod, options, o
     if (selection.preferences) onPreferencesChange?.(selection.preferences);
   };
   const kindName = (kind: RecordsFilter["kind"]) => kind === "all" ? t("business.transactions.layout.all_types") : t(`business.transactions.records.detail.${kind}`);
-  return <div data-testid="records-toolbar" className="mb-4 flex flex-wrap items-center gap-2">
+  return <div className={styles.toolbarContainer}><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
     {preview ? <RecordsViewsPreview views={views} select={restoreView} save={(name) => setViews((current) => [...current, { name, selection: structuredClone({ record: filter, period: previewPeriod, filters: previewFilters, preferences }) }])} /> : null}
-    <div className="relative" style={{ width: phone ? "100%" : "min(16rem, 40%)" }}>
+    <div className={styles.toolbarSearch} data-phone={phone}>
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#56635e] dark:text-white/60" aria-hidden="true" />
       <input type="search" value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
     </div>
@@ -112,5 +113,5 @@ export function RecordsToolbar({ filter, onChange, period, setPeriod, options, o
     {(!datePreview && filter.kind !== "all") || filter.query ? <div className="flex w-full items-center gap-2 pt-1">
       <button type="button" onClick={() => onChange(datePreview ? { ...filter, query: "" } : EMPTY_RECORDS_FILTER)} className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/65 dark:hover:bg-white/5"><X className="h-3.5 w-3.5" aria-hidden="true" />{t(datePreview ? "business.transactions.layout.clear_search" : "business.transactions.layout.clear")}</button>
     </div> : null}
-  </div>;
+  </div></div>;
 }
