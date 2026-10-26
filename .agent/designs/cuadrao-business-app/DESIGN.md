@@ -1229,3 +1229,9 @@ approved copy:
 
 - PLACEHOLDER: "Te faltan 3 documentos de octubre."
 - PLACEHOLDER: "No pudimos confirmar el proveedor. Revísalo antes de exportar."
+
+### Registros local preview: filters and table preferences
+
+In the development mock preview, phone Filters uses the full-height sheet: a group list opens one group editor, Back keeps the draft, Apply commits, and close/Escape discards. Navigation rows are buttons with chevrons; the desktop rail keeps tabs. Date format belongs in the input placeholder, with the message slot reserved for validation.
+
+Desktop preview table preferences are local memory only, including saved views. They do not invoke the production `/me` density persistence described above. Contraparte stays visible and fixed first; Monto stays visible but can move. Other columns may hide or reorder. Column movement preserves focus; Space grabs/drops, arrows move, and Escape cancels the grabbed order. A visible drop marker shows the actual insertion edge. Changing columns or row height preserves the current page. Phone list composition does not change with desktop column preferences.

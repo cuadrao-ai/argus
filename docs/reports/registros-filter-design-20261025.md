@@ -275,3 +275,9 @@ The eventual packet must name the exact endpoint/field contract, outstanding
 backend dependencies, frontend ownership and checkpoint SHA. Database query
 implementation remains the orchestrator's responsibility. This update records
 requirements only; it makes no backend, UI, deployment or handoff changes.
+
+### Phone filters and local table preferences (2026-10-25)
+
+The development mock preview now opens Filters on phones in the full-height shared sheet. Group navigation and Back retain one draft; Clear is staged until Apply, while close/Escape discards. Registro replaces the separate phone Tipo picker. Bulk checkbox selection still acts on visible search matches and preserves hidden choices. Date fields keep the format in their placeholder and show only actual validation below.
+
+Desktop saved-record preferences use one local `{ order, hidden, density }` value. Contraparte is fixed first, Monto remains visible, and the five other columns can be hidden. Grips support pointer drag and Space/arrow keyboard movement; Escape restores a grabbed order. Headers, cells and widths use the same visible order; Comprobante pins right only when last. These choices do not reset the local page, and named views capture them. Phone rows and bank matching remain unchanged. This preview does not write table preferences to `/me`, persist across refresh, or change hosted query/export semantics. Existing production density persistence remains separate and unchanged.

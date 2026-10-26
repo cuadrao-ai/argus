@@ -2427,6 +2427,7 @@
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "filters": {
+          "back": "All filters",
           "account": {
             "card": "Business card",
             "checking": "Checking account",
@@ -2504,6 +2505,19 @@
         },
         "period_summary": "Period summary · {{period}}",
         "search": "Search records…",
+        "settings": {
+          "cancelled": "Column order restored.",
+          "columns": "Columns",
+          "dropped": "Column placed.",
+          "fixed": "Always visible · fixed first",
+          "grabbed": "Column picked up. Use the arrow keys to move it.",
+          "height": "Row height",
+          "instructions": "Drag a handle to reorder. With a keyboard, press Space, then ↑ or ↓. Space places it; Esc cancels.",
+          "move": "Move {{name}}",
+          "position": "{{name}}, position {{position}} of {{count}}",
+          "required": "Always visible",
+          "restore": "Restore defaults"
+        },
         "type": "Type",
         "views": {
           "title": "Views",

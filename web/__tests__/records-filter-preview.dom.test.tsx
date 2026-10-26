@@ -99,10 +99,13 @@ test("typed dates validate on blur, repair live, and retain the visible month pa
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
     field.dispatchEvent(new Event("input", { bubbles: true }));
   });
+  assert.equal(fields[0].placeholder, "DD/MM/AAAA");
+  assert.equal([...document.querySelectorAll("p, span")].some((node) => node.textContent === "DD/MM/AAAA"), false, "format is not repeated below the fields");
   await type(fields[0], "31/02/2026");
   assert.equal(fields[0].getAttribute("aria-invalid"), null);
   await page.act(async () => fields[0].dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
   assert.equal(fields[0].getAttribute("aria-invalid"), "true");
+  assert.ok(fields[0].getAttribute("aria-describedby"));
   await type(fields[0], "28/10/2026"); await type(fields[1], "03/11/2026");
   assert.equal(fields[0].getAttribute("aria-invalid"), null);
   assert.ok(document.querySelector('[data-day="2026-10-28"]'));
@@ -207,7 +210,35 @@ test("desktop kind lives in Filters and saved views restore its controlled value
     assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "all");
     await cleanup();
     const phone = await mount("toolbar", 390);
-    assert.ok(phone.host.querySelector('button[aria-label^="Tipo:"]'), "phone keeps its existing kind picker");
-    assert.equal(phone.button("Filtros"), undefined);
+    assert.equal(phone.host.querySelector('button[aria-label^="Tipo:"]'), null);
+    assert.ok(phone.button("Filtros"));
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
+
+test("phone filters keep one draft across group navigation and discard it on close", async () => {
+  const page = await mount("filters", 390);
+  const trigger = page.button("Filtros")!;
+  await page.click(trigger);
+  assert.equal(document.querySelector('[role="tablist"]'), null);
+  await page.click(page.button("Revisión"));
+  assert.equal(document.activeElement, page.button("Todos los filtros"));
+  const label = (text: string) => [...document.querySelectorAll("label")].find((node) => node.textContent === text)!;
+  await page.click(label("Por revisar"));
+  assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
+  await page.click(page.button("Todos los filtros"));
+  assert.equal(document.activeElement?.getAttribute("data-group"), "review");
+  await page.click(page.button("Registro")); await page.click(label("Gasto"));
+  await page.click(page.button("Todos los filtros")); await page.click(document.querySelector('[data-group="review"]'));
+  assert.equal(label("Por revisar").querySelector<HTMLInputElement>("input")!.checked, true);
+  await page.click(page.button("Aplicar"));
+  assert.equal(document.activeElement, trigger);
+  assert.equal(document.querySelector('[data-testid="applied-record-kind"]')?.textContent, "gasto");
+  await page.click(trigger); await page.click(document.querySelector('[data-group="review"]'));
+  await page.click(label("Seleccionar todo"));
+  assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.checked, true);
+  await page.escape(); await page.click(trigger); await page.click(document.querySelector('[data-group="review"]'));
+  assert.equal(label("Seleccionar todo").querySelector<HTMLInputElement>("input")!.indeterminate, true);
+  await page.click([...document.querySelectorAll('[role="dialog"] button')].find((node) => node.textContent === "Limpiar filtros")); await page.click(page.button("Aplicar"));
+  assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
 });

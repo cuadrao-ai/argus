@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState, type KeyboardEvent } from "react";
+import { Fragment, useContext, useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { currencySymbol } from "@/lib/money-entry";
@@ -15,7 +15,8 @@ import { RecordMarks, useOwnerView } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { headerCurrency, type RecordRow } from "./transacciones-model";
 import { AccountLabel, amountColumnSize, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
-import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
+import { defaultRecordsPreferences, visibleRecordsColumns, recordsMinimumWidth, type RecordsViewPreferences } from "./records-view-preferences";
+import { CELL, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
@@ -38,7 +39,7 @@ function Proof({ row }: { row: RecordRow }) {
  * igualar state. A row opens its record in the record tray; a venta has no
  * record screen yet, so its row is plain.
  */
-export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange }: { order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
+export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences }: { preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
@@ -49,6 +50,8 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   const toggleOrder = () => { const next = order === "desc" ? "asc" : "desc"; if (onOrderChange) onOrderChange(next); else setLocalOrder(next); };
   const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const amountSize = amountColumnSize(records.map((row) => row.money), header, locale);
+  const columns = visibleRecordsColumns(preferences ?? defaultRecordsPreferences());
+  const proofPinned = columns.at(-1)?.key === "comprobante";
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const tabStop = focusedId && rows.some((row) => recordRowKey(row) === focusedId) ? focusedId : rows[0] ? recordRowKey(rows[0]) : undefined;
@@ -71,11 +74,11 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
 
   return (
     <div data-testid="transacciones-scroll" className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
-      <table role="grid" aria-label={t("business.transactions.title")} aria-rowcount={rows.length} data-testid="transacciones-records" data-density={density} onKeyDown={onKeyDown} style={{ minWidth: amountSize.minTableWidth }} className="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white">
-        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.key === "monto" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
+      <table role="grid" aria-label={t("business.transactions.title")} aria-rowcount={rows.length} data-testid="transacciones-records" data-density={density} onKeyDown={onKeyDown} style={{ minWidth: recordsMinimumWidth(columns, amountSize) }} className="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white">
+        <colgroup>{columns.map((column) => <col key={column.key} style={column.key === "monto" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
         <thead>
           <tr>
-            {COLUMNS.map((column) => {
+            {columns.map((column) => {
               const label = column.key === "monto" ? t("business.transactions.columns.monto", { currency: header ? currencySymbol(header) : "" }).trim() : t(`business.transactions.columns.${column.key}`);
               const sortHere = column.key === "fecha";
               return (
@@ -95,6 +98,19 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
           {rows.map((row) => {
             const opens = row.opens;
             const open = opens ? isOpenRecord(panel, opens) : false;
+            const cells = {
+              contraparte: (<td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
+              fecha: (<td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{formatRelativeDay(row.occurredOn, today, locale)}</td>),
+              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}><SignedAmount money={row.money} header={header} /></td>),
+              detalle: (<td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
+                  <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
+                    <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
+                  </Tooltip>
+                </td>),
+              categoria: (<td data-col="categoria" className={`${CELL} text-left`}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>),
+              cuenta: (<td data-col="cuenta" className={`${CELL} text-left`}><AccountLabel account={row.account} /></td>),
+              comprobante: (<td data-col="comprobante" data-pinned={proofPinned ? "right" : undefined} className={`${CELL} ${proofPinned ? PIN_CLASS.right : ""} text-right`}><Proof row={row} /></td>),
+            };
             return (
               <tr
                 key={recordRowKey(row)}
@@ -108,17 +124,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
                 onClick={opens ? () => { if (openGlance) openGlance(row); else openPanel(opens); } : undefined}
                 className={`group outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)] ${opens ? "cursor-pointer" : ""}`}
               >
-                <td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>
-                <td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{formatRelativeDay(row.occurredOn, today, locale)}</td>
-                <td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}><SignedAmount money={row.money} header={header} /></td>
-                <td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
-                  <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
-                    <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
-                  </Tooltip>
-                </td>
-                <td data-col="categoria" className={`${CELL} text-left`}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>
-                <td data-col="cuenta" className={`${CELL} text-left`}><AccountLabel account={row.account} /></td>
-                <td data-col="comprobante" data-pinned="right" className={`${CELL} ${PIN_CLASS.right} text-right`}><Proof row={row} /></td>
+                {columns.map((column) => <Fragment key={column.key}>{cells[column.key]}</Fragment>)}
               </tr>
             );
           })}

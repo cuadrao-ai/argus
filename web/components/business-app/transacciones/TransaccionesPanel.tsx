@@ -20,6 +20,8 @@ import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { recordRowKey, RecordsList, RecordsTable } from "./TransaccionesRecords";
 import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
+import RecordsSettingsPreview from "./RecordsSettingsPreview";
+import { defaultRecordsPreferences } from "./records-view-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
@@ -43,6 +45,7 @@ export default function TransaccionesPanel() {
   const { isBelowTablet: phone } = useResponsiveLayout();
   const densityState = useTableDensity();
   const density = densityState.density;
+  const [viewPreferences, setViewPreferences] = useState(defaultRecordsPreferences);
   const controller = useTransacciones();
   const { list, movements, tray, segment, view: bank } = controller;
   const view = list.kind === "ready" ? list.view : null;
@@ -127,7 +130,7 @@ export default function TransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview /> : null}
-        {!igualar ? <RecordsToolbar onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <><BusinessAddMenu placement="header" /><DensityMenu state={densityState} /></>} /> : null}
+        {!igualar ? <RecordsToolbar preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <><BusinessAddMenu placement="header" />{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : <DensityMenu state={densityState} />}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -145,7 +148,7 @@ export default function TransaccionesPanel() {
         ) : list.kind === "loading" ? (
           <LoadingRows density={phone ? "amplio" : density} />
         ) : saved ? (
-          localPaging ? <RecordsPagePreview records={visibleRecords ?? saved} density={density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
+          localPaging ? <RecordsPagePreview preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
             : saved.length === 0 || visibleRecords?.length === 0 ? recordsEmptyContent
               : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
         ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bookmark } from "lucide-react";
+import type { RecordsViewPreferences } from "./records-view-preferences";
 import type { Period } from "../business-format";
 import type { RecordsFilter } from "./RecordsToolbar";
 import type { PreviewFilters } from "./records-filter-preview-model";
@@ -9,7 +10,7 @@ import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
 
-export type RecordsViewSelection = { record: RecordsFilter; period: Period; filters: PreviewFilters };
+export type RecordsViewSelection = { record: RecordsFilter; period: Period; filters: PreviewFilters; preferences?: RecordsViewPreferences };
 export type SavedRecordsView = { name: string; selection: RecordsViewSelection };
 
 export function RecordsViewsPreview({ views, select, save }: { views: SavedRecordsView[]; select: (selection: RecordsViewSelection) => void; save: (name: string) => void }) {

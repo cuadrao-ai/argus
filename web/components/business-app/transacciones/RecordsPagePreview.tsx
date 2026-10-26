@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import type { RecordRow } from "./transacciones-model";
+import type { RecordsViewPreferences } from "./records-view-preferences";
 import type { Density } from "./table-density";
 import { RecordsNarrowList, RecordsTable } from "./TransaccionesRecords";
 import { ToolbarPicker } from "./RecordsToolbar";
@@ -11,7 +12,7 @@ import { INITIAL_PAGINATION, pageLinks, paginateRecords, type PaginationState } 
 import styles from "./records-page.module.css";
 
 /** Local loaded rows only. A hosted query/count contract replaces this preview later. */
-export default function RecordsPagePreview({ records, density, resetKey, rowRef, emptyContent }: { emptyContent?: ReactNode; records: readonly RecordRow[]; density: Density; resetKey: string; rowRef: (id: string, node: HTMLElement | null) => void }) {
+export default function RecordsPagePreview({ records, density, resetKey, rowRef, emptyContent, preferences }: { preferences?: RecordsViewPreferences; emptyContent?: ReactNode; records: readonly RecordRow[]; density: Density; resetKey: string; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t } = useTransaccionesWords();
   const word = (key: string) => t(`business.transactions.pagination.${key}`);
   const [state, setState] = useState<PaginationState & { scope: string }>({ ...INITIAL_PAGINATION, scope: resetKey });
@@ -39,7 +40,7 @@ export default function RecordsPagePreview({ records, density, resetKey, rowRef,
       {narrow ? <div className={styles.sort}><ToolbarPicker label={word("sort")} value={word(state.sort === "desc" ? "newest" : "oldest")}>
         {(close) => <>{(["desc", "asc"] as const).map((value) => <button type="button" key={value} className={styles.option} onClick={() => { sort(value); close(); }}>{word(value === "desc" ? "newest" : "oldest")}{state.sort === value ? <Check size={16} aria-hidden="true" /> : null}</button>)}</>}
       </ToolbarPicker></div> : null}
-      {result.count === 0 ? emptyContent : narrow ? <RecordsNarrowList records={result.items} rowRef={rowRef} /> : <RecordsTable records={result.items} density={density} rowRef={rowRef} order={state.sort} onOrderChange={sort} />}
+      {result.count === 0 ? emptyContent : narrow ? <RecordsNarrowList records={result.items} rowRef={rowRef} /> : <RecordsTable preferences={preferences} records={result.items} density={density} rowRef={rowRef} order={state.sort} onOrderChange={sort} />}
       <footer className={styles.footer} data-testid="records-pagination" data-page={result.page}>
         <span data-testid="records-count" className={styles.count} aria-live="polite">{label}</span>
         <ToolbarPicker flip label={word("page_size")} value={t("business.transactions.pagination.per_page", { count: state.pageSize })}>

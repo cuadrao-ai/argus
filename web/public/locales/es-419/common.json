@@ -2427,6 +2427,7 @@
         "count_one": "{{count}} registro",
         "count_other": "{{count}} registros",
         "filters": {
+          "back": "Todos los filtros",
           "account": {
             "card": "Tarjeta del negocio",
             "checking": "Cuenta corriente",
@@ -2504,6 +2505,19 @@
         },
         "period_summary": "Resumen del período · {{period}}",
         "search": "Buscar en registros…",
+        "settings": {
+          "cancelled": "Orden de columnas restaurado.",
+          "columns": "Columnas",
+          "dropped": "Columna colocada.",
+          "fixed": "Siempre visible · fija al inicio",
+          "grabbed": "Columna seleccionada. Usa las flechas para moverla.",
+          "height": "Altura de filas",
+          "instructions": "Arrastra para ordenar. Con teclado, pulsa Espacio y luego ↑ o ↓. Espacio confirma; Esc cancela.",
+          "move": "Mover {{name}}",
+          "position": "{{name}}, posición {{position}} de {{count}}",
+          "required": "Siempre visible",
+          "restore": "Restaurar valores iniciales"
+        },
         "type": "Tipo",
         "views": {
           "title": "Vistas",
