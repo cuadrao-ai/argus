@@ -1,5 +1,9 @@
 # Registros desktop filter design, October 25, 2026
 
+Current behavior is recorded in [Approved Registros checkpoint](#approved-registros-checkpoint-26-october-2026).
+That section supersedes earlier implementation descriptions where they differ.
+Earlier sections retain the decisions and verification history.
+
 ## Local design scope
 
 The founder approved a desktop visual preview of the filter panel, two-month
@@ -450,3 +454,141 @@ themes, with Spanish and English copy. A temporary three-currency presentation
 fixture verified the full dossier and phone sheet, unknown settlement values,
 Escape dismissal and focus restoration; the fixture was removed afterward.
 Fifteen focused tests and scoped ESLint passed. No backend work or handoff occurred.
+
+## Approved Registros checkpoint, 26 October 2026
+
+The founder approved this design checkpoint, its commit/push, and handoff to the
+Integration Orchestrator. This approval covers the local frontend design. It does
+not authorize merge, backend implementation, migrations, deployment, bank matching
+activation, fiscal activation, or production changes. The exact pushed checkpoint
+SHA accompanies the handoff message. This report and DESIGN.md travel with it.
+
+### Current surface behavior, including interactions absent from a screenshot
+
+| Area | Current local preview behavior |
+| --- | --- |
+| Overview | Por revisar, Por aprobar and Listos para exportar summarize the selected Business and page period using explicit fixture metadata. Table search and filters do not rewrite those counts. Clicking applies a removable Revisión chip. Clicking the same selected card clears that filter. Clicking another replaces it. Other filters remain. |
+| Toolbar | Desktop keeps Vistas, search, date and Filtros, with Agregar and table settings on the right. The Agregar label collapses at constrained desktop widths while plus and chevron remain. The main button and chevron have different actions. Export lives inside that menu, not a duplicate toolbar button. |
+| Search | Command-K focuses Records search, not Home omnisearch, and respects open overlays. Local search now matches counterparty names, the current note, available document numbers and attachment filenames. It ignores case and accents. It searches loaded records only, not all Business history or file contents. |
+| Filters | Registro contains Venta, Gasto and Todos los tipos. Revisión, Adjunto, Moneda y monto, Contraparte, Categoría, Cuenta, Tipo de documento and Tipo fiscal share one panel. Phone uses the full-height sheet. Changes stage until Aplicar; dismissal discards the draft. Chips remove individual applied groups. Parent checkboxes support empty, mixed and checked states; a mixed click selects the visible options without losing hidden selections. |
+| Amount range | Uses the shared MoneyInput. A currency is required first. Zero is valid, negative bounds are not. Canonical decimal strings preserve exact amounts. The shared parser limits significant whole digits to 15 and uses currency precision. Invalid length, precision or an inverted range prevents Apply and gets inline feedback. Invalid text is not silently converted to a valid bound. |
+| Calendar | Typed locale dates replace native date popups. Format belongs in the placeholder; text below is for validation. Presets, range highlighting, hover preview, endpoint refinement and keyboard navigation share one range engine. Desktop has two months or three where space permits. Narrow dossiers use one. Phone uses a full-screen vertical calendar and bottom confirmation. The all-time requirement below is not yet connected to this local date control. |
+| Financial cards | Appear automatically for Venta or Gasto. Sales show Facturado, Cobrado and Por cobrar. Expenses show Gastos, Pagado and Por pagar. Mixed Todos hides them. There is no Summary settings tab or visibility checkbox. Three compact cards show at most two currency rows each, with neutral text and theme-aware surfaces. A shared action for three or more currencies opens all currencies in the dossier or phone sheet. Currency remains a filter only inside Filtros. |
+| Financial meaning | The preview derives from filtered loaded records and explicit synthetic settlement fixtures, before local pagination. It excludes ineligible amounts and exposes that qualification through an information control. Unknown is not zero. Currency amounts are never added together. Cards are read-only; amount drill-down is not implemented. Do not infer backend financial readiness from the fixture values. |
+| Table | Default columns are Contraparte, Fecha, Monto, Moneda, Tipo, Categoría, Estado, Notas and Adjunto. Cuenta is hidden by default and available through settings. Dates are explicit. Amounts align right with tabular digits, never truncate, and have a separate display-currency column. Filter/export contracts use currency codes. Estado uses colored labels without dots; Listo is the short table label, while the overview retains Listos para exportar. |
+| Table settings | Desktop has shared segmented controls for Columnas and Altura de filas. Optional columns use full-label checkbox targets. Contraparte is locked first; Monto and Moneda are required, adjacent by default, and independently movable. Six-dot handles support pointer drag and keyboard pickup with Space, arrows, Space to place and Escape to cancel. A picked-up column has a visible state and live announcement. Density supports 40, 48 and 56px rows. Settings apply immediately. The obsolete phone Summary-only gear is removed. |
+| Sorting | Fecha, Monto and Contraparte headers share sorting with the phone control. Only the active header shows its sort arrow. Amount order is exact magnitude and requires one known currency across the filtered set. If that condition stops holding, the preview falls back visibly to newest-date order. Stable kind/ID ties prevent arbitrary reorder within the loaded set. |
+| Notes | Current text only in the table, truncated with full text available through its editor. Empty cells show a dash at rest. A pencil appears on row hover or keyboard focus and remains visible for touch. The icon has the same direct-hover target treatment as attachment. The editor enforces 500 characters with the feedback-form counter pattern. Save updates local memory; Cancel discards. History belongs in Activity, not a second table affordance. |
+| Attachments | Empty cells show a dash at rest, then a plus on row hover/focus or touch where editing is permitted. Unknown presence is not treated as missing. Existing linked evidence opens through its existing authorized path. The local attachment modal reuses the receipt drop zone, file picker/drop/paste, multi-file append, validation and byte deduplication. It has one divider and one full-width 8px-radius CTA, without redundant Cancel. Several files append without replacing existing evidence. Local files are not uploaded or durably linked and disappear on reload. Received-document linking remains unavailable. |
+| Narrow list | Below 700px of table-container width, including beside a desktop dossier, a two-line list replaces the table. Identity leads; complete amount stays in the top-right slot; state and explicit date stay below. Touch actions remain accessible. A row opens the shared detail sheet, keeps the list mounted and restores source focus on close. |
+| Pagination | The local loaded set is filtered and sorted before slicing. Default 25, with 50/100, bounded numbered links and first/previous/next/last controls. Counts describe the loaded matching set. Query, filter, sort, restored view or page-size changes reset page 1. Column and density edits do not. The local footer is not proof of server-wide coverage or stable concurrent browsing. |
+| Saved views | Vistas contains both saved choices and Guardar vista. Local recipes capture search/kind, period, advanced filters and table preferences. They restore on page 1 and are cleared on reload. They save setup, not financial values or page 17. No metric catalogue, custom formulas, widget-order preference or summary-visibility preference is approved by this checkpoint. |
+| Loading and recovery | Records skeleton follows visible columns/order/density, narrow rows and pagination footprint. Overview and toolbar keep their place. Shared shimmer respects reduced motion. Loading does not invent a count. Search empty state retains controls. API errors remain errors, not zero totals. |
+
+Ready surfaces use the approved light sage `#B8D0BE` and dark counterpart, with
+neutral content and selection edges. The reusable rules remain in
+`.agent/designs/cuadrao-business-app/DESIGN.md`: shared segmented controls,
+checkbox/radio targets, focus treatment, anchored desktop popovers, phone sheets,
+dossier gradient, aligned money, validation placement, and the invite-style
+single footer action. Do not replace these with browser-native controls when wiring.
+
+### Backend reconciliation at the fetched integration head
+
+Integration was fetched at `8c993ef76a0864261023d58846396d851a08c1f4`.
+Its reporting contract supersedes the older statement that only period exports
+exist in the backend. The current design client still uses its legacy reads and
+local preview; it does not call the new reporting endpoints yet.
+
+| Contract at integration | Current support | Frontend connection or remaining gap |
+| --- | --- | --- |
+| `POST /api/v1/business/reports/query` | `ReportRequest` has schema_version, filters, columns, sort, page and page_size. Filters include q, period, record_families, review_stages, has_document, currencies, amount_min/max, counterparties, categories, funding_sources, document_kinds and fiscal_classifications. `ReportAnswer` supplies items, matching_count, page/page_size/page_count, totals, fingerprint, captured_at, resolved_period, excluded_unknown_dates and option catalogues. | Replace loaded-array paging and fixture statuses/totals with this authorized result. Map canonical row identities/revisions, unresolved amounts, date_basis, blockers and coverage notes without fabricating facts. Preserve the separate overview Business/period query scope. |
+| Search `filters.q` | Current integration matches counterparty, note, counterparty_key and fiscal_number, with a 200-character query bound. | Name/note/fiscal-number support exists. Attachment-filename and other document-reference coverage need reconciliation with the approved pilot names/notes/documents scope. Local preview filenames are not proof of server search coverage. No amount/date search expansion is requested. |
+| Period | Integration supports all, custom, this_month, last_month and this_year with the Business calendar. All has no date bounds. | Expose genuine all-time in the client, including records older than a year, while requesting one bounded page. Map extra UI presets deliberately. Do not silently freeze a relative saved period or use the legacy year-2000 sentinel as all history. |
+| Sort and recipe | `ReportRecipe` accepts only date_desc, filters and supported column order under schema_version 1. | Date ascending, amount in both directions and counterparty in both directions need allowlisted contract additions or an explicit product reconciliation. Map client column keys to report fields. Attachment presentation, required-column locks and row density are not all represented by this recipe. Do not send unsupported fields or silently lose preferences. Summary visibility/widget preferences no longer need a backend contract. |
+| `POST /api/v1/business/reports/export` | Accepts report and expected_fingerprint. Returns a ZIP of filtered CSV/XLSX plus scope manifest, excluding originals. A changed report returns 409 business_report_changed. | Wire the export action to this scope and refresh/recovery behavior. The existing client `GET /business/exports?start&end&draft_id` remains period-based. It must not masquerade as filtered export. Explicit-ID selection export and original-evidence bundles need separate support before being exposed. |
+| `/api/v1/business/report-views` | GET/POST and PATCH/DELETE by view ID exist. Recipes are person-and-Business scoped. Writes use idempotency keys; updates/deletes use expected_version. | Replace in-memory names/recipes with persisted views, reconcile fields and name limits, and handle stale versions and revoked access. Saved setup must not save calculated amounts. |
+| Existing evidence reads/intake | Receipt detail/source and intake/review/confirm paths remain reusable, as documented in the earlier evidence matrix. | Supporting-file append is not new receipt intake. Public candidate eligibility/link/retry/unlink contracts remain unresolved here. Do not create a second activity to simulate attaching evidence. |
+| Notes and Activity | The report exposes note as a read field. This checkpoint does not establish a durable editable-note command. | Backend owner must map or supply an authorized, version-checked 500-character edit command. Preserve author/time/history for Activity. Idempotency prevents duplicate retries; optimistic version checking prevents one editor silently overwriting another. These are distinct requirements. |
+| Partial settlement | Reporting includes settlement_status and qualified totals, not proof of the proposed exact partial allocation projection. | Orchestrator owns the linked invoice/expense, payment-allocation and remaining-balance contract. Never derive paid/collected money from a binary status. Preserve one activity and its evidence/payments without counting invoice plus payment twice. Existing whole-document bank matching must not overwrite partial balances. |
+
+The report's coverage notes explicitly include unavailable legal-cancellation
+coverage, potentially unknown document subtypes and counterparty identity requiring
+an explicit tax ID. Preserve those limits. A name match is not canonical identity;
+an attachment is not fiscal verification; an authorized electronic issuer is not
+proof that this workspace can issue. No hosted readiness is claimed here.
+
+### Ownership and hosted acceptance required before release
+
+The frontend lane owns visual patterns, responsive layout, keyboard/focus behavior,
+mapping the approved contract, URL/return position, and client recovery states.
+The orchestrator assigns backend owners and reconciles the existing reporting
+contract before new API work. Engineering chooses query/index/storage details.
+Changing approved product scope needs explicit resolution, not a quiet adapter fix.
+
+Required acceptance cases are:
+
+1. Search names, notes and agreed document identifiers across all authorized rows,
+   including matches beyond page one. Reject access after membership revocation.
+2. One query definition yields matching rows, count, totals and export across
+   pages. Verify currency codes, exact amounts, unknowns, credits and coverage gaps.
+   Scope overview counts separately by Business and period.
+3. Reload a later numbered page; reset on filters/sort/page size; retain position
+   for column/density edits. Return from a dossier to a stable row anchor. Handle
+   a deleted anchor and removal of the final row on the final page explicitly.
+4. Use all-time against several years and more than 100 records. Each client row
+   response stays bounded. Counts/totals/export cover the full matching set.
+5. Test equal dates, null dates, all approved sort directions and removal of the
+   currency filter during amount order. Never compare DOP and USD as equal units.
+6. Connect fingerprint/change detection to explicit refresh and invalid-page
+   recovery. A fingerprint exists, but a passive notification mechanism is not
+   proven by this preview. Do not silently insert rows or promise a frozen session.
+7. Save/reload a view in the same person/Business scope. Switch Businesses and
+   users, test revoked access and stale versions, and verify no preference leakage.
+8. Export beyond one page with the approved fingerprint. A changed dataset gives
+   a clear refresh path. Manifest records scope and capture time. Already generated
+   output stays fixed. Do not silently retry with a different set.
+9. Edit a note, reload, and inspect Activity. Concurrent edits preserve the losing
+   draft and show a conflict. Same-key retry has one effect; changed-payload retry
+   conflicts. Backend and frontend agree on the 500-character counting rule.
+10. Append several attachments without replacing evidence or creating activity.
+    Exercise duplicate bytes, retry, failed upload/source access, linked-document
+    conflict, cross-Business denial and access revocation. Amount/payment state
+    remains unchanged. New intake and existing-activity attachment stay distinct.
+11. Verify a 100 invoice with 40 and 60 collections yields remaining balances of
+    60 then 0, one invoice and two actual payments. Repeat/concurrent requests must
+    not duplicate cash or over-allocate. Confirm historical-record compatibility
+    under the separately approved settlement scope.
+12. Run the integrated frontend on desktop and phone, light/dark and EN/ES. Cover
+    keyboard-only interactions, touch targets, privacy masking, skeletons, no
+    results, request failure, unknown totals, permission changes and recovery.
+
+Local component tests, fixture values and browser viewport checks are design proof.
+Hosted database, real persistence, cross-session and real-device acceptance remain
+separate gates. The orchestrator must acknowledge this packet, record existing
+versus missing support and add the outstanding requirements to its plan.
+
+### Checkpoint verification and preserved work
+
+The final UI change is commit `5524af078`, which removes the Summary setting and
+derives visibility from record kind. Its state shape is now column order,
+hidden columns, density and sort. Saved views no longer carry summary visibility.
+The accompanying documentation commit is the checkpoint handed to the orchestrator.
+
+`bun test __tests__/records-*.test.ts __tests__/records-*.test.tsx
+__tests__/transacciones-*.test.ts __tests__/transacciones-*.test.tsx` passed all
+137 tests across 13 files. Scoped ESLint and `git diff --check` passed. Two older
+screen tests were updated to assert the approved cards/settings instead of the
+removed summary text and checkbox. Previous whole-project typecheck limitations
+remain recorded above; this is not a claim of fresh whole-repository CI.
+
+The existing port 4387 browser preview confirmed the two remaining desktop
+settings segments, automatic expense cards, the 390px phone layout and absence
+of the obsolete phone settings shortcut. Component tests also cover automatic
+Sales/Expenses/Todos transitions and currency dossier focus restoration on both
+widths. Earlier light/dark and EN/ES evidence remains historical evidence at its
+named revisions, not a new full-matrix run at this checkpoint.
+
+No backend file, service, migration, integration flag or hosted state changed.
+The unrelated untracked design-recovery and design-startup directories remain
+untouched and are excluded from the commit. The existing preview server remains
+available; no extra server was started.
