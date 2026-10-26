@@ -5,6 +5,7 @@ import copy
 import json
 import os
 import stat
+import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -95,6 +96,39 @@ def directory():
         for child in path.iterdir():
             child.unlink()
         path.rmdir()
+
+
+@pytest.fixture
+def set_directory_mode(monkeypatch):
+    """Linux uses real modes. macOS may strip directory special bits."""
+
+    def set_mode(directory, mode):
+        os.chown(directory, -1, os.getegid())
+        directory.chmod(mode)
+        if sys.platform != "darwin" or stat.S_IMODE(directory.stat().st_mode) == mode:
+            return
+        inode = directory.stat().st_ino
+        original_lstat, original_fstat, original_fchmod = Path.lstat, os.fstat, os.fchmod
+        reported_mode = mode
+
+        def overlay(found):
+            if found.st_ino != inode:
+                return found
+            values = list(found)
+            values[0] = stat.S_IFMT(found.st_mode) | reported_mode
+            return os.stat_result(values)
+
+        def chmod(fd, value):
+            nonlocal reported_mode
+            original_fchmod(fd, value)
+            if original_fstat(fd).st_ino == inode:
+                reported_mode = value
+
+        monkeypatch.setattr(Path, "lstat", lambda path: overlay(original_lstat(path)))
+        monkeypatch.setattr(os, "fstat", lambda fd: overlay(original_fstat(fd)))
+        monkeypatch.setattr(os, "fchmod", chmod)
+
+    return set_mode
 
 
 @pytest.fixture
@@ -384,6 +418,146 @@ async def test_same_host_second_controller_cannot_serve_or_arm(world, directory)
     finally:
         control.close()
         second.close()
+        await world.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_inherited_setgid_directory_serves_disarmed_status(
+    world, directory, monkeypatch, capsys, set_directory_mode
+):
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location(
+        "diagnostic_cli", "scripts/ops/arm_whatsapp_diagnostic_once.py"
+    )
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    monkeypatch.setattr(cli, "Path", lambda _: directory)
+    monkeypatch.setattr(sys, "argv", ["helper", "status"])
+    directory.mkdir(mode=0o700)
+    set_directory_mode(directory, 0o2700)
+    control = DiagnosticControl(world.controller, directory)
+    try:
+        assert stat.S_IMODE(directory.lstat().st_mode) == 0o2700
+        assert await control.start(), "owned private setgid directory rejected"
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700
+        assert stat.S_IMODE(control.path.stat().st_mode) == 0o600
+        assert stat.S_IMODE((directory / "owner.lock").stat().st_mode) == 0o600
+        assert await asyncio.to_thread(cli.main) == 0
+        status = json.loads(capsys.readouterr().out)
+        assert status["state"] == "disarmed"
+        assert status["nonce"] == world.controller.nonce
+        assert world.controller.state == "disarmed"
+        assert not control.result_path.exists()
+        assert world.calls == []
+        world.controller.scope_check.assert_not_called()
+        world.media.fetch.assert_not_called()
+        world.media._download.assert_not_called()
+    finally:
+        control.close()
+        await world.client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", [0o710, 0o701, 0o2710, 0o2701, 0o1700, 0o4700, 0o6700])
+async def test_private_directory_rejects_unsafe_modes_without_chmod(
+    world, directory, mode, set_directory_mode
+):
+    directory.mkdir(mode=0o700)
+    set_directory_mode(directory, mode)
+    control = DiagnosticControl(world.controller, directory)
+    try:
+        assert not await control.start()
+        assert stat.S_IMODE(directory.lstat().st_mode) == mode
+        assert world.controller.state == "sealed"
+        assert list(directory.iterdir()) == []
+        assert world.calls == []
+    finally:
+        control.close()
+        await world.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_private_setgid_directory_rejects_foreign_owner(
+    world, directory, monkeypatch, set_directory_mode
+):
+    directory.mkdir(mode=0o700)
+    set_directory_mode(directory, 0o2700)
+    original_lstat = Path.lstat
+
+    def foreign_owner(path):
+        found = original_lstat(path)
+        if path == directory:
+            return SimpleNamespace(
+                st_uid=os.geteuid() + 1, st_mode=found.st_mode, st_nlink=found.st_nlink
+            )
+        return found
+
+    monkeypatch.setattr(Path, "lstat", foreign_owner)
+    control = DiagnosticControl(world.controller, directory)
+    try:
+        assert not await control.start()
+        assert stat.S_IMODE(directory.lstat().st_mode) == 0o2700
+        assert world.controller.state == "sealed"
+        assert list(directory.iterdir()) == []
+        assert world.calls == []
+    finally:
+        control.close()
+        await world.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_private_setgid_directory_symlink_is_not_normalized(
+    world, directory, set_directory_mode
+):
+    directory.mkdir(mode=0o700)
+    set_directory_mode(directory, 0o2700)
+    link = directory / "link"
+    link.symlink_to(directory, target_is_directory=True)
+    control = DiagnosticControl(world.controller, link)
+    try:
+        assert not await control.start()
+        assert stat.S_IMODE(directory.lstat().st_mode) == 0o2700
+        assert link.is_symlink()
+        assert sorted(directory.iterdir()) == [link]
+        assert world.controller.state == "sealed"
+        assert world.calls == []
+    finally:
+        control.close()
+        await world.client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("changed", ["owner", "mode"])
+async def test_private_setgid_directory_rechecks_opened_descriptor(
+    world, directory, set_directory_mode, monkeypatch, changed
+):
+    directory.mkdir(mode=0o700)
+    set_directory_mode(directory, 0o2700)
+    original_fstat = os.fstat
+
+    def changed_metadata(fd):
+        values = list(original_fstat(fd))
+        if changed == "owner":
+            values[4] = os.geteuid() + 1
+        else:
+            values[0] = stat.S_IFDIR | 0o2710
+        return os.stat_result(values)
+
+    monkeypatch.setattr(os, "fstat", changed_metadata)
+    chmod = Mock(wraps=os.fchmod)
+    monkeypatch.setattr(os, "fchmod", chmod)
+    control = DiagnosticControl(world.controller, directory)
+    try:
+        assert not await control.start()
+        chmod.assert_not_called()
+        assert stat.S_IMODE(directory.lstat().st_mode) == 0o2700
+        assert list(directory.iterdir()) == []
+        assert world.controller.state == "sealed"
+        assert world.calls == []
+    finally:
+        control.close()
         await world.client.aclose()
 
 

@@ -62,6 +62,18 @@ class DiagnosticControl:
                 self.directory.mkdir(mode=0o700)
             except FileExistsError:
                 pass
+            if _owned(self.directory, 0o2700, stat.S_IFDIR):
+                fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                try:
+                    found = os.fstat(fd)
+                    if (
+                        found.st_uid != os.geteuid()
+                        or stat.S_IMODE(found.st_mode) != 0o2700
+                    ):
+                        raise ValueError
+                    os.fchmod(fd, 0o700)
+                finally:
+                    os.close(fd)
             if not _owned(self.directory, 0o700, stat.S_IFDIR):
                 raise ValueError
             lock_path = self.directory / "owner.lock"
