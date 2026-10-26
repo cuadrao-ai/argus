@@ -19,7 +19,7 @@ const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
 export function previewRecordMetadata(row: RecordRow, businessId: string | null): PreviewRecordMetadata | null {
   return businessId === "fixture-space" ? FIXTURE_METADATA[`${row.kind}:${row.id}`] ?? null : null;
 }
-function exactMinor(money: Money): bigint | null {
+export function exactMinor(money: Money): bigint | null {
   const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(money.amount);
   const digits = currencyDigits(money.currency);
   if (!match || !money.currency || (match[3]?.length ?? 0) > digits) return null;

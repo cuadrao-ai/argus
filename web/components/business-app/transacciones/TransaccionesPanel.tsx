@@ -154,7 +154,7 @@ export default function TransaccionesPanel() {
         ) : list.kind === "loading" ? (
           <LoadingRows density={phone ? "amplio" : density} />
         ) : saved ? (
-          localPaging ? <RecordsPagePreview preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
+          localPaging ? <RecordsPagePreview onSortChange={(sort) => setViewPreferences((current) => ({ ...current, sort }))} preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
             : saved.length === 0 || visibleRecords?.length === 0 ? recordsEmptyContent
               : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
         ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (

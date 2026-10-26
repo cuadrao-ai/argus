@@ -29,3 +29,11 @@
   .footer { justify-content:space-between; }
   .pages { width:100%; justify-content:center; }
 }
+
+.sortHeading { display:flex; align-items:center; gap:4px; width:100%; min-height:44px; text-align:inherit; font-weight:500; color:var(--fg); }
+.sortRight { justify-content:flex-end; }
+.sortHeading[aria-disabled=true],.option[aria-disabled=true] { opacity:.55; }
+.sortHeading:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; border-radius:4px; }
+.sortNotice,.sortHelp { font-size:13px; line-height:1.5; color:color-mix(in srgb,var(--fg) 70%,transparent); }
+.sortNotice { margin:0 0 10px; }
+.sortHelp { padding:8px 12px; }

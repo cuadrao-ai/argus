@@ -19,6 +19,7 @@ import { recordsColumnLabelKey, visibleRecordsColumns, recordsMinimumWidth, type
 import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from "./records-row-preview";
 import RecordWorkflowBadge from "./RecordWorkflowBadge";
 import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
+import type { RecordsSort } from "./records-pagination";
 import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
@@ -42,14 +43,14 @@ function Proof({ row }: { row: RecordRow }) {
  * igualar state. A row opens its record in the record tray; a venta has no
  * record screen yet, so its row is plain.
  */
-export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences }: { preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
+export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId }: { sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
   const { panel, openPanel, records: workspace } = useBusiness();
   const [localOrder, setLocalOrder] = useState<"desc" | "asc">("desc");
-  const order = controlledOrder ?? localOrder;
-  const rows = controlledOrder ? records : order === "desc" ? records : [...records].reverse();
+  const order = sort?.direction ?? controlledOrder ?? localOrder;
+  const rows = sort || controlledOrder ? records : order === "desc" ? records : [...records].reverse();
   const toggleOrder = () => { const next = order === "desc" ? "asc" : "desc"; if (onOrderChange) onOrderChange(next); else setLocalOrder(next); };
   const header = preferences ? null : headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const amountSize = preferences ? previewAmountColumnSize(records.map((row) => row.money), locale) : amountColumnSize(records.map((row) => row.money), header, locale);
@@ -84,13 +85,19 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
           <tr>
             {columns.map((column) => {
               const label = preferences ? t(recordsColumnLabelKey(column.key), { currency: "" }).trim() : column.key === "monto" ? t("business.transactions.columns.monto", { currency: header ? currencySymbol(header) : "" }).trim() : t(`business.transactions.columns.${column.key}`);
-              const sortHere = column.key === "fecha";
+              const sortableKey = column.key === "fecha" || column.key === "monto" || column.key === "contraparte" ? column.key : null;
+              const sortHere = sort ? column.key === sort.key : column.key === "fecha";
+              const canSort = sort ? sortableKey !== null : sortHere;
+              const blocked = Boolean(sort && column.key === "monto" && !amountSortAvailable);
               return (
                 <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
-                  {sortHere ? (
-                    <button type="button" onClick={toggleOrder} className="inline-flex min-h-7 items-center gap-1 rounded-full font-medium text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
+                  {canSort ? (
+                    <button type="button" aria-disabled={blocked || undefined} aria-describedby={blocked ? sortNoticeId : undefined} title={blocked ? t("business.transactions.pagination.amount_requires_currency") : undefined} onClick={() => {
+                      if (sort && onSortChange && sortableKey) onSortChange({ key: sortableKey, direction: sort.key === sortableKey ? sort.direction === "desc" ? "asc" : "desc" : sortableKey === "contraparte" ? "asc" : "desc" });
+                      else toggleOrder();
+                    }} className={`${pageStyles.sortHeading} ${column.align === "right" ? pageStyles.sortRight : ""}`}>
                       {label}
-                      {order === "desc" ? <ArrowDown data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowUp data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {sortHere ? order === "desc" ? <ArrowDown data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowUp data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" /> : null}
                     </button>
                   ) : label}
                 </th>

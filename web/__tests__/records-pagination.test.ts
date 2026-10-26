@@ -20,3 +20,38 @@ test("handles zero, last page, size changes and shrinking data without invented 
   const empty = paginateRecords([], INITIAL_PAGINATION); assert.equal(empty.from, 0); assert.equal(empty.to, 0); assert.equal(empty.count, 0);
   assert.deepEqual(pageLinks(8, 20), [1, "gap", 6, 7, 8, 9, 10, "gap", 20]);
 });
+
+
+test("amount ordering uses exact magnitude across all pages and missing values stay last", () => {
+  const item = (id: string, amount: string): RecordRow => ({ ...rows[0], id, money: { amount, currency: "USD" } });
+  const items = [item("small", "-9007199254740993.01"), item("large", "9007199254740993.02"), item("missing", ""), item("zero", "0.00")];
+  const descending = paginateRecords(items, INITIAL_PAGINATION, { key: "monto", direction: "desc" });
+  assert.deepEqual(descending.items.map(({ id }) => id), ["large", "small", "zero", "missing"]);
+  assert.deepEqual(paginateRecords(items, INITIAL_PAGINATION, { key: "monto", direction: "asc" }).items.map(({ id }) => id), ["zero", "small", "large", "missing"]);
+  const many = Array.from({ length: 30 }, (_, i) => item(String(i), `${i}.00`));
+  assert.equal(paginateRecords(many, { ...INITIAL_PAGINATION, page: 2 }, { key: "monto", direction: "desc" }).items[0].id, "4");
+});
+
+test("mixed or unavailable currency blocks amount ordering across the whole result set", () => {
+  const mixed = [...rows.slice(0, 26), { ...rows[0], id: "dop", money: { amount: "1.00", currency: "DOP" } }];
+  const result = paginateRecords(mixed, INITIAL_PAGINATION, { key: "monto", direction: "desc" });
+  assert.equal(result.amountSortAvailable, false); assert.equal(result.amountSortBlocked, true);
+  assert.deepEqual(result.effectiveSort, { key: "fecha", direction: "desc" });
+  assert.deepEqual(result.items, paginateRecords(mixed, INITIAL_PAGINATION).items);
+  assert.equal(paginateRecords([{ ...rows[0], money: { amount: "1", currency: "" } }], INITIAL_PAGINATION).amountSortAvailable, false);
+  assert.equal(paginateRecords([], INITIAL_PAGINATION).amountSortAvailable, false);
+});
+
+test("name sorting is locale-aware, invalid values stay last, and ties use kind and ID", () => {
+  const items = [
+    { ...rows[0], id: "z", counterparty: "Zebra", occurredOn: "" },
+    { ...rows[0], id: "a", counterparty: "Álvaro", occurredOn: "2026-02-30" },
+    { ...rows[0], id: "b", counterparty: null },
+    { ...rows[0], id: "c", counterparty: "Álvaro", kind: "venta" as const },
+  ];
+  assert.deepEqual(paginateRecords(items, INITIAL_PAGINATION, { key: "contraparte", direction: "asc" }, "es-419").items.map(({ id }) => id), ["a", "c", "z", "b"]);
+  assert.deepEqual(paginateRecords(items, INITIAL_PAGINATION, { key: "contraparte", direction: "desc" }, "es-419").items.map(({ id }) => id), ["z", "a", "c", "b"]);
+  const dates = paginateRecords(items, INITIAL_PAGINATION, { key: "fecha", direction: "asc" });
+  assert.deepEqual(dates.items.map(({ id }) => id), ["b", "c", "a", "z"]);
+  assert.deepEqual(paginateRecords([...items].reverse(), INITIAL_PAGINATION, { key: "fecha", direction: "asc" }).items, dates.items);
+});

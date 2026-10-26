@@ -1068,3 +1068,84 @@ for (const width of [1440, 390]) test(`overview filters share chips while counts
     await page.unmount();
   } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });
+
+
+test("local header and phone sorts share preference state, reset pages and restore named views", async () => {
+  const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    const items = Array.from({ length: 30 }, (_, index) => ({ id: `sort-${index}`, merchant: `Sample ${String(index).padStart(2, "0")}`, amount: `${index + 1}.00`, currency: "USD", category_id: null, account_id: null, occurred_on: `2026-10-${String(index % 20 + 1).padStart(2, "0")}`, receipt_id: null }));
+    const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+    await page.settle(() => page.records().length === 25, "sorting rows");
+    const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
+    const count = () => document.querySelector('[data-testid="records-count"]')!.textContent;
+    await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
+    await page.click(document.querySelector('th[data-col="monto"] button'));
+    assert.equal(footer().dataset.page, "1"); assert.equal(page.records()[0].dataset.recordId, "sort-29");
+    assert.equal(document.querySelectorAll('th[aria-sort]').length, 1);
+    assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "descending");
+    assert.equal(document.querySelectorAll('[data-testid="sort-arrow"]').length, 1);
+    const range = count();
+    await page.click(document.querySelector('th[data-col="contraparte"] button'));
+    assert.equal(page.records()[0].dataset.recordId, "sort-0"); assert.equal(count(), range);
+    const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
+    await clickText("Vistas"); await clickText("Guardar vista");
+    const name = document.querySelector<HTMLInputElement>('[role="dialog"] input')!;
+    await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Por nombre"); name.dispatchEvent(new Event("input", { bubbles: true })); });
+    await page.click(document.querySelector('[role="dialog"] button[type="submit"]'));
+    await page.click(document.querySelector('th[data-col="contraparte"] button'));
+    assert.equal(page.records()[0].dataset.recordId, "sort-29");
+    const surface = document.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!;
+    await page.act(async () => { surface.style.setProperty("--records-narrow", "1"); window.dispatchEvent(new Event("resize")); });
+    assert.equal(document.querySelector('th[data-col="contraparte"]'), null);
+    await clickText("Contraparte: Z–A"); await clickText("Monto: menor primero");
+    assert.equal(page.records()[0].dataset.recordId, "sort-0");
+    await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
+    assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "ascending");
+    await clickText("Vistas"); await clickText("Por nombre");
+    assert.equal(document.querySelector('th[data-col="contraparte"]')?.getAttribute("aria-sort"), "ascending");
+    assert.equal(page.records()[0].dataset.recordId, "sort-0"); assert.equal(footer().dataset.page, "1");
+    await page.unmount();
+  } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
+
+test("amount sort explains mixed currency and resumes after a single-currency filter", async () => {
+  const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    const items = [
+      { id: "usd-small", merchant: "Small", amount: "2.00", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-25", receipt_id: null },
+      { id: "usd-large", merchant: "Large", amount: "20.00", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
+      { id: "dop", merchant: "Pesos", amount: "2000.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-24", receipt_id: null },
+    ];
+    const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+    await page.settle(() => page.records().length === 3, "mixed sorting rows");
+    const amountButton = () => document.querySelector('th[data-col="monto"] button')!;
+    assert.equal(amountButton().getAttribute("aria-disabled"), "true");
+    await page.click(amountButton());
+    assert.match(document.querySelector('[data-testid="records-page-preview"] [role="status"]')!.textContent!, /Elige una moneda/);
+    assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "descending");
+    const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
+    const chooseUsd = async () => {
+      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith("Filtros"))!);
+      await page.click(document.querySelector('[data-group="amount"]')); await clickText("USD"); await clickText("Aplicar");
+    };
+    await chooseUsd(); await page.click(amountButton());
+    assert.equal(page.records()[0].dataset.recordId, "usd-large");
+    await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
+    assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), null);
+    assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "descending");
+    assert.match(document.querySelector('[data-testid="records-page-preview"] [role="status"]')!.textContent!, /Ordenados por fecha/);
+    const surface = document.querySelector<HTMLElement>('[data-testid="records-page-preview"] > div')!;
+    await page.act(async () => { surface.style.setProperty("--records-narrow", "1"); window.dispatchEvent(new Event("resize")); });
+    await clickText("Más recientes primero");
+    const amountOption = [...document.querySelectorAll("button")].find((node) => node.textContent === "Monto: mayor primero")!;
+    assert.equal(amountOption.getAttribute("aria-disabled"), "true");
+    await page.click(amountOption);
+    await page.act(async () => { surface.style.setProperty("--records-narrow", "0"); window.dispatchEvent(new Event("resize")); });
+    await chooseUsd();
+    assert.equal(page.records()[0].dataset.recordId, "usd-large");
+    assert.equal(document.querySelector('th[data-col="monto"]')?.getAttribute("aria-sort"), "descending");
+    await page.unmount();
+  } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});
