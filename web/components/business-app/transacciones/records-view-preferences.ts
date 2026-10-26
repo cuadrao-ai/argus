@@ -15,7 +15,8 @@ export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: Record
 export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto" || key === "moneda";
 export const defaultRecordsPreferences = (): RecordsViewPreferences => ({ order: RECORDS_PREVIEW_COLUMNS.map(({ key }) => key), hidden: ["cuenta"], density: "normal", summary: true });
 export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {
-  if (key === "contraparte" || key === "moneda") return value;
+  if (key === "contraparte") return value;
+  if (key === "moneda") return moveRecordsColumn(value, "monto", target - 1);
   const moving: RecordsColumnKey[] = key === "monto" ? ["monto", "moneda"] : [key];
   const order = value.order.filter((item) => !moving.includes(item));
   const destination = key !== "monto" && target < value.order.indexOf(key) && order[target] === "moneda" ? target - 1 : target;

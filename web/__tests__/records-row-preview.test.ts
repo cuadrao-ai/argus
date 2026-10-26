@@ -15,7 +15,6 @@ test("currency stays visible beside amount when columns move or hide", () => {
   const moved = moveRecordsColumn(initial, "monto", initial.order.length - 1);
   const keys = visibleRecordsColumns(moved).map(({ key }) => key);
   assert.equal(keys[keys.indexOf("monto") + 1], "moneda");
-  assert.deepEqual(moveRecordsColumn(initial, "moneda", 1), initial);
   const down = moveRecordsColumn(initial, "monto", initial.order.indexOf("monto") + 1);
   assert.ok(down.order.indexOf("monto") > initial.order.indexOf("monto"), "one arrow moves the linked pair past the next column");
   assert.ok(visibleRecordsColumns(initial).some(({ key }) => key === "notas"));
@@ -45,5 +44,20 @@ test("columns cross the amount/currency pair as a unit and counterparty stays fi
   assert.deepEqual(moveRecordsColumn(initial, "detalle", initial.order.indexOf("detalle") - 1).order, expected);
   assert.deepEqual(moveRecordsColumn(initial, "monto", initial.order.indexOf("monto") + 1).order, expected);
   assert.equal(moveRecordsColumn(initial, "contraparte", initial.order.length - 1), initial);
-  assert.equal(moveRecordsColumn(initial, "moneda", 1), initial);
+});
+
+
+test("currency handle moves the linked pair in both directions and clamps after counterparty", () => {
+  const initial = defaultRecordsPreferences();
+  const position = initial.order.indexOf("moneda");
+  assert.deepEqual(moveRecordsColumn(initial, "moneda", position), initial);
+  for (const target of [position - 1, position + 1, initial.order.length - 1, 0]) {
+    const moved = moveRecordsColumn(initial, "moneda", target);
+    assert.deepEqual(moved.order, moveRecordsColumn(initial, "monto", target - 1).order);
+    assert.equal(moved.order[0], "contraparte");
+    assert.equal(moved.order[moved.order.indexOf("monto") + 1], "moneda");
+    assert.ok(!moved.hidden.includes("moneda"));
+  }
+  assert.equal(moveRecordsColumn(initial, "moneda", position - 1).order.indexOf("monto"), 1);
+  assert.equal(moveRecordsColumn(initial, "moneda", position + 1).order.indexOf("monto"), 3);
 });
