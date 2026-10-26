@@ -60,7 +60,8 @@ describe("Business report controller", () => {
     expect(reads).toBe(1);
     expect(controller.getSnapshot().request.page).toBe(4);
     expect(controller.getSnapshot().load).toBe(before);
-    expect(controller.getSnapshot().request.schema_version === 2 && controller.getSnapshot().request.presentation.density).toBe(56);
+    const updated = controller.getSnapshot().request;
+    expect(updated.schema_version === 2 && updated.presentation.density).toBe(56);
   });
   test("late query and disposed Business responses cannot replace current scope", async () => {
     const first = deferred<ReportAnswer>();
@@ -103,7 +104,8 @@ describe("Business report controller", () => {
     expect(commands.map((value) => [value.key, value.kind === "create" ? value.body.name : ""])).toEqual([["original-key", "Compras"], ["original-key", "Compras"]]);
     const stale = createBusinessReportController(scope, undefined, transport({ mutateView: async () => { throw problem(409, "business_report_view_changed"); } }));
     await stale.mutateView(command); await stale.retryView();
-    expect(stale.getSnapshot().viewOperation.kind === "failed" && stale.getSnapshot().viewOperation.problem.kind).toBe("version");
+    const operation = stale.getSnapshot().viewOperation;
+    expect(operation.kind === "failed" && operation.problem.kind).toBe("version");
   });
   test("revoked access clears existing rows and private views", async () => {
     let forbidden = false;

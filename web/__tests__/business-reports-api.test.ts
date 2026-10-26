@@ -85,6 +85,7 @@ describe("Business report transport", () => {
   });
   test("private view CRUD preserves preset, expected version and replay key, including an empty DELETE", async () => {
     const recipe = reportRequestSchema.parse({ filters: { period: { kind: "this_month", from_date: null, to_date: null } } });
+    if (recipe.schema_version !== 1) throw new Error("Expected v1 recipe");
     const { page, page_size, ...savedRecipe } = recipe;
     expect([page, page_size]).toEqual([1, 25]);
     const view = { id: "00000000-0000-4000-8000-000000000002", name: "Compras", recipe: savedRecipe, version: 2, created_at: "2026-10-26", updated_at: "2026-10-26" };
