@@ -11,8 +11,8 @@ import { summarizeSettlementPreview, type SettlementCurrency } from "./records-r
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-results-preview.module.css";
 
-export default function RecordsResultsSummary({ records, businessId, enabled, kind }: { records: readonly RecordRow[]; businessId: string | null; enabled: boolean; kind: RecordRow["kind"] | "all" }) {
-  if (!enabled || kind === "all") return null;
+export default function RecordsResultsSummary({ records, businessId, kind }: { records: readonly RecordRow[]; businessId: string | null; kind: RecordRow["kind"] | "all" }) {
+  if (kind === "all") return null;
   const summary = summarizeSettlementPreview(records, businessId, kind);
   return <RecordsSummaryCards key={`${businessId}:${kind}:${summary.currencies.map(({ currency }) => currency).join(",")}`} summary={summary} kind={kind} />;
 }

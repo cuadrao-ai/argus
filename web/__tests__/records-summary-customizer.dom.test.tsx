@@ -29,7 +29,7 @@ async function mount(width = 1440, records = [row(false)], language = "es-419", 
   function Harness() {
     const [preferences, setPreferences] = useState(defaultRecordsPreferences);
     const [kind, setKind] = useState<RecordRow["kind"] | "all">("gasto");
-    return <><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><Settings value={preferences} onChange={setPreferences} />{summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary kind={kind} enabled={preferences.summary} records={records} businessId="fixture-space" />}</>;
+    return <><button onClick={() => setKind("all")}>All</button><button onClick={() => setKind("venta")}>Sales</button><button onClick={() => setKind("gasto")}>Expenses</button><Settings value={preferences} onChange={setPreferences} />{summaryOverride ? <RecordsSummaryCards summary={summaryOverride} kind="gasto" /> : <Summary kind={kind} records={records} businessId="fixture-space" />}</>;
   }
   const host = document.createElement("div"); document.body.appendChild(host);
   const root = createRoot(host);
@@ -41,44 +41,36 @@ async function mount(width = 1440, records = [row(false)], language = "es-419", 
   };
   const click = async (element: HTMLElement) => { await act(async () => element.click()); };
   const key = async (element: Element, value: string) => { await act(async () => element.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true }))); };
-  const toggle = async () => { const label = document.querySelector<HTMLElement>("[data-summary-setting]"); assert.ok(label); await click(label); };
   const summary = () => host.querySelector("[data-testid=records-results-summary]");
   const open = async () => {
     await click(host.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!);
-    if (width >= 1024) await click(button(language === "en" ? "Summary" : "Resumen"));
   };
-  return { host, act, button, click, key, toggle, summary, open };
+  return { host, act, button, click, key, summary, open };
 }
 
-test("summary visibility applies as a draft, discards on Escape and can be restored", async () => {
+test("summary follows record kind automatically and settings only change table presentation", async () => {
   const page = await mount();
   assert.match(page.summary()!.textContent ?? "", /Gastos.*24.00.*Pagado.*12.00.*Por pagar.*12.00/);
   assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 3);
-  await page.open(); await page.toggle();
-  assert.ok(page.summary(), "draft does not hide summary");
-  await page.key(document.activeElement!, "Escape");
   await page.open();
-  assert.equal(document.querySelector<HTMLInputElement>("[data-summary-setting] input")!.checked, true);
-  await page.toggle(); await page.click(page.button("Aplicar"));
-  assert.equal(page.summary(), null);
-  await page.open(); await page.click(page.button("Restaurar valores iniciales"));
-  assert.equal(page.summary(), null);
-  await page.click(page.button("Aplicar")); assert.ok(page.summary());
+  assert.deepEqual([...document.querySelectorAll('[role="radiogroup"] > [role="radio"]')].map((tab) => tab.textContent), ["Columnas", "Altura de filas"]);
+  assert.equal(document.querySelector('[data-summary-setting]'), null);
+  await page.click(page.button("Altura de filas"));
+  assert.ok(page.summary());
+  await page.key(document.activeElement!, "Escape");
   await page.click(page.button("All")); assert.equal(page.summary(), null, "Todos never shows a mixed financial total");
   await page.click(page.button("Sales"));
   assert.match(page.summary()!.textContent ?? "", /Facturado.*Cobrado.*Por cobrar/);
   assert.equal(page.summary()!.querySelectorAll(".cuadrao-amount").length, 0, "unknown sales are not zero");
 });
 
-test("phone summary sheet uses one full checkbox row and restores focus", async () => {
+test("phone has automatic summaries without an empty settings control", async () => {
   const page = await mount(390, [row(null)], "en");
-  await page.open();
-  assert.ok(document.querySelector('[role="dialog"]'));
-  assert.equal(document.querySelector("button[draggable]"), null);
-  assert.equal(document.querySelector('[data-column-setting]'), null);
-  await page.toggle(); await page.click(page.button("Apply"));
+  assert.equal(page.host.querySelector('button[aria-haspopup="dialog"]'), null);
+  assert.ok(page.summary());
+  await page.click(page.button("All"));
   assert.equal(page.summary(), null);
-  assert.equal(document.activeElement, page.host.querySelector('button[aria-haspopup="dialog"]'));
+  await page.click(page.button("Expenses")); assert.ok(page.summary());
 });
 
 test("two currencies stay visible in three read-only metric cards", async () => {

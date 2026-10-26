@@ -56,7 +56,7 @@ test("money remains exact, invalid precision is excluded, personal overrides con
 test("summary labels are available at the same EN and ES layout paths", () => {
   for (const locale of [es, en]) {
     assert.ok(locale.business.transactions.layout.results.title);
-    assert.ok(locale.business.transactions.layout.settings.summary);
+    assert.ok(locale.business.transactions.layout.settings.columns);
     assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["collected", "expenses", "invoiced", "paid", "payable", "receivable"]);
     assert.ok(locale.business.transactions.layout.column_state);
     assert.ok(locale.business.transactions.layout.workflow.unknown);

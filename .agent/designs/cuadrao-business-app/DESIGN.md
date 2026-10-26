@@ -1303,4 +1303,10 @@ returns focus to the trigger. Retain the dossier gradient and privacy masking.
 On narrow containers, stack the three cards with labels on the left and amounts
 aligned on the right. Keep unknown settlement values unknown. Exclusions remain
 available through the first card's information control. Existing financial
-eligibility, filters and settings visibility retain their current meaning.
+eligibility and filters retain their current meaning.
+
+Financial summaries appear automatically for the Sales or Expenses record filter.
+The mixed Todos view has no financial summary. There is no summary visibility
+preference or separate Summary settings tab. Desktop table settings contain
+Columns and Row height. Phone retains Filters and Sort without an empty settings
+shortcut. A display preference must never change record eligibility or totals.

@@ -12,9 +12,9 @@ export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = COLUMNS.flatMap
   return [{ ...column, width: width ?? column.width }];
 });
 export const recordsColumnLabelKey = (key: RecordsColumnKey) => key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : key === "comprobante" ? "business.transactions.layout.column_attachment" : `business.transactions.columns.${key}`;
-export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; summary: boolean; sort: RecordsSort };
+export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; sort: RecordsSort };
 export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto" || key === "moneda";
-export const defaultRecordsPreferences = (): RecordsViewPreferences => ({ order: RECORDS_PREVIEW_COLUMNS.map(({ key }) => key), hidden: ["cuenta"], density: "normal", summary: true, sort: { ...DEFAULT_RECORDS_SORT } });
+export const defaultRecordsPreferences = (): RecordsViewPreferences => ({ order: RECORDS_PREVIEW_COLUMNS.map(({ key }) => key), hidden: ["cuenta"], density: "normal", sort: { ...DEFAULT_RECORDS_SORT } });
 export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {
   if (key === "contraparte") return value;
   const order = value.order.filter((item) => item !== key);

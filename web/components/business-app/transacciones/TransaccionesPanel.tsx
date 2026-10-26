@@ -149,7 +149,7 @@ export default function TransaccionesPanel() {
         {!igualar && !localPaging ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
-          : localPaging ? (saved ? <RecordsResultsSummary kind={filter.kind} enabled={viewPreferences.summary} records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
+          : localPaging ? (saved ? <RecordsResultsSummary kind={filter.kind} records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
         {list.kind === "failed" ? (
           <div className={cardClass}>
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />

@@ -2562,8 +2562,6 @@
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personales",
           "restore": "Restaurar valores iniciales",
-          "show": "Mostrar resumen financiero",
-          "show_hint": "Visible al filtrar ventas o gastos. Se oculta en Todos.",
           "title": "Resumen de resultados",
           "unavailable": "{{count}} sin verificación financiera",
           "unconfirmed": "{{count}} sin confirmar",
@@ -2581,8 +2579,7 @@
           "move": "Mover {{name}}",
           "position": "{{name}}, posición {{position}} de {{count}}",
           "required": "Siempre visible",
-          "restore": "Restaurar valores iniciales",
-          "summary": "Resumen"
+          "restore": "Restaurar valores iniciales"
         },
         "type": "Tipo",
         "views": {

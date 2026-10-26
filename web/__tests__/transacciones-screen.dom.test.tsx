@@ -287,10 +287,6 @@ describe("the gate", () => {
       assert.equal(document.querySelector('[role="dialog"]'), null);
       assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "fecha", "moneda"]);
       const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
-      await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-      await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Resumen")!);
-      await page.click(document.querySelector('[data-summary-setting]'));
-      await clickText("Aplicar");
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
       await clickText("Vistas"); await clickText("Guardar vista");
       const name = document.querySelector<HTMLInputElement>('[role="dialog"] input')!;
@@ -302,10 +298,6 @@ describe("the gate", () => {
       assert.equal(document.querySelector<HTMLElement>('[data-testid="transacciones-records"]')!.dataset.density, "compacto"); assert.equal(document.querySelector('th[data-col="categoria"]'), null);
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "monto");
       assert.equal(document.querySelector('[data-testid="records-results-summary"]'), null);
-      await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
-      await clickText("Resumen");
-      assert.equal(document.querySelector<HTMLInputElement>("[data-summary-setting] input")!.checked, false, "saved view restores visibility");
-      await page.key(document.activeElement!, "Escape");
       await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
       assert.equal(footer().dataset.page, "2");
       await page.click(document.querySelector('th[data-col="fecha"] button'));
@@ -358,11 +350,11 @@ describe("the gate", () => {
       await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Gasto")!);
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
       assert.equal(page.records().length, 3);
-      assert.match(summary()!.textContent ?? "", /Importes en 2 monedas/);
+      assert.equal(summary()!.querySelectorAll('[data-summary-part]').length, 3);
       assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 6, "three amounts remain separate by currency");
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-      assert.equal(page.records().length, 1); assert.match(summary()!.textContent ?? "", /US\$ 24.00/);
+      assert.equal(page.records().length, 1); assert.match(summary()!.textContent ?? "", /US\$\s*24.00/);
       await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
       assert.equal(page.records().length, 2);
       assert.equal(summary(), null, "removing the type returns to Todos");

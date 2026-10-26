@@ -2562,8 +2562,6 @@
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personal",
           "restore": "Restore defaults",
-          "show": "Show financial summary",
-          "show_hint": "Visible when filtering sales or expenses. Hidden in All.",
           "title": "Results summary",
           "unavailable": "{{count}} without financial verification",
           "unconfirmed": "{{count}} unconfirmed",
@@ -2581,8 +2579,7 @@
           "move": "Move {{name}}",
           "position": "{{name}}, position {{position}} of {{count}}",
           "required": "Always visible",
-          "restore": "Restore defaults",
-          "summary": "Summary"
+          "restore": "Restore defaults"
         },
         "type": "Type",
         "views": {

@@ -27,7 +27,6 @@
 .exclusions summary::-webkit-details-marker { display:none; }
 .exclusions p { position:absolute; z-index:20; top:100%; left:0; width:min(300px,calc(100vw - 64px)); margin:4px 0 0; padding:12px; border-radius:12px; background:var(--cuadrao-menu-surface); border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); box-shadow:0 8px 24px rgb(0 0 0 / 12%); line-height:1.5; }
 .state { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:color-mix(in srgb,var(--fg) 70%,transparent); }
-.customizer { padding:8px 16px 16px; }
 :global(.dark) .summary { color:#f8eee7; }
 :global(.dark) .metric { background:#303630; border-color:rgb(255 255 255 / 7%); }
 :global(.dark) .metric[data-tone="settled"] { background:#293b32; }
