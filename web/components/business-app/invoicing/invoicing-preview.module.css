@@ -57,7 +57,9 @@
 .issuer { display:flex; align-items:center; gap:10px; }
 .documentHeader h2 { font-family:var(--font-display); font-size:24px; font-weight:500; }
 .documentHeader p { font-size:12px; opacity:.65; margin-top:4px; }
-.documentFacts { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin:24px 0; }
+.documentFacts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.documentFacts > div { padding:24px 12px 24px 0; }
+.documentFacts > dl { padding:24px 0 24px 12px; border-left:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
 .documentFacts p,.documentFacts dt { font-size:12px; opacity:.7; overflow-wrap:anywhere; }
 .documentFacts dd { margin-bottom:8px; }
 .documentItems > div { display:flex; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
