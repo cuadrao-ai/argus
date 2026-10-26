@@ -23,7 +23,8 @@ import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./Reco
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import { defaultRecordsPreferences } from "./records-view-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
-import { emptyPreviewFilters, matchesPreviewAmount } from "./records-filter-preview-model";
+import RecordsLoadingPreview from "./RecordsLoadingPreview";
+import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment } from "./records-filter-preview-model";
 import RecordsResultsSummary from "./RecordsResultsSummary";
 import { matchesPreviewPeriod, matchesPreviewWorkflow, overviewPreviewCounts } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
@@ -81,10 +82,10 @@ export default function TransaccionesPanel() {
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewRevision, setPreviewRevision] = useState(0);
   const localPaging = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review]);
+  const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.attachment]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
   const periodRecords = localPaging ? saved?.filter((row) => matchesPreviewPeriod(row, previewPeriod)) ?? null : saved;
-  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review))) ?? null;
+  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review))) ?? null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
   const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
@@ -135,7 +136,7 @@ export default function TransaccionesPanel() {
           <BusinessPeriodControl period={period} setPeriod={setPeriod} />
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
-        {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview counts={overviewPreviewCounts(periodRecords, chosen?.space_id ?? null)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} /> : null}
+        {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview loading={list.kind === "loading"} counts={overviewPreviewCounts(periodRecords, chosen?.space_id ?? null)} selected={previewFilters.review} onChoose={(review) => setPreviewFilters((current) => ({ ...current, review: current.review.includes(review) ? [] : [review] }))} /> : null}
         {!igualar ? <RecordsToolbar appliedPeriod={previewPeriod} onPeriodChange={setPreviewPeriod} appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{!phone ? <BusinessAddMenu placement="header" /> : null}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
@@ -152,7 +153,7 @@ export default function TransaccionesPanel() {
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />
           </div>
         ) : list.kind === "loading" ? (
-          <LoadingRows density={phone ? "amplio" : density} />
+          igualar ? <LoadingRows density={phone ? "amplio" : density} /> : <RecordsLoadingPreview density={localPaging ? viewPreferences.density : density} preferences={localPaging ? viewPreferences : undefined} />
         ) : saved ? (
           localPaging ? <RecordsPagePreview onSortChange={(sort) => setViewPreferences((current) => ({ ...current, sort }))} preferences={viewPreferences} records={visibleRecords ?? saved} density={viewPreferences.density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
             : saved.length === 0 || visibleRecords?.length === 0 ? recordsEmptyContent

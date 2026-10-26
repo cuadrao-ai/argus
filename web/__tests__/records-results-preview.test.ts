@@ -108,3 +108,11 @@ test("the overview period uses inclusive activity dates and never substitutes mi
   assert.equal(matchesPreviewPeriod({ ...rows[0], occurredOn: "" }, period), false);
   assert.equal(matchesPreviewPeriod({ ...rows[0], occurredOn: "2026-10-32" }, period), false);
 });
+
+test("attachment filters preserve unknown evidence only in the unfiltered view", async () => {
+  const { matchesPreviewAttachment } = await import("@/components/business-app/transacciones/records-filter-preview-model");
+  const evidence = [true, false, null];
+  assert.deepEqual(evidence.filter((value) => matchesPreviewAttachment(value, "any")), [true, false, null]);
+  assert.deepEqual(evidence.filter((value) => matchesPreviewAttachment(value, "with")), [true]);
+  assert.deepEqual(evidence.filter((value) => matchesPreviewAttachment(value, "without")), [false]);
+});

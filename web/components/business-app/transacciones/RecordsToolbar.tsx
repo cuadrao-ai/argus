@@ -14,6 +14,7 @@ import type { RecordsViewPreferences } from "./records-view-preferences";
 import type { RecordKind } from "./transacciones-model";
 import { useTransaccionesWords } from "./transacciones-words";
 import RecordsDatePreview from "./RecordsDatePreview";
+import { useRecordsSearchShortcut } from "./useRecordsSearchShortcut";
 import RecordsFiltersPreview from "./RecordsFiltersPreview";
 import { emptyPreviewFilters, type PreviewFilters } from "./records-filter-preview-model";
 import { RecordsViewsPreview, type SavedRecordsView, type RecordsViewSelection } from "./RecordsViewsPreview";
@@ -79,6 +80,8 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
 export function RecordsToolbar({ filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
   const periodName = usePeriodLabel();
+  const searchInput = useRef<HTMLInputElement>(null);
+  useRecordsSearchShortcut(searchInput);
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const datePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const preview = datePreview && !isBelowDesktop;
@@ -101,7 +104,7 @@ export function RecordsToolbar({ filter, onChange, period, setPeriod, options, o
     {preview ? <RecordsViewsPreview views={views} select={restoreView} save={(name) => setViews((current) => [...current, { name, selection: structuredClone({ record: filter, period: previewPeriod, filters: previewFilters, preferences }) }])} /> : null}
     <div className={styles.toolbarSearch} data-phone={phone}>
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#56635e] dark:text-white/60" aria-hidden="true" />
-      <input type="search" value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
+      <input ref={searchInput} type="search" value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
     </div>
     {datePreview ? <RecordsDatePreview period={period} value={previewPeriod} onChange={(next) => { setPreviewPeriod(next); onPreviewChange?.(); }} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
       {(close) => <PeriodChoices period={period} setPeriod={setPeriod} close={close} />}

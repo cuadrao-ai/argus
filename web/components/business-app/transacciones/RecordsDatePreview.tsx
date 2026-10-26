@@ -29,7 +29,7 @@ export default function RecordsDatePreview({ period, value, onChange }: { period
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState(0);
   const [wide, setWide] = useState(false);
-  const { isBelowTablet: phone } = useResponsiveLayout();
+  const { isBelowDesktop: phone } = useResponsiveLayout();
   useEffect(() => {
     const update = () => setWide(window.innerWidth >= 1600);
     update(); window.addEventListener("resize", update);

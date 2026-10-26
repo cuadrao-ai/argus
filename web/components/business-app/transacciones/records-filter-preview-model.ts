@@ -22,6 +22,10 @@ export const validPreviewAmount = ({ min, max }: PreviewFilters["amount"]): bool
   return valid(min) && valid(max) && (!min || !max || cents(min) <= cents(max));
 };
 
+export function matchesPreviewAttachment(hasProof: boolean | null, filter: PreviewFilters["attachment"]): boolean {
+  return filter === "any" || hasProof === (filter === "with");
+}
+
 export function matchesPreviewAmount(money: Money, filter: PreviewFilters["amount"]): boolean {
   if (!filter.currency) return true;
   if (money.currency !== filter.currency) return false;

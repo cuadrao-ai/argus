@@ -1254,3 +1254,34 @@ One in-memory annotation map is keyed by Business and stable record kind plus ID
 Fecha, Monto and Contraparte are sortable through full header buttons. Only the active column shows an arrow and aria-sort. Fecha starts newest first, Monto starts largest magnitude first, and Contraparte starts locale-aware A–Z. Clicking the active header reverses it. The phone sort picker offers the same six orders and shares the selected sort. Local named views keep that sort with their column and summary preferences.
 
 Sort the whole filtered loaded set before slicing a page. Changing sort returns to page one, without changing result counts or financial totals. Missing or invalid sort values remain last in both directions. Equal values use stable record kind and ID. Monto compares exact original-currency magnitudes and is available only when the entire filtered set has one known currency. With mixed currencies, its header and phone options explain how to choose a currency in Filtros. If filters make an active amount sort unavailable, show an explicit date-order fallback notice and the date arrow. Retain the intended amount order so it resumes when the results again have one currency. No conversion or mixed-currency numeric comparison is implied.
+
+### Registros evidence and payment relationships, 26 October 2026
+
+Keep three intents separate: add a new document through the existing intake; add supporting evidence to an existing activity through Adjunto; and Igualar an imported bank movement with an existing activity. Linking evidence never creates another purchase, changes the amount or marks the activity paid. A cash purchase can remain valid without a bank movement. Por revisar does not make every unmatched document incomplete.
+
+The approved evidence design allows several attachments per activity. Add appends; it never replaces an existing attachment. Preserve the original file and its Business. A document already linked elsewhere needs an explicit conflict explanation; never move it automatically. No unlink action is available until its contract, permissions and any payment effects are defined. Existing evidence stays linked when a download is temporarily unavailable.
+
+Con documento means linked evidence only, not verified, approved, fiscally accepted or paid. Sin documento and Sin movimiento vinculado are separate conditions. The local attachment filter reads only the loaded record's known evidence state: Con documento includes true, Sin documento includes false, and neither includes unknown. A selected local File is a preview that disappears on refresh, not a durable link, and must say so in the editor and its saved local presentation. It never changes that filter state or fiscal completeness.
+
+Reuse of an already received document is a backend-dependent design path. Keep its selector unavailable until a complete authorized candidate list and link eligibility are supplied; the current inbox omits confirmed and dismissed documents. Device selection does not bypass that missing link contract or start a second ingestion flow. Editing follows the existing prepare capability; read-only access offers only authorized reads. Matching remains behind its existing default-off gate and needs the shared partial-payment contract before release. Future checkpoint notes and acceptance cases live in the Registros report; this rule records design intent, not a backend handoff or activation.
+
+
+### Registros attachment form and loading alignment, 26 October 2026
+
+The annotation footer follows the collaborator invitation form: one full-width
+primary action with the item radius (8px), separated by one hairline. The X closes;
+no duplicate Cancel button. This full-width form action is an exception to the pill
+shape used for toolbar and file-picker buttons. On phone the sheet owns the footer
+divider and safe-area padding, without a second inner divider.
+
+Attachment selection uses the receipt intake's dashed inset, file-upload icon,
+format/size guidance, pill file-picker action, and desktop drag/paste affordances.
+Phone wording offers file selection. Supporting evidence selection must not start
+new-document intake or claim a durable upload/link while it remains local-only.
+
+Registros loading retains its overview and toolbar. Pending rows follow the same
+visible columns/order, pinned identity, density, container breakpoint, phone
+identity/value/state layout and pagination footprint as loaded records. Use the
+shared delayed shimmer and reduced-motion behavior, not generic list placeholders.
+Command-K focuses the mounted Records search and must not steal focus from an open
+overlay; Home retains its existing global search.
