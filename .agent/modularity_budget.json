@@ -122,6 +122,7 @@
     "web/__tests__/chat-message-hydration.test.ts": 1390,
     "web/__tests__/conversation-activity-rail.test.ts": 1178,
     "web/__tests__/guest-browser-harness.test.ts": 1184,
+    "web/__tests__/transacciones-screen.dom.test.tsx": 1143,
     "web/__tests__/use-conversation-activity.test.tsx": 1059,
     "web/components/chat/ChatInput.tsx": 1107,
     "web/components/chat/ChatInterface.tsx": 2523,
