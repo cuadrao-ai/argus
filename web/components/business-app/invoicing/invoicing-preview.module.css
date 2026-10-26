@@ -222,7 +222,6 @@
 .editorReview { display: grid; }
 .editorReviewRow { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; padding: 16px 0; text-align: left; border-bottom: 1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
 .editorReviewRow small { display: block; margin-top: 4px; color: color-mix(in srgb,var(--fg) 65%,transparent); }
-.document[data-editing="true"], .document [data-editing="true"] { outline: 1px solid var(--cuadrao-green); outline-offset: 8px; border-radius: 8px; transition: outline-color 180ms ease; }
 @media (min-width: 1024px) {
   .editor[data-expanded="false"] .editorSwitch { display: block; margin-bottom: 21px; }
   .editor[data-expanded="false"][data-view="preview"] .formCard { display: none; }
@@ -232,7 +231,6 @@
   .editorActions { align-items: stretch; flex-wrap: wrap; }
   .editorActions > div { margin-left: auto; }
 }
-@media print { .document[data-editing], .document [data-editing] { outline: none; } }
 
 .itemAdjustment { grid-column:1 / -1; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:16px; }
 .itemTotal { display:grid; justify-items:end; gap:8px; padding-top:4px; font-variant-numeric:tabular-nums; }
