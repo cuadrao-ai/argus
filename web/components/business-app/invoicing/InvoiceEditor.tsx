@@ -51,6 +51,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
     setAddingCustomer(false);
   };
   const next = () => {
+    if (step === "terms" && Object.keys(errors).some(key => stepForField(key) === "customer")) { showErrors("customer"); return; }
     if (Object.keys(errors).some(key => stepForField(key) === step)) { showErrors(step); return; }
     if (step === "customer") saveNewCustomer();
     goTo(STEPS[Math.min(STEPS.indexOf(step) + 1, STEPS.length - 1)]);
@@ -96,12 +97,14 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         {step === "customer" ? <>
         <InvoiceCustomerField customers={customers} selectedId={draft.customer.id} selectedName={draft.customer.name} error={errorOf("id") || errorOf("name")} onNameChange={name => customer("name", name)} onBlur={() => checks.blur(draft.customer.id ? "name" : "id")} onChoose={item => { setDraft(current => ({ ...current, customer: customerSnapshot(item) })); setAddingCustomer(false); }} onAdd={name => { setDraft(current => ({ ...current, customer: { id: crypto.randomUUID(), name, email: "", taxId: "", address: "" } })); setAddingCustomer(true); requestAnimationFrame(() => document.getElementById("invoice-customer-search")?.focus()); }} />
         {draft.customer.id ? <>
-        <ToolbarPicker label={word("document_type")} value={word(`document_${draft.documentType}`)}>{close => (["E32", "E31"] as const).map(documentType => <button type="button" key={documentType} className={styles.option} onClick={() => { setDraft(current => ({ ...current, documentType })); close(); }}>{word(`document_${documentType}`)}</button>)}</ToolbarPicker>
         {!addingCustomer ? <p className={styles.muted}>{word("customers_invoice_snapshot")}</p> : null}
         <div className={styles.fields}>{(["email", "taxId", "address"] as const).map(key => <FormField key={key} {...feedback(key)} reserveMessages={[word(`error_${key === "email" ? "email" : key === "taxId" ? "tax_id" : "address_length"}`), ...(key === "taxId" ? [word("error_tax_id_length")] : [])]} label={word(key === "taxId" && draft.documentType === "E31" ? "customer_taxId_required" : `customer_${key}`)} value={draft.customer[key]} type={key === "email" ? "email" : "text"} required={key === "taxId" && draft.documentType === "E31"} maxLength={CUSTOMER_FIELD_LIMITS[key]} autoComplete="off" placeholder={word(`placeholder_${key}`)} onBlur={() => { checks.blur(key); if (key === "taxId") customer(key, formatCustomerTaxId(draft.customer[key])); }} onChange={event => customer(key, event.target.value)} />)}</div>
         </> : null}
         </> : null}
         {step === "terms" ? <>
+        <div className={fieldLabelClass}><span>{word("document_type")}</span>
+        <ToolbarPicker label={word("document_type")} value={word(`document_${draft.documentType}`)}>{close => (["E32", "E31"] as const).map(documentType => <button type="button" key={documentType} className={styles.option} onClick={() => { setDraft(current => ({ ...current, documentType })); close(); }}>{word(`document_${documentType}`)}</button>)}</ToolbarPicker>
+        </div>
         <div className={styles.fields}>{(["issuedOn", "dueOn"] as const).map(key => <InvoiceDateField key={key} id={`invoice-${key}`} label={word(key === "issuedOn" ? "issue_date" : "due_date")} value={draft[key]} error={errorOf(key)} onBlur={() => checks.blur(key)} onChange={value => field(key, value)} />)}</div>
         {(["terms", "instructions"] as const).map(key => <label className={fieldLabelClass} key={key}>{word(key)}<textarea rows={2} className={fieldClass} maxLength={500} value={draft[key]} placeholder={word(`placeholder_${key}`)} onChange={event => field(key, event.target.value)} /><span className={styles.counter}>{draft[key].length}/500</span></label>)}
         </> : null}

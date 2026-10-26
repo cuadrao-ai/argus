@@ -354,3 +354,32 @@ test("saved invoice customer fields validate without truncation and preview keep
     assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Items");
   } finally { await page.unmount(); }
 });
+
+
+test("document type belongs to terms and fiscal credit routes back to missing customer tax ID", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("M-001");
+    await page.click("Edit draft");
+    assert.equal(document.querySelector('button[aria-label^="Document type:"]'), null);
+    await page.click("Next");
+    await page.fill('input[id$="-description"]', "Service");
+    await page.click("Next");
+    assert.ok(document.querySelector('button[aria-label^="Document type:"]'));
+    assert.ok(document.querySelector('[data-testid="invoice-editor"] form')?.textContent?.includes("Document type"));
+    await page.click("E32 · Consumer invoice");
+    await page.click("E31 · Fiscal credit");
+    await page.click("Next");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Who is this invoice for?");
+    assert.equal(document.querySelector("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
+    assert.equal(document.activeElement?.id, "invoice-taxId");
+    assert.equal(document.querySelector('button[aria-label^="Document type:"]'), null);
+    await page.fill("#invoice-taxId", "123456789");
+    await page.click("Next");
+    await page.click("Next");
+    assert.ok(document.querySelector('button[aria-label="Document type: E31 · Fiscal credit"]'));
+    await page.click("Next");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Review");
+  } finally { await page.unmount(); }
+});
