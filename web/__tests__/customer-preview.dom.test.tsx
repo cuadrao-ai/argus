@@ -347,7 +347,7 @@ test("saved invoice customer fields validate without truncation and preview keep
     await page.fill("#invoice-email", "customer@example.test");
     await page.fill("#invoice-address", "Calle de muestra 4");
     assert.equal(document.querySelector('[data-testid="invoice-customer-document"] [data-editing="true"]'), section);
-    assert.deepEqual([...section.children].map(node => node.textContent), ["Bill to", "Taller Brisa", "RNC; 1-23-45678-9", "customer@example.test", "Calle de muestra 4"]);
+    assert.deepEqual([...section.children].map(node => node.textContent), ["Bill to", "Taller Brisa", "RNC: 1-23-45678-9", "customer@example.test", "Calle de muestra 4"]);
     await page.fill("#invoice-address", "");
     assert.ok([...section.children].every(node => node.textContent?.trim()));
     await page.click("Next");
