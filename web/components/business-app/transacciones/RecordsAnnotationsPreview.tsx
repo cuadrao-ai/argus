@@ -19,6 +19,8 @@ import { addLocalEvidence, type LocalEvidence } from "./records-evidence-preview
 import { formatRecordActivityDate, recordRowKey } from "./records-row-preview";
 import { RecordEvidenceContext } from "./RecordGlanceContext";
 import type { RecordRow } from "./transacciones-model";
+import { previewRecordMetadata } from "./records-results-preview";
+import { matchesRecordSearch } from "./records-search-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import cells from "./transacciones-cells.module.css";
 import styles from "./records-annotations-preview.module.css";
@@ -37,6 +39,26 @@ type AnnotationContextValue = {
 const EMPTY_ANNOTATION: RecordAnnotation = { note: "", attachments: [] };
 const AnnotationContext = createContext<AnnotationContextValue | null>(null);
 const annotationKey = (scope: string, row: RecordRow) => JSON.stringify([scope, recordRowKey(row)]);
+
+export function useRecordPreviewSearch() {
+  const annotations = useContext(AnnotationContext);
+  const { chosen, records } = useBusiness();
+  return (row: RecordRow, query: string): boolean => {
+    if (!annotations?.canRead) return !query.trim();
+    const current = annotations.read(row);
+    const receiptId = row.opens?.kind === "receipt" ? row.opens.receiptId : null;
+    const linked = records.inbox?.filter((receipt) => receipt.id === receiptId || receipt.expense_id === row.id) ?? [];
+    return matchesRecordSearch(query, {
+      name: row.counterparty,
+      note: current.note,
+      documents: [
+        ...(previewRecordMetadata(row, chosen?.space_id ?? null)?.documentNumbers ?? []),
+        ...linked.flatMap((receipt) => receipt.filename ? [receipt.filename] : []),
+        ...current.attachments.map(({ file }) => file.name),
+      ],
+    });
+  };
+}
 
 export function RecordsAnnotationsPreview({ children }: { children: ReactNode }) {
   const { chosen, records } = useBusiness();
@@ -109,7 +131,8 @@ type EditorProps = { selected: EditorSelection; initial: RecordAnnotation; limit
 type FileSelectionState = { kind: "idle" } | { kind: "preparing" } | { kind: "error"; message: string } | { kind: "duplicates"; count: number };
 function AnnotationEditor({ selected, initial, limits, canEdit, close, save }: EditorProps) {
   const { t, locale } = useTransaccionesWords();
-  const { openPanel } = useBusiness();
+  const { openPanel, chosen } = useBusiness();
+  const documentNumbers = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? previewRecordMetadata(selected.row, chosen?.space_id ?? null)?.documentNumbers ?? [] : [];
   const openEvidence = useContext(RecordEvidenceContext);
   const { isBelowDesktop: phone } = useResponsiveLayout();
   const word = (key: string) => t(`business.transactions.layout.annotations.${key}`);
@@ -150,6 +173,7 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save }: E
     {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={NOTE_LIMIT} value={note} readOnly={!canEdit} aria-describedby={`${fieldId}-count`} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} /><div id={`${fieldId}-count`} className="mt-1 text-right text-[13px] tabular-nums text-[#56635e] dark:text-white/55">{note.length}/{NOTE_LIMIT}</div></> : <>
       <section aria-label={word("linked_evidence")} className={styles.linkedEvidence}>
         <h3 className={styles.label}>{word("linked_evidence")}</h3>
+        {documentNumbers.length ? <p className={styles.hint}>{documentNumbers.join(" · ")}</p> : null}
         {selected.row.hasProof ? selected.row.opens ? <button type="button" className={quietButtonClass} onClick={openOriginal}><FileText size={16} aria-hidden="true" />{word("open_linked_attachment")}</button> : <p className={styles.hint}>{word("linked_unavailable")}</p> : <p className={styles.hint}>{word(selected.row.hasProof === null ? "linked_unknown" : "no_linked_attachment")}</p>}
         {canEdit ? <p className={styles.hint}>{word("received_unavailable")}</p> : null}
       </section>

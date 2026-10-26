@@ -26,6 +26,7 @@ import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsLoadingPreview from "./RecordsLoadingPreview";
 import { emptyPreviewFilters, matchesPreviewAmount, matchesPreviewAttachment } from "./records-filter-preview-model";
 import RecordsResultsSummary from "./RecordsResultsSummary";
+import { useRecordPreviewSearch } from "./RecordsAnnotationsPreview";
 import { matchesPreviewPeriod, matchesPreviewWorkflow, overviewPreviewCounts } from "./records-results-preview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
@@ -84,8 +85,9 @@ export default function TransaccionesPanel() {
   const localPaging = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const pageResetKey = JSON.stringify([filter, period, previewPeriod, previewRevision, previewFilters.amount, previewFilters.review, previewFilters.attachment]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
+  const matchesPreviewSearch = useRecordPreviewSearch();
   const periodRecords = localPaging ? saved?.filter((row) => matchesPreviewPeriod(row, previewPeriod)) ?? null : saved;
-  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review))) ?? null;
+  const visibleRecords = periodRecords?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (localPaging ? matchesPreviewSearch(row, query) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAttachment(row.hasProof, previewFilters.attachment) && matchesPreviewAmount(row.money, previewFilters.amount) && matchesPreviewWorkflow(row, chosen?.space_id ?? null, previewFilters.review))) ?? null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
   const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;

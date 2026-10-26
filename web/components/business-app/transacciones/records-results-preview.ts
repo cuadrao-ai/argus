@@ -5,12 +5,12 @@ import type { Money, RecordRow } from "./transacciones-model";
 
 export type PreviewWorkflow = "review" | "approval" | "ready";
 export type PreviewFinancialEligibility = "confirmed" | "unconfirmed" | "personal";
-export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility };
+export type PreviewRecordMetadata = { workflow: PreviewWorkflow; financialEligibility: PreviewFinancialEligibility; documentNumbers?: readonly string[] };
 
 // This is a local illustration for the synthetic own Business, never a source adapter.
 const FIXTURE_METADATA: Readonly<Record<string, PreviewRecordMetadata>> = {
   "gasto:exp-gas": { workflow: "review", financialEligibility: "confirmed" },
-  "gasto:exp-hosting": { workflow: "ready", financialEligibility: "confirmed" },
+  "gasto:exp-hosting": { workflow: "ready", financialEligibility: "confirmed", documentNumbers: ["B0100000042"] },
   "gasto:exp-lunch": { workflow: "approval", financialEligibility: "personal" },
   "venta:exp-gas": { workflow: "ready", financialEligibility: "confirmed" },
   "venta:exp-hosting": { workflow: "approval", financialEligibility: "unconfirmed" },

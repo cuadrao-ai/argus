@@ -23,7 +23,7 @@ async function mount(width = 1440, readOnly = false) {
   const i18n = (await import("i18next")).default.createInstance();
   await i18n.init({ lng: "es-419", resources: { "es-419": { translation: (await import("@/public/locales/es-419/common.json")).default } }, interpolation: { escapeValue: false } });
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
-  const { RecordsAnnotationsPreview } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
+  const { RecordsAnnotationsPreview, useRecordPreviewSearch } = await import("@/components/business-app/transacciones/RecordsAnnotationsPreview");
   const { RecordsTable, RecordsNarrowList } = await import("@/components/business-app/transacciones/TransaccionesRecords");
   const { defaultRecordsPreferences } = await import("@/components/business-app/transacciones/records-view-preferences");
   const calls = { opens: 0, network: 0, urls: 0, revoked: [] as string[] };
@@ -33,6 +33,10 @@ async function mount(width = 1440, readOnly = false) {
   globalThis.fetch = (() => { calls.network++; throw new Error("network_must_not_run"); }) as typeof fetch;
   URL.createObjectURL = () => `blob:fixture-${++calls.urls}`;
   URL.revokeObjectURL = (url) => { calls.revoked.push(url); };
+  function SearchProbe() {
+    const matches = useRecordPreviewSearch();
+    return <output data-testid="note-search">{String(matches(record("gasto"), "Keep this note"))}</output>;
+  }
   function Harness() {
     const [scope, setScope] = useState("fixture-space");
     const [prepare, setPrepare] = useState(!readOnly);
@@ -41,7 +45,7 @@ async function mount(width = 1440, readOnly = false) {
     const [narrow, setNarrow] = useState(width < 1024);
     const value = { chosen: { space_id: scope, capabilities: read ? prepare ? ["read", "prepare"] : ["read"] : [] }, records: { workspace: { receipt_limits: { max_bytes: 100, media_types: ["application/pdf", "image/png"] } } }, panel: { kind: "transactions" }, openPanel: () => { calls.opens++; } } as unknown as BusinessContextValue;
     const records = filtered ? [record("venta")] : [record("gasto"), record("venta"), record("gasto", "unknown", null), record("gasto", "original", true), { ...record("gasto", "unavailable", true), opens: null }];
-    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={defaultRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
+    return <BusinessContext.Provider value={value}><RecordsAnnotationsPreview><SearchProbe /><button onClick={() => setScope(scope === "fixture-space" ? "other" : "fixture-space")}>Business</button><button onClick={() => setPrepare(!prepare)}>Permission</button><button onClick={() => setRead(!read)}>Read</button><button onClick={() => setFiltered(!filtered)}>Filter</button><button onClick={() => setNarrow(!narrow)}>Viewport</button>{narrow ? <RecordsNarrowList records={records} rowRef={() => {}} /> : <RecordsTable records={records} preferences={defaultRecordsPreferences()} density="normal" rowRef={() => {}} />}</RecordsAnnotationsPreview></BusinessContext.Provider>;
   }
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   await act(async () => root.render(<I18nextProvider i18n={i18n}><Harness /></I18nextProvider>));
@@ -66,14 +70,18 @@ test("notes save explicitly, cancel discards, and Business/kind/filter/viewport 
   await page.click(page.note()); assert.equal(document.querySelector("textarea")!.value, "");
   await page.type("  Keep this note  "); await page.click(page.button("Guardar"));
   assert.equal(page.note().textContent, "Keep this note"); assert.notEqual(page.note("venta").textContent, "Keep this note");
+  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "true");
   await page.click(page.button("Filter")); await page.click(page.button("Filter")); assert.equal(page.note().textContent, "Keep this note");
   await page.click(page.button("Business")); assert.notEqual(page.note().textContent, "Keep this note");
+  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "false");
   await page.click(page.button("Business")); assert.equal(page.note().textContent, "Keep this note");
   await page.click(page.button("Viewport")); assert.equal(page.host.querySelector("button button"), null);
   await page.click(page.note());
   assert.equal(document.querySelector("textarea")!.value, "Keep this note");
   await page.type("Discard on close"); await page.key(document.querySelector("textarea")!, "Escape");
   assert.equal(document.querySelector('[role="dialog"]'), null); assert.equal(page.calls.opens, 0); assert.equal(page.calls.network, 0);
+  await page.click(page.note()); await page.type("A replacement"); await page.click(page.button("Guardar"));
+  assert.equal(page.host.querySelector('[data-testid="note-search"]')!.textContent, "false");
 });
 
 test("note counter follows the draft and oversized paste saves only the 500-character limit", async () => {
