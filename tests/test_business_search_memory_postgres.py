@@ -118,12 +118,14 @@ def test_a_members_memory_goes_with_the_member(world) -> None:  # noqa: ANN001, 
     assert _call(world, "POST", "/recents", bob, {"q": "taller"}).status_code == 201
     opened = _call(world, "POST", "/opens", bob, {"kind": "expenses", "id": str(uuid4())})
     assert opened.status_code == 204, opened.text
-    with Connection.connect(shared.DSN) as db, db.transaction(force_rollback=True):
-        db.execute(
-            "delete from public.business_client_grants where grantee_id=%s",
-            (world.bob.id,),
-        )
-        db.execute("delete from auth.users where id=%s", (world.bob.id,))
+    from psycopg_pool import ConnectionPool
+
+    from tests.test_business_account_deletion_postgres import command
+    from tests.test_business_custody_graph_postgres import FakeObjects
+
+    with ConnectionPool(shared.DSN, min_size=0, max_size=4) as pool:
+        assert command({"pool": pool, "objects": FakeObjects()}).delete_account(user_id=world.bob.id).status == "done"
+    with Connection.connect(shared.DSN) as db:
         for table in TABLES:
             count = db.execute(
                 f"select count(*) from public.{table} where user_id=%s", (world.bob.id,)
@@ -134,7 +136,7 @@ def test_a_members_memory_goes_with_the_member(world) -> None:  # noqa: ANN001, 
 def test_a_read_only_grant_keeps_its_own_memory(world) -> None:  # noqa: ANN001, F811
     with Connection.connect(shared.DSN) as db:
         db.execute(
-            "update public.business_client_grants set capabilities=array['read']"
+            "update public.business_client_grants set business_role='viewer'"
             " where id=%s",
             (world.grant,),
         )

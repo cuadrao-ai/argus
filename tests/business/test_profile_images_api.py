@@ -49,16 +49,24 @@ def alice(biz: TestClient, identities) -> Owner:
 
 
 @pytest.fixture
-def member(alice: Owner, bob: Owner) -> dict[str, str]:  # noqa: F811
-    """Bob holds a read and prepare grant on Alice's Business; the header he sends."""
+def member(alice: Owner, bob: Owner, request: pytest.FixtureRequest) -> dict[str, str]:  # noqa: F811
 
     store = business_access()
     assert store is not None
     store.confirm(bob.person, "bob@example.test")
-    given = alice.post("/access", {"email": "bob@example.test"})
+    given = alice.post(
+        "/access",
+        {"email": "bob@example.test", "role": getattr(request, "param", "editor")},
+    )
     assert given.status_code == 201, given.text
-    grant = next(g for g in given.json()["grants"] if not g["owner"])
-    return {"X-Business-Grant": grant["id"]}
+    assert all(g["owner"] for g in given.json()["grants"])
+    invite = given.json()["invites"][0]
+    accepted = bob.post(
+        f"/invitations/{invite['id']}/accept",
+        {"space_id": alice.scope().owner.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
+    return {"X-Business-Grant": accepted.json()["grant_id"]}
 
 
 # --------------------------------------------------------------------------- #
@@ -136,10 +144,7 @@ def test_another_person_sees_nothing_and_changes_only_their_own(
 def test_a_member_photo_reaches_the_owner_only_once_the_member_opened_the_grant(
     biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
 ) -> None:
-    """An owner can grant any confirmed email without the person's say, so the
-    reply shows a stranger's name only; the photo follows the person's own
-    access_seen receipt. The access list is the one response that shows
-    members to another person."""
+    """Acceptance grants access; the member photo still requires access_seen."""
 
     bob_url = _put(biz, PHOTO, png(), "image/png", **bob.auth).json()["photo_url"]
     grants = alice.get("/access").json()["grants"]
@@ -186,7 +191,8 @@ def test_the_owner_uploads_replaces_and_removes_the_logo(
     assert biz.delete(LOGO, headers=alice.auth).status_code == 204
 
 
-def test_a_member_sees_the_logo_and_can_replace_it_with_editar(
+@pytest.mark.parametrize("member", ["admin"], indirect=True)
+def test_an_admin_sees_the_logo_and_can_replace_it(
     biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
@@ -204,15 +210,11 @@ def test_a_member_sees_the_logo_and_can_replace_it_with_editar(
     assert bob.get("/space").json()["logo_url"] is None
 
 
-def test_a_member_without_editar_sees_the_logo_but_cannot_change_it(
+@pytest.mark.parametrize("member", ["editor", "viewer"], indirect=True)
+def test_editor_and_viewer_see_the_logo_but_cannot_change_it(
     biz: TestClient, alice: Owner, bob: Owner, member: dict[str, str]  # noqa: F811
 ) -> None:
     url = _put(biz, LOGO, png(), "image/png", **alice.auth).json()["logo_url"]
-    store = business_access()
-    assert store is not None
-    # No product path makes a read-only grant yet; the rule is pinned by hand.
-    grant = next(g for g in store._grants if g["id"] == member["X-Business-Grant"])
-    grant["capabilities"] = ("read",)
     seen = biz.get(BASE + "/workspace", headers={**bob.auth, **member})
     assert seen.status_code == 200 and seen.json()["logo_url"] == url
     refused = _put(biz, LOGO, webp(), "image/webp", **bob.auth, **member)

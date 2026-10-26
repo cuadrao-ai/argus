@@ -193,7 +193,7 @@ def test_bound_target_keeps_cross_client_not_found(actions, users):
         other_space = space(db, users["other"])
         db.execute(
             "insert into public.business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,ARRAY['read','prepare'])",
+            " values (%s,%s,%s,ARRAY['read','prepare','approve'])",
             (other_space, users["other"], users["other"]),
         )
     other = service.resolve_actor(

@@ -7,6 +7,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 from argus.domain.business.access import PostgresAccessStore
+from argus.domain.business.memberships import MembershipError
 from argus.domain.business.spaces import PostgresSpaceStore
 from psycopg_pool import ConnectionPool
 
@@ -68,7 +69,11 @@ def test_real_pending_renewal_is_owner_only_and_expiry_grants_nothing(users):
             ).fetchone()[0]
         _, listed = access.give(space.id, users["owner"], email)
         invite = listed.invites[0]
-        assert invite.expires_at - invite.created_at == timedelta(days=7)
+        assert (
+            timedelta(days=7)
+            <= invite.expires_at - invite.created_at
+            < timedelta(days=7, seconds=1)
+        )
         with pool.connection() as db:
             db.execute(
                 "update auth.users set email_confirmed_at=now() where id=%s",
@@ -81,13 +86,17 @@ def test_real_pending_renewal_is_owner_only_and_expiry_grants_nothing(users):
         assert access.accept_invites(users["other"]) == 0
         assert access.list(space.id, users["owner"]).invites[0].state == "expired"
         assert access.spaces_for(users["other"]) == ()
-        assert access.resend(space.id, users["other"], invite.id) is None
+        with pytest.raises(MembershipError):
+            access.resend(space.id, users["other"], invite.id)
         renewed = access.resend(space.id, users["owner"], invite.id)
         assert renewed is not None
-        assert renewed.invites[0].expires_at - renewed.invites[0].created_at == timedelta(
-            days=7
+        assert renewed.invites[0].id != invite.id
+        assert (
+            timedelta(days=7)
+            <= renewed.invites[0].expires_at - renewed.invites[0].created_at
+            < timedelta(days=7, seconds=1)
         )
-        assert access.accept_invites(users["other"]) == 1
+        access.accept_invite(users["other"], space.id, renewed.invites[0].id)
         assert access.accept_invites(users["other"]) == 0
         assert access.resend(space.id, users["owner"], invite.id) is None
 
@@ -121,11 +130,14 @@ def test_expiry_is_rechecked_after_waiting_for_access_lock(users, monkeypatch):
         with ThreadPoolExecutor(max_workers=1) as executor:
             with pool.connection() as db, db.transaction():
                 original_lock(db, space.id)
-                future = executor.submit(access.accept_invites, users["other"])
+                future = executor.submit(
+                    access.accept_invite, users["other"], space.id, listed.invites[0].id
+                )
                 assert waiting.wait(3)
                 db.execute(
                     "update public.business_access_invites set created_at=now()-interval '8 days', expires_at=clock_timestamp()-interval '1 second' where id=%s",
                     (listed.invites[0].id,),
                 )
-            assert future.result(timeout=3) == 0
+            with pytest.raises(MembershipError, match="business_invite_not_available"):
+                future.result(timeout=3)
         assert access.spaces_for(users["other"]) == ()

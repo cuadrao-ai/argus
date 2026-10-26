@@ -256,8 +256,18 @@ def address_client(rig, actions, monkeypatch):
         return await call_next(request)
 
     app.state.financial_accounts_pool = rig["pool"]
+    with rig["pool"].connection() as db:
+        owner_grant = db.execute(
+            "select id::text from public.business_client_grants where space_id=%s and grantee_id=%s and revoked_at is null",
+            (rig["route"].space_id, rig["users"]["owner"]),
+        ).fetchone()[0]
     context = BusinessContext(
-        scope=BusinessScope(rig["users"]["owner"], BusinessSpace(rig["route"].space_id)),
+        scope=BusinessScope(
+            rig["users"]["owner"],
+            BusinessSpace(rig["route"].space_id),
+            actor_id=rig["users"]["owner"],
+            grant_id=owner_grant,
+        ),
         service=None,
     )
     app.dependency_overrides[require_business_document_write] = lambda: context

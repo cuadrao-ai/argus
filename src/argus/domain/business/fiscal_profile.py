@@ -102,16 +102,13 @@ def read_profile(authority, context):
             "name": row["name"],
             "tax_id": _tax_id(row),
             "can_edit": context.actor.actor_kind == "member"
-            and str(context.actor.actor_id) == str(context.owner_id)
-            and "approve" in tx.authorization.capabilities,
+            and "manage" in tx.authorization.permissions,
         }
 
 
 def set_profile(authority, context, command: FiscalProfileChange, key: str):
-    with transaction(authority, context, "approve") as tx:
-        if context.actor.actor_kind != "member" or str(context.actor.actor_id) != str(
-            context.owner_id
-        ):
+    with transaction(authority, context, "manage") as tx:
+        if context.actor.actor_kind != "member":
             raise ActionError("permission_denied", "business_owner_required")
         saved = plans.receipt(tx, key, command)
         if saved is not None:

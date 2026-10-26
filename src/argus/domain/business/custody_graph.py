@@ -69,7 +69,13 @@ FAMILIES = {
     "business_document_settlements": "space_id=%(s)s",
 }
 
-ACTOR_KEYS = {"actor_id", "issuer_id", "consenting_actor_id", "revoked_by"}
+ACTOR_KEYS = {
+    "recipient_id",
+    "actor_id",
+    "issuer_id",
+    "consenting_actor_id",
+    "revoked_by",
+}
 CUSTODY_KEYS = {
     "user_id",
     "owner_id",
@@ -112,7 +118,7 @@ def retained_dependencies(connection: Any, departing_user_id: str) -> tuple[str,
     for table, predicate in (
         ("spaces", "kind='business' and (created_by=%s or current_owner_id=%s)"),
         ("business_client_grants", "issuer_id=%s or grantee_id=%s"),
-        ("business_access_invites", "issuer_id=%s"),
+        ("business_access_invites", "issuer_id=%s or recipient_id=%s"),
         ("business_turns", "actor_id=%s"),
         ("business_action_receipts", "actor_id=%s"),
         ("business_receipt_reading_consents", "owner_id=%s"),
@@ -240,6 +246,14 @@ class PostgresBusinessCustodyGraph:
                 (reservation.custodian_id,),
             ).fetchone():
                 raise CustodyGraphError("business_custody_placeholder_invalid")
+            db.execute(
+                "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null",
+                (space_id, departing_user_id, departing_user_id),
+            )
+            db.execute(
+                "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
+                (space_id, departing_user_id),
+            )
             scope = self._scope(db, space_id, departing_user_id)
             graph = self._lock_graph(db, scope, departing_user_id)
             copies = self._copies(db, space_id, graph)
@@ -617,10 +631,6 @@ class PostgresBusinessCustodyGraph:
             )
         db.execute(
             "delete from public.business_receipt_read_states where space_id=%s and person_id=%s",
-            (scope["s"], user),
-        )
-        db.execute(
-            "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
             (scope["s"], user),
         )
         db.execute(

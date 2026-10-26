@@ -89,10 +89,20 @@ def web(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         with Connection.connect(shared.DSN) as db:
             for user_id in created:
                 db.execute(
+                    "update public.spaces set closed_at=coalesce(closed_at,clock_timestamp()) where created_by=%s and kind='business'",
+                    (user_id,),
+                )
+                db.execute(
                     "delete from public.business_client_grants"
                     " where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
+            db.execute("set constraints all deferred")
+            db.execute(
+                "delete from public.financial_activity_groups where user_id=any(%s::uuid[])",
+                (created,),
+            )
+            db.execute("delete from public.spaces where created_by=any(%s::uuid[])", (created,))
         for user_id in created:
             try:
                 gateway.delete_auth_user(user_id)

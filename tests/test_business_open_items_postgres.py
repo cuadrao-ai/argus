@@ -205,7 +205,7 @@ def test_the_owner_and_the_accountant_read_the_same_items_and_nobody_else(
     assert _open(web, _as(web.bob, web.grant_a)) == owner_view
     with Connection.connect(shared.DSN) as db:
         db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read'] where id=%s",
+            "update public.business_client_grants set business_role='viewer' where id=%s",
             (web.grant_a,),
         )
     assert _open(web, _as(web.bob, web.grant_a)) == owner_view
@@ -215,17 +215,6 @@ def test_the_owner_and_the_accountant_read_the_same_items_and_nobody_else(
         headers=web.alice.headers,
     )
     assert _code(extra) == (422, "validation_error")
-    with Connection.connect(shared.DSN) as db:
-        db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['prepare'] where id=%s",
-            (web.grant_a,),
-        )
-    no_read = web.client.get(
-        f"{API}/business/open-items", headers=_as(web.bob, web.grant_a)
-    )
-    # A grant without read is not a live grant for any Business route.
-    assert _code(no_read) == (403, "business_grant_not_live")
-
     # Bob in his own Business, and Carol in hers, see none of Alice's documents.
     for stranger in (web.bob.headers, web.carol.headers):
         theirs = _open(web, stranger)

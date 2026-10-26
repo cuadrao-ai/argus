@@ -184,8 +184,9 @@ class PostgresBusinessLifecycle:
         with self._pool.connection() as connection:
             rows = connection.execute(
                 "select s.id::text,s.name,s.closed_at from public.spaces s"
-                " join auth.users u on u.id=s.current_owner_id"
-                " where s.current_owner_id=%s and s.kind='business'"
+                " join public.business_client_grants g on g.space_id=s.id"
+                " join auth.users u on u.id=g.grantee_id"
+                " where g.grantee_id=%s and g.business_role='owner' and g.revoked_at is null and s.kind='business'"
                 " and s.closed_at>clock_timestamp()-%s"
                 " and coalesce(u.is_anonymous,false)=false"
                 " order by s.closed_at desc,s.id",
@@ -230,8 +231,16 @@ class PostgresBusinessLifecycle:
                     raise BusinessLifecycleError("business_reopen_expired")
                 if connection.execute(
                     "select 1 from public.spaces where current_owner_id=%s and id<>%s"
-                    " and kind='business' and closed_at is null",
-                    (owner_id, space_id),
+                    " and kind='business' and closed_at is null and business_legacy_default"
+                    " and (select business_legacy_default from public.spaces where id=%s)",
+                    (
+                        connection.execute(
+                            "select current_owner_id from public.spaces where id=%s",
+                            (space_id,),
+                        ).fetchone()[0],
+                        space_id,
+                        space_id,
+                    ),
                 ).fetchone():
                     raise BusinessLifecycleError("business_already_open")
                 closed_at = None
@@ -279,17 +288,17 @@ class PostgresBusinessLifecycle:
             raise BusinessLifecycleError("business_record_not_found")
         row = connection.execute(
             "select name,closed_at from public.spaces"
-            " where id=%s and current_owner_id=%s and kind='business' for update",
-            (space_id, owner_id),
+            " where id=%s and kind='business' for update",
+            (space_id,),
         ).fetchone()
         if (
             row is None
             or not connection.execute(
                 "select 1 from public.business_client_grants where space_id=%s"
-                " and grantee_id=%s and issuer_id=%s and revoked_at is null"
+                " and grantee_id=%s and business_role='owner' and revoked_at is null"
                 " and (expires_at is null or expires_at>clock_timestamp())"
                 " and 'read'=any(capabilities)",
-                (space_id, owner_id, owner_id),
+                (space_id, owner_id),
             ).fetchone()
         ):
             raise BusinessLifecycleError("business_record_not_found")

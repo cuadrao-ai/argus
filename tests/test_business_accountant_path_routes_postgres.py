@@ -1,10 +1,7 @@
-"""The owner-to-accountant path over HTTP, on the real app, Auth and Postgres,
-with public account access off: an invited email that is not on the private
-alpha allowlist is refused at signup, login and every authenticated request,
-and its invite stays pending; with an allowlist row, the brand-new confirmed
-account holds the grant from its first Business listing (or its first profile
-read), works in the client's Business, answers the 606 question on a Personal
-receipt and downloads the export, and approval stays the owner's."""
+"""Invited recipients pass Auth admission and explicitly accept before Business access.
+Profile and listing reads keep pending invitations unchanged; financial approval
+remains Owner-only after an Editor joins.
+"""
 
 from __future__ import annotations
 
@@ -202,6 +199,10 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
         with Connection.connect(shared.DSN) as db:
             for user_id in found.created:
                 db.execute(
+                    "update public.spaces set closed_at=coalesce(closed_at,clock_timestamp()) where created_by=%s and kind='business'",
+                    (user_id,),
+                )
+                db.execute(
                     "delete from public.business_client_grants where grantee_id=%s or issuer_id=%s",
                     (user_id, user_id),
                 )
@@ -212,6 +213,12 @@ def world(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN201
                 db.execute(
                     "delete from public.private_alpha_allowlist where email=%s", (email,)
                 )
+            db.execute("set constraints all deferred")
+            db.execute(
+                "delete from public.financial_activity_groups where user_id=any(%s::uuid[])",
+                (found.created,),
+            )
+            db.execute("delete from public.spaces where created_by=any(%s::uuid[])", (found.created,))
         for user_id in found.created:
             try:
                 gateway.delete_auth_user(user_id)
@@ -252,12 +259,25 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     assert _invite_state(accountant.email) == [False]
     assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
 
-    # On the allowlist, the first listing after sign-in already names the client.
+    # Allowlisting permits sign-in; the recipient must still accept explicitly.
     _allow(accountant.email)
     _signed_in(world, accountant)
     first = client.get(f"{API}/business/spaces", headers=accountant.headers)
     assert first.status_code == 200, first.text
-    [business] = first.json()["spaces"]
+    assert first.json()["spaces"] == []
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
+    [invitation] = client.get(
+        f"{API}/business/invitations", headers=accountant.headers
+    ).json()
+    accepted = client.post(
+        f"{API}/business/invitations/{invitation['id']}/accept",
+        headers=accountant.headers,
+        json={"space_id": world.space_id},
+    )
+    assert accepted.status_code == 200, accepted.text
+    [business] = client.get(f"{API}/business/spaces", headers=accountant.headers).json()[
+        "spaces"
+    ]
     assert (
         business["space_id"],
         business["role"],
@@ -379,7 +399,7 @@ def test_an_invited_accountant_is_admitted_only_by_the_allowlist_and_works_from_
     assert _code(refused) == (403, "business_permission_denied")
 
 
-def test_a_first_profile_read_also_turns_the_invite_into_the_grant(world) -> None:  # noqa: ANN001
+def test_profile_and_listing_reads_leave_invitation_pending(world) -> None:  # noqa: ANN001
     accountant = _credentials(world, "perfil")
     _invite(world, accountant.email)
     _allow(accountant.email)
@@ -388,9 +408,9 @@ def test_a_first_profile_read_also_turns_the_invite_into_the_grant(world) -> Non
 
     me = world.client.get(f"{API}/me", headers=accountant.headers)
     assert me.status_code == 200, me.text
-    assert _grants_and_accepts(world.space_id, accountant.id) == (1, 1)
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)
     listed = world.client.get(f"{API}/business/spaces", headers=accountant.headers)
     assert [
         (s["space_id"], s["role"], s["capabilities"]) for s in listed.json()["spaces"]
-    ] == [(world.space_id, "accountant", ["read", "prepare"])]
-    assert _grants_and_accepts(world.space_id, accountant.id) == (1, 1)
+    ] == []
+    assert _grants_and_accepts(world.space_id, accountant.id) == (0, 0)

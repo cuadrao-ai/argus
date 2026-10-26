@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from argus.domain.business.country import COUNTRIES, DEFAULT_COUNTRY
+from argus.domain.business.roles import ROLE_PERMISSIONS, BusinessRole
 from argus.domain.business.spaces import SpaceStore
 from argus.domain.owner_scope import BusinessSpace
 
@@ -29,9 +30,18 @@ class BusinessScope:
     #: The grant the request runs under; None for the person's own space before binding.
     grant_id: str | None = None
     role: Role = "owner"
+    business_role: BusinessRole | None = None
     #: The Business's own country and currency, as its spaces row says.
     country: str = DEFAULT_COUNTRY
     currency: str = COUNTRIES[DEFAULT_COUNTRY].currency
+
+    def __post_init__(self) -> None:
+        if self.business_role is None:
+            object.__setattr__(
+                self,
+                "business_role",
+                BusinessRole.OWNER if self.role == "owner" else BusinessRole.EDITOR,
+            )
 
     @property
     def acting_person_id(self) -> str:
@@ -39,7 +49,11 @@ class BusinessScope:
 
     @property
     def acting_as_owner(self) -> bool:
-        return self.role == "owner"
+        return self.business_role == BusinessRole.OWNER
+
+    @property
+    def permissions(self) -> frozenset[str]:
+        return ROLE_PERMISSIONS[self.business_role]
 
 
 def resolve_business_scope(spaces: SpaceStore, person_id: str) -> BusinessScope | None:

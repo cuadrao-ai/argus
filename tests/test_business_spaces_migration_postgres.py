@@ -55,6 +55,14 @@ def space(db, owner: str) -> str:  # noqa: ANN001
     )
 
 
+def owned_space(db, owner: str) -> str:  # noqa: ANN001
+    from argus.domain.business.access import ensure_owner_grant
+
+    space_id = space(db, owner)
+    ensure_owner_grant(db, space_id, owner)
+    return space_id
+
+
 def account(db, user: str, owner_space: str | None = None) -> str:  # noqa: ANN001
     return str(
         _one(
@@ -154,11 +162,11 @@ def capture(db, owner: str, connection_id: str) -> None:  # noqa: ANN001
 
 def test_one_open_business_space_per_owner(db, users) -> None:  # noqa: ANN001
     owner = users["owner"]
-    first = space(db, owner)
+    first = owned_space(db, owner)
     with _raises(db, psycopg.errors.UniqueViolation, "spaces_one_open_business_idx"):
-        space(db, owner)
+        owned_space(db, owner)
     db.execute("update public.spaces set closed_at = now() where id = %s", (first,))
-    second = space(db, owner)
+    second = owned_space(db, owner)
     assert second != first
     assert str(_one(db, "select public.business_space_of(%s)", (owner,))) == second
     assert _one(db, "select public.business_space_of(%s)", (users["other"],)) is None
@@ -208,7 +216,7 @@ def test_observations_stay_in_their_events_space(db, users) -> None:  # noqa: AN
 
 def test_a_sender_link_takes_its_owners_business_space(db, users) -> None:  # noqa: ANN001
     owner, other = users["owner"], users["other"]
-    business = space(db, owner)
+    business = owned_space(db, owner)
     assert sender_link(db, owner) == business
     with _raises(db, psycopg.errors.RaiseException, "business_space_missing"):
         sender_link(db, other)
@@ -216,7 +224,7 @@ def test_a_sender_link_takes_its_owners_business_space(db, users) -> None:  # no
 
 def test_a_whatsapp_capture_lands_in_the_linked_business_space(db, users) -> None:  # noqa: ANN001
     owner, other = users["owner"], users["other"]
-    business = space(db, owner)
+    business = owned_space(db, owner)
     sender_link(db, owner)
     others_business = connection(db, other, space(db, other))
 

@@ -124,7 +124,7 @@ def _text(value: Any) -> str:
     return str(value)
 
 
-def _cell(value: Any) -> str:
+def spreadsheet_cell(value: Any) -> str:
     text = _text(value)
     if text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(
         ("\t", "\r", "\n")
@@ -255,7 +255,7 @@ def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(columns)
-    writer.writerows([_cell(row.get(column)) for column in columns] for row in rows)
+    writer.writerows([spreadsheet_cell(row.get(column)) for column in columns] for row in rows)
     return output.getvalue().encode("utf-8-sig")
 
 
@@ -280,7 +280,7 @@ def _xlsx(
                 sheet.write_string(0, col, label, heading)
             for index, row in enumerate(values, 1):
                 for col, label in enumerate(columns):
-                    value = _cell(row.get(label))
+                    value = spreadsheet_cell(row.get(label))
                     if len(value) > 32767:
                         raise ExportLimit("export_cell_limit")
                     sheet.write_string(index, col, value)
@@ -453,7 +453,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         auth = authorize(connection, context.actor, context.grant_id)
-        auth.require("read")
+        auth.require("export")
         if auth.context.owner_id != context.owner_id:
             raise ActionError("not_found", "business_record_not_found")
         with connection.cursor(row_factory=dict_row) as cursor:
@@ -598,7 +598,7 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
             # Rebuilding writes through another connection. Release snapshot
             # locks before the capped producer; recheck access before and after.
             with authority.pool.connection() as check, check.transaction():
-                authorize(check, context.actor, context.grant_id).require("read")
+                authorize(check, context.actor, context.grant_id).require("export")
                 live = check.execute(
                     "select 1 from public.business_sources s "
                     "join public.financial_source_connections c on c.id=s.connection_id "
@@ -635,13 +635,13 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
     with authority.pool.connection() as connection, connection.transaction():
         connection.execute("set transaction isolation level repeatable read")
         current = authorize(connection, context.actor, context.grant_id)
-        current.require("read")
+        current.require("export")
         if current.context.owner_id != context.owner_id:
             raise ActionError("not_found", "business_record_not_found")
         with connection.cursor(row_factory=dict_row) as cursor:
 
             def original(source: ExportSource) -> bytes | None:
-                authorize(connection, context.actor, context.grant_id).require("read")
+                authorize(connection, context.actor, context.grant_id).require("export")
                 cursor.execute(
                     "select d.draft->>'sha256' as original_sha256, "
                     "d.draft->>'media_type' as original_media_type, "
@@ -712,5 +712,5 @@ def export_package(authority, context, period: ExportPeriod, objects) -> bytes:
                 original,
                 registry_from_config("dgii", postgres_rnc_fetch(lookup)),
             )
-            authorize(connection, context.actor, context.grant_id).require("read")
+            authorize(connection, context.actor, context.grant_id).require("export")
             return result

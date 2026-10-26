@@ -204,7 +204,7 @@ async def test_a_read_that_cannot_start_waits_saved_with_its_reason(  # noqa: AN
 
 
 @pytest.mark.asyncio
-async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(actions):  # noqa: ANN001
+async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(actions, users):  # noqa: ANN001
     """No fake: the owner's grant loses prepare in the table the authority
     reads, so the read cannot start for a permission reason (the WhatsApp
     path refuses with ``CaptureFailed``), and the draft records exactly
@@ -214,8 +214,12 @@ async def test_a_read_refused_by_the_owners_own_grant_records_the_literal_code(a
     connection_id = await _capture(destination, owner)
     _, context, _ = actions
     with documents.business_actions.authority.pool.connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (context.actor.space_id, users["other"], context.owner_id),
+        )
         changed = db.execute(
-            "update public.business_client_grants set capabilities=ARRAY['read','approve']"
+            "update public.business_client_grants set business_role='viewer'"
             " where space_id=%s and grantee_id=%s and revoked_at is null",
             (context.actor.space_id, context.owner_id),
         ).rowcount

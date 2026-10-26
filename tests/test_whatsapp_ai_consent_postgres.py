@@ -219,7 +219,7 @@ def test_original_grant_revocation_denies_access_and_command_replay(world, conse
         )
         db.execute(
             "insert into business_client_grants(space_id,grantee_id,issuer_id,capabilities)"
-            " values (%s,%s,%s,array['read','prepare'])",
+            " values (%s,%s,%s,array['read','prepare','approve'])",
             (world.space, world.owner, world.owner),
         )
     assert not store.status(world.owner)["enabled"]

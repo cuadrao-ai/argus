@@ -161,7 +161,7 @@ def test_changed_original_authority_or_source_refuses_before_draft(prepared, cha
             )
         elif change == "readonly":
             db.execute(
-                "update public.business_client_grants set capabilities=array['read'] where id=%s",
+                "update public.business_client_grants set business_role='viewer' where id=%s",
                 (grant,),
             )
         elif change == "issuer":

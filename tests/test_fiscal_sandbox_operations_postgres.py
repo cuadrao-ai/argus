@@ -178,6 +178,10 @@ async def test_revoked_closed_owner_transfer_and_cross_business(lane):
         await lane.service.get(stranger, lane.grant, operation.id)
     with lane.store.pool.connection() as db:
         db.execute(
+            "update public.business_client_grants set business_role='owner' where id=%s",
+            (lane.member_grant,),
+        )
+        db.execute(
             "update public.business_client_grants set revoked_at=clock_timestamp() where id=%s",
             (lane.grant,),
         )

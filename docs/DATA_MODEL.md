@@ -3447,6 +3447,74 @@ claims produce one winner. Renaming preserves the timestamp. Client roles have
 no direct write grant on this state. Required naming for owner invites and
 exports derives from the current name, independently of this timestamp.
 
+### Business saved report views
+
+`20261026013716_business_saved_report_views.sql` adds two private preference
+relations. `argus_private.business_saved_report_views` stores UUID `id`,
+`space_id`, `actor_id`, trimmed `name`, strict version-1 `recipe` JSON (filters,
+relative/fixed period, ordered columns and sort), monotonic `version`, and
+created/updated timestamps. It stores no financial rows or cached report result.
+The `(actor_id, space_id, id)` index serves the private list.
+
+`argus_private.business_report_view_commands` stores the exact mutation and its
+response under `(space_id, actor_id, command_key)` for atomic retries. Expected
+view version prevents lost edits. The existing authorized Business transaction
+serializes writes; every read and replay checks the live selected grant and
+closed-Business rule. Read capability permits personal preference changes;
+export still requires its separate current permission.
+
+Both relations enable RLS with no client policies and revoke all client/public
+privileges. Service-role grants are limited to view CRUD and receipt SELECT/INSERT.
+The service scopes every statement to Business and actor. Actor and space FKs
+cascade preference metadata only. They neither own nor reference financial rows,
+original objects or custody state, and do not enable account deletion. Synthetic
+PostgreSQL view, conflict, revocation and client-grant tests prove this boundary.
+
+### Durable Business workspace identity
+
+`20261025223500_business_workspace_persistence.sql` adds
+`spaces.business_legacy_default`, `business_workspace_revision`,
+`business_provided_details`, and `business_appearance`. Existing open and historical
+rows retain the default marker. The unique open default index is scoped to marked
+rows and `current_owner_id`; explicit additional rows are unmarked. Both types keep
+`current_owner_id` as the legacy transfer anchor and `created_by` as custody.
+`business_space_of` resolves only a marked open row with live membership. Closing A
+never promotes B. Reopening a marked historical row still conflicts with another
+marked open default, while an additional row does not consume that slot. Legacy
+transfer eligibility remains conservative; transfer of an additional row does not
+move the marked default. Directory ordering puts the live marked default first.
+
+Workspace details and appearance are Business-scoped JSON objects, written only
+through the service. The revision trigger covers changes to canonical display name,
+provided details and appearance, including writes by legacy naming/fiscal routes.
+No change to these values means no revision increment. Country stays immutable.
+
+`argus_private.business_workspace_commands` stores `(actor_id, operation,
+command_key)` as its primary key, normalized JSON payload, target `space_id` and
+creation time. Operations are create/save/upload. Current permission is required
+before replay. Actor FK cascades remove transient command metadata on account
+deletion; Business FK cascades remove it on Business purge. This ledger is not
+membership authority or historical document custody.
+
+`argus_private.business_workspace_assets` stores server-minted asset ID, Business
+FK, normalized source SHA-256, bounded width/height and creation time; the Business
+and digest pair is unique. It records staged and formerly selected source assets
+until Business purge, independently of current appearance. Both new tables enable
+RLS, revoke all client privileges, and grant service-role SELECT/INSERT only.
+
+Images use the existing private profile-images bucket, under the exact
+`business/{space_id}/identity/` prefix. Flat source keys include the normalized
+byte digest; render keys include that digest and versioned normalized crop recipe.
+No image data URL or signed URL is persisted. Sources normalize to at most 1280 px;
+renders are 512 px; each stored WebP stays at most 1 MiB and contains no upload metadata.
+The invoice logo at `business/{space_id}/256.webp` and personal photos are unchanged.
+Saved reset/crop changes do not destroy historical assets immediately. The existing
+Business purge erases all identity objects before deleting metadata, including
+unreferenced blobs from failed transactions, with retry-safe paginated deletion.
+Storage absence holds purge while assets or identity objects remain. Account
+retention keeps assets with their Business; the existing detach rule still precedes
+a person's storage deletion. No new hosted bucket or configuration is required.
+
 ### Profile photos and Business logos
 
 `20261021040000_profile_images.sql` adds the private `profile-images` Storage
@@ -3579,8 +3647,8 @@ open items read the date from the resolution, not from the revision.
 | `business_bank_lines` | Immutable raw statement lines. Unique `(bank_account_id, occurred_on, amount, normalized_description, line_hash)`. `raw_line` is the source cells. Updates are refused. Re-import returns the existing row. Keep 10 years. No delete API. |
 | `business_bank_line_outcomes` | One live outcome per bank line (unique `line_id` where `ended_at` is null): `match` to one recorded document (`target_kind`, `target_id` = activity id) or `no_receipt` with `reason` (`cargo_banco`, `entre_cuentas`, `compra_informal`, `personal`). One live match per document (unique `(space_id, target_id)` among live matches). A match stores the settlement it replaced (`prior_*`) and the one it wrote (`applied_*`); a trigger on `business_document_settlements` refuses any other settlement while the match is live. Ending sets `ended_at`, `ended_by`, `end_key` once; the row stays as history. Other updates and direct deletes are refused (`business_evidence_immutable`); account deletion nulls `created_by` and `ended_by`. Unique `(line_id, create_key)` for idempotency. Row-level security with no client policy; service role only, with select, insert and update and no delete or truncate (`20261021060000_business_bank_line_outcomes_no_delete.sql`, as the other bank tables). Migration `20261020210000_business_bank_line_outcomes.sql`, which also turned each `confirmed` suggestion into a live match with its settlement and set it back to `pending`. Keep with the Business record. |
 | `business_bank_suggestions` | One offer per line and target. `target_id` is the recorded activity id of the receipt (expense) or venta (income). Status is `pending` or `declined`; a suggestion reads `confirmed` while its line holds a live match to its target. A declined row is how that pair stays out of later offers. Score parts are the historical offer. Confidence is derived, not stored. Import and the movements read store new pending offers. The movement state (`igualada`, `sugerencia`, `falta_comprobante`, `no_lleva_comprobante`) and the bank coverage date (the newest line date per account) are derived on read, not stored. Keep 10 years. |
-| `business_client_grants` | Explicit direct grant to a named `grantee_id` for exactly one `space_id`, issuer, capabilities (`read`, `prepare`, `approve`), creation/expiry/revocation times. No role-derived capabilities. The owner's own grant (grantee = issuer = owner, all three capabilities) is created with the space, or once on the next open of an older space. Named accountants hold read and prepare only: migration `20261014110000_business_grant_approve_owner_only.sql` makes the database refuse `approve` on any grant whose grantee is not the space's `created_by`, on insert and on update, whoever writes the row. First-flow service resolves active grants on each operation. Firm identity, firm delegation and issuer onboarding remain unimplemented. |
-| `business_access_invites` | A pending invite for an email with no confirmed account yet: `space_id`, `issuer_id` (the owner), lowercased `email`, `expires_at` (7 days), `accepted_at` and `accepted_grant_id` once a confirmed sign-in with that email turned it into a read+prepare grant, `revoked_at` when the owner withdrew it. One live invite per space and email. Service role only. Access changes write `business_action_receipts` rows without a turn. |
+| `business_client_grants` | Canonical accepted membership: stable ID, Business, grantee, issuer, `business_role` (`owner`, `admin`, `editor`, `viewer`), creation/expiry/revocation and `membership_version`. `capabilities` is a trigger-derived legacy projection, never a second authority. Multiple Owners are allowed; active Owner grants cannot expire. Revocation is terminal. Membership mutations write the Business serialization version and a deferred constraint preserves at least one Owner for an open Business, including concurrent direct SQL under read committed and repeatable read. |
+| `business_access_invites` | Explicit recipient acceptance for all new roles and accounts: Business, actual issuer, lowercased email, optional known `recipient_id`, `requested_role`, seven-day expiry, acceptance/grant and revocation. `target_grant_id`/`target_version` bind a pending upgrade to an unchanged membership. `supersedes_id` binds an expired resend to one new generation. Accepted/revoked rows and expired generations cannot revive. `delivery_state` preserves pending/sending/accepted/failed/not_configured/uncertain independently of membership acceptance. Existing server-only RLS remains. |
 | `business_consent_acceptances` | One row per person (`user_id`) and wording (`copy_version`, 16 hex characters the web derives from the words a person accepts: title, body, opt-in and Continuar, in Spanish and English) with the Business they worked in (`space_id`) and the database's `accepted_at`. Never edited. Row security: a signed-in person reads only their own rows and inserts only their own row, naming a Business they hold a live grant on, without choosing the time; the API writes as the service role. Deleting the person or the space cascades the row. Migration `20261019050000_business_consent_acceptances.sql`. |
 | `business_sources` | Stable source identity and idempotent `(space_id, source_key)` for one original message, attachment, agent proposal or human `web_action`. Web actions require channel `web` and retain immutable canonical submitted command text, with server-derived source key and actual `member_set` provenance. Direct source updates/deletes fail; owning connection/client deletion cascades through source links and answered questions under the existing deletion policy. Message/proposal/web-action text is immutable; attachment references the existing source connection rather than copying bytes or extraction. A composite FK prevents another space's connection. |
 | `business_draft_sources` | Many-to-many source relationships pinned by composite FKs to the same client as the canonical candidate. No facts. |
@@ -3852,11 +3920,57 @@ SELECT and INSERT on the command table. A space deletion removes its history.
 No new retention exception, purge execution or owner-deletion behavior ships in
 this bounded domain slice.
 
+### Business canonical membership and invitation migration
+
+`20261025182039_business_membership_roles.sql` maps existing active legacy grants
+without inventing historical acceptance: legacy anchor plus approve becomes
+Owner, prepare becomes Editor, and read-only becomes Viewer. No collaborator
+gains management or approval. Expiring active Owners fail preflight. An open
+Business with no grant history may receive its preexisting implicit anchor Owner
+grant only for a valid, non-anonymous, unbanned identity outside deletion
+admission. Any membership history prevents this backfill; an open Business with
+history but no live non-expiring Owner fails `business_owner_history_requires_review`.
+Neither backfill creates invitation acceptance, reading consent, AI consent, or
+moves financial rows. Revoked/demoted anchors are never healed by reads.
+
+`spaces.membership_revision` is only a serialization counter, not an Owner count
+or another authority. Writing it on membership mutation makes a stale repeatable
+read transaction abort instead of validating against an old membership snapshot.
+The service locks the Business before rechecking actor permissions and executing
+membership/acceptance commands. The database's actual clock checks expiry after
+lock acquisition. Role loss invalidates that Owner's live consent generations;
+new membership never creates consent.
+
+`argus_private.business_invitation_commands` owns per-recipient idempotency:
+primary key `(space_id, actor_id, command_key)` binds email, requested role and
+invitation generation. RLS is enabled; browser roles have no schema/table access.
+Business/actor/invitation lifetime deletion cascades command rows. Invitation
+recipient and upgrade-target identities do not cascade-delete invitation history.
+Known recipient IDs are checked against Auth or the Business's existing retained
+actor aliases. Auth deletion refuses unresolved recipient references. The existing
+custody/departure path first cancels pending invitations, then replaces the
+recipient with its scoped alias through the exact authorized identity map.
+Arbitrary identity changes, null rebinding and issuer rewrites are refused.
+Accepted invitation history survives member deletion; a replacement email account
+cannot accept or list it. No new public table is introduced. A committed `sending` marker precedes transport; sending or
+uncertain outcomes do not auto-retry, even if the process died before sending.
+Known rejection can retry and accepted sends converge. SMTP exactly-once delivery
+is not asserted.
+
+Legacy record custody, source IDs, object paths, retained documents and historical
+action provenance stay unchanged. The one-open-default-Business creation limit,
+legacy anchor-only transfer admission and existing account-deletion custody guards
+remain. Reverting application code alone after applying the schema is unsafe:
+older code can auto-accept invitations and cannot interpret all canonical roles.
+Hosted migration and any forward rollback require separate authorization and
+review of pending invitations and active grants. This PR supplies local proof only.
+
 ### Business current owner and transfer commands, draft October 18, 2026
 
 The forward migration `20261021080000_business_current_owner_transfer.sql`
-separates `spaces.current_owner_id`, the current person's authority, from
-`spaces.created_by`, the unchanged record custodian. The new owner column is
+separates `spaces.current_owner_id`, now the legacy default/transfer anchor,
+from `spaces.created_by`, the unchanged record custodian. Canonical active Owner
+membership now supplies ordinary authority. The new owner column is
 backfilled, indexed, nullable only for a closed Business and references Auth
 with SET NULL. The one-open-Business unique index uses current ownership.
 The legacy financial composite custody keys are unchanged.

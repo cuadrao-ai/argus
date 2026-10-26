@@ -63,6 +63,10 @@ class PostgresBusinessDepartures:
                     )
                     owner = None
                 db.execute(
+                    "update public.business_access_invites set revoked_at=clock_timestamp() where space_id=%s and (recipient_id=%s or issuer_id=%s) and accepted_at is null and revoked_at is null",
+                    (space, user_id, user_id),
+                )
+                db.execute(
                     "delete from public.business_client_grants where space_id=%s and grantee_id=%s",
                     (space, user_id),
                 )

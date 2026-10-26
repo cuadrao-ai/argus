@@ -274,6 +274,10 @@ def test_receipt_cannot_prepare_after_business_authority_changes(
     connection_id = _upload(world, _paper("green"))
     service, context = world["service"], world["context"]
     with world["pool"].connection() as db:
+        db.execute(
+            "insert into public.business_client_grants(space_id,grantee_id,issuer_id,business_role,capabilities) values(%s,%s,%s,'owner',array['read','prepare','approve'])",
+            (context.actor.space_id, users["other"], context.owner_id),
+        )
         if change == "wrong_business":
             other_space = space(db, users["other"])
             context = replace(
@@ -286,7 +290,7 @@ def test_receipt_cannot_prepare_after_business_authority_changes(
             )
         elif change == "read_only":
             db.execute(
-                "update public.business_client_grants set capabilities=array['read'] where id=%s",
+                "update public.business_client_grants set business_role='viewer' where id=%s",
                 (context.grant_id,),
             )
         elif change == "revoked":
