@@ -20,6 +20,7 @@ import CustomerDossier from "./CustomerDossier";
 import { customerReducer, seedCustomers, type BusinessCustomer } from "./customer-preview-model";
 import InvoiceStageTabs from "./InvoiceStageTabs";
 import InvoiceResultsSummary from "./InvoiceResultsSummary";
+import { summarizeInvoiceResults } from "./invoice-results-summary";
 import WorkspaceEmptyState, { invoiceEmptyKind } from "./WorkspaceEmptyState";
 import SchedulesView from "./SchedulesView";
 import ScheduleDossier from "./ScheduleDossier";
@@ -76,17 +77,7 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
   const shownPage = Math.min(page, pages);
   const rows = results.slice((shownPage - 1) * size, shownPage * size);
   const emptyKind = invoiceEmptyKind(invoices.length, invoices.filter(invoice => matchesInvoice(invoice, filter)).length, results.length);
-  const summary = (() => {
-    const groups = new Map<string, { total: number; settled: number; balance: number }>();
-    let unconfirmed = 0;
-    for (const invoice of results) {
-      const amount = invoiceSettlement(invoice);
-      if (!amount || invoice.issuance !== "issued") { unconfirmed++; continue; }
-      const previous = groups.get(invoice.currency) ?? { total: 0, settled: 0, balance: 0 };
-      groups.set(invoice.currency, { total: previous.total + amount.total + amount.debited - amount.credited, settled: previous.settled + amount.paid, balance: previous.balance + amount.balance });
-    }
-    return { currencies: [...groups].map(([currency, amount]) => ({ currency, ...amount })), exclusions: { unconfirmed, personal: 0, unavailable: 0 } };
-  })();
+  const summary = summarizeInvoiceResults(results, currency, filter);
   const selected = invoices.find(invoice => invoice.id === selectedId);
   const customerSelected = customerPanel && ("draft" in customerPanel ? customerPanel.draft : customers.find(customer => customer.id === customerPanel.id));
   const scheduleSelected = schedulePanel && ("draft" in schedulePanel ? schedulePanel.draft : schedules.find(schedule => schedule.id === schedulePanel.id));
