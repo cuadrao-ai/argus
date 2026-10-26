@@ -1039,6 +1039,16 @@ for (const width of [1440, 390]) test(`overview filters share chips while counts
     await page.click(document.querySelector('[data-group="amount"]')); await clickText("USD"); await clickText("Aplicar");
     await page.click(document.querySelector('[data-overview-filter="export"]'));
     assert.equal(page.records().length, 1, "currency and overview filters compose");
+    await page.click(document.querySelector('[data-overview-filter="export"]'));
+    assert.equal(page.records().length, 2, "clicking the selected overview card clears only its workflow filter");
+    assert.equal(document.querySelector('[data-overview-filter="export"]')?.getAttribute("aria-pressed"), "false");
+    assert.equal(document.querySelector('button[aria-label="Quitar filtro Revisión"]'), null);
+    assert.ok(document.querySelector('button[aria-label="Quitar filtro Moneda"]'), "currency filter remains selected");
+    await page.click(document.querySelector('[data-overview-filter="review"]'));
+    await page.click(document.querySelector('[data-overview-filter="export"]'));
+    assert.equal(document.querySelector('[data-overview-filter="review"]')?.getAttribute("aria-pressed"), "false", "another card replaces the workflow selection");
+    assert.equal(document.querySelector('[data-overview-filter="export"]')?.getAttribute("aria-pressed"), "true");
+    assert.equal(page.records().length, 1);
     assert.equal(overview().textContent, original, "currency and workflow do not rewrite overview");
     await page.click(document.querySelector('button[aria-label="Quitar filtro Moneda"]'));
     await page.click(document.querySelector('button[aria-label="Quitar filtro Revisión"]'));
