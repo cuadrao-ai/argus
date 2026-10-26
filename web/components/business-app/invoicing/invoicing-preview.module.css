@@ -166,3 +166,37 @@
 @container(max-width:700px) { .customerTax { display:none; } .customerRow { padding:13px; } }
 
 .customerToolbar .search input { font-size:16px; }
+.workspaceEmpty { display:flex; align-items:center; flex-direction:column; gap:16px; padding:48px 21px; text-align:center; }
+.workspaceEmpty img { object-fit:contain; }
+.workspaceEmpty h3 { font-family:var(--font-display); font-size:26px; font-weight:500; }
+.workspaceEmpty p { max-width:380px; font-size:15px; line-height:1.5; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.workspaceEmpty[data-compact="true"] { padding:32px 21px; gap:12px; }
+.workspaceEmpty[data-compact="true"] h3 { font-family:inherit; font-size:18px; }
+.customerTableIdentity { display:flex; align-items:center; gap:12px; text-align:left; min-height:44px; max-width:280px; }
+.customerTableIdentity .customerIdentity { white-space:nowrap; overflow:hidden; }
+.customerTableIdentity strong,.customerTableIdentity small { display:block; overflow:hidden; text-overflow:ellipsis; }
+.customerTable td { height:72px; }
+.cellDetail { display:block; margin-top:4px; font-size:12px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.customerPhone,.schedulePhone { display:none; }
+.checkboxOption { display:flex; align-items:center; gap:12px; min-height:44px; padding:8px 12px; cursor:pointer; }
+.checkboxOption input,.scheduleModes input { accent-color:var(--cuadrao-green); width:18px; height:18px; flex-shrink:0; }
+.scheduleTemplate { padding:16px; border-radius:12px; background:color-mix(in srgb,var(--fg) 4%,transparent); }
+.scheduleTemplate li { display:flex; gap:16px; justify-content:space-between; padding-bottom:8px; }
+.scheduleTemplate li span { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.scheduleTemplate strong { display:block; text-align:right; font-weight:500; }
+.scheduleDates { display:flex; gap:8px 16px; flex-wrap:wrap; font-size:14px; margin:8px 0; }
+.scheduleModes { display:grid; gap:8px; }
+.scheduleModes legend { margin-bottom:8px; font-weight:500; }
+.scheduleModes label { display:flex; gap:12px; align-items:start; min-height:44px; padding:12px; border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); border-radius:12px; }
+.scheduleModes label > span { flex:1; }
+.scheduleModes small { display:block; font-size:14px; line-height:1.5; margin-top:4px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.scheduleModes input { margin-top:3px; }
+.schedulePhone article { padding:16px; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.schedulePhone article:last-child { border-bottom:0; }
+.schedulePhone article > button:first-child { display:grid; gap:5px; width:100%; text-align:left; min-height:44px; }
+.schedulePhone small { font-size:13px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+@container(max-width:700px) {
+  .customerPhone,.schedulePhone { display:block; }
+  .workspaceSwitch { max-width:100%; overflow-x:auto; }
+  .customerToolbar .create { margin-left:0; }
+}

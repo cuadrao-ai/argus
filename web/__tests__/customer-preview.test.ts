@@ -17,7 +17,10 @@ test("customers exist without invoices, validate fields and retain identity thro
   assert.deepEqual(customerReducer(state, { type: "save", customer: { ...state[0], name: "" } }), state);
   assert.deepEqual(customerErrors({ ...customer(), email: "bad", taxId: "123" }), { email: "email", taxId: "tax_id" });
   state = customerReducer(state, { type: "status", id: "customer-one", status: "active" });
-  assert.deepEqual(state, [{ ...customer(), name: "Nuevo nombre" }]);
+  assert.equal(state[0].status, "active");
+  assert.equal(state[0].name, "Nuevo nombre");
+  assert.ok(state[0].createdAt);
+  assert.ok(state[0].updatedAt);
 });
 
 test("registry edits and archive never rewrite invoice snapshots or regenerate old customer names", () => {

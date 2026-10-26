@@ -1,6 +1,6 @@
 import { invoiceSettlement, type InvoiceCurrency, type InvoiceCustomer, type InvoicePreview } from "./invoice-preview-model";
 
-export type BusinessCustomer = InvoiceCustomer & { status: "active" | "archived" };
+export type BusinessCustomer = InvoiceCustomer & { status: "active" | "archived"; createdAt?: string; updatedAt?: string };
 export type CustomerCommand = { type: "save"; customer: BusinessCustomer } | { type: "status"; id: string; status: BusinessCustomer["status"] };
 
 export function customerErrors(customer: InvoiceCustomer): Record<string, string> {
@@ -15,8 +15,21 @@ export function customerReducer(customers: BusinessCustomer[], action: CustomerC
   if (action.type === "status") return customers.map(customer => customer.id === action.id ? { ...customer, status: action.status } : customer);
   if (!action.customer.id || Object.keys(customerErrors(action.customer)).length) return customers;
   const previous = customers.find(customer => customer.id === action.customer.id);
-  const saved = { ...action.customer, name: action.customer.name.trim(), status: previous?.status ?? "active" as const };
+  const now = new Date().toISOString();
+  const saved = { ...action.customer, name: action.customer.name.trim(), status: previous?.status ?? "active" as const, createdAt: previous ? previous.createdAt : now, updatedAt: now };
   return previous ? customers.map(customer => customer === previous ? saved : customer) : [...customers, saved];
+}
+
+export function customerRecentActivity(customer: BusinessCustomer, invoices: InvoicePreview[]) {
+  const activity = customerActivity(invoices, customer.id);
+  const lastInvoice = activity.invoices.filter(invoice => invoice.issuance === "issued").sort((a, b) => b.issuedOn.localeCompare(a.issuedOn))[0];
+  const lastPayment = activity.payments[0];
+  const events = [
+    ...(customer.updatedAt ? [{ kind: "customer_updated", date: customer.updatedAt.slice(0, 10) }] : []),
+    ...(lastInvoice ? [{ kind: "invoice_issued", date: lastInvoice.issuedOn }] : []),
+    ...(lastPayment ? [{ kind: "payment_recorded", date: lastPayment.date }] : []),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  return { lastInvoice, lastPayment, latest: events[0] };
 }
 export function seedCustomers(invoices: InvoicePreview[]): BusinessCustomer[] {
   return [...new Map(invoices.map(invoice => [invoice.customer.id, { ...invoice.customer, status: "active" as const }])).values()];

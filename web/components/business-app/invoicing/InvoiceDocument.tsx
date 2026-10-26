@@ -13,9 +13,9 @@ export function useInvoiceWords() {
   const { t, i18n } = useTranslation();
   return { word: (key: string, values?: Record<string, string | number>) => t(`business.invoicing_preview.${key}`, values), t, locale: i18n.language };
 }
-export function InvoiceMoney({ amount, currency }: { amount: number; currency: string }) {
+export function InvoiceMoney({ amount, currency, numberOnly = false }: { amount: number; currency: string; numberOnly?: boolean }) {
   const { locale } = useInvoiceWords();
-  return <span className="cuadrao-amount whitespace-nowrap tabular-nums">{currencySymbol(currency)} {formatAmount((amount / 100).toFixed(2), currency, locale)}</span>;
+  return <span className="cuadrao-amount whitespace-nowrap tabular-nums">{numberOnly ? null : `${currencySymbol(currency)} `}{formatAmount((amount / 100).toFixed(2), currency, locale)}</span>;
 }
 export function InvoiceDate({ date }: { date: string }) {
   const { locale } = useInvoiceWords();

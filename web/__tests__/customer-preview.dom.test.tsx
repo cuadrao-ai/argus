@@ -43,6 +43,49 @@ async function mount(width = 1440) {
   return { act, click, fill, close, button, render, original, unmount: async () => { await act(async () => root.unmount()); host.remove(); } };
 }
 
+test("scheduled drafts reuse the customer and source, survive nested discard, and pause contextually", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    const heads = [...document.querySelectorAll("table thead th")].map(cell => cell.textContent?.trim());
+    assert.deepEqual(heads.slice(4, 7), ["Currency", "Total", "Outstanding"]);
+    const cells = document.querySelector("table tbody tr")!.querySelectorAll("td");
+    assert.equal(cells[4].textContent, "RD$");
+    assert.ok(!cells[5].textContent?.includes("RD$"));
+    assert.ok(document.querySelector('[class*="phoneList"]')?.textContent?.includes("RD$"));
+    await page.click("M-001");
+    await page.click("Edit draft");
+    await page.fill('input[id$="-description"]', "Monthly service");
+    await page.click("Save draft");
+    await page.close();
+    await page.click("Scheduled");
+    await page.act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })));
+    assert.equal(document.activeElement?.getAttribute("aria-label"), "Search schedules");
+    await page.click("Create schedule");
+    await page.fill("#schedule-name", "Monthly design");
+    assert.ok(document.querySelector('[class*="scheduleTemplate"] li .cuadrao-amount'));
+    await page.close();
+    assert.ok(document.body.textContent?.includes("Discard unsaved schedule changes?"));
+    await page.click("Keep editing");
+    assert.equal(document.querySelector<HTMLInputElement>('input[type="radio"]')?.checked, true);
+    assert.equal(document.querySelector<HTMLInputElement>('input[type="radio"]:disabled')?.disabled, true);
+    await page.click("Choose customer");
+    await page.click("Add customer");
+    await page.fill("#customer-name", "Discard this customer");
+    await page.click("Back to schedule");
+    await page.click("Discard changes");
+    assert.equal(document.querySelector<HTMLInputElement>("#schedule-name")?.value, "Monthly design");
+    await page.click("Save schedule");
+    assert.ok(!document.querySelector('[data-testid="schedule-dossier"]'));
+    await page.click("Pause");
+    assert.ok(document.body.textContent?.includes("No active schedules"));
+    await page.click("View paused");
+    await page.click("Resume");
+    await page.click("Active1");
+    assert.ok(document.querySelector('[data-testid="schedules-view"]')?.textContent?.includes("Monthly design"));
+  } finally { await page.unmount(); }
+});
+
 test("Clientes adds, edits, archives and restores without invoices, and scopes sessions by Business and fixture", async () => {
   const page = await mount();
   try {

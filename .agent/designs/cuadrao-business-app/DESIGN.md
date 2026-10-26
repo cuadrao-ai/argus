@@ -1310,3 +1310,30 @@ The mixed Todos view has no financial summary. There is no summary visibility
 preference or separate Summary settings tab. Desktop table settings contain
 Columns and Row height. Phone retains Filters and Sort without an empty settings
 shortcut. A display preference must never change record eligibility or totals.
+
+### Invoicing: customers, schedules and empty states
+
+Facturas, Clientes and Programadas share one workspace switch. Customers use a
+desktop table with identity, explicit dated activity, last invoice, last payment
+and next planned draft. Creation date is optional in settings and hidden by
+default. Phone uses compact rows and the same dossier for details. Unknown facts
+remain dashes; customer edits do not rewrite existing invoice snapshots.
+
+Programadas opens the existing dossier/sheet. Reuse the customer picker and a
+saved draft as the template, with a separate schedule copy. Default to creating
+drafts. Automatic issuance is an explicit choice only when actual readiness is
+verified; an unavailable choice explains what is missing. Keep paused schedules
+and archived customer history visible. An occurrence date is planned, not proof
+that execution happened. Preserve month-end and leap-year anchors.
+
+Empty states depend on context: first use offers a clear creation action; an
+empty stage is quiet; filtered zero offers clearing filters; an empty active
+schedule list with paused entries offers access to paused schedules. Use the
+invoice, customer directory and schedule calendar illustrations in
+`web/public/images/invoicing/`. Do not reuse the notification bell for these jobs.
+Keep the same restrained illustration scale, spacing and typography across them.
+
+For invoice tables, group Moneda | Total | Por cobrar. Currency appears once in
+its own column and both amounts align right with tabular figures. On phone,
+retain currency beside each amount since there is no shared column header.
+Keep filtering currency separate from changing display or converting values.
