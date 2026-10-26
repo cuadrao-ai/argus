@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import { ArrowDown, Check, ChevronLeft, ChevronRight, Clock3, FilePenLine, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useBusiness } from "../BusinessWorkspace";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
@@ -28,6 +29,7 @@ export default function InvoicingPreview() {
 
 function InvoiceWorkspace({ scope, business }: { scope: string; business: string }) {
   const { word, locale } = useInvoiceWords();
+  const { isBelowTablet: phone } = useResponsiveLayout();
   const [invoices, dispatch] = useReducer(invoiceReducer, scope, key => sessionInvoices.get(key) ?? invoiceFixtures().map(invoice => ({ ...invoice, items: invoice.items.map(item => ({ ...item, description: word("sample_item") })) })));
   const [editing, setEditing] = useState<InvoicePreview | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -70,7 +72,7 @@ function InvoiceWorkspace({ scope, business }: { scope: string; business: string
   const customers = [...new Map(invoices.map(invoice => [invoice.customer.id, invoice.customer])).values()];
   if (editing) return <InvoiceEditor initial={editing} customers={customers} business={business} onClose={() => setEditing(null)} onSave={invoice => { dispatch({ type: "save", invoice: { ...invoice, customer: { ...invoice.customer, id: invoice.customer.id || crypto.randomUUID() } } }); setEditing(null); setSelectedId(invoice.id); }} />;
   return <section className={styles.workspace} data-testid="invoicing-preview">
-    <header className={styles.heading}><h1>{word("title")}</h1><span className={styles.previewTag}>{word("preview_label")}</span></header>
+    {phone ? <h2 className="mb-5 font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{word("title")}</h2> : null}
     <div className={overview.cards}>{CARDS.map(({ key, icon: Icon, tone }) => <button key={key} className={`${overview.card} ${overview[tone]}`} aria-pressed={filter === key} onClick={() => choose(filter === key ? "all" : key)}><span className={overview.heading}><Icon size={21} /><span>{word(key)}</span></span><span className={`${overview.count} font-display`}>{inPeriod.filter(invoice => matchesInvoice(invoice, key)).length}</span><span className={overview.description}>{word(`overview_${key}`)}</span></button>)}</div>
     <div className={styles.toolbar}>
       <ToolbarPicker label={word("views")} value={word(filter)}>{close => FILTERS.map(value => <button className={styles.option} key={value} onClick={() => { choose(value); close(); }}>{word(value)}{value === filter ? <Check size={16} /> : null}</button>)}</ToolbarPicker>
