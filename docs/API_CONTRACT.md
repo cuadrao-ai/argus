@@ -10425,6 +10425,125 @@ accept path recorded.
   (`receipt_ready`, `receipt_needs_attention`, `expense_confirmed`), newest
   first, each with the receipt's `error_code` and `attention`. Nothing is
   stored for them.
+- POST `/api/v1/business/reports/query` returns the current Registros answer from
+  one authorized repeatable-read snapshot. The existing default-off Business
+  pilot and durable-store guards apply. Actor, Business and exact selected grant
+  come from trusted request context, never the body. Every read and export checks
+  the current grant, role and Business closure. A fingerprint grants no authority.
+  Unaccepted canonical Business drafts remain rows. A settled accepted draft and
+  its current Money activity become one row, anchored as `draft:<id>` with
+  `linked_activity_ids`; a standalone activity uses `activity:<id>`. These IDs do
+  not define a future invoice/payment allocation. Disconnected originals never
+  remove the financial row. Dismissed unrecorded drafts are outside this universe.
+  Recorded amounts and document facts use current Money and the actual approved
+  fact revision; current workflow blockers may still require review. Sources,
+  account legs, approval receipts and payment annotations are not extra rows.
+
+  The strict body is `{schema_version:1, filters, columns, sort:"date_desc",
+  page:1, page_size:25}`. Pages are positive integers; sizes are 25, 50 or 100.
+  `matching_count`, `page_count` and totals cover all matches before slicing.
+  A page above the last is empty with unchanged counts. Sorting is report date
+  descending, then stable row ID ascending, with unknown dates last. No query
+  parameters or extra body/filter fields are accepted (422).
+
+  `filters` supports literal normalized case-insensitive `q` (at most 200
+  characters) across the appropriate approved/current counterparty label,
+  canonical note, explicit counterparty tax identity and NCF/e-CF only. Original
+  text, private messages and OCR are not searched. Structured groups combine with
+  AND; each multiselect combines with OR: `record_families` (`sale`, `purchase`),
+  `review_stages` (`needs_review`, `awaiting_approval`, `ready_for_export`),
+  `currencies`, `counterparties`, `categories`, `funding_sources`,
+  `document_kinds` (`invoice`, `receipt`, `credit_note`, `unknown`) and
+  `fiscal_classifications`. `has_document` is a live linked attachment, separate
+  from download availability and fiscal number. Categories use activity IDs plus
+  `uncategorized`; funding uses `account:<id>` or `owner_funds` and returns the
+  source account type/name, never a balance. Counterparty keys are exact normalized
+  tax identities within this Business. Aliases share a key; equal names never
+  merge identities. A Venta uses its explicit client identity; the Business's
+  own issuer RNC is not a customer. Unidentified records remain searchable by
+  label and remain in unfiltered totals. Generic income and refunds do not imply
+  Venta; a linked credit retains its original family. A trusted standalone manual
+  Business expense is Gasto. Source kind is independent of the older `recibo` and
+  `venta` labels: generic invoice/receipt subtype is currently unknown unless an
+  owner source establishes it; validated credit-number class establishes credit
+  kind only, not its original link or cash effect. Fiscal class is the normalized
+  number prefix or explicit `no_comprobante`/`unknown`, not legal acceptance.
+
+  `period.kind` is `all`, `custom`, `this_month`, `last_month` or `this_year`.
+  Custom uses inclusive `from_date` and `to_date`. Relative presets resolve each
+  run in `America/Santo_Domingo`; `resolved_period` states the bounds and calendar.
+  Documents use the approved/current document issue date, standalone activity its
+  effective date. A draft/default label alone is not a document: attachment history,
+  explicit receipt facts or a fiscal number establish document provenance. Losing
+  attachment availability does not switch date basis. Missing dates remain null, never capture/approval/payment dates.
+  They match `all`; bounded periods exclude them. `excluded_unknown_dates` counts
+  those matching the other active filters before applying the date condition.
+  `all` has no time cap. A snapshot over 10,000 source rows refuses explicitly
+  with `business_report_too_large`; it never clips. `amount_min`/`amount_max`
+  require exactly one selected currency and exact nonnegative decimal strings,
+  inclusive in that currency's precision. They compare original gross magnitude,
+  including a credit note's positive gross, not a smaller Business allocation.
+
+  Workflow stages use the existing dossier fact/account blockers, unresolved
+  questions (`open`, `owner_does_not_know`, `waiting_for_window`), draft state and
+  unresolved duplicate evidence. `business_draft_not_open` is ignored only when
+  a settled approval identifies this same current activity. `needs_review` means
+  those human blockers remain, including on recorded rows. `awaiting_approval`
+  means unrecorded fact-ready work; the reader's approve permission does not
+  decide it. `ready_for_export` requires recorded work, no remaining blockers,
+  known exact amount/currency/report date and supported known monetary/document
+  effects. A credit's document adjustment must pass the existing fiscal source
+  validation. It does not mean paid, fiscally valid or government accepted.
+  Processing, unsettled approval or unavailable evidence uses a separate
+  `technical_state` and null stage; failed evidence never becomes empty readiness.
+  Missing tax identity or generic document subtype alone creates no human task.
+
+  All-match totals partition by nullable currency, semantic `basis` and economic
+  `kind`. `recorded_activity_amount` follows Money's canonical positive magnitudes
+  and role, including refunds and owner-funded expenses. `proposed_activity_amount`
+  is unrecorded work, never cash. `document_gross_amount` is original document
+  gross excluding credit notes and standalone activities;
+  `document_credit_adjustment` is a server-signed negative reduction only for a
+  validated linked credit. `document_family_amount` is their server-computed
+  document-family total: sale 100 plus a linked credit 20 yields 80, while Money
+  remains separate. A credit with unknown family makes affected currency/family
+  final totals incomplete. The credit's positive gross remains on its row for
+  filtering. No cash/fiscal combined net or legal cancellation is invented. Unknown effects
+  make that component incomplete: `amount`/`amount_minor` are null, with partial
+  `known_amount`/`known_amount_minor` and unknown/unsupported counts. Unknown currency
+  is null, never a fake ISO code. Decimal strings are the exact display/export
+  amounts. `coverage_notes` explicitly includes absent legal-cancellation coverage,
+  unknown source subtype and evidence separation.
+
+- POST `/api/v1/business/reports/export` takes `{report, expected_fingerprint}`
+  and returns a no-store ZIP of the full filtered answer: `records.csv`,
+  `records.xlsx`, and `manifest.json`. It includes unresolved matching rows with
+  honest workflow and effect fields. Selected columns preserve order; identity,
+  workflow and effect columns always remain. Spreadsheet cells are literal text.
+  XLSX includes server-computed Records, Totals and Scope sheets with no formulas.
+  The manifest states trusted Business/actor/grant, query, resolved dates,
+  captured/generated time, matching count, semantic totals, coverage limitations
+  and fingerprint. It is records-only; evidence downloads and existing period/DGII
+  packages remain separate and unchanged. The server recomputes the authorized
+  whole-result fingerprint, then checks authority and source/result dependencies
+  again after building bytes. Changed facts, visible dependencies, query or relative
+  date rollover returns 409 `business_report_changed`; explicitly refresh before
+  retrying. Page, selected columns and generation time are not result authority.
+
+- GET/POST `/api/v1/business/report-views` and PATCH/DELETE
+  `/api/v1/business/report-views/{view_id}` manage private Business+actor recipes.
+  Reads and retries reauthorize the current selected grant; a Viewer may keep
+  their own preferences but cannot export. Create takes `{name, recipe}`; update
+  takes the complete replacement plus `expected_version`; delete takes
+  `{expected_version}`. Mutations require `Idempotency-Key`. Same key/command
+  replays; changed command is 409 `idempotency_conflict`. A stale version is 409
+  `business_report_view_changed`; another actor/Business's ID is 404. The recipe
+  stores schema version, filters, columns/order and supported sort only. It stores
+  no page, result, count, fingerprint or authority. Open by submitting the returned
+  recipe to the query endpoint: current results at page 1. Relative periods remain
+  relative; custom dates remain fixed. Deleting an actor removes preferences and
+  retry metadata only, without changing financial data or custody.
+
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
   `{expenses: BusinessExpense[], ventas: BusinessExpense[], receipts:
   ReceiptSummary[], accounts: BusinessAccount[], email_deliveries:

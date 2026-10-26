@@ -56,6 +56,7 @@ from argus.api.business_drafts import (
     upload_recorder,
 )
 from argus.api.business_naming import require_business_name
+from argus.api.business_reports import router as business_reports_router
 from argus.api.business_schemas import (
     AcceptBusinessConsent,
     BusinessAccess,
@@ -166,6 +167,7 @@ router = APIRouter(
         }
     },
 )
+router.include_router(business_reports_router)
 router.include_router(business_workspace_router)
 router.include_router(business_workspace_images_router)
 router.include_router(business_bank_router)

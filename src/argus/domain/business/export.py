@@ -124,7 +124,7 @@ def _text(value: Any) -> str:
     return str(value)
 
 
-def _cell(value: Any) -> str:
+def spreadsheet_cell(value: Any) -> str:
     text = _text(value)
     if text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(
         ("\t", "\r", "\n")
@@ -255,7 +255,7 @@ def _csv(rows: Sequence[Mapping[str, Any]], columns: Sequence[str]) -> bytes:
     output = io.StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(columns)
-    writer.writerows([_cell(row.get(column)) for column in columns] for row in rows)
+    writer.writerows([spreadsheet_cell(row.get(column)) for column in columns] for row in rows)
     return output.getvalue().encode("utf-8-sig")
 
 
@@ -280,7 +280,7 @@ def _xlsx(
                 sheet.write_string(0, col, label, heading)
             for index, row in enumerate(values, 1):
                 for col, label in enumerate(columns):
-                    value = _cell(row.get(label))
+                    value = spreadsheet_cell(row.get(label))
                     if len(value) > 32767:
                         raise ExportLimit("export_cell_limit")
                     sheet.write_string(index, col, value)
