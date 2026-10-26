@@ -11,13 +11,17 @@ import { defaultRecordsPreferences } from "@/components/business-app/transaccion
 import { businessReportRow } from "@/lib/business-reporting-wire";
 import type { ReportAnswer, ReportRecord } from "@/lib/business-reports-api";
 import spanish from "@/public/locales/es-419/common.json";
+import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
+import { useBusinessReport } from "@/components/business-app/transacciones/useBusinessReport";
+import type { ReportingTransport } from "@/lib/business-reporting-wire";
 
 let root: Root | undefined;
+let previousGrant: string | null | undefined;
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost/biz", width: 1440, height: 900 });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
-afterEach(async () => { if (root) await act(async () => root?.unmount()); root = undefined; document.body.innerHTML = ""; });
+afterEach(async () => { if (root) await act(async () => root?.unmount()); root = undefined; if (previousGrant !== undefined) setChosenGrant(previousGrant); previousGrant = undefined; document.body.innerHTML = ""; });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 const row = (id: string, amount: string | null): ReportRecord => ({
@@ -25,6 +29,27 @@ const row = (id: string, amount: string | null): ReportRecord => ({
   technical_state: "processing", workflow_blockers: [], currency: amount ? "DOP" : null, gross_amount: amount, recorded_amount: null, recorded_currency: null, proposed_amount: null,
   money_kind: "expense", money_effect: "unknown", adjustment_effect: null, counterparty: id, counterparty_key: null, category_key: "uncategorized", funding_key: null, funding_label: null,
   funding_kind: null, has_document: false, document_kind: "unknown", fiscal_classification: "unknown", fiscal_number: null, note: "Nota actual", settlement_status: null, dependency_fingerprint: "dependency",
+});
+
+test("a same-grant notification keeps the current report while an actual switch immediately clears it", async () => {
+  previousGrant = getChosenGrant();
+  const grantId = "00000000-0000-4000-8000-000000000001";
+  setChosenGrant(grantId);
+  const transport: ReportingTransport = {
+    query: async (_scope, request) => ({ items: [], matching_count: 0, page: request.page, page_size: request.page_size, page_count: 0, totals: [], fingerprint: "a".repeat(64), captured_at: "2026-10-26", resolved_period: { from_date: null, to_date: null, calendar: "America/Santo_Domingo" }, excluded_unknown_dates: 0, counterparties: [], categories: [], funding_sources: [], coverage_notes: [] }),
+    export: async () => new Blob(), listViews: async () => [], mutateView: async () => null,
+  };
+  function Probe() {
+    const { state } = useBusinessReport({ userId: "person", businessId: "business", grantId }, undefined, transport);
+    return <span data-report-state={state.load.kind}>{state.load.kind}</span>;
+  }
+  const host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
+  await act(async () => root?.render(<Probe />));
+  assert.equal(host.textContent, "ready");
+  await act(async () => setChosenGrant(grantId));
+  assert.equal(host.textContent, "ready");
+  await act(async () => setChosenGrant(null));
+  assert.equal(host.textContent, "failed");
 });
 
 test("a connected last page uses full server count and original row order, with unknown values and read-only notes", async () => {

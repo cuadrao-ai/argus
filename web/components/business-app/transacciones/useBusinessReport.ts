@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { subscribeChosenGrant } from "@/lib/business-grant";
+import { getChosenGrant, subscribeChosenGrant } from "@/lib/business-grant";
 import { createBusinessReportController, type ReportingTransport } from "@/lib/business-reporting-wire";
 import type { ReportRequest, ReportScope } from "@/lib/business-reports-api";
 
@@ -12,8 +12,8 @@ export function useBusinessReport(scope: ReportScope, initial?: ReportRequest, t
   useEffect(() => {
     void controller.load();
     void controller.listViews();
-    const unsubscribe = subscribeChosenGrant(controller.revoke);
+    const unsubscribe = subscribeChosenGrant(() => { if (getChosenGrant() !== grantId) controller.revoke(); });
     return () => { unsubscribe(); controller.dispose(); };
-  }, [controller]);
+  }, [controller, grantId]);
   return { controller, state };
 }

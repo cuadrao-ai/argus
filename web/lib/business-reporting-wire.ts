@@ -1,10 +1,31 @@
 import {
   exportBusinessReport, listBusinessReportViews, mutateBusinessReportView, queryBusinessReport,
   reportRecipeSchema, reportRequestSchema,
-  type ReportAnswer, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView,
+  type ReportAnswer, type ReportProblem, type ReportRecipe, type ReportRequest, type ReportScope, type ReportViewCommand, type SavedReportView, type ReportPresentation,
 } from "./business-reports-api";
 import type { ReportRecord } from "./business-reports-api";
 import type { RecordRow } from "@/components/business-app/transacciones/transacciones-model";
+import type { RecordsSort } from "@/components/business-app/transacciones/records-pagination";
+import type { ReportSort } from "./business-reports-api";
+import type { RecordsColumnKey, RecordsViewPreferences } from "@/components/business-app/transacciones/records-view-preferences";
+import { DENSITIES, DENSITY_ROW_PX } from "@/components/business-app/transacciones/table-density";
+
+const SORT_KEYS = { fecha: "date", contraparte: "name", monto: "amount" } as const;
+export function recordsSortToReport(sort: RecordsSort): ReportSort {
+  return `${SORT_KEYS[sort.key]}_${sort.direction}`;
+}
+export function reportSortToRecords(sort: ReportSort): RecordsSort {
+  const key = (Object.keys(SORT_KEYS) as RecordsSort["key"][]).find((key) => sort.startsWith(`${SORT_KEYS[key]}_`))!;
+  return { key, direction: sort.endsWith("_asc") ? "asc" : "desc" };
+}
+const COLUMN_KEYS: Record<RecordsColumnKey, ReportPresentation["order"][number]> = { contraparte: "counterparty", fecha: "date", monto: "gross_amount", moneda: "currency", detalle: "family", categoria: "category", estado: "stage", notas: "note", comprobante: "attachment", cuenta: "funding" };
+const recordColumnKey = (key: ReportPresentation["order"][number]): RecordsColumnKey => (Object.keys(COLUMN_KEYS) as RecordsColumnKey[]).find((column) => COLUMN_KEYS[column] === key)!;
+export function reportPresentationToRecords(presentation: ReportPresentation, sort: ReportSort): RecordsViewPreferences {
+  return { order: presentation.order.map(recordColumnKey), hidden: presentation.hidden.map(recordColumnKey), density: DENSITIES.find((density) => DENSITY_ROW_PX[density] === presentation.density)!, sort: reportSortToRecords(sort) };
+}
+export function recordsPresentationToReport(preferences: RecordsViewPreferences): ReportPresentation {
+  return { order: preferences.order.map((key) => COLUMN_KEYS[key]), hidden: preferences.hidden.map((key) => COLUMN_KEYS[key]), density: DENSITY_ROW_PX[preferences.density] };
+}
 
 export function businessReportRow(report: ReportRecord): RecordRow {
   const activityId = report.linked_activity_ids[0];
@@ -20,7 +41,8 @@ export function businessReportRow(report: ReportRecord): RecordRow {
 
 export const defaultReportRequest = (): ReportRequest => reportRequestSchema.parse({});
 export const recipeFromRequest = (request: ReportRequest): ReportRecipe => {
-  return reportRecipeSchema.parse({ schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort });
+  const recipe = { schema_version: request.schema_version, filters: request.filters, columns: request.columns, sort: request.sort };
+  return reportRecipeSchema.parse(request.schema_version === 2 ? { ...recipe, presentation: request.presentation, page_size: request.page_size } : recipe);
 };
 export type ReportFailure = { kind: "access" | "changed" | "version" | "conflict" | "unavailable" | "uncertain" | "failed"; code: string; requestId?: string };
 export function reportFailure(error: unknown, mutation = false): ReportFailure {
@@ -29,9 +51,10 @@ export function reportFailure(error: unknown, mutation = false): ReportFailure {
   const status = problem?.status;
   const kind = status === 401 || status === 403 || problem?.name === "ChatAccountChangedError" || problem?.message === "Browser session changed" || ["business_closed", "business_grant_not_live", "business_report_scope_changed"].includes(code) ? "access"
     : code === "business_report_changed" ? "changed"
-    : code === "business_report_view_changed" ? "version"
-    : code === "idempotency_conflict" ? "conflict"
-    : ["business_report_too_large", "business_pilot_disabled", "business_reports_unavailable"].includes(code) ? "unavailable"
+    : code === "business_report_view_changed" || code === "stale_version" ? "version"
+    : ["idempotency_conflict", "business_action_conflict", "supporting_file_already_linked"].includes(code) ? "conflict"
+    : ["business_report_too_large", "business_pilot_disabled", "business_reports_unavailable", "business_annotation_unavailable", "business_annotation_unsupported", "document_source_unavailable"].includes(code) ? "unavailable"
+    : problem?.name === "ZodError" ? "failed"
     : mutation && (status === undefined || status >= 500) ? "uncertain" : "failed";
   return { kind, code, requestId: problem?.requestId };
 }
@@ -92,9 +115,13 @@ export function createBusinessReportController(scope: ReportScope, initial = def
         else publish({ load: { kind: "failed", problem } });
       }
     },
-    setRecipe: (recipe: ReportRecipe) => controller.load({ ...reportRecipeSchema.parse(recipe), page: 1, page_size: state.request.page_size }),
+    setRecipe: (recipe: ReportRecipe) => controller.load({ ...reportRecipeSchema.parse(recipe), page: 1, page_size: recipe.schema_version === 2 ? recipe.page_size : state.request.page_size }),
     setPage: (page: number) => controller.load({ ...state.request, page }),
     setPageSize: (page_size: ReportRequest["page_size"]) => controller.load({ ...state.request, page: 1, page_size }),
+    setPresentation(presentation: ReportPresentation) {
+      if (state.request.schema_version !== 2) throw new Error("Report presentation requires schema version 2");
+      publish({ request: reportRequestSchema.parse({ ...state.request, presentation }) });
+    },
     refresh: () => controller.load(),
     recoverPage: () => state.load.kind === "invalid-page" ? controller.setPage(state.load.recoveryPage) : Promise.resolve(),
     rememberAnchor: (rowId: string | null) => publish({ anchor: rowId, missingAnchor: false }),
