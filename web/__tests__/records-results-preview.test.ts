@@ -66,10 +66,10 @@ test("summary labels are available at the same EN and ES layout paths", () => {
 
 test("currency and bounds filter original-currency magnitudes with exact arithmetic", async () => {
   const { matchesPreviewAmount } = await import("@/components/business-app/transacciones/records-filter-preview-model");
-  const usd = { currency: "USD", min: "9007199254740993.01", max: "9007199254740993.02" } as const;
-  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "-9007199254740993.01" }, usd), true);
-  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "9007199254740993.00" }, usd), false);
-  assert.equal(matchesPreviewAmount({ currency: "DOP", amount: "9007199254740993.01" }, usd), false);
+  const usd = { currency: "USD", min: "900719925474099.01", max: "900719925474099.02" } as const;
+  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "-900719925474099.01" }, usd), true);
+  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "900719925474099.00" }, usd), false);
+  assert.equal(matchesPreviewAmount({ currency: "DOP", amount: "900719925474099.01" }, usd), false);
   assert.equal(matchesPreviewAmount({ currency: "USD", amount: "bad" }, usd), false);
   assert.equal(matchesPreviewAmount({ currency: "USD", amount: "24" }, { currency: "USD", min: "25", max: "24" }), false);
 });

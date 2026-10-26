@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ChevronDown, ChevronRight, Banknote, Building2, CheckCheck, FileText, Folder, ListFilter, Paperclip, ReceiptText, Users, X, type LucideIcon } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
+import MoneyInput from "@/components/money/MoneyInput";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
@@ -23,6 +24,8 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false }: { p
   const { t } = useTransaccionesWords();
   const [draft, setDraft] = useState(initial);
   const [draftKind, setDraftKind] = useState(initialKind);
+  const [amountInvalid, setAmountInvalid] = useState({ min: false, max: false });
+  const [amountReset, setAmountReset] = useState(0);
   const [group, setGroup] = useState<EditorGroup>("record");
   const [query, setQuery] = useState("");
   const [choosingGroup, setChoosingGroup] = useState(phone);
@@ -81,7 +84,7 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false }: { p
         {group === "amount" ? <>
           <p className={styles.hint}>{word("amount.currency")}</p>
           <div className={styles.currencies}>{(["DOP", "USD", "EUR"] as const).map((currency) => <button key={currency} type="button" className={styles.currency} aria-pressed={draft.amount.currency === currency} onClick={() => setDraft({ ...draft, amount: { ...draft.amount, currency } })}>{currency}</button>)}</div>
-          <div className={styles.fields}>{(["min", "max"] as const).map((key) => <label key={key} className={styles.field}><span>{word(`amount.${key}`)}</span><input type="text" inputMode="decimal" disabled={!draft.amount.currency} className={styles.input} value={draft.amount[key]} placeholder="0.00" onChange={(event) => setDraft({ ...draft, amount: { ...draft.amount, [key]: event.target.value } })} /></label>)}</div>
+          <div className={styles.fields}>{(["min", "max"] as const).map((key) => <label key={`${key}:${amountReset}`} className={styles.field}><span>{word(`amount.${key}`)}</span><MoneyInput label={word(`amount.${key}`)} currency={draft.amount.currency} allowZero disabled={!draft.amount.currency} value={draft.amount[key] || null} onValueChange={({ value, invalid }) => { setDraft((current) => ({ ...current, amount: { ...current.amount, [key]: value ?? "" } })); setAmountInvalid((current) => ({ ...current, [key]: invalid })); }} /></label>)}</div>
           {!draft.amount.currency ? <p className={styles.hint}>{word("amount.choose_currency")}</p> : null}
           {!validPreviewAmount(draft.amount) ? <p role="alert" className={styles.error}>{word("amount.invalid")}</p> : null}
         </> : null}
@@ -92,7 +95,7 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false }: { p
         {group === "fiscal" ? selection("fiscal", ["b01", "b02", "e31", "e32"]) : null}
       </section> : null}
     </div>;
-  const footer = <div className={phone ? `${styles.footer} ${styles.phoneFooter}` : styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters()); setDraftKind("all"); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={!validPreviewAmount(draft.amount)} onClick={() => { apply(draft, draftKind); close(); }}>{word("apply")}</button></div>;
+  const footer = <div className={phone ? `${styles.footer} ${styles.phoneFooter}` : styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters()); setDraftKind("all"); setAmountInvalid({ min: false, max: false }); setAmountReset((value) => value + 1); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={amountInvalid.min || amountInvalid.max || !validPreviewAmount(draft.amount)} onClick={() => { apply(draft, draftKind); close(); }}>{word("apply")}</button></div>;
   return phone ? <BottomSheet isOpen onClose={close} title={word("title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={footer}>{body}</BottomSheet> : <>{body}{footer}</>;
 }
 

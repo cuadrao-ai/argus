@@ -70,6 +70,28 @@ test("amount controls wait for a currency and exact validation rejects an invert
   assert.ok([...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')].every((input) => !input.disabled));
   assert.equal(validPreviewAmount({ currency: "USD", min: "9007199254740993.01", max: "9007199254740993.00" }), false);
   assert.deepEqual(activeFilterGroups(emptyPreviewFilters()), []);
+  assert.equal(validPreviewAmount({ currency: "USD", min: "1234567890123456", max: "" }), false);
+});
+
+for (const width of [1440, 390]) test(`amount entry preserves valid values on invalid input at ${width}px`, async () => {
+  const page = await mount("filters", width);
+  await page.click(page.button("Filtros")); await page.click(page.button("Moneda y monto")); await page.click(page.button("USD"));
+  const fields = [...document.querySelectorAll<HTMLInputElement>('input[inputmode="decimal"]')];
+  const type = (field: HTMLInputElement, text: string) => page.act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, text);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await type(fields[0], "0"); assert.equal(fields[0].value, "0");
+  await type(fields[0], "1234567890123456");
+  assert.equal(fields[0].value, "0"); assert.equal(fields[0].getAttribute("aria-invalid"), "true");
+  assert.match(document.getElementById(fields[0].getAttribute("aria-describedby")!)!.textContent!, /15/);
+  await type(fields[0], "1000.25"); assert.equal(fields[0].value, "1,000.25");
+  await type(fields[0], "1000.251"); assert.equal(fields[0].value, "1,000.25");
+  await type(fields[0], "1000.25");
+  await type(fields[1], "500"); assert.equal(page.button("Aplicar")!.disabled, true);
+  await type(fields[1], "2000"); assert.equal(page.button("Aplicar")!.disabled, false);
+  await page.click(page.button("Aplicar"));
+  assert.match(document.querySelector('[data-testid="records-preview-filter-chips"]')!.textContent!, /USD.*1000.25.*2000/);
 });
 
 test("the expanded calendar shares a range across months and keeps draft dates local until Apply", async () => {

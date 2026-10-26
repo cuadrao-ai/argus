@@ -1,4 +1,4 @@
-import { currencyDigits } from "@/lib/money-entry";
+import { currencyDigits, MONEY_MAX_INTEGER_DIGITS } from "@/lib/money-entry";
 import type { Money } from "./transacciones-model";
 
 export const FILTER_GROUPS = ["review", "attachment", "amount", "counterparty", "category", "account", "document", "fiscal"] as const;
@@ -17,8 +17,8 @@ export type PreviewFilters = {
 export const emptyPreviewFilters = (): PreviewFilters => ({ review: [], attachment: "any", amount: { currency: "", min: "", max: "" }, counterparty: [], category: [], account: [], document: [], fiscal: [] });
 export const activeFilterGroups = (filters: PreviewFilters): FilterGroup[] => FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.amount.currency) : filters[group].length > 0);
 export const validPreviewAmount = ({ min, max }: PreviewFilters["amount"]): boolean => {
-  const valid = (value: string) => !value || /^\d+(\.\d{1,2})?$/.test(value);
-  const cents = (value: string) => { const [whole, fraction = ""] = value.split("."); return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0")); };
+  const valid = (value: string) => !value || /^\d+(\.\d{1,2})?$/.test(value) && value.split(".")[0].length <= MONEY_MAX_INTEGER_DIGITS;
+  const cents = (value: string) => { const [whole, fraction = ""] = value.split("."); return BigInt(whole) * BigInt(100) + BigInt(fraction.padEnd(2, "0")); };
   return valid(min) && valid(max) && (!min || !max || cents(min) <= cents(max));
 };
 

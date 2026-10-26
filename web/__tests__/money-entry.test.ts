@@ -26,6 +26,14 @@ const JPY: MoneyRules = { ...DOP, currency: "JPY" };
 const COMMA_DEVICE: MoneyRules = { ...DOP, commaDecimal: true };
 const SIGNED: MoneyRules = { ...DOP, allowNegative: true };
 
+test("nonnegative filter bounds accept zero without allowing negative amounts", () => {
+  const rules = { ...DOP, allowZero: true };
+  expect(readMoney("0.00", rules)).toEqual({ value: "0.00", problem: null });
+  expect(parsePasted("-1", rules)).toEqual({ problem: { code: "negative" } });
+  expect(readMoney("1234567890123456", rules).problem?.code).toBe("too_long");
+  expect(readMoney("1.234", rules).problem?.code).toBe("precision");
+});
+
 /** Types each character at the caret, as a keyboard would, and reports what the field shows. */
 function typeKeys(keys: string, rules: MoneyRules, start = "") {
   let display = start;
