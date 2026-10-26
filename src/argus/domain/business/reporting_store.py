@@ -12,6 +12,7 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
+from argus.domain.business.annotations import annotation_available, supporting_source_key
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -25,6 +26,7 @@ from argus.domain.business.month_close import Settlement
 from argus.domain.business.reporting import ReportIdentity, ReportRow
 from argus.domain.business.reporting_query import (
     ReportAnswer,
+    ReportAttachment,
     ReportRecord,
     ReportRequest,
 )
@@ -44,6 +46,15 @@ class ReportSource:
     media_type: str | None = None
     sha256: str | None = None
     source_available: bool | None = None
+    source_key: str | None = None
+
+    @property
+    def supporting_only(self) -> bool:
+        return (
+            self.kind == "attachment"
+            and self.connection_id is not None
+            and self.source_key == supporting_source_key(self.connection_id)
+        )
 
 
 @dataclass(frozen=True)
@@ -76,7 +87,7 @@ class RecordedSnapshot:
 
 
 _SOURCES = """
-select l.draft_id::text, s.id::text as source_id, s.kind,
+select l.draft_id::text, s.id::text as source_id, s.kind, s.source_key,
        s.connection_id::text, c.status as connection_status,
        d.draft->>'filename' as filename, d.draft->>'media_type' as media_type,
        coalesce(d.source_sha256, d.draft->>'sha256') as sha256,
@@ -331,7 +342,38 @@ def _projected(
     for draft in drafts.values():
         if draft.event.id not in consumed and draft.event.state != "dismissed":
             projected.append(project(None, draft, originals, filer_identity, accounts))
-    return snapshot, tuple(projected)
+    public_rows = []
+    for row in projected:
+        draft = drafts.get(row.draft_id)
+        can_annotate = annotation_available(live, draft.event if draft else None)
+        public_rows.append(
+            row.model_copy(
+                update={
+                    "can_edit_note": can_annotate,
+                    "can_append_supporting": can_annotate,
+                    "annotation_unavailable_reason": None
+                    if can_annotate
+                    else "business_annotation_unavailable"
+                    if draft
+                    else "business_annotation_unsupported",
+                    "attachment_sources": tuple(
+                        ReportAttachment(
+                            source_id=source.source_id,
+                            receipt_id=source.connection_id,
+                            filename=source.filename,
+                            media_type=source.media_type,
+                            source_available=source.source_available,
+                            download_available="download" in live.permissions
+                            and source.source_available is True
+                            and source.connection_status not in (None, "disconnected"),
+                        )
+                        for source in (draft.sources if draft else ())
+                        if source.kind == "attachment"
+                    ),
+                }
+            )
+        )
+    return snapshot, tuple(public_rows)
 
 
 def read_report_snapshot(

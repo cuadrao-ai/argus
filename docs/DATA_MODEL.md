@@ -3470,6 +3470,33 @@ cascade preference metadata only. They neither own nor reference financial rows,
 original objects or custody state, and do not enable account deletion. Synthetic
 PostgreSQL view, conflict, revocation and client-grant tests prove this boundary.
 
+### Business record annotations and version-two preferences
+
+The additive `20261026095000_registros_preferences_annotations.sql` migration
+allows recipe schema versions 1 and 2 in the existing private saved-view table.
+Version 2 stores presentation order/hidden columns/density and page size; neither
+version stores result money or cached rows. Existing RLS, person/Business scope,
+FKs, client privilege denial and deletion behavior remain unchanged.
+
+Current editable text is `financial_import_events.resolution.current_note`.
+The original `note` and immutable source text remain intact. An annotation only
+increments the event version and update timestamp. Its existing
+`business_draft_revisions` row retains unchanged financial facts and adds
+nullable `before_current_note` and `after_current_note`. Null means no note edit;
+empty text means explicit clear. New note values are at most 500 code points.
+The existing approved revision pointer continues to identify the original
+approved facts. Supporting-file revisions carry their new source IDs through
+the same history owner, with no financial-fact or settlement changes.
+
+`business_action_receipts` permits the two new human-only commands
+`edit_current_note` and `append_supporting_file`. They cannot belong to model
+turns. A successful receipt retains the existing `applied` outcome envelope and
+an `annotation_result` containing the exact public command result. Supporting
+intent may remain pending after an object failure; its hash and authority scope
+prevent key reuse with changed payload. Existing document connections, object
+custody, source records and same-space source links own the bytes. No new table,
+foreign key, client grant or alternative evidence owner is introduced.
+
 ### Durable Business workspace identity
 
 `20261025223500_business_workspace_persistence.sql` adds

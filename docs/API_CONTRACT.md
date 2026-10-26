@@ -10544,6 +10544,72 @@ accept path recorded.
   relative; custom dates remain fixed. Deleting an actor removes preferences and
   retry metadata only, without changing financial data or custody.
 
+- Registros version 2 is additive. Omitted `schema_version` still selects strict
+  version 1. Version 2 accepts `date_asc`, `date_desc`, `name_asc`, `name_desc`,
+  `amount_asc` and `amount_desc`. Ties use stable row identity; nulls stay last.
+  Amount ordering requires one known currency across every matching row. Otherwise
+  `effective_sort` is `date_desc` and `sort_unavailable_reason` is
+  `amount_sort_requires_single_known_currency`. No conversion is performed.
+  Version-2 input bounds allow at most 15 significant whole digits and currency
+  precision; historical version-1 bounds and exact response strings remain valid.
+
+  Version-2 recipes also save `page_size` (25/50/100) and `presentation`.
+  `presentation.order` contains each of `counterparty`, `date`, `gross_amount`,
+  `currency`, `family`, `category`, `stage`, `note`, `attachment`, `funding` once.
+  Counterparty stays first. `hidden` cannot hide counterparty, amount or currency.
+  The default order is that sequence, with funding hidden. Density is 40/48/56,
+  default 48. Amount and currency move independently. `columns` remains the
+  separate export field selection. No summary or widget preference is accepted.
+  Page, page size, columns and presentation do not alter the result fingerprint.
+
+  Every report answer adds `overview` with `needs_review`, `awaiting_approval`,
+  and `ready_for_export` counts from the same authorized projection scoped only
+  to Business and period. Table search and filters never change these counts.
+  Literal search ignores case and accents, and covers counterparty, current note,
+  tax identity, fiscal/document identifiers and authorized attachment filenames.
+  It does not search file contents, private text, amounts or dates.
+
+  Draft-backed rows expose `can_edit_note`, `can_append_supporting`, and
+  `annotation_unavailable_reason`; standalone activities cannot be annotated.
+  `revision` is the exact draft version for these commands. `attachment_sources`
+  carries source/receipt IDs, filename, media type, nullable source availability
+  and current download permission. Missing storage is distinct from no evidence.
+
+- PUT `/api/v1/business/drafts/{draft_id}/current-note` accepts
+  `{expected_version, note}` and `Idempotency-Key` (1..80 characters). A current
+  human prepare grant and an open or accepted draft are required. `note` accepts
+  up to 500 Unicode code points, including empty text to clear; null characters
+  are refused. The command increments the draft version and appends one Activity
+  revision with actor/time and before/after note, leaving financial facts,
+  approval, original evidence, Money and settlement unchanged. Same-key replay
+  returns the saved `{result: {draft_id, version, note}, dossier}`; the result's
+  version is the original command version and the dossier is a fresh read.
+  Changed payload is 409 `business_action_conflict`; stale version is 409
+  `stale_version`. Clients retain the losing editor draft. Reads, search and
+  selected note exports use the durable current note.
+
+- POST `/api/v1/business/drafts/{draft_id}/supporting-files` appends one raw file
+  per request to an existing eligible draft. Multiple device files are separate
+  commands with per-file outcomes; each next command uses the returned current
+  dossier version. Required headers are `X-Draft-Version`, `Idempotency-Key`,
+  and the file `Content-Type`; `X-Document-Filename` is percent-encoded UTF-8 as
+  on receipt intake. Existing file types and runtime byte limits apply.
+  The response is `{result: {draft_id, version, outcome, source_id, receipt_id,
+  sha256}, dossier}`, with outcome `appended` or `duplicate`. Original bytes and
+  links are never replaced. Duplicate bytes already linked here add no history
+  or version. A link to another record is refused as
+  `supporting_file_already_linked`; no automatic move is supported.
+
+  The command records its exact intent before object capture. The existing byte
+  store retains unavailable custody references across failed writes; retries use
+  the same byte identity. The capture transaction commits source link, unchanged
+  financial-fact history, draft version and saved result together. A lost reply
+  replays that result, without duplicate links/history. Every replay checks live
+  Business/grant/human authority and source standing. Append never dispatches
+  extraction, toggles consent, creates activity or changes payment state.
+  Existing original downloads keep their separate live download permission.
+  Received-document selection and unlink remain unavailable.
+
 - GET `/api/v1/business/search?q&limit&kind&cursor` returns
   `{expenses: BusinessExpense[], ventas: BusinessExpense[], receipts:
   ReceiptSummary[], accounts: BusinessAccount[], email_deliveries:

@@ -99,14 +99,15 @@ def project(
         and draft.event.accept_key
         and draft.event.activity_id == recorded.row.activity_id
     )
-    sources = (
-        recorded.sources if settled else draft.sources if draft else recorded.sources
-    )
+    sources = draft.sources if draft else recorded.sources
     fiscal_number = normalized_ncf(
         fact_value(approved, "ecf") or fact_value(approved, "ncf")
     )
     document_backed = (
-        any(source.kind == "attachment" for source in sources)
+        any(
+            source.kind == "attachment" and not source.supporting_only
+            for source in sources
+        )
         or fiscal_number is not None
         or value(facts, "receipt_state") in ("fiscal_receipt", "informal_receipt")
     )
@@ -259,7 +260,19 @@ def project(
         if value(facts, "receipt_state") == "no_receipt"
         else "unknown",
         fiscal_number=fiscal_number,
-        note=activity.get("note") if activity else draft.event.resolution.get("note"),
+        document_identifiers=(fiscal_number,) if fiscal_number else (),
+        attachment_filenames=tuple(
+            source.filename
+            for source in sources
+            if source.linked
+            and source.filename
+            and source.connection_status not in (None, "disconnected")
+        ),
+        note=draft.event.resolution["current_note"]
+        if draft and "current_note" in draft.event.resolution
+        else activity.get("note")
+        if activity
+        else draft.event.resolution.get("note"),
         settlement_status=recorded.settlement.status
         if recorded and recorded.settlement
         else None,

@@ -11,6 +11,7 @@ from pydantic import TypeAdapter
 from argus.domain.business.actions.facts import facts_of
 from argus.domain.business.actions.marks import draft_marks, fiscal_inclusion_available
 from argus.domain.business.actions.refunds import refund_candidates
+from argus.domain.business.annotations import annotation_available, current_note
 from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.actions import APPROVAL_ACTION
 from argus.domain.business.contracts.dossier import (
@@ -242,7 +243,7 @@ def dossier(
     questions = tuple(ReviewQuestion.model_validate(row) for row in question_rows)
     history = tx.rows(
         "select draft_id,version,actor,before_facts as before,after_facts as after,"
-        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on"
+        " source_ids,turn_key,created_at,before_dgii,after_dgii,before_due_on,after_due_on,before_current_note,after_current_note"
         " from public.business_draft_revisions"
         " where space_id=%s and draft_id=%s order by version",
         (tx.context.actor.space_id, draft_id),
@@ -271,7 +272,9 @@ def dossier(
             value["text"] = row["text_content"]
         evidence.append(SOURCE.validate_python(value))
     context = record_context(tx)
-    blocked, duplicate_ids = workflow_blockers(tx, event, facts, context.accounts, questions)
+    blocked, duplicate_ids = workflow_blockers(
+        tx, event, facts, context.accounts, questions
+    )
     pointer = event.resolution.get("approval_receipt")
     approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])
@@ -291,8 +294,15 @@ def dossier(
     )
     resolution = BusinessResolution.model_validate(event.resolution["business"])
     approvable = not blocked and "approve" in tx.authorization.capabilities
+    can_annotate = annotation_available(tx.authorization, event)
     return BusinessDossier(
         **context.model_dump(),
+        current_note=current_note(event),
+        note_edit_available=can_annotate,
+        supporting_append_available=can_annotate,
+        annotation_unavailable_reason=None
+        if can_annotate
+        else "business_annotation_unavailable",
         draft_id=draft_id,
         version=event.version,
         review_state=event.state,
