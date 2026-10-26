@@ -83,7 +83,18 @@ describe("responsive breakpoints", () => {
   });
 });
 
+const POINTER_AFFORDANCE_PATHS = [
+  "components/sidebar/pointerAffordances.module.css",
+  "components/business-app/transacciones/transacciones-cells.module.css",
+] as const;
+const pointerInventory = (paths: readonly string[]) => [...paths].sort();
+
 describe("pointer capability stays an affordance concern", () => {
+  test("pointer inventory keeps the exact allowed paths regardless of directory order", () => {
+    expect(pointerInventory([...POINTER_AFFORDANCE_PATHS].reverse())).toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
+    expect(pointerInventory([...POINTER_AFFORDANCE_PATHS, "components/global-pointer.css"])).not.toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
+  });
+
   test("only the cleared sidebar and record-cell affordances branch on the pointer", () => {
     /*
      * Geometry follows the DESIGN.md widths. Pointer capability answers only
@@ -113,10 +124,7 @@ describe("pointer capability stays an affordance concern", () => {
     };
     scan(join(import.meta.dir, "..", "components"));
     scan(join(import.meta.dir, "..", "app"));
-    expect(offenders).toEqual([
-      "components/sidebar/pointerAffordances.module.css",
-      "components/business-app/transacciones/transacciones-cells.module.css",
-    ]);
+    expect(pointerInventory(offenders)).toEqual(pointerInventory(POINTER_AFFORDANCE_PATHS));
 
 
     const recordCells = readFileSync(join(import.meta.dir, "../components/business-app/transacciones/transacciones-cells.module.css"), "utf-8");
