@@ -9,12 +9,12 @@ import en from "@/public/locales/en/common.json";
 const record = (id: string, kind: RecordRow["kind"], amount: string, currency: string): RecordRow => ({ id, kind, occurredOn: "2026-10-25", counterparty: "Sample", money: { amount, currency }, categoryId: null, account: null, hasProof: null, marks: { personal: false, markedBy: null, fiscal: null }, opens: null });
 const rows = [record("exp-gas", "gasto", "-2100.00", "DOP"), record("exp-hosting", "gasto", "-24.00", "USD"), record("exp-lunch", "gasto", "-1250.00", "DOP"), record("exp-gas", "venta", "2100.00", "DOP"), record("exp-hosting", "venta", "24.00", "USD"), record("exp-lunch", "venta", "1250.00", "DOP")];
 
-test("preview defaults add Estado, retain seven visible columns and keep Cuenta optional", () => {
+test("preview defaults add status, currency and notes while keeping account optional", () => {
   const prefs = defaultRecordsPreferences();
-  assert.equal(prefs.order.length, 8);
-  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "detalle", "categoria", "estado", "comprobante"]);
+  assert.equal(prefs.order.length, 10);
+  assert.deepEqual(visibleRecordsColumns(prefs).map(({ key }) => key), ["contraparte", "fecha", "monto", "moneda", "detalle", "categoria", "estado", "notas", "comprobante"]);
   assert.deepEqual(prefs.hidden, ["cuenta"]);
-  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 8);
+  assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "cuenta")).length, 10);
   assert.equal(visibleRecordsColumns(toggleRecordsColumn(prefs, "estado")).some(({ key }) => key === "estado"), false);
 });
 

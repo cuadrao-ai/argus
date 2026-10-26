@@ -19,7 +19,9 @@
 .name { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:15px; font-weight:500; }
 .amount { white-space:nowrap; text-align:right; font-size:15px; font-weight:500; font-variant-numeric:tabular-nums; }
 .meta { display:grid; grid-template-columns:minmax(0,1fr) max-content; align-items:center; gap:6px 12px; margin-top:6px; font-size:13px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
-.marks { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.marks { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-width:0; }
+.narrowRecord { display:flex; align-items:center; padding-right:4px; }
+.narrowRecord > .row { min-width:0; flex:1; }
 .date [data-testid="record-proof"] { width:16px; height:16px; }
 .date { display:flex; align-items:center; gap:4px; margin-left:auto; white-space:nowrap; }
 @container records (max-width:699.98px) {

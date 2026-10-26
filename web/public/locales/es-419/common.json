@@ -2422,8 +2422,26 @@
     "transactions": {
       "layout": {
         "all_types": "Todos los tipos",
+        "annotations": {
+          "actions_for": "Acciones de {{name}}",
+          "add_attachment": "Agregar adjunto",
+          "add_note": "Agregar nota",
+          "attachment_for": "Adjunto de {{name}}",
+          "choose_file": "Seleccionar archivo",
+          "current_note": "Nota actual",
+          "edit_note_for": "Editar nota de {{name}}",
+          "empty_file": "El archivo está vacío. Elige otro.",
+          "invalid_name": "Usa un nombre de archivo válido de hasta 255 caracteres.",
+          "no_attachment": "Sin adjunto",
+          "open_attachment": "Abrir adjunto",
+          "preview_file": "Ver archivo",
+          "record_actions": "Acciones del registro",
+          "too_large": "El archivo supera el tamaño permitido.",
+          "unsupported": "Este tipo de archivo no está permitido."
+        },
         "clear": "Limpiar filtros",
         "clear_search": "Limpiar búsqueda",
+        "column_attachment": "Adjunto",
         "column_state": "Estado",
         "column_type": "Tipo",
         "count_one": "{{count}} registro",
@@ -2475,7 +2493,7 @@
           "groups": {
             "account": "Cuenta",
             "amount": "Moneda y monto",
-            "attachment": "Comprobante",
+            "attachment": "Adjunto",
             "category": "Categoría",
             "counterparty": "Contraparte",
             "document": "Tipo de documento",
@@ -2558,7 +2576,7 @@
         },
         "workflow": {
           "approval": "Por aprobar",
-          "ready": "Listo para exportar",
+          "ready": "Listo",
           "review": "Por revisar",
           "unknown": "Estado no disponible"
         }
@@ -2572,7 +2590,7 @@
       "segments": { "label": "Vista", "por_igualar": "Por igualar", "igualadas": "Igualadas", "todas": "Todas" },
       "groups": { "sugerencias": "Sugerencias", "falta_comprobante": "Falta comprobante", "sin_movimiento": "Comprobantes sin movimiento" },
       "states": { "igualada": "Igualada", "sugerencia": "Sugerencia", "falta_comprobante": "Falta comprobante", "no_lleva": "No lleva comprobante", "sin_movimiento": "Sin movimiento" },
-      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "monto": "Monto {{currency}}", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
+      "columns": { "contraparte": "Contraparte", "fecha": "Fecha", "moneda": "Moneda", "monto": "Monto {{currency}}", "notas": "Notas", "detalle": "Detalle", "categoria": "Categoría", "cuenta": "Cuenta", "comprobante": "Comprobante" },
       "totals": { "entradas": "Entradas", "salidas": "Salidas", "por_igualar": "Por igualar", "igualadas": "Igualadas", "of": "de {{count}}" },
       "sign": { "in": "Entrada de", "out": "Salida de" },
       "detail": {

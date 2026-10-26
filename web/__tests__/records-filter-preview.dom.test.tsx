@@ -50,7 +50,7 @@ test("filter draft is discarded on Escape, committed by Apply, and removable by 
   await page.click(page.button("Revisión"));
   assert.equal(document.querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked, false);
   await page.click(document.querySelector('input[type="checkbox"]'));
-  await page.click(page.button("Comprobante"));
+  await page.click(page.button("Adjunto"));
   await page.click([...document.querySelectorAll("label")].find((label) => label.textContent === "Sin documento"));
   await page.click(page.button("Aplicar"));
   const chips = document.querySelector('[data-testid="records-preview-filter-chips"]')!;

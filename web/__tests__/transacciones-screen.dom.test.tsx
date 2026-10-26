@@ -238,7 +238,7 @@ describe("the gate", () => {
       await page.click(category);
       assert.equal(document.querySelector('th[data-col="categoria"]'), null);
       assert.equal(page.records()[0].querySelector('[data-col="categoria"]'), null);
-      assert.equal(document.querySelectorAll('colgroup col').length, 6);
+      assert.equal(document.querySelectorAll('colgroup col').length, 8);
       assert.equal(document.querySelector('[data-column-setting="monto"] input'), null);
       assert.equal(document.querySelector('[data-column-setting="contraparte"] input'), null);
       assert.match(document.querySelector('[data-column-setting="monto"]')!.textContent ?? "", /Siempre visible/);
@@ -248,7 +248,7 @@ describe("the gate", () => {
       await page.click(categoryGrip);
       assert.equal((category.querySelector("input") as HTMLInputElement).checked, false, "grip click does not toggle visibility");
       const drag = async (target: string) => {
-        const handle = document.querySelector('button[aria-label="Mover Comprobante"]')!;
+        const handle = document.querySelector('button[aria-label="Mover Adjunto"]')!;
         const destination = document.querySelector(`[data-column-setting="${target}"]`)!;
         const transfer = { setData: () => {}, effectAllowed: "" };
         await page.act(async () => { const event = new Event("dragstart", { bubbles: true }); Object.defineProperty(event, "dataTransfer", { value: transfer }); handle.dispatchEvent(event); });
@@ -264,13 +264,13 @@ describe("the gate", () => {
       const grip = document.querySelector<HTMLButtonElement>('button[aria-label="Mover Monto"]')!;
       const key = (key: string) => page.act(async () => { grip.focus(); grip.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })); });
       await key(" "); await key("ArrowUp");
-      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["contraparte", "monto", "fecha"]);
+      assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "moneda", "fecha"]);
       await key("Escape");
       assert.ok(document.querySelector('[role="dialog"]'), "Escape restores grabbed order before dismissing");
       assert.deepEqual([...document.querySelectorAll('thead th')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["contraparte", "fecha", "monto"]);
       await key(" "); await key("ArrowUp"); await key(" "); await key("Escape");
       assert.equal(document.querySelector('[role="dialog"]'), null);
-      assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["contraparte", "monto", "fecha"]);
+      assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 4), ["contraparte", "monto", "moneda", "fecha"]);
       const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
       await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
       await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Resumen")!);
@@ -331,11 +331,12 @@ describe("the gate", () => {
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
       await page.settle(() => page.records().length === 6, "fixture scope summary");
       assert.equal(summary(), null, "Todos has no monetary summary");
-      assert.equal(document.querySelectorAll('thead th').length, 7);
+      assert.equal(document.querySelectorAll('thead th').length, 9);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
-      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "detalle", "categoria", "estado", "comprobante"]);
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "moneda", "detalle", "categoria", "estado", "notas", "comprobante"]);
       const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="monto"]')!;
-      assert.equal(amount.textContent, "RD$ 2,100.00");
+      assert.equal(amount.textContent, "2,100.00");
+      assert.equal(amount.parentElement!.querySelector('[data-col="moneda"]')!.textContent, "RD$");
       assert.ok(amount.querySelector(".cuadrao-amount"), "document amount respects privacy masking");
       assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Gasto");
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Filtros")!);
@@ -939,7 +940,7 @@ test("new local business has no sample sales or bank movements", async () => {
       page.api().chooseBusiness(local.id);
       page.api().openPanel({ kind: "transactions" });
     });
-    await page.settle(() => Boolean(page.screen()?.querySelector('[data-mode="records"]')) && page.api().records.workspace?.country === "CA", "empty local transactions");
+    await page.settle(() => Boolean(page.screen()?.querySelector('[data-testid="transacciones-records-empty"]')) && page.api().records.workspace?.country === "CA", "empty local transactions");
     assert.equal(page.records().length, 0);
     assert.equal(page.rows().length, 0);
     assert.doesNotMatch(page.body(), /Cliente Colmado|Panadería Luna/);

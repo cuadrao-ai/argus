@@ -12,7 +12,8 @@ import { useAccessBanner } from "./useAccessBanner";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import TransaccionesPanel from "./transacciones/TransaccionesPanel";
-import { RecordGlanceContext } from "./transacciones/RecordGlanceContext";
+import { RecordsAnnotationsPreview } from "./transacciones/RecordsAnnotationsPreview";
+import { RecordEvidenceContext, RecordGlanceContext } from "./transacciones/RecordGlanceContext";
 import type { RecordRow } from "./transacciones/transacciones-model";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
@@ -146,7 +147,9 @@ export default function BusinessPanel() {
   const preview = previewEnabled && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
   const column = profilePreview ? "canvas" : SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <RecordGlanceContext.Provider value={previewEnabled ? openGlance : null}><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
+    <RecordGlanceContext.Provider value={previewEnabled ? openGlance : null}>
+      <RecordEvidenceContext.Provider value={(row) => { if (row.opens) { setGlance(null); openPanel(row.opens); } }}>
+        <RecordsAnnotationsPreview><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
@@ -157,6 +160,8 @@ export default function BusinessPanel() {
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
       {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} preview={preview} /> : null}
-    </div></RecordGlanceContext.Provider>
+        </div></RecordsAnnotationsPreview>
+      </RecordEvidenceContext.Provider>
+    </RecordGlanceContext.Provider>
   );
 }

@@ -2422,8 +2422,26 @@
     "transactions": {
       "layout": {
         "all_types": "All types",
+        "annotations": {
+          "actions_for": "Actions for {{name}}",
+          "add_attachment": "Add attachment",
+          "add_note": "Add note",
+          "attachment_for": "Attachment for {{name}}",
+          "choose_file": "Choose file",
+          "current_note": "Current note",
+          "edit_note_for": "Edit note for {{name}}",
+          "empty_file": "This file is empty. Choose another.",
+          "invalid_name": "Use a valid file name of up to 255 characters.",
+          "no_attachment": "No attachment",
+          "open_attachment": "Open attachment",
+          "preview_file": "Preview file",
+          "record_actions": "Record actions",
+          "too_large": "The file exceeds the allowed size.",
+          "unsupported": "This file type is not allowed."
+        },
         "clear": "Clear filters",
         "clear_search": "Clear search",
+        "column_attachment": "Attachment",
         "column_state": "Status",
         "column_type": "Type",
         "count_one": "{{count}} record",
@@ -2558,7 +2576,7 @@
         },
         "workflow": {
           "approval": "Awaiting approval",
-          "ready": "Ready to export",
+          "ready": "Ready",
           "review": "To review",
           "unknown": "Status unavailable"
         }
@@ -2572,7 +2590,7 @@
       "segments": { "label": "View", "por_igualar": "To match", "igualadas": "Matched", "todas": "All" },
       "groups": { "sugerencias": "Suggestions", "falta_comprobante": "Missing proof", "sin_movimiento": "Documents with no movement" },
       "states": { "igualada": "Matched", "sugerencia": "Suggestion", "falta_comprobante": "Missing proof", "no_lleva": "Needs no proof", "sin_movimiento": "No movement" },
-      "columns": { "contraparte": "Counterparty", "fecha": "Date", "monto": "Amount {{currency}}", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
+      "columns": { "contraparte": "Counterparty", "fecha": "Date", "moneda": "Currency", "monto": "Amount {{currency}}", "notas": "Notes", "detalle": "Detail", "categoria": "Category", "cuenta": "Account", "comprobante": "Proof" },
       "totals": { "entradas": "Money in", "salidas": "Money out", "por_igualar": "To match", "igualadas": "Matched", "of": "of {{count}}" },
       "sign": { "in": "Money in", "out": "Money out" },
       "detail": {
