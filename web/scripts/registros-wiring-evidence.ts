@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, type Browser } from "@playwright/test";
 import { installBreakpointFixture } from "../e2e/support/breakpoint-fixture";
 import { reportRequestSchema } from "../lib/business-reports-api";
 import { fixtureId } from "../__tests__/fixtures/business-report-http-fixture";
@@ -17,10 +17,8 @@ assert.equal(new URL(baseUrl).hostname, "127.0.0.1"); assert.equal(new URL(fixtu
 assert.equal(process.env.NEXT_PUBLIC_MOCK_AUTH, "true"); mkdirSync(evidence, { recursive: true });
 const errors: string[] = [];
 async function localBrowser() { return chromium.launch({ headless: true }); }
-async function matrix() {
-const browser=await localBrowser();
+async function matrix(browser: Browser) {
 const records=[];
-try {
 for(const width of [1440,834,390]) for(const language of ['es-419','en'] as const) for(const theme of ['light','dark'] as const){
  const errors:string[]=[];
  const context=await browser.newContext({viewport:{width,height:1000},hasTouch:width<1024,locale:language==='en'?'en-US':'es-DO',colorScheme:theme});
@@ -59,11 +57,10 @@ for(const width of [1440,834,390]) for(const language of ['es-419','en'] as cons
 }
 writeFileSync(`${evidence}/${frontend==='uncommitted-exploratory'?'exploratory':'final'}-browser-matrix.json`,JSON.stringify(records,null,2));
 console.log(JSON.stringify({captures:records.length,frontend,backend}));
-} finally{await browser.close();}
 }
 
-async function flows() {
-const browser=await localBrowser(); const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true});await context.route("**/*", route => { const origin = new URL(route.request().url()).origin; if (origin === baseUrl || origin === fixtureUrl) return route.fallback(); errors.push(`blocked ${origin}`); return route.abort(); });const page=await context.newPage();
+async function flows(browser: Browser) {
+const context=await browser.newContext({viewport:{width:1440,height:1000},acceptDownloads:true});await context.route("**/*", route => { const origin = new URL(route.request().url()).origin; if (origin === baseUrl || origin === fixtureUrl) return route.fallback(); errors.push(`blocked ${origin}`); return route.abort(); });const page=await context.newPage();
 page.setDefaultTimeout(10000);
 const calls: { url: string; status: number; method: string; body: string | null; headers: Record<string, string> }[]=[], errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));page.on('response',async r=>{if(r.url().includes('/business/'))calls.push({url:r.url(),status:r.status(),method:r.request().method(),body:r.request().postData(),headers:r.request().headers()});});
 const control=async(body:object)=>{const r=await fetch(`${fixtureUrl}/__fixture/control`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error('control');};
@@ -87,11 +84,11 @@ try{
  await page.locator('[data-testid="add-menu-more"]').click();const zipDownload=page.waitForEvent('download');await page.getByRole('menuitem',{name:'Exportar registros',exact:true}).click();const zip=await zipDownload;await zip.saveAs(`${evidence}/${frontend}-contract-download.bin`);
  const notes=calls.filter(c=>c.url.endsWith('/current-note'));const files=calls.filter(c=>c.url.endsWith('/supporting-files'));if(notes.length!==2||notes[0].headers['idempotency-key']!==notes[1].headers['idempotency-key']||notes[0].body!==notes[1].body||files.length!==3||files[0].headers['idempotency-key']!==files[1].headers['idempotency-key']||files[0].headers['x-draft-version']!==files[1].headers['x-draft-version']||files[2].headers['x-draft-version']===files[1].headers['x-draft-version']||errors.length)throw new Error(JSON.stringify({notes,files,errors}));
  writeFileSync(`${evidence}/${frontend}-browser-flows.json`,JSON.stringify({frontend,backend:backend,proof:'synthetic contract HTTP only; no backend/database acceptance',calls,errors},null,2));console.log({notes:notes.length,files:files.length,exports:calls.filter(c=>c.url.endsWith('/reports/export')).length,errors});
-}catch(error){console.log(await page.locator('body').innerText());console.log(JSON.stringify({calls,errors}));await page.screenshot({path:`${evidence}/flow-failure.png`,fullPage:true});throw error;}finally{await browser.close();}
+}catch(error){console.log(await page.locator('body').innerText());console.log(JSON.stringify({calls,errors}));await page.screenshot({path:`${evidence}/flow-failure.png`,fullPage:true});throw error;}finally{await context.close();}
 }
 
-async function recovery() {
-const browser=await localBrowser();const proofs: Record<string, unknown>[]=[];
+async function recovery(browser: Browser) {
+const proofs: Record<string, unknown>[]=[];
 const control=async(body:object)=>{await fetch(`${fixtureUrl}/__fixture/control`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});};
 async function screen(report?:object){const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();await context.route("**/*", route => { const origin = new URL(route.request().url()).origin; if (origin === baseUrl || origin === fixtureUrl) return route.fallback(); errors.push(`blocked ${origin}`); return route.abort(); });page.setDefaultTimeout(10000);await installBreakpointFixture(page,{language:'es-419',theme:'light',emptyChat:true,consent:'accepted'});await page.addInitScript(()=>localStorage.setItem('cuadrao-business-preview-language','es-419'));await page.route('**/api/v1/business/**',r=>r.continue());const url=new URL(`${baseUrl}/biz?view=transactions`);if(report){url.searchParams.set('report',JSON.stringify(reportRequestSchema.parse(report)));url.searchParams.set('report_scope',`breakpoint-user:${fixtureId(3000)}`);}await page.goto(url.href,{waitUntil:'networkidle'});return {page,context};}
 try{
@@ -101,7 +98,20 @@ await control({legacy:true});({page,context}=await screen());await page.locator(
 await control({legacy:false,queryError:true});({page,context}=await screen());await page.locator('[data-testid="error-reference"]').waitFor();const reference=await page.locator('[data-reference-short]').innerText(),body=await page.locator('body').innerText();if(reference.includes('12345678-1234')||body.includes('INTERNAL_FIXTURE_SECRET_NOT_FOR_UI'))throw new Error('private failure leaked');await page.screenshot({path:`${evidence}/${frontend}-reference-recovery.png`});await control({queryError:false});await page.getByRole('button',{name:'Actualizar',exact:true}).click();await page.locator('[data-testid="records-count"]').waitFor();proofs.push({case:'query-error-short-reference-and-refresh',reference});await context.close();
 ({page,context}=await screen({schema_version:2,filters:{period:{kind:'all'}}}));await page.locator('[data-testid="records-count"]').waitFor();await page.getByRole('button',{name:'Vistas',exact:true}).click();const viewName=await page.getByRole('button',{name:'Vista HTTP',exact:true}).count();if(!viewName)throw new Error('run main flows before recovery');await page.getByRole('button',{name:'Renombrar',exact:true}).first().click();await page.locator('input[maxlength="120"]').fill('Nombre pendiente HTTP');await control({bumpViewVersion:true});await page.getByRole('button',{name:'Guardar',exact:true}).click();await page.getByRole('alert').filter({hasText:'vista cambió'}).waitFor();await page.screenshot({path:`${evidence}/${frontend}-view-version-conflict.png`});if(await page.locator('input[maxlength="120"]').inputValue()!=='Nombre pendiente HTTP')throw new Error('draft lost');await page.getByRole('button',{name:'Actualizar',exact:true}).click();await page.waitForTimeout(100);await page.getByRole('button',{name:'Guardar',exact:true}).click();await page.locator('input[maxlength="120"]').waitFor({state:'hidden'});proofs.push({case:'view-version-conflict-explicit-readback-preserves-draft'});await context.close();
 writeFileSync(`${evidence}/${frontend}-browser-recovery.json`,JSON.stringify({frontend,backend:backend,proofs},null,2));console.log(proofs);
-}finally{await browser.close();await control({legacy:false,queryError:false});}
+}finally{await control({legacy:false,queryError:false});}
 }
-try { await matrix(); await flows(); await recovery(); assert.deepEqual(errors, []); }
-finally { writeFileSync(`${evidence}/source.json`, JSON.stringify({ head, proof: "synthetic contract HTTP fixture", backend: null, errors }, null, 2)); }
+let browser: Browser | undefined;
+let stage = "launch";
+let browserClosed = false;
+try {
+  browser = await localBrowser();
+  stage = "matrix"; await matrix(browser);
+  stage = "flows"; await flows(browser);
+  stage = "recovery"; await recovery(browser);
+  assert.deepEqual(errors, []); stage = "complete";
+} catch (error) {
+  errors.push(`${stage}: ${String(error)}`); throw error;
+} finally {
+  try { await browser?.close(); browserClosed = true; }
+  finally { writeFileSync(`${evidence}/source.json`, JSON.stringify({ head, proof: "synthetic contract HTTP fixture", backend: null, stage, browserClosed, errors }, null, 2)); }
+}
