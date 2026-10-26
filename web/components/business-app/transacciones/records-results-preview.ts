@@ -24,7 +24,7 @@ function exactMinor(money: Money): bigint | null {
   const value = BigInt(match[2] + (match[3] ?? "").padEnd(digits, "0"));
   return match[1] === "-" ? -value : value;
 }
-export const SUMMARY_METRICS = ["sales", "expenses", "count", "without_document"] as const;
+export const SUMMARY_METRICS = ["sales", "expenses"] as const;
 export type SummaryMetric = typeof SUMMARY_METRICS[number];
 export const DEFAULT_SUMMARY_METRICS: readonly SummaryMetric[] = ["sales", "expenses"];
 export type SummaryExclusions = { unconfirmed: number; personal: number; unavailable: number };
@@ -35,16 +35,13 @@ export type RecordsResultsPreview = {
   unknownWorkflow: number;
   excluded: SummaryExclusions;
   excludedByKind: { sales: SummaryExclusions; expenses: SummaryExclusions };
-  documents: { missing: number; unknown: number };
   sales: Money[];
   expenses: Money[];
 };
 export function summarizePreviewRecords(rows: readonly RecordRow[], businessId: string | null): RecordsResultsPreview {
-  const result: RecordsResultsPreview = { count: rows.length, review: 0, unknownWorkflow: 0, excluded: emptyExclusions(), excludedByKind: { sales: emptyExclusions(), expenses: emptyExclusions() }, documents: { missing: 0, unknown: 0 }, sales: [], expenses: [] };
+  const result: RecordsResultsPreview = { count: rows.length, review: 0, unknownWorkflow: 0, excluded: emptyExclusions(), excludedByKind: { sales: emptyExclusions(), expenses: emptyExclusions() }, sales: [], expenses: [] };
   const totals = { venta: new Map<string, bigint>(), gasto: new Map<string, bigint>() };
   for (const row of rows) {
-    if (row.hasProof === false) result.documents.missing += 1;
-    if (row.hasProof === null) result.documents.unknown += 1;
     const exclude = (reason: keyof SummaryExclusions) => {
       result.excluded[reason] += 1;
       result.excludedByKind[row.kind === "venta" ? "sales" : "expenses"][reason] += 1;

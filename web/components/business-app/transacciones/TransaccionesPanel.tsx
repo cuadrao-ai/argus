@@ -23,6 +23,7 @@ import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./Reco
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import { defaultRecordsPreferences } from "./records-view-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
+import { emptyPreviewFilters, matchesPreviewAmount } from "./records-filter-preview-model";
 import RecordsResultsSummary from "./RecordsResultsSummary";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
@@ -75,11 +76,12 @@ export default function TransaccionesPanel() {
   const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
   const [filter, setFilter] = useState<RecordsFilter>(EMPTY_RECORDS_FILTER);
+  const [previewFilters, setPreviewFilters] = useState(emptyPreviewFilters);
   const [previewRevision, setPreviewRevision] = useState(0);
   const localPaging = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
-  const pageResetKey = JSON.stringify([filter, period, previewRevision]);
+  const pageResetKey = JSON.stringify([filter, period, previewRevision, previewFilters.amount]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
-  const visibleRecords = saved?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query))) ?? null;
+  const visibleRecords = saved?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) && (!localPaging || matchesPreviewAmount(row.money, previewFilters.amount))) ?? null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
   // Once per arrival: a background reload never takes focus back from wherever the person moved it.
   const cameFrom = panel.kind === "transactions" ? panel.expenseId : undefined;
@@ -98,7 +100,7 @@ export default function TransaccionesPanel() {
     {period.key === "this_month" || period.key === "all"
       ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
       : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
-  </div> : <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} action={{ label: t("business.transactions.layout.clear"), run: () => setFilter(EMPTY_RECORDS_FILTER) }} /></div>;
+  </div> : <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} action={{ label: t("business.transactions.layout.clear"), run: () => { setFilter(EMPTY_RECORDS_FILTER); if (localPaging) setPreviewFilters(emptyPreviewFilters()); } }} /></div>;
 
   const run = showRun ? (
     <button type="button" data-testid="transacciones-run" data-primary="true" disabled={list.kind !== "ready"} onClick={controller.startRun} className={`${primaryButtonClass} ${phone ? "shrink-0" : ""}`}>
@@ -131,7 +133,7 @@ export default function TransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview /> : null}
-        {!igualar ? <RecordsToolbar preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <><BusinessAddMenu placement="header" />{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : <DensityMenu state={densityState} />}</>} /> : null}
+        {!igualar ? <RecordsToolbar appliedFilters={previewFilters} onFiltersChange={setPreviewFilters} preferences={viewPreferences} onPreferencesChange={setViewPreferences} onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={<>{!phone ? <BusinessAddMenu placement="header" /> : null}{localPaging ? <RecordsSettingsPreview value={viewPreferences} onChange={setViewPreferences} /> : !phone ? <DensityMenu state={densityState} /> : null}</>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -141,7 +143,7 @@ export default function TransaccionesPanel() {
         {!igualar && !localPaging ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
-          : localPaging ? (saved ? <RecordsResultsSummary records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
+          : localPaging ? (saved ? <RecordsResultsSummary selected={viewPreferences.summary} records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
         {list.kind === "failed" ? (
           <div className={cardClass}>
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />

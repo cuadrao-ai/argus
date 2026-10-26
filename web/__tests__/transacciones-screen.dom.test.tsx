@@ -47,7 +47,7 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, transacciones, view = "transactions", porIgualarCount, businessCurrency, expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, language = "es-419", transacciones, view = "transactions", porIgualarCount, businessCurrency, expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; language?: string; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
@@ -66,7 +66,7 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   const { setChosenGrant } = await import("@/lib/business-grant");
   setChosenGrant(null);
   const i18n = i18next.createInstance();
-  await i18n.init({ lng: "es-419", resources: { "es-419": { translation: spanish } }, interpolation: { escapeValue: false } });
+  await i18n.init({ lng: language, resources: { "es-419": { translation: spanish }, en: { translation: (await import("@/public/locales/en/common.json")).default } }, interpolation: { escapeValue: false } });
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
@@ -216,8 +216,7 @@ describe("the gate", () => {
       assert.match(footer().textContent ?? "", /1–25 de 65/);
       const resultSummary = () => document.querySelector('[data-testid="records-results-summary"]')!.textContent;
       const allResults = resultSummary();
-      assert.match(allResults ?? "", /65 registros/);
-      assert.match(allResults ?? "", /65 sin estado/);
+      assert.match(allResults ?? "", /65 sin verificación financiera/);
       assert.doesNotMatch(allResults ?? "", /0 por revisar/);
       assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
       assert.equal(document.querySelector('th[data-col="detalle"]')?.textContent, "Tipo");
@@ -273,6 +272,11 @@ describe("the gate", () => {
       assert.equal(document.querySelector('[role="dialog"]'), null);
       assert.deepEqual([...page.records()[0].querySelectorAll('td')].map((node) => node.getAttribute("data-col")).slice(0, 3), ["contraparte", "monto", "fecha"]);
       const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
+      await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
+      await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Resumen")!);
+      await page.click(document.querySelector('[data-metric-option="sales"] label'));
+      await clickText("Aplicar");
+      assert.equal(document.querySelector('[data-summary-metric="sales"]'), null);
       await clickText("Vistas"); await clickText("Guardar vista");
       const name = document.querySelector<HTMLInputElement>('[role="dialog"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Mi tabla"); name.dispatchEvent(new Event("input", { bubbles: true })); });
@@ -282,6 +286,8 @@ describe("the gate", () => {
       await clickText("Vistas"); await clickText("Mi tabla");
       assert.equal(document.querySelector<HTMLElement>('[data-testid="transacciones-records"]')!.dataset.density, "compacto"); assert.equal(document.querySelector('th[data-col="categoria"]'), null);
       assert.equal(document.querySelectorAll('thead th')[1].getAttribute("data-col"), "monto");
+      assert.equal(document.querySelector('[data-summary-metric="sales"]'), null, "saved view restores summary selection too");
+      assert.ok(document.querySelector('[data-summary-metric="expenses"]'));
       await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
       assert.equal(footer().dataset.page, "2");
       await page.click(document.querySelector('th[data-col="fecha"] button'));
@@ -293,7 +299,7 @@ describe("the gate", () => {
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Sample 6"); input.dispatchEvent(new Event("input", { bubbles: true })); });
       assert.equal(footer().dataset.page, "1"); assert.equal(page.records().length, 6);
       assert.match(footer().textContent ?? "", /1–6 de 6/);
-      assert.match(resultSummary() ?? "", /6 registros/);
+      assert.match(resultSummary() ?? "", /6 sin verificación financiera/);
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, ""); input.dispatchEvent(new Event("input", { bubbles: true })); });
       await page.click(document.querySelector('button[aria-label="Última página"]'));
       assert.equal(page.records().length, 15); assert.match(footer().textContent ?? "", /51–65 de 65/);
@@ -320,8 +326,8 @@ describe("the gate", () => {
       ];
       const page = await mount({ enabled: false, transacciones: await recordsOf(items, {}, items) });
       const summary = () => document.querySelector('[data-testid="records-results-summary"]');
-      await page.settle(() => summary()?.textContent?.includes("2 por revisar") ?? false, "fixture scope summary");
-      assert.match(summary()!.textContent ?? "", /6 registros/);
+      await page.settle(() => page.records().length === 6, "fixture scope summary");
+      assert.doesNotMatch(summary()!.textContent ?? "", /6 registros|por revisar/);
       assert.match(summary()!.textContent ?? "", /RD\$ 2,100.00/);
       assert.match(summary()!.textContent ?? "", /US\$ 24.00/);
       assert.equal(document.querySelectorAll('thead th').length, 7);
@@ -334,16 +340,15 @@ describe("the gate", () => {
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Filtros")!);
       await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Gasto")!);
       await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
-      assert.match(summary()!.textContent ?? "", /3 registros/); assert.match(summary()!.textContent ?? "", /1 por revisar/);
+      assert.equal(page.records().length, 3);
       assert.match(summary()!.textContent ?? "", /VentasSin importes confirmados/);
       assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 2, "confirmed purchase currencies stay separate and privacy-aware");
       const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
-      assert.match(summary()!.textContent ?? "", /1 registro/); assert.match(summary()!.textContent ?? "", /US\$ 24.00/);
+      assert.equal(page.records().length, 1); assert.match(summary()!.textContent ?? "", /US\$ 24.00/);
       await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
-      assert.match(summary()!.textContent ?? "", /2 registros/);
-      assert.match(summary()!.textContent ?? "", /1 registro excluido/);
-      assert.doesNotMatch(summary()!.textContent ?? "", /1 registros excluidos/);
+      assert.equal(page.records().length, 2);
+      assert.match(summary()!.textContent ?? "", /1 sin confirmar/);
       await page.unmount();
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
@@ -943,4 +948,48 @@ test("new local business has no sample sales or bank movements", async () => {
     localStorage.removeItem("cuadrao-identity-v1:business:local-business-no-sales");
     Object.assign(process.env, { NODE_ENV: nodeEnv, NEXT_PUBLIC_MOCK_AUTH: mockAuth });
   }
+});
+
+for (const language of ["es-419", "en"]) test(`shared currency filter updates rows, cards, footer and removable chip in ${language}`, async () => {
+  const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+  Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+  try {
+    const items = [
+      { id: "exp-gas", merchant: "Estación Ruta 3", amount: "2100.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-25", receipt_id: null },
+      { id: "exp-hosting", merchant: "Nube Hosting", amount: "24.00", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-24", receipt_id: null },
+      { id: "exp-lunch", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
+    ];
+    const page = await mount({ enabled: false, language, transacciones: await recordsOf(items, {}, items) });
+    await page.settle(() => page.records().length === 6, "loaded six records");
+    const es = language === "es-419";
+    const clickText = (text: string) => page.click([...document.querySelectorAll("button")].find((node) => node.textContent === text)!);
+    const open = async () => {
+      await page.click([...document.querySelectorAll('[data-testid="records-toolbar"] button')].find((node) => node.textContent?.startsWith(es ? "Filtros" : "Filters"))!);
+      await page.click(document.querySelector('[data-group="amount"]'));
+    };
+    await open(); await clickText("USD"); await clickText(es ? "Aplicar" : "Apply");
+    assert.equal(page.records().length, 2);
+    const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
+    assert.match(footer().textContent ?? "", es ? /1–2 de 2/ : /1–2 of 2/);
+    assert.equal(footer().dataset.page, "1");
+    const card = () => document.querySelector('[data-summary-metric="expenses"]')!;
+    assert.match(card().textContent ?? "", /24.00/);
+    assert.doesNotMatch(card().textContent ?? "", /2,100/);
+    const removeCurrency = es ? "Quitar filtro Moneda" : "Remove filter Currency";
+    assert.ok(document.querySelector(`button[aria-label="${removeCurrency}"]`));
+    await page.click(document.querySelector(`button[aria-label="${removeCurrency}"]`));
+    assert.equal(page.records().length, 6);
+    await open(); await clickText("USD");
+    const minimum = document.querySelector<HTMLInputElement>('input[inputmode="decimal"]')!;
+    await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(minimum, "25"); minimum.dispatchEvent(new Event("input", { bubbles: true })); });
+    await clickText(es ? "Aplicar" : "Apply");
+    assert.equal(page.records().length, 0);
+    assert.match(footer().textContent ?? "", es ? /0–0 de 0/ : /0–0 of 0/);
+    assert.ok(document.querySelector(`button[aria-label="${es ? "Quitar filtro Moneda y monto" : "Remove filter Currency and amount"}"]`));
+    const clear = [...document.querySelectorAll("button")].filter((node) => node.textContent === (es ? "Limpiar filtros" : "Clear filters")).at(-1)!;
+    await page.click(clear);
+    assert.equal(page.records().length, 6, "empty-result clear also clears the shared currency/amount filter");
+    assert.equal(document.querySelector('[data-testid="records-preview-filter-chips"]'), null);
+    await page.unmount();
+  } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
 });

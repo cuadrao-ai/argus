@@ -1,13 +1,14 @@
 import { COLUMNS, type ColumnKey } from "./TransaccionesTable";
+import { DEFAULT_SUMMARY_METRICS, type SummaryMetric } from "./records-results-preview";
 import type { Density } from "./table-density";
 
 export type RecordsColumnKey = ColumnKey | "estado";
 type RecordsColumn = { key: RecordsColumnKey; width: number | null; align: "left" | "right"; pin?: "left" | "right" };
 export const RECORDS_PREVIEW_COLUMNS: readonly RecordsColumn[] = COLUMNS.flatMap<RecordsColumn>((column) => column.key === "categoria" ? [column, { key: "estado", width: 176, align: "left" }] : [{ ...column, width: column.key === "detalle" ? 104 : column.width }]);
 export const recordsColumnLabelKey = (key: RecordsColumnKey) => key === "detalle" ? "business.transactions.layout.column_type" : key === "estado" ? "business.transactions.layout.column_state" : `business.transactions.columns.${key}`;
-export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density };
+export type RecordsViewPreferences = { order: RecordsColumnKey[]; hidden: RecordsColumnKey[]; density: Density; summary: SummaryMetric[] };
 export const requiredColumn = (key: RecordsColumnKey) => key === "contraparte" || key === "monto";
-export const defaultRecordsPreferences = (): RecordsViewPreferences => ({ order: RECORDS_PREVIEW_COLUMNS.map(({ key }) => key), hidden: ["cuenta"], density: "normal" });
+export const defaultRecordsPreferences = (): RecordsViewPreferences => ({ order: RECORDS_PREVIEW_COLUMNS.map(({ key }) => key), hidden: ["cuenta"], density: "normal", summary: [...DEFAULT_SUMMARY_METRICS] });
 export function moveRecordsColumn(value: RecordsViewPreferences, key: RecordsColumnKey, target: number): RecordsViewPreferences {
   if (key === "contraparte") return value;
   const order = value.order.filter((item) => item !== key);

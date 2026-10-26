@@ -106,6 +106,7 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
   const setFilters = (next: PreviewFilters, nextKind: Kind = kind) => onChange(next, nextKind);
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const active = activeFilterGroups(filters);
+  const chipLabel = (group: FilterGroup) => group === "amount" && !filters.amount.min && !filters.amount.max ? word("currency") : word(`groups.${group}`);
   const valueLabel = (group: FilterGroup) => {
     if (group === "attachment") return word(`attachment.${filters.attachment}`);
     if (group === "amount") return [filters.amount.currency, filters.amount.min ? `${word("amount.min")} ${filters.amount.min}` : "", filters.amount.max ? `${word("amount.max")} ${filters.amount.max}` : ""].filter(Boolean).join(" · ");
@@ -116,6 +117,6 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
       {(close) => <FilterEditor initial={filters} initialKind={kind} apply={setFilters} close={close} />}
     </RecordsPreviewPopover>}
     <div className={styles.toolbarOptions}>{options}</div>
-    {active.length || kind !== "all" ? <div className={styles.chips} data-testid="records-preview-filter-chips">{kind !== "all" ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters(filters, "all")}><span>{word("record")} · {t(`business.transactions.records.detail.${kind}`)}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={word("remove") + " " + word(`groups.${group}`)} onClick={() => setFilters({ ...filters, [group]: emptyPreviewFilters()[group] })}><span>{word(`groups.${group}`)} · {valueLabel(group)}</span><X size={14} aria-hidden="true" /></button>)}<button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(), "all")}>{t("business.transactions.layout.clear")}</button></div> : null}
+    {active.length || kind !== "all" ? <div className={styles.chips} data-testid="records-preview-filter-chips">{kind !== "all" ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters(filters, "all")}><span>{word("record")} · {t(`business.transactions.records.detail.${kind}`)}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={word("remove") + " " + chipLabel(group)} onClick={() => setFilters({ ...filters, [group]: emptyPreviewFilters()[group] })}><span>{chipLabel(group)} · {valueLabel(group)}</span><X size={14} aria-hidden="true" /></button>)}<button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(), "all")}>{t("business.transactions.layout.clear")}</button></div> : null}
   </>;
 }

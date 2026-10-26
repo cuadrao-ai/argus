@@ -56,17 +56,20 @@ test("money remains exact, invalid precision is excluded, personal overrides con
 test("summary labels are available at the same EN and ES layout paths", () => {
   for (const locale of [es, en]) {
     assert.ok(locale.business.transactions.layout.results.title);
-    assert.ok(locale.business.transactions.layout.results.excluded_one);
-    assert.ok(locale.business.transactions.layout.results.excluded_other);
+    assert.ok(locale.business.transactions.layout.settings.summary);
+    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["expenses", "sales"]);
     assert.ok(locale.business.transactions.layout.column_state);
     assert.ok(locale.business.transactions.layout.workflow.unknown);
     assert.equal("results" in locale.business.transactions.layout.filters, false);
   }
 });
 
-
-test("backing-file absence counts only explicit false, preserving unknown information", () => {
-  const result = summarizePreviewRecords([{ ...rows[0], hasProof: false }, { ...rows[1], hasProof: true }, { ...rows[2], hasProof: null }], "fixture-space");
-  assert.deepEqual(result.documents, { missing: 1, unknown: 1 });
-  assert.deepEqual(summarizePreviewRecords([], "fixture-space").documents, { missing: 0, unknown: 0 });
+test("currency and bounds filter original-currency magnitudes with exact arithmetic", async () => {
+  const { matchesPreviewAmount } = await import("@/components/business-app/transacciones/records-filter-preview-model");
+  const usd = { currency: "USD", min: "9007199254740993.01", max: "9007199254740993.02" } as const;
+  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "-9007199254740993.01" }, usd), true);
+  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "9007199254740993.00" }, usd), false);
+  assert.equal(matchesPreviewAmount({ currency: "DOP", amount: "9007199254740993.01" }, usd), false);
+  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "bad" }, usd), false);
+  assert.equal(matchesPreviewAmount({ currency: "USD", amount: "24" }, { currency: "USD", min: "25", max: "24" }), false);
 });

@@ -2455,6 +2455,7 @@
             "other": "Other",
             "transport": "Transport"
           },
+          "currency": "Currency",
           "date": {
             "from": "From",
             "invalid": "Choose a valid period of up to 366 days.",
@@ -2510,23 +2511,12 @@
           "basis": "Confirmed amounts",
           "choose_desktop": "Choose your cards. Drag to reorder, or press Space on a handle and use the arrow keys.",
           "choose_phone": "Choose your cards. Use the arrows to change their order.",
-          "count_basis": "Records in these results",
-          "customize": "Customize summary",
-          "document_basis": "No linked backing file",
-          "document_unknown": "Linked file information unavailable",
-          "document_unknown_count_one": "{{count}} record with unknown file information",
-          "document_unknown_count_other": "{{count}} records with unknown file information",
-          "empty_metrics": "Choose cards in Customize summary to show your results here.",
-          "excluded_one": "{{count}} record excluded",
-          "excluded_other": "{{count}} records excluded",
-          "expenses": "Expenses",
-          "known_review": "{{count}} known to need review",
           "metrics": {
-            "count": "Records",
             "expenses": "Expenses",
-            "sales": "Sales",
-            "without_document": "Without document"
+            "sales": "Sales"
           },
+          "more_currencies_one": "View {{count}} more currency",
+          "more_currencies_other": "View {{count}} more currencies",
           "move": "Move {{name}}",
           "move_down": "Move {{name}} down",
           "move_up": "Move {{name}} up",
@@ -2537,12 +2527,9 @@
           "personal": "{{count}} personal",
           "position": "{{name}}, position {{position}} of {{count}}",
           "restore": "Restore defaults",
-          "review": "{{count}} to review",
-          "sales": "Sales",
           "title": "Results summary",
           "unavailable": "{{count}} without financial verification",
-          "unconfirmed": "{{count}} unconfirmed",
-          "unknown_state": "{{count}} without status"
+          "unconfirmed": "{{count}} unconfirmed"
         },
         "search": "Search records…",
         "settings": {
@@ -2556,7 +2543,8 @@
           "move": "Move {{name}}",
           "position": "{{name}}, position {{position}} of {{count}}",
           "required": "Always visible",
-          "restore": "Restore defaults"
+          "restore": "Restore defaults",
+          "summary": "Summary"
         },
         "type": "Type",
         "views": {

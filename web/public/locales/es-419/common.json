@@ -2455,6 +2455,7 @@
             "other": "Otros",
             "transport": "Transporte"
           },
+          "currency": "Moneda",
           "date": {
             "from": "Desde",
             "invalid": "Elige un período válido de hasta 366 días.",
@@ -2510,24 +2511,12 @@
           "basis": "Importes confirmados",
           "choose_desktop": "Elige tus tarjetas. Arrastra para ordenar, o pulsa Espacio en un control y usa las flechas.",
           "choose_phone": "Elige tus tarjetas. Usa las flechas para cambiar su orden.",
-          "count_basis": "Registros en estos resultados",
-          "customize": "Personalizar resumen",
-          "document_basis": "Sin archivo vinculado",
-          "document_unknown": "Información del archivo no disponible",
-          "document_unknown_count_one": "{{count}} registro sin información del archivo",
-          "document_unknown_count_other": "{{count}} registros sin información del archivo",
-          "empty_metrics": "Elige tarjetas en Personalizar resumen para ver tus resultados aquí.",
-          "excluded_one": "{{count}} registro excluido",
-          "excluded_other": "{{count}} registros excluidos",
-          "expenses": "Gastos",
-          "known_review_one": "{{count}} por revisar identificado",
-          "known_review_other": "{{count}} por revisar identificados",
           "metrics": {
-            "count": "Registros",
             "expenses": "Gastos",
-            "sales": "Ventas",
-            "without_document": "Sin documento"
+            "sales": "Ventas"
           },
+          "more_currencies_one": "Ver {{count}} moneda más",
+          "more_currencies_other": "Ver {{count}} monedas más",
           "move": "Mover {{name}}",
           "move_down": "Bajar {{name}}",
           "move_up": "Subir {{name}}",
@@ -2539,12 +2528,9 @@
           "personal_other": "{{count}} personales",
           "position": "{{name}}, posición {{position}} de {{count}}",
           "restore": "Restaurar valores iniciales",
-          "review": "{{count}} por revisar",
-          "sales": "Ventas",
           "title": "Resumen de resultados",
           "unavailable": "{{count}} sin verificación financiera",
-          "unconfirmed": "{{count}} sin confirmar",
-          "unknown_state": "{{count}} sin estado"
+          "unconfirmed": "{{count}} sin confirmar"
         },
         "search": "Buscar en registros…",
         "settings": {
@@ -2558,7 +2544,8 @@
           "move": "Mover {{name}}",
           "position": "{{name}}, posición {{position}} de {{count}}",
           "required": "Siempre visible",
-          "restore": "Restaurar valores iniciales"
+          "restore": "Restaurar valores iniciales",
+          "summary": "Resumen"
         },
         "type": "Tipo",
         "views": {

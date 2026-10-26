@@ -1,31 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, GripVertical, SlidersHorizontal } from "lucide-react";
-import BottomSheet from "@/components/ui/BottomSheet";
-import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
-import RecordsPreviewPopover from "./RecordsPreviewPopover";
+import { useEffect, useId, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
 import { DEFAULT_SUMMARY_METRICS, SUMMARY_METRICS, type SummaryMetric } from "./records-results-preview";
 import { useTransaccionesWords } from "./transacciones-words";
 import controls from "./records-filter-preview.module.css";
 import styles from "./records-results-preview.module.css";
 
-export default function RecordsSummaryCustomizer({ selected, onChange }: { selected: readonly SummaryMetric[]; onChange: (value: SummaryMetric[]) => void }) {
-  const { t } = useTransaccionesWords();
-  const { isBelowDesktop: phone } = useResponsiveLayout();
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const wasOpen = useRef(false);
-  const cancelMove = useRef<(() => boolean) | null>(null);
-  const registerCancel = useCallback((handler: (() => boolean) | null) => { cancelMove.current = handler; }, []);
-  useEffect(() => { if (wasOpen.current && !open) trigger.current?.focus(); wasOpen.current = open; }, [open]);
-  const title = t("business.transactions.layout.results.customize");
-  const editor = (close: () => void) => <MetricEditor initial={selected} apply={onChange} close={close} phone={phone} registerCancel={registerCancel} />;
-  if (phone) return <><button ref={trigger} type="button" className={controls.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><SlidersHorizontal size={16} aria-hidden="true" />{title}</button>{open ? editor(() => setOpen(false)) : null}</>;
-  return <RecordsPreviewPopover label={title} icon={<SlidersHorizontal size={16} aria-hidden="true" />} width={380} preferredHeight={390} beforeEscape={() => cancelMove.current?.() ?? false}>{editor}</RecordsPreviewPopover>;
-}
-
-function MetricEditor({ initial, apply, close, phone, registerCancel }: { initial: readonly SummaryMetric[]; apply: (value: SummaryMetric[]) => void; close: () => void; phone: boolean; registerCancel: (handler: (() => boolean) | null) => void }) {
+export default function RecordsSummaryEditor({ initial, apply, close, phone, registerCancel }: { initial: readonly SummaryMetric[]; apply: (value: SummaryMetric[]) => void; close: () => void; phone: boolean; registerCancel: (handler: (() => boolean) | null) => void }) {
   const { t } = useTransaccionesWords();
   const word = (key: string) => t(`business.transactions.layout.results.${key}`);
   const label = (key: SummaryMetric) => word(`metrics.${key}`);
@@ -67,5 +49,5 @@ function MetricEditor({ initial, apply, close, phone, registerCancel }: { initia
     <span role="status" aria-live="polite" className={controls.srOnly}>{message}</span>
   </div>;
   const footer = <div className={`${controls.footer} ${phone ? controls.phoneFooter : ""}`}><button type="button" className={controls.clear} onClick={() => { setDraft([...DEFAULT_SUMMARY_METRICS]); setGrabbed(null); before.current = null; }}>{word("restore")}</button><button type="button" className={controls.apply} onClick={() => { apply(draft); close(); }}>{t("business.transactions.layout.filters.apply")}</button></div>;
-  return phone ? <BottomSheet isOpen onClose={close} title={word("customize")} closeLabel={t("common.close")} snaps="fit" footer={footer}>{body}</BottomSheet> : <>{body}{footer}</>;
+  return <>{body}{footer}</>;
 }
