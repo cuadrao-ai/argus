@@ -61,7 +61,7 @@ export function RecordNotePreview({ row }: { row: RecordRow }) {
   const { t } = useTransaccionesWords();
   const note = annotations?.read(row).note ?? "";
   if (!annotations?.canEdit) return note ? <span className={cells.noteButton} title={note}>{note}</span> : <Unknown />;
-  return <Tooltip content={note || t("business.transactions.layout.annotations.add_note")} side="top"><button type="button" data-record-note={recordRowKey(row)} className={`${cells.noteButton} ${!note ? cells.emptyNote : ""}`} aria-label={t("business.transactions.layout.annotations.edit_note_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); annotations.edit(row, "note"); }}>{note || <span className={cells.emptyAction} aria-hidden="true"><span className={cells.emptyActionDash}>{UNKNOWN_VALUE}</span><Pencil size={16} className={cells.emptyActionIcon} /></span>}</button></Tooltip>;
+  return <Tooltip content={note || t("business.transactions.layout.annotations.add_note")} side="top"><button type="button" data-record-note={recordRowKey(row)} className={note ? cells.noteButton : styles.icon} aria-label={t("business.transactions.layout.annotations.edit_note_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); annotations.edit(row, "note"); }}>{note || <span className={cells.emptyAction} aria-hidden="true"><span className={cells.emptyActionDash}>{UNKNOWN_VALUE}</span><Pencil size={16} className={cells.emptyActionIcon} /></span>}</button></Tooltip>;
 }
 
 export function RecordAttachmentPreview({ row }: { row: RecordRow }) {
