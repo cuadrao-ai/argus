@@ -18,7 +18,7 @@ import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, U
 import { recordsColumnLabelKey, visibleRecordsColumns, recordsMinimumWidth, type RecordsViewPreferences } from "./records-view-preferences";
 import { formatRecordActivityDate, previewAmountColumnSize, recordRowKey } from "./records-row-preview";
 import RecordWorkflowBadge from "./RecordWorkflowBadge";
-import { RecordAnnotationMenu, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
+import { RecordAnnotationActions, RecordAttachmentPreview, RecordNotePreview } from "./RecordsAnnotationsPreview";
 import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
@@ -193,7 +193,7 @@ export function RecordsNarrowList({ records, rowRef }: { records: readonly Recor
         <span className={pageStyles.meta}><span className={pageStyles.marks}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
       return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
         {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
-        <RecordAnnotationMenu row={row} />
+        <RecordAnnotationActions row={row} />
       </li>;
     })}
   </ul>;

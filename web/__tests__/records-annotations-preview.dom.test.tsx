@@ -62,7 +62,7 @@ test("notes save explicitly, cancel discards, and Business/kind/filter/viewport 
   await page.click(page.button("Business")); assert.notEqual(page.note().textContent, "Keep this note");
   await page.click(page.button("Business")); assert.equal(page.note().textContent, "Keep this note");
   await page.click(page.button("Viewport")); assert.equal(page.host.querySelector("button button"), null);
-  await page.click(page.host.querySelector('button[aria-haspopup="menu"]')); await page.click(page.button("Notas"));
+  await page.click(page.note());
   assert.equal(document.querySelector("textarea")!.value, "Keep this note");
   await page.type("Discard on close"); await page.key(document.querySelector("textarea")!, "Escape");
   assert.equal(document.querySelector('[role="dialog"]'), null); assert.equal(page.calls.opens, 0); assert.equal(page.calls.network, 0);
@@ -113,11 +113,11 @@ test("read-only rows offer no note editor or add-attachment control", async () =
 
 test("phone record actions open the shared sheet and keep targets separate from record opening", async () => {
   const page = await mount(390);
-  await page.click(page.host.querySelector('button[aria-haspopup="menu"]')); await page.click(page.button("Notas"));
+  await page.click(page.note());
   assert.ok(document.querySelector('[role="dialog"]'));
   assert.notEqual(document.activeElement?.tagName, "TEXTAREA");
   await page.type("Phone note"); await page.click(page.button("Guardar"));
-  await page.click(page.host.querySelector('button[aria-haspopup="menu"]')); await page.click(page.button("Notas"));
+  await page.click(page.note());
   assert.equal(document.querySelector("textarea")!.value, "Phone note");
   await page.click(page.button("Cancelar")); assert.equal(page.calls.opens, 0); assert.equal(page.host.querySelector("button button"), null);
 });

@@ -6,3 +6,20 @@
 .noteButton { display:block; width:100%; min-height:44px; padding:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:inherit; }
 .noteButton:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; border-radius:4px; }
 .emptyNote { color:color-mix(in srgb,var(--fg) 45%,transparent); }
+
+.emptyAction { display:inline-grid; width:16px; height:16px; place-items:center; vertical-align:middle; }
+.emptyAction > * { grid-area:1 / 1; }
+.emptyActionDash { visibility:hidden; }
+.touchActions { display:flex; flex-direction:column; flex-shrink:0; }
+@media (hover:hover) and (pointer:fine) {
+  .emptyActionDash { visibility:visible; }
+  .emptyActionIcon { visibility:hidden; }
+  :global(tr[data-record-key]:hover) .emptyActionDash,
+  :global(tr[data-record-key]:focus-within) .emptyActionDash { visibility:hidden; }
+  :global(tr[data-record-key]:hover) .emptyActionIcon,
+  :global(tr[data-record-key]:focus-within) .emptyActionIcon { visibility:visible; }
+}
+@media (any-pointer:coarse) {
+  .emptyActionDash { visibility:hidden; }
+  .emptyActionIcon { visibility:visible; }
+}

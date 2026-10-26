@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
-import { FileText, MoreHorizontal, Plus, StickyNote, X } from "lucide-react";
+import { FileText, Pencil, Plus, StickyNote, X } from "lucide-react";
 import Image from "next/image";
 import type { ReceiptLimits } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -12,7 +12,6 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { useBusiness } from "../BusinessWorkspace";
 import { UNKNOWN_VALUE } from "../business-format";
 import { canAddRecords, primaryButtonClass, secondaryButtonClass } from "../business-ui";
-import ActionMenu from "../ActionMenu";
 import { receiptFileAccept, receiptFileWithType, receiptFormatLabel } from "../receipt-file";
 import { Unknown } from "./transacciones-parts";
 import { recordRowKey } from "./records-row-preview";
@@ -60,7 +59,7 @@ export function RecordNotePreview({ row }: { row: RecordRow }) {
   const { t } = useTransaccionesWords();
   const note = annotations?.read(row).note ?? "";
   if (!annotations?.canEdit) return note ? <span className={cells.noteButton} title={note}>{note}</span> : <Unknown />;
-  return <Tooltip content={note || t("business.transactions.layout.annotations.add_note")} side="top"><button type="button" data-record-note={recordRowKey(row)} className={`${cells.noteButton} ${!note ? cells.emptyNote : ""}`} aria-label={t("business.transactions.layout.annotations.edit_note_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); annotations.edit(row, "note"); }}>{note || UNKNOWN_VALUE}</button></Tooltip>;
+  return <Tooltip content={note || t("business.transactions.layout.annotations.add_note")} side="top"><button type="button" data-record-note={recordRowKey(row)} className={`${cells.noteButton} ${!note ? cells.emptyNote : ""}`} aria-label={t("business.transactions.layout.annotations.edit_note_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); annotations.edit(row, "note"); }}>{note || <span className={cells.emptyAction} aria-hidden="true"><span className={cells.emptyActionDash}>{UNKNOWN_VALUE}</span><Pencil size={16} className={cells.emptyActionIcon} /></span>}</button></Tooltip>;
 }
 
 export function RecordAttachmentPreview({ row }: { row: RecordRow }) {
@@ -73,10 +72,10 @@ export function RecordAttachmentPreview({ row }: { row: RecordRow }) {
   if (!file && row.hasProof === null) return <Unknown />;
   if (!file && !row.hasProof && !annotations?.canAttach) return <Unknown meaning={t("business.transactions.layout.annotations.no_attachment")} />;
   if (!file && row.hasProof && !row.opens) return <span className={styles.icon} role="img" aria-label={label}><FileText size={16} aria-hidden="true" /></span>;
-  return <Tooltip content={label} side="top"><button type="button" data-record-attachment={recordRowKey(row)} className={styles.icon} aria-label={t("business.transactions.layout.annotations.attachment_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); if (file || !row.hasProof) annotations?.edit(row, "attachment"); else if (row.opens) { if (openEvidence) openEvidence(row); else openPanel(row.opens); } }}>{file || row.hasProof ? <FileText size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}</button></Tooltip>;
+  return <Tooltip content={label} side="top"><button type="button" data-record-attachment={recordRowKey(row)} className={styles.icon} aria-label={t("business.transactions.layout.annotations.attachment_for", { name: row.counterparty ?? t("business.transactions.unknown") })} onClick={(event) => { event.stopPropagation(); if (file || !row.hasProof) annotations?.edit(row, "attachment"); else if (row.opens) { if (openEvidence) openEvidence(row); else openPanel(row.opens); } }}>{file || row.hasProof ? <FileText size={16} aria-hidden="true" /> : <span className={cells.emptyAction} aria-hidden="true"><span className={cells.emptyActionDash}>{UNKNOWN_VALUE}</span><Plus size={16} className={cells.emptyActionIcon} /></span>}</button></Tooltip>;
 }
 
-export function RecordAnnotationMenu({ row }: { row: RecordRow }) {
+export function RecordAnnotationActions({ row }: { row: RecordRow }) {
   const annotations = useContext(AnnotationContext);
   const { openPanel } = useBusiness();
   const openEvidence = useContext(RecordEvidenceContext);
@@ -85,12 +84,11 @@ export function RecordAnnotationMenu({ row }: { row: RecordRow }) {
   const saved = annotations.read(row);
   const word = (key: string) => t(`business.transactions.layout.annotations.${key}`);
   const actions = [
-    ...(annotations.canEdit || saved.note ? [{ id: "note", label: t("business.transactions.columns.notas"), icon: StickyNote, run: () => annotations.edit(row, "note") }] : []),
-    ...(saved.attachment || row.hasProof && row.opens || row.hasProof === false && annotations.canAttach ? [{ id: "attachment", label: word(saved.attachment || row.hasProof ? "open_attachment" : "add_attachment"), icon: FileText, run: () => { if (!saved.attachment && row.hasProof && row.opens) { if (openEvidence) openEvidence(row); else openPanel(row.opens); } else annotations.edit(row, "attachment"); } }] : []),
+    ...(annotations.canEdit || saved.note ? [{ id: "note", label: t("business.transactions.layout.annotations.edit_note_for", { name: row.counterparty ?? t("business.transactions.unknown") }), icon: saved.note ? StickyNote : Pencil, run: () => annotations.edit(row, "note") }] : []),
+    ...(saved.attachment || row.hasProof && row.opens || row.hasProof === false && annotations.canAttach ? [{ id: "attachment", label: word(saved.attachment || row.hasProof ? "open_attachment" : "add_attachment"), icon: saved.attachment || row.hasProof ? FileText : Plus, run: () => { if (!saved.attachment && row.hasProof && row.opens) { if (openEvidence) openEvidence(row); else openPanel(row.opens); } else annotations.edit(row, "attachment"); } }] : []),
   ];
   if (!actions.length) return null;
-  const label = word("record_actions");
-  return <ActionMenu actions={actions} label={label} placement="below-end" portal renderTrigger={({ ref, open, toggle, menuId }) => <button ref={ref} type="button" className={styles.icon} aria-label={t("business.transactions.layout.annotations.actions_for", { name: row.counterparty ?? t("business.transactions.unknown") })} aria-haspopup="menu" aria-expanded={open} aria-controls={open ? menuId : undefined} onClick={(event) => { event.stopPropagation(); toggle(); }}><MoreHorizontal size={18} aria-hidden="true" /></button>} />;
+  return <div className={cells.touchActions}>{actions.map(({ id, label, icon: Icon, run }) => <Tooltip key={id} content={label} side="top"><button type="button" className={styles.icon} data-record-note={id === "note" ? recordRowKey(row) : undefined} data-record-attachment={id === "attachment" ? recordRowKey(row) : undefined} aria-label={label} onClick={(event) => { event.stopPropagation(); run(); }}><Icon size={16} aria-hidden="true" /></button></Tooltip>)}</div>;
 }
 
 type EditorProps = { selected: EditorSelection; initial: RecordAnnotation; limits: ReceiptLimits | null; canEdit: boolean; close: () => void; save: (value: RecordAnnotation) => void };
