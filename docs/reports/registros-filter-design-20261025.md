@@ -406,3 +406,28 @@ whitespace checks. Whole-project TypeScript remains blocked by the existing test
 declaration/target errors; it is not a clean repository-wide typecheck. No new
 production-file diagnostic was reported for the added components. No backend,
 hosted change, handoff, matching activation or fiscal activation was performed.
+
+### All-time scope clarification, 26 October 2026
+
+The approved Todo date option includes every authorized record for the selected
+Business, including records older than one year. It has no date cutoff. The
+custom calendar's 366-day limit does not apply to Todo. The legacy
+`ALL_FROM = "2000-01-01"` sentinel is not the product definition of all time.
+
+Keep numbered pagination and the 25, 50 and 100 row choices. The backend must
+return a bounded page of matching rows. Do not fetch all history and slice it
+in the browser, or walk every backend page before displaying the first page.
+Counts and financial totals cover the entire matching set, independent of the
+page. Overview counts retain their separate Business and page-period scope.
+Selecting Todo resets navigation to page one and preserves the other filters.
+
+This is a requirement for the later backend connection. The current local
+preview filters and paginates already-loaded records, and cannot prove complete
+all-time coverage. The current RangePicker preset list also lacks a Todo entry.
+Neither runtime behavior nor backend wiring changes in this clarification.
+
+Acceptance must include records from several years, more than 100 matching
+records, direct access to later pages, and a reload with Todo selected. Verify
+that older records remain reachable, each row response respects the page size,
+and full-result counts, totals and filtered export scope agree. Existing export
+range limits remain explicit until the export contract supports this scope.
