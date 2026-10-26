@@ -3218,6 +3218,7 @@
       "invalid_draft": "Check customer, items and dates. Use quantities up to 1,000, prices up to 7 digits and two decimals, and tax from 0 to 100%. Due date cannot precede issue date.",
       "invalid_payment": "Enter an amount above zero and no higher than the balance, with up to two decimals. Use a valid date that is not in the future.",
       "invoice": "Invoice",
+      "invoiced": "Invoiced",
       "invoices_tab": "Invoices",
       "issuance": "Issuance",
       "issuance_draft": "Draft, not issued",

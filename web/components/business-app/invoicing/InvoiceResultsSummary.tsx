@@ -10,7 +10,7 @@ import styles from "../transacciones/records-results-preview.module.css";
 type InvoiceCurrencySummary = { currency: string; total: number; settled: number; balance: number };
 
 const METRICS = [
-  { key: "total", icon: FileText, label: "adjusted_total" },
+  { key: "total", icon: FileText, label: "invoiced" },
   { key: "settled", icon: Check, label: "collected" },
   { key: "balance", icon: Clock3, label: "balance" },
 ] as const;

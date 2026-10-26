@@ -3456,6 +3456,7 @@
       "invalid_draft": "Revisa el cliente, los conceptos y las fechas. Usa cantidades de hasta 1,000, precios de hasta 7 dígitos y dos decimales; impuestos entre 0 y 100%. El vencimiento no puede ser anterior a la emisión.",
       "invalid_payment": "Ingresa un monto mayor que cero, sin superar el saldo, con hasta dos decimales. Usa una fecha válida que no sea futura.",
       "invoice": "Factura",
+      "invoiced": "Facturado",
       "invoices_tab": "Facturas",
       "issuance": "Emisión",
       "issuance_draft": "Borrador, sin emitir",
