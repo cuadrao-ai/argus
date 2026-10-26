@@ -14,9 +14,11 @@ import cellStyles from "./transacciones-cells.module.css";
 import { RecordMarks, useOwnerView } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { headerCurrency, type RecordRow } from "./transacciones-model";
-import { AccountLabel, amountColumnSize, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
-import { defaultRecordsPreferences, visibleRecordsColumns, recordsMinimumWidth, type RecordsViewPreferences } from "./records-view-preferences";
-import { CELL, PIN_CLASS } from "./TransaccionesTable";
+import { AccountLabel, amountColumnSize, PlainAmount, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
+import { recordsColumnLabelKey, visibleRecordsColumns, recordsMinimumWidth, type RecordsViewPreferences } from "./records-view-preferences";
+import { previewRecordMetadata } from "./records-results-preview";
+import resultsStyles from "./records-results-preview.module.css";
+import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
 const nameOf = (row: RecordRow) => row.counterparty ?? UNKNOWN_VALUE;
@@ -43,14 +45,14 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
-  const { panel, openPanel, records: workspace } = useBusiness();
+  const { panel, openPanel, records: workspace, chosen } = useBusiness();
   const [localOrder, setLocalOrder] = useState<"desc" | "asc">("desc");
   const order = controlledOrder ?? localOrder;
   const rows = controlledOrder ? records : order === "desc" ? records : [...records].reverse();
   const toggleOrder = () => { const next = order === "desc" ? "asc" : "desc"; if (onOrderChange) onOrderChange(next); else setLocalOrder(next); };
-  const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
+  const header = preferences ? null : headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const amountSize = amountColumnSize(records.map((row) => row.money), header, locale);
-  const columns = visibleRecordsColumns(preferences ?? defaultRecordsPreferences());
+  const columns = preferences ? visibleRecordsColumns(preferences) : COLUMNS;
   const proofPinned = columns.at(-1)?.key === "comprobante";
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
         <thead>
           <tr>
             {columns.map((column) => {
-              const label = column.key === "monto" ? t("business.transactions.columns.monto", { currency: header ? currencySymbol(header) : "" }).trim() : t(`business.transactions.columns.${column.key}`);
+              const label = preferences ? t(recordsColumnLabelKey(column.key), { currency: "" }).trim() : column.key === "monto" ? t("business.transactions.columns.monto", { currency: header ? currencySymbol(header) : "" }).trim() : t(`business.transactions.columns.${column.key}`);
               const sortHere = column.key === "fecha";
               return (
                 <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
@@ -98,15 +100,17 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
           {rows.map((row) => {
             const opens = row.opens;
             const open = opens ? isOpenRecord(panel, opens) : false;
+            const metadata = preferences ? previewRecordMetadata(row, chosen?.space_id ?? null) : null;
             const cells = {
               contraparte: (<td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
               fecha: (<td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{formatRelativeDay(row.occurredOn, today, locale)}</td>),
-              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}><SignedAmount money={row.money} header={header} /></td>),
+              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}>{preferences ? <PlainAmount money={row.money} /> : <SignedAmount money={row.money} header={header} />}</td>),
               detalle: (<td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
-                  <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
+                  {preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
-                  </Tooltip>
+                  </Tooltip>}
                 </td>),
+              estado: (<td data-col="estado" className={`${CELL} text-left`}>{metadata ? <Truncated className={resultsStyles.state} text={t(`business.transactions.layout.workflow.${metadata.workflow}`)} /> : <Unknown meaning={t("business.transactions.layout.workflow.unknown")} />}</td>),
               categoria: (<td data-col="categoria" className={`${CELL} text-left`}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>),
               cuenta: (<td data-col="cuenta" className={`${CELL} text-left`}><AccountLabel account={row.account} /></td>),
               comprobante: (<td data-col="comprobante" data-pinned={proofPinned ? "right" : undefined} className={`${CELL} ${proofPinned ? PIN_CLASS.right : ""} text-right`}><Proof row={row} /></td>),
@@ -177,13 +181,14 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
 /** Narrow saved-record preview. Only this or the table mounts, so row refs stay unique. */
 export function RecordsNarrowList({ records, rowRef }: { records: readonly RecordRow[]; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
-  const { panel, openPanel } = useBusiness();
+  const { panel, openPanel, chosen } = useBusiness();
   const openGlance = useContext(RecordGlanceContext);
   return <ul className={pageStyles.list} data-testid="transacciones-records">
     {records.map((row) => {
       const opens = row.opens;
-      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}><SignedAmount money={row.money} header={null} /></span></span>
-        <span className={pageStyles.meta}><Truncated className={pageStyles.marks} text={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null].filter(Boolean).join(" · ")} /><span className={pageStyles.date}>{t("business.transactions.pagination.record_date", { date: formatShortDay(row.occurredOn, locale) })}{row.hasProof ? <Proof row={row} /> : null}</span></span></>;
+      const metadata = previewRecordMetadata(row, chosen?.space_id ?? null);
+      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}><PlainAmount money={row.money} /></span></span>
+        <span className={pageStyles.meta}><Truncated className={pageStyles.marks} text={[t(`business.transactions.records.detail.${row.kind}`), t(`business.transactions.layout.workflow.${metadata?.workflow ?? "unknown"}`)].join(" · ")} /><span className={pageStyles.date}>{t("business.transactions.pagination.record_date", { date: formatShortDay(row.occurredOn, locale) })}{row.hasProof ? <Proof row={row} /> : null}</span></span></>;
       return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined}>
         {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
       </li>;

@@ -214,8 +214,18 @@ describe("the gate", () => {
       await page.settle(() => page.records().length === 25, "first local page");
       const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
       assert.match(footer().textContent ?? "", /1–25 de 65/);
+      const resultSummary = () => document.querySelector('[data-testid="records-results-summary"]')!.textContent;
+      const allResults = resultSummary();
+      assert.match(allResults ?? "", /65 registros/);
+      assert.match(allResults ?? "", /65 sin estado/);
+      assert.doesNotMatch(allResults ?? "", /0 por revisar/);
+      assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
+      assert.equal(document.querySelector('th[data-col="detalle"]')?.textContent, "Tipo");
+      assert.equal(document.querySelector('th[data-col="monto"]')?.textContent, "Monto");
+      assert.match(page.records()[0].querySelector('[data-col="estado"]')!.textContent ?? "", /Estado no disponible/);
       await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
       assert.match(footer().textContent ?? "", /26–50 de 65/);
+      assert.equal(resultSummary(), allResults, "summary covers all results, not the selected page");
       await page.click(document.querySelector('[data-testid="transacciones-view-options"]'));
       await page.click([...document.querySelectorAll('button[role="radio"]')].find((node) => node.textContent === "Altura de filas")!);
       await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Compacto")!);
@@ -283,6 +293,7 @@ describe("the gate", () => {
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Sample 6"); input.dispatchEvent(new Event("input", { bubbles: true })); });
       assert.equal(footer().dataset.page, "1"); assert.equal(page.records().length, 6);
       assert.match(footer().textContent ?? "", /1–6 de 6/);
+      assert.match(resultSummary() ?? "", /6 registros/);
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, ""); input.dispatchEvent(new Event("input", { bubbles: true })); });
       await page.click(document.querySelector('button[aria-label="Última página"]'));
       assert.equal(page.records().length, 15); assert.match(footer().textContent ?? "", /51–65 de 65/);
@@ -294,6 +305,45 @@ describe("the gate", () => {
       await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, ""); input.dispatchEvent(new Event("input", { bubbles: true })); });
       assert.equal(page.records().length, 50, "no-result recovery keeps page size");
       assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "ascending", "no-result recovery keeps sort");
+      await page.unmount();
+    } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+  });
+
+  test("fixture results summary follows loaded search and kind while preview amounts describe records", async () => {
+    const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+    try {
+      const items = [
+        { id: "exp-gas", merchant: "Estación Ruta 3", amount: "2100.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-25", receipt_id: null },
+        { id: "exp-hosting", merchant: "Nube Hosting", amount: "24.00", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-24", receipt_id: null },
+        { id: "exp-lunch", merchant: "Comedor Doña Ana", amount: "1250.00", currency: "DOP", category_id: null, account_id: null, occurred_on: "2026-10-23", receipt_id: null },
+      ];
+      const page = await mount({ enabled: false, transacciones: await recordsOf(items, {}, items) });
+      const summary = () => document.querySelector('[data-testid="records-results-summary"]');
+      await page.settle(() => summary()?.textContent?.includes("2 por revisar") ?? false, "fixture scope summary");
+      assert.match(summary()!.textContent ?? "", /6 registros/);
+      assert.match(summary()!.textContent ?? "", /RD\$ 2,100.00/);
+      assert.match(summary()!.textContent ?? "", /US\$ 24.00/);
+      assert.equal(document.querySelectorAll('thead th').length, 7);
+      assert.equal(document.querySelector('th[data-col="cuenta"]'), null);
+      assert.deepEqual([...document.querySelectorAll('th')].map((node) => node.getAttribute("data-col")), ["contraparte", "fecha", "monto", "detalle", "categoria", "estado", "comprobante"]);
+      const amount = page.records().find((row) => row.dataset.kind === "gasto")!.querySelector('[data-col="monto"]')!;
+      assert.equal(amount.textContent, "RD$ 2,100.00");
+      assert.ok(amount.querySelector(".cuadrao-amount"), "document amount respects privacy masking");
+      assert.equal(page.records()[0].querySelector('[data-col="detalle"]')!.textContent, "Gasto");
+      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Filtros")!);
+      await page.click([...document.querySelectorAll("label")].find((node) => node.textContent === "Gasto")!);
+      await page.click([...document.querySelectorAll("button")].find((node) => node.textContent === "Aplicar")!);
+      assert.match(summary()!.textContent ?? "", /3 registros/); assert.match(summary()!.textContent ?? "", /1 por revisar/);
+      assert.match(summary()!.textContent ?? "", /VentasSin importes confirmados/);
+      assert.equal(summary()!.querySelectorAll(".cuadrao-amount").length, 2, "confirmed purchase currencies stay separate and privacy-aware");
+      const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Nube"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      assert.match(summary()!.textContent ?? "", /1 registro/); assert.match(summary()!.textContent ?? "", /US\$ 24.00/);
+      await page.click(document.querySelector('button[aria-label="Quitar filtro Registro"]'));
+      assert.match(summary()!.textContent ?? "", /2 registros/);
+      assert.match(summary()!.textContent ?? "", /1 registro excluido/);
+      assert.doesNotMatch(summary()!.textContent ?? "", /1 registros excluidos/);
       await page.unmount();
     } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });

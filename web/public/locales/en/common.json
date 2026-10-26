@@ -2424,6 +2424,8 @@
         "all_types": "All types",
         "clear": "Clear filters",
         "clear_search": "Clear search",
+        "column_state": "Status",
+        "column_type": "Type",
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "filters": {
@@ -2504,6 +2506,21 @@
           }
         },
         "period_summary": "Period summary · {{period}}",
+        "results": {
+          "basis": "Confirmed amounts",
+          "excluded_one": "{{count}} record excluded",
+          "excluded_other": "{{count}} records excluded",
+          "expenses": "Expenses",
+          "known_review": "{{count}} known to need review",
+          "none": "No confirmed amounts",
+          "personal": "{{count}} personal",
+          "review": "{{count}} to review",
+          "sales": "Sales",
+          "title": "Results summary",
+          "unavailable": "{{count}} without financial verification",
+          "unconfirmed": "{{count}} unconfirmed",
+          "unknown_state": "{{count}} without status"
+        },
         "search": "Search records…",
         "settings": {
           "cancelled": "Column order restored.",
@@ -2527,6 +2544,12 @@
           "duplicate": "You already have a view with this name.",
           "save": "Save view",
           "export": "Export results"
+        },
+        "workflow": {
+          "approval": "Awaiting approval",
+          "ready": "Ready to export",
+          "review": "To review",
+          "unknown": "Status unavailable"
         }
       },
       "title": "Records",

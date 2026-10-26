@@ -23,6 +23,7 @@ import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./Reco
 import RecordsSettingsPreview from "./RecordsSettingsPreview";
 import { defaultRecordsPreferences } from "./records-view-preferences";
 import RecordsPagePreview from "./RecordsPagePreview";
+import RecordsResultsSummary from "./RecordsResultsSummary";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
@@ -39,7 +40,7 @@ import { useTransacciones } from "./useTransacciones";
  */
 export default function TransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
-  const { period, setPeriod, panel, records, actions } = useBusiness();
+  const { period, setPeriod, panel, records, actions, chosen } = useBusiness();
   const igualarOn = useIgualarEnabled();
   const periodLabel = usePeriodLabel();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -137,10 +138,10 @@ export default function TransaccionesPanel() {
             <MonthCurrencyMenu currencies={controller.currencyMenu.choices} value={controller.currencyMenu.value} businessCurrency={controller.businessCurrency} onChoose={controller.chooseCurrency} note={<OtherCurrencies others={bank?.otherCurrencies ?? []} onChoose={controller.chooseCurrency} />} />
           </div>
         ) : null}
-        {!igualar ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
+        {!igualar && !localPaging ? <p className="mb-2 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.period_summary", { period: subtitle })}</p> : null}
         {igualar
           ? <Summary view={bank} header={header} locale={locale} loading={list.kind === "loading"} />
-          : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
+          : localPaging ? (saved ? <RecordsResultsSummary records={visibleRecords ?? saved} businessId={chosen?.space_id ?? null} /> : null) : <RecordsSummary totals={view?.mode === "records" ? view.totals : null} header={headerCurrency(saved ?? [])} locale={locale} loading={list.kind === "loading"} />}
         {list.kind === "failed" ? (
           <div className={cardClass}>
             <EmptyState kind="error" compact testId="transacciones-error" title={igualar ? t("business.transactions.error.load_title") : t("business.transactions.records.error_title")} body={igualar ? t("business.transactions.error.load_body") : t("business.empty.error_body")} action={{ label: t("common.retry", "Reintentar"), run: controller.retryLoad }} />

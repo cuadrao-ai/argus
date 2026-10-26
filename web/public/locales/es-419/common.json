@@ -2424,6 +2424,8 @@
         "all_types": "Todos los tipos",
         "clear": "Limpiar filtros",
         "clear_search": "Limpiar búsqueda",
+        "column_state": "Estado",
+        "column_type": "Tipo",
         "count_one": "{{count}} registro",
         "count_other": "{{count}} registros",
         "filters": {
@@ -2504,6 +2506,23 @@
           }
         },
         "period_summary": "Resumen del período · {{period}}",
+        "results": {
+          "basis": "Importes confirmados",
+          "excluded_one": "{{count}} registro excluido",
+          "excluded_other": "{{count}} registros excluidos",
+          "expenses": "Gastos",
+          "known_review_one": "{{count}} por revisar identificado",
+          "known_review_other": "{{count}} por revisar identificados",
+          "none": "Sin importes confirmados",
+          "personal_one": "{{count}} personal",
+          "personal_other": "{{count}} personales",
+          "review": "{{count}} por revisar",
+          "sales": "Ventas",
+          "title": "Resumen de resultados",
+          "unavailable": "{{count}} sin verificación financiera",
+          "unconfirmed": "{{count}} sin confirmar",
+          "unknown_state": "{{count}} sin estado"
+        },
         "search": "Buscar en registros…",
         "settings": {
           "cancelled": "Orden de columnas restaurado.",
@@ -2527,6 +2546,12 @@
           "duplicate": "Ya tienes una vista con este nombre.",
           "save": "Guardar vista",
           "export": "Exportar resultados"
+        },
+        "workflow": {
+          "approval": "Por aprobar",
+          "ready": "Listo para exportar",
+          "review": "Por revisar",
+          "unknown": "Estado no disponible"
         }
       },
       "title": "Registros",

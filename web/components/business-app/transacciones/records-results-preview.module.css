@@ -1,0 +1,11 @@
+.summary { margin:0 0 16px; padding:14px 0; color:var(--fg); border-top:1px solid color-mix(in srgb,var(--fg) 12%,transparent); border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.heading { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; font-size:13px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.heading > span:first-child { font-weight:500; color:var(--fg); }
+.amounts { display:flex; align-items:baseline; flex-wrap:wrap; gap:8px 24px; margin-top:10px; font-size:14px; }
+.basis { color:color-mix(in srgb,var(--fg) 65%,transparent); font-size:13px; }
+.total { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; min-width:0; }
+.total strong { font-weight:500; font-variant-numeric:tabular-nums; }
+.exclusions { margin:8px 0 0; font-size:12px; line-height:1.5; color:color-mix(in srgb,var(--fg) 60%,transparent); }
+.state { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:color-mix(in srgb,var(--fg) 70%,transparent); }
+
+.heading > span + span::before { content:"·"; margin-right:10px; }

@@ -5,8 +5,7 @@ import { GripVertical, LockKeyhole, SlidersHorizontal } from "lucide-react";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { DENSITIES } from "./table-density";
-import type { ColumnKey } from "./TransaccionesTable";
-import { defaultRecordsPreferences, moveRecordsColumn, requiredColumn, toggleRecordsColumn, type RecordsViewPreferences } from "./records-view-preferences";
+import { recordsColumnLabelKey, type RecordsColumnKey, defaultRecordsPreferences, moveRecordsColumn, requiredColumn, toggleRecordsColumn, type RecordsViewPreferences } from "./records-view-preferences";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
 
@@ -21,12 +20,12 @@ export default function RecordsSettingsPreview({ value, onChange }: { value: Rec
 function Settings({ value, onChange, registerCancel }: { registerCancel: (handler: (() => boolean) | null) => void; value: RecordsViewPreferences; onChange: (value: RecordsViewPreferences) => void }) {
   const { t } = useTransaccionesWords();
   const word = (key: string) => t(`business.transactions.layout.settings.${key}`);
-  const label = (key: ColumnKey) => t(`business.transactions.columns.${key}`, { currency: "" }).trim();
+  const label = (key: RecordsColumnKey) => t(recordsColumnLabelKey(key), { currency: "" }).trim();
   const [tab, setTab] = useState<"columns" | "height">("columns");
-  const [grabbed, setGrabbed] = useState<ColumnKey | null>(null);
-  const before = useRef<ColumnKey[] | null>(null);
-  const [dragging, setDragging] = useState<ColumnKey | null>(null);
-  const [dropTarget, setDropTarget] = useState<ColumnKey | null>(null);
+  const [grabbed, setGrabbed] = useState<RecordsColumnKey | null>(null);
+  const before = useRef<RecordsColumnKey[] | null>(null);
+  const [dragging, setDragging] = useState<RecordsColumnKey | null>(null);
+  const [dropTarget, setDropTarget] = useState<RecordsColumnKey | null>(null);
   const [message, setMessage] = useState("");
   const hintId = useId();
   useEffect(() => {
@@ -38,7 +37,7 @@ function Settings({ value, onChange, registerCancel }: { registerCancel: (handle
     });
     return () => registerCancel(null);
   }, [registerCancel, grabbed, onChange, t, value]);
-  const move = (key: ColumnKey, target: number) => {
+  const move = (key: RecordsColumnKey, target: number) => {
     const next = moveRecordsColumn(value, key, target); onChange(next);
     setMessage(t("business.transactions.layout.settings.position", { name: label(key), position: next.order.indexOf(key) + 1, count: next.order.length }));
   };
