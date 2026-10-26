@@ -48,6 +48,7 @@ export default function InvoiceDocument({ invoice, business, activeSection }: { 
     {invoice.instructions ? <section data-editing={activeSection === "terms" || undefined}><h3>{word("instructions")}</h3><p className={styles.multiline}>{invoice.instructions}</p></section> : null}
     {invoice.terms ? <section data-editing={activeSection === "terms" || undefined}><h3>{word("terms")}</h3><p className={styles.multiline}>{invoice.terms}</p></section> : null}
     {invoice.notes ? <section data-editing={activeSection === "items" || undefined}><h3>{word("notes")}</h3><p className={styles.multiline}>{invoice.notes}</p></section> : null}
+    <footer className={styles.documentFooter}>{word("document_powered_by")}</footer>
   </article>;
 }
 
@@ -59,7 +60,7 @@ export function printInvoiceDocument(title: string) {
   popup.opener = null;
   popup.document.title = title;
   const style = popup.document.createElement("style");
-  style.textContent = "body{font:14px system-ui;color:#172b26;padding:32px}article{max-width:700px;margin:auto}header{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:24px}section{margin:24px 0}dl div{display:flex;justify-content:space-between;padding:8px 0}small{display:block;color:#56635e}dd{margin:0}p{white-space:pre-wrap}button{display:none}@page{margin:20mm}";
+  style.textContent = "body{font:14px system-ui;color:#172b26;padding:32px}article{max-width:700px;margin:auto}header{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:24px}section{margin:24px 0}dl div{display:flex;justify-content:space-between;padding:8px 0}small{display:block;color:#56635e}dd{margin:0}p{white-space:pre-wrap}footer{border-top:1px solid #ddd;padding-top:13px;color:#56635e;font-size:12px}button{display:none}@page{margin:20mm}";
   popup.document.head.append(style);
   popup.document.body.append(source.cloneNode(true));
   popup.print();

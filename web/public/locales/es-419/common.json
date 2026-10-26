@@ -3436,6 +3436,7 @@
       "document_E32": "E32 · Consumo",
       "document_customer_ced": "CED: {{id}}",
       "document_customer_rnc": "RNC: {{id}}",
+      "document_powered_by": "Con tecnología de Cuadrao",
       "document_total": "Total",
       "document_type": "Tipo de comprobante",
       "draft": "Borradores",
