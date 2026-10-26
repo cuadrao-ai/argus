@@ -21,6 +21,8 @@ import { useTransaccionesWords } from "./transacciones-words";
 import cells from "./transacciones-cells.module.css";
 import styles from "./records-annotations-preview.module.css";
 
+const NOTE_LIMIT = 500;
+
 type RecordAnnotation = { note: string; attachment: File | null };
 type EditorSelection = { scope: string; row: RecordRow; opener: HTMLElement | null } & ({ kind: "note" } | { kind: "attachment" });
 type AnnotationContextValue = {
@@ -105,7 +107,7 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save }: E
   const title = selected.kind === "note" ? t("business.transactions.columns.notas") : t("business.transactions.layout.column_attachment");
   const body = <div className={styles.content}>
     <p className={styles.counterparty}>{selected.row.counterparty ?? t("business.transactions.unknown")}<span className={styles.recordKind}>{t(`business.transactions.records.detail.${selected.row.kind}`)}</span></p>
-    {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={2000} value={note} readOnly={!canEdit} onChange={(event) => setNote(event.target.value)} /></> : <>
+    {selected.kind === "note" ? <><label htmlFor={fieldId} className={styles.label}>{word("current_note")}</label><textarea ref={field} id={fieldId} className={styles.textarea} rows={4} maxLength={NOTE_LIMIT} value={note} readOnly={!canEdit} aria-describedby={`${fieldId}-count`} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} /><div id={`${fieldId}-count`} className="mt-1 text-right text-[13px] tabular-nums text-[#56635e] dark:text-white/55">{note.length}/{NOTE_LIMIT}</div></> : <>
       {canEdit && limits ? <><label htmlFor={fieldId} className={styles.chooseFile}><Plus size={16} aria-hidden="true" />{word("choose_file")}</label><input id={fieldId} type="file" className={styles.fileInput} accept={receiptFileAccept(limits)} aria-describedby={error ? `${fieldId}-error` : undefined} aria-invalid={error ? true : undefined} onChange={(event) => {
         const chosen = event.target.files?.[0];
         if (!chosen) return;
@@ -119,7 +121,7 @@ function AnnotationEditor({ selected, initial, limits, canEdit, close, save }: E
       {file ? <LocalFilePreview file={file} /> : null}
     </>}
   </div>;
-  const footer = <div className={styles.footer}><button type="button" className={secondaryButtonClass} onClick={close}>{t("common.cancel")}</button>{canEdit ? <button type="button" className={primaryButtonClass} disabled={selected.kind === "attachment" && (!file || Boolean(error))} onClick={() => save(selected.kind === "note" ? { ...initial, note: note.trim() } : { ...initial, attachment: file })}>{t("common.save")}</button> : null}</div>;
+  const footer = <div className={styles.footer}><button type="button" className={secondaryButtonClass} onClick={close}>{t("common.cancel")}</button>{canEdit ? <button type="button" className={primaryButtonClass} disabled={selected.kind === "note" ? note.length > NOTE_LIMIT : !file || Boolean(error)} onClick={() => save(selected.kind === "note" ? { ...initial, note: note.trim() } : { ...initial, attachment: file })}>{t("common.save")}</button> : null}</div>;
   return phone ? <BottomSheet isOpen onClose={close} title={title} closeLabel={t("common.close")} snaps="fit" footer={footer}>{body}</BottomSheet> : <DesktopEditor title={title} close={close} footer={footer} initialFocusRef={selected.kind === "note" ? field : undefined} returnFocusRef={opener}>{body}</DesktopEditor>;
 }
 

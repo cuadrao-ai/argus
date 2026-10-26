@@ -68,6 +68,23 @@ test("notes save explicitly, cancel discards, and Business/kind/filter/viewport 
   assert.equal(document.querySelector('[role="dialog"]'), null); assert.equal(page.calls.opens, 0); assert.equal(page.calls.network, 0);
 });
 
+test("note counter follows the draft and oversized paste saves only the 500-character limit", async () => {
+  const page = await mount();
+  await page.click(page.note());
+  const field = document.querySelector("textarea")!;
+  assert.equal(field.maxLength, 500);
+  const counter = document.getElementById(field.getAttribute("aria-describedby")!)!;
+  assert.equal(counter.textContent, "0/500");
+  assert.equal(counter.getAttribute("aria-live"), null);
+  await page.type("a".repeat(500) + "overflow");
+  assert.equal(field.value, "a".repeat(500));
+  assert.equal(counter.textContent, "500/500");
+  await page.click(page.button("Guardar"));
+  await page.click(page.note());
+  assert.equal(document.querySelector("textarea")!.value, "a".repeat(500));
+  assert.equal(page.calls.network, 0);
+});
+
 test("attachment selection validates files and saves only to the chosen record without uploading", async () => {
   const page = await mount(); await page.click(page.attachment());
   await page.choose(new File(["data"], "bad.exe", { type: "application/octet-stream" }));
