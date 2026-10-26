@@ -140,3 +140,24 @@ Invoice desktop money columns now form one group: Moneda | Total | Por cobrar. M
 - Hosted acceptance must prove save/reload, Business isolation, archive/history preservation, month-end and leap recurrence, timezone changes, pause/resume, concurrent edits, duplicate retries, readiness revocation, and failed/uncertain issuance or delivery without duplicate documents. Those checks remain unperformed in this design lane.
 
 Focused regression coverage adds schedule anchoring, next-date selection, save/edit/pause identity, draft-only gating, archived customer validation, customer creation metadata, empty-state distinctions, nested customer discard, local schedule search and the desktop/phone currency presentation. Final local verification: 30 focused model and DOM tests pass across invoice panel/model, customer model/DOM and schedule model coverage. Scoped ESLint and git diff --check pass. Desktop and phone browser checks on the existing server cover the shared currency column, numeric-only desktop amounts, currency-bearing phone amounts, contextual empty artwork, schedule save and pause/resume. Independent review also caught a schedule unit price bypassing privacy masking and customer-specific schedule discard copy; both are fixed with regression coverage. These checks establish local preview behavior only; backend persistence, execution and hosted acceptance remain outstanding.
+
+
+## Cold-start setup progress: held backend requirement
+
+The three setup cards in Facturas > Todas open Business details, customer creation and invoice creation. The current frontend provides these shortcuts; durable completion tracking is not wired.
+
+At the next approved checkpoint, the orchestrator must wire progress to saved, Business-scoped facts:
+
+- Business details completes when the required profile details are saved and valid. Reconcile the exact fields with the Business profile contract. This is separate from fiscal issuer readiness.
+- Customer completes when at least one customer has been saved.
+- First invoice completes when at least one invoice draft has been saved.
+
+Opening a destination, typing unsaved values or attempting a failed save must not complete a step. The frontend replaces the card icon with a checkmark when completion is confirmed and keeps the shortcut usable. Progress updates automatically from the underlying data; there is no separate Save progress or Mark complete action. This does not introduce form autosave: forms retain their existing save behavior, and any future autosave needs its own contract.
+
+The backend owns these completion facts and applies authorization and Business isolation. Progress must survive reload and new sessions, and reflect the selected Business rather than a local visited-card flag. Loading or failed retrieval must not fabricate completion or incompletion. Existing valid data must count without requiring users to repeat setup. Setup cards must not become a new gate that prevents draft creation.
+
+The current cold-start cards disappear once an invoice exists. Preserve that transition when the first draft is saved; do not keep the checklist in the populated workspace merely to display its final checkmark.
+
+Hosted acceptance remains required: visiting without saving leaves progress unchanged; successful valid saves update the relevant step; failed or invalid saves do not; existing saved data restores progress after reload and a new session; switching Businesses shows only that Business's progress; revoked access exposes no protected data; failed progress retrieval has an honest recovery state; saving the first draft transitions to the populated invoice view.
+
+Delivery hold: append this requirement to the eventual checkpoint handoff. Do not send it to the orchestrator before the user's explicit checkpoint clearance. No backend implementation or hosted verification is claimed here.

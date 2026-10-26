@@ -126,7 +126,6 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
       <WorkspaceEmptyState title={word("first_invoice")} description={word("first_invoice_help")} action={<button className={primaryButtonClass} onClick={create}><Plus size={18} />{word("create")}</button>} />
     </>}
     </div>
-    <div className={styles.readiness}><span>{word("readiness_unknown")}</span><button className={quietButtonClass} onClick={() => openPanel({ kind: "business", tab: "datos" })}>{word("readiness_settings")}</button></div>
     </>}
     {customerSelected ? <CustomerDossier key={customerSelected.id} customer={customerSelected} isNew={!!customerPanel && "draft" in customerPanel} invoices={invoices} schedules={schedules} onSchedule={id => { setCustomerPanel(null); setSection("schedules"); setSchedulePanel({ id }); }} onClose={() => setCustomerPanel(null)} onSave={customer => { dispatchCustomer({ type: "save", customer }); setCustomerPanel({ id: customer.id }); }} onStatus={dispatchCustomer} onInvoice={id => { setCustomerPanel(null); setSelectedId(id); }} /> : null}
     {scheduleSelected ? <ScheduleDossier key={scheduleSelected.id} initial={scheduleSelected} isNew={!!schedulePanel && "draft" in schedulePanel} customers={customers} invoices={invoices} onAddCustomer={customer => dispatchCustomer({ type: "save", customer })} onClose={() => setSchedulePanel(null)} onSave={schedule => { dispatchSchedule({ type: "save", schedule }); setSchedulePanel(null); }} /> : null}
