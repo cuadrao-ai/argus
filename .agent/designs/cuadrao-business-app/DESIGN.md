@@ -1285,3 +1285,22 @@ identity/value/state layout and pagination footprint as loaded records. Use the
 shared delayed shimmer and reduced-motion behavior, not generic list placeholders.
 Command-K focuses the mounted Records search and must not steal focus from an open
 overlay; Home retains its existing global search.
+
+### Registros metric shelf, 26 October 2026
+
+The sales and expense summary uses three compact metric cards, with the rounded
+shape, icon placement and neutral text of the overview cards. Use quieter neutral,
+sage and cream surfaces, with dark-theme equivalents. The cards remain read-only
+until the amount drill-down contract is connected. Todos still hides this summary.
+
+Show at most two currency rows in each metric, in the same order across all three
+cards. Do not add currencies together or create a second currency filter. When
+more than two currencies occur, one shared action opens every currency in the
+existing dossier. Group that breakdown by currency, with total, settled amount
+and balance inside each group. Phone uses the shared sheet. Close or Escape
+returns focus to the trigger. Retain the dossier gradient and privacy masking.
+
+On narrow containers, stack the three cards with labels on the left and amounts
+aligned on the right. Keep unknown settlement values unknown. Exclusions remain
+available through the first card's information control. Existing financial
+eligibility, filters and settings visibility retain their current meaning.

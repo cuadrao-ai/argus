@@ -2548,6 +2548,7 @@
         "results": {
           "basis": "Confirmed amounts",
           "breakdown": "View breakdown",
+          "breakdown_title": "Breakdown by currency",
           "currencies": "Amounts in {{count}} currencies",
           "exclusions": "Excluded amounts",
           "metrics": {
@@ -2565,7 +2566,8 @@
           "show_hint": "Visible when filtering sales or expenses. Hidden in All.",
           "title": "Results summary",
           "unavailable": "{{count}} without financial verification",
-          "unconfirmed": "{{count}} unconfirmed"
+          "unconfirmed": "{{count}} unconfirmed",
+          "view_currencies": "View all {{count}} currencies"
         },
         "search": "Search records…",
         "settings": {

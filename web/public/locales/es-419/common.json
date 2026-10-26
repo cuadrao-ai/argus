@@ -2548,6 +2548,7 @@
         "results": {
           "basis": "Importes confirmados",
           "breakdown": "Ver desglose",
+          "breakdown_title": "Desglose por moneda",
           "currencies": "Importes en {{count}} monedas",
           "exclusions": "Importes excluidos",
           "metrics": {
@@ -2565,7 +2566,8 @@
           "show_hint": "Visible al filtrar ventas o gastos. Se oculta en Todos.",
           "title": "Resumen de resultados",
           "unavailable": "{{count}} sin verificación financiera",
-          "unconfirmed": "{{count}} sin confirmar"
+          "unconfirmed": "{{count}} sin confirmar",
+          "view_currencies": "Ver las {{count}} monedas"
         },
         "search": "Buscar en registros…",
         "settings": {

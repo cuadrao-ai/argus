@@ -431,3 +431,22 @@ records, direct access to later pages, and a reload with Todo selected. Verify
 that older records remain reachable, each row response respects the page size,
 and full-result counts, totals and filtered export scope agree. Existing export
 range limits remain explicit until the export contract supports this scope.
+
+### Metric shelf and currency dossier, 26 October 2026
+
+Approved option one replaces the table-like summary with three quiet metric
+cards. Each shows at most two currency rows. A shared action appears only for
+three or more currencies and opens the complete read-only breakdown in the
+existing dossier, or the shared phone sheet. The component reuses the same
+settlement summary for both presentations. No calculation or currency support
+was added. Canadian-dollar support remains outside this design change.
+
+The summary still appears only for sales or expenses and can be hidden in view
+settings. Current amounts and allocations remain local preview behavior. This
+does not prove complete API totals, payment linking or arbitrary filtered exports.
+
+Local verification covered desktop and phone card layouts in light and dark
+themes, with Spanish and English copy. A temporary three-currency presentation
+fixture verified the full dossier and phone sheet, unknown settlement values,
+Escape dismissal and focus restoration; the fixture was removed afterward.
+Fifteen focused tests and scoped ESLint passed. No backend work or handoff occurred.
