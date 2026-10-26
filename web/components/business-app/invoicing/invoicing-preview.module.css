@@ -121,7 +121,8 @@
 .editor { padding:21px; }
 .editorSwitch { display:none; }
 @media(min-width:1024px) {
-.editor[data-expanded="true"] .editorGrid { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.editor[data-expanded="true"] .editorGrid { position:relative; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.editor[data-expanded="true"] .editorGrid::before { content:""; position:absolute; top:-21px; bottom:-21px; left:50%; width:1px; background:color-mix(in srgb,var(--fg) 12%,transparent); pointer-events:none; }
 .editor[data-expanded="true"] .livePreview { display:grid; gap:13px; position:sticky; top:21px; }
 }
 .corrections { display:grid; gap:13px; border-top:1px solid color-mix(in srgb,var(--fg) 12%,transparent); padding-top:21px; }
