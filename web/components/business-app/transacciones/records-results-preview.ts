@@ -1,4 +1,6 @@
 import { currencyDigits, minorToDecimal } from "@/lib/money-entry";
+import { customPeriod, todayIso, type Period } from "../business-format";
+import type { ReviewFilter } from "./records-filter-preview-model";
 import type { Money, RecordRow } from "./transacciones-model";
 
 export type PreviewWorkflow = "review" | "approval" | "ready";
@@ -24,9 +26,6 @@ function exactMinor(money: Money): bigint | null {
   const value = BigInt(match[2] + (match[3] ?? "").padEnd(digits, "0"));
   return match[1] === "-" ? -value : value;
 }
-export const SUMMARY_METRICS = ["sales", "expenses"] as const;
-export type SummaryMetric = typeof SUMMARY_METRICS[number];
-export const DEFAULT_SUMMARY_METRICS: readonly SummaryMetric[] = ["sales", "expenses"];
 export type SummaryExclusions = { unconfirmed: number; personal: number; unavailable: number };
 const emptyExclusions = (): SummaryExclusions => ({ unconfirmed: 0, personal: 0, unavailable: 0 });
 export type RecordsResultsPreview = {
@@ -60,4 +59,62 @@ export function summarizePreviewRecords(rows: readonly RecordRow[], businessId: 
   const money = (values: Map<string, bigint>) => [...values.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([currency, minor]) => ({ currency, amount: minorToDecimal(minor, currency) }));
   result.sales = money(totals.venta); result.expenses = money(totals.gasto);
   return result;
+}
+
+
+const WORKFLOW_FILTER: Record<PreviewWorkflow, ReviewFilter> = { review: "review", approval: "approval", ready: "export" };
+export function matchesPreviewWorkflow(row: RecordRow, businessId: string | null, selected: readonly ReviewFilter[]): boolean {
+  if (!selected.length) return true;
+  const metadata = previewRecordMetadata(row, businessId);
+  return metadata !== null && selected.includes(WORKFLOW_FILTER[metadata.workflow]);
+}
+export function overviewPreviewCounts(rows: readonly RecordRow[] | null, businessId: string | null): Record<ReviewFilter, number | null> {
+  const counts = { review: 0, approval: 0, export: 0 };
+  if (!rows) return { review: null, approval: null, export: null };
+  for (const row of rows) {
+    const metadata = previewRecordMetadata(row, businessId);
+    if (!metadata) return { review: null, approval: null, export: null };
+    counts[WORKFLOW_FILTER[metadata.workflow]] += 1;
+  }
+  return counts;
+}
+
+type PreviewAllocation = { currency: string; total: string; payments: readonly string[] };
+const FIXTURE_ALLOCATIONS: Readonly<Record<string, PreviewAllocation>> = {
+  "gasto:exp-gas": { currency: "DOP", total: "2100.00", payments: ["1000.00", "200.00"] },
+  "gasto:exp-hosting": { currency: "USD", total: "24.00", payments: ["12.00"] },
+  "venta:exp-gas": { currency: "DOP", total: "2100.00", payments: ["1000.00", "400.00"] },
+};
+export type SettlementCurrency = { currency: string; total: string; settled: string | null; balance: string | null };
+export function summarizeSettlementPreview(rows: readonly RecordRow[], businessId: string | null, kind: RecordRow["kind"]): { currencies: SettlementCurrency[]; exclusions: SummaryExclusions } {
+  const matching = rows.filter((row) => row.kind === kind);
+  const summary = summarizePreviewRecords(matching, businessId);
+  const key = kind === "venta" ? "sales" : "expenses";
+  const settlements = new Map<string, bigint | null>();
+  for (const row of matching) {
+    const metadata = previewRecordMetadata(row, businessId);
+    const amount = exactMinor(row.money);
+    if (!metadata || metadata.financialEligibility !== "confirmed" || row.marks.personal || amount === null) continue;
+    const total = amount < BigInt(0) ? -amount : amount;
+    const allocation = FIXTURE_ALLOCATIONS[`${row.kind}:${row.id}`];
+    const expected = allocation ? exactMinor({ currency: allocation.currency, amount: allocation.total }) : null;
+    const payments = allocation?.payments.map((payment) => exactMinor({ currency: allocation.currency, amount: payment })) ?? [];
+    const paid = payments.reduce<bigint | null>((sum, value) => sum === null || value === null || value < BigInt(0) ? null : sum + value, BigInt(0));
+    const valid = allocation && allocation.currency === row.money.currency && expected === total && paid !== null && paid <= total;
+    const previous = settlements.get(row.money.currency);
+    settlements.set(row.money.currency, previous === null || !valid ? null : (previous ?? BigInt(0)) + paid!);
+  }
+  return {
+    currencies: summary[key].map((money) => {
+      const settled = settlements.get(money.currency);
+      return { currency: money.currency, total: money.amount, settled: settled == null ? null : minorToDecimal(settled, money.currency), balance: settled == null ? null : minorToDecimal(exactMinor(money)! - settled, money.currency) };
+    }),
+    exclusions: summary.excludedByKind[key],
+  };
+}
+
+
+export function matchesPreviewPeriod(row: RecordRow, period: Period): boolean {
+  if (period.key === "all") return true;
+  return customPeriod(row.occurredOn, row.occurredOn) !== null && row.occurredOn >= period.from && row.occurredOn <= (period.to ?? todayIso());
 }

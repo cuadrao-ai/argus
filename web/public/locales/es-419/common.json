@@ -2491,6 +2491,7 @@
           "title": "Filtros",
           "visible_selection_hint": "Solo cambia los resultados visibles. Las demás selecciones se conservan."
         },
+        "no_period_records": "No hay registros en este período.",
         "no_results": "No hay registros con estos filtros",
         "overview": {
           "approval": {
@@ -2507,27 +2508,25 @@
           }
         },
         "period_summary": "Resumen del período · {{period}}",
+        "reset_period": "Restablecer período",
         "results": {
           "basis": "Importes confirmados",
-          "choose_desktop": "Elige tus tarjetas. Arrastra para ordenar, o pulsa Espacio en un control y usa las flechas.",
-          "choose_phone": "Elige tus tarjetas. Usa las flechas para cambiar su orden.",
+          "breakdown": "Ver desglose",
+          "currencies": "Importes en {{count}} monedas",
+          "exclusions": "Importes excluidos",
           "metrics": {
+            "collected": "Cobrado",
             "expenses": "Gastos",
-            "sales": "Ventas"
+            "invoiced": "Facturado",
+            "paid": "Pagado",
+            "payable": "Por pagar",
+            "receivable": "Por cobrar"
           },
-          "more_currencies_one": "Ver {{count}} moneda más",
-          "more_currencies_other": "Ver {{count}} monedas más",
-          "move": "Mover {{name}}",
-          "move_down": "Bajar {{name}}",
-          "move_up": "Subir {{name}}",
-          "none": "Sin importes confirmados",
-          "order_cancelled": "Orden de tarjetas restaurado.",
-          "order_grabbed": "Tarjeta seleccionada. Usa las flechas para moverla.",
-          "order_placed": "Tarjeta colocada.",
           "personal_one": "{{count}} personal",
           "personal_other": "{{count}} personales",
-          "position": "{{name}}, posición {{position}} de {{count}}",
           "restore": "Restaurar valores iniciales",
+          "show": "Mostrar resumen financiero",
+          "show_hint": "Visible al filtrar ventas o gastos. Se oculta en Todos.",
           "title": "Resumen de resultados",
           "unavailable": "{{count}} sin verificación financiera",
           "unconfirmed": "{{count}} sin confirmar"

@@ -2491,6 +2491,7 @@
           "title": "Filters",
           "visible_selection_hint": "Only visible results change. Other selections are kept."
         },
+        "no_period_records": "No records in this period.",
         "no_results": "No records match these filters",
         "overview": {
           "approval": {
@@ -2507,26 +2508,25 @@
           }
         },
         "period_summary": "Period summary · {{period}}",
+        "reset_period": "Reset period",
         "results": {
           "basis": "Confirmed amounts",
-          "choose_desktop": "Choose your cards. Drag to reorder, or press Space on a handle and use the arrow keys.",
-          "choose_phone": "Choose your cards. Use the arrows to change their order.",
+          "breakdown": "View breakdown",
+          "currencies": "Amounts in {{count}} currencies",
+          "exclusions": "Excluded amounts",
           "metrics": {
+            "collected": "Collected",
             "expenses": "Expenses",
-            "sales": "Sales"
+            "invoiced": "Invoiced",
+            "paid": "Paid",
+            "payable": "To pay",
+            "receivable": "To collect"
           },
-          "more_currencies_one": "View {{count}} more currency",
-          "more_currencies_other": "View {{count}} more currencies",
-          "move": "Move {{name}}",
-          "move_down": "Move {{name}} down",
-          "move_up": "Move {{name}} up",
-          "none": "No confirmed amounts",
-          "order_cancelled": "Card order restored.",
-          "order_grabbed": "Card picked up. Use the arrow keys to move it.",
-          "order_placed": "Card placed.",
-          "personal": "{{count}} personal",
-          "position": "{{name}}, position {{position}} of {{count}}",
+          "personal_one": "{{count}} personal",
+          "personal_other": "{{count}} personal",
           "restore": "Restore defaults",
+          "show": "Show financial summary",
+          "show_hint": "Visible when filtering sales or expenses. Hidden in All.",
           "title": "Results summary",
           "unavailable": "{{count}} without financial verification",
           "unconfirmed": "{{count}} unconfirmed"

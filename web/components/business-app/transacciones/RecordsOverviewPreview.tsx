@@ -1,29 +1,20 @@
 "use client";
 
 import { FileSearch, ListChecks, Files } from "lucide-react";
+import type { ReviewFilter } from "./records-filter-preview-model";
 import { useTransaccionesWords } from "./transacciones-words";
+import { Unknown } from "./transacciones-parts";
 import styles from "./records-overview-preview.module.css";
 
-const CARDS = [
-  { key: "review", count: 6, icon: FileSearch },
-  { key: "approval", count: 2, icon: ListChecks },
-  { key: "export", count: 12, icon: Files },
-] as const;
+const CARDS = [{ key: "review", icon: FileSearch }, { key: "approval", icon: ListChecks }, { key: "export", icon: Files }] as const;
 
-export default function RecordsOverviewPreview() {
+export default function RecordsOverviewPreview({ counts, selected, onChoose }: { counts: Record<ReviewFilter, number | null>; selected: readonly ReviewFilter[]; onChoose: (value: ReviewFilter) => void }) {
   const { t } = useTransaccionesWords();
-  return (
-    <dl data-testid="records-overview-preview" className={styles.cards}>
-      {CARDS.map(({ key, count, icon: Icon }) => (
-        <div key={key} className={`${styles.card} ${styles[key]}`}>
-          <dt className={styles.heading}>
-            <Icon size={21} strokeWidth={1.7} aria-hidden="true" />
-            <span>{t(`business.transactions.layout.overview.${key}.title`)}</span>
-          </dt>
-          <dd className={`${styles.count} font-display`}>{count}</dd>
-          <dd className={styles.description}>{t(`business.transactions.layout.overview.${key}.description`)}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+  return <div data-testid="records-overview-preview" className={styles.cards}>
+    {CARDS.map(({ key, icon: Icon }) => <button type="button" key={key} data-overview-filter={key} aria-pressed={selected.includes(key)} disabled={counts[key] === null} onClick={() => onChoose(key)} className={`${styles.card} ${styles[key]}`}>
+      <span className={styles.heading}><Icon size={21} strokeWidth={1.7} aria-hidden="true" /><span>{t(`business.transactions.layout.overview.${key}.title`)}</span></span>
+      <span className={`${styles.count} font-display`}>{counts[key] ?? <Unknown />}</span>
+      <span className={styles.description}>{t(`business.transactions.layout.overview.${key}.description`)}</span>
+    </button>)}
+  </div>;
 }

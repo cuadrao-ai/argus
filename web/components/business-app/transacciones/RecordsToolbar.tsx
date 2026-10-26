@@ -75,13 +75,15 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
   </>;
 }
 
-export function RecordsToolbar({ filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange }: { appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
+export function RecordsToolbar({ filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
   const periodName = usePeriodLabel();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
   const datePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const preview = datePreview && !isBelowDesktop;
-  const [previewPeriod, setPreviewPeriod] = useState(period);
+  const [localPeriod, setLocalPeriod] = useState(period);
+  const previewPeriod = appliedPeriod ?? localPeriod;
+  const setPreviewPeriod = onPeriodChange ?? setLocalPeriod;
   const [localFilters, setLocalFilters] = useState(emptyPreviewFilters);
   const previewFilters = appliedFilters ?? localFilters;
   const setPreviewFilters = onFiltersChange ?? setLocalFilters;

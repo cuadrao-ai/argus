@@ -57,7 +57,7 @@ test("summary labels are available at the same EN and ES layout paths", () => {
   for (const locale of [es, en]) {
     assert.ok(locale.business.transactions.layout.results.title);
     assert.ok(locale.business.transactions.layout.settings.summary);
-    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["expenses", "sales"]);
+    assert.deepEqual(Object.keys(locale.business.transactions.layout.results.metrics), ["collected", "expenses", "invoiced", "paid", "payable", "receivable"]);
     assert.ok(locale.business.transactions.layout.column_state);
     assert.ok(locale.business.transactions.layout.workflow.unknown);
     assert.equal("results" in locale.business.transactions.layout.filters, false);
@@ -72,4 +72,39 @@ test("currency and bounds filter original-currency magnitudes with exact arithme
   assert.equal(matchesPreviewAmount({ currency: "DOP", amount: "9007199254740993.01" }, usd), false);
   assert.equal(matchesPreviewAmount({ currency: "USD", amount: "bad" }, usd), false);
   assert.equal(matchesPreviewAmount({ currency: "USD", amount: "24" }, { currency: "USD", min: "25", max: "24" }), false);
+});
+
+
+test("partial settlements stay linked to their record and use exact currency totals", async () => {
+  const { summarizeSettlementPreview } = await import("@/components/business-app/transacciones/records-results-preview");
+  const expenses = summarizeSettlementPreview(rows, "fixture-space", "gasto");
+  assert.deepEqual(expenses.currencies, [
+    { currency: "DOP", total: "2100.00", settled: "1200.00", balance: "900.00" },
+    { currency: "USD", total: "24.00", settled: "12.00", balance: "12.00" },
+  ]);
+  const sales = summarizeSettlementPreview(rows, "fixture-space", "venta");
+  assert.deepEqual(sales.currencies, [{ currency: "DOP", total: "2100.00", settled: "1400.00", balance: "700.00" }]);
+  assert.deepEqual(summarizeSettlementPreview(rows, "fixture-client", "gasto").currencies, []);
+  const changed = [{ ...rows[0], money: { amount: "3000.00", currency: "DOP" } }];
+  assert.deepEqual(summarizeSettlementPreview(changed, "fixture-space", "gasto").currencies, [{ currency: "DOP", total: "3000.00", settled: null, balance: null }]);
+});
+
+test("overview workflow filters match the same metadata and unknown counts stay unavailable", async () => {
+  const { overviewPreviewCounts, matchesPreviewWorkflow } = await import("@/components/business-app/transacciones/records-results-preview");
+  assert.deepEqual(overviewPreviewCounts(rows, "fixture-space"), { review: 2, approval: 2, export: 2 });
+  assert.deepEqual(overviewPreviewCounts(rows, "fixture-client"), { review: null, approval: null, export: null });
+  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["export"])).length, 2);
+  assert.equal(rows.filter((row) => matchesPreviewWorkflow(row, "fixture-space", ["review", "approval"])).length, 4);
+  assert.equal(matchesPreviewWorkflow(rows[0], "fixture-client", ["review"]), false);
+});
+
+
+test("the overview period uses inclusive activity dates and never substitutes missing dates", async () => {
+  const { matchesPreviewPeriod } = await import("@/components/business-app/transacciones/records-results-preview");
+  const period = { key: "custom", from: "2026-10-24", to: "2026-10-25" } as const;
+  assert.equal(matchesPreviewPeriod(rows[0], period), true);
+  assert.equal(matchesPreviewPeriod({ ...rows[0], occurredOn: "2026-10-24" }, period), true);
+  assert.equal(matchesPreviewPeriod({ ...rows[0], occurredOn: "2026-10-23" }, period), false);
+  assert.equal(matchesPreviewPeriod({ ...rows[0], occurredOn: "" }, period), false);
+  assert.equal(matchesPreviewPeriod({ ...rows[0], occurredOn: "2026-10-32" }, period), false);
 });
