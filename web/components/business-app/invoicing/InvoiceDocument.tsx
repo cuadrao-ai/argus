@@ -26,12 +26,19 @@ export default function InvoiceDocument({ invoice, business, activeSection }: { 
   const { word } = useInvoiceWords();
   const { chosen } = useBusiness();
   const amount = invoiceSettlement(invoice);
+  const taxId = invoice.customer.taxId.trim();
+  const taxDigits = taxId.replace(/[ -]/g, "");
+  const taxLabel = /^(?:[0-9]{9}|[0-9]{11})$/.test(taxDigits) && !/^0+$/.test(taxDigits)
+    ? taxDigits.length === 9 ? "document_customer_rnc" : "document_customer_ced"
+    : null;
+  const taxDisplay = taxLabel ? word(taxLabel, { id: formatCustomerTaxId(taxId) }) : invoice.customer.taxId;
+
   return <article className={styles.document} data-editing={activeSection === "review" || undefined} data-testid="invoice-customer-document">
     <header className={styles.documentHeader}><div><div className={styles.issuer}><SavedIdentityMark scope={`business:${chosen?.space_id ?? ""}`} name={business} business fallback={<BusinessMark />} /><h2>{business}</h2></div><p>{word("sample_document")}</p></div><div><strong>{word("invoice")}</strong><p>{invoice.reference}</p></div></header>
     <section className={styles.documentFacts}><div className={styles.documentCustomer} data-editing={activeSection === "customer" || undefined}>
       <p className={styles.documentLabel}>{word("bill_to")}</p>
       <strong>{invoice.customer.name || word("customer_placeholder")}</strong>
-      {invoice.customer.taxId.trim() ? <p>{formatCustomerTaxId(invoice.customer.taxId)}</p> : null}
+      {taxId ? <p>{taxDisplay}</p> : null}
       {invoice.customer.email.trim() ? <p>{invoice.customer.email}</p> : null}
       {invoice.customer.address.trim() ? <p className={styles.customerAddress}>{invoice.customer.address}</p> : null}
     </div><dl data-editing={activeSection === "terms" || undefined}><dt>{word("issue_date")}</dt><dd><InvoiceDate date={invoice.issuedOn} /></dd><dt>{word("due_date")}</dt><dd><InvoiceDate date={invoice.dueOn} /></dd><dt>{word("currency")}</dt><dd>{invoice.currency}</dd></dl></section>
