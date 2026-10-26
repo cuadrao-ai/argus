@@ -22,8 +22,7 @@
 
 .review { background: #f8b69f; }
 .approval { background: #f8e28b; }
-.export { --workflow-ink:#2f5a49; background:#e3ebe1; }
-.card.export { background:#8EB69B; }
+.export { --workflow-ink:#2f5a49; background:#B8D0BE; }
 
 .heading {
   display: flex;
