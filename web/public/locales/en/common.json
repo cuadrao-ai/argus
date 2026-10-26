@@ -2536,6 +2536,21 @@
         "no_lleva": { "cargo_banco": "Bank charge, needs no proof", "entre_cuentas": "Between your accounts, needs no proof", "compra_informal": "Informal purchase, no proof", "monto_cero": "Zero amount, needs no proof", "personal": "Personal, needs no proof" }
       },
       "reasons": { "title": "Why does it need no proof?", "cargo_banco": "Bank charge", "entre_cuentas": "Between my accounts", "compra_informal": "Informal purchase", "personal": "Personal" },
+      "pagination": {
+        "first": "First page",
+        "label": "Record pages",
+        "last": "Last page",
+        "newest": "Newest first",
+        "next": "Next page",
+        "oldest": "Oldest first",
+        "page": "Page {{page}}",
+        "page_size": "Records per page",
+        "per_page": "{{count}} per page",
+        "previous": "Previous page",
+        "range": "{{from}}–{{to}} of {{count}} records",
+        "record_date": "Date: {{date}}",
+        "sort": "Sort"
+      },
       "records": { "detail": { "gasto": "Expense", "venta": "Sale" }, "proof": "Receipt attached", "empty_title": "Your expenses and sales show here", "empty_body": "Every expense and sale you approve in the Inbox shows here on its date.", "filtered_title": "No expenses or sales in this period", "filtered_body": "There may be some in other months.", "error_title": "We couldn't load your expenses and sales" },
       "why": { "title": "Why we suggest it", "amount": "The amount is exact", "date_same": "It is from the same day", "date_one": "The document is from one day before", "date_many": "The document is from {{count}} days before", "date_after_one": "The document is from one day after", "date_after_many": "The document is from {{count}} days after", "name": "The name looks like the bank's" },
       "actions": { "igualar": "Match", "rechazar": "Not this one", "sin_comprobante": "No proof", "desigualar": "Unmatch", "agregar": "Add proof", "more": "More actions for {{name}}", "add_for": "Add proof for {{name}}", "open_for": "Open {{name}}" },

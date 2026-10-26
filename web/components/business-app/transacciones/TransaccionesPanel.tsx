@@ -20,6 +20,7 @@ import { useIgualarEnabled } from "./transacciones-gate";
 import { KeyHint, MoneyList, Unknown } from "./transacciones-parts";
 import { recordRowKey, RecordsList, RecordsTable } from "./TransaccionesRecords";
 import { EMPTY_RECORDS_FILTER, RecordsToolbar, type RecordsFilter } from "./RecordsToolbar";
+import RecordsPagePreview from "./RecordsPagePreview";
 import RecordsOverviewPreview from "./RecordsOverviewPreview";
 import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
@@ -70,6 +71,9 @@ export default function TransaccionesPanel() {
   const header = bank ? bank.currency ?? headerCurrency(movements, bank.accountCurrency) : null;
   const saved = view?.mode === "records" ? view.records : null;
   const [filter, setFilter] = useState<RecordsFilter>(EMPTY_RECORDS_FILTER);
+  const [previewRevision, setPreviewRevision] = useState(0);
+  const localPaging = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const pageResetKey = JSON.stringify([filter, period, previewRevision]);
   const query = filter.query.trim().toLocaleLowerCase(locale);
   const visibleRecords = saved?.filter((row) => (filter.kind === "all" || row.kind === filter.kind) && (!query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query))) ?? null;
   // Back from a record's own page, its row takes focus once the list is in, or the screen does when the period leaves it out.
@@ -85,6 +89,12 @@ export default function TransaccionesPanel() {
     (restored ? rowNodes.current.get(recordRowKey(restored)) : screen.current)?.focus();
   }, [cameFrom, saved]);
   const add = actions.create.find((action) => action.id === "upload_receipt");
+
+  const recordsEmptyContent = saved?.length === 0 ? <div className={cardClass} data-testid="transacciones-records-empty">
+    {period.key === "this_month" || period.key === "all"
+      ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
+      : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
+  </div> : <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} action={{ label: t("business.transactions.layout.clear"), run: () => setFilter(EMPTY_RECORDS_FILTER) }} /></div>;
 
   const run = showRun ? (
     <button type="button" data-testid="transacciones-run" data-primary="true" disabled={list.kind !== "ready"} onClick={controller.startRun} className={`${primaryButtonClass} ${phone ? "shrink-0" : ""}`}>
@@ -117,7 +127,7 @@ export default function TransaccionesPanel() {
           {phone ? <div className="ml-auto">{run}</div> : <div className="ml-auto"><DensityMenu state={densityState} /></div>}
         </div> : null}
         {!igualar && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <RecordsOverviewPreview /> : null}
-        {!igualar ? <RecordsToolbar filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <><BusinessAddMenu placement="header" /><DensityMenu state={densityState} /></>} /> : null}
+        {!igualar ? <RecordsToolbar onPreviewChange={() => setPreviewRevision((value) => value + 1)} filter={filter} onChange={setFilter} period={period} setPeriod={setPeriod} options={phone ? null : <><BusinessAddMenu placement="header" /><DensityMenu state={densityState} /></>} /> : null}
         {!igualar && records.overview ? <div className="-mt-1 mb-4"><OutsidePeriodNote count={records.overview.outside_period_count} latestOn={records.overview.outside_period_latest_on} onShowAll={() => setPeriod("all")} /></div> : null}
         {igualar && controller.currencyMenu ? (
           <div data-testid="transacciones-currency" className="mb-3">
@@ -135,15 +145,9 @@ export default function TransaccionesPanel() {
         ) : list.kind === "loading" ? (
           <LoadingRows density={phone ? "amplio" : density} />
         ) : saved ? (
-          saved.length === 0 ? (
-            <div className={cardClass} data-testid="transacciones-records-empty">
-              {period.key === "this_month" || period.key === "all"
-                ? <EmptyState kind="first_run" mark="receipt" compact title={t("business.transactions.records.empty_title")} body={t("business.transactions.records.empty_body")} action={add ? { label: add.label, run: add.run } : undefined} />
-                : <EmptyState kind="filtered" compact title={t("business.transactions.records.filtered_title")} body={t("business.transactions.records.filtered_body")} action={{ label: t("business.empty.see_all_periods"), run: () => setPeriod("all") }} />}
-            </div>
-          ) : visibleRecords?.length === 0 ? (
-            <div className={cardClass}><EmptyState kind="filtered" compact title={t("business.transactions.layout.no_results")} action={{ label: t("business.transactions.layout.clear"), run: () => setFilter(EMPTY_RECORDS_FILTER) }} /></div>
-          ) : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
+          localPaging ? <RecordsPagePreview records={visibleRecords ?? saved} density={density} rowRef={rowRef} resetKey={pageResetKey} emptyContent={recordsEmptyContent} />
+            : saved.length === 0 || visibleRecords?.length === 0 ? recordsEmptyContent
+              : phone ? <RecordsList records={visibleRecords ?? saved} rowRef={rowRef} /> : <RecordsTable records={visibleRecords ?? saved} density={density} rowRef={rowRef} />
         ) : !bank ? null : bank.counts !== null && bank.counts.movimientos + bank.counts.sinMovimiento === 0 ? (
           <div className={cardClass}>
             <EmptyState kind="first_run" mark="receipt" compact testId="transacciones-empty" title={t("business.transactions.empty.first_run_title")} body={t("business.transactions.empty.first_run_body")} />
@@ -162,7 +166,7 @@ export default function TransaccionesPanel() {
             <LoadMore controller={controller} view={bank} />
           </>
         )}
-        {saved ? <p data-testid="records-count" aria-live="polite" className="mt-4 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.count", { count: visibleRecords?.length ?? 0 })}</p> : null}
+        {saved && !localPaging ? <p data-testid="records-count" aria-live="polite" className="mt-4 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.count", { count: visibleRecords?.length ?? 0 })}</p> : null}
         {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
       </section>
     </PullToRefresh>

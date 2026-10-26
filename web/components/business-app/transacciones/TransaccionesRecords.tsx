@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useContext, useState, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { currencySymbol } from "@/lib/money-entry";
 import { useBusiness } from "../BusinessWorkspace";
-import { formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
+import { formatShortDay, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { RecordGlanceContext } from "./RecordGlanceContext";
+import pageStyles from "./records-page.module.css";
 import cellStyles from "./transacciones-cells.module.css";
 import { RecordMarks, useOwnerView } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
@@ -36,12 +38,15 @@ function Proof({ row }: { row: RecordRow }) {
  * igualar state. A row opens its record in the record tray; a venta has no
  * record screen yet, so its row is plain.
  */
-export function RecordsTable({ records, density, rowRef }: { records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
+export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange }: { order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
+  const openGlance = useContext(RecordGlanceContext);
   const { panel, openPanel, records: workspace } = useBusiness();
-  const [order, setOrder] = useState<"desc" | "asc">("desc");
-  const rows = order === "desc" ? records : [...records].reverse();
+  const [localOrder, setLocalOrder] = useState<"desc" | "asc">("desc");
+  const order = controlledOrder ?? localOrder;
+  const rows = controlledOrder ? records : order === "desc" ? records : [...records].reverse();
+  const toggleOrder = () => { const next = order === "desc" ? "asc" : "desc"; if (onOrderChange) onOrderChange(next); else setLocalOrder(next); };
   const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
   const amountSize = amountColumnSize(records.map((row) => row.money), header, locale);
   const today = todayIso();
@@ -59,7 +64,7 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
     };
     if (event.key === "ArrowDown") move(index + 1);
     else if (event.key === "ArrowUp") move(index - 1);
-    else if (event.key === "Enter" && rows[index].opens) openPanel(rows[index].opens!);
+    else if (event.key === "Enter" && rows[index].opens) { if (openGlance) openGlance(rows[index]); else openPanel(rows[index].opens!); }
     else return;
     event.preventDefault();
   };
@@ -76,7 +81,7 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
               return (
                 <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
                   {sortHere ? (
-                    <button type="button" onClick={() => setOrder((value) => (value === "desc" ? "asc" : "desc"))} className="inline-flex min-h-7 items-center gap-1 rounded-full font-medium text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
+                    <button type="button" onClick={toggleOrder} className="inline-flex min-h-7 items-center gap-1 rounded-full font-medium text-[#172b26] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white">
                       {label}
                       {order === "desc" ? <ArrowDown data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowUp data-testid="sort-arrow" className="h-3.5 w-3.5" aria-hidden="true" />}
                     </button>
@@ -100,7 +105,7 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
                 tabIndex={recordRowKey(row) === tabStop ? 0 : -1}
                 style={{ height: DENSITY_ROW_PX[density] }}
                 onFocus={(event) => { if (event.target === event.currentTarget) setFocusedId(recordRowKey(row)); }}
-                onClick={opens ? () => openPanel(opens) : undefined}
+                onClick={opens ? () => { if (openGlance) openGlance(row); else openPanel(opens); } : undefined}
                 className={`group outline-none focus-visible:[&>td]:shadow-[inset_0_2px_0_var(--cuadrao-green),inset_0_-2px_0_var(--cuadrao-green)] ${opens ? "cursor-pointer" : ""}`}
               >
                 <td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>
@@ -160,4 +165,22 @@ export function RecordsList({ records, rowRef }: { records: readonly RecordRow[]
       })}
     </ul>
   );
+}
+
+
+/** Narrow saved-record preview. Only this or the table mounts, so row refs stay unique. */
+export function RecordsNarrowList({ records, rowRef }: { records: readonly RecordRow[]; rowRef: (id: string, node: HTMLElement | null) => void }) {
+  const { t, locale } = useTransaccionesWords();
+  const { panel, openPanel } = useBusiness();
+  const openGlance = useContext(RecordGlanceContext);
+  return <ul className={pageStyles.list} data-testid="transacciones-records">
+    {records.map((row) => {
+      const opens = row.opens;
+      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}><SignedAmount money={row.money} header={null} /></span></span>
+        <span className={pageStyles.meta}><Truncated className={pageStyles.marks} text={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null].filter(Boolean).join(" · ")} /><span className={pageStyles.date}>{t("business.transactions.pagination.record_date", { date: formatShortDay(row.occurredOn, locale) })}{row.hasProof ? <Proof row={row} /> : null}</span></span></>;
+      return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined}>
+        {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
+      </li>;
+    })}
+  </ul>;
 }

@@ -2536,6 +2536,21 @@
         "no_lleva": { "cargo_banco": "Cargo del banco, no lleva comprobante", "entre_cuentas": "Entre tus cuentas, no lleva comprobante", "compra_informal": "Compra informal, sin comprobante", "monto_cero": "Monto cero, no lleva comprobante", "personal": "Personal, no lleva comprobante" }
       },
       "reasons": { "title": "¿Por qué no lleva comprobante?", "cargo_banco": "Cargo del banco", "entre_cuentas": "Entre mis cuentas", "compra_informal": "Compra informal", "personal": "Personal" },
+      "pagination": {
+        "first": "Primera página",
+        "label": "Páginas de registros",
+        "last": "Última página",
+        "newest": "Más recientes primero",
+        "next": "Página siguiente",
+        "oldest": "Más antiguos primero",
+        "page": "Página {{page}}",
+        "page_size": "Registros por página",
+        "per_page": "{{count}} por página",
+        "previous": "Página anterior",
+        "range": "{{from}}–{{to}} de {{count}} registros",
+        "record_date": "Fecha: {{date}}",
+        "sort": "Ordenar"
+      },
       "records": { "detail": { "gasto": "Gasto", "venta": "Venta" }, "proof": "Recibo adjunto", "empty_title": "Aquí verás tus gastos y ventas", "empty_body": "Cada gasto y cada venta que apruebas en la Bandeja aparece aquí en su fecha.", "filtered_title": "No hay gastos ni ventas en este período", "filtered_body": "Puede que haya en otros meses.", "error_title": "No pudimos cargar tus gastos y ventas" },
       "why": { "title": "Por qué lo sugerimos", "amount": "El monto es exacto", "date_same": "Es del mismo día", "date_one": "El comprobante es de un día antes", "date_many": "El comprobante es de {{count}} días antes", "date_after_one": "El comprobante es de un día después", "date_after_many": "El comprobante es de {{count}} días después", "name": "El nombre se parece al del banco" },
       "actions": { "igualar": "Igualar", "rechazar": "No es este", "sin_comprobante": "Sin comprobante", "desigualar": "Desigualar", "agregar": "Agregar comprobante", "more": "Más acciones para {{name}}", "add_for": "Agregar comprobante para {{name}}", "open_for": "Abrir {{name}}" },

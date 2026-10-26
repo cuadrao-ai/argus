@@ -80,10 +80,52 @@ No backend, deployment, migration, hosted acceptance or orchestrator handoff was
 performed in this design slice.
 
 
+## Phone list and pagination local implementation
+
+The development/mock-auth saved-records preview now paginates only the actual
+loaded records. It sorts by record date with a stable kind/id tie before slicing.
+The default is 25 rows; 50 and 100 are available through the shared custom picker.
+The footer shows the loaded matching range/count, bounded numbered links and
+first/previous/next/last controls. No rows or totals are generated for the server.
+
+One CSS container query at 700px controls the table/list presentation. A resize
+observer reads that query result so only one presentation mounts, preserving
+unique row refs. The narrow two-line list aligns full signed currency amounts,
+labels the record date and exposes truncated names/status text through the
+existing tooltip. Proof stays on the second line. The source list stays mounted beneath the shared phone sheet. Plain expense
+glances in this local preview receive only the selected row facts explicitly;
+they do not call the unavailable local detail path or fabricate notes, payment
+history, timestamps or revisions. Receipt/draft targets retain their existing
+detail renderer. Hosted persisted detail acceptance remains outstanding.
+
+Query, kind, date/advanced-preview changes, restored views, sort and page-size
+changes reset page 1. Density changes retain the page. Empty-result recovery
+retains sort and page size; a shrinking loaded set clamps the page safely.
+Loading retains the existing skeleton and omits a count. Bank matching is unchanged.
+
+Focused synthetic tests cover 65 supplied records across three pages, stable
+sorting, resets, density preservation, 50-row selection, empty-result recovery,
+zero/last-page boundaries, shrink clamping and phone sheet/list retention.
+Browser viewport checks remain separate. No URL persistence, server page/count
+contract, dataset-version banner, selection/export scope or cross-session saved
+view persistence is claimed. Date/advanced preview filters still do not query
+rows or change source-period totals. Reloading a loading branch may reset this
+local page state; preserving that across hosted refresh belongs to later wiring.
+
+Live browser verification on the existing port 4387 preview covered desktop,
+391px and 320px phone widths. At a 1100px desktop viewport, opening a dossier
+left a 552px records container and switched the table to the list. Both phone
+widths stayed within the viewport, with aligned amounts and consistent row
+heights. The page-size picker remained usable near the bottom. A 50-row setting
+survived a zero-result search and a two-result search. The expense glance and
+attached-receipt sheet opened and closed back to the source list, restoring focus.
+Multi-page behavior used 65 synthetic rows in component tests; the live preview
+kept its six actual loaded records. No hosted or backend acceptance is claimed.
+
 ## Phone list and pagination contract, October 25, 2026
 
-These are agreed requirements for the next design work. They are not implemented
-acceptance results. This note does not declare a checkpoint or authorize a
+These are the broader agreed requirements; the local implementation above
+covers only the named preview behaviors, not hosted acceptance. This note does not declare a checkpoint or authorize a
 handoff. The inspected frontend baseline is `ba5cf96a7`.
 
 ### Phone and narrow-container presentation

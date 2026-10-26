@@ -606,8 +606,10 @@ Which container, screen by screen (Lucas, October 20, 2026):
 - **Pages:** Inicio, Bandeja, Transacciones, Novedades, Acceso.
 - **Record tray:** a receipt, draft, email or expense opens beside its list on
   desktop, without a scrim, so another row can be opened straight away. On a
-  phone it is a full page with a way back. It is the one sheet that is not
-  modal.
+  phone it is a full page with a way back, except a Registros record glance:
+  that opens in the shared modal bottom sheet and returns to the same list
+  position when closed (October 25, 2026). The desktop record tray remains
+  non-modal.
 - **Sheets:** Agregar, Exportar registros, settings, forms and lists.
 - **Popovers:** pickers (a date, a month, a menu, the period's Personalizado
   range, which opens under its segment and in a sheet on a phone).

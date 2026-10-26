@@ -47,7 +47,7 @@ afterEach(async () => {
   search = "";
 });
 
-async function mount({ enabled = true, width = 1440, transacciones, view = "transactions", porIgualarCount, businessCurrency }: { enabled?: boolean; width?: number; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
+async function mount({ enabled = true, width = 1440, transacciones, view = "transactions", porIgualarCount, businessCurrency, expenseRead }: { expenseRead?: BusinessDataSource["expense"]; enabled?: boolean; width?: number; transacciones?: TransaccionesSource; view?: string | null; porIgualarCount?: number | null; businessCurrency?: string } = {}) {
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
   search = view ? `view=${view}` : "";
   const { act } = await import("react");
@@ -70,6 +70,7 @@ async function mount({ enabled = true, width = 1440, transacciones, view = "tran
   const fixture = createFixtureBusinessDataSource({ chatAvailable: false });
   const source = {
     ...fixture,
+    ...(expenseRead ? { expense: expenseRead } : {}),
     // The Business currency only when a test names it; without it the table lists every currency, as with an older server.
     workspace: async () => {
       const workspace: Record<string, unknown> = { ...(await fixture.workspace()) };
@@ -202,6 +203,65 @@ describe("the gate", () => {
       await page.act(async () => target.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })));
     }
     assert.equal(row.style.height, "48px");
+  });
+
+  test("local preview paginates 65 real supplied rows and resets page without resetting density", async () => {
+    const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+    try {
+      const items = Array.from({ length: 65 }, (_, index) => ({ id: `page-${index}`, merchant: `Sample ${index}`, amount: "24.00", currency: "USD", category_id: null, account_id: null, occurred_on: `2026-10-${String(index % 28 + 1).padStart(2, "0")}`, receipt_id: null }));
+      const page = await mount({ enabled: false, transacciones: await recordsOf(items) });
+      await page.settle(() => page.records().length === 25, "first local page");
+      const footer = () => document.querySelector<HTMLElement>('[data-testid="records-pagination"]')!;
+      assert.match(footer().textContent ?? "", /1–25 de 65/);
+      await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
+      assert.match(footer().textContent ?? "", /26–50 de 65/);
+      await page.act(async () => { await (await import("@/components/business-app/transacciones/table-density")).setTableDensity("compacto"); });
+      assert.equal(footer().dataset.page, "2");
+      await page.click(document.querySelector('th[data-col="fecha"] button'));
+      assert.equal(footer().dataset.page, "1");
+      const firstDate = page.records()[0].querySelector('[data-col="fecha"]')?.textContent;
+      await page.click(document.querySelector('button[aria-label="Página siguiente"]'));
+      assert.notEqual(page.records()[0].querySelector('[data-col="fecha"]')?.textContent, firstDate);
+      const input = document.querySelector<HTMLInputElement>('[data-testid="records-toolbar"] input')!;
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Sample 6"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      assert.equal(footer().dataset.page, "1"); assert.equal(page.records().length, 6);
+      assert.match(footer().textContent ?? "", /1–6 de 6/);
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, ""); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      await page.click(document.querySelector('button[aria-label="Última página"]'));
+      assert.equal(page.records().length, 15); assert.match(footer().textContent ?? "", /51–65 de 65/);
+      await page.click(document.querySelector('button[aria-label^="Registros por página:"]'));
+      await page.click([...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent === "50 por página")!);
+      assert.equal(footer().dataset.page, "1"); assert.equal(page.records().length, 50);
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "no-match"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      assert.match(footer().textContent ?? "", /0–0 de 0/);
+      await page.act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, ""); input.dispatchEvent(new Event("input", { bubbles: true })); });
+      assert.equal(page.records().length, 50, "no-result recovery keeps page size");
+      assert.equal(document.querySelector('th[data-col="fecha"]')?.getAttribute("aria-sort"), "ascending", "no-result recovery keeps sort");
+      await page.unmount();
+    } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+  });
+
+  test("phone preview opens a saved record in the shared sheet and keeps the list mounted", async () => {
+    const env = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
+    Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: "true" });
+    try {
+      let detailReads = 0;
+      const page = await mount({ enabled: false, width: 390, expenseRead: async () => { detailReads += 1; throw new Error("detail-unavailable"); } });
+      await page.settle(() => page.records().length > 0, "saved records");
+      const row = page.records().find((item) => item.dataset.kind === "gasto")!;
+      const key = row.dataset.recordKey;
+      await page.click(row.matches("tr") ? row : row.querySelector("button"));
+      await page.settle(() => Boolean(document.querySelector('[role="dialog"]')), "record sheet");
+      assert.ok(document.querySelector('[data-testid="records-page-preview"]'));
+      assert.ok(document.querySelector('[data-testid="loaded-record-glance"]'));
+      assert.equal(detailReads, 0, "explicit loaded-row preview makes no detail request");
+      assert.ok(page.records().some((item) => item.dataset.recordKey === key));
+      await page.click(document.querySelector('[role="dialog"] button[aria-label="Cerrar"]'));
+      await page.settle(() => !document.querySelector('[role="dialog"]'), "sheet closed");
+      assert.ok(page.records().some((item) => item === row), "source row stays mounted");
+      await page.unmount();
+    } finally { for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
   });
 
   test("records filters keep the table contract and period totals while narrowing saved rows", async () => {

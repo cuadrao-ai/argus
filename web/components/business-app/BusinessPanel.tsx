@@ -12,6 +12,8 @@ import { useAccessBanner } from "./useAccessBanner";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import TransaccionesPanel from "./transacciones/TransaccionesPanel";
+import { RecordGlanceContext } from "./transacciones/RecordGlanceContext";
+import type { RecordRow } from "./transacciones/transacciones-model";
 import ExpenseDetailPanel from "./ExpenseDetailPanel";
 import BusinessSettingsPanel from "./BusinessSettingsPanel";
 import ReceiptReviewPanel from "./ReceiptReviewPanel";
@@ -63,8 +65,8 @@ function recordKey(panel: RecordPanel): string {
   }
 }
 
-function RecordContent({ panel }: { panel: RecordPanel }) {
-  if (panel.kind === "expense") return <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} />;
+function RecordContent({ panel, preview }: { panel: RecordPanel; preview?: RecordRow }) {
+  if (panel.kind === "expense") return <ExpenseDetailPanel key={panel.expenseId} expenseId={panel.expenseId} preview={preview} />;
   if (panel.kind === "email") return <EmailRecord key={panel.emailId} emailId={panel.emailId} />;
   if (panel.kind === "receipt") return <ReceiptReviewPanel key={panel.receiptId} target={{ kind: "receipt", id: panel.receiptId }} />;
   return <ReceiptReviewPanel key={panel.draftId} target={{ kind: "draft", id: panel.draftId }} />;
@@ -75,7 +77,7 @@ function RecordContent({ panel }: { panel: RecordPanel }) {
  * a click on another row swaps the record, and closing returns to the list
  * with focus on the row that was open.
  */
-function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null> }) {
+function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; list: RecordList; listRef: RefObject<HTMLDivElement | null>; preview?: RecordRow }) {
   const { t } = useTranslation();
   const { openPanel } = useBusiness();
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
@@ -100,7 +102,7 @@ function RecordTray({ panel, list, listRef }: { panel: RecordPanel; list: Record
       <RecordTrayContext.Provider value={tray}>
         <div className="px-5 py-5">
           <PanelErrorBoundary key={recordKey(panel)}>
-            <RecordContent panel={panel} />
+            <RecordContent panel={panel} preview={preview} />
           </PanelErrorBoundary>
         </div>
       </RecordTrayContext.Provider>
@@ -113,7 +115,11 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload } = useBusiness();
+  const { panel, lostAccess, records, reload, openPanel, chosen } = useBusiness();
+  const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const scope = chosen?.space_id ?? "own";
+  const [glance, setGlance] = useState<{ scope: string; row: RecordRow } | null>(null);
+  const openGlance = (row: RecordRow) => { if (!row.opens) return; setGlance({ scope, row }); openPanel(row.opens); };
   const { isBelowDesktop } = useResponsiveLayout();
   const listRef = useRef<HTMLDivElement>(null);
   if (records.closed) {
@@ -132,13 +138,15 @@ export default function BusinessPanel() {
     );
   }
   const record = panel.kind === "receipt" || panel.kind === "draft" || panel.kind === "expense" || panel.kind === "email" ? panel : null;
-  // On a desktop a record opens in a tray beside its list; below it the record is the whole page.
-  const tray = record && !isBelowDesktop ? recordList(record) : null;
+  // The local Registros preview keeps its list beneath a phone record sheet.
+  const recordsPhonePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && record && recordList(record) === "transactions";
+  const tray = record && (!isBelowDesktop || recordsPhonePreview) ? recordList(record) : null;
   const shown = tray ?? panel.kind;
   const profilePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && panel.kind === "business" && (!panel.tab || panel.tab === "datos");
+  const preview = previewEnabled && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
   const column = profilePreview ? "canvas" : SCREEN_COLUMN[shown] ?? "reading";
   return (
-    <div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
+    <RecordGlanceContext.Provider value={previewEnabled ? openGlance : null}><div ref={listRef} tabIndex={-1} data-column={column} className={`w-full ${record && !tray ? "pb-0" : "pb-6"} outline-none ${COLUMN[column]}`}>
       <BusinessContextCue />
       {/* Keyed by what the page shows, so opening a record beside the list keeps the list mounted. */}
       <PanelErrorBoundary key={tray ?? (record ? recordKey(record) : panel.kind)}>
@@ -148,7 +156,7 @@ export default function BusinessPanel() {
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
-      {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} /> : null}
-    </div>
+      {record && tray ? <RecordTray panel={record} list={tray} listRef={listRef} preview={preview} /> : null}
+    </div></RecordGlanceContext.Provider>
   );
 }

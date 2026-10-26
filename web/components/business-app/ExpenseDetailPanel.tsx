@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BusinessExpenseDetail } from "@/lib/business-api";
 import { useBusiness } from "./BusinessWorkspace";
+import type { RecordRow } from "./transacciones/transacciones-model";
+import { AccountLabel, SignedAmount } from "./transacciones/transacciones-parts";
 import { expensePanel } from "./business-expense-target";
 import { formatDay, formatMoney, formatTimestamp } from "./business-format";
 import { cardClass, secondaryButtonClass, useCategoryLabel, RecordMarks, recordFiscalMark } from "./business-ui";
@@ -23,7 +25,32 @@ import { resolveLanguage } from "@/lib/language-features";
  * The panel takes focus when it opens. Inside the desktop tray the list
  * stays beside it, so there is no way back and the tray owns focus.
  */
-export default function ExpenseDetailPanel({ expenseId }: { expenseId: string }) {
+export default function ExpenseDetailPanel({ expenseId, preview }: { expenseId: string; preview?: RecordRow }) {
+  return preview ? <LoadedRecordGlance row={preview} /> : <ExpenseDetailLoader expenseId={expenseId} />;
+}
+
+/** A local preview of facts already loaded in the selected row, with no detail request. */
+function LoadedRecordGlance({ row }: { row: RecordRow }) {
+  const { t, i18n } = useTranslation();
+  const categoryLabel = useCategoryLabel();
+  const locale = i18n.resolvedLanguage ?? resolveLanguage({});
+  return <section data-testid="loaded-record-glance" aria-labelledby="loaded-record-title">
+    <header className="mb-5">
+      <p className="mb-2 text-[13px] text-black/55 dark:text-white/55">{t(`business.transactions.records.detail.${row.kind}`)}</p>
+      <h2 id="loaded-record-title" className="break-words font-display text-[25px] font-medium tracking-tight text-black dark:text-white">{row.counterparty ?? t("business.expenses.no_merchant")}</h2>
+      <p className="mt-3 font-display text-[23px] font-medium text-black dark:text-white"><SignedAmount money={row.money} header={null} /></p>
+    </header>
+    <div className={cardClass}><dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
+      <dt>{t("business.review.date")}</dt><dd>{formatDay(row.occurredOn, locale)}</dd>
+      <dt>{t("business.review.category")}</dt><dd>{categoryLabel(row.categoryId)}</dd>
+      <dt>{t("business.review.account")}</dt><dd><AccountLabel account={row.account} /></dd>
+    </dl><RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} className="mt-4" />
+      {row.hasProof === false ? <p className="mt-5 text-[14px] text-black/65 dark:text-white/65">{t("business.expenses.no_receipt")}</p> : null}
+    </div>
+  </section>;
+}
+
+function ExpenseDetailLoader({ expenseId }: { expenseId: string }) {
   const { t, i18n } = useTranslation();
   const { source, records, openPanel } = useBusiness();
   const categoryLabel = useCategoryLabel();
