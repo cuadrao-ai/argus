@@ -15,10 +15,13 @@ import { InvoiceDate, InvoiceMoney, useInvoiceWords } from "./InvoiceDocument";
 import InvoiceEditor from "./InvoiceEditor";
 import InvoiceDossier from "./InvoiceDossier";
 import { CURRENCIES, invoiceSettlement, invoicePreviewSeed, invoiceReducer, invoiceState, matchesInvoice, newInvoice, type InvoiceCurrency, type InvoiceFilter, type InvoicePreview } from "./invoice-preview-model";
+import CustomersView from "./CustomersView";
+import CustomerDossier from "./CustomerDossier";
+import { customerReducer, seedCustomers, type BusinessCustomer } from "./customer-preview-model";
 import InvoiceStageTabs from "./InvoiceStageTabs";
 import styles from "./invoicing-preview.module.css";
 
-const sessionInvoices = new Map<string, InvoicePreview[]>();
+const sessionInvoices = new Map<string, { invoices: InvoicePreview[]; customers: BusinessCustomer[] }>();
 const subscribeLocation = (notify: () => void) => { window.addEventListener("popstate", notify); return () => window.removeEventListener("popstate", notify); };
 const locationSnapshot = () => new URLSearchParams(window.location.search).get("invoicePreview") ?? "";
 const serverLocation = () => "";
@@ -34,7 +37,10 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
   const { word, locale } = useInvoiceWords();
   const { openPanel } = useBusiness();
   const { isBelowTablet: phone } = useResponsiveLayout();
-  const [invoices, dispatch] = useReducer(invoiceReducer, scope, key => sessionInvoices.get(key) ?? invoicePreviewSeed(variant, word("fixture_correction_reason")).map(invoice => ({ ...invoice, items: invoice.items.map(item => ({ ...item, description: word("sample_item") })) })));
+  const [invoices, dispatch] = useReducer(invoiceReducer, scope, key => sessionInvoices.get(key)?.invoices ?? invoicePreviewSeed(variant, word("fixture_correction_reason")).map(invoice => ({ ...invoice, items: invoice.items.map(item => ({ ...item, description: word("sample_item") })) })));
+  const [customers, dispatchCustomer] = useReducer(customerReducer, scope, key => sessionInvoices.get(key)?.customers ?? seedCustomers(invoices));
+  const [section, setSection] = useState<"invoices" | "customers">("invoices");
+  const [customerPanel, setCustomerPanel] = useState<{ id: string } | { draft: BusinessCustomer } | null>(null);
   const [editing, setEditing] = useState<InvoicePreview | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -47,14 +53,14 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
   const [density, setDensity] = useState<"compact" | "normal" | "comfortable">("normal");
   const [sort, setSort] = useState<"newest" | "oldest" | "customer">("newest");
   const search = useRef<HTMLInputElement>(null);
-  useEffect(() => { sessionInvoices.set(scope, invoices); }, [scope, invoices]);
+  useEffect(() => { sessionInvoices.set(scope, { invoices, customers }); }, [scope, invoices, customers]);
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !editing && !selectedId) { event.preventDefault(); event.stopImmediatePropagation(); search.current?.focus(); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && section === "invoices" && !editing && !selectedId && !customerPanel) { event.preventDefault(); event.stopImmediatePropagation(); search.current?.focus(); }
     };
     window.addEventListener("keydown", focusSearch, true);
     return () => window.removeEventListener("keydown", focusSearch, true);
-  }, [editing, selectedId]);
+  }, [editing, selectedId, section, customerPanel]);
   const choose = (value: InvoiceFilter) => { setFilter(value); setOverdueOnly(false); setPage(1); };
   const inPeriod = invoices.filter(invoice => period.key === "all" || (invoice.issuedOn >= period.from && (!period.to || invoice.issuedOn <= period.to)));
   const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase(locale);
@@ -74,10 +80,13 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
     return { currencies: [...groups].map(([currency, amount]) => ({ currency, ...amount })), exclusions: { unconfirmed, personal: 0, unavailable: 0 } };
   })();
   const selected = invoices.find(invoice => invoice.id === selectedId);
-  const customers = [...new Map(invoices.map(invoice => [invoice.customer.id, invoice.customer])).values()];
-  const create = () => { setSelectedId(null); setEditing(newInvoice(crypto.randomUUID(), `M-${String(invoices.length + 1).padStart(3, "0")}`)); };
+  const customerSelected = customerPanel && ("draft" in customerPanel ? customerPanel.draft : customers.find(customer => customer.id === customerPanel.id));
+  const addCustomer = () => { setSelectedId(null); setCustomerPanel({ draft: { id: crypto.randomUUID(), name: "", email: "", address: "", taxId: "", status: "active" } }); };
+  const create = () => { setCustomerPanel(null); setSelectedId(null); setEditing(newInvoice(crypto.randomUUID(), `M-${String(invoices.length + 1).padStart(3, "0")}`)); };
   return <section className={styles.workspace} data-testid="invoicing-preview">
     {phone ? <h2 className="mb-5 font-display text-[26px] font-medium tracking-tight text-black dark:text-white">{word("title")}</h2> : null}
+    <div className={styles.workspaceSwitch}><SegmentedControl label={word("title")} value={section} disabled={!!editing || !!customerPanel} onChange={value => { setSelectedId(null); setSection(value); }} segments={[{ key: "invoices", label: word("invoices_tab") }, { key: "customers", label: word("customers_tab") }]} /></div>
+    {section === "customers" ? <CustomersView customers={customers} panelOpen={!!customerPanel || !!selectedId || !!editing} onAdd={addCustomer} onSelect={id => { setSelectedId(null); setCustomerPanel({ id }); }} /> : <>
     <InvoiceStageTabs value={filter} invoices={inPeriod} onChange={choose} />
     <div role="tabpanel" id="invoice-stage-results" aria-labelledby={`invoice-stage-${filter}`} tabIndex={0}>
     {invoices.length ? <>
@@ -100,7 +109,9 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
     </> : <div className={styles.coldStart}><Image className={styles.invoiceIllustration} src="/images/invoicing/first-invoice.png" alt="" width={176} height={176} sizes="176px" /><h3>{word("first_invoice")}</h3><p>{word("first_invoice_help")}</p><button className={primaryButtonClass} onClick={create}><Plus size={18} />{word("create")}</button></div>}
     </div>
     <div className={styles.readiness}><span>{word("readiness_unknown")}</span><button className={quietButtonClass} onClick={() => openPanel({ kind: "business", tab: "datos" })}>{word("readiness_settings")}</button></div>
-    {editing ? <InvoiceEditor initial={editing} customers={customers} business={business} onClose={() => setEditing(null)} onSave={invoice => { dispatch({ type: "save", invoice: { ...invoice, customer: { ...invoice.customer, id: invoice.customer.id || crypto.randomUUID() } } }); setEditing(null); setSelectedId(invoice.id); }} /> : null}
+    </>}
+    {customerSelected ? <CustomerDossier key={customerSelected.id} customer={customerSelected} isNew={!!customerPanel && "draft" in customerPanel} invoices={invoices} onClose={() => setCustomerPanel(null)} onSave={customer => { dispatchCustomer({ type: "save", customer }); setCustomerPanel({ id: customer.id }); }} onStatus={dispatchCustomer} onInvoice={id => { setCustomerPanel(null); setSelectedId(id); }} /> : null}
+    {editing ? <InvoiceEditor initial={editing} customers={customers} onAddCustomer={customer => dispatchCustomer({ type: "save", customer })} business={business} onClose={() => setEditing(null)} onSave={invoice => { dispatch({ type: "save", invoice }); setEditing(null); setSelectedId(invoice.id); }} /> : null}
     {selected ? <InvoiceDossier key={selected.id} invoice={selected} business={business} dispatch={dispatch} onClose={() => setSelectedId(null)} onEdit={() => { setEditing(selected); setSelectedId(null); }} /> : null}
   </section>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, Plus, Trash2 } from "lucide-react";
 import { FormField, useFieldChecks, type FieldRules } from "@/components/ui/FormField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import InvoiceDateField from "./InvoiceDateField";
@@ -11,12 +11,18 @@ import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
 import InvoiceDocument, { useInvoiceWords } from "./InvoiceDocument";
 import { CURRENCIES, invoiceDraftErrors, validDraft, type InvoiceCustomer, type InvoicePreview } from "./invoice-preview-model";
+import CustomerPicker from "./CustomerPicker";
+import CustomerForm from "./CustomerForm";
+import { customerSnapshot, type BusinessCustomer } from "./customer-preview-model";
 import styles from "./invoicing-preview.module.css";
 
-export default function InvoiceEditor({ initial, business, customers, onSave, onClose }: { initial: InvoicePreview; business: string; customers: InvoiceCustomer[]; onSave: (invoice: InvoicePreview) => void; onClose: () => void }) {
+export default function InvoiceEditor({ initial, business, customers, onAddCustomer, onSave, onClose }: { initial: InvoicePreview; business: string; customers: BusinessCustomer[]; onAddCustomer: (customer: BusinessCustomer) => void; onSave: (invoice: InvoicePreview) => void; onClose: () => void }) {
   const { word, t } = useInvoiceWords();
   const [draft, setDraft] = useState(initial);
   const form = useRef<HTMLFormElement>(null);
+  const [addingCustomer, setAddingCustomer] = useState<BusinessCustomer | null>(null);
+  const [customerDirty, setCustomerDirty] = useState(false);
+  const [discardCustomer, setDiscardCustomer] = useState(false);
   const [view, setView] = useState<"edit" | "preview">("edit");
   const [expanded, setExpanded] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -27,7 +33,7 @@ export default function InvoiceEditor({ initial, business, customers, onSave, on
   const checks = useFieldChecks(rules, values);
   const feedback = (key: string) => ({ id: `invoice-${key}`, error: checks.errorOf(key), onBlur: () => checks.blur(key), reserveMessages: [word(`error_${errors[key] ?? (key === "name" || key.endsWith("description") ? "required" : "date")}`)] });
   useEffect(() => { if (checks.attempt) form.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus(); }, [checks.attempt]);
-  const changed = JSON.stringify(draft) !== JSON.stringify(initial);
+  const changed = customerDirty || JSON.stringify(draft) !== JSON.stringify(initial);
   useEffect(() => {
     if (!changed) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -38,14 +44,17 @@ export default function InvoiceEditor({ initial, business, customers, onSave, on
   const customer = (key: keyof InvoiceCustomer, value: string) => setDraft(current => ({ ...current, customer: { ...current.customer, [key]: value } }));
   const save = () => { if (checks.submit() && validDraft(draft)) onSave(draft); else { setLeaving(false); setView("edit"); } };
   return <>
-  <AdaptivePanel title={word("draft_title")} summary={`${business} · ${draft.reference}`} width="lg" snaps={["full"]} initialSnap="full" closeLabel={t("common.close")} onClose={() => changed ? setLeaving(true) : onClose()} expansion={{ expanded, onToggle: () => setExpanded(value => !value), expandLabel: word("expand_editor"), collapseLabel: word("collapse_editor") }}>
-  <section data-testid="invoice-editor" className={styles.editor} data-expanded={expanded} data-view={view}>
+  <AdaptivePanel title={word(addingCustomer ? "customers_add" : "draft_title")} summary={`${business} · ${draft.reference}`} width="lg" snaps={["full"]} initialSnap="full" closeLabel={t("common.close")} onClose={() => addingCustomer ? customerDirty ? setDiscardCustomer(true) : setAddingCustomer(null) : changed ? setLeaving(true) : onClose()} expansion={{ expanded, onToggle: () => setExpanded(value => !value), expandLabel: word("expand_editor"), collapseLabel: word("collapse_editor") }}>
+  {addingCustomer ? <div className={styles.panelBody}><button className={quietButtonClass} onClick={() => customerDirty ? setDiscardCustomer(true) : setAddingCustomer(null)}><ChevronLeft size={17} />{word("customers_back_draft")}</button>{discardCustomer ? <div className={styles.notice}><p>{word("customers_discard_help")}</p><button className={quietButtonClass} onClick={() => setDiscardCustomer(false)}>{word("customers_keep_editing")}</button><button className={quietButtonClass} onClick={() => { setAddingCustomer(null); setCustomerDirty(false); setDiscardCustomer(false); }}>{word("discard")}</button></div> : null}<CustomerForm initial={addingCustomer} onDirty={setCustomerDirty} onSave={saved => { onAddCustomer(saved); setDraft(current => ({ ...current, customer: customerSnapshot(saved) })); setAddingCustomer(null); setCustomerDirty(false); setDiscardCustomer(false); }} /></div> : null}
+  <section hidden={!!addingCustomer} data-testid="invoice-editor" className={styles.editor} data-expanded={expanded} data-view={view}>
     <div className={styles.editorSwitch}><SegmentedControl label={word("editor_view")} value={view} onChange={setView} fill segments={[{ key: "edit", label: word("edit") }, { key: "preview", label: word("preview") }]} /></div>
     <div className={styles.editorGrid}>
       <form ref={form} noValidate className={styles.formCard} onSubmit={event => { event.preventDefault(); save(); }}>
         <p className={styles.muted}>{changed ? word("unsaved") : word("state_draft")}</p>
         <ToolbarPicker label={word("document_type")} value={word(`document_${draft.documentType}`)}>{close => (["E32", "E31"] as const).map(documentType => <button type="button" key={documentType} className={styles.option} onClick={() => { setDraft(current => ({ ...current, documentType })); close(); }}>{word(`document_${documentType}`)}</button>)}</ToolbarPicker>
-        <div className={styles.sectionHeading}><h3>{word("customer")}</h3>{customers.length ? <ToolbarPicker label={word("choose_customer")} value={word("choose_customer")}>{close => customers.map(item => <button type="button" className={styles.option} key={item.id} onClick={() => { setDraft(current => ({ ...current, customer: { ...item } })); close(); }}>{item.name}</button>)}</ToolbarPicker> : null}</div>
+        <div className={styles.sectionHeading} id="invoice-id"><h3>{word("customer")}</h3><CustomerPicker customers={customers} selectedId={draft.customer.id} onChoose={item => setDraft(current => ({ ...current, customer: customerSnapshot(item) }))} onAdd={() => setAddingCustomer({ id: crypto.randomUUID(), name: "", email: "", address: "", taxId: "", status: "active" })} /></div>
+        {checks.errorOf("id") ? <p className={styles.error} role="alert">{checks.errorOf("id")}</p> : null}
+        <p className={styles.muted}>{word("customers_invoice_snapshot")}</p>
         <div className={styles.fields}>{(["name", "email", "taxId", "address"] as const).map(key => <FormField key={key} {...feedback(key)} reserveMessages={key === "name" || key === "email" || key === "taxId" && draft.documentType === "E31" ? [word(key === "name" ? "error_required" : key === "email" ? "error_email" : "error_tax_id")] : []} label={word(key === "taxId" && draft.documentType === "E31" ? "customer_taxId_required" : `customer_${key}`)} value={draft.customer[key]} type={key === "email" ? "email" : "text"} required={key === "name" || key === "taxId" && draft.documentType === "E31"} maxLength={key === "address" ? 240 : key === "email" ? 254 : 120} autoComplete="off" placeholder={word(`placeholder_${key}`)} onChange={event => customer(key, event.target.value)} />)}</div>
         <div className={styles.fields}>{(["issuedOn", "dueOn"] as const).map(key => <InvoiceDateField key={key} id={`invoice-${key}`} label={word(key === "issuedOn" ? "issue_date" : "due_date")} value={draft[key]} error={checks.errorOf(key)} onBlur={() => checks.blur(key)} onChange={value => field(key, value)} />)}</div>
         <ToolbarPicker label={word("currency")} value={draft.currency}>{close => CURRENCIES.map(currency => <button key={currency} type="button" className={styles.option} onClick={() => { setDraft(current => ({ ...current, currency })); close(); }}>{currency}</button>)}</ToolbarPicker>

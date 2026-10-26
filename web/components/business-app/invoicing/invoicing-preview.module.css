@@ -139,3 +139,30 @@
 :global(.dark) .badge[data-state="pending"] { color:#f6e7c1; background:#49412a; }
 :global(.dark) .badge[data-state="failed"] { color:#ec9aa0; background:#503034; }
 :global(.dark) .badge[data-state="confirmed"] { color:#b8d0be; background:#293b32; }
+
+.workspaceSwitch { margin-bottom:21px; }
+.customerList { display:grid; background:var(--cuadrao-menu-surface); border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); border-radius:16px; overflow:hidden; }
+.customerList:empty { display:none; }
+.customerRow { display:flex; align-items:center; gap:13px; min-height:76px; width:100%; padding:13px 21px; text-align:left; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.customerRow:last-child { border-bottom:0; }
+.customerRow:hover { background:color-mix(in srgb,var(--fg) 5%,transparent); }
+.customerIdentity { display:block; min-width:0; flex:1; overflow-wrap:anywhere; font-size:16px; }
+.customerIdentity strong { font-weight:500; }
+.customerIdentity small,.customerLinked small { display:block; margin-top:4px; font-size:14px; color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.customerTax { font-size:14px; font-variant-numeric:tabular-nums; }
+.customerHeader { display:flex; align-items:center; gap:13px; }
+.customerHeader h3,.customerSection h3 { font-family:var(--font-space-grotesk); font-size:21px; font-weight:500; }
+.customerHeader p { margin-top:8px; }
+.customerFacts dd { overflow-wrap:anywhere; min-width:0; }
+.customerFacts dt { flex-shrink:0; }
+.customerSection { display:grid; gap:13px; padding-top:21px; border-top:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.customerLinked { display:flex; justify-content:space-between; align-items:center; gap:13px; min-height:60px; width:100%; text-align:left; padding:8px; border-radius:8px; }
+.customerLinked:hover { background:color-mix(in srgb,var(--fg) 5%,transparent); }
+.customerChoices { display:grid; gap:13px; }
+.customerChoices .search { max-width:none; flex:auto; }
+.customerChoices .search input { font-size:16px; }
+.customerOptions { max-height:280px; overflow-y:auto; }
+.customerSubmit { width:100%; border-radius:8px; }
+@container(max-width:700px) { .customerTax { display:none; } .customerRow { padding:13px; } }
+
+.customerToolbar .search input { font-size:16px; }

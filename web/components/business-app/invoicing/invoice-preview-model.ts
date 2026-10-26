@@ -53,6 +53,7 @@ export function validDraft(invoice: InvoicePreview) {
 export function invoiceDraftErrors(invoice: InvoicePreview): Record<string, string> {
   const errors: Record<string, string> = {};
   if (invoice.documentType === "E31" && !/^(?:[0-9]{9}|[0-9]{11})$/.test(invoice.customer.taxId.trim())) errors.taxId = "tax_id";
+  if (!invoice.customer.id.trim()) errors.id = "customer";
   if (!invoice.customer.name.trim()) errors.name = "required";
   if (invoice.customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invoice.customer.email)) errors.email = "email";
   if (!validIsoDate(invoice.issuedOn)) errors.issuedOn = "date";
