@@ -187,6 +187,38 @@ def duplicate_candidates(
     return tuple(candidates)
 
 
+def workflow_blockers(
+    tx: ActionTransaction,
+    event: ImportEvent,
+    facts: BusinessFacts,
+    accounts: tuple[AccountChoice, ...],
+    questions: tuple[ReviewQuestion, ...],
+) -> tuple[list[Blocker], tuple[str, ...]]:
+    """Shared fact, question and duplicate readiness, independent of reader role."""
+    blocked = blockers(facts, accounts)
+    if any(
+        q.state in {"open", "owner_does_not_know", "waiting_for_window"}
+        for q in questions
+    ):
+        blocked.append(Blocker(code="business_questions_unresolved"))
+    if event.state != "open":
+        blocked.append(Blocker(code="business_draft_not_open"))
+    from argus.domain.business.actions.duplicate_resolution import attachment_signature
+
+    duplicate_ids = pending_duplicates(
+        tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
+    )
+    unresolved_attention = event.attention in DUPLICATE_WARNINGS and (
+        event.attention != "possible_duplicate"
+        or not event.possible_duplicates
+        or bool(duplicate_ids)
+    )
+    if unresolved_attention or duplicate_ids:
+        # Settled only by a person: the draft stays reviewable, never approvable.
+        blocked.append(Blocker(code="possible_duplicate"))
+    return blocked, tuple(duplicate_ids)
+
+
 def dossier(
     tx: ActionTransaction,
     draft_id: UUID,
@@ -239,27 +271,7 @@ def dossier(
             value["text"] = row["text_content"]
         evidence.append(SOURCE.validate_python(value))
     context = record_context(tx)
-    blocked = blockers(facts, context.accounts)
-    if any(
-        q.state in {"open", "owner_does_not_know", "waiting_for_window"}
-        for q in questions
-    ):
-        blocked.append(Blocker(code="business_questions_unresolved"))
-    if event.state != "open":
-        blocked.append(Blocker(code="business_draft_not_open"))
-    from argus.domain.business.actions.duplicate_resolution import attachment_signature
-
-    duplicate_ids = pending_duplicates(
-        tx.imports, event, lambda event_id: attachment_signature(tx, event_id)
-    )
-    unresolved_attention = event.attention in DUPLICATE_WARNINGS and (
-        event.attention != "possible_duplicate"
-        or not event.possible_duplicates
-        or bool(duplicate_ids)
-    )
-    if unresolved_attention or duplicate_ids:
-        # Settled only by a person: the draft stays reviewable, never approvable.
-        blocked.append(Blocker(code="possible_duplicate"))
+    blocked, duplicate_ids = workflow_blockers(tx, event, facts, context.accounts, questions)
     pointer = event.resolution.get("approval_receipt")
     approval_filter = "" if pointer is None else " and actor_id=%s and idempotency_key=%s"
     approval_params = () if pointer is None else (pointer["actor_id"], pointer["key"])

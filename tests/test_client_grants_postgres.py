@@ -145,6 +145,8 @@ RELATIONS_WITHOUT_CLIENT_TABLE_GRANTS = frozenset(
         "argus_private.business_invitation_commands",
         "argus_private.business_purge_objects",
         "argus_private.business_purge_runs",
+        "argus_private.business_report_view_commands",
+        "argus_private.business_saved_report_views",
         "argus_private.business_workspace_assets",
         "argus_private.business_workspace_commands",
         "argus_private.invite_code_digests",

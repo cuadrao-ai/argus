@@ -3447,6 +3447,29 @@ claims produce one winner. Renaming preserves the timestamp. Client roles have
 no direct write grant on this state. Required naming for owner invites and
 exports derives from the current name, independently of this timestamp.
 
+### Business saved report views
+
+`20261026013716_business_saved_report_views.sql` adds two private preference
+relations. `argus_private.business_saved_report_views` stores UUID `id`,
+`space_id`, `actor_id`, trimmed `name`, strict version-1 `recipe` JSON (filters,
+relative/fixed period, ordered columns and sort), monotonic `version`, and
+created/updated timestamps. It stores no financial rows or cached report result.
+The `(actor_id, space_id, id)` index serves the private list.
+
+`argus_private.business_report_view_commands` stores the exact mutation and its
+response under `(space_id, actor_id, command_key)` for atomic retries. Expected
+view version prevents lost edits. The existing authorized Business transaction
+serializes writes; every read and replay checks the live selected grant and
+closed-Business rule. Read capability permits personal preference changes;
+export still requires its separate current permission.
+
+Both relations enable RLS with no client policies and revoke all client/public
+privileges. Service-role grants are limited to view CRUD and receipt SELECT/INSERT.
+The service scopes every statement to Business and actor. Actor and space FKs
+cascade preference metadata only. They neither own nor reference financial rows,
+original objects or custody state, and do not enable account deletion. Synthetic
+PostgreSQL view, conflict, revocation and client-grant tests prove this boundary.
+
 ### Durable Business workspace identity
 
 `20261025223500_business_workspace_persistence.sql` adds
