@@ -1,6 +1,6 @@
 import { describe, test } from "bun:test";
 import assert from "node:assert/strict";
-import { hundredths, invoiceAmounts, invoiceReducer, matchesInvoice, newInvoice, validDraft } from "../components/business-app/invoicing/invoice-preview-model";
+import { correctionStatus, invoiceSettlement, invoiceState, invoicePreviewSeed, hundredths, invoiceAmounts, invoiceReducer, matchesInvoice, newInvoice, validDraft } from "../components/business-app/invoicing/invoice-preview-model";
 
 const draft = () => ({ ...newInvoice("one", "M-001"), customer: { id: "c1", name: "Cliente de muestra", email: "test@example.test", address: "", taxId: "" }, items: [{ id: "i1", description: "Servicio", quantity: "1", price: "100.00", tax: "0" }] });
 describe("connected invoice preview", () => {
@@ -42,4 +42,110 @@ describe("connected invoice preview", () => {
     assert.deepEqual(invoiceAmounts({ items: [{ ...item, quantity: "3", price: "0.05", tax: "10" }], payments: [] }), { subtotal: 15, tax: 2, total: 17, paid: 0, balance: 17 });
     assert.equal(invoiceAmounts({ items: [{ ...item, quantity: "1000", price: "9999999.99", tax: "100" }], payments: [] })?.total, 1999999998000);
   });
+});
+
+describe("invoice corrections", () => {
+  const issued = () => ({ ...draft(), issuance: "issued" as const });
+  const request = (kind: "full_cancellation" | "partial_credit" = "full_cancellation", amount = 10000) => ({ type: "correct" as const, id: "one", correction: { id: "c1", kind, amount, reason: "Error en el documento" } });
+  const resolve = (outcome: "confirmed" | "failed", attempt = 1) => ({ type: "resolve_correction" as const, id: "one", correctionId: "c1", attempt, outcome });
+  test("pending and failed preserve the original and cannot enter Void", () => {
+    const original = issued();
+    let state = invoiceReducer([original], request());
+    for (const outcome of [undefined, "failed"] as const) {
+      if (outcome) state = invoiceReducer(state, resolve(outcome));
+      assert.equal(matchesInvoice(state[0], "void"), false);
+      assert.equal(invoiceSettlement(state[0])?.balance, 10000);
+      assert.deepEqual({ ...state[0], corrections: [] }, original);
+    }
+  });
+  test("confirmed full cancellation is Void before paid, preserving invoice and payment evidence", () => {
+    const original = { ...issued(), payments: [{ id: "p1", amount: 4000, currency: "DOP" as const, date: draft().issuedOn, method: "cash" as const, reference: "" }] };
+    let state = invoiceReducer([original], request());
+    state = invoiceReducer(state, resolve("confirmed"));
+    assert.equal(invoiceState(state[0]), "void");
+    assert.equal(matchesInvoice(state[0], "void"), true);
+    assert.equal(matchesInvoice(state[0], "paid"), false);
+    assert.equal(invoiceAmounts(state[0])?.total, 10000);
+    assert.equal(invoiceSettlement(state[0])?.balance, -4000);
+    assert.deepEqual({ ...state[0], corrections: [] }, original);
+    assert.deepEqual(invoiceReducer(state, resolve("confirmed")), state);
+    assert.deepEqual(invoiceReducer(state, request()), state);
+  });
+  test("partial credits adjust only the current balance and never enter Void", () => {
+    let state = invoiceReducer([issued()], request("partial_credit", 2500));
+    state = invoiceReducer(state, resolve("confirmed"));
+    assert.equal(invoiceSettlement(state[0])?.balance, 7500);
+    assert.equal(invoiceSettlement(state[0])?.creditable, 7500);
+    assert.equal(invoiceAmounts(state[0])?.total, 10000);
+    assert.equal(matchesInvoice(state[0], "void"), false);
+    const rest = { ...request(), correction: { ...request().correction, id: "c2", amount: 7500 } };
+    state = invoiceReducer(state, rest);
+    state = invoiceReducer(state, { ...resolve("confirmed"), correctionId: "c2" });
+    assert.equal(invoiceSettlement(state[0])?.credited, 10000);
+    assert.equal(matchesInvoice(state[0], "void"), true);
+  });
+  test("failed retry retains history, rejects stale resolutions and applies only once", () => {
+    let state = invoiceReducer([issued()], request());
+    state = invoiceReducer(state, resolve("failed"));
+    state = invoiceReducer(state, { type: "retry_correction", id: "one", correctionId: "c1" });
+    assert.deepEqual(state[0].corrections[0].attempts, [{ number: 1, status: "failed" }, { number: 2, status: "pending" }]);
+    assert.deepEqual(invoiceReducer(state, resolve("confirmed")), state);
+    assert.deepEqual(invoiceReducer(state, { ...request(), correction: { ...request().correction, id: "another" } }), state);
+    state = invoiceReducer(state, resolve("confirmed", 2));
+    assert.equal(correctionStatus(state[0].corrections[0]), "confirmed");
+    assert.equal(invoiceSettlement(state[0])?.credited, 10000);
+    assert.deepEqual(invoiceReducer(state, resolve("confirmed", 2)), state);
+  });
+  test("rejects invalid amount, missing reason, draft correction and unpaid-only cancellation", () => {
+    for (const amount of [0, -1, 10001, 1.5, 6000]) assert.deepEqual(invoiceReducer([issued()], request("full_cancellation", amount)), [issued()]);
+    assert.deepEqual(invoiceReducer([draft()], request()), [draft()]);
+    assert.deepEqual(invoiceReducer([issued()], { ...request(), correction: { ...request().correction, reason: " " } }), [issued()]);
+    assert.deepEqual(invoiceReducer([issued()], request("partial_credit", 10001)), [issued()]);
+    const paid = { ...issued(), payments: [{ id: "p", amount: 4000, currency: "DOP" as const, date: draft().issuedOn, method: "cash" as const, reference: "" }] };
+    assert.deepEqual(invoiceReducer([paid], request("full_cancellation", 6000)), [paid]);
+    assert.equal(invoiceReducer([paid], request())[0].corrections.length, 1);
+  });
+  test("the default is truly empty and deterministic fixtures distinguish outcomes", () => {
+    assert.deepEqual(invoicePreviewSeed(null, "Motivo"), []);
+    assert.equal(invoicePreviewSeed("seeded", "Motivo").length, 4);
+    assert.equal(matchesInvoice(invoicePreviewSeed("correction-confirmed", "Motivo")[1], "void"), true);
+    assert.equal(matchesInvoice(invoicePreviewSeed("correction-pending", "Motivo")[1], "void"), false);
+    assert.equal(matchesInvoice(invoicePreviewSeed("partial-confirmed", "Motivo")[1], "void"), false);
+    assert.equal(invoiceSettlement(invoicePreviewSeed("credit-balance", "Motivo")[1])?.balance, -20000);
+  });
+});
+
+test("document types require customer identity only for fiscal credit and separate processing from payment", () => {
+  assert.equal(validDraft({ ...draft(), documentType: "E31" }), false);
+  assert.equal(validDraft({ ...draft(), documentType: "E31", customer: { ...draft().customer, taxId: "123456789" } }), true);
+  const state = invoiceReducer([draft()], { type: "issue", id: "one" });
+  assert.equal(state[0].fiscal.status, "processing");
+  assert.equal(state[0].delivery, "not_sent");
+  assert.equal(state[0].payments.length, 0);
+  assert.deepEqual(invoiceReducer(state, { type: "issue", id: "one" }), state);
+});
+
+test("debit notes preserve original evidence and add to the balance only when confirmed", () => {
+  const original = { ...draft(), issuance: "issued" as const };
+  const request = { type: "correct" as const, id: "one", correction: { id: "debit1", kind: "debit_adjustment" as const, reason: "Ajuste", amount: 2500 } };
+  let state = invoiceReducer([original], request);
+  assert.equal(invoiceSettlement(state[0])?.balance, 10000);
+  const result = { type: "resolve_correction" as const, id: "one", correctionId: "debit1", attempt: 1, outcome: "confirmed" as const };
+  state = invoiceReducer(state, result);
+  assert.equal(invoiceSettlement(state[0])?.balance, 12500);
+  assert.equal(invoiceSettlement(state[0])?.creditable, 12500);
+  assert.equal(invoiceAmounts(state[0])?.total, 10000);
+  assert.deepEqual({ ...state[0], corrections: [] }, original);
+  assert.deepEqual(invoiceReducer(state, result), state);
+  assert.equal(matchesInvoice(state[0], "void"), false);
+});
+
+test("fiscal fixture outcomes cannot duplicate issue or invent payments and delivery", () => {
+  for (const [variant, status] of [["fiscal-processing", "processing"], ["fiscal-accepted", "accepted"], ["fiscal-observations", "accepted_observations"], ["fiscal-rejected", "rejected"], ["fiscal-failed", "failed"], ["fiscal-uncertain", "uncertain"]]) {
+    const invoice = invoicePreviewSeed(variant, "Motivo")[1];
+    assert.equal(invoice.fiscal.status, status);
+    assert.equal(invoice.payments.length, 0);
+    assert.equal(invoice.delivery, "not_sent");
+    assert.deepEqual(invoiceReducer([invoice], { type: "issue", id: invoice.id }), [invoice]);
+  }
 });

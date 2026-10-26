@@ -6,7 +6,7 @@ import { currencySymbol } from "@/lib/money-entry";
 import { SavedIdentityMark } from "@/components/identity/IdentityMark";
 import { useBusiness } from "../BusinessWorkspace";
 import { BusinessMark } from "../BusinessSwitcher";
-import { invoiceAmounts, validIsoDate, type InvoicePreview } from "./invoice-preview-model";
+import { invoiceAmounts, invoiceSettlement, validIsoDate, type InvoicePreview } from "./invoice-preview-model";
 import styles from "./invoicing-preview.module.css";
 
 export function useInvoiceWords() {
@@ -19,18 +19,18 @@ export function InvoiceMoney({ amount, currency }: { amount: number; currency: s
 }
 export function InvoiceDate({ date }: { date: string }) {
   const { locale } = useInvoiceWords();
-  return <>{validIsoDate(date) ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)) : "—"}</>;
+  return <>{validIsoDate(date) ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)) : "-"}</>;
 }
 export default function InvoiceDocument({ invoice, business }: { invoice: InvoicePreview; business: string }) {
   const { word } = useInvoiceWords();
   const { chosen } = useBusiness();
-  const amount = invoiceAmounts(invoice);
+  const amount = invoiceSettlement(invoice);
   return <article className={styles.document} data-testid="invoice-customer-document">
     <header className={styles.documentHeader}><div><div className={styles.issuer}><SavedIdentityMark scope={`business:${chosen?.space_id ?? ""}`} name={business} business fallback={<BusinessMark />} /><h2>{business}</h2></div><p>{word("sample_document")}</p></div><div><strong>{word("invoice")}</strong><p>{invoice.reference}</p></div></header>
     <section className={styles.documentFacts}><div><p>{word("bill_to")}</p><strong>{invoice.customer.name || word("customer_placeholder")}</strong><p>{invoice.customer.email}</p><p>{invoice.customer.address}</p>{invoice.customer.taxId ? <p>{invoice.customer.taxId}</p> : null}</div><dl><dt>{word("issue_date")}</dt><dd><InvoiceDate date={invoice.issuedOn} /></dd><dt>{word("due_date")}</dt><dd><InvoiceDate date={invoice.dueOn} /></dd><dt>{word("currency")}</dt><dd>{invoice.currency}</dd></dl></section>
-    <div className={styles.documentItems}>{invoice.items.map(item => <div key={item.id}><span>{item.description || word("item_placeholder")}<small>{item.quantity || "0"} × {item.price || "0.00"}</small></span><span>{(() => { const line = invoiceAmounts({ items: [item], payments: [] }); return line ? <InvoiceMoney amount={line.total} currency={invoice.currency} /> : "—"; })()}</span></div>)}</div>
-    <dl className={styles.documentTotals}>{(["subtotal", "tax", "total"] as const).map(key => <div key={key}><dt>{word(key === "tax" ? "tax_amount" : key === "total" ? "document_total" : key)}</dt><dd>{amount ? <InvoiceMoney amount={amount[key]} currency={invoice.currency} /> : "—"}</dd></div>)}</dl>
-    {invoice.issuance === "issued" && amount ? <dl className={styles.documentTotals}><div><dt>{word("collected")}</dt><dd><InvoiceMoney amount={amount.paid} currency={invoice.currency} /></dd></div><div><dt>{word("balance")}</dt><dd><InvoiceMoney amount={amount.balance} currency={invoice.currency} /></dd></div></dl> : null}
+    <div className={styles.documentItems}>{invoice.items.map(item => <div key={item.id}><span>{item.description || word("item_placeholder")}<small>{item.quantity || "0"} × {item.price || "0.00"}</small></span><span>{(() => { const line = invoiceAmounts({ items: [item], payments: [] }); return line ? <InvoiceMoney amount={line.total} currency={invoice.currency} /> : "-"; })()}</span></div>)}</div>
+    <dl className={styles.documentTotals}>{(["subtotal", "tax", "total"] as const).map(key => <div key={key}><dt>{word(key === "tax" ? "tax_amount" : key === "total" ? "document_total" : key)}</dt><dd>{amount ? <InvoiceMoney amount={amount[key]} currency={invoice.currency} /> : "-"}</dd></div>)}</dl>
+    {invoice.issuance === "issued" && amount ? <dl className={styles.documentTotals}>{amount.credited > 0 ? <div><dt>{word("confirmed_credits")}</dt><dd><InvoiceMoney amount={amount.credited} currency={invoice.currency} /></dd></div> : null}{amount.debited > 0 ? <div><dt>{word("confirmed_debits")}</dt><dd><InvoiceMoney amount={amount.debited} currency={invoice.currency} /></dd></div> : null}<div><dt>{word("collected")}</dt><dd><InvoiceMoney amount={amount.paid} currency={invoice.currency} /></dd></div><div><dt>{word(amount.balance < 0 ? "credit_balance" : "balance")}</dt><dd><InvoiceMoney amount={Math.abs(amount.balance)} currency={invoice.currency} /></dd></div></dl> : null}
     {invoice.instructions ? <section><h3>{word("instructions")}</h3><p className={styles.multiline}>{invoice.instructions}</p></section> : null}
     {invoice.terms ? <section><h3>{word("terms")}</h3><p className={styles.multiline}>{invoice.terms}</p></section> : null}
     {invoice.notes ? <section><h3>{word("notes")}</h3><p className={styles.multiline}>{invoice.notes}</p></section> : null}

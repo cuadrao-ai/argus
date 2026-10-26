@@ -57,13 +57,15 @@ const iconButton = `inline-flex h-11 w-11 shrink-0 items-center justify-center r
  * dd/mm/aaaa, and opens one Monday-first month with Hoy and Ayer. On a
  * phone the month opens as a bottom sheet. Values are ISO days.
  */
-export function DatePicker({ id, label, value, onChange, disabled }: {
+export function DatePicker({ id, label, value, onChange, disabled, invalid, describedBy }: {
   id?: string;
   /** The field's name, which also names the phone sheet. */
   label: string;
   value: string;
   onChange: (iso: string | null, invalid: boolean) => void;
   disabled?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -211,7 +213,8 @@ export function DatePicker({ id, label, value, onChange, disabled }: {
           className={`min-h-11 min-w-0 flex-1 rounded-item bg-transparent pl-3 text-[16px] text-[#172b26] placeholder:text-[#687A72] disabled:opacity-50 dark:text-white ${focusRing}`}
           value={shown}
           disabled={disabled}
-          aria-invalid={Boolean(text) && !typed}
+          aria-invalid={Boolean(invalid || (text && !typed))}
+          aria-describedby={describedBy}
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); if (typed) setText(dayText(typed)); }}
           onChange={(event) => {
