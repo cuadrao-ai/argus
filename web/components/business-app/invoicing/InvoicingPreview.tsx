@@ -19,6 +19,7 @@ import CustomersView from "./CustomersView";
 import CustomerDossier from "./CustomerDossier";
 import { customerReducer, seedCustomers, type BusinessCustomer } from "./customer-preview-model";
 import InvoiceStageTabs from "./InvoiceStageTabs";
+import InvoiceResultsSummary from "./InvoiceResultsSummary";
 import WorkspaceEmptyState, { invoiceEmptyKind } from "./WorkspaceEmptyState";
 import SchedulesView from "./SchedulesView";
 import ScheduleDossier from "./ScheduleDossier";
@@ -102,6 +103,7 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
     <InvoiceStageTabs value={filter} invoices={inPeriod} onChange={choose} />
     <div role="tabpanel" id="invoice-stage-results" aria-labelledby={`invoice-stage-${filter}`} tabIndex={0}>
     {invoices.length ? <>
+    <InvoiceResultsSummary key={summary.currencies.map(group => group.currency).join(",")} currencies={summary.currencies} />
     <div className={styles.toolbar}>
       <label className={styles.search}><Search size={17} aria-hidden="true" /><input ref={search} type="search" value={query} placeholder={word("search")} aria-label={word("search")} onChange={event => { setQuery(event.target.value); setPage(1); }} /></label>
       <RecordsDatePreview period={period} value={period} onChange={value => { setPeriod(value); setPage(1); }} />
@@ -111,7 +113,6 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
     </div>
     {filter === "outstanding" ? <div className={styles.chips}><button aria-pressed={overdueOnly} onClick={() => { setOverdueOnly(!overdueOnly); setPage(1); }}>{word("overdue")} <span>{inPeriod.filter(invoice => matchesInvoice(invoice, "overdue")).length}</span>{overdueOnly ? <X size={14} aria-hidden="true" /> : null}</button></div> : null}
     {currency !== "all" ? <div className={styles.chips}><button onClick={() => { setCurrency("all"); setPage(1); }}>{currency}<X size={14} aria-label={word("clear")} /></button></div> : null}
-    {summary.currencies.length ? <div className={styles.summary} aria-label={word("issued_summary")}>{summary.currencies.map(group => <dl key={group.currency}>{(["total", "settled", "balance"] as const).map(key => <div key={key}><dt>{word(key === "total" ? "adjusted_total" : key === "settled" ? "collected" : "balance")}</dt><dd><InvoiceMoney amount={group[key]} currency={group.currency} /></dd></div>)}</dl>)}</div> : null}
     <div className={styles.tableFrame} data-density={density}>
       <table className={styles.table}><thead><tr><th>{word("invoice")}</th><th><button onClick={() => { setSort("customer"); setPage(1); }}>{word("customer")}{sort === "customer" ? <ArrowDown size={13} /> : null}</button></th><th><button onClick={() => { setSort(sort === "newest" ? "oldest" : "newest"); setPage(1); }}>{word("issue_date")}{sort !== "customer" ? <ArrowDown size={13} className={sort === "oldest" ? "rotate-180" : ""} /> : null}</button></th><th>{word("due_date")}</th><th>{word("currency")}</th><th className={styles.numeric}>{word("document_total")}</th><th className={styles.numeric}>{word("balance")}</th><th>{word("status")}</th></tr></thead><tbody>{rows.map(invoice => { const amount = invoiceSettlement(invoice); return <tr key={invoice.id} data-selected={selectedId === invoice.id} onClick={() => setSelectedId(invoice.id)}><td><button className={styles.rowLink} onClick={() => setSelectedId(invoice.id)}>{invoice.reference}</button></td><td title={invoice.customer.name}>{invoice.customer.name}</td><td><InvoiceDate date={invoice.issuedOn} /></td><td><InvoiceDate date={invoice.dueOn} /></td><td>{currencySymbol(invoice.currency)}</td><td className={styles.numeric}>{amount ? <InvoiceMoney numberOnly amount={amount.total} currency={invoice.currency} /> : "-"}</td><td className={styles.numeric}>{invoice.issuance === "issued" && amount ? <InvoiceMoney numberOnly amount={amount.balance} currency={invoice.currency} /> : "-"}</td><td><span className={styles.badge} data-state={invoiceState(invoice)}>{word(`state_${invoiceState(invoice)}`)}</span></td></tr>; })}</tbody></table>
       <div className={styles.phoneList}>{rows.map(invoice => { const amount = invoiceSettlement(invoice); return <button key={invoice.id} onClick={() => setSelectedId(invoice.id)}><strong>{invoice.customer.name}</strong><span>{amount ? <InvoiceMoney amount={amount.total} currency={invoice.currency} /> : "-"}</span><span><span className={styles.badge} data-state={invoiceState(invoice)}>{word(`state_${invoiceState(invoice)}`)}</span></span><small>{word("due_short")} <InvoiceDate date={invoice.dueOn} /></small></button>; })}</div>
