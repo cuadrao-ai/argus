@@ -2213,6 +2213,28 @@
     }
   },
   "business": {
+    "date_range": {
+      "complete_dates": "Completa ambas fechas",
+      "confirm": "Confirmar período",
+      "from": "Desde",
+      "invalid_date": "Escribe una fecha válida en formato {{format}}.",
+      "invalid_range": "Elige una fecha final posterior o igual al inicio, hasta {{count}} días.",
+      "more_months": "Mostrar más meses",
+      "pick_end": "Elige la fecha final",
+      "pick_start": "Elige la fecha inicial",
+      "preset": {
+        "custom": "Personalizado",
+        "last_30": "Últimos 30 días",
+        "last_7": "Últimos 7 días",
+        "last_quarter": "Trimestre anterior",
+        "today": "Hoy",
+        "yesterday": "Ayer"
+      },
+      "presets": "Períodos rápidos",
+      "title": "Elige el período",
+      "to": "Hasta",
+      "valid_date": "Fecha válida"
+    },
     "date_picker": {
       "next_month": "Mes siguiente",
       "open": "Abrir calendario",

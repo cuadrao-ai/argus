@@ -6,14 +6,37 @@ The founder approved a desktop visual preview of the filter panel, two-month
 calendar and removable chips. The follow-up promotes basic named views and
 matching exports into pilot scope. This checkpoint implements local UI only.
 
-The new controls are enabled only in development with mock auth, at desktop
-widths. Filter selections and calendar dates do not query or change the table.
+The advanced filter controls are enabled only in development with mock auth, at
+desktop widths. The local date preview also covers phone widths. Filter selections and calendar dates do not query or change the table.
 The existing text search and Venta/Gasto selection retain their behavior. Named
 views capture those selections, the preview date and advanced filters in memory;
 refresh clears them. Export is consolidated in the existing Agregar menu. That
 entry retains its existing period-based behavior; filtered-result export still
-needs wiring. The overview cards retain illustrative counts. Phone and hosted
-behavior are unchanged.
+needs wiring. The overview cards retain illustrative counts. Hosted wiring is unchanged.
+
+## Calendar interaction checkpoint
+
+The date preview uses typed dates with an explicit locale format and no native
+date popup. Drafts apply only on confirmation; Escape or dismissal discards them.
+Presets cover today, yesterday, inclusive last 7/30 days, the previous completed
+calendar quarter and custom dates. All ranges keep the 366-day bound.
+
+The shared range engine supports same-day, reverse and cross-month selection,
+hover previews, endpoint dragging, arrow-key cursor movement, Enter selection,
+Page Up/Down by month and Shift by year. Desktop shows two adjacent months, or
+three on a wide container. A narrow dossier shows one. The phone preview uses a
+full-screen sheet with vertical months, sticky Today navigation and pinned
+confirmation. It does not open the keyboard automatically.
+
+Existing embedded calendar callers share this presentation and engine while
+retaining their current draft callbacks and their own apply/export actions. The
+old exported pickDay helper retains its earlier contract. Backend queries,
+export semantics and single-date editors were not changed.
+
+Focused verification: 51 tests passed across the range engine, calendar, date
+preview, existing period control and shared sheet suites. Scoped ESLint and
+`git diff --check` passed. Live viewport/theme review belongs to the parent
+design lane; no hosted acceptance is claimed here.
 
 ## Product decisions for later wiring
 

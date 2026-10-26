@@ -11,7 +11,8 @@ afterAll(async () => { await GlobalRegistrator.unregister(); });
 let cleanup = async () => {};
 afterEach(async () => { await cleanup(); (await import("@/components/layout/overlayStack")).resetOverlayStack(); document.body.innerHTML = ""; });
 
-async function mount(kind: "filters" | "date") {
+async function mount(kind: "filters" | "date", width = 1440) {
+  (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 844 });
   const { act } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -66,14 +67,54 @@ test("the expanded calendar shares a range across months and keeps draft dates l
   assert.equal(document.querySelectorAll('table[role="grid"]').length, 2);
   await page.click(document.querySelector('[data-day="2026-10-30"]'));
   await page.click(document.querySelector('[data-day="2026-11-03"]'));
-  assert.equal(document.querySelector<HTMLInputElement>('input[type="date"]')!.value, "2026-10-30");
-  assert.equal([...document.querySelectorAll<HTMLInputElement>('input[type="date"]')][1].value, "2026-11-03");
+  assert.equal(document.querySelector<HTMLInputElement>('input[type="text"]')!.value, "30/10/2026");
+  assert.equal([...document.querySelectorAll<HTMLInputElement>('input[type="text"]')][1].value, "03/11/2026");
   await page.escape(); assert.equal(trigger.textContent, original);
   await page.click(trigger);
   await page.click(document.querySelector('[data-day="2026-10-30"]'));
   await page.click(document.querySelector('[data-day="2026-11-03"]'));
-  await page.click(page.button("Aplicar"));
+  await page.click(page.button("Confirmar período"));
   assert.notEqual(trigger.textContent, original);
   assert.equal(document.querySelector('[role="dialog"]'), null);
   assert.equal(document.activeElement, trigger);
+});
+
+
+test("typed dates validate on blur, repair live, and retain the visible month pair", async () => {
+  const page = await mount("date"); await page.click(page.host.querySelector("button"));
+  const fields = [...document.querySelectorAll<HTMLInputElement>('input[type="text"]')];
+  const type = (field: HTMLInputElement, value: string) => page.act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await type(fields[0], "31/02/2026");
+  assert.equal(fields[0].getAttribute("aria-invalid"), null);
+  await page.act(async () => fields[0].dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+  assert.equal(fields[0].getAttribute("aria-invalid"), "true");
+  await type(fields[0], "28/10/2026"); await type(fields[1], "03/11/2026");
+  assert.equal(fields[0].getAttribute("aria-invalid"), null);
+  assert.ok(document.querySelector('[data-day="2026-10-28"]'));
+  assert.ok(document.querySelector('[data-day="2026-11-03"]'));
+  assert.equal(document.querySelector('input[type="date"]'), null);
+});
+
+test("keyboard cursor selects a range and Shift PageUp moves a year", async () => {
+  const page = await mount("date"); await page.click(page.host.querySelector("button"));
+  await page.act(async () => (document.querySelector('[data-day="2026-10-10"]') as HTMLElement).focus());
+  const key = (key: string, shiftKey = false) => page.act(async () => document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key, shiftKey, bubbles: true })));
+  await key("Enter"); await key("ArrowRight"); await key("Enter");
+  const fields = [...document.querySelectorAll<HTMLInputElement>('input[type="text"]')];
+  assert.equal(fields[0].value, "10/10/2026"); assert.equal(fields[1].value, "11/10/2026");
+  await key("PageUp", true);
+  assert.equal((document.activeElement as HTMLElement).dataset.day, "2025-10-11");
+});
+
+test("phone uses the full viewport, vertical months, one Today and safe opening focus", async () => {
+  const page = await mount("date", 390); await page.click(page.host.querySelector("button"));
+  const sheet = document.querySelector<HTMLElement>('[role="dialog"]')!;
+  assert.equal(sheet.dataset.fullScreen, "true"); assert.equal(sheet.style.height, "844px");
+  assert.equal(document.querySelectorAll('table[role="grid"]').length, 12);
+  assert.equal([...document.querySelectorAll("button")].filter((button) => button.textContent === "Hoy").length, 1);
+  assert.notEqual(document.activeElement?.tagName, "INPUT"); assert.ok(page.button("Confirmar período"));
+  await page.escape(); assert.equal(document.querySelector('[role="dialog"]'), null);
 });

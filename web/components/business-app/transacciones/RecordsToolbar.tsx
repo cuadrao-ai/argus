@@ -77,7 +77,8 @@ export function RecordsToolbar({ filter, onChange, period, setPeriod, options }:
   const { t } = useTransaccionesWords();
   const periodName = usePeriodLabel();
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
-  const preview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && !isBelowDesktop;
+  const datePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const preview = datePreview && !isBelowDesktop;
   const [previewPeriod, setPreviewPeriod] = useState(period);
   const [previewFilters, setPreviewFilters] = useState(emptyPreviewFilters);
   const [views, setViews] = useState<SavedRecordsView[]>([]);
@@ -93,7 +94,7 @@ export function RecordsToolbar({ filter, onChange, period, setPeriod, options }:
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#56635e] dark:text-white/60" aria-hidden="true" />
       <input type="search" value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
     </div>
-    {preview ? <RecordsDatePreview period={period} value={previewPeriod} onChange={setPreviewPeriod} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
+    {datePreview ? <RecordsDatePreview period={period} value={previewPeriod} onChange={setPreviewPeriod} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
       {(close) => <PeriodChoices period={period} setPeriod={setPeriod} close={close} />}
     </ToolbarPicker>}
     <ToolbarPicker label={t(preview ? "business.transactions.layout.filters.record" : "business.transactions.layout.type")} value={filter.kind === "all" ? t(preview ? "business.transactions.layout.filters.record" : "business.transactions.layout.type") : kindName(filter.kind)}>

@@ -99,6 +99,8 @@ type BottomSheetProps = {
   snaps?: SheetSnaps;
   /** Where the sheet opens; the first allowed snap by default. */
   initialSnap?: SheetSnap;
+  /** Use the whole viewport for a focused full-height task. Other snaps are unchanged. */
+  fullScreen?: boolean;
   titleHidden?: boolean;
   /** A line under the title; it is what the peek snap shows. */
   description?: ReactNode;
@@ -119,6 +121,7 @@ export function BottomSheetSurface({
   dismissible = true,
   snaps = ["half", "full"],
   initialSnap,
+  fullScreen = false,
   titleHidden = false,
   description,
   headerSize = "default",
@@ -161,7 +164,7 @@ export function BottomSheetSurface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const snapHeight = (target: SheetSnap) => Math.round(viewport * SHEET_SNAP_SHARE[target]);
+  const snapHeight = (target: SheetSnap) => Math.round(viewport * (fullScreen && target === "full" ? 1 : SHEET_SNAP_SHARE[target]));
 
   const handleDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!dismissible && fit) return;
@@ -223,7 +226,8 @@ export function BottomSheetSurface({
         aria-labelledby={headingId}
         aria-describedby={description ? descriptionId : undefined}
         data-snap={snap}
-        style={height === null ? { maxHeight: `${Math.round(viewport * FIT_MAX_SHARE)}px` } : { height: `${height}px` }}
+        data-full-screen={fullScreen && snap === "full" ? "true" : undefined}
+        style={height === null ? { maxHeight: `${Math.round(viewport * FIT_MAX_SHARE)}px` } : { height: `${height}px`, ...(fullScreen && snap === "full" ? { borderRadius: 0, paddingTop: "env(safe-area-inset-top)" } : {}) }}
         className={`argus-sheet relative flex w-full max-w-[720px] flex-col overflow-hidden rounded-t-surface border-t border-black/[0.06] bg-white dark:border-white/10 dark:bg-[#1f2225] ${dragging ? "" : "transition-[height] duration-300 ease-[cubic-bezier(0.2,0.9,0.3,1.08)] motion-reduce:transition-none"} ${hasBelow ? "" : "argus-sheet-enter"}`}
       >
         <div
