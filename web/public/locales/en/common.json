@@ -3072,6 +3072,7 @@
       "customers_archive_help": "This customer will leave the picker for new invoices. Saved drafts, invoices and payments stay unchanged. You can restore the customer from Archived.",
       "customers_archived": "Archived",
       "customers_archived_help": "Archived customers keep their invoices and payments. Open a customer to restore them.",
+      "customers_autofill_hint": "We’ll fill in their details if this customer is already saved.",
       "customers_back_draft": "Back to draft",
       "customers_balance": "Balance by currency",
       "customers_details": "Customer details",

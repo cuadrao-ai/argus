@@ -121,7 +121,12 @@
 .editor { padding:21px; }
 .editorSwitch { display:none; }
 @media(min-width:1024px) {
-.editor[data-expanded="true"] .editorGrid { position:relative; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+:global([data-testid="side-drawer"]) > div:has(> .editor[data-expanded="true"]) { display:flex; flex-direction:column; }
+.editor[data-expanded="true"] { display:flex; flex:1; flex-direction:column; min-width:0; }
+.editor[data-expanded="true"] .editorGrid { position:relative; flex:1; grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+.editor[data-expanded="true"] .formCard { align-self:stretch; }
+.editor[data-expanded="true"] .formCard > .footer { margin-top:auto; }
+.editor[data-expanded="true"] .livePreview > .document { min-height:min(640px,75dvh); }
 .editor[data-expanded="true"] .editorGrid::before { content:""; position:absolute; top:-21px; bottom:-21px; left:50%; width:1px; background:color-mix(in srgb,var(--fg) 12%,transparent); pointer-events:none; }
 .editor[data-expanded="true"] .livePreview { display:grid; gap:13px; position:sticky; top:21px; }
 }
@@ -242,3 +247,15 @@
 .emailAmount { font-size:30px; font-weight:500; }
 .emailAttachment { display:flex; justify-content:space-between; gap:16px; padding:16px; border:1px solid color-mix(in srgb,var(--fg) 12%,transparent); border-radius:8px; }
 @media(max-width:480px) { .itemAdjustment { gap:12px; } .emailBody { padding:20px; } }
+
+.customerField { position:relative; min-width:0; }
+.customerFieldInput { position:relative; }
+.customerFieldInput input { padding-right:48px; }
+.customerFieldChevron { position:absolute; right:3px; top:10px; display:grid; place-items:center; width:44px; height:44px; border-radius:8px; }
+.customerFieldChevron svg { transition:transform 160ms ease; }
+.customerFieldChevron[aria-expanded="true"] svg { transform:rotate(180deg); }
+.customerFieldMenu { position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:30; max-height:280px; overflow-y:auto; padding:6px; border:1px solid color-mix(in srgb,var(--fg) 15%,transparent); border-radius:16px; background:var(--cuadrao-menu-surface); box-shadow:0 8px 24px #0002; }
+.customerFieldMenu .option { justify-content:flex-start; }
+.customerFieldMenu .option[data-active="true"] { background:color-mix(in srgb,var(--fg) 6%,transparent); }
+.customerFieldMenu > p { padding:8px 12px; }
+@media (prefers-reduced-motion:reduce) { .customerFieldChevron svg { transition:none; } }

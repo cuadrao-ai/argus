@@ -3310,6 +3310,7 @@
       "customers_archive_help": "Este cliente dejará de aparecer al elegir clientes para nuevas facturas. Sus borradores, facturas y pagos se conservan. Puedes restaurarlo desde Archivados.",
       "customers_archived": "Archivados",
       "customers_archived_help": "Los clientes archivados conservan sus facturas y pagos. Abre un cliente para restaurarlo.",
+      "customers_autofill_hint": "Si el cliente ya está guardado, completaremos sus datos.",
       "customers_back_draft": "Volver al borrador",
       "customers_balance": "Balance por moneda",
       "customers_details": "Datos del cliente",

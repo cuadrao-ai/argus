@@ -29,7 +29,7 @@ async function mount(width = 1440) {
   };
   await render();
   const button = (text: string) => {
-    const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => (() => { const visible = node.cloneNode(true) as HTMLElement; visible.querySelectorAll('[aria-hidden="true"]').forEach(item => item.remove()); return visible.textContent?.trim() === text; })() && !node.closest("[hidden]"));
+    const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => (() => { const visible = node.cloneNode(true) as HTMLElement; visible.querySelectorAll('[aria-hidden="true"]').forEach(item => item.remove()); return (visible.textContent?.trim() === text || text === "Choose customer" && node.getAttribute("aria-label") === text); })() && !node.closest("[hidden]"));
     assert.ok(found, `Button not found: ${text}`);
     return found;
   };
@@ -127,38 +127,57 @@ test("Clientes adds, edits, archives and restores without invoices, and scopes s
   } finally { await page.unmount(); }
 });
 
-test("invoice picker adds a stable customer in the same panel and preserves the draft", async () => {
+test("invoice customer field starts quiet, creates inline once and preserves the saved profile", async () => {
   const page = await mount();
   try {
     await page.click("Create invoice");
-    await page.fill("#invoice-address", "Keep this address");
-    await page.click("Choose customer");
-    await page.click("Add customer");
-    await page.fill("#customer-name", "Discard customer");
-    await page.click("Back to draft");
-    await page.click("Discard changes");
-    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "Keep this address");
-    await page.click("Choose customer");
-    await page.fill('input[aria-label="Search customers"]', "No matches");
-    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
-    await page.act(async () => document.querySelector('input[aria-label="Search customers"]')!.dispatchEvent(enter));
-    assert.equal(enter.defaultPrevented, true);
+    assert.equal(document.querySelector("#invoice-name"), null);
+    assert.equal(document.querySelector("#invoice-email"), null);
+    assert.ok(document.querySelector('[role="combobox"]')?.getAttribute("aria-describedby"));
+    await page.fill("#invoice-customer-search", "New customer");
     assert.ok(document.body.textContent?.includes("No customers match this search."));
-    await page.click("Add customer");
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    await page.act(async () => document.querySelector("#invoice-customer-search")!.dispatchEvent(enter));
+    assert.equal(enter.defaultPrevented, true);
     assert.equal(document.querySelectorAll('[data-testid="side-drawer"]').length, 1);
-    await page.fill("#customer-name", "New customer");
-    await page.fill("#customer-email", "new@example.test");
-    await page.click("Save customer");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"]'));
     assert.equal(document.querySelector<HTMLInputElement>("#invoice-name")?.value, "New customer");
-    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "");
-    await page.click("Choose customer");
-    await page.fill('input[aria-label="Search customers"]', "new@example.test");
-    await page.click("New customernew@example.test");
-    assert.equal(document.querySelector<HTMLInputElement>("#invoice-name")?.value, "New customer");
+    await page.fill("#invoice-email", "invalid");
+    await page.click("Next");
+    assert.equal(document.querySelector("#invoice-email")?.getAttribute("aria-invalid"), "true");
+    await page.fill("#invoice-email", "new@example.test");
+    await page.click("Next");
+    await page.click("Back");
+    await page.fill("#invoice-name", "Invoice-only name");
+    await page.click("Next");
     await page.close();
     await page.click("Discard changes");
     await page.click("Customers");
-    assert.ok(document.querySelector('[data-testid="customers-view"]')?.textContent?.includes("New customer"));
+    const rows = document.querySelectorAll('[data-testid="customers-view"] table tbody tr');
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].textContent?.includes("New customer"));
+    assert.ok(!rows[0].textContent?.includes("Invoice-only name"));
+  } finally { await page.unmount(); }
+});
+
+test("customer field searches saved customers with arrows, Enter and Escape", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("Create invoice");
+    await page.fill("#invoice-customer-search", "cliente001@example.test");
+    const input = document.querySelector<HTMLInputElement>("#invoice-customer-search")!;
+    await page.act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true })));
+    assert.ok(input.getAttribute("aria-activedescendant")?.endsWith("-1"));
+    await page.act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true })));
+    await page.act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })));
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-name")?.value, "Taller Brisa");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-email")?.value, "cliente001@example.test");
+    await page.click("Choose customer");
+    await page.act(async () => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+    assert.equal(document.querySelector('[role="listbox"]'), null);
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]'));
+    assert.equal(input.value, "Taller Brisa");
   } finally { await page.unmount(); }
 });
 
@@ -177,27 +196,29 @@ test("archived customers leave the new-invoice picker while their saved invoice 
     assert.ok(document.querySelector('[data-testid="invoicing-preview"]')?.textContent?.includes("Taller Brisa"));
     await page.click("Create invoice");
     await page.click("Choose customer");
-    await page.fill('input[aria-label="Search customers"]', "Taller Brisa");
+    await page.fill("#invoice-customer-search", "Taller Brisa");
     assert.ok(document.body.textContent?.includes("No customers match this search."));
   } finally { await page.unmount(); }
 });
 
-test("phone customer creation replaces picker content inside one invoice sheet", async () => {
+test("phone creates the customer inline within the invoice sheet", async () => {
   const page = await mount(389);
   try {
     await page.click("Create invoice");
-    await page.fill("#invoice-address", "Phone draft");
+    assert.notEqual(document.activeElement?.id, "invoice-customer-search");
     await page.click("Choose customer");
-    assert.notEqual(document.activeElement?.getAttribute("aria-label"), "Search customers");
     await page.click("Add customer");
     assert.equal(document.querySelectorAll('[role="dialog"]').length, 1);
     assert.equal(document.querySelector('[data-testid="side-drawer"]'), null);
-    await page.fill("#customer-name", "Phone customer");
-    await page.click("Save customer");
+    await page.fill("#invoice-name", "Phone customer");
+    await page.fill("#invoice-address", "Phone draft");
+    await page.click("Next");
+    await page.click("Back");
     assert.equal(document.querySelector<HTMLInputElement>("#invoice-name")?.value, "Phone customer");
-    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-address")?.value, "Phone draft");
   } finally { await page.unmount(); }
 });
+
 
 test("invoice steps open expanded, validate the current section and preserve live edits", async () => {
   const page = await mount();
@@ -206,7 +227,7 @@ test("invoice steps open expanded, validate the current section and preserve liv
     await page.click("M-001");
     await page.click("Edit draft");
     assert.equal(document.querySelector('[data-testid="side-drawer"]')?.getAttribute("data-expanded"), "true");
-    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Customer");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Who is this invoice for?");
     assert.equal(document.querySelector('input[id$="-description"]'), null);
     await page.fill("#invoice-name", "");
     await page.click("Next");
