@@ -2423,6 +2423,7 @@
       "layout": {
         "all_types": "Todos los tipos",
         "clear": "Limpiar filtros",
+        "clear_search": "Limpiar búsqueda",
         "count_one": "{{count}} registro",
         "count_other": "{{count}} registros",
         "filters": {
@@ -2477,10 +2478,14 @@
             "fiscal": "Tipo fiscal",
             "review": "Revisión"
           },
+          "no_matches": "No hay opciones con esa búsqueda.",
           "record": "Registro",
           "remove": "Quitar filtro",
           "search": "Buscar…",
-          "title": "Filtros"
+          "select_all": "Seleccionar todo",
+          "select_results": "Seleccionar resultados",
+          "title": "Filtros",
+          "visible_selection_hint": "Solo cambia los resultados visibles. Las demás selecciones se conservan."
         },
         "no_results": "No hay registros con estos filtros",
         "overview": {

@@ -357,6 +357,11 @@ They extend Forms below, including email aliases, authorized senders and invoici
 - Checkboxes use rounded square corners, never sharp squares. The native input
   and its label form one clickable row at least 44px tall. Space toggles the
   focused checkbox; focus stays visible. Keep the input's checked semantics.
+- A parent checkbox derives its checked, empty or mixed state from its children.
+  Set the native `indeterminate` property and `aria-checked="mixed"` together.
+  Clicking mixed selects all; clicking all clears. In searchable lists it applies
+  to visible matches only and preserves hidden selections, explained beside the
+  control. With no matches, disable the parent and leave it unchecked.
 - A checkbox edits a draft. Save or Continue applies the choice. Keep draft
   recovery separate from a committed setting or confirmation. Immediate settings
   use a switch when that behavior is appropriate.

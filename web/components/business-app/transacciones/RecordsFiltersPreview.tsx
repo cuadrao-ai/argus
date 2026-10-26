@@ -3,28 +3,50 @@
 import { useState, type ReactNode } from "react";
 import { Banknote, Building2, CheckCheck, FileText, Folder, ListFilter, Paperclip, ReceiptText, Users, X, type LucideIcon } from "lucide-react";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
-import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters, type ReviewFilter } from "./records-filter-preview-model";
+import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
 import { useTransaccionesWords } from "./transacciones-words";
+import type { RecordKind } from "./transacciones-model";
 import styles from "./records-filter-preview.module.css";
 
-const ICONS: Record<FilterGroup, LucideIcon> = { review: CheckCheck, attachment: Paperclip, amount: Banknote, counterparty: Users, category: Folder, account: Building2, document: FileText, fiscal: ReceiptText };
+type Kind = RecordKind | "all";
+type EditorGroup = FilterGroup | "record";
+const EDITOR_GROUPS: readonly EditorGroup[] = ["record", ...FILTER_GROUPS];
+const ICONS: Record<EditorGroup, LucideIcon> = { record: FileText, review: CheckCheck, attachment: Paperclip, amount: Banknote, counterparty: Users, category: Folder, account: Building2, document: FileText, fiscal: ReceiptText };
 const COUNTERPARTIES = ["Estación Ruta 3", "Nube Hosting", "Comedor Doña Ana"];
 const CATEGORIES = ["none", "transport", "other", "dining"];
 const ACCOUNTS = ["checking", "card", "owner"];
 const toggle = (values: string[], value: string): string[] => values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 
-function FilterEditor({ initial, apply, close }: { initial: PreviewFilters; apply: (next: PreviewFilters) => void; close: () => void }) {
+function FilterEditor({ initial, initialKind, apply, close }: { initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind) => void; close: () => void }) {
   const { t } = useTransaccionesWords();
   const [draft, setDraft] = useState(initial);
-  const [group, setGroup] = useState<FilterGroup>("review");
+  const [draftKind, setDraftKind] = useState(initialKind);
+  const [group, setGroup] = useState<EditorGroup>("record");
   const [query, setQuery] = useState("");
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
-  const groupLabel = (key: FilterGroup) => word(`groups.${key}`);
+  const groupLabel = (key: EditorGroup) => key === "record" ? word("record") : word(`groups.${key}`);
   const labelFor = (kind: FilterGroup, value: string): string => kind === "counterparty" ? value : kind === "review" ? t(`business.transactions.layout.overview.${value}.title`) : word(`${kind}.${value}`);
-  const selection = (kind: "review" | "counterparty" | "category" | "account" | "document" | "fiscal", values: string[]) => <div className={styles.options}>{values.filter((value) => labelFor(kind, value).toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((value) => <label key={value} className={styles.choice}>
-    <input type="checkbox" checked={draft[kind].includes(value as ReviewFilter)} onChange={() => setDraft({ ...draft, [kind]: toggle(draft[kind], value) })} />
-    <span>{labelFor(kind, value)}</span>
-  </label>)}</div>;
+  const selection = (kind: "review" | "counterparty" | "category" | "account" | "document" | "fiscal", values: string[]) => {
+    const search = query.trim().toLocaleLowerCase();
+    const visible = values.filter((value) => labelFor(kind, value).toLocaleLowerCase().includes(search));
+    const selected: string[] = draft[kind];
+    const selectedCount = visible.filter((value) => selected.includes(value)).length;
+    const all = visible.length > 0 && selectedCount === visible.length;
+    const mixed = selectedCount > 0 && !all;
+    const chooseVisible = () => setDraft({ ...draft, [kind]: all ? selected.filter((value) => !visible.includes(value)) : [...new Set([...selected, ...visible])] });
+    return <>
+      <label className={`${styles.choice} ${styles.parentChoice}`}>
+        <input type="checkbox" checked={all} disabled={visible.length === 0} aria-checked={mixed ? "mixed" : all} ref={(node) => { if (node) node.indeterminate = mixed; }} onChange={chooseVisible} />
+        <span>{word(search ? "select_results" : "select_all")}</span>
+      </label>
+      {search ? <p className={styles.hint}>{word("visible_selection_hint")}</p> : null}
+      <div className={styles.options}>{visible.map((value) => <label key={value} className={styles.choice}>
+        <input type="checkbox" checked={selected.includes(value)} onChange={() => setDraft({ ...draft, [kind]: toggle(selected, value) })} />
+        <span>{labelFor(kind, value)}</span>
+      </label>)}</div>
+      {visible.length === 0 ? <p className={styles.hint}>{word("no_matches")}</p> : null}
+    </>;
+  };
   const searchable = group === "counterparty" || group === "category" || group === "account";
   return <>
     <div className={styles.panel}>
@@ -32,15 +54,16 @@ function FilterEditor({ initial, apply, close }: { initial: PreviewFilters; appl
         const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
         if (!step && event.key !== "Home" && event.key !== "End") return;
         event.preventDefault();
-        const next = event.key === "Home" ? 0 : event.key === "End" ? FILTER_GROUPS.length - 1 : (FILTER_GROUPS.indexOf(group) + step + FILTER_GROUPS.length) % FILTER_GROUPS.length;
-        setGroup(FILTER_GROUPS[next]); setQuery("");
+        const next = event.key === "Home" ? 0 : event.key === "End" ? EDITOR_GROUPS.length - 1 : (EDITOR_GROUPS.indexOf(group) + step + EDITOR_GROUPS.length) % EDITOR_GROUPS.length;
+        setGroup(EDITOR_GROUPS[next]); setQuery("");
         event.currentTarget.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
       }}>
-        {FILTER_GROUPS.map((key) => { const Icon = ICONS[key]; return <button key={key} type="button" role="tab" tabIndex={group === key ? 0 : -1} aria-selected={group === key} className={styles.group} onClick={() => { setGroup(key); setQuery(""); }}><Icon size={17} aria-hidden="true" /><span>{groupLabel(key)}</span>{activeFilterGroups(draft).includes(key) ? <span aria-hidden="true" className={styles.count}>•</span> : null}</button>; })}
+        {EDITOR_GROUPS.map((key) => { const Icon = ICONS[key]; return <button key={key} type="button" role="tab" tabIndex={group === key ? 0 : -1} aria-selected={group === key} className={styles.group} onClick={() => { setGroup(key); setQuery(""); }}><Icon size={17} aria-hidden="true" /><span>{groupLabel(key)}</span>{(key === "record" ? draftKind !== "all" : activeFilterGroups(draft).includes(key)) ? <span aria-hidden="true" className={styles.count}>•</span> : null}</button>; })}
       </div>
       <section className={styles.editor} role="tabpanel" aria-label={groupLabel(group)}>
         <h3 className={styles.heading}>{groupLabel(group)}</h3>
         {searchable ? <input type="search" className={`${styles.input} ${styles.search}`} aria-label={word("search")} placeholder={word("search")} value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
+        {group === "record" ? <>{(["all", "gasto", "venta"] as const).map((kind) => <label key={kind} className={styles.choice}><input type="radio" name="preview-record-kind" checked={draftKind === kind} onChange={() => setDraftKind(kind)} /><span>{kind === "all" ? t("business.transactions.layout.all_types") : t(`business.transactions.records.detail.${kind}`)}</span></label>)}</> : null}
         {group === "review" ? selection("review", ["review", "approval", "export"]) : null}
         {group === "attachment" ? <>{(["any", "with", "without"] as const).map((value) => <label key={value} className={styles.choice}><input type="radio" name="preview-attachment" checked={draft.attachment === value} onChange={() => setDraft({ ...draft, attachment: value })} /><span>{word(`attachment.${value}`)}</span></label>)}<p className={styles.hint}>{word("attachment.hint")}</p></> : null}
         {group === "amount" ? <>
@@ -57,15 +80,13 @@ function FilterEditor({ initial, apply, close }: { initial: PreviewFilters; appl
         {group === "fiscal" ? selection("fiscal", ["b01", "b02", "e31", "e32"]) : null}
       </section>
     </div>
-    <div className={styles.footer}><button type="button" className={styles.clear} onClick={() => setDraft(emptyPreviewFilters())}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={!validPreviewAmount(draft.amount)} onClick={() => { apply(draft); close(); }}>{word("apply")}</button></div>
+    <div className={styles.footer}><button type="button" className={styles.clear} onClick={() => { setDraft(emptyPreviewFilters()); setDraftKind("all"); }}>{t("business.transactions.layout.clear")}</button><button type="button" className={styles.apply} disabled={!validPreviewAmount(draft.amount)} onClick={() => { apply(draft, draftKind); close(); }}>{word("apply")}</button></div>
   </>;
 }
 
-export default function RecordsFiltersPreview({ options, value, onChange }: { options: ReactNode; value?: PreviewFilters; onChange?: (next: PreviewFilters) => void }) {
+export default function RecordsFiltersPreview({ options, value: filters, kind, onChange }: { options: ReactNode; value: PreviewFilters; kind: Kind; onChange: (next: PreviewFilters, kind: Kind) => void }) {
   const { t } = useTransaccionesWords();
-  const [localFilters, setLocalFilters] = useState<PreviewFilters>(emptyPreviewFilters);
-  const filters = value ?? localFilters;
-  const setFilters = (next: PreviewFilters) => { if (onChange) onChange(next); else setLocalFilters(next); };
+  const setFilters = (next: PreviewFilters, nextKind: Kind = kind) => onChange(next, nextKind);
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const active = activeFilterGroups(filters);
   const valueLabel = (group: FilterGroup) => {
@@ -74,10 +95,10 @@ export default function RecordsFiltersPreview({ options, value, onChange }: { op
     return filters[group].map((value) => group === "counterparty" ? value : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : word(`${group}.${value}`)).join(", ");
   };
   return <>
-    <RecordsPreviewPopover label={word("title")} icon={<ListFilter size={17} aria-hidden="true" />} count={active.length}>
-      {(close) => <FilterEditor initial={filters} apply={setFilters} close={close} />}
+    <RecordsPreviewPopover label={word("title")} icon={<ListFilter size={17} aria-hidden="true" />} count={active.length + (kind === "all" ? 0 : 1)}>
+      {(close) => <FilterEditor initial={filters} initialKind={kind} apply={setFilters} close={close} />}
     </RecordsPreviewPopover>
     <div className={styles.toolbarOptions}>{options}</div>
-    {active.length ? <div className={styles.chips} data-testid="records-preview-filter-chips">{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={word("remove") + " " + word(`groups.${group}`)} onClick={() => setFilters({ ...filters, [group]: emptyPreviewFilters()[group] })}><span>{word(`groups.${group}`)} · {valueLabel(group)}</span><X size={14} aria-hidden="true" /></button>)}<button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters())}>{t("business.transactions.layout.clear")}</button></div> : null}
+    {active.length || kind !== "all" ? <div className={styles.chips} data-testid="records-preview-filter-chips">{kind !== "all" ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters(filters, "all")}><span>{word("record")} · {t(`business.transactions.records.detail.${kind}`)}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={word("remove") + " " + word(`groups.${group}`)} onClick={() => setFilters({ ...filters, [group]: emptyPreviewFilters()[group] })}><span>{word(`groups.${group}`)} · {valueLabel(group)}</span><X size={14} aria-hidden="true" /></button>)}<button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(), "all")}>{t("business.transactions.layout.clear")}</button></div> : null}
   </>;
 }

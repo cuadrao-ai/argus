@@ -2423,6 +2423,7 @@
       "layout": {
         "all_types": "All types",
         "clear": "Clear filters",
+        "clear_search": "Clear search",
         "count_one": "{{count}} record",
         "count_other": "{{count}} records",
         "filters": {
@@ -2477,10 +2478,14 @@
             "fiscal": "Fiscal type",
             "review": "Review"
           },
+          "no_matches": "No options match this search.",
           "record": "Record",
           "remove": "Remove filter",
           "search": "Search…",
-          "title": "Filters"
+          "select_all": "Select all",
+          "select_results": "Select results",
+          "title": "Filters",
+          "visible_selection_hint": "Only visible results change. Other selections are kept."
         },
         "no_results": "No records match these filters",
         "overview": {
