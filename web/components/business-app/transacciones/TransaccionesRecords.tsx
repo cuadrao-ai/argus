@@ -7,10 +7,12 @@ import { currencySymbol } from "@/lib/money-entry";
 import { useBusiness } from "../BusinessWorkspace";
 import { formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
-import { RecordMarks } from "../business-ui";
+import { Tooltip } from "@/components/ui/Tooltip";
+import cellStyles from "./transacciones-cells.module.css";
+import { RecordMarks, useOwnerView } from "../business-ui";
 import { DENSITY_ROW_PX, type Density } from "./table-density";
 import { headerCurrency, type RecordRow } from "./transacciones-model";
-import { AccountLabel, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
+import { AccountLabel, amountColumnSize, SignedAmount, Truncated, Unknown } from "./transacciones-parts";
 import { CELL, COLUMNS, PIN_CLASS } from "./TransaccionesTable";
 import { useTransaccionesWords } from "./transacciones-words";
 
@@ -36,10 +38,12 @@ function Proof({ row }: { row: RecordRow }) {
  */
 export function RecordsTable({ records, density, rowRef }: { records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
+  const owner = useOwnerView();
   const { panel, openPanel, records: workspace } = useBusiness();
   const [order, setOrder] = useState<"desc" | "asc">("desc");
   const rows = order === "desc" ? records : [...records].reverse();
   const header = headerCurrency(records, businessWorkspaceCurrency(workspace?.workspace));
+  const amountSize = amountColumnSize(records.map((row) => row.money), header, locale);
   const today = todayIso();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const tabStop = focusedId && rows.some((row) => recordRowKey(row) === focusedId) ? focusedId : rows[0] ? recordRowKey(rows[0]) : undefined;
@@ -62,8 +66,8 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
 
   return (
     <div data-testid="transacciones-scroll" className="argus-thin-scrollbar relative max-h-[calc(100dvh-15rem)] min-h-[16rem] overflow-auto rounded-surface border border-[#DCE0DA] bg-white dark:border-white/10 dark:bg-[#1f2225]">
-      <table role="grid" aria-label={t("business.transactions.title")} aria-rowcount={rows.length} data-testid="transacciones-records" data-density={density} onKeyDown={onKeyDown} className="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white">
-        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.width ? { width: column.width } : undefined} />)}</colgroup>
+      <table role="grid" aria-label={t("business.transactions.title")} aria-rowcount={rows.length} data-testid="transacciones-records" data-density={density} onKeyDown={onKeyDown} style={{ minWidth: amountSize.minTableWidth }} className="w-full min-w-[1100px] table-fixed border-separate border-spacing-0 text-[14px] text-[#172b26] dark:text-white">
+        <colgroup>{COLUMNS.map((column) => <col key={column.key} style={column.key === "monto" ? { width: amountSize.width } : column.width ? { width: column.width } : undefined} />)}</colgroup>
         <thead>
           <tr>
             {COLUMNS.map((column) => {
@@ -103,7 +107,9 @@ export function RecordsTable({ records, density, rowRef }: { records: readonly R
                 <td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{formatRelativeDay(row.occurredOn, today, locale)}</td>
                 <td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}><SignedAmount money={row.money} header={header} /></td>
                 <td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
-                  <span className="flex min-w-0 items-center gap-2">{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} className="flex-nowrap" /></span>
+                  <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
+                    <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
+                  </Tooltip>
                 </td>
                 <td data-col="categoria" className={`${CELL} text-left`}>{row.categoryId ? <Truncated text={t(`business.category.${row.categoryId}`, { defaultValue: row.categoryId })} /> : <Unknown />}</td>
                 <td data-col="cuenta" className={`${CELL} text-left`}><AccountLabel account={row.account} /></td>

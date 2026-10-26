@@ -185,6 +185,25 @@ describe("the gate", () => {
     assert.match(summary.querySelector('[data-total="salidas"]')?.textContent ?? "", /RD\$\s?\d/);
   });
 
+  test("long money widens its column and full account/detail labels remain available in tooltips", async () => {
+    const source = await recordsOf([{ id: "long-money", merchant: "Sample supplier", amount: "123456789012345.67", currency: "USD", category_id: null, account_id: null, occurred_on: "2026-10-04", receipt_id: null, funding: "owner_funds", personal: true, personal_marked_by: "Ana", fiscal_known: true, fiscal_value: null }]);
+    const page = await mount({ enabled: false, transacciones: source });
+    await page.settle(() => page.records().length === 1, "the saved record");
+    const row = page.records()[0];
+    const table = row.closest("table")!;
+    assert.match(table.querySelectorAll("col")[2].style.width, /ch/);
+    assert.match(table.style.minWidth, /1088px/);
+    assert.match(row.querySelector('[data-col="monto"]')!.textContent ?? "", /123,456,789,012,345\.67/);
+    const account = row.querySelector('[data-col="cuenta"] .truncate')!;
+    const detail = row.querySelector('[data-col="detalle"] > span')!;
+    for (const [target, expected] of [[account, /Dinero del dueño/], [detail, /Gasto · Personal · Falta NCF · Marcado por Ana/]] as const) {
+      await page.act(async () => { target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 330)); });
+      assert.match(document.querySelector('[role="tooltip"]')?.textContent ?? "", expected);
+      await page.act(async () => target.dispatchEvent(new MouseEvent("mouseout", { bubbles: true })));
+    }
+    assert.equal(row.style.height, "48px");
+  });
+
   test("records filters keep the table contract and period totals while narrowing saved rows", async () => {
     const page = await mount({ enabled: false });
     await page.settle(() => page.records().length > 0, "the saved records");

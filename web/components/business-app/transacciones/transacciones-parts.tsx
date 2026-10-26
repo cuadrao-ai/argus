@@ -44,6 +44,22 @@ export function Unknown({ meaning }: { meaning?: string }) {
 
 const SIGN = { in: "+", out: "−", zero: "" } as const;
 
+/** The rendered signed value is also the source for the amount column's space. */
+export function signedAmountText(money: Money, header: string | null, locale: string): string {
+  const bare = magnitude(money);
+  const number = money.currency === header ? formatAmount(bare.amount, bare.currency, locale) : formatMoney(bare.amount, bare.currency, locale);
+  return `${SIGN[signOf(money)]}${number}`;
+}
+
+/** Tabular digits use one ch; signs, currency letters and separators get extra room. */
+export function amountColumnSize(values: readonly Money[], header: string | null, locale: string) {
+  const longest = values.reduce((maximum, money) => Math.max(maximum, [...signedAmountText(money, header, locale)].reduce((width, character) => width + (/\d/.test(character) ? 1 : 1.6), 0)), 0);
+  const units = longest <= 12 ? 0 : Math.max(16, Math.ceil(longest));
+  const width = units ? `calc(${units}ch + 24px)` : "136px";
+  // Keep 264px of detail content after cell padding, even beside a long amount.
+  return { units, width, minTableWidth: units ? `calc(1088px + ${units}ch)` : "1200px" };
+}
+
 /**
  * A signed amount: "+" for money in, "−" for money out, nothing on a known
  * zero. Under a header that names the currency the row shows the number
@@ -53,11 +69,11 @@ export function SignedAmount({ money, header }: { money: Money; header: string |
   const { t, locale } = useTransaccionesWords();
   const sign = signOf(money);
   const bare = magnitude(money);
-  const number = money.currency === header ? formatAmount(bare.amount, bare.currency, locale) : formatMoney(bare.amount, bare.currency, locale);
+  const number = signedAmountText(money, header, locale);
   const spoken = `${sign === "zero" ? "" : `${t(`business.transactions.sign.${sign}`)} `}${formatMoney(bare.amount, bare.currency, locale)}`;
   return (
     <span className="cuadrao-amount whitespace-nowrap tabular-nums">
-      <span aria-hidden="true">{SIGN[sign]}{number}</span>
+      <span aria-hidden="true">{number}</span>
       <span className="sr-only">{spoken}</span>
     </span>
   );
@@ -94,7 +110,7 @@ export function AccountLabel({ account }: { account: MovementAccount | null }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <Icon className="h-3.5 w-3.5 shrink-0 text-[#56635e] dark:text-white/60" aria-hidden="true" />
-      {account.name ? <span className="truncate">{account.name}</span> : <Unknown />}
+      {account.name ? <Truncated text={account.name} /> : <Unknown />}
     </span>
   );
 }
