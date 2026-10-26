@@ -32,7 +32,7 @@ for(const width of [1440,834,390]) for(const language of ['es-419','en'] as cons
  await page.route('**/api/v1/business/**',route=>route.continue());
  const report=reportRequestSchema.parse({schema_version:2,filters:{period:{kind:'all'}},sort:'date_asc'});
  const url=new URL(`${baseUrl}/biz`); url.searchParams.set('view','transactions');url.searchParams.set('report',JSON.stringify(report));url.searchParams.set('report_scope',`breakpoint-user:${fixtureId(3000)}`);
- await page.goto(url.href,{waitUntil:'networkidle'});
+ await page.goto(url.href,{waitUntil:'domcontentloaded'});
  await page.locator('[data-report-schema="2"] [data-testid="records-count"]').waitFor();
  await page.waitForTimeout(100);
  const heading=await page.getByRole('heading',{name:language==='en'?'Records':'Registros',exact:true}).count();
@@ -85,7 +85,7 @@ const control=async(body:object)=>{const r=await fetch(`${fixtureUrl}/__fixture/
 try{
  await installBreakpointFixture(page,{language:'es-419',theme:'light',emptyChat:true,consent:'accepted'});await page.addInitScript(()=>localStorage.setItem('cuadrao-business-preview-language','es-419'));await page.route('**/api/v1/business/**',r=>r.continue());
  const report=reportRequestSchema.parse({schema_version:2,filters:{period:{kind:'all'}},sort:'date_asc'}),url=new URL(`${baseUrl}/biz`);url.searchParams.set('view','transactions');url.searchParams.set('report',JSON.stringify(report));url.searchParams.set('report_scope',`breakpoint-user:${fixtureId(3000)}`);
- flowStep = 'navigate'; await page.goto(url.href,{waitUntil:'networkidle',timeout:INITIAL_READY_TIMEOUT_MS});
+ flowStep = 'navigate'; await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:INITIAL_READY_TIMEOUT_MS});
  flowStep = 'report-ready'; await page.locator('[data-testid="records-count"]').waitFor({timeout:INITIAL_READY_TIMEOUT_MS});
  console.log('loaded'); flowStep = 'pagination';
  await page.getByRole('button',{name:'Última página',exact:true}).click();await page.locator('[data-testid="records-pagination"][data-page="6"]').waitFor();
@@ -117,7 +117,7 @@ try{
 async function recovery(browser: Browser) {
 const proofs: Record<string, unknown>[]=[];
 const control=async(body:object)=>{await fetch(`${fixtureUrl}/__fixture/control`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});};
-async function screen(report?:object){const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();await context.route("**/*", route => { const origin = new URL(route.request().url()).origin; if (origin === baseUrl || origin === fixtureUrl) return route.fallback(); errors.push(`blocked ${origin}`); return route.abort(); });page.setDefaultTimeout(10000);await installBreakpointFixture(page,{language:'es-419',theme:'light',emptyChat:true,consent:'accepted'});await page.addInitScript(()=>localStorage.setItem('cuadrao-business-preview-language','es-419'));await page.route('**/api/v1/business/**',r=>r.continue());const url=new URL(`${baseUrl}/biz?view=transactions`);if(report){url.searchParams.set('report',JSON.stringify(reportRequestSchema.parse(report)));url.searchParams.set('report_scope',`breakpoint-user:${fixtureId(3000)}`);}await page.goto(url.href,{waitUntil:'networkidle',timeout:INITIAL_READY_TIMEOUT_MS});return {page,context};}
+async function screen(report?:object){const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();await context.route("**/*", route => { const origin = new URL(route.request().url()).origin; if (origin === baseUrl || origin === fixtureUrl) return route.fallback(); errors.push(`blocked ${origin}`); return route.abort(); });page.setDefaultTimeout(10000);await installBreakpointFixture(page,{language:'es-419',theme:'light',emptyChat:true,consent:'accepted'});await page.addInitScript(()=>localStorage.setItem('cuadrao-business-preview-language','es-419'));await page.route('**/api/v1/business/**',r=>r.continue());const url=new URL(`${baseUrl}/biz?view=transactions`);if(report){url.searchParams.set('report',JSON.stringify(reportRequestSchema.parse(report)));url.searchParams.set('report_scope',`breakpoint-user:${fixtureId(3000)}`);}await page.goto(url.href,{waitUntil:'domcontentloaded',timeout:INITIAL_READY_TIMEOUT_MS});return {page,context};}
 try{
 await control({legacy:false,queryError:false});
 let {page,context}=await screen({schema_version:2,filters:{period:{kind:'all'},record_families:['sale']}});await page.locator('[data-testid="records-results-summary"]').waitFor({timeout:INITIAL_READY_TIMEOUT_MS});if(await page.locator('[data-testid="records-results-summary"] .cuadrao-amount').count())throw new Error('synthetic amount');await page.getByText('Monto no disponible.',{exact:true}).waitFor();await page.screenshot({path:`${evidence}/${frontend}-pending-amounts.png`});proofs.push({case:'automatic-amount-cards-unknown',knownAmounts:0});await context.close();
