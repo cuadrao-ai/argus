@@ -78,6 +78,8 @@ services:
         value: "false"
       - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
         value: "false"
+      - key: CUADRAO_WHATSAPP_DIAGNOSTIC_ENABLED
+        value: "false"
       - key: ARGUS_INGESTION_SECRET_KEY
         sync: false
       - key: ARGUS_INVITE_CODE_SECRET
@@ -272,6 +274,8 @@ services:
         value: "true"
       - key: CUADRAO_VISION_MODEL
         sync: false
+      - key: CUADRAO_WHATSAPP_DIAGNOSTIC_ENABLED
+        value: "false"
       - key: CUADRAO_WHATSAPP_DISPLAY_PHONE_NUMBER
         sync: false
       - key: CUADRAO_WHATSAPP_INTAKE_ENABLED

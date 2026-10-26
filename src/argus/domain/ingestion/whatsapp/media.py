@@ -12,8 +12,11 @@ with ``expired=True``. The person can send it again.
 
 from __future__ import annotations
 
+import hmac
 import logging
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -229,6 +232,86 @@ class GraphMedia:
         self._headers = {"Authorization": f"Bearer {access_token}"}
         self._version = graph_api_version
         self._max_bytes = max_bytes
+
+    async def diagnose_once(
+        self,
+        *,
+        media_id: str,
+        app_id: str,
+        subject_id: str,
+        runtime_token: str,
+        selected_token: str,
+        expires_at: int,
+        on_attempt: Callable[[int], None] | None = None,
+    ) -> dict:
+        """Use this initialized client for identity and metadata only, with no retry."""
+        from argus.domain.ingestion.whatsapp import diagnostic_graph as safe
+
+        header = self._headers.get("Authorization", "")
+        bearer = header.removeprefix("Bearer ") if header.startswith("Bearer ") else ""
+        result = {
+            "header_matches_runtime": hmac.compare_digest(
+                bearer.encode(), runtime_token.encode()
+            ),
+            "header_matches_selected": hmac.compare_digest(
+                bearer.encode(), selected_token.encode()
+            ),
+            "get_attempts": 0,
+        }
+        if (
+            not bearer
+            or time.time() >= expires_at
+            or not all(safe.matches(v, safe.ID) for v in (media_id, app_id, subject_id))
+        ):
+            return {**result, "outcome": "invalid_runtime"}
+
+        def finish(outcome: str) -> dict:
+            import json
+
+            candidate = {**result, "outcome": outcome}
+            encoded = json.dumps(candidate)
+            if any(
+                value and value in encoded
+                for value in (bearer, runtime_token, selected_token)
+            ):
+                return {
+                    "outcome": "unsafe_response_stopped",
+                    "get_attempts": result["get_attempts"],
+                }
+            return candidate
+
+        private = safe._active.set(True)
+        try:
+            result["get_attempts"] = 1
+            if on_attempt is not None:
+                on_attempt(1)
+            response = await self._client.get(
+                f"https://{GRAPH_HOST}/{self._version}/debug_token",
+                params={"input_token": bearer},
+                headers=self._headers,
+                timeout=_TIMEOUT,
+                follow_redirects=False,
+            )
+            result["identity"] = safe.identity(response, app_id, subject_id)
+            if not result["identity"]["matched"]:
+                return finish("identity_stopped")
+            if time.time() >= expires_at:
+                return finish("expired")
+            result["get_attempts"] = 2
+            if on_attempt is not None:
+                on_attempt(2)
+            response = await self._client.get(
+                f"https://{GRAPH_HOST}/{self._version}/{media_id}",
+                headers=self._headers,
+                timeout=_TIMEOUT,
+                follow_redirects=False,
+            )
+            result["media"] = safe.metadata(response, media_id, self._max_bytes)
+            return finish("metadata_observed")
+        except Exception:
+            return finish("transport_or_payload_stopped")
+        finally:
+            safe._active.reset(private)
 
     async def fetch(self, media_id: str) -> FetchedMedia:
         if not media_id.isascii() or not media_id.isdigit():

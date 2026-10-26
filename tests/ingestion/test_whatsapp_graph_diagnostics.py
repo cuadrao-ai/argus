@@ -635,3 +635,184 @@ async def test_successful_media_fetch_keeps_accepted_bytes_and_type() -> None:
     fetched = await _media(handler).fetch("700000000000304")
     assert fetched.content == content
     assert fetched.mime_type == "application/pdf"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure,expected_calls",
+    [
+        ("transport_identity", 1),
+        ("transport_media", 2),
+        ("invalid_json", 1),
+        ("redirect", 1),
+        ("status", 1),
+        ("ambiguous_identity", 1),
+        ("wrong_app", 1),
+        ("wrong_subject", 1),
+        ("invalid", 1),
+        ("unknown_type", 1),
+        ("error_media", 2),
+        ("bad_metadata", 2),
+        ("hostile_trace", 1),
+        ("success", 2),
+    ],
+)
+async def test_private_probe_is_two_gets_max_no_retry_download_or_secret_leak(
+    failure,
+    expected_calls,
+    records,
+    caplog,
+):
+    import json
+    import logging
+    import time
+    from unittest.mock import AsyncMock
+
+    calls = []
+    secret = "synthetic-private-header-token"
+
+    def handler(request):
+        calls.append(request)
+        assert request.method == "GET"
+        assert request.headers["Authorization"] == f"Bearer {secret}"
+        assert request.url.host == "graph.facebook.com"
+        if len(calls) == 1:
+            assert request.url.path == "/v23.0/debug_token"
+            assert request.url.params["input_token"] == secret
+            if failure == "transport_identity":
+                raise httpx.ReadTimeout(f"PRIVATE_RAW {request.url}")
+            if failure == "invalid_json":
+                return httpx.Response(200, content=b"PRIVATE_RAW")
+            if failure == "redirect":
+                return httpx.Response(302, headers={"location": "https://evil.example"})
+            if failure == "status":
+                return httpx.Response(400, json={"error": {"message": secret}})
+            if failure == "hostile_trace":
+                return httpx.Response(400, json={"error": {"fbtrace_id": secret}})
+            data = {
+                "is_valid": failure != "invalid",
+                "type": "SYSTEM_USER",
+                "app_id": "800000000000001",
+                "user_id": "900000000000001",
+                "scopes": ["whatsapp_business_messaging", "PRIVATE_RAW"],
+                "expires_at": 0,
+                "unexpected": secret,
+            }
+            if failure == "wrong_app":
+                data["app_id"] = "800000000000002"
+            if failure == "wrong_subject":
+                data["user_id"] = "900000000000002"
+            if failure == "unknown_type":
+                data["type"] = secret
+            if failure == "ambiguous_identity":
+                return httpx.Response(200, json={"data": data, "error": {"code": 190}})
+            return httpx.Response(200, json={"data": data})
+        assert request.url.path == "/v23.0/700000000000001"
+        assert not request.url.query
+        if failure == "transport_media":
+            raise httpx.ConnectError(f"PRIVATE_RAW {secret}")
+        if failure == "error_media":
+            return httpx.Response(
+                400,
+                json={
+                    "error": {
+                        "code": 10,
+                        "error_subcode": 463,
+                        "type": "OAuthException",
+                        "message": f"PRIVATE_RAW {secret}",
+                        "fbtrace_id": "trace_SYNTHETIC",
+                    }
+                },
+                headers={
+                    "x-fb-request-id": "request_SYNTHETIC",
+                    "x-fb-trace-id": "https://evil.example",
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": "700000000000001",
+                "mime_type": "application/pdf",
+                "file_size": -1 if failure == "bad_metadata" else 20,
+                "url": f"https://evil.example/PRIVATE_SIGNED_URL?t={secret}",
+            },
+        )
+
+    caplog.set_level(logging.DEBUG, logger="httpx")
+    caplog.set_level(logging.DEBUG, logger="httpcore")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        media = GraphMedia(
+            client=client, access_token=secret, graph_api_version="v23.0", max_bytes=1000
+        )
+        media.fetch = AsyncMock(side_effect=AssertionError("fetch forbidden"))
+        media._download = AsyncMock(side_effect=AssertionError("download forbidden"))
+        result = await media.diagnose_once(
+            media_id="700000000000001",
+            app_id="800000000000001",
+            subject_id="900000000000001",
+            runtime_token=secret,
+            selected_token="different-settings-token",
+            expires_at=int(time.time()) + 100,
+        )
+        assert len(calls) == expected_calls
+        assert result["get_attempts"] == expected_calls
+        media.fetch.assert_not_called()
+        media._download.assert_not_called()
+    if failure == "error_media":
+        assert result["media"]["code"] == "10"
+        assert result["media"]["error_subcode"] == "463"
+        assert result["media"]["type"] == "OAuthException"
+        assert result["media"]["cause"] == "permission_required"
+        assert result["media"]["request_id"] == "request_SYNTHETIC"
+        assert result["media"]["trace_id"] == "trace_SYNTHETIC"
+    if failure == "bad_metadata":
+        assert result["media"]["matched"] is False
+    if failure == "success":
+        assert result["media"]["matched"] is True
+    everything = json.dumps(result) + str(records) + caplog.text
+    for value in (
+        secret,
+        "different-settings-token",
+        "PRIVATE_RAW",
+        "PRIVATE_SIGNED_URL",
+        "evil.example",
+        "input_token",
+    ):
+        assert value not in everything
+
+
+@pytest.mark.asyncio
+async def test_probe_cannot_make_second_get_after_expiry(monkeypatch):
+    calls = []
+    now = [100]
+
+    def handler(request):
+        calls.append(request)
+        now[0] = 200
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "is_valid": True,
+                    "type": "SYSTEM_USER",
+                    "app_id": "800000000000001",
+                    "user_id": "900000000000001",
+                }
+            },
+        )
+
+    monkeypatch.setattr("argus.domain.ingestion.whatsapp.media.time.time", lambda: now[0])
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        media = GraphMedia(
+            client=client, access_token=TOKEN, graph_api_version="v23.0", max_bytes=1000
+        )
+        result = await media.diagnose_once(
+            media_id="700000000000001",
+            app_id="800000000000001",
+            subject_id="900000000000001",
+            runtime_token=TOKEN,
+            selected_token=TOKEN,
+            expires_at=150,
+        )
+    assert len(calls) == 1
+    assert result["outcome"] == "expired"

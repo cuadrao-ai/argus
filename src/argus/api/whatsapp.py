@@ -13,7 +13,7 @@ import logging
 import re
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from fastapi import Depends, HTTPException, Request
@@ -57,6 +57,9 @@ from argus.domain.ingestion.whatsapp.store import (
 )
 
 WEBHOOK_PATH = "/api/v1/webhooks/whatsapp"
+
+if TYPE_CHECKING:
+    from argus.domain.ingestion.whatsapp.diagnostic_once import Arm, DiagnosticOnce
 
 
 class _RedactWebhookQuery(logging.Filter):
@@ -292,6 +295,7 @@ class WhatsAppRuntime:
     work: BackgroundWork | None = None
     receipts: AIConsentStore | None = None
     failure_replies: FailureReplyWorker | None = None
+    diagnostic: DiagnosticOnce | None = None
 
 
 _runtime: WhatsAppRuntime | None = None
@@ -435,8 +439,29 @@ def build_whatsapp(
         reply_codec=reply_codec,
         reply_group_wait_seconds=settings.reply_group_wait_seconds,
     )
+    diagnostic = None
+    if settings.diagnostic_enabled:
+        from argus.domain.ingestion.whatsapp.diagnostic_once import DiagnosticOnce
+
+        def diagnostic_scope(arm: Arm) -> bool:
+            link = store.sender_link(sender_hash=keys.sender(arm.sender))
+            scope = resolve_business_scope(spaces, arm.owner_id)
+            permission = documents.business_receipt_consent
+            return bool(
+                link is not None
+                and link.destination_owner_id == arm.owner_id
+                and scope is not None
+                and scope.person_id == arm.owner_id
+                and str(scope.owner.space_id) == arm.business_id
+                and permission is not None
+                and permission.enabled(scope.owner.space_id, arm.owner_id) is False
+            )
+
+        diagnostic = DiagnosticOnce(
+            media=intake.media, settings=settings, scope_check=diagnostic_scope
+        )
     return WhatsAppRuntime(
-        intake, settings, worker, consent, work, receipts, failure_replies
+        intake, settings, worker, consent, work, receipts, failure_replies, diagnostic
     )
 
 
@@ -472,6 +497,15 @@ def start_whatsapp(app: object) -> None:
                 work=BackgroundWork(),
             )
         )
+        runtime = whatsapp_runtime()
+        if runtime is not None and runtime.diagnostic is not None:
+            from argus.domain.ingestion.whatsapp.diagnostic_control import (
+                DiagnosticControl,
+            )
+
+            asyncio.get_running_loop().create_task(
+                DiagnosticControl(runtime.diagnostic).start()
+            )
     except Exception as exc:
         logger.warning(
             "WhatsApp intake failed to start; it stays off",
@@ -484,6 +518,12 @@ async def drain_whatsapp(timeout: float = 20.0) -> None:
     """Shutdown: give acknowledged deliveries time to settle before the pool closes."""
 
     runtime = whatsapp_runtime()
+    if (
+        runtime is not None
+        and runtime.diagnostic is not None
+        and runtime.diagnostic.control is not None
+    ):
+        runtime.diagnostic.control.close()
     if runtime is not None and runtime.work is not None:
         await runtime.work.drain(timeout)
 

@@ -277,6 +277,21 @@ async def receive_whatsapp_webhook(
             title="Unauthorized",
             detail="Webhook could not be verified.",
         )
+    diagnostic = getattr(runtime, "diagnostic", None)
+    if diagnostic is not None:
+        from argus.domain.ingestion.whatsapp.diagnostic_once import DiagnosticHeld
+
+        try:
+            await diagnostic.observe(bytes(body))
+        except DiagnosticHeld:
+            raise problem(
+                request,
+                status_code=503,
+                code="whatsapp_diagnostic_hold",
+                title="Service Unavailable",
+                detail="Intake is temporarily held. Retry.",
+            ) from None
+        return WebhookAck(received=True)
     try:
         delivery = parse_delivery(bytes(body), phone_number_id=settings.phone_number_id)
     except PayloadInvalid:

@@ -44,6 +44,9 @@ def _names(name: str) -> AliasChoices:
 class WhatsAppSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
 
+    diagnostic_enabled: Flag = Field(
+        default=False, validation_alias="CUADRAO_WHATSAPP_DIAGNOSTIC_ENABLED"
+    )
     intake_enabled: Flag = Field(default=False, validation_alias=_names("INTAKE_ENABLED"))
     # The Business agent over WhatsApp. Off by default: WhatsApp is receipt
     # intake only until this is turned on.
