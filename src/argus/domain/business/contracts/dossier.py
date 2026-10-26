@@ -95,6 +95,8 @@ class DraftRevision(Contract):
     created_at: datetime
     before_dgii: DgiiDeclaration | None = None
     after_dgii: DgiiDeclaration | None = None
+    before_current_note: str | None = None
+    after_current_note: str | None = None
     before_due_on: date | None = None
     after_due_on: date | None = None
 
@@ -157,6 +159,10 @@ class DuplicateCandidate(Contract):
 
 
 class BusinessDossier(RecordContext):
+    current_note: str | None = None
+    note_edit_available: bool = False
+    supporting_append_available: bool = False
+    annotation_unavailable_reason: str | None = None
     dgii: DgiiDeclaration | None = None
     draft_id: UUID
     version: int = Field(ge=1)
@@ -224,12 +230,23 @@ class BusinessDossier(RecordContext):
 
 #: The due date a person sets in review, wherever the dossier carries it.
 _UNMEASURED_DOSSIER_FIELDS = {
+    "current_note": True,
+    "note_edit_available": True,
+    "supporting_append_available": True,
+    "annotation_unavailable_reason": True,
     "due_on": True,
     "approval_action": True,
     "fiscal_inclusion_available": True,
     "refund_candidates": True,
     "duplicate_candidates": True,
-    "history": {"__all__": {"before_due_on", "after_due_on"}},
+    "history": {
+        "__all__": {
+            "before_due_on",
+            "after_due_on",
+            "before_current_note",
+            "after_current_note",
+        }
+    },
 }
 
 

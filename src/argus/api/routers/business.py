@@ -42,6 +42,7 @@ from argus.api.business import (
     require_business_workspace,
     working_scope,
 )
+from argus.api.business_annotations import router as business_annotations_router
 from argus.api.business_drafts import (
     action_problem,
     expense_detail,
@@ -168,6 +169,7 @@ router = APIRouter(
     },
 )
 router.include_router(business_reports_router)
+router.include_router(business_annotations_router)
 router.include_router(business_workspace_router)
 router.include_router(business_workspace_images_router)
 router.include_router(business_bank_router)

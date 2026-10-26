@@ -2025,6 +2025,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/current-note:
+    put:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditCurrentNote'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteResponse'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/dossier:
     get:
       tags:
@@ -2397,6 +2460,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/drafts/{draft_id}/supporting-files:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: draft_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 80
+      - name: X-Draft-Version
+        in: header
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: X-Document-Filename
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for the
+            own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportingResponse'
+        '403':
+          description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
+            missing, someone else''s, revoked or expired; `business_permission_denied`: the
+            live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          text/plain:
+            schema:
+              type: string
+              format: binary
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+          application/xml:
+            schema:
+              type: string
+              format: binary
+          text/xml:
+            schema:
+              type: string
+              format: binary
+          message/rfc822:
+            schema:
+              type: string
+              format: binary
   /api/v1/business/email:
     get:
       tags:
@@ -5227,7 +5399,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReportRequest'
+              oneOf:
+              - $ref: '#/components/schemas/ReportRequest'
+              - $ref: '#/components/schemas/ReportRequestV2'
+              discriminator:
+                propertyName: schema_version
+                mapping:
+                  '1': '#/components/schemas/ReportRequest'
+                  '2': '#/components/schemas/ReportRequestV2'
       responses:
         '200':
           description: Successful Response
@@ -17053,6 +17232,20 @@ components:
             - approve
           type: array
           uniqueItems: true
+        current_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+        note_edit_available:
+          type: boolean
+          default: false
+        supporting_append_available:
+          type: boolean
+          default: false
+        annotation_unavailable_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
         dgii:
           anyOf:
           - oneOf:
@@ -19206,7 +19399,9 @@ components:
           maxLength: 120
           minLength: 1
         recipe:
-          $ref: '#/components/schemas/ReportRecipe-Input'
+          oneOf:
+          - $ref: '#/components/schemas/ReportRecipe-Input'
+          - $ref: '#/components/schemas/ReportRecipeV2-Input'
           default:
             schema_version: 1
             filters:
@@ -19229,6 +19424,11 @@ components:
             - currency
             - gross_amount
             sort: date_desc
+          discriminator:
+            propertyName: schema_version
+            mapping:
+              '1': '#/components/schemas/ReportRecipe-Input'
+              '2': '#/components/schemas/ReportRecipeV2-Input'
       additionalProperties: false
       type: object
       required:
@@ -20454,6 +20654,14 @@ components:
                 '606': '#/components/schemas/PurchaseDeclaration'
                 '607': '#/components/schemas/SalesDeclaration'
           - type: 'null'
+        before_current_note:
+          anyOf:
+          - type: string
+          - type: 'null'
+        after_current_note:
+          anyOf:
+          - type: string
+          - type: 'null'
         before_due_on:
           anyOf:
           - type: string
@@ -20551,6 +20759,19 @@ components:
       required:
       - checked_at
       - checks
+    EditCurrentNote:
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1.0
+        note:
+          type: string
+          maxLength: 500
+      additionalProperties: false
+      type: object
+      required:
+      - expected_version
+      - note
     EditFinancialAccountRequest:
       properties:
         expected_version:
@@ -21116,7 +21337,9 @@ components:
     ExportReport:
       properties:
         report:
-          $ref: '#/components/schemas/ReportRequest'
+          oneOf:
+          - $ref: '#/components/schemas/ReportRequest'
+          - $ref: '#/components/schemas/ReportRequestV2'
           default:
             schema_version: 1
             filters:
@@ -21141,6 +21364,11 @@ components:
             sort: date_desc
             page: 1
             page_size: 25
+          discriminator:
+            propertyName: schema_version
+            mapping:
+              '1': '#/components/schemas/ReportRequest'
+              '2': '#/components/schemas/ReportRequestV2'
         expected_fingerprint:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -25820,6 +26048,32 @@ components:
       - beta
       - household
       - group_links
+    NoteResponse:
+      properties:
+        result:
+          $ref: '#/components/schemas/NoteResult'
+        dossier:
+          $ref: '#/components/schemas/BusinessDossier'
+      additionalProperties: false
+      type: object
+      required:
+      - result
+      - dossier
+    NoteResult:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        note:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
+      - note
     ObservationQuestion:
       properties:
         observation_id:
@@ -26828,6 +27082,60 @@ components:
       - currency_fraction_digits
       - amount_minor
       - unknown_count
+    Presentation:
+      properties:
+        order:
+          items:
+            type: string
+            enum:
+            - counterparty
+            - date
+            - gross_amount
+            - currency
+            - family
+            - category
+            - stage
+            - note
+            - attachment
+            - funding
+          type: array
+          default:
+          - counterparty
+          - date
+          - gross_amount
+          - currency
+          - family
+          - category
+          - stage
+          - note
+          - attachment
+          - funding
+        hidden:
+          items:
+            type: string
+            enum:
+            - counterparty
+            - date
+            - gross_amount
+            - currency
+            - family
+            - category
+            - stage
+            - note
+            - attachment
+            - funding
+          type: array
+          default:
+          - funding
+        density:
+          type: integer
+          enum:
+          - 40
+          - 48
+          - 56
+          default: 48
+      additionalProperties: false
+      type: object
     PreviewBody:
       properties:
         overrides:
@@ -29572,6 +29880,19 @@ components:
           items:
             $ref: '#/components/schemas/ReportRecord'
           type: array
+        overview:
+          $ref: '#/components/schemas/ReportOverview'
+          default:
+            needs_review: 0
+            awaiting_approval: 0
+            ready_for_export: 0
+        effective_sort:
+          type: string
+          default: date_desc
+        sort_unavailable_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
         matching_count:
           type: integer
         page:
@@ -29630,6 +29951,37 @@ components:
       - counterparties
       - categories
       - funding_sources
+    ReportAttachment:
+      properties:
+        source_id:
+          type: string
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+        filename:
+          anyOf:
+          - type: string
+          - type: 'null'
+        media_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+        source_available:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        download_available:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - source_id
+      - receipt_id
+      - filename
+      - media_type
+      - source_available
     ReportFilters:
       properties:
         q:
@@ -29813,8 +30165,280 @@ components:
           default: date_desc
       additionalProperties: false
       type: object
+    ReportFiltersV2:
+      properties:
+        q:
+          type: string
+          maxLength: 200
+          default: ''
+        period:
+          $ref: '#/components/schemas/Period'
+          default:
+            kind: all
+        record_families:
+          items:
+            type: string
+            enum:
+            - sale
+            - purchase
+          type: array
+          default: []
+        review_stages:
+          items:
+            type: string
+            enum:
+            - needs_review
+            - awaiting_approval
+            - ready_for_export
+          type: array
+          default: []
+        has_document:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        currencies:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        amount_min:
+          anyOf:
+          - type: string
+          - type: 'null'
+        amount_max:
+          anyOf:
+          - type: string
+          - type: 'null'
+        counterparties:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        categories:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        funding_sources:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          default: []
+        document_kinds:
+          items:
+            type: string
+            enum:
+            - invoice
+            - receipt
+            - credit_note
+            - unknown
+          type: array
+          default: []
+        fiscal_classifications:
+          items:
+            type: string
+          type: array
+          maxItems: 100
+          default: []
+      additionalProperties: false
+      type: object
+    ReportOverview:
+      properties:
+        needs_review:
+          type: integer
+          default: 0
+        awaiting_approval:
+          type: integer
+          default: 0
+        ready_for_export:
+          type: integer
+          default: 0
+      additionalProperties: false
+      type: object
+    ReportRecipeV2-Input:
+      properties:
+        schema_version:
+          type: integer
+          const: 2
+          default: 2
+        filters:
+          $ref: '#/components/schemas/ReportFiltersV2'
+          default:
+            q: ''
+            period:
+              kind: all
+            record_families: []
+            review_stages: []
+            currencies: []
+            counterparties: []
+            categories: []
+            funding_sources: []
+            document_kinds: []
+            fiscal_classifications: []
+        columns:
+          items:
+            type: string
+            enum:
+            - date
+            - family
+            - stage
+            - counterparty
+            - currency
+            - gross_amount
+            - recorded_amount
+            - proposed_amount
+            - category
+            - funding
+            - document_kind
+            - fiscal_classification
+            - note
+          type: array
+          default:
+          - date
+          - family
+          - stage
+          - counterparty
+          - currency
+          - gross_amount
+        sort:
+          type: string
+          enum:
+          - date_desc
+          - date_asc
+          - name_asc
+          - name_desc
+          - amount_asc
+          - amount_desc
+          default: date_desc
+        presentation:
+          $ref: '#/components/schemas/Presentation'
+          default:
+            order:
+            - counterparty
+            - date
+            - gross_amount
+            - currency
+            - family
+            - category
+            - stage
+            - note
+            - attachment
+            - funding
+            hidden:
+            - funding
+            density: 48
+        page_size:
+          type: integer
+          enum:
+          - 25
+          - 50
+          - 100
+          default: 25
+      additionalProperties: false
+      type: object
+    ReportRecipeV2-Output:
+      properties:
+        schema_version:
+          type: integer
+          const: 2
+          default: 2
+        filters:
+          $ref: '#/components/schemas/ReportFiltersV2'
+          default:
+            q: ''
+            period:
+              kind: all
+            record_families: []
+            review_stages: []
+            currencies: []
+            counterparties: []
+            categories: []
+            funding_sources: []
+            document_kinds: []
+            fiscal_classifications: []
+        columns:
+          items:
+            type: string
+            enum:
+            - date
+            - family
+            - stage
+            - counterparty
+            - currency
+            - gross_amount
+            - recorded_amount
+            - proposed_amount
+            - category
+            - funding
+            - document_kind
+            - fiscal_classification
+            - note
+          type: array
+          default:
+          - date
+          - family
+          - stage
+          - counterparty
+          - currency
+          - gross_amount
+        sort:
+          type: string
+          enum:
+          - date_desc
+          - date_asc
+          - name_asc
+          - name_desc
+          - amount_asc
+          - amount_desc
+          default: date_desc
+        presentation:
+          $ref: '#/components/schemas/Presentation'
+          default:
+            order:
+            - counterparty
+            - date
+            - gross_amount
+            - currency
+            - family
+            - category
+            - stage
+            - note
+            - attachment
+            - funding
+            hidden:
+            - funding
+            density: 48
+        page_size:
+          type: integer
+          enum:
+          - 25
+          - 50
+          - 100
+          default: 25
+      additionalProperties: false
+      type: object
     ReportRecord:
       properties:
+        can_edit_note:
+          type: boolean
+          default: false
+        can_append_supporting:
+          type: boolean
+          default: false
+        annotation_unavailable_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: business_annotation_unsupported
+        attachment_sources:
+          items:
+            $ref: '#/components/schemas/ReportAttachment'
+          type: array
+          default: []
         row_id:
           type: string
         draft_id:
@@ -29945,6 +30569,16 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        attachment_filenames:
+          items:
+            type: string
+          type: array
+          default: []
+        document_identifiers:
+          items:
+            type: string
+          type: array
+          default: []
         settlement_status:
           anyOf:
           - type: string
@@ -30019,6 +30653,91 @@ components:
           - 50
           - 100
           default: 25
+      additionalProperties: false
+      type: object
+    ReportRequestV2:
+      properties:
+        schema_version:
+          type: integer
+          const: 2
+          default: 2
+        filters:
+          $ref: '#/components/schemas/ReportFiltersV2'
+          default:
+            q: ''
+            period:
+              kind: all
+            record_families: []
+            review_stages: []
+            currencies: []
+            counterparties: []
+            categories: []
+            funding_sources: []
+            document_kinds: []
+            fiscal_classifications: []
+        columns:
+          items:
+            type: string
+            enum:
+            - date
+            - family
+            - stage
+            - counterparty
+            - currency
+            - gross_amount
+            - recorded_amount
+            - proposed_amount
+            - category
+            - funding
+            - document_kind
+            - fiscal_classification
+            - note
+          type: array
+          default:
+          - date
+          - family
+          - stage
+          - counterparty
+          - currency
+          - gross_amount
+        sort:
+          type: string
+          enum:
+          - date_desc
+          - date_asc
+          - name_asc
+          - name_desc
+          - amount_asc
+          - amount_desc
+          default: date_desc
+        presentation:
+          $ref: '#/components/schemas/Presentation'
+          default:
+            order:
+            - counterparty
+            - date
+            - gross_amount
+            - currency
+            - family
+            - category
+            - stage
+            - note
+            - attachment
+            - funding
+            hidden:
+            - funding
+            density: 48
+        page_size:
+          type: integer
+          enum:
+          - 25
+          - 50
+          - 100
+          default: 25
+        page:
+          type: integer
+          minimum: 1.0
+          default: 1
       additionalProperties: false
       type: object
     ReportingPeriod:
@@ -30582,7 +31301,9 @@ components:
           maxLength: 120
           minLength: 1
         recipe:
-          $ref: '#/components/schemas/ReportRecipe-Output'
+          oneOf:
+          - $ref: '#/components/schemas/ReportRecipe-Output'
+          - $ref: '#/components/schemas/ReportRecipeV2-Output'
           default:
             schema_version: 1
             filters:
@@ -30605,6 +31326,11 @@ components:
             - currency
             - gross_amount
             sort: date_desc
+          discriminator:
+            propertyName: schema_version
+            mapping:
+              '1': '#/components/schemas/ReportRecipe-Output'
+              '2': '#/components/schemas/ReportRecipeV2-Output'
         id:
           type: string
           format: uuid
@@ -31878,6 +32604,46 @@ components:
       type: object
       required:
       - suggestions
+    SupportingResponse:
+      properties:
+        result:
+          $ref: '#/components/schemas/SupportingResult'
+        dossier:
+          $ref: '#/components/schemas/BusinessDossier'
+      additionalProperties: false
+      type: object
+      required:
+      - result
+      - dossier
+    SupportingResult:
+      properties:
+        draft_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        outcome:
+          type: string
+          enum:
+          - appended
+          - duplicate
+        source_id:
+          type: string
+          format: uuid
+        receipt_id:
+          type: string
+          format: uuid
+        sha256:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - draft_id
+      - version
+      - outcome
+      - source_id
+      - receipt_id
+      - sha256
     TaxId:
       properties:
         type:
@@ -32243,7 +33009,9 @@ components:
           maxLength: 120
           minLength: 1
         recipe:
-          $ref: '#/components/schemas/ReportRecipe-Input'
+          oneOf:
+          - $ref: '#/components/schemas/ReportRecipe-Input'
+          - $ref: '#/components/schemas/ReportRecipeV2-Input'
           default:
             schema_version: 1
             filters:
@@ -32266,6 +33034,11 @@ components:
             - currency
             - gross_amount
             sort: date_desc
+          discriminator:
+            propertyName: schema_version
+            mapping:
+              '1': '#/components/schemas/ReportRecipe-Input'
+              '2': '#/components/schemas/ReportRecipeV2-Input'
         expected_version:
           type: integer
           minimum: 1.0
