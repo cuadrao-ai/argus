@@ -6,10 +6,13 @@ type FileRejection = "invalid_name" | "unsupported" | "empty_file" | "too_large"
 type EvidenceSelection = { kind: "ready"; attachments: readonly LocalEvidence[]; duplicates: number } | { kind: "invalid"; reason: FileRejection; filename: string };
 
 export async function addLocalEvidence(existing: readonly LocalEvidence[], files: readonly File[], limits: ReceiptLimits): Promise<EvidenceSelection> {
+  for (const file of files) {
+    const filename = typeof file.name === "string" ? file.name : "";
+    if (!filename.trim() || filename.length > 255 || filename.includes("/") || filename.includes("\\") || [...filename].some((character) => character.charCodeAt(0) < 32)) return { kind: "invalid", reason: "invalid_name", filename };
+  }
   const candidates = files.map((file) => receiptFileWithType(file, limits));
   for (const file of candidates) {
-    const invalidName = !file.name.trim() || file.name.length > 255 || file.name.includes("/") || file.name.includes("\\") || [...file.name].some((character) => character.charCodeAt(0) < 32);
-    const reason = invalidName ? "invalid_name" : !limits.media_types.includes(file.type) ? "unsupported" : file.size === 0 ? "empty_file" : file.size > limits.max_bytes ? "too_large" : null;
+    const reason = !limits.media_types.includes(file.type) ? "unsupported" : file.size === 0 ? "empty_file" : file.size > limits.max_bytes ? "too_large" : null;
     if (reason) return { kind: "invalid", reason, filename: file.name };
   }
   const attachments = [...existing];

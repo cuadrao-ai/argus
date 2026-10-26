@@ -84,7 +84,7 @@ describe("responsive breakpoints", () => {
 });
 
 describe("pointer capability stays an affordance concern", () => {
-  test("only the sidebar hover affordance stylesheet branches on the pointer", () => {
+  test("only the cleared sidebar and record-cell affordances branch on the pointer", () => {
     /*
      * Geometry follows the DESIGN.md widths. Pointer capability answers only
      * whether a hover-revealed control is reachable, so it stays in one CSS
@@ -115,7 +115,19 @@ describe("pointer capability stays an affordance concern", () => {
     scan(join(import.meta.dir, "..", "app"));
     expect(offenders).toEqual([
       "components/sidebar/pointerAffordances.module.css",
+      "components/business-app/transacciones/transacciones-cells.module.css",
     ]);
+
+
+    const recordCells = readFileSync(join(import.meta.dir, "../components/business-app/transacciones/transacciones-cells.module.css"), "utf-8");
+    const approved = [
+      "@media (hover:hover) and (pointer:fine) { .emptyActionDash { visibility:visible; } .emptyActionIcon { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionDash, :global(tr[data-record-key]:focus-within) .emptyActionDash { visibility:hidden; } :global(tr[data-record-key]:hover) .emptyActionIcon, :global(tr[data-record-key]:focus-within) .emptyActionIcon { visibility:visible; } }",
+      "@media (any-pointer:coarse) { .emptyActionDash { visibility:hidden; } .emptyActionIcon { visibility:visible; } }",
+    ];
+    const mediaBlocks = (source: string) => source.match(/@media[^{}]*\{(?:[^{}]|\{[^{}]*\})*\}/g)?.map((block) => block.replace(/\s+/g, " ").trim()) ?? [];
+    expect(mediaBlocks(recordCells)).toEqual(approved);
+    expect(mediaBlocks(recordCells + "\n@media (pointer:fine) { :global(body) { display:none; } }")).not.toEqual(approved);
+    expect(mediaBlocks(recordCells.replace("visibility:visible", "display:none"))).not.toEqual(approved);
 
     const affordances = readFileSync(
       join(

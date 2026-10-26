@@ -128,7 +128,7 @@ test("a reading setting that did not load claims nothing", async () => {
   } finally { await unknown.close(); }
 });
 
-test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its segments are Por revisar, Con problema and Todo", async () => {
+test("Bandeja shows one header Agregar, no subhead or page duplicate, and its existing segments", async () => {
   const page = await mountInbox();
   try {
     await page.settle(() => page.host.querySelector('[data-testid="business-inbox-receipts"]') !== null);
@@ -136,8 +136,9 @@ test("Bandeja shows no subhead and no Agregar of its own on a desktop, and its s
     const segments = [...page.host.querySelectorAll<HTMLButtonElement>('[data-testid="bandeja-segments"] [data-segment]')];
     assert.deepEqual(segments.map((segment) => segment.dataset.segment), ["review", "problem", "all"]);
     assert.equal(document.querySelector('[data-testid="email-address"]'), null, "the receiving address lives in Negocio");
-    assert.equal(page.host.querySelector('[data-testid="business-primary-upload"]'), null, "Agregar lives in the top bar");
-    assert.equal(page.host.querySelector('[data-testid="add-menu-page"]'), null);
+    assert.equal(page.host.querySelectorAll('[data-testid="add-menu-header"] [data-testid="business-primary-upload"]').length, 1, "the cleared desktop heading owns Agregar");
+    assert.equal(page.host.querySelectorAll('[data-testid="business-primary-upload"]').length, 1, "Agregar is not duplicated");
+    assert.equal(page.host.querySelectorAll('[data-testid="add-menu-page"]').length, 0);
   } finally { await page.close(); }
 });
 

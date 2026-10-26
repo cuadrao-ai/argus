@@ -7,7 +7,9 @@ export type ReviewFilter = "review" | "approval" | "export";
 export type PreviewFilters = {
   review: ReviewFilter[];
   attachment: "any" | "with" | "without";
-  amount: { currency: "" | "DOP" | "USD" | "EUR"; min: string; max: string };
+  amount: { currency: string; min: string; max: string };
+  currencies?: string[];
+  recordFamilies?: ("sale" | "purchase")[];
   counterparty: string[];
   category: string[];
   account: string[];
@@ -15,11 +17,14 @@ export type PreviewFilters = {
   fiscal: string[];
 };
 export const emptyPreviewFilters = (): PreviewFilters => ({ review: [], attachment: "any", amount: { currency: "", min: "", max: "" }, counterparty: [], category: [], account: [], document: [], fiscal: [] });
-export const activeFilterGroups = (filters: PreviewFilters): FilterGroup[] => FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.amount.currency) : filters[group].length > 0);
-export const validPreviewAmount = ({ min, max }: PreviewFilters["amount"]): boolean => {
-  const valid = (value: string) => !value || /^\d+(\.\d{1,2})?$/.test(value) && value.split(".")[0].length <= MONEY_MAX_INTEGER_DIGITS;
-  const cents = (value: string) => { const [whole, fraction = ""] = value.split("."); return BigInt(whole) * BigInt(100) + BigInt(fraction.padEnd(2, "0")); };
-  return valid(min) && valid(max) && (!min || !max || cents(min) <= cents(max));
+export const activeFilterGroups = (filters: PreviewFilters): FilterGroup[] => FILTER_GROUPS.filter((group) => group === "attachment" ? filters.attachment !== "any" : group === "amount" ? Boolean(filters.currencies?.length || filters.amount.currency) : filters[group].length > 0);
+export const validPreviewAmount = ({ min, max, currency }: PreviewFilters["amount"], currencies?: readonly string[]): boolean => {
+  const selected = currencies ?? (currency ? [currency] : []);
+  if ((min || max) && selected.length !== 1) return false;
+  const digits = currencyDigits(selected[0] ?? currency);
+  const valid = (value: string) => !value || /^\d+(?:\.\d+)?$/.test(value) && (value.split(".")[1]?.length ?? 0) <= digits && (currencies ? value.split(".")[0].replace(/^0+/, "") : value.split(".")[0]).length <= MONEY_MAX_INTEGER_DIGITS;
+  const minor = (value: string) => { const [whole, fraction = ""] = value.split("."); return BigInt(whole) * BigInt(10) ** BigInt(digits) + BigInt(fraction.padEnd(digits, "0") || "0"); };
+  return valid(min) && valid(max) && (!min || !max || minor(min) <= minor(max));
 };
 
 export function matchesPreviewAttachment(hasProof: boolean | null, filter: PreviewFilters["attachment"]): boolean {

@@ -33,6 +33,7 @@ import { TransaccionesList } from "./TransaccionesList";
 import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
 import { useTransaccionesWords } from "./transacciones-words";
+import BusinessReportsPanel from "./BusinessReportsPanel";
 import { useTransacciones } from "./useTransacciones";
 
 /**
@@ -43,6 +44,12 @@ import { useTransacciones } from "./useTransacciones";
  * ventas in the same columns, each opening its record.
  */
 export default function TransaccionesPanel() {
+  const { source } = useBusiness();
+  const igualar = useIgualarEnabled();
+  return source.mode === "live" && !igualar ? <BusinessReportsPanel /> : <LegacyTransaccionesPanel />;
+}
+
+function LegacyTransaccionesPanel() {
   const { t, locale } = useTransaccionesWords();
   const { period, setPeriod, panel, records, actions, chosen } = useBusiness();
   const igualarOn = useIgualarEnabled();

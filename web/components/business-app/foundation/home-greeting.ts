@@ -21,7 +21,7 @@ export function useHomeClock(active = true): HomeClock | null {
   const [clock, setClock] = useState<HomeClock | null>(null);
   useEffect(() => {
     if (!active) return;
-    let timer: ReturnType<typeof window.setTimeout>;
+    let timer: number;
     const refresh = () => {
       window.clearTimeout(timer);
       const date = new Date();

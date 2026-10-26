@@ -118,7 +118,7 @@ test("on focus the search is not empty: it names what it reads and offers every 
   try {
     await view.openSearch();
     assert.equal(view.input().placeholder, "Busca comercio, monto o nota");
-    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "TransaccionesPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "RecepciónPantalla"]);
+    assert.deepEqual(rows("Ir a"), ["InicioPantalla", "BandejaPantalla", "RegistrosPantalla", "NegocioPantalla", "Equipo y accesosPantalla", "RecepciónPantalla"]);
     assert.deepEqual(rows("Acciones"), ["AgregarAcción", "Exportar registrosAcción", "Copiar dirección de reenvíoAcción"]);
     assert.ok(!/Argus/.test(paletteText()), "no Argus words on a Business search");
   } finally { await view.unmount(); }
@@ -128,8 +128,8 @@ test("screens and actions match the query without accents or case, and open wher
   const view = await mount();
   try {
     await view.openSearch();
-    await type(view.input(), "transaccion");
-    assert.deepEqual(rows("Ir a"), ["TransaccionesPantalla"]);
+    await type(view.input(), "REGÍSTRO");
+    assert.deepEqual(rows("Ir a"), ["RegistrosPantalla"]);
     await type(view.input(), "EXPORTAR");
     assert.deepEqual(rows("Acciones"), ["Exportar registrosAcción"]);
     await type(view.input(), "dirección");

@@ -1,7 +1,7 @@
 import { formatAmount, UNKNOWN_VALUE } from "../business-format";
 import { magnitude, type Money, type RecordRow } from "./transacciones-model";
 
-export const recordRowKey = (row: RecordRow) => `${row.kind}:${row.id}`;
+export const recordRowKey = (row: RecordRow) => row.report?.row_id ?? `${row.kind}:${row.id}`;
 
 export function formatRecordActivityDate(day: string | null, locale: string): string {
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return UNKNOWN_VALUE;

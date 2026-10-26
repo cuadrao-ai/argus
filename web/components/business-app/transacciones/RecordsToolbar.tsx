@@ -15,9 +15,10 @@ import type { RecordKind } from "./transacciones-model";
 import { useTransaccionesWords } from "./transacciones-words";
 import RecordsDatePreview from "./RecordsDatePreview";
 import { useRecordsSearchShortcut } from "./useRecordsSearchShortcut";
-import RecordsFiltersPreview from "./RecordsFiltersPreview";
+import RecordsFiltersPreview, { type ReportFilterCatalogues } from "./RecordsFiltersPreview";
+import type { ReportPeriod } from "@/lib/business-reports-api";
 import { emptyPreviewFilters, type PreviewFilters } from "./records-filter-preview-model";
-import { RecordsViewsPreview, type SavedRecordsView, type RecordsViewSelection } from "./RecordsViewsPreview";
+import { RecordsViewsPreview, type ConnectedReportViews, type SavedRecordsView, type RecordsViewSelection } from "./RecordsViewsPreview";
 
 export type RecordsFilter = { query: string; kind: RecordKind | "all" };
 export const EMPTY_RECORDS_FILTER: RecordsFilter = { query: "", kind: "all" };
@@ -77,13 +78,15 @@ function PeriodChoices({ period, setPeriod, close }: { period: Period; setPeriod
   </>;
 }
 
-export function RecordsToolbar({ filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
+export type ConnectedRecordsToolbar = { reportPeriod: ReportPeriod; onPreset: (kind: Exclude<ReportPeriod["kind"], "custom">) => void; catalogues?: ReportFilterCatalogues; applyFilters: (filters: PreviewFilters, kind: RecordsFilter["kind"]) => void; views: ConnectedReportViews };
+
+export function RecordsToolbar({ connected, filter, onChange, period, setPeriod, options, onPreviewChange, preferences, onPreferencesChange, appliedFilters, onFiltersChange, appliedPeriod, onPeriodChange }: { connected?: ConnectedRecordsToolbar; appliedPeriod?: Period; onPeriodChange?: (value: Period) => void; appliedFilters?: PreviewFilters; onFiltersChange?: (value: PreviewFilters) => void; preferences?: RecordsViewPreferences; onPreferencesChange?: (value: RecordsViewPreferences) => void; onPreviewChange?: () => void; filter: RecordsFilter; onChange: (filter: RecordsFilter) => void; period: Period; setPeriod: (period: PeriodKey | Period) => void; options: ReactNode }) {
   const { t } = useTransaccionesWords();
   const periodName = usePeriodLabel();
   const searchInput = useRef<HTMLInputElement>(null);
   useRecordsSearchShortcut(searchInput);
   const { isBelowTablet: phone, isBelowDesktop } = useResponsiveLayout();
-  const datePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const datePreview = Boolean(connected) || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const preview = datePreview && !isBelowDesktop;
   const [localPeriod, setLocalPeriod] = useState(period);
   const previewPeriod = appliedPeriod ?? localPeriod;
@@ -101,18 +104,18 @@ export function RecordsToolbar({ filter, onChange, period, setPeriod, options, o
   };
   const kindName = (kind: RecordsFilter["kind"]) => kind === "all" ? t("business.transactions.layout.all_types") : t(`business.transactions.records.detail.${kind}`);
   return <div className={styles.toolbarContainer}><div data-testid="records-toolbar" className={`${styles.toolbar} mb-4 flex flex-wrap items-center gap-2`}>
-    {preview ? <RecordsViewsPreview views={views} select={restoreView} save={(name) => setViews((current) => [...current, { name, selection: structuredClone({ record: filter, period: previewPeriod, filters: previewFilters, preferences }) }])} /> : null}
+    {preview ? <RecordsViewsPreview connected={connected?.views} views={views} select={restoreView} save={(name) => setViews((current) => [...current, { name, selection: structuredClone({ record: filter, period: previewPeriod, filters: previewFilters, preferences }) }])} /> : null}
     <div className={styles.toolbarSearch} data-phone={phone}>
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#56635e] dark:text-white/60" aria-hidden="true" />
-      <input ref={searchInput} type="search" value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
+      <input ref={searchInput} type="search" maxLength={connected ? 200 : undefined} value={filter.query} onChange={(event) => onChange({ ...filter, query: event.target.value })} aria-label={t("business.transactions.layout.search")} placeholder={t("business.transactions.layout.search")} className="h-11 w-full rounded-full border border-[#DCE0DA] bg-white pl-10 pr-3 text-[16px] text-[#172b26] placeholder:text-[#7d8a84] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/15 dark:bg-[#1f2225] dark:text-white dark:placeholder:text-white/45" />
     </div>
-    {datePreview ? <RecordsDatePreview period={period} value={previewPeriod} onChange={(next) => { setPreviewPeriod(next); onPreviewChange?.(); }} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
+    {datePreview ? <RecordsDatePreview reportPeriod={connected?.reportPeriod} onPreset={connected?.onPreset} period={period} value={previewPeriod} onChange={(next) => { setPreviewPeriod(next); onPreviewChange?.(); }} /> : <ToolbarPicker label={t("business.period.label")} value={periodName(period)} icon={<CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />} wide>
       {(close) => <PeriodChoices period={period} setPeriod={setPeriod} close={close} />}
     </ToolbarPicker>}
     {!datePreview ? <ToolbarPicker label={t("business.transactions.layout.type")} value={filter.kind === "all" ? t("business.transactions.layout.type") : kindName(filter.kind)}>
       {(close) => <div>{(["all", "gasto", "venta"] as const).map((kind) => <button key={kind} type="button" className={optionClass} onClick={() => { onChange({ ...filter, kind }); close(); }}>{kindName(kind)}{filter.kind === kind ? <Check className="h-4 w-4" aria-hidden="true" /> : null}</button>)}</div>}
     </ToolbarPicker> : null}
-    {datePreview ? <RecordsFiltersPreview options={options} value={previewFilters} kind={filter.kind} onChange={(next, kind) => { setPreviewFilters(next); onChange({ ...filter, kind }); onPreviewChange?.(); }} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
+    {datePreview ? <RecordsFiltersPreview catalogues={connected?.catalogues} options={options} value={previewFilters} kind={filter.kind} onChange={(next, kind) => { if (connected) connected.applyFilters(next, kind); else { setPreviewFilters(next); onChange({ ...filter, kind }); onPreviewChange?.(); } }} /> : <div className="ml-auto flex items-center gap-3">{options}</div>}
     {(!datePreview && filter.kind !== "all") || filter.query ? <div className="flex w-full items-center gap-2 pt-1">
       <button type="button" onClick={() => onChange(datePreview ? { ...filter, query: "" } : EMPTY_RECORDS_FILTER)} className="flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[13px] text-[#56635e] hover:bg-black/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:text-white/65 dark:hover:bg-white/5"><X className="h-3.5 w-3.5" aria-hidden="true" />{t(datePreview ? "business.transactions.layout.clear_search" : "business.transactions.layout.clear")}</button>
     </div> : null}

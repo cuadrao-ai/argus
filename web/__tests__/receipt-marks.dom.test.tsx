@@ -80,11 +80,11 @@ describe("the Overview's two totals", () => {
     const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
     const { default: BusinessOverviewPanel } = await import("@/components/business-app/BusinessOverviewPanel");
     const overview: BusinessOverview = { from: "2026-10-01", to: "2026-10-31", today: "2026-10-13", totals: [{ currency: "DOP", amount: "5000.00", count: 3 }], fiscal_totals: [{ currency: "DOP", amount: "3500.00", count: 2 }], without_fiscal_totals: [{ currency: "DOP", amount: "1500.00", count: 1 }], last_received_at: null, last_confirmed_at: null, outside_period_count: 0, outside_period_latest_on: null };
-    const value = { source: { mode: "fixture" }, records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, panel: { kind: "overview" }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [] }, chosen: null } as unknown as BusinessContextValue;
+    const value = { source: { mode: "fixture" }, records: { overview, inbox: [], notes: [], workspace: null, error: false, notesError: false, notesTruncated: false }, panel: { kind: "overview" }, period: { key: "this_month", from: "2026-10-01", to: null }, setPeriod: () => undefined, openPanel: () => undefined, actions: { starterEntries: [], create: [] }, chosen: null } as unknown as BusinessContextValue;
     await env.act(async () => { env.root.render(<env.I18nextProvider i18n={env.i18n}><BusinessContext.Provider value={value}><BusinessOverviewPanel /></BusinessContext.Provider></env.I18nextProvider>); });
     assert.equal(env.host.querySelector('[data-testid="overview-real-expenses"]'), null);
     assert.equal(env.host.querySelector('[data-testid="overview-fiscal-expenses"]'), null);
-    assert.ok(env.host.querySelector("#business-overview-title"), "the Inicio renders");
+    assert.ok(env.host.querySelector('section[aria-labelledby="business-overview-title"]'), "the Inicio region renders");
     assert.equal(env.host.querySelector('[data-testid="inicio-por-revisar"]'), null, "the old review card is gone");
     assert.equal(env.host.querySelector('[data-testid="month-close-task-review"]'), null, "nothing to review adds no checklist line");
     assert.equal(/Revisa 0 |0 por revisar/.test(env.host.textContent ?? ""), false);

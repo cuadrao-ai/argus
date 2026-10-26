@@ -15,7 +15,7 @@ import { showToast } from "./foundation/toasts";
  * from the tablet stop up and at the top of each screen on a phone.
  * A contador, who adds nothing, gets the menu alone.
  */
-export default function BusinessAddMenu({ placement }: { placement: "header" | "page" }) {
+export default function BusinessAddMenu({ placement, onExport, exportEnabled = true }: { placement: "header" | "page"; onExport?: () => void; exportEnabled?: boolean }) {
   const { t } = useTranslation();
   const { actions, chosen, openExport, openPanel } = useBusiness();
   const forwardAddress = useForwardAddress();
@@ -27,7 +27,7 @@ export default function BusinessAddMenu({ placement }: { placement: "header" | "
     else openPanel({ kind: "business", tab: "correo" });
   };
   const more = [
-    ...(chosen?.capabilities.includes("read") ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: openExport }] : []),
+    ...(chosen?.capabilities.includes("read") && exportEnabled ? [{ id: "export", icon: Download, label: t("business.overview.export_records", "Export records"), run: onExport ?? openExport }] : []),
     ...(owner && forwardAddress ? [{ id: "copy_forward", icon: Copy, label: t("business.overview.copy_forward", "Copy forwarding address"), run: () => void copyForward(forwardAddress) }] : []),
   ];
   const page = placement === "page";

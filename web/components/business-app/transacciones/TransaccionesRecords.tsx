@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ChevronRight, FileText } from "lucide-react";
 import { businessWorkspaceCurrency } from "@/lib/business-api";
 import { currencySymbol } from "@/lib/money-entry";
 import { useBusiness } from "../BusinessWorkspace";
-import { formatAmount, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
+import { formatAmount, formatMoney, formatRelativeDay, todayIso, UNKNOWN_VALUE } from "../business-format";
 import { isOpenRecord } from "../record-tray";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { RecordGlanceContext } from "./RecordGlanceContext";
@@ -113,7 +113,7 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
             const cells = {
               contraparte: (<td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
               fecha: (<td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{preferences ? formatRecordActivityDate(row.occurredOn, locale) : formatRelativeDay(row.occurredOn, today, locale)}</td>),
-              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
+              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(row.report ? row.money.amount : magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
               moneda: (<td data-col="moneda" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{row.report && row.report.currency === null ? <Unknown /> : currencySymbol(row.money.currency)}</td>),
               notas: (<td data-col="notas" className={`${CELL} text-left`}><RecordNotePreview row={row} /></td>),
               detalle: (<td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
@@ -197,7 +197,7 @@ export function RecordsNarrowList({ records, rowRef }: { records: readonly Recor
   return <ul className={pageStyles.list} data-testid="transacciones-records">
     {records.map((row) => {
       const opens = row.opens;
-      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : <PlainAmount money={row.money} />}</span></span>
+      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : row.report ? <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatMoney(row.money.amount, row.money.currency, locale)}</span> : <PlainAmount money={row.money} />}</span></span>
         <span className={pageStyles.meta}><span className={pageStyles.marks}>{row.report?.family === null ? <Unknown /> : t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
       return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
         {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}

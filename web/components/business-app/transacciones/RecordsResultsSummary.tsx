@@ -49,7 +49,7 @@ export function RecordsSummaryCards({ summary, kind }: { summary: ReturnType<typ
     {expanded && summary.currencies.length > 2 ? <AdaptivePanel modal={false} width="md" snaps={["half", "full"]} initialSnap="full" title={word("breakdown_title")} summary={t("business.transactions.layout.results.currencies", { count: summary.currencies.length })} closeLabel={t("common.close")} onClose={close} returnFocusRef={trigger}>
       <div className={styles.currencyList} data-testid="records-currency-breakdown">
         {summary.currencies.map((currency) => <section className={styles.currencyGroup} key={currency.currency} data-currency={currency.currency} aria-label={currency.currency}>
-          <h3>{currency.currency}</h3><dl>{METRICS.map((metric) => <div key={metric.key}><dt>{label(metric)}</dt><dd>{currency[metric.key] != null ? <PlainAmount money={{ currency: currency.currency, amount: currency[metric.key] }} /> : <Unknown />}</dd></div>)}</dl>
+          <h3>{currency.currency}</h3><dl>{METRICS.map((metric) => <div key={metric.key}><dt>{label(metric)}</dt><dd>{currency[metric.key] != null ? <PlainAmount money={{ currency: currency.currency, amount: currency[metric.key]! }} /> : <Unknown />}</dd></div>)}</dl>
         </section>)}
         {exclusions.length ? <p className={styles.basis}>{word("basis")} · {exclusions.join(" · ")}</p> : null}
       </div>

@@ -7,6 +7,8 @@ import { authenticatedRequestHeaders } from "./chat-auth-ownership";
 const day = z.iso.date();
 const decimal = z.string().regex(/^-?\d+(?:\.\d+)?$/);
 const count = z.number().int().nonnegative();
+// Decimal text owns money. Large legacy JSON minor-unit numbers remain unused metadata.
+const minorNumber = z.number().refine(Number.isInteger);
 const family = z.enum(["sale", "purchase"]);
 const stage = z.enum(["needs_review", "awaiting_approval", "ready_for_export"]);
 const documentKind = z.enum(["invoice", "receipt", "credit_note", "unknown"]);
@@ -50,7 +52,7 @@ export const reportRequestSchema = z.union([
   reportRecipeV2Schema.extend({ page: z.number().int().positive().default(1) }),
 ]);
 export const reportAttachmentSourceSchema = z.object({
-  source_id: z.string(), receipt_id: z.string().nullable(), filename: z.string().nullable(), media_type: z.string().nullable(), source_available: z.boolean(), download_available: z.boolean(),
+  source_id: z.string(), receipt_id: z.string().nullable(), filename: z.string().nullable(), media_type: z.string().nullable(), source_available: z.boolean().nullable(), download_available: z.boolean(),
 });
 export const reportRecordSchema = z.object({
   row_id: z.string().min(1), draft_id: z.string().nullable(), linked_activity_ids: z.array(z.string()), revision: count,
@@ -65,8 +67,8 @@ export const reportRecordSchema = z.object({
 });
 export const reportTotalSchema = z.object({
   currency: z.string().nullable(), kind: z.string(), basis: z.enum(["recorded_activity_amount", "proposed_activity_amount", "document_gross_amount", "document_credit_adjustment", "document_family_amount"]),
-  matching_count: count, known_amount_minor: z.number().int(), unknown_count: count, unsupported_count: count, complete: z.boolean(),
-  amount_minor: z.number().int().nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
+  matching_count: count, known_amount_minor: minorNumber, unknown_count: count, unsupported_count: count, complete: z.boolean(),
+  amount_minor: minorNumber.nullable(), known_amount: decimal.nullable(), amount: decimal.nullable(),
 });
 export const reportAnswerSchema = z.object({
   items: z.array(reportRecordSchema), matching_count: count, page: z.number().int().positive(), page_size: z.union([z.literal(25), z.literal(50), z.literal(100)]), page_count: count,
@@ -111,7 +113,9 @@ async function request<T>(scope: ReportScope, path: string, options: RequestInit
     assertScope();
     const auth = await authenticatedRequestHeaders(scope.userId);
     assertScope();
-    const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, { ...options, cache: "no-store", credentials: "omit", headers: argusApiRequestHeaders(options.headers, auth, path) });
+    const deadline = AbortSignal.timeout(30_000);
+    const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
+    const response = await fetch(`${ARGUS_API_BASE_URL}${path}`, { ...options, signal, cache: "no-store", credentials: "omit", headers: argusApiRequestHeaders(options.headers, auth, path) });
     assertScope();
     if (!response.ok) {
       const raw: unknown = await response.json().catch(() => ({}));
@@ -174,6 +178,12 @@ export type SupportingMutationAnswer = z.infer<typeof supportingMutationSchema>;
 export type CurrentNoteCommand = { draftId: string; expectedVersion: number; note: string; key: string };
 export type SupportingFileCommand = { draftId: string; expectedVersion: number; file: File; key: string };
 const annotationKey = z.string().min(1).max(80);
+export function getBusinessReportAnnotationDossier(scope: ReportScope, draftId: string, signal?: AbortSignal) {
+  return json(scope, `/business/drafts/${encodeURIComponent(z.string().uuid().parse(draftId))}/dossier`, annotationDossierSchema, { signal });
+}
+export function downloadBusinessReportAttachment(scope: ReportScope, receiptId: string, signal?: AbortSignal): Promise<Blob> {
+  return request(scope, `/business/receipts/${encodeURIComponent(z.string().uuid().parse(receiptId))}/source`, { signal }, (response) => response.blob());
+}
 export async function setBusinessReportCurrentNote(scope: ReportScope, command: CurrentNoteCommand, signal?: AbortSignal): Promise<NoteMutationAnswer> {
   const id = z.string().uuid().parse(command.draftId);
   const body = z.strictObject({ expected_version: count, note: z.string().refine((value) => Array.from(value).length <= 500) }).parse({ expected_version: command.expectedVersion, note: command.note });

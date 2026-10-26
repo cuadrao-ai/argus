@@ -256,10 +256,12 @@ describe("the Business top bar on a phone", () => {
     assert.deepEqual(page.searches, ["open"]);
     for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
-      await page.settle(() => page.screen().querySelector('[data-testid="add-menu-page"]') !== null, `${kind}'s Agregar`);
-      const menu = page.screen().querySelector('[data-testid="add-menu-page"]')!;
+      const placement = kind === "transactions" ? "header" : "page";
+      const selector = `[data-testid="add-menu-${placement}"]`;
+      await page.settle(() => page.screen().querySelector(selector) !== null, `${kind}'s Agregar`);
+      const menu = page.screen().querySelector(selector)!;
       assert.equal(menu.querySelector('[data-testid="business-primary-upload"]')?.textContent, "Agregar", kind);
-      assert.equal(page.screen().querySelectorAll('[data-testid="add-menu-page"]').length, 1, kind);
+      assert.equal(page.screen().querySelectorAll('[data-testid="business-primary-upload"]').length, 1, kind);
     }
   });
 });
