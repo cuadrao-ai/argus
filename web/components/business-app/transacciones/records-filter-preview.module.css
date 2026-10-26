@@ -74,12 +74,11 @@
 
 .iconTrigger { width:44px; padding:0; justify-content:center; }
 .settings { padding:12px; }
-.settingsTabs { display:flex; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); padding-bottom:8px; }
-.settingsTabs .group { justify-content:center; }
 .columnList { margin:8px 0; padding:0; list-style:none; }
 .columnRow { display:flex; align-items:center; gap:4px; min-height:48px; }
 .columnRow .choice { flex:1; min-width:0; }
-.columnRow .choice:has(input:disabled) { opacity:1; }
+.requiredColumn { display:flex; align-items:center; gap:12px; flex:1; min-width:0; min-height:44px; padding:8px 4px; font-size:15px; }
+.requiredColumn > svg { flex-shrink:0; width:18px; color:color-mix(in srgb,var(--fg) 55%,transparent); }
 .required { display:block; font-size:12px; color:color-mix(in srgb,var(--fg) 55%,transparent); }
 .grip { display:flex; align-items:center; justify-content:center; width:44px; height:44px; flex-shrink:0; cursor:grab; border-radius:8px; }
 .grip[aria-pressed=true] { background:color-mix(in srgb,var(--cuadrao-green) 15%,transparent); cursor:grabbing; }
