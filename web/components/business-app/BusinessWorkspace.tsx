@@ -77,6 +77,7 @@ import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sou
 export type BusinessPanelState =
   | { kind: "overview" }
   | { kind: "inbox" }
+  | { kind: "invoicing" }
   // Transacciones, the third screen: the period's saved records, or the bank's movements to igualar. `expenseId` is the record a phone comes back from.
   | { kind: "transactions"; expenseId?: string }
   | { kind: "expense"; expenseId: string }
@@ -173,6 +174,7 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   const expenseId = params.get("expense");
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
+  if (view === "invoicing" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return { kind: "invoicing" };
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
