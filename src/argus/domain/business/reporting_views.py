@@ -9,13 +9,14 @@ from psycopg.types.json import Jsonb
 from pydantic import Field, field_validator
 
 from argus.domain.business.authority import ActionContext, ActionError, BusinessAuthority
+from argus.domain.business.reporting_preferences import RecipeInput
 from argus.domain.business.reporting_query import Contract, ReportRecipe
 from argus.domain.business.transactions import transaction
 
 
 class CreateView(Contract):
     name: str = Field(min_length=1, max_length=120)
-    recipe: ReportRecipe = ReportRecipe()
+    recipe: RecipeInput = ReportRecipe()
 
     @field_validator("name")
     @classmethod

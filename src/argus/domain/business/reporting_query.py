@@ -143,7 +143,20 @@ class ReportRequest(ReportRecipe):
     page_size: Literal[25, 50, 100] = 25
 
 
+class ReportAttachment(Contract):
+    source_id: str
+    receipt_id: str | None
+    filename: str | None
+    media_type: str | None
+    source_available: bool | None
+    download_available: bool = False
+
+
 class ReportRecord(Contract):
+    can_edit_note: bool = False
+    can_append_supporting: bool = False
+    annotation_unavailable_reason: str | None = "business_annotation_unsupported"
+    attachment_sources: tuple[ReportAttachment, ...] = ()
     row_id: str
     draft_id: str | None = None
     linked_activity_ids: tuple[str, ...] = ()
@@ -173,6 +186,8 @@ class ReportRecord(Contract):
     fiscal_classification: str = "unknown"
     fiscal_number: str | None = None
     note: str | None = None
+    attachment_filenames: tuple[str, ...] = ()
+    document_identifiers: tuple[str, ...] = ()
     settlement_status: str | None = None
     dependency_fingerprint: str = ""
 
@@ -208,8 +223,17 @@ class FundingOption(Contract):
     kind: str | None
 
 
+class ReportOverview(Contract):
+    needs_review: int = 0
+    awaiting_approval: int = 0
+    ready_for_export: int = 0
+
+
 class ReportAnswer(Contract):
     items: tuple[ReportRecord, ...]
+    overview: ReportOverview = ReportOverview()
+    effective_sort: str = "date_desc"
+    sort_unavailable_reason: str | None = None
     matching_count: int
     page: int
     page_size: int
@@ -248,7 +272,11 @@ def resolve_period(period: Period, observed_at: datetime) -> ResolvedPeriod:
 
 
 def _text(value: str) -> str:
-    return unicodedata.normalize("NFKC", value).casefold().strip()
+    return "".join(
+        char
+        for char in unicodedata.normalize("NFKD", value).casefold()
+        if not unicodedata.combining(char)
+    ).strip()
 
 
 def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) -> bool:
@@ -259,7 +287,14 @@ def _matches(row: ReportRecord, filters: ReportFilters, period: ResolvedPeriod) 
         return False
     if filters.q and not any(
         _text(filters.q) in _text(value or "")
-        for value in (row.counterparty, row.note, row.counterparty_key, row.fiscal_number)
+        for value in (
+            row.counterparty,
+            row.note,
+            row.counterparty_key,
+            row.fiscal_number,
+            *row.document_identifiers,
+            *row.attachment_filenames,
+        )
     ):
         return False
     for values, value in (
@@ -427,16 +462,35 @@ def matching_records(
     observed_at: datetime,
 ) -> tuple[ReportRecord, ...]:
     period = resolve_period(request.filters.period, observed_at)
-    return tuple(
-        sorted(
-            (row for row in records if _matches(row, request.filters, period)),
-            key=lambda row: (
-                row.report_date is None,
-                -(row.report_date or date.min).toordinal(),
-                row.row_id,
-            ),
-        )
-    )
+    rows = [row for row in records if _matches(row, request.filters, period)]
+    sort, _ = effective_sort(rows, request.sort)
+    field, direction = sort.split("_")
+
+    def value(row: ReportRecord) -> object:
+        if field == "name":
+            return _text(row.counterparty) if row.counterparty else None
+        if field == "amount":
+            return (
+                parse_minor_units(row.gross_amount, row.currency)
+                if row.gross_amount is not None and row.currency
+                else None
+            )
+        return row.report_date
+
+    known = [row for row in rows if value(row) is not None]
+    missing = [row for row in rows if value(row) is None]
+    known.sort(key=lambda row: row.row_id)
+    known.sort(key=value, reverse=direction == "desc")
+    return tuple(known + sorted(missing, key=lambda row: row.row_id))
+
+
+def effective_sort(
+    rows: list[ReportRecord] | tuple[ReportRecord, ...], requested: str
+) -> tuple[str, str | None]:
+    currencies = {row.currency for row in rows}
+    if requested.startswith("amount_") and (len(currencies) != 1 or None in currencies):
+        return "date_desc", "amount_sort_requires_single_known_currency"
+    return requested, None
 
 
 def run_query(
@@ -451,7 +505,9 @@ def run_query(
         raise ValueError("duplicate canonical report record or activity")
     period = resolve_period(request.filters.period, observed_at)
     rows = matching_records(records, request, observed_at)
-    semantic = request.model_dump(mode="json", exclude={"page", "page_size", "columns"})
+    semantic = request.model_dump(
+        mode="json", exclude={"page", "page_size", "columns", "presentation"}
+    )
     # Multiselect order and repeated keys do not change the semantic query.
     for key, value in semantic["filters"].items():
         if isinstance(value, list):
@@ -508,7 +564,22 @@ def run_query(
                 row.counterparty or row.counterparty_key
             )
     offset = (request.page - 1) * request.page_size
+    overview_rows = [
+        row
+        for row in records
+        if _matches(row, ReportFilters(period=request.filters.period), period)
+    ]
+    overview = ReportOverview(
+        **{
+            stage: sum(row.stage == stage for row in overview_rows)
+            for stage in ("needs_review", "awaiting_approval", "ready_for_export")
+        }
+    )
+    chosen_sort, reason = effective_sort(rows, request.sort)
     return ReportAnswer(
+        overview=overview,
+        effective_sort=chosen_sort,
+        sort_unavailable_reason=reason,
         items=rows[offset : offset + request.page_size],
         matching_count=len(rows),
         page=request.page,

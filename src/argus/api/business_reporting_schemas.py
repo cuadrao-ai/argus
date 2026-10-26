@@ -2,11 +2,12 @@
 
 from pydantic import Field
 
+from argus.domain.business.reporting_preferences import ReportInput
 from argus.domain.business.reporting_query import Contract, ReportRequest
 
 
 class ExportReport(Contract):
-    report: ReportRequest = ReportRequest()
+    report: ReportInput = ReportRequest()
     expected_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 

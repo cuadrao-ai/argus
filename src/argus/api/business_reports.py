@@ -23,7 +23,8 @@ from argus.api.documents import NO_STORE
 from argus.api.routers.business_export import ExportRoute
 from argus.domain.business.authority import ActionError
 from argus.domain.business.reporting_export import export_report
-from argus.domain.business.reporting_query import ReportAnswer, ReportRequest
+from argus.domain.business.reporting_preferences import ReportInput
+from argus.domain.business.reporting_query import ReportAnswer
 from argus.domain.business.reporting_store import read_report
 from argus.domain.business.reporting_views import (
     CreateView,
@@ -78,7 +79,7 @@ def _run(request: Request, response: Response, operation: Callable[[], T]) -> T:
 def query_report(
     request: Request,
     response: Response,
-    body: ReportRequest,
+    body: ReportInput,
     context: Context,
     person: Person,
 ) -> ReportAnswer:

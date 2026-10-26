@@ -12,6 +12,7 @@ from psycopg import Connection
 from psycopg.rows import dict_row
 from pydantic import TypeAdapter
 
+from argus.domain.business.annotations import annotation_available
 from argus.domain.business.authority import (
     ActionContext,
     ActionError,
@@ -25,6 +26,7 @@ from argus.domain.business.month_close import Settlement
 from argus.domain.business.reporting import ReportIdentity, ReportRow
 from argus.domain.business.reporting_query import (
     ReportAnswer,
+    ReportAttachment,
     ReportRecord,
     ReportRequest,
 )
@@ -331,7 +333,38 @@ def _projected(
     for draft in drafts.values():
         if draft.event.id not in consumed and draft.event.state != "dismissed":
             projected.append(project(None, draft, originals, filer_identity, accounts))
-    return snapshot, tuple(projected)
+    public_rows = []
+    for row in projected:
+        draft = drafts.get(row.draft_id)
+        can_annotate = annotation_available(live, draft.event if draft else None)
+        public_rows.append(
+            row.model_copy(
+                update={
+                    "can_edit_note": can_annotate,
+                    "can_append_supporting": can_annotate,
+                    "annotation_unavailable_reason": None
+                    if can_annotate
+                    else "business_annotation_unavailable"
+                    if draft
+                    else "business_annotation_unsupported",
+                    "attachment_sources": tuple(
+                        ReportAttachment(
+                            source_id=source.source_id,
+                            receipt_id=source.connection_id,
+                            filename=source.filename,
+                            media_type=source.media_type,
+                            source_available=source.source_available,
+                            download_available="download" in live.permissions
+                            and source.source_available is True
+                            and source.connection_status not in (None, "disconnected"),
+                        )
+                        for source in (draft.sources if draft else ())
+                        if source.kind == "attachment"
+                    ),
+                }
+            )
+        )
+    return snapshot, tuple(public_rows)
 
 
 def read_report_snapshot(
