@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowDown, Check, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDown, BriefcaseBusiness, Check, ChevronLeft, ChevronRight, FilePenLine, Plus, Search, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { currencySymbol } from "@/lib/money-entry";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -83,6 +83,11 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
   const scheduleSelected = schedulePanel && ("draft" in schedulePanel ? schedulePanel.draft : schedules.find(schedule => schedule.id === schedulePanel.id));
   const addCustomer = () => { setSelectedId(null); setCustomerPanel({ draft: { id: crypto.randomUUID(), name: "", email: "", address: "", taxId: "", status: "active" } }); };
   const create = () => { setCustomerPanel(null); setSelectedId(null); setEditing(newInvoice(crypto.randomUUID(), `M-${String(invoices.length + 1).padStart(3, "0")}`)); };
+  const setupCards = [
+    { key: "setup_business", icon: BriefcaseBusiness, action: () => openPanel({ kind: "business", tab: "datos" }) },
+    { key: "setup_customer", icon: UserPlus, action: addCustomer },
+    { key: "setup_invoice", icon: FilePenLine, action: create },
+  ];
   const createSchedule = () => {
     const template = invoices.find(invoice => invoice.issuance === "draft" && validDraft(invoice) && customers.some(customer => customer.id === invoice.customer.id && customer.status === "active")) ?? newInvoice(crypto.randomUUID(), "");
     setSchedulePanel({ draft: { id: crypto.randomUUID(), name: "", customerId: template.customer.id, template: structuredClone(template), frequency: "monthly", anchorDate: todayIso(), status: "active", mode: "draft" } });
@@ -110,7 +115,16 @@ function InvoiceWorkspace({ scope, business, variant }: { scope: string; busines
       {!rows.length ? <WorkspaceEmptyState compact art="invoice" title={word(emptyKind === "stage" ? `empty_stage_${filter}` : "no_results")} description={word(emptyKind === "stage" ? `empty_stage_${filter}_help` : "no_results_help")} action={emptyKind === "filtered" ? <button className={quietButtonClass} onClick={() => { setQuery(""); setCurrency("all"); setOverdueOnly(false); setPage(1); setPeriod(periodRange("all")); }}>{word("clear_filters")}</button> : undefined} /> : null}
       <footer className={styles.pagination}><span>{word("result_count", { from: results.length ? (shownPage - 1) * size + 1 : 0, to: Math.min(shownPage * size, results.length), count: results.length })}</span><ToolbarPicker label={word("page_size")} value={String(size)}>{close => [25, 50, 100].map(value => <button className={styles.option} key={value} onClick={() => { setSize(value); setPage(1); close(); }}>{value}</button>)}</ToolbarPicker><nav aria-label={word("pages")}><button aria-label={word("previous")} disabled={shownPage === 1} onClick={() => setPage(shownPage - 1)}><ChevronLeft size={17} /></button>{pageLinks(shownPage, pages).map((value, index) => value === "gap" ? <span key={`gap${index}`}>…</span> : <button key={value} aria-current={shownPage === value ? "page" : undefined} onClick={() => setPage(value)}>{value}</button>)}<button aria-label={word("next")} disabled={shownPage === pages} onClick={() => setPage(shownPage + 1)}><ChevronRight size={17} /></button></nav></footer>
     </div>
-    </> : <WorkspaceEmptyState title={word("first_invoice")} description={word("first_invoice_help")} action={<button className={primaryButtonClass} onClick={create}><Plus size={18} />{word("create")}</button>} />}
+    </> : <>
+      {filter === "all" ? <div className={styles.setupCards}>
+        {setupCards.map(({ key, icon: Icon, action }) => <button key={key} type="button" className={styles.setupCard} onClick={action}>
+          <Icon size={21} aria-hidden="true" />
+          <strong>{word(key)}</strong>
+          <span>{word(`${key}_help`)}</span>
+        </button>)}
+      </div> : null}
+      <WorkspaceEmptyState title={word("first_invoice")} description={word("first_invoice_help")} action={<button className={primaryButtonClass} onClick={create}><Plus size={18} />{word("create")}</button>} />
+    </>}
     </div>
     <div className={styles.readiness}><span>{word("readiness_unknown")}</span><button className={quietButtonClass} onClick={() => openPanel({ kind: "business", tab: "datos" })}>{word("readiness_settings")}</button></div>
     </>}
