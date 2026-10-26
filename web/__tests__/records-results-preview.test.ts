@@ -24,6 +24,7 @@ test("summary keeps workflow and financial eligibility separate and never mixes 
   assert.deepEqual(result.sales, [{ currency: "DOP", amount: "2100.00" }]);
   assert.deepEqual(result.expenses, [{ currency: "DOP", amount: "2100.00" }, { currency: "USD", amount: "24.00" }], "a reviewed record can still have a confirmed amount");
   assert.deepEqual(result.excluded, { personal: 2, unconfirmed: 1, unavailable: 0 });
+  assert.deepEqual(result.excludedByKind, { sales: { personal: 1, unconfirmed: 1, unavailable: 0 }, expenses: { personal: 1, unconfirmed: 0, unavailable: 0 } });
   const purchases = summarizePreviewRecords(rows.filter((row) => row.kind === "gasto"), "fixture-space");
   assert.equal(purchases.count, 3); assert.equal(purchases.review, 1);
   assert.deepEqual(purchases.sales, []); assert.deepEqual(purchases.expenses, result.expenses);
@@ -61,4 +62,11 @@ test("summary labels are available at the same EN and ES layout paths", () => {
     assert.ok(locale.business.transactions.layout.workflow.unknown);
     assert.equal("results" in locale.business.transactions.layout.filters, false);
   }
+});
+
+
+test("backing-file absence counts only explicit false, preserving unknown information", () => {
+  const result = summarizePreviewRecords([{ ...rows[0], hasProof: false }, { ...rows[1], hasProof: true }, { ...rows[2], hasProof: null }], "fixture-space");
+  assert.deepEqual(result.documents, { missing: 1, unknown: 1 });
+  assert.deepEqual(summarizePreviewRecords([], "fixture-space").documents, { missing: 0, unknown: 0 });
 });

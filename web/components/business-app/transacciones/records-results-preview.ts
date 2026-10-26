@@ -24,26 +24,39 @@ function exactMinor(money: Money): bigint | null {
   const value = BigInt(match[2] + (match[3] ?? "").padEnd(digits, "0"));
   return match[1] === "-" ? -value : value;
 }
+export const SUMMARY_METRICS = ["sales", "expenses", "count", "without_document"] as const;
+export type SummaryMetric = typeof SUMMARY_METRICS[number];
+export const DEFAULT_SUMMARY_METRICS: readonly SummaryMetric[] = ["sales", "expenses"];
+export type SummaryExclusions = { unconfirmed: number; personal: number; unavailable: number };
+const emptyExclusions = (): SummaryExclusions => ({ unconfirmed: 0, personal: 0, unavailable: 0 });
 export type RecordsResultsPreview = {
   count: number;
   review: number;
   unknownWorkflow: number;
-  excluded: { unconfirmed: number; personal: number; unavailable: number };
+  excluded: SummaryExclusions;
+  excludedByKind: { sales: SummaryExclusions; expenses: SummaryExclusions };
+  documents: { missing: number; unknown: number };
   sales: Money[];
   expenses: Money[];
 };
 export function summarizePreviewRecords(rows: readonly RecordRow[], businessId: string | null): RecordsResultsPreview {
-  const result: RecordsResultsPreview = { count: rows.length, review: 0, unknownWorkflow: 0, excluded: { unconfirmed: 0, personal: 0, unavailable: 0 }, sales: [], expenses: [] };
+  const result: RecordsResultsPreview = { count: rows.length, review: 0, unknownWorkflow: 0, excluded: emptyExclusions(), excludedByKind: { sales: emptyExclusions(), expenses: emptyExclusions() }, documents: { missing: 0, unknown: 0 }, sales: [], expenses: [] };
   const totals = { venta: new Map<string, bigint>(), gasto: new Map<string, bigint>() };
   for (const row of rows) {
+    if (row.hasProof === false) result.documents.missing += 1;
+    if (row.hasProof === null) result.documents.unknown += 1;
+    const exclude = (reason: keyof SummaryExclusions) => {
+      result.excluded[reason] += 1;
+      result.excludedByKind[row.kind === "venta" ? "sales" : "expenses"][reason] += 1;
+    };
     const metadata = previewRecordMetadata(row, businessId);
     if (metadata?.workflow === "review") result.review += 1;
     if (!metadata) result.unknownWorkflow += 1;
-    if (!metadata) { result.excluded.unavailable += 1; continue; }
-    if (row.marks.personal) { result.excluded.personal += 1; continue; }
-    if (metadata.financialEligibility !== "confirmed") { result.excluded[metadata.financialEligibility] += 1; continue; }
+    if (!metadata) { exclude("unavailable"); continue; }
+    if (row.marks.personal) { exclude("personal"); continue; }
+    if (metadata.financialEligibility !== "confirmed") { exclude(metadata.financialEligibility); continue; }
     const amount = exactMinor(row.money);
-    if (amount === null) { result.excluded.unavailable += 1; continue; }
+    if (amount === null) { exclude("unavailable"); continue; }
     const absolute = amount < BigInt(0) ? -amount : amount;
     totals[row.kind].set(row.money.currency, (totals[row.kind].get(row.money.currency) ?? BigInt(0)) + absolute);
   }
