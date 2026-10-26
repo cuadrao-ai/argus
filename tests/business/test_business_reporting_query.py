@@ -179,6 +179,8 @@ def test_sale_and_validated_credit_have_signed_document_adjustment_not_cash_net(
     buckets = {item.basis: item for item in result.totals}
     assert buckets["document_gross_amount"].amount_minor == 10000
     assert buckets["document_credit_adjustment"].amount_minor == -2000
+    assert buckets["document_credit_adjustment"].amount == "-20.00"
+    assert buckets["document_credit_adjustment"].known_amount == "-20.00"
     assert buckets["document_family_amount"].amount_minor == 8000
     assert buckets["recorded_activity_amount"].amount_minor == 12000
     assert (
@@ -232,3 +234,29 @@ def test_unlinked_credit_makes_document_family_final_incomplete():
     assert sale.known_amount == "100.00"
     assert sale.amount is None
     assert sale.unknown_count == 1
+
+
+def test_exact_amount_strings_survive_large_values_and_aggregate_over_bigint():
+    rows = [
+        record(
+            "large",
+            gross_amount="92233720368547758.07",
+            recorded_amount="92233720368547758.07",
+            linked_activity_ids=("large-effect",),
+        ),
+        record(
+            "small",
+            gross_amount="1.00",
+            recorded_amount="1.00",
+            linked_activity_ids=("small-effect",),
+        ),
+    ]
+    single = run(rows[:1]).model_dump(mode="json")
+    aggregate = run(rows).model_dump(mode="json")
+    for basis in ("recorded_activity_amount", "document_gross_amount"):
+        first = next(total for total in single["totals"] if total["basis"] == basis)
+        combined = next(total for total in aggregate["totals"] if total["basis"] == basis)
+        assert first["amount_minor"] > 2**53
+        assert first["known_amount"] == first["amount"] == "92233720368547758.07"
+        assert combined["amount_minor"] > 2**63 - 1
+        assert combined["known_amount"] == combined["amount"] == "92233720368547759.07"

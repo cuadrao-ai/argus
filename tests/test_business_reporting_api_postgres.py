@@ -221,3 +221,77 @@ def test_export_refuses_scope_that_cannot_fit_a_spreadsheet_cell(client):
     )
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "business_report_cell_too_large"
+
+
+def test_http_amount_strings_preserve_large_money_and_aggregate_over_bigint(
+    client, actions
+):
+    from datetime import datetime, timezone
+
+    from argus.domain.recording.money_schemas import MoneyRequest, OwnerFunds
+
+    http, _ = client
+    service, context, _ = actions
+    for amount in ("92233720368547758.07", "1.00"):
+        service.imports.money.write_entered(
+            user_id=context.owner_id,
+            request=MoneyRequest(
+                kind="expense",
+                owner_funding=OwnerFunds(
+                    owner_space_id=context.actor.space_id, currency="DOP"
+                ),
+                amount=amount,
+                occurred_at=datetime(2026, 10, 1, 12, tzinfo=timezone.utc),
+            ),
+            idempotency_key=str(uuid4()),
+            scope=context.scope,
+        )
+    single = query(
+        http, filters={"currencies": ["DOP"], "amount_min": "92233720368547758.07"}
+    )
+    aggregate = query(http)
+    assert single["matching_count"] == 1
+    assert single["items"][0]["recorded_amount"] == "92233720368547758.07"
+    first = next(
+        total
+        for total in single["totals"]
+        if total["basis"] == "recorded_activity_amount"
+    )
+    combined = next(
+        total
+        for total in aggregate["totals"]
+        if total["basis"] == "recorded_activity_amount"
+    )
+    assert first["amount_minor"] > 2**53
+    assert first["known_amount"] == first["amount"] == "92233720368547758.07"
+    assert combined["amount_minor"] > 2**63 - 1
+    assert combined["known_amount"] == combined["amount"] == "92233720368547759.07"
+
+
+def test_http_credit_amount_strings_are_signed_and_money_refund_stays_separate(
+    client, actions
+):
+    from tests.test_business_dgii_postgres import ORACLE, approve, cash_account, reviewed
+
+    http, _ = client
+    service, context, _ = actions
+    account = cash_account(service, context)
+    purchase = approve(service, context, reviewed(service, context, account, 0))
+    refund = approve(
+        service, context, reviewed(service, context, account, 3, purchase.activity_id)
+    )
+    assert refund.outcome == "applied"
+    answer = query(http)
+    credit = next(
+        total
+        for total in answer["totals"]
+        if total["basis"] == "document_credit_adjustment"
+    )
+    cash_refund = next(
+        total
+        for total in answer["totals"]
+        if total["basis"] == "recorded_activity_amount" and total["kind"] == "refund"
+    )
+    expected = ORACLE["P04"]["gross"]
+    assert credit["known_amount"] == credit["amount"] == "-" + expected
+    assert cash_refund["known_amount"] == cash_refund["amount"] == expected
