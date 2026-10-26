@@ -782,6 +782,110 @@ async def test_private_probe_is_two_gets_max_no_retry_download_or_secret_leak(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "identity_body",
+    [
+        '{"data":{"is_valid":false,"is_valid":true,"type":"SYSTEM_USER","app_id":"800000000000001","user_id":"900000000000001"}}',
+        '{"data":{"is_valid":true,"type":"SYSTEM_USER","app_id":"800000000000002","app_id":"800000000000001","user_id":"900000000000001"}}',
+        '{"data":{"is_valid":true,"type":"SYSTEM_USER","app_id":"800000000000001","user_id":"900000000000001"},"data":{"is_valid":true,"type":"SYSTEM_USER","app_id":"800000000000001","user_id":"900000000000001"}}',
+        '{"data":{"is_valid":true,"type":"USER","app_id":"800000000000001","user_id":"900000000000001"}}',
+        '{"data":{"is_valid":true,"type":"PAGE","app_id":"800000000000001","user_id":"900000000000001"}}',
+        '{"data":{"is_valid":true,"type":"APP","app_id":"800000000000001","user_id":"900000000000001"}}',
+    ],
+    ids=["duplicate-valid", "duplicate-app", "duplicate-data", "user", "page", "app"],
+)
+async def test_ambiguous_or_wrong_identity_type_stops_before_metadata(identity_body):
+    import json
+    import time
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, content=identity_body.encode())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        media = GraphMedia(
+            client=client,
+            access_token="synthetic-diagnostic-bearer",
+            graph_api_version="v23.0",
+            max_bytes=1000,
+        )
+        result = await media.diagnose_once(
+            media_id="700000000000001",
+            app_id="800000000000001",
+            subject_id="900000000000001",
+            runtime_token="synthetic-diagnostic-bearer",
+            selected_token="synthetic-diagnostic-bearer",
+            expires_at=int(time.time()) + 60,
+        )
+
+    assert len(calls) == 1
+    assert calls[0].url.path == "/v23.0/debug_token"
+    assert result["get_attempts"] == 1
+    assert result["outcome"] == "identity_stopped"
+    assert result["identity"]["matched"] is False
+    if '"type":"USER"' in identity_body:
+        assert result["identity"]["type"] == "USER"
+    elif '"type":"PAGE"' in identity_body:
+        assert result["identity"]["type"] == "PAGE"
+    elif '"type":"APP"' in identity_body:
+        assert result["identity"]["type"] == "APP"
+    assert "synthetic-diagnostic-bearer" not in json.dumps(result)
+
+
+@pytest.mark.asyncio
+async def test_system_user_identity_allows_metadata_observation():
+    import time
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "is_valid": True,
+                        "type": "SYSTEM_USER",
+                        "app_id": "800000000000001",
+                        "user_id": "900000000000001",
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": "700000000000001",
+                "mime_type": "application/pdf",
+                "file_size": 20,
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        media = GraphMedia(
+            client=client,
+            access_token="synthetic-diagnostic-bearer",
+            graph_api_version="v23.0",
+            max_bytes=1000,
+        )
+        result = await media.diagnose_once(
+            media_id="700000000000001",
+            app_id="800000000000001",
+            subject_id="900000000000001",
+            runtime_token="synthetic-diagnostic-bearer",
+            selected_token="synthetic-diagnostic-bearer",
+            expires_at=int(time.time()) + 60,
+        )
+
+    assert len(calls) == 2
+    assert result["identity"]["type"] == "SYSTEM_USER"
+    assert result["identity"]["matched"] is True
+    assert result["media"]["matched"] is True
+
+
+@pytest.mark.asyncio
 async def test_probe_cannot_make_second_get_after_expiry(monkeypatch):
     calls = []
     now = [100]

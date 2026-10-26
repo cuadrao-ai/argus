@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from contextvars import ContextVar
@@ -47,8 +48,17 @@ def matches(value: object, pattern: re.Pattern[str]) -> bool:
 def _json(response: httpx.Response) -> dict:
     if len(response.content) > 65536:
         return {}
+
+    def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate object key")
+            value[key] = item
+        return value
+
     try:
-        value = response.json()
+        value = json.loads(response.content, object_pairs_hook=reject_duplicate_keys)
         return value if isinstance(value, dict) else {}
     except (ValueError, UnicodeError):
         return {}
@@ -115,7 +125,7 @@ def identity(response: httpx.Response, app: str, subject: str) -> dict:
             result[key] = value
     result["matched"] = bool(
         result["valid"]
-        and result["type"] != "unknown"
+        and result["type"] == "SYSTEM_USER"
         and result.get("app_id") == app
         and result.get("user_id") == subject
     )
