@@ -43,7 +43,7 @@ function Proof({ row }: { row: RecordRow }) {
  * igualar state. A row opens its record in the record tray; a venta has no
  * record screen yet, so its row is plain.
  */
-export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId }: { sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
+export function RecordsTable({ records, density, rowRef, order: controlledOrder, onOrderChange, preferences, sort, onSortChange, amountSortAvailable = false, sortNoticeId, serverSorted = false }: { serverSorted?: boolean; sort?: RecordsSort; onSortChange?: (sort: RecordsSort) => void; amountSortAvailable?: boolean; sortNoticeId?: string; preferences?: RecordsViewPreferences; order?: "desc" | "asc"; onOrderChange?: (order: "desc" | "asc") => void; records: readonly RecordRow[]; density: Density; rowRef: (id: string, node: HTMLElement | null) => void }) {
   const { t, locale } = useTransaccionesWords();
   const owner = useOwnerView();
   const openGlance = useContext(RecordGlanceContext);
@@ -88,11 +88,12 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
               const sortableKey = column.key === "fecha" || column.key === "monto" || column.key === "contraparte" ? column.key : null;
               const sortHere = sort ? column.key === sort.key : column.key === "fecha";
               const canSort = sort ? sortableKey !== null : sortHere;
-              const blocked = Boolean(sort && column.key === "monto" && !amountSortAvailable);
+              const blocked = serverSorted || Boolean(sort && column.key === "monto" && !amountSortAvailable);
               return (
                 <th key={column.key} scope="col" data-col={column.key} data-pinned={column.pin ? `top ${column.pin}` : "top"} aria-sort={sortHere ? (order === "desc" ? "descending" : "ascending") : undefined} className={`sticky top-0 h-11 border-b border-[#DCE0DA] bg-white px-3 text-[13px] font-normal text-[#56635e] dark:border-white/10 dark:bg-[#1f2225] dark:text-white/65 ${column.align === "right" ? "text-right" : "text-left"} ${column.pin ? `${column.pin === "left" ? "left-0" : "right-0"} z-30` : "z-20"}`}>
                   {canSort ? (
-                    <button type="button" aria-disabled={blocked || undefined} aria-describedby={blocked ? sortNoticeId : undefined} title={blocked ? t("business.transactions.pagination.amount_requires_currency") : undefined} onClick={() => {
+                    <button type="button" aria-disabled={blocked || undefined} aria-describedby={blocked ? sortNoticeId : undefined} title={!serverSorted && blocked ? t("business.transactions.pagination.amount_requires_currency") : undefined} onClick={() => {
+                      if (serverSorted) return;
                       if (sort && onSortChange && sortableKey) onSortChange({ key: sortableKey, direction: sort.key === sortableKey ? sort.direction === "desc" ? "asc" : "desc" : sortableKey === "contraparte" ? "asc" : "desc" });
                       else toggleOrder();
                     }} className={`${pageStyles.sortHeading} ${column.align === "right" ? pageStyles.sortRight : ""}`}>
@@ -112,11 +113,11 @@ export function RecordsTable({ records, density, rowRef, order: controlledOrder,
             const cells = {
               contraparte: (<td data-col="contraparte" data-pinned="left" className={`${CELL} ${PIN_CLASS.left} text-left group-aria-selected:shadow-[inset_2px_0_0_var(--cuadrao-green),inset_-1px_0_0_#DCE0DA]`}><Truncated text={nameOf(row)} className="font-medium" /></td>),
               fecha: (<td data-col="fecha" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{preferences ? formatRecordActivityDate(row.occurredOn, locale) : formatRelativeDay(row.occurredOn, today, locale)}</td>),
-              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}>{preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
-              moneda: (<td data-col="moneda" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{currencySymbol(row.money.currency)}</td>),
+              monto: (<td data-col="monto" className={`${CELL} text-right font-medium tabular-nums`}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : preferences ? <span className="cuadrao-amount whitespace-nowrap">{formatAmount(magnitude(row.money).amount, row.money.currency, locale)}</span> : <SignedAmount money={row.money} header={header} />}</td>),
+              moneda: (<td data-col="moneda" className={`${CELL} whitespace-nowrap text-left text-[#56635e] dark:text-white/65`}>{row.report && row.report.currency === null ? <Unknown /> : currencySymbol(row.money.currency)}</td>),
               notas: (<td data-col="notas" className={`${CELL} text-left`}><RecordNotePreview row={row} /></td>),
               detalle: (<td data-col="detalle" className={`${CELL} text-left text-[#56635e] dark:text-white/65`}>
-                  {preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
+                  {row.report?.family === null ? <Unknown /> : preferences ? t(`business.transactions.records.detail.${row.kind}`) : <Tooltip side="top" content={[t(`business.transactions.records.detail.${row.kind}`), row.marks.personal ? t("business.marks.personal_chip") : null, row.marks.fiscal ? t(`business.marks.${row.marks.fiscal === "sin_comprobante" ? "sin_comprobante_chip" : "missing_ncf_chip"}`) : null, row.marks.personal && owner && row.marks.markedBy ? t("business.marks.marked_by", { name: row.marks.markedBy }) : null].filter(Boolean).join(" · ")}>
                     <span className={cellStyles.detail} tabIndex={recordRowKey(row) === tabStop ? 0 : -1}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordMarks personal={row.marks.personal} fiscal={row.marks.fiscal} markedBy={row.marks.markedBy} /></span>
                   </Tooltip>}
                 </td>),
@@ -196,8 +197,8 @@ export function RecordsNarrowList({ records, rowRef }: { records: readonly Recor
   return <ul className={pageStyles.list} data-testid="transacciones-records">
     {records.map((row) => {
       const opens = row.opens;
-      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}><PlainAmount money={row.money} /></span></span>
-        <span className={pageStyles.meta}><span className={pageStyles.marks}>{t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
+      const body = <><span className={pageStyles.top}><Truncated text={nameOf(row)} className={pageStyles.name} /><span className={pageStyles.amount}>{row.report && (row.report.gross_amount === null || row.report.currency === null) ? <Unknown /> : <PlainAmount money={row.money} />}</span></span>
+        <span className={pageStyles.meta}><span className={pageStyles.marks}>{row.report?.family === null ? <Unknown /> : t(`business.transactions.records.detail.${row.kind}`)}<RecordWorkflowBadge row={row} /></span><span className={pageStyles.date}>{formatRecordActivityDate(row.occurredOn, locale)}</span></span></>;
       return <li key={recordRowKey(row)} data-record-id={row.id} data-record-key={recordRowKey(row)} data-kind={row.kind} aria-current={opens && isOpenRecord(panel, opens) ? "true" : undefined} className={pageStyles.narrowRecord}>
         {opens ? <button type="button" ref={(node) => rowRef(recordRowKey(row), node)} className={pageStyles.row} onClick={() => { if (openGlance) openGlance(row); else openPanel(opens); }}>{body}</button> : <div className={pageStyles.row}>{body}</div>}
         <RecordAnnotationActions row={row} />

@@ -113,6 +113,7 @@ export type RecordTarget =
 
 /** A saved gasto or venta, as the screen lists it with no statement to igualar against. */
 export type RecordRow = Readonly<{
+  report?: import("@/lib/business-reports-api").ReportRecord;
   id: string;
   kind: RecordKind;
   occurredOn: string;

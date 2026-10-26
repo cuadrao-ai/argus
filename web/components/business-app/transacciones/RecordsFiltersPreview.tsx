@@ -11,6 +11,7 @@ import { useTransaccionesWords } from "./transacciones-words";
 import type { RecordKind } from "./transacciones-model";
 import styles from "./records-filter-preview.module.css";
 
+export type ReportFilterCatalogues = { counterparties: { key: string; labels: string[] }[]; categories: string[]; funding_sources: { key: string; label: string | null; kind: string | null }[] };
 type Kind = RecordKind | "all";
 type EditorGroup = FilterGroup | "record";
 const EDITOR_GROUPS: readonly EditorGroup[] = ["record", ...FILTER_GROUPS];
@@ -20,7 +21,7 @@ const CATEGORIES = ["none", "transport", "other", "dining"];
 const ACCOUNTS = ["checking", "card", "owner"];
 const toggle = (values: string[], value: string): string[] => values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 
-function FilterEditor({ initial, initialKind, apply, close, phone = false }: { phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind) => void; close: () => void }) {
+function FilterEditor({ initial, initialKind, apply, close, phone = false, catalogues }: { catalogues?: ReportFilterCatalogues; phone?: boolean; initial: PreviewFilters; initialKind: Kind; apply: (next: PreviewFilters, kind: Kind) => void; close: () => void }) {
   const { t } = useTransaccionesWords();
   const [draft, setDraft] = useState(initial);
   const [draftKind, setDraftKind] = useState(initialKind);
@@ -39,7 +40,7 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false }: { p
   }, [phone, choosingGroup, group]);
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const groupLabel = (key: EditorGroup) => key === "record" ? word("record") : word(`groups.${key}`);
-  const labelFor = (kind: FilterGroup, value: string): string => kind === "counterparty" ? value : kind === "review" ? t(`business.transactions.layout.overview.${value}.title`) : word(`${kind}.${value}`);
+  const labelFor = (kind: FilterGroup, value: string): string => kind === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : kind === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : kind === "category" && catalogues ? value === "uncategorized" ? word("category.none") : t(`business.category.${value}`, { defaultValue: value }) : kind === "review" ? t(`business.transactions.layout.overview.${value}.title`) : word(`${kind}.${value}`);
   const selection = (kind: "review" | "counterparty" | "category" | "account" | "document" | "fiscal", values: string[]) => {
     const search = query.trim().toLocaleLowerCase();
     const visible = values.filter((value) => labelFor(kind, value).toLocaleLowerCase().includes(search));
@@ -88,9 +89,9 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false }: { p
           {!draft.amount.currency ? <p className={styles.hint}>{word("amount.choose_currency")}</p> : null}
           {!validPreviewAmount(draft.amount) ? <p role="alert" className={styles.error}>{word("amount.invalid")}</p> : null}
         </> : null}
-        {group === "counterparty" ? selection("counterparty", COUNTERPARTIES) : null}
-        {group === "category" ? selection("category", CATEGORIES) : null}
-        {group === "account" ? selection("account", ACCOUNTS) : null}
+        {group === "counterparty" ? selection("counterparty", catalogues ? catalogues.counterparties.map((option) => option.key) : COUNTERPARTIES) : null}
+        {group === "category" ? selection("category", catalogues?.categories ?? CATEGORIES) : null}
+        {group === "account" ? selection("account", catalogues ? catalogues.funding_sources.map((option) => option.key) : ACCOUNTS) : null}
         {group === "document" ? selection("document", ["invoice", "receipt", "credit_note"]) : null}
         {group === "fiscal" ? selection("fiscal", ["b01", "b02", "e31", "e32"]) : null}
       </section> : null}
@@ -99,7 +100,7 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false }: { p
   return phone ? <BottomSheet isOpen onClose={close} title={word("title")} closeLabel={t("common.close")} snaps={["full"]} initialSnap="full" fullScreen footer={footer}>{body}</BottomSheet> : <>{body}{footer}</>;
 }
 
-export default function RecordsFiltersPreview({ options, value: filters, kind, onChange }: { options: ReactNode; value: PreviewFilters; kind: Kind; onChange: (next: PreviewFilters, kind: Kind) => void }) {
+export default function RecordsFiltersPreview({ options, value: filters, kind, onChange, catalogues }: { catalogues?: ReportFilterCatalogues; options: ReactNode; value: PreviewFilters; kind: Kind; onChange: (next: PreviewFilters, kind: Kind) => void }) {
   const { t } = useTransaccionesWords();
   const { isBelowDesktop: phone } = useResponsiveLayout();
   const [open, setOpen] = useState(false);
@@ -113,11 +114,11 @@ export default function RecordsFiltersPreview({ options, value: filters, kind, o
   const valueLabel = (group: FilterGroup) => {
     if (group === "attachment") return word(`attachment.${filters.attachment}`);
     if (group === "amount") return [filters.amount.currency, filters.amount.min ? `${word("amount.min")} ${filters.amount.min}` : "", filters.amount.max ? `${word("amount.max")} ${filters.amount.max}` : ""].filter(Boolean).join(" · ");
-    return filters[group].map((value) => group === "counterparty" ? value : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : word(`${group}.${value}`)).join(", ");
+    return filters[group].map((value) => group === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : group === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : group === "category" && catalogues ? value === "uncategorized" ? word("category.none") : t(`business.category.${value}`, { defaultValue: value }) : group === "review" ? t(`business.transactions.layout.overview.${value}.title`) : word(`${group}.${value}`)).join(", ");
   };
   return <>
-    {phone ? <><button ref={trigger} type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length || kind !== "all" ? <span className={styles.count}>{active.length + (kind === "all" ? 0 : 1)}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>{open ? <FilterEditor phone initial={filters} initialKind={kind} apply={setFilters} close={() => setOpen(false)} /> : null}</> : <RecordsPreviewPopover label={word("title")} icon={<ListFilter size={17} aria-hidden="true" />} count={active.length + (kind === "all" ? 0 : 1)}>
-      {(close) => <FilterEditor initial={filters} initialKind={kind} apply={setFilters} close={close} />}
+    {phone ? <><button ref={trigger} type="button" className={styles.trigger} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><ListFilter size={17} aria-hidden="true" /><span>{word("title")}</span>{active.length || kind !== "all" ? <span className={styles.count}>{active.length + (kind === "all" ? 0 : 1)}</span> : null}<ChevronDown size={16} aria-hidden="true" className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`} /></button>{open ? <FilterEditor catalogues={catalogues} phone initial={filters} initialKind={kind} apply={setFilters} close={() => setOpen(false)} /> : null}</> : <RecordsPreviewPopover label={word("title")} icon={<ListFilter size={17} aria-hidden="true" />} count={active.length + (kind === "all" ? 0 : 1)}>
+      {(close) => <FilterEditor catalogues={catalogues} initial={filters} initialKind={kind} apply={setFilters} close={close} />}
     </RecordsPreviewPopover>}
     <div className={styles.toolbarOptions}>{options}</div>
     {active.length || kind !== "all" ? <div className={styles.chips} data-testid="records-preview-filter-chips">{kind !== "all" ? <button type="button" className={styles.chip} aria-label={word("remove") + " " + word("record")} onClick={() => setFilters(filters, "all")}><span>{word("record")} · {t(`business.transactions.records.detail.${kind}`)}</span><X size={14} aria-hidden="true" /></button> : null}{active.map((group) => <button key={group} type="button" className={styles.chip} aria-label={word("remove") + " " + chipLabel(group)} onClick={() => setFilters({ ...filters, [group]: emptyPreviewFilters()[group] })}><span>{chipLabel(group)} · {valueLabel(group)}</span><X size={14} aria-hidden="true" /></button>)}<button type="button" className={styles.clear} onClick={() => setFilters(emptyPreviewFilters(), "all")}>{t("business.transactions.layout.clear")}</button></div> : null}
