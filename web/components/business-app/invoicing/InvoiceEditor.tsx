@@ -13,7 +13,8 @@ import InvoiceDocument, { InvoiceDate, InvoiceMoney, useInvoiceWords } from "./I
 import InvoiceEmailPreview from "./InvoiceEmailPreview";
 import { CURRENCIES, invoiceAmounts, invoiceLineAmounts, invoiceEmailDraft, invoiceEmailErrors, invoiceDraftErrors, validDraft, type InvoiceCustomer, type InvoicePreview } from "./invoice-preview-model";
 import InvoiceCustomerField from "./InvoiceCustomerField";
-import { customerErrors, customerSnapshot, type BusinessCustomer } from "./customer-preview-model";
+import { customerSnapshot, type BusinessCustomer } from "./customer-preview-model";
+import { CUSTOMER_FIELD_LIMITS, formatCustomerTaxId } from "./customer-validation";
 import styles from "./invoicing-preview.module.css";
 
 const STEPS = ["customer", "items", "terms", "review"] as const;
@@ -35,7 +36,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const values: Record<string, string> = { ...draft.customer, issuedOn: draft.issuedOn, dueOn: draft.dueOn, items: String(draft.items.length) };
   for (const item of draft.items) for (const key of ["description", "quantity", "price", "tax", "discount"] as const) values[`${item.id}-${key}`] = item[key] ?? "";
-  const errors = { ...invoiceDraftErrors(draft), ...(addingCustomer ? customerErrors(draft.customer) : {}) };
+  const errors = invoiceDraftErrors(draft);
   const rules: FieldRules<string> = Object.fromEntries(Object.keys(values).map(key => [key, () => errors[key] ? word(`error_${errors[key]}`) : null]));
   const checks = useFieldChecks(rules, values);
   const errorOf = (key: string) => checks.errorOf(key) || (attempted.has(stepForField(key)) && errors[key] ? word(`error_${errors[key]}`) : null);
@@ -97,7 +98,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         {draft.customer.id ? <>
         <ToolbarPicker label={word("document_type")} value={word(`document_${draft.documentType}`)}>{close => (["E32", "E31"] as const).map(documentType => <button type="button" key={documentType} className={styles.option} onClick={() => { setDraft(current => ({ ...current, documentType })); close(); }}>{word(`document_${documentType}`)}</button>)}</ToolbarPicker>
         {!addingCustomer ? <p className={styles.muted}>{word("customers_invoice_snapshot")}</p> : null}
-        <div className={styles.fields}>{(["email", "taxId", "address"] as const).map(key => <FormField key={key} {...feedback(key)} reserveMessages={key === "email" || key === "taxId" && draft.documentType === "E31" ? [word(key === "email" ? "error_email" : "error_tax_id")] : []} label={word(key === "taxId" && draft.documentType === "E31" ? "customer_taxId_required" : `customer_${key}`)} value={draft.customer[key]} type={key === "email" ? "email" : "text"} required={key === "taxId" && draft.documentType === "E31"} maxLength={key === "address" ? 240 : key === "email" ? 254 : 120} autoComplete="off" placeholder={word(`placeholder_${key}`)} onChange={event => customer(key, event.target.value)} />)}</div>
+        <div className={styles.fields}>{(["email", "taxId", "address"] as const).map(key => <FormField key={key} {...feedback(key)} reserveMessages={[word(`error_${key === "email" ? "email" : key === "taxId" ? "tax_id" : "address_length"}`), ...(key === "taxId" ? [word("error_tax_id_length")] : [])]} label={word(key === "taxId" && draft.documentType === "E31" ? "customer_taxId_required" : `customer_${key}`)} value={draft.customer[key]} type={key === "email" ? "email" : "text"} required={key === "taxId" && draft.documentType === "E31"} maxLength={CUSTOMER_FIELD_LIMITS[key]} autoComplete="off" placeholder={word(`placeholder_${key}`)} onBlur={() => { checks.blur(key); if (key === "taxId") customer(key, formatCustomerTaxId(draft.customer[key])); }} onChange={event => customer(key, event.target.value)} />)}</div>
         </> : null}
         </> : null}
         {step === "terms" ? <>

@@ -1,16 +1,10 @@
+import { customerErrors } from "./customer-validation";
+export { customerErrors } from "./customer-validation";
 import { invoiceSettlement, type InvoiceCurrency, type InvoiceCustomer, type InvoicePreview } from "./invoice-preview-model";
 
 export type BusinessCustomer = InvoiceCustomer & { status: "active" | "archived"; createdAt?: string; updatedAt?: string };
 export type CustomerCommand = { type: "save"; customer: BusinessCustomer } | { type: "status"; id: string; status: BusinessCustomer["status"] };
 
-export function customerErrors(customer: InvoiceCustomer): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (!customer.name.trim() || customer.name.length > 120) errors.name = "required";
-  if (customer.email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email) || customer.email.length > 254)) errors.email = "email";
-  if (customer.taxId && !/^(?:[0-9]{9}|[0-9]{11})$/.test(customer.taxId)) errors.taxId = "tax_id";
-  if (customer.address.length > 240) errors.address = "required";
-  return errors;
-}
 export function customerReducer(customers: BusinessCustomer[], action: CustomerCommand): BusinessCustomer[] {
   if (action.type === "status") return customers.map(customer => customer.id === action.id ? { ...customer, status: action.status } : customer);
   if (!action.customer.id || Object.keys(customerErrors(action.customer)).length) return customers;

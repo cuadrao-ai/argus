@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "bun:test";
 import { customerActivity, customerErrors, customerReducer, customerSnapshot, matchesCustomer, seedCustomers, type BusinessCustomer } from "../components/business-app/invoicing/customer-preview-model";
-import { invoicePreviewSeed, invoiceReducer } from "../components/business-app/invoicing/invoice-preview-model";
+import { invoiceDraftErrors, invoicePreviewSeed, invoiceReducer } from "../components/business-app/invoicing/invoice-preview-model";
 
 const customer = (): BusinessCustomer => ({ id: "customer-one", name: "Café Brisa", email: "brisa@example.test", taxId: "123456789", address: "Calle de muestra 4", status: "active" });
 
@@ -48,4 +48,17 @@ test("customer activity joins stable IDs, excludes draft and uncertain money, an
   assert.equal(activity.payments.length, 1);
   assert.equal(activity.payments[0].invoiceId, target.id);
   assert.deepEqual(customerActivity(mixed, "no-history"), { invoices: [], totals: [], payments: [] });
+});
+
+
+test("invoice customer validation covers saved snapshots, formatted IDs and optional contact limits", () => {
+  const invoice = invoicePreviewSeed("seeded", "Correction")[0];
+  const validate = (fields: Partial<BusinessCustomer>) => invoiceDraftErrors({ ...invoice, customer: { ...customer(), ...fields } });
+  assert.equal(validate({ taxId: "18273456542732632632535232323" }).taxId, "tax_id");
+  assert.equal(validate({ taxId: "1-23-45678-9" }).taxId, undefined);
+  assert.equal(validate({ taxId: "000000000" }).taxId, "tax_id");
+  assert.equal(validate({ email: `${"x".repeat(250)}@example.test` }).email, "email");
+  assert.equal(validate({ address: "x".repeat(241) }).address, "address_length");
+  assert.equal(validate({ taxId: "FR-AB12345" }).taxId, undefined);
+  assert.equal(invoiceDraftErrors({ ...invoice, documentType: "E31", customer: { ...customer(), taxId: "FR-AB12345" } }).taxId, "tax_id");
 });

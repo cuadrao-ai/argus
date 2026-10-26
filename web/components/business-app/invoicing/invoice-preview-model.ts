@@ -1,3 +1,4 @@
+import { customerErrors } from "./customer-validation";
 import { todayIso } from "../business-format";
 
 export type InvoiceCurrency = "DOP" | "USD" | "EUR";
@@ -74,11 +75,8 @@ export function validDraft(invoice: InvoicePreview) {
   return Object.keys(invoiceDraftErrors(invoice)).length === 0;
 }
 export function invoiceDraftErrors(invoice: InvoicePreview): Record<string, string> {
-  const errors: Record<string, string> = {};
-  if (invoice.documentType === "E31" && !/^(?:[0-9]{9}|[0-9]{11})$/.test(invoice.customer.taxId.trim())) errors.taxId = "tax_id";
+  const errors = customerErrors(invoice.customer, invoice.documentType === "E31");
   if (!invoice.customer.id.trim()) errors.id = "customer";
-  if (!invoice.customer.name.trim()) errors.name = "required";
-  if (invoice.customer.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invoice.customer.email)) errors.email = "email";
   if (!validIsoDate(invoice.issuedOn)) errors.issuedOn = "date";
   if (!validIsoDate(invoice.dueOn)) errors.dueOn = "date";
   else if (validIsoDate(invoice.issuedOn) && invoice.dueOn < invoice.issuedOn) errors.dueOn = "due_date";

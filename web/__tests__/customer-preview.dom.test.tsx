@@ -322,3 +322,35 @@ test("invoice review keeps item discounts and email preparation in the same draf
     assert.ok(!document.body.textContent?.includes("Email sent"));
   } finally { await page.unmount(); }
 });
+
+
+test("saved invoice customer fields validate without truncation and preview keeps contact order", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("M-001");
+    await page.click("Edit draft");
+    const section = document.querySelector('[data-testid="invoice-customer-document"] [data-editing="true"]')!;
+    const invalidTaxId = "18273456542732632632535232323";
+    await page.fill("#invoice-taxId", invalidTaxId);
+    await page.act(async () => document.querySelector("#invoice-taxId")!.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+    assert.equal(document.querySelector("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.value, invalidTaxId);
+    assert.ok(section.textContent?.includes(invalidTaxId));
+    await page.fill("#invoice-taxId", "123456789");
+    await page.act(async () => document.querySelector("#invoice-taxId")!.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+    assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.value, "1-23-45678-9");
+    assert.notEqual(document.querySelector("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
+    await page.fill("#invoice-email", "not-an-email");
+    await page.click("Next");
+    assert.equal(document.querySelector("#invoice-email")?.getAttribute("aria-invalid"), "true");
+    await page.fill("#invoice-email", "customer@example.test");
+    await page.fill("#invoice-address", "Calle de muestra 4");
+    assert.equal(document.querySelector('[data-testid="invoice-customer-document"] [data-editing="true"]'), section);
+    assert.deepEqual([...section.children].map(node => node.textContent), ["Bill to", "Taller Brisa", "1-23-45678-9", "customer@example.test", "Calle de muestra 4"]);
+    await page.fill("#invoice-address", "");
+    assert.ok([...section.children].every(node => node.textContent?.trim()));
+    await page.click("Next");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Items");
+  } finally { await page.unmount(); }
+});

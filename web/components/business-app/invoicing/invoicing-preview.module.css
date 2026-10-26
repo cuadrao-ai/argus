@@ -58,15 +58,32 @@
 .documentHeader h2 { font-family:var(--font-display); font-size:24px; font-weight:500; }
 .documentHeader p { font-size:12px; opacity:.65; margin-top:4px; }
 .documentFacts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
-.documentFacts > div { padding:24px 12px 24px 0; }
-.documentFacts > dl { padding:24px 0 24px 12px; border-left:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.documentFacts > div { padding:24px; }
+.documentFacts > dl { padding:24px; border-left:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
 .documentFacts p,.documentFacts dt { font-size:12px; opacity:.7; overflow-wrap:anywhere; }
 .documentFacts dd { margin-bottom:8px; }
-.documentItems > div { display:flex; justify-content:space-between; gap:16px; padding:16px 0; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
+.documentCustomer { min-width:0; }
+.documentCustomer strong { display:block; font-weight:500; overflow-wrap:anywhere; margin:6px 0 8px; }
+.documentCustomer p + p { margin-top:5px; }
+.documentCustomer .documentLabel { margin:0; }
+.documentCustomer .customerAddress { white-space:pre-wrap; }
+.document[data-editing],.document [data-editing] { position:relative; }
+.document[data-editing]::after,.document [data-editing]::after {
+  content:""; position:absolute; inset:5px; border:2px solid var(--cuadrao-green); border-radius:8px; pointer-events:none;
+  mask:linear-gradient(#000 0 0) top left,linear-gradient(#000 0 0) top right,linear-gradient(#000 0 0) bottom left,linear-gradient(#000 0 0) bottom right;
+  mask-size:14px 14px; mask-repeat:no-repeat;
+  animation:invoiceSectionAttention 240ms ease-in-out 3 both;
+}
+@keyframes invoiceSectionAttention { 0%,100% { transform:scale(1); } 50% { transform:scale(.99); } }
+@media(prefers-reduced-motion:reduce) { .document[data-editing]::after,.document [data-editing]::after { animation:none; } }
+@media print { .document[data-editing]::after,.document [data-editing]::after { display:none; } }
+
+.documentItems > div { display:flex; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:1px solid color-mix(in srgb,var(--fg) 12%,transparent); }
 .documentItems small { display:block; margin-top:6px; opacity:.65; }
 .documentTotals { margin:20px 0 24px auto; max-width:300px; }
 .documentTotals > div { display:flex; justify-content:space-between; gap:12px; padding:8px 0; }
 .documentTotals > div:last-child { border-top:1px solid color-mix(in srgb,var(--fg) 12%,transparent); font-size:18px; font-weight:500; }
+.document > section:not(.documentFacts) { padding:24px; }
 .document section + section { margin-top:20px; }
 .multiline { white-space:pre-wrap; overflow-wrap:anywhere; margin-top:8px; }
 .panelBody { display:flex; flex-direction:column; gap:20px; padding:24px; }

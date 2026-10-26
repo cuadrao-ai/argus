@@ -7,6 +7,7 @@ import { SavedIdentityMark } from "@/components/identity/IdentityMark";
 import { useBusiness } from "../BusinessWorkspace";
 import { BusinessMark } from "../BusinessSwitcher";
 import { invoiceAmounts, invoiceSettlement, validIsoDate, type InvoicePreview } from "./invoice-preview-model";
+import { formatCustomerTaxId } from "./customer-validation";
 import styles from "./invoicing-preview.module.css";
 
 export function useInvoiceWords() {
@@ -27,7 +28,13 @@ export default function InvoiceDocument({ invoice, business, activeSection }: { 
   const amount = invoiceSettlement(invoice);
   return <article className={styles.document} data-editing={activeSection === "review" || undefined} data-testid="invoice-customer-document">
     <header className={styles.documentHeader}><div><div className={styles.issuer}><SavedIdentityMark scope={`business:${chosen?.space_id ?? ""}`} name={business} business fallback={<BusinessMark />} /><h2>{business}</h2></div><p>{word("sample_document")}</p></div><div><strong>{word("invoice")}</strong><p>{invoice.reference}</p></div></header>
-    <section className={styles.documentFacts}><div data-editing={activeSection === "customer" || undefined}><p>{word("bill_to")}</p><strong>{invoice.customer.name || word("customer_placeholder")}</strong><p>{invoice.customer.email}</p><p>{invoice.customer.address}</p>{invoice.customer.taxId ? <p>{invoice.customer.taxId}</p> : null}</div><dl data-editing={activeSection === "terms" || undefined}><dt>{word("issue_date")}</dt><dd><InvoiceDate date={invoice.issuedOn} /></dd><dt>{word("due_date")}</dt><dd><InvoiceDate date={invoice.dueOn} /></dd><dt>{word("currency")}</dt><dd>{invoice.currency}</dd></dl></section>
+    <section className={styles.documentFacts}><div className={styles.documentCustomer} data-editing={activeSection === "customer" || undefined}>
+      <p className={styles.documentLabel}>{word("bill_to")}</p>
+      <strong>{invoice.customer.name || word("customer_placeholder")}</strong>
+      {invoice.customer.taxId.trim() ? <p>{formatCustomerTaxId(invoice.customer.taxId)}</p> : null}
+      {invoice.customer.email.trim() ? <p>{invoice.customer.email}</p> : null}
+      {invoice.customer.address.trim() ? <p className={styles.customerAddress}>{invoice.customer.address}</p> : null}
+    </div><dl data-editing={activeSection === "terms" || undefined}><dt>{word("issue_date")}</dt><dd><InvoiceDate date={invoice.issuedOn} /></dd><dt>{word("due_date")}</dt><dd><InvoiceDate date={invoice.dueOn} /></dd><dt>{word("currency")}</dt><dd>{invoice.currency}</dd></dl></section>
     <div className={styles.documentItems} data-editing={activeSection === "items" || undefined}>{invoice.items.map(item => <div key={item.id}><span>{item.description || word("item_placeholder")}<small>{item.quantity || "0"} × {item.price || "0.00"}</small></span><span>{(() => { const line = invoiceAmounts({ items: [item], payments: [] }); return line ? <InvoiceMoney amount={line.total} currency={invoice.currency} /> : "-"; })()}</span></div>)}</div>
     <dl className={styles.documentTotals}>{(["subtotal", ...(amount?.discount ? ["discount" as const] : []), "tax", "total"] as const).map(key => <div key={key}><dt>{word(key === "tax" ? "tax_amount" : key === "total" ? "document_total" : key)}</dt><dd>{amount ? <InvoiceMoney amount={key === "discount" ? -amount[key] : amount[key]} currency={invoice.currency} /> : "-"}</dd></div>)}</dl>
     {invoice.issuance === "issued" && amount ? <dl className={styles.documentTotals}>{amount.credited > 0 ? <div><dt>{word("confirmed_credits")}</dt><dd><InvoiceMoney amount={amount.credited} currency={invoice.currency} /></dd></div> : null}{amount.debited > 0 ? <div><dt>{word("confirmed_debits")}</dt><dd><InvoiceMoney amount={amount.debited} currency={invoice.currency} /></dd></div> : null}<div><dt>{word("collected")}</dt><dd><InvoiceMoney amount={amount.paid} currency={invoice.currency} /></dd></div><div><dt>{word(amount.balance < 0 ? "credit_balance" : "balance")}</dt><dd><InvoiceMoney amount={Math.abs(amount.balance)} currency={invoice.currency} /></dd></div></dl> : null}
