@@ -10,13 +10,14 @@ beforeAll(()=>{GlobalRegistrator.register({url:"http://localhost/biz",settings:{
 afterEach(()=>{document.body.innerHTML="";window.localStorage.clear();});
 afterAll(async()=>{await GlobalRegistrator.unregister();});
 
-async function mount(locale="es-419") {
+async function mount(locale="es-419",live=false) {
   const {default:Profile}=await import("../app/design-workspace/BusinessProfilePreview");
   const {BusinessContext}=await import("../components/business-app/BusinessWorkspace");
   const {createFixtureBusinessDataSource}=await import("../components/business-app/fixture-data");
   const messages=locale === "en" ? (await import("../public/locales/en/common.json")).default : (await import("../public/locales/es-419/common.json")).default;
   const i18n=i18next.createInstance();await i18n.init({lng:locale,resources:{[locale]:{translation:messages}}});
-  const context={source:createFixtureBusinessDataSource({chatAvailable:true}),chosen:{space_id:"profile-test",name:"La Palma",role:"owner"},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
+  const fixture=createFixtureBusinessDataSource({chatAvailable:true});
+  const context={source:live?{...fixture,mode:"live"}:fixture,chosen:{space_id:live?"55555555-5555-4555-8555-555555555555":"profile-test",name:"La Palma",role:"owner",permissions:live?["read","manage"]:undefined},records:{workspace:{country:"DO"}},reload:()=>{},actions:{create:[]}} as unknown as BusinessContextValue;
   const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
   await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><Profile/></BusinessContext.Provider></I18nextProvider>));
   const button=(text:string,container:ParentNode=host)=>[...container.querySelectorAll<HTMLButtonElement>("button")].find(item=>item.textContent?.includes(text))!;
@@ -24,6 +25,20 @@ async function mount(locale="es-419") {
   const type=(name:string,value:string)=>act(async()=>{const field=document.querySelector<HTMLInputElement>(`[name="${name}"]`)!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(field,value);field.dispatchEvent(new Event("input",{bubbles:true}));});
   return {host,button,click,type,close:()=>act(async()=>root.unmount())};
 }
+
+test("a saved image must finish loading before editing and its read stops on unmount",async()=>{
+ const previousFetch=globalThis.fetch,previousAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+ process.env.NEXT_PUBLIC_MOCK_AUTH="true";
+ const signals:AbortSignal[]=[];
+ globalThis.fetch=async(url,init)=>{
+  if(String(url).includes("/assets/"))return new Promise((_resolve,reject)=>{const signal=init?.signal!;signals.push(signal);signal.addEventListener("abort",()=>reject(new DOMException("Aborted","AbortError")),{once:true});});
+  if(String(url).endsWith("/profile"))return Response.json({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details:{},appearance:{kind:"image",asset_id:"profile-image",crop:{mode:"fit",zoom:1,x:0,y:0}},image:{asset_id:"profile-image",width:64,height:32,source_url:"http://127.0.0.1:4412/assets/source",rendered_url:"http://127.0.0.1:4412/assets/rendered"}});
+  return Response.json({name:"La Palma",tax_id:null,can_edit:true});
+ };
+ const page=await mount("en",true);
+ try{expect(signals.length).toBeGreaterThan(0);expect(page.button("Change image").disabled).toBe(true);}
+ finally{await page.close();expect(signals.every(signal=>signal.aborted)).toBe(true);globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
+});
 
 test("overview opens the shared non-modal right dossier, hides the checklist and restores it on close",async()=>{
   const page=await mount();try{

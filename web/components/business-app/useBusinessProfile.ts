@@ -12,17 +12,20 @@ export function useBusinessProfile(id: string, enabled: boolean, onAccepted: () 
   const [attempt,setAttempt] = useState(0);
   const current = useRef<BusinessProfile|null>(null);
   const live = useRef(true);
+  const imageRequest=useRef<AbortController|null>(null);
   const command = useRef<{ input: string; patch: BusinessProfilePatch; key: string }|null>(null);
   const imageCommand = useRef<{ input: string; run: ReturnType<typeof appearanceCommand> }|null>(null);
   const accept = useCallback((next: BusinessProfile) => {
     if (!live.current) return;
-    current.current=next;setProfile(next);setFailed(false);publishBusinessAppearance(next);
+    current.current=next;setProfile(next);setFailed(false);
+    imageRequest.current?.abort();imageRequest.current=new AbortController();
+    void publishBusinessAppearance(next,imageRequest.current.signal).catch(()=>{});
   },[]);
   useEffect(()=>{
     live.current=true;
     const controller=new AbortController();
     if(enabled) getBusinessProfile(id,controller.signal).then(accept,error=>{if(!controller.signal.aborted){setFailed(true);setReference(referenceCode(error));setRefused(error?.status===403||error?.status===404);}});
-    return()=>{live.current=false;controller.abort();};
+    return()=>{live.current=false;controller.abort();imageRequest.current?.abort();};
   },[id,enabled,attempt,accept]);
   const failure = async (error: unknown): Promise<never> => {
     if (!live.current) throw error;

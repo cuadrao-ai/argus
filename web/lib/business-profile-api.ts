@@ -45,7 +45,6 @@ export async function getBusinessProfile(id: string, signal?: AbortSignal, scope
 }
 export async function saveBusinessProfile(id: string, patch: BusinessProfilePatch, key: string, scope?: Scope): Promise<BusinessProfile> {
   const result = selectedProfile(await businessSettingsRequest(profilePath(id), { method: "PATCH", headers: { "Idempotency-Key": key }, body: JSON.stringify(patch) }, scope),id);
-  publishBusinessAppearance(result);
   return result;
 }
 const savedAppearances = new Map<string, IdentityAppearance>();
@@ -66,18 +65,26 @@ export function profileIdentity(profile: BusinessProfile): IdentityAppearance {
 }
 async function imageDataUrl(url:string,signal?:AbortSignal){
   if(!["http:","https:"].includes(new URL(url).protocol))throw new Error("Invalid Business image URL");
-  const response=await fetch(url,{signal,credentials:"omit",referrerPolicy:"no-referrer",cache:"no-store"});
-  if(!response.ok)throw new Error("Business image unavailable");
-  const blob=await response.blob();
-  if(!["image/jpeg","image/png","image/webp"].includes(blob.type)||blob.size>1024*1024)throw new Error("Invalid Business image");
-  return new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>typeof reader.result==="string"?resolve(reader.result):reject(new Error("Invalid Business image"));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
+  signal?.throwIfAborted();
+  const controller=new AbortController(),abort=()=>controller.abort();
+  signal?.addEventListener("abort",abort,{once:true});
+  const deadline=setTimeout(abort,15000);
+  try{
+    const response=await fetch(url,{signal:controller.signal,credentials:"omit",referrerPolicy:"no-referrer",cache:"no-store"});
+    if(!response.ok)throw new Error("Business image unavailable");
+    const blob=await response.blob();
+    if(!["image/jpeg","image/png","image/webp"].includes(blob.type)||blob.size>1024*1024)throw new Error("Invalid Business image");
+    return await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>typeof reader.result==="string"?resolve(reader.result):reject(new Error("Invalid Business image"));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob);});
+  }finally{clearTimeout(deadline);signal?.removeEventListener("abort",abort);}
 }
 export async function publishBusinessAppearance(value: BusinessProfile,signal?:AbortSignal) {
   const generation=browserAuthGeneration();
   const target=`${generation}:${value.space_id}`;
   if((appearanceRevisions.get(target)??-1)>value.revision)return;
   appearanceRevisions.set(target,value.revision);
+  if(value.appearance.kind==="image"&&!value.image?.rendered_url){failBusinessAppearance(value.space_id);return;}
   if(value.appearance.kind==="image"&&value.image?.rendered_url){
+    appearanceStates.set(target,"loading");for(const listener of listeners)listener();
     try{
       const rendered=await imageDataUrl(value.image.rendered_url,signal);
       const source=value.image.source_url?await imageDataUrl(value.image.source_url,signal):rendered;

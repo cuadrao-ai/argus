@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { acceptBusinessInvitation, changeBusinessRole, getBusinessDirectory, inviteBusinessMembers, revokeBusinessAccessGrant } from "@/lib/business-api";
 import { setChosenGrant } from "@/lib/business-grant";
-import { createBusinessCommand, getBusinessProfile, saveBusinessProfile } from "@/lib/business-profile-api";
+import { businessAppearanceState,createBusinessCommand, getBusinessProfile,publishBusinessAppearance,saveBusinessProfile } from "@/lib/business-profile-api";
 
 const originalFetch = globalThis.fetch;
 const originalMock = process.env.NEXT_PUBLIC_MOCK_AUTH;
@@ -94,4 +94,14 @@ test("reload after a lost appearance reply reuses the committed Business and exa
  const remount=createBusinessCommand(input,checkpoint);
  await remount.run();
  expect(creates).toBe(1);expect(patches).toHaveLength(2);expect(patches[1]).toEqual(patches[0]);
+});
+test("profile transport does not start asset reads without a mounted owner",async()=>{
+ process.env.NEXT_PUBLIC_MOCK_AUTH="true";const calls:string[]=[];
+ globalThis.fetch=async url=>{calls.push(String(url));if(!String(url).includes("/profile"))return new Promise(()=>{});return Response.json({...profile,space_id:"owned-image-target",appearance:{kind:"image",asset_id:"asset-one",crop:{mode:"fit",zoom:1,x:0,y:0}},image:{asset_id:"asset-one",width:64,height:32,source_url:"http://127.0.0.1:4412/assets/source",rendered_url:"http://127.0.0.1:4412/assets/rendered"}});};
+ await saveBusinessProfile("owned-image-target",{expected_revision:3},"profile-only");
+ expect(calls).toHaveLength(1);
+});
+test("a saved image without readable bytes stays failed rather than becoming a default avatar",async()=>{
+ await publishBusinessAppearance({...profile,space_id:"unreadable-image",appearance:{kind:"image",asset_id:"missing-render",crop:{mode:"fit",zoom:1,x:0,y:0}},image:null});
+ expect(businessAppearanceState("unreadable-image")).toBe("failed");
 });

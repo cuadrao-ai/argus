@@ -21,7 +21,7 @@ import BusinessProfileCard from "./BusinessProfileCard";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
 import { useBusinessProfile } from "@/components/business-app/useBusinessProfile";
-import { businessSettingsRequest } from "@/lib/business-profile-api";
+import { businessAppearanceState,businessSettingsRequest,subscribeBusinessAppearance } from "@/lib/business-profile-api";
 import type { FiscalProfile } from "@/lib/business-dgii";
 import {referenceCode} from "@/lib/failure-screen";
 import {ReferenceCode} from "@/components/status/ReferenceCode";
@@ -60,6 +60,8 @@ function BusinessProfileContent() {
     return()=>controller.abort();
   },[live,businessId]);
   const appearance = previewAppearance;
+  const appearanceState=useSyncExternalStore(subscribeBusinessAppearance,()=>businessAppearanceState(businessId),()=>null);
+  const imagePending=live&&server.profile?.appearance.kind==="image"&&appearanceState!=="ready";
   const failureReference=server.reference??fiscalReference;
   const country = records.workspace?.country;
   const canEdit = live ? Boolean(chosen?.permissions?.includes("manage")) && !server.refused : chosen?.role === "owner";
@@ -143,7 +145,7 @@ function BusinessProfileContent() {
     <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">
       <div className="min-w-0 space-y-6">
         <section className={SURFACE_CARD} aria-label={t("business.settings.profile_overview")}>
-          <div className="mb-5 flex items-center gap-3"><BusinessMark businessId={businessId} name={name}/><div className="min-w-0 flex-1"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}{canEdit?<button type="button" className={quietButtonClass} onClick={event=>select({section:"appearance",trigger:event.currentTarget})}>{t("identity.change_image")}</button>:null}</div><button type="button" className={`${quietButtonClass} shrink-0`} aria-expanded={selected === "card"} aria-controls={selected === "card" ? "profile-section-dossier" : undefined} onClick={event=>select({section:"card",trigger:event.currentTarget})}>{t("business.settings.profile_view")}</button></div>
+          <div className="mb-5 flex items-center gap-3"><BusinessMark businessId={businessId} name={name}/><div className="min-w-0 flex-1"><h2 className="font-display break-words text-[21px] font-medium">{profile.name}</h2>{countryLabel ? <p className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{countryLabel}</p> : null}{canEdit?<><button type="button" className={quietButtonClass} disabled={imagePending&&appearanceState!=="failed"} aria-busy={imagePending&&appearanceState!=="failed"?true:undefined} onClick={event=>{if(imagePending)retryProfile();else select({section:"appearance",trigger:event.currentTarget});}}>{t(imagePending&&appearanceState==="failed"?"common.retry":"identity.change_image")}</button>{imagePending?<p role={appearanceState==="failed"?"alert":"status"} className="text-[14px] text-[#56635e] dark:text-white/70">{t(appearanceState==="failed"?"common.error_occurred":"common.loading")}</p>:null}</>:null}</div><button type="button" className={`${quietButtonClass} shrink-0`} aria-expanded={selected === "card"} aria-controls={selected === "card" ? "profile-section-dossier" : undefined} onClick={event=>select({section:"card",trigger:event.currentTarget})}>{t("business.settings.profile_view")}</button></div>
           <div className="divide-y divide-black/10 dark:divide-white/10">{sections.map(section=><button key={section.key} type="button" className="profile-section-row focus-visible:outline-2 focus-visible:outline-offset-2" aria-expanded={selected === section.key} aria-controls={selected === section.key ? "profile-section-dossier" : undefined} onClick={event=>select({section:section.key,trigger:event.currentTarget})}>
             <span className="profile-section-copy"><span className="text-[16px] font-medium">{section.title}</span><span className="profile-section-summary text-[14px] text-[#56635e] dark:text-white/70">{section.summary}</span></span><ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[#56635e] dark:text-white/70" />
           </button>)}</div>

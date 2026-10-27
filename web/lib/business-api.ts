@@ -737,7 +737,7 @@ export async function getBusinessAccess(): Promise<BusinessAccess> {
   return accessProjection.parse(await businessSettingsRequest("/business/access"));
 }
 
-/** A read and prepare grant for a confirmed account, else a pending invite; the server answers with the whole list either way. */
+/** Create a pending invitation with the requested canonical role. */
 export async function giveBusinessAccess(email: string, role: BusinessRole = "editor", key = crypto.randomUUID()): Promise<BusinessAccess> {
   return accessProjection.parse(await businessSettingsRequest("/business/access", {
     method: "POST",
