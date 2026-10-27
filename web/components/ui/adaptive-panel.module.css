@@ -10,3 +10,7 @@
 :global(.dark) .dossier {
   --dossier-gradient-strength: 6%;
 }
+
+.expandButton { display:grid; place-items:center; min-width:44px; min-height:44px; border-radius:999px; color:inherit; }
+.expandButton:hover { background:color-mix(in srgb,currentColor 6%,transparent); }
+.expandButton:focus-visible { outline:2px solid var(--cuadrao-green); outline-offset:2px; }
