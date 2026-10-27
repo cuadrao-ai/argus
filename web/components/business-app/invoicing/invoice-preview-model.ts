@@ -145,7 +145,7 @@ export type InvoiceCommand =
   | { type: "resolve_correction"; id: string; correctionId: string; attempt: number; outcome: "confirmed" | "failed" };
 export function invoiceReducer(invoices: InvoicePreview[], action: InvoiceCommand): InvoicePreview[] {
   if (action.type === "save") {
-    if (action.invoice.issuance !== "draft" || !validDraft(action.invoice)) return invoices;
+    if (action.invoice.issuance !== "draft") return invoices;
     const previous = invoices.find(invoice => invoice.id === action.invoice.id);
     if (previous && previous.issuance !== "draft") return invoices;
     return previous ? invoices.map(invoice => invoice.id === action.invoice.id ? action.invoice : invoice) : [...invoices, action.invoice];

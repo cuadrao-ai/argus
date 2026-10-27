@@ -256,7 +256,7 @@ test("invoice steps open expanded, validate the current section and preserve liv
     await page.click("Next");
     assert.equal(document.querySelector<HTMLTextAreaElement>("textarea")?.value, "Pay within 14 days");
     await page.click("Next");
-    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Review");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Your invoice is ready");
     assert.equal(document.querySelector('[data-testid="invoice-customer-document"]')?.getAttribute("data-editing"), "true");
     await page.click("Save draft");
     assert.equal(document.querySelector('[data-testid="invoice-editor"]'), null);
@@ -264,7 +264,7 @@ test("invoice steps open expanded, validate the current section and preserve liv
   } finally { await page.unmount(); }
 });
 
-test("phone keeps step data through preview and full-save validation routes to missing items", async () => {
+test("phone saves incomplete drafts and keeps step data through preview", async () => {
   const page = await mount(390);
   try {
     await page.render(page.original, "seeded");
@@ -272,6 +272,11 @@ test("phone keeps step data through preview and full-save validation routes to m
     await page.click("Choose customer");
     await page.click("Taller Brisacliente001@example.test");
     await page.click("Save draft");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"]'), null);
+    assert.equal(page.button("Issue in sample").disabled, true);
+    await page.click("Edit draft");
+    await page.click("Next");
+    await page.click("Next");
     assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Details");
     assert.equal(document.querySelector('input[id$="-description"]')?.getAttribute("aria-invalid"), "true");
     assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
@@ -380,7 +385,7 @@ test("document type belongs to terms and fiscal credit routes back to missing cu
     await page.click("Next");
     assert.ok(document.querySelector('button[aria-label="Document type: E31 · Fiscal credit"]'));
     await page.click("Next");
-    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Review");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Your invoice is ready");
   } finally { await page.unmount(); }
 });
 
@@ -390,11 +395,11 @@ test("item editor checks before adding, collapses earlier items and reopens inva
     await page.render(page.original, "seeded");
     await page.click("M-001"); await page.click("Edit draft"); await page.click("Next");
     await page.fill('input[id$="-description"]', "");
-    await page.click("Add item");
+    await page.click("Add product");
     assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 1);
     assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
     await page.fill('input[id$="-description"]', "First service");
-    await page.click("Add item");
+    await page.click("Add product");
     assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 2);
     assert.equal(document.querySelectorAll('input[id$="-description"]').length, 1);
     assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
@@ -423,7 +428,7 @@ test("item amounts preserve invalid pasted values and format valid decimals on b
     for (const invalid of ["1e3", "-12", "Infinity", "12.345", "10000000"]) {
       await page.fill('input[id$="-price"]', invalid); await blur("price");
       assert.equal(document.querySelector('input[id$="-price"]')?.getAttribute("aria-invalid"), "true", invalid);
-      await page.click("Add item");
+      await page.click("Add product");
       assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 1);
     }
     const price = document.querySelector<HTMLInputElement>('input[id$="-price"]')!;

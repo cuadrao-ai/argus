@@ -4,6 +4,14 @@ import { correctionStatus, invoiceSettlement, invoiceState, invoicePreviewSeed, 
 
 const draft = () => ({ ...newInvoice("one", "M-001"), customer: { id: "c1", name: "Cliente de muestra", email: "test@example.test", address: "", taxId: "" }, items: [{ id: "i1", description: "Servicio", quantity: "1", price: "100.00", tax: "0" }] });
 describe("connected invoice preview", () => {
+  test("keeps incomplete work as a draft without allowing issuance or overwriting issued invoices", () => {
+    const incomplete = { ...newInvoice("one", "M-001"), notes: "Continue later" };
+    const saved = invoiceReducer([], { type: "save", invoice: incomplete });
+    assert.deepEqual(saved, [incomplete]);
+    assert.deepEqual(invoiceReducer(saved, { type: "issue", id: "one" }), saved);
+    const issued = { ...draft(), issuance: "issued" as const };
+    assert.deepEqual(invoiceReducer([issued], { type: "save", invoice: incomplete }), [issued]);
+  });
   test("one identity survives save, issue, preparation and two linked payments", () => {
     let state = invoiceReducer([], { type: "save", invoice: draft() });
     state = invoiceReducer(state, { type: "issue", id: "one" });

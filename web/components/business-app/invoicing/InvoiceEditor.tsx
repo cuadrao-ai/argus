@@ -60,7 +60,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
     }
     goTo(target); setAttempted(current => new Set(current).add(target)); setValidationAttempt(current => current + 1); };
   const saveNewCustomer = () => {
-    if (!addingCustomer) return;
+    if (!addingCustomer || Object.keys(errors).some(key => stepForField(key) === "customer")) return;
     onAddCustomer({ ...draft.customer, status: "active" });
     setAddingCustomer(false);
   };
@@ -131,9 +131,8 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
     }} />;
   };
   const save = () => {
-    if (validDraft(draft) && !Object.keys(errors).length) { saveNewCustomer(); onSave(draft); return; }
-    setLeaving(false);
-    showErrors(STEPS.find(candidate => Object.keys(errors).some(key => stepForField(key) === candidate)) ?? "customer");
+    saveNewCustomer();
+    onSave(draft);
   };
   return <>
   <AdaptivePanel title={word("draft_title")} summary={`${business} · ${draft.reference}`} width="lg" snaps={["full"]} initialSnap="full" closeLabel={t("common.close")} onClose={() => changed ? setLeaving(true) : onClose()} expansion={{ expanded, onToggle: () => setExpanded(value => !value), expandLabel: word("expand_editor"), collapseLabel: word("collapse_editor") }}>
