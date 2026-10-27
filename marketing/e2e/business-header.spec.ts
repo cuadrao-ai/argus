@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chromium, expect, test } from "@playwright/test";
+import { chromium, expect, test, type Page } from "@playwright/test";
 
 import { SITE_PORT } from "./ports";
 
@@ -292,5 +292,87 @@ test("public Marketing never exposes the staging sign-in link", async () => {
     await expect(page).toHaveURL(`http://cuadrao.ai:${SITE_PORT}/`);
   } finally {
     await browser.close();
+  }
+});
+
+async function attachMenuEvidence(page: Page, name: string) {
+  execFileSync("git", ["diff", "--exit-code", "HEAD", "--", "marketing"]);
+  await test.info().attach(`${name}.png`, { body: await page.screenshot(), contentType: "image/png" });
+  await test.info().attach(`${name}-source.json`, {
+    body: Buffer.from(JSON.stringify({
+      commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+      tree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim(),
+      viewport: page.viewportSize(),
+      menu: await page.locator("#business-mobile-menu").boundingBox(),
+      scroll: await page.evaluate(() => window.scrollY),
+      menuScroll: await page.locator("#business-mobile-menu").evaluate(node => node.scrollTop),
+      route: new URL(page.url()).pathname,
+    }, null, 2)),
+    contentType: "application/json",
+  });
+}
+
+for (const { home, cta, login } of cases) {
+  test(`${home} phone menu covers the hero and keeps keyboard focus inside`, async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile", "phone menu coverage");
+    await page.goto(home);
+    const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
+    const scroll = await page.evaluate(() => window.scrollY);
+    const previousOverflow = await page.locator("body").evaluate(node => node.style.overflow);
+    await trigger.click();
+    const nav = page.locator("#business-mobile-menu");
+    const box = (await nav.boundingBox())!;
+    expect(Math.abs(box.y + box.height - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
+    const hero = (await page.locator("main").getByRole("link", { name: cta, exact: true }).first().boundingBox())!;
+    const point = { x: hero.x + hero.width / 2, y: hero.y + hero.height / 2 };
+    expect(point.y).toBeLessThan(page.viewportSize()!.height);
+    expect(await page.evaluate(({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest("#business-mobile-menu")), point)).toBe(true);
+    await expect(nav.getByRole("link", { name: cta, exact: true })).toHaveAttribute("href", "/contacto");
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await attachMenuEvidence(page, "phone-menu-coverage");
+    const last = nav.getByRole("button", { name: login, exact: true });
+    await last.focus(); await page.keyboard.press("Tab"); await expect(trigger).toBeFocused();
+    await page.keyboard.press("Shift+Tab"); await expect(last).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(nav).toHaveCount(0); await expect(trigger).toBeFocused();
+    expect(await page.locator("body").evaluate(node => node.style.overflow)).toBe(previousOverflow);
+    expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+  });
+}
+
+test("short phone menu scrolls its links without scrolling the page and restores it on close", async ({ page }) => {
+  test.skip(test.info().project.name !== "mobile", "short phone menu coverage");
+  await page.setViewportSize({ width: 390, height: 420 });
+  await page.goto("/en"); await page.evaluate(() => window.scrollTo(0, 600));
+  const trigger = page.locator('header button[aria-controls="business-mobile-menu"]');
+  const scroll = await page.evaluate(() => window.scrollY);
+  await trigger.click();
+  const nav = page.locator("#business-mobile-menu");
+  const box = (await nav.boundingBox())!;
+  expect(Math.abs(box.y + box.height - 420)).toBeLessThanOrEqual(1);
+  const last = nav.getByRole("button", { name: "Log in", exact: true });
+  await trigger.focus(); await page.keyboard.press("Shift+Tab");
+  await expect(last).toBeFocused(); await expect(last).toBeInViewport();
+  expect(await nav.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+  await attachMenuEvidence(page, "short-phone-menu-scrolled");
+  await page.keyboard.press("Escape"); await expect(nav).toHaveCount(0); await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
+});
+
+test("menu follows the existing CSS tablet boundary and restores background scroll", async ({ page }) => {
+  test.skip(test.info().project.name !== "mobile", "responsive menu boundary");
+  await page.goto("/");
+  for (const width of [799, 800]) {
+    await page.setViewportSize({ width, height: 900 });
+    const trigger = page.getByRole("button", { name: "Abrir menú" }); await trigger.click();
+    const nav = page.locator("#business-mobile-menu");
+    const box = (await nav.boundingBox())!;
+    expect(Math.abs(box.y + box.height - 900)).toBeLessThanOrEqual(1);
+    await attachMenuEvidence(page, `tablet-menu-${width}`);
+    await page.setViewportSize({ width: 801, height: 900 });
+    await expect(nav).toHaveCount(0);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+    await expect(page.locator("header nav:visible")).toHaveCount(1);
   }
 });

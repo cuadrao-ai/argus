@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Menu, X } from "lucide-react";
 import { businessSignInHref } from "@/lib/business-signin";
 import { businessPath, type BusinessPage } from "@/lib/site-routes";
@@ -44,17 +44,56 @@ export function BusinessHeader({
       : "Early access"
     : copy.demo;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
-    menu.current?.querySelector<HTMLAnchorElement>("a")?.focus();
-    const closeOnEscape = (event: KeyboardEvent): void => {
+    const panel = menu.current;
+    const control = trigger.current;
+    if (!panel || !control) return;
+    const viewport = window.visualViewport;
+    const update = () => {
+      if (getComputedStyle(control).display === "none") {
+        if (panel.contains(document.activeElement) || document.activeElement === control) {
+          header.current?.querySelector<HTMLAnchorElement>("a")?.focus({ preventScroll: true });
+        }
+        setOpen(false);
+        return false;
+      }
+      const bottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+      panel.style.setProperty("--mobile-nav-height", `${Math.max(0, bottom - panel.getBoundingClientRect().top)}px`);
+      return true;
+    };
+    if (!update()) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    update();
+    panel.querySelector<HTMLAnchorElement>("a")?.focus({ preventScroll: true });
+    const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         setOpen(false);
-        trigger.current?.focus();
+        control.focus({ preventScroll: true });
+      } else if (event.key === "Tab") {
+        const last = Array.from(panel.querySelectorAll<HTMLElement>("a[href],button:not([disabled])")).at(-1);
+        if (!last) return;
+        if (event.shiftKey && document.activeElement === control) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          control.focus({ preventScroll: true });
+        }
       }
     };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", update);
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", update);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+    };
   }, [open]);
 
   useEffect(() => {

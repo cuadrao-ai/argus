@@ -238,6 +238,10 @@
   justify-content: center;
 }
 .mobileNav {
+  height: var(--mobile-nav-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  align-content: start;
   position: absolute;
   top: 100%;
   left: 0;
