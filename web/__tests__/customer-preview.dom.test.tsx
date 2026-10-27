@@ -272,7 +272,7 @@ test("phone keeps step data through preview and full-save validation routes to m
     await page.click("Choose customer");
     await page.click("Taller Brisacliente001@example.test");
     await page.click("Save draft");
-    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Items");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Details");
     assert.equal(document.querySelector('input[id$="-description"]')?.getAttribute("aria-invalid"), "true");
     assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
     await page.fill('input[id$="-description"]', "Phone service");
@@ -351,7 +351,7 @@ test("saved invoice customer fields validate without truncation and preview keep
     await page.fill("#invoice-address", "");
     assert.ok([...section.children].every(node => node.textContent?.trim()));
     await page.click("Next");
-    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Items");
+    assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Details");
   } finally { await page.unmount(); }
 });
 
@@ -381,5 +381,71 @@ test("document type belongs to terms and fiscal credit routes back to missing cu
     assert.ok(document.querySelector('button[aria-label="Document type: E31 · Fiscal credit"]'));
     await page.click("Next");
     assert.equal(document.querySelector('[data-testid="invoice-editor"] h3')?.textContent, "Review");
+  } finally { await page.unmount(); }
+});
+
+test("item editor checks before adding, collapses earlier items and reopens invalid items", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("M-001"); await page.click("Edit draft"); await page.click("Next");
+    await page.fill('input[id$="-description"]', "");
+    await page.click("Add item");
+    assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 1);
+    assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
+    await page.fill('input[id$="-description"]', "First service");
+    await page.click("Add item");
+    assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 2);
+    assert.equal(document.querySelectorAll('input[id$="-description"]').length, 1);
+    assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
+    await page.act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Edit item 1: First service"]')!.click());
+    assert.equal(document.querySelector<HTMLInputElement>('input[id$="-description"]')?.value, "First service");
+    await page.click("Next");
+    assert.equal(document.querySelector<HTMLInputElement>('input[id$="-description"]')?.value, "");
+    assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
+    await page.fill('input[id$="-description"]', "Second service");
+    await page.fill('input[id$="-price"]', "25");
+    assert.ok(document.querySelector('[data-testid="invoice-customer-document"]')?.textContent?.includes("Second service"));
+    await page.act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Remove item 2"]')!.click());
+    assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 1);
+    assert.equal(document.querySelector<HTMLInputElement>('input[id$="-description"]')?.value, "First service");
+    assert.equal(document.activeElement, document.querySelector('input[id$="-description"]'));
+  } finally { await page.unmount(); }
+});
+
+test("item amounts preserve invalid pasted values and format valid decimals on blur", async () => {
+  const page = await mount();
+  try {
+    await page.render(page.original, "seeded");
+    await page.click("M-001"); await page.click("Edit draft"); await page.click("Next");
+    await page.fill('input[id$="-description"]', "Service");
+    const blur = async (key: string) => page.act(async () => document.querySelector<HTMLInputElement>(`input[id$="-${key}"]`)!.dispatchEvent(new FocusEvent("focusout", { bubbles: true })));
+    for (const invalid of ["1e3", "-12", "Infinity", "12.345", "10000000"]) {
+      await page.fill('input[id$="-price"]', invalid); await blur("price");
+      assert.equal(document.querySelector('input[id$="-price"]')?.getAttribute("aria-invalid"), "true", invalid);
+      await page.click("Add item");
+      assert.equal(document.querySelectorAll('fieldset[id^="invoice-item-"]').length, 1);
+    }
+    const price = document.querySelector<HTMLInputElement>('input[id$="-price"]')!;
+    await page.act(async () => {
+      price.setSelectionRange(0, price.value.length);
+      const data = new DataTransfer(); data.setData("text", "123456789012.34");
+      price.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: data }));
+    });
+    assert.equal(price.value, "123456789012.34");
+    assert.equal(price.getAttribute("aria-invalid"), "true");
+    await page.fill('input[id$="-price"]', "12,5"); await blur("price");
+    assert.equal(price.value, "12.50");
+    assert.notEqual(price.getAttribute("aria-invalid"), "true");
+    await page.fill('input[id$="-quantity"]', "1000.01"); await blur("quantity");
+    assert.equal(document.querySelector('input[id$="-quantity"]')?.getAttribute("aria-invalid"), "true");
+    await page.fill('input[id$="-quantity"]', "1000");
+    await page.fill('input[id$="-tax"]', "100.01"); await blur("tax");
+    assert.equal(document.querySelector('input[id$="-tax"]')?.getAttribute("aria-invalid"), "true");
+    await page.fill('input[id$="-tax"]', "100");
+    await page.fill('input[id$="-discount"]', "12500.01"); await blur("discount");
+    assert.equal(document.querySelector('input[id$="-discount"]')?.getAttribute("aria-invalid"), "true");
+    await page.fill('input[id$="-discount"]', "0"); await page.click("Next");
+    assert.ok(document.querySelector("#invoice-issuedOn"));
   } finally { await page.unmount(); }
 });
