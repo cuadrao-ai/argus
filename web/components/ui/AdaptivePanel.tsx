@@ -3,7 +3,7 @@
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { ChevronLeft, X } from "lucide-react";
+import { ChevronLeft, Maximize2, Minimize2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { useModalSurface } from "@/components/layout/useModalSurface";
@@ -25,6 +25,8 @@ import styles from "./adaptive-panel.module.css";
  */
 
 export type AdaptivePanelWidth = "sm" | "md" | "lg" | "record";
+
+type PanelExpansion = { expanded: boolean; onToggle: () => void; expandLabel: string; collapseLabel: string };
 
 type DrawerBounds = { preferred: number; min: number; maxVw: number };
 
@@ -56,6 +58,7 @@ export default function AdaptivePanel({
   footer,
   returnFocusRef,
   initialFocusRef,
+  expansion,
   children,
 }: {
   title: string;
@@ -75,6 +78,7 @@ export default function AdaptivePanel({
    */
   modal?: boolean;
   width?: AdaptivePanelWidth;
+  expansion?: PanelExpansion;
   /** The bottom sheet's snap points on a phone. */
   snaps?: readonly SheetSnap[];
   initialSnap?: SheetSnap;
@@ -131,8 +135,10 @@ export default function AdaptivePanel({
     );
   }
 
-  return <SideDrawer {...{ title, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, children }} />;
+  return <SideDrawer {...{ title, summary, headerSize, titleId, overlayId, panelRef, onClose, closeLabel, stackBackLabel, dismissible, modal, width, footer, returnFocusRef, initialFocusRef, back, expansion, children }} />;
 }
+
+const EXPANDED_WIDTH: DrawerBounds = { preferred: 1200, min: 720, maxVw: 88 };
 
 /** While the drawer is drawn, the page gives up its width so it stays readable beside it. */
 /**
@@ -177,6 +183,7 @@ type DrawerProps = {
   dismissible: boolean;
   modal: boolean;
   width: AdaptivePanelWidth;
+  expansion?: PanelExpansion;
   footer?: ReactNode;
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   initialFocusRef?: React.RefObject<HTMLElement | null>;
@@ -247,6 +254,7 @@ function DrawerPanel({
   stackBackLabel,
   dismissible,
   width,
+  expansion,
   footer,
   back,
   children,
@@ -263,7 +271,7 @@ function DrawerPanel({
   titleRef?: React.RefObject<HTMLHeadingElement | null>;
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
 }) {
-  const bounds = DRAWER_WIDTH[width];
+  const bounds = expansion?.expanded ? EXPANDED_WIDTH : DRAWER_WIDTH[width];
   return (
     <div
       ref={panelRef}
@@ -271,6 +279,7 @@ function DrawerPanel({
       aria-modal={role === "dialog" ? "true" : undefined}
       aria-labelledby={titleId}
       data-testid="side-drawer"
+      data-expanded={expansion ? expansion.expanded : undefined}
       hidden={hidden}
       onKeyDown={onKeyDown}
       style={{ width: `min(${bounds.preferred}px, ${bounds.maxVw}vw)`, minWidth: `${bounds.min}px` }}
@@ -291,6 +300,11 @@ function DrawerPanel({
           <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined} className={`rounded-mark font-display ${headerSize === "large" ? "text-[21px]" : "text-[17px]"} font-medium text-black focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#2f5a49] dark:text-white`}>{title}</h2>
           {summary ? <p className={`mt-1 ${headerSize === "large" ? "text-[14px]" : "text-[13px]"} text-[#56635e] dark:text-white/70`}>{summary}</p> : null}
         </div>
+        {expansion ? (
+          <button type="button" onClick={expansion.onToggle} aria-label={expansion.expanded ? expansion.collapseLabel : expansion.expandLabel} aria-expanded={expansion.expanded} className={styles.expandButton}>
+            {expansion.expanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
+          </button>
+        ) : null}
         {dismissible && !hasBelow ? (
           <button
             type="button"

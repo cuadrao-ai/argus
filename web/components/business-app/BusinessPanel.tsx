@@ -12,6 +12,7 @@ import { useAccessBanner } from "./useAccessBanner";
 import BusinessOverviewPanel from "./BusinessOverviewPanel";
 import BusinessInboxPanel from "./BusinessInboxPanel";
 import TransaccionesPanel from "./transacciones/TransaccionesPanel";
+import InvoicingPreview from "./invoicing/InvoicingPreview";
 import { RecordsAnnotationsPreview } from "./transacciones/RecordsAnnotationsPreview";
 import { RecordEvidenceContext, RecordGlanceContext } from "./transacciones/RecordGlanceContext";
 import type { RecordRow } from "./transacciones/transacciones-model";
@@ -113,7 +114,7 @@ function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; lis
 
 /** Inside the one canvas every screen starts at its left edge; a list or a form keeps a narrower column there. */
 const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as const;
-const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
+const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
 
 export default function BusinessPanel() {
   const { panel, lostAccess, records, reload, openPanel, chosen } = useBusiness();
@@ -156,6 +157,7 @@ export default function BusinessPanel() {
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
+        {shown === "invoicing" && previewEnabled ? <InvoicingPreview /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>
