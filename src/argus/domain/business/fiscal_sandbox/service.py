@@ -13,7 +13,7 @@ from argus.domain.business.authority import ActionError
 from argus.domain.business.contracts.authority import TrustedActor
 
 from .config import Settings
-from .contracts import Case, FiscalOperation, Observation
+from .contracts import Case, FiscalOperation, Observation, digest
 from .provider import Provider, ProviderError, observation
 from .store import Store
 
@@ -67,7 +67,19 @@ class Service:
             self.store.claim, actor, grant, operation_id, expected_digest
         )
         if case is not None:
-            if self.cases.get(case.case_id) != case:
+            manifest = self.cases.get(case.case_id)
+            matches = (
+                manifest == case
+                if case.invoice_revision_id is None
+                else (
+                    manifest is not None
+                    and digest(manifest.model_dump(mode="json")) == case.manifest_digest
+                    and await asyncio.to_thread(
+                        self.store.saved_revision_matches, case, operation_id
+                    )
+                )
+            )
+            if not matches:
                 await asyncio.to_thread(
                     self.store.record,
                     operation_id,

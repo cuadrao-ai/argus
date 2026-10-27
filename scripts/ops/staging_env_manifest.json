@@ -91,6 +91,11 @@
           "value": "true"
         },
         {
+          "name": "CUADRAO_BUSINESS_INVOICING_ENABLED",
+          "kind": "plain",
+          "value": "false"
+        },
+        {
           "name": "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
           "kind": "secret",
           "keep_current": true,
