@@ -31,7 +31,7 @@ test("a saved image must finish loading before editing and its read stops on unm
  process.env.NEXT_PUBLIC_MOCK_AUTH="true";
  const signals:AbortSignal[]=[];
  globalThis.fetch=async(url,init)=>{
-  if(String(url).includes("/assets/"))return new Promise((_resolve,reject)=>{const signal=init?.signal!;signals.push(signal);signal.addEventListener("abort",()=>reject(new DOMException("Aborted","AbortError")),{once:true});});
+  if(String(url).includes("/assets/"))return new Promise((_resolve,reject)=>{const signal=init?.signal;if(!signal)throw new Error("Asset read needs an abort signal");signals.push(signal);signal.addEventListener("abort",()=>reject(new DOMException("Aborted","AbortError")),{once:true});});
   if(String(url).endsWith("/profile"))return Response.json({space_id:"55555555-5555-4555-8555-555555555555",name:"La Palma",country:"DO",currency:"DOP",revision:1,details:{},appearance:{kind:"image",asset_id:"profile-image",crop:{mode:"fit",zoom:1,x:0,y:0}},image:{asset_id:"profile-image",width:64,height:32,source_url:"http://127.0.0.1:4412/assets/source",rendered_url:"http://127.0.0.1:4412/assets/rendered"}});
   return Response.json({name:"La Palma",tax_id:null,can_edit:true});
  };
