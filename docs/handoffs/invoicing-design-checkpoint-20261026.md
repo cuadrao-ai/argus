@@ -1,8 +1,10 @@
-# Facturación checkpoint handoff: review draft
+# Facturación checkpoint handoff: authorized review and planning
 
-**HOLD: prepared for the user's final review. Do not send to the orchestrator until
-explicit checkpoint clearance.** This document does not assign backend work,
-authorize a merge, deploy, migration or activation, or certify hosted readiness.
+**Dispatch authorized by the user on 26 October 2026 for orchestrator review and planning.**
+Preserve frontend ownership and coordinate a cleared wiring checkpoint. This handoff
+does not authorize a merge, deploy, migration, activation, live invoices or customer
+emails, or certify hosted readiness. The user addendum below narrows the first
+connected milestone and takes precedence over broader future acceptance scope.
 
 Date: 26 October 2026.
 Branch: `codex/frontend-design-after-home-20261024`.
@@ -265,7 +267,7 @@ These should be resolved during integration without reopening the visual layout:
 5. QA/release: hosted checks, safe migration/flag rollout and exact deployed SHA proof
    remain distinct from design approval and local test success.
 
-## 8. Evidence and dispatch hold
+## 8. Evidence and dispatch authorization
 
 The behavior guide records prior local browser evidence and its limits. This handoff
 was reviewed against the exact code baseline above, without backend changes.
@@ -281,7 +283,58 @@ These are local model/DOM checks, not provider or hosted calls. Documentation li
 checks and `git diff --check` also pass. No fresh full-browser sweep, full-build pass or hosted acceptance is
 claimed by this document.
 
-At clearance, attach this handoff, the behavior guide, exact checkpoint SHA and local
-proof to the orchestrator. Ask it to acknowledge the backend requirements, add them
-to its plan and identify unresolved dependencies. **Do not dispatch now.** No
-acknowledgment has been requested or claimed for this draft.
+The user has now authorized sending this handoff, the behavior guide and exact
+checkpoint references to the orchestrator. Request acknowledgment of the backend
+requirements, their inclusion in the plan, and unresolved dependencies. Delivery
+and acknowledgment must be reported separately; neither implies implementation
+or hosted approval.
+
+
+## 9. User-approved implementation boundary and handoff addendum
+
+Checkpoint reviewed: `c9951c58d`. Executable baseline unchanged: `22b12a6b7`.
+The following is the user-provided direction, preserved verbatim. Provider evidence
+references are inputs for the orchestrator to reconcile with its existing evidence;
+this documentation update did not rerun qualification.
+
+Review the invoicing checkpoint c9951c58d and its executable baseline 22b12a6b7 using:
+
+- docs/handoffs/invoicing-design-checkpoint-20261026.md
+- docs/reports/invoicing-preview-20261026.md
+- The updated Cuadrao DESIGN.md.
+
+Preserve the approved design and frontend ownership. Coordinate a cleared wiring checkpoint with the designer. Return one bounded implementation sequence and the genuinely unresolved product decisions for approval. Do not start a new provider qualification campaign.
+
+1. Persist the designed workflow
+
+Support Business-scoped customers and incomplete drafts, versioned saves, safe retries and immutable customer/issuer snapshots when issuing. Preserve the editor’s items, discounts, dates, terms, payment instructions, invoice notes and delivery preparation. The current preview resets on reload; local behavior is not persistence.
+
+2. Reuse the existing Alanube integration
+
+Build on the reviewed E31/E32 fiscal-operation lifecycle from #1381: authorization, operation journal, provider transport, status reconciliation and authenticated artifact access. Its current case_id-only fixed-fixture interface does not satisfy this editor. Prepare fiscal operations from a saved, validated invoice revision and link the invoice, revision, payload digest, provider ID and eNCF.
+
+Map actual editor fields with exact server-side calculations. Reconcile description/terms length limits, goods-versus-services classification, tax inclusion and exemptions, discounts and paymentType. Never silently truncate or invent fiscal values. Foreign-currency issuing requires an explicit exchange-rate basis. Expose DR fiscal choices only for applicable issuers; currency alone does not establish jurisdiction.
+
+3. Preserve safe issuing and honest status
+
+Retries must reuse the same operation. A timeout or uncertain provider result must reconcile before any second issuance attempt. Submission, fiscal acceptance, PDF/XML availability, customer delivery and payment are separate facts. Define which records count toward billed/outstanding totals and which actions each state permits.
+
+Connect the existing XML/PDF routes. Handle missing artifacts without reissuing an accepted invoice. Keep secrets and provider credentials server-side.
+
+4. Decide delivery once
+
+Choose one customer-email owner, not both Alanube and Cuadrao. My recommendation is Cuadrao/Resend for the designed To/Cc/message and branded sender, with Alanube supplying fiscal artifacts. Confirm feasibility and prevent duplicate provider notifications. Preserve one durable delivery preparation shared by editor and dossier. Sending an email must never issue another invoice.
+
+5. Keep corrections and payments connected
+
+E33/E34 qualification stories passed, but Cuadrao’s current fiscal routes support E31/E32 only. Identify correction implementation separately; preserve the original invoice and distinguish partial credit, debit and full cancellation. A credit note is not a cash refund.
+
+Use the shared payment-allocation milestone for partial payments and remaining balances. Reconcile the existing bank matcher’s whole-document paid/collected side effects; do not create a second payment-state mechanism. Show customer credits separately rather than netting one customer’s credit against another’s receivable.
+
+6. Deliver a bounded sandbox milestone
+
+The first connected proof is actual saved editor input → validated fiscal operation → Alanube sandbox result → correct XML/PDF, including reload, retry and uncertain-result recovery. Use a dedicated test Business and synthetic customers, visibly marked “Prueba · Sin validez fiscal.” Define the supported input envelope explicitly; a fixed-fixture button is not completion.
+
+Reuse the existing successful E31/E32 and correction evidence. Original E43/E47 PDF-repair limitations do not block this basic journey. Keep scheduled execution and automatic issuance outside the first connected milestone unless separately approved.
+
+Return existing capabilities, missing implementation, preview-only controls and remaining acceptance checks, with owners. Keep migration, deployment, credential changes, webhook configuration and Alanube activation held pending exact approval. This handoff does not authorize live invoices or customer emails.
