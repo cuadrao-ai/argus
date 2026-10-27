@@ -1,5 +1,11 @@
 # Argus private iPhone execution manifest
 
+**Business continuation, 27 October 2026 (local draft):** Start with the
+[product and engineering handoff](../START_HERE.md) for the latest bounded
+Business release evidence, settled surface boundaries, remaining acceptance and
+ownership. It supplements this board's dated Business status without restarting
+Consumer work. Publication is held until Lucas explicitly requests it.
+
 **Updated:** October 13, 2026 (see Current state below). Earlier line, October 11, 2026, 12:12:33 UTC verified coordinator checkpoint through #970 landing and bounded checkpoint/Personal/memory/voice/repair allocations; live quality and hosted gates remain pending under the October 10 23:37 UTC owner-handoff continuation.
 **Execution state:** Consumer PR #937 is merged with accepted simulator evidence and green pre-merge CI. Build 3455 is installed; hosted manual-money acceptance remains open. The current Consumer assignment below supersedes the older sequencing only for this lane. The [October 4 code checkpoint](../reports/2026-10-04-cuadrao-code-integration-landing.md) retains its historical evidence.
 **Product owner:** [MVEE](argus-minimum-viable-ecosystem-experience.md).
