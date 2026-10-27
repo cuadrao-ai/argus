@@ -54,6 +54,7 @@ try {
       }
       if (path === "drafts/synthetic-new/dossier") return route.fulfill({ json: dossier });
       if (path === "spaces") return route.fulfill({ json: { spaces: [owner], closed_spaces: [] } });
+      if (path === `spaces/${owner.space_id}/profile`) return route.fulfill({ json: { space_id: owner.space_id, name: owner.name, country: "DO", currency: "DOP", revision: 0, details: {}, appearance: { kind: "default" }, image: null } });
       if (path === "space") return route.fulfill({ json: { id: owner.space_id, name: owner.name } });
       if (path === "workspace") return route.fulfill({ json: await source.workspace() });
       if (path === "overview") return route.fulfill({ json: await source.overview("2026-10-01", "2026-10-31") });
