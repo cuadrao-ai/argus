@@ -83,7 +83,7 @@ function BusinessAppContent({ sample, transferId, lifecycle, manageLifecycle }: 
   if (lifecycleHome === "unavailable") return <main className="space-y-4 p-6"><p role="alert">{t("business.lifecycle.errors.discovery")}</p><button type="button" className={primaryButtonClass} onClick={() => setAttempt(value => value + 1)}>{t("common.retry")}</button></main>;
   const consentUserId = sample || process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner;
   const workspace = (
-    <BusinessWorkspaceProvider key={owner ?? "fixture"} source={source}>
+    <BusinessWorkspaceProvider key={owner ?? "fixture"} userId={process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? MOCK_AUTH_CONSENT_USER_ID : owner ?? null} source={source}>
       <BusinessNamingProvider>
       <ConversationShellGuard />
       <ConversationUnavailableNotice />

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, test } from "bun:test";
+import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
 import type { FiscalOperation, InvoiceDraft, SavedInvoice } from "@/lib/business-invoices-api";
@@ -7,9 +7,12 @@ import { invoiceId, invoiceScope, incompleteInvoice, savedInvoice, savedCustomer
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 import { removeSessionStored } from "@/lib/browser-storage";
 
+const realFlags = { ...await import("@/lib/private-alpha-flags") };
+mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicingEnabled: true }));
+
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -18,10 +21,11 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const { BusinessContext } = await import("@/components/business-app/BusinessWorkspace");
   const { createFixtureBusinessDataSource } = await import("@/components/business-app/fixture-data");
   const { periodRange } = await import("@/components/business-app/business-format");
+  const { default: BusinessPanel } = await import("@/components/business-app/BusinessPanel");
   const { default: ConnectedInvoicingWorkspace } = await import("@/components/business-app/invoicing/ConnectedInvoicingWorkspace");
   const i18n = i18next.createInstance(); await i18n.init({ lng: "en", resources: { en: { translation: english } } });
   const previousFetch = globalThis.fetch, previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH, previousGrant = getChosenGrant();
-  process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; setChosenGrant(invoiceScope.grantId); removeSessionStored("cuadrao:invoice_commands:v1");
+  process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; setChosenGrant(options.selectedGrant === undefined ? invoiceScope.grantId : options.selectedGrant); removeSessionStored("cuadrao:invoice_commands:v1");
   let record = options.record ?? null, creates = 0, prepareEffects = 0, loseCreate = options.loseCreate, losePrepare = options.losePrepare;
   const calls: { path: string; method: string; body: unknown; key: string | null }[] = [];
   let releaseCreate: (() => void) | undefined; let heldSignal: AbortSignal | null | undefined;
@@ -49,9 +53,9 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
     return new Response(null, { status: 404 });
   };
   const source = createFixtureBusinessDataSource();
-  const context: BusinessContextValue = { source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
+  const context: BusinessContextValue = { userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
   const host = document.createElement("div"); document.body.append(host); let root = createRoot(host);
-  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}><ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: true, issue: false, download: true }} /></BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
+  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: true, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text && !node.closest("[hidden]")); assert.ok(found, `missing button ${text}`); return found; };
   const click = async (text: string) => { await act(async () => button(text).click()); };
@@ -170,4 +174,29 @@ test("session replay keeps independent frozen commands for each account, Busines
     assert.deepEqual(Object.keys(raw[0].command).sort(), ["body", "id", "key", "kind"]);
     sessionInvoiceJournal.clear(scopes[1]); assert.equal(sessionInvoiceJournal.read(scopes[0])?.kind, "invoice"); assert.equal(sessionInvoiceJournal.read(scopes[2])?.kind, "invoice");
   } finally { removeSessionStored("cuadrao:invoice_commands:v1"); setChosenGrant(previousGrant); }
+});
+
+test("actual parent entry blocks all invoice requests while Business context and selected grant disagree", async () => {
+  const page = await mount({ entry: true, selectedGrant: "80000000-0000-4000-8000-000000000008" });
+  try {
+    assert.equal(page.calls.filter(call => call.path.includes("/business/invoices") || call.path.includes("/business/customers")).length, 0);
+    assert.equal(document.querySelector('[data-testid="invoice-editor"]'), null);
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Create invoice"), false);
+  } finally { await page.close(); }
+});
+test("actual parent entry uses the server Owner grant and permits incomplete save only after coherent selection", async () => {
+  const page = await mount({ entry: true });
+  try {
+    await page.click("Create invoice"); await page.click("Save draft");
+    assert.equal(page.creates(), 1); assert.equal(page.record()?.business_id, invoiceScope.businessId);
+    assert.equal(page.record()?.data.payment_type, null);
+  } finally { await page.close(); }
+});
+
+test("actual entry fails closed when actor or canonical permissions are missing", async () => {
+  for (const missing of [{ missingActor: true }, { missingPermissions: true }]) {
+    const page = await mount({ entry: true, ...missing });
+    try { assert.equal(page.calls.length, 0); assert.equal(document.querySelector('[data-testid="connected-invoicing-workspace"]'), null); }
+    finally { await page.close(); }
+  }
 });

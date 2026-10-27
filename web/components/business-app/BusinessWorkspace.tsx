@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import CreateBusinessPreview from "@/app/design-workspace/CreateBusinessPreview";
-import {createLocalBusinessPreviewSource,useLocalBusinessDirectory,localBusinessGrant,LOCAL_BUSINESS_PREFIX,LOCAL_BUSINESS_EVENT} from "@/app/design-workspace/localBusinessPreview";
+import {createLocalBusinessPreviewSource,useLocalBusinessDirectory,localBusinessGrant,LOCAL_BUSINESS_EVENT} from "@/app/design-workspace/localBusinessPreview";
 import { readStored, writeStored } from "@/lib/browser-storage";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -32,6 +32,7 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
+import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
@@ -114,6 +115,7 @@ type Records = {
 };
 
 export type BusinessContextValue = Readonly<{
+  userId?: string|null;
   source: BusinessDataSource;
   records: Records;
   /** Every Business the person may enter, the server's list; null until read. */
@@ -174,7 +176,7 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   const expenseId = params.get("expense");
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
-  if (view === "invoicing" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return { kind: "invoicing" };
+  if (view === "invoicing" && (businessInvoicingEnabled || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true")) return { kind: "invoicing" };
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
@@ -244,9 +246,11 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
 function BusinessWorkspaceContent({
   source: apiSource,
   children,
+  userId,
 }: {
   source: BusinessDataSource;
   children: ReactNode;
+  userId?:string|null;
 }) {
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
@@ -328,17 +332,15 @@ function BusinessWorkspaceContent({
         setClosedSpaces(closed);
         const grant = getChosenGrant();
         const selected = listed.find(space => space.grant_id === grant);
-        if (grant && selected?.role === "owner" && !selected.space_id.startsWith(LOCAL_BUSINESS_PREFIX)) {
-          setChosenGrant(null);
-        } else if (grant && !selected) {
+        if (grant && !selected) {
           const held = closed.find(space => space.grant_id === grant);
           if (held) { setClosedAccess(true); return; }
           setChosenGrant(null);
           setLostAccess(true);
         } else if (!grant) {
-          const sole = soleClientGrantId(listed);
-          if (sole) {
-            setChosenGrant(sole);
+          const defaultGrant = source.mode === "live" ? listed.find(space => space.role === "owner")?.grant_id ?? soleClientGrantId(listed) : soleClientGrantId(listed);
+          if (defaultGrant) {
+            setChosenGrant(defaultGrant);
             setRevision((value) => value + 1);
           }
         }
@@ -555,6 +557,7 @@ function BusinessWorkspaceContent({
 
   const value = useMemo<BusinessContextValue>(
     () => ({
+      userId,
       source,
       records: workspaceRecords,
       spaces,
@@ -580,7 +583,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
@@ -679,7 +682,7 @@ function BusinessWorkspaceContent({
   );
 }
 
-export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode }) {
+export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode;userId?:string|null }) {
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
 

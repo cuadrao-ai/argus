@@ -456,6 +456,8 @@ export type GrantedSpace = {
   logo_url?: string | null;
   grant_id: string;
   role: "owner" | "accountant";
+  business_role?: BusinessRole;
+  permissions?: BusinessPermission[];
   capabilities: ("read" | "prepare" | "approve")[];
   /** Whether the one-time "you now have access" line was dismissed; always true for the own Business. */
   access_seen: boolean;
@@ -464,6 +466,8 @@ export type GrantedSpace = {
 const directorySpace = z.object({
   space_id: z.string(), name: z.string(), grant_id: z.string(),
   role: z.enum(["owner", "accountant"]),
+  business_role: z.enum(["owner", "admin", "editor", "viewer"]).optional(),
+  permissions: z.array(z.enum(["read", "prepare", "approve", "manage", "assign_owner", "download", "export"])).optional(),
   capabilities: z.array(z.enum(["read", "prepare", "approve"])),
   access_seen: z.boolean(),
 }).passthrough();
@@ -706,6 +710,8 @@ export async function retryBusinessEmailDelivery(id: string): Promise<{ id: stri
 
 /** Who may act in the owner's Business. The grant is the only authority. */
 export type BusinessAccessCapability = "read" | "prepare" | "approve";
+export type BusinessRole = "owner" | "admin" | "editor" | "viewer";
+export type BusinessPermission = "read" | "prepare" | "approve" | "manage" | "assign_owner" | "download" | "export";
 export type BusinessAccessGrant = {
   id: string;
   email: string | null;

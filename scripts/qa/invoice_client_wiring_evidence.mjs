@@ -63,7 +63,7 @@ try {
         if (path.endsWith("/captures") || path.endsWith("/email/deliveries")) return json({ items: [], next_cursor: null });
         if (path.endsWith("/email")) return json(await source.emailIntake());
         if (path.endsWith("/consent")) return route.fallback();
-        assert.ok([undefined, invoiceScope.grantId].includes(request.headers()["x-business-grant"]));
+        assert.equal(request.headers()["x-business-grant"], invoiceScope.grantId);
         if (path.endsWith("/customers") && method === "GET") return json({ items: customers, total: customers.length, page: 1, page_size: 25 });
         if (path.endsWith("/customers") && method === "POST") { customers.push({ ...savedCustomer(), data: body.data }); return json(customers.at(-1)); }
         if (path.endsWith("/invoices") && method === "GET") return json({ items: invoice ? [invoice] : [], total: invoice ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: invoice?.operation ? 0 : invoice ? 1 : 0, issued: invoice?.operation?.state.legal === "ACCEPTED" ? 1 : 0, processing: 0, rejected: 0, uncertain: invoice?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-query" });
