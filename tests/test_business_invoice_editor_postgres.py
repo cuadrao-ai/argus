@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from uuid import uuid4
 
 import pytest
@@ -68,6 +69,84 @@ def test_reload_partial_draft_keeps_every_field_and_no_customer_side_effect(edit
     assert reloaded.payment_state == "unknown"
     assert reloaded.outstanding_amount is None
     assert customers(editor, lane.owner, lane.grant, Query()).total == 0
+
+
+@pytest.mark.parametrize(
+    "target", ["customer", "invoice", "operation_detail", "operation_list"]
+)
+def test_read_snapshot_survives_concurrent_committed_save(
+    editor, lane, draft, monkeypatch, target
+):
+    saved = create(editor, lane, draft)
+    customer = editor.save_customer(
+        lane.owner,
+        lane.grant,
+        None,
+        CustomerWrite(data=draft.customer_input),
+        uuid4().hex,
+    )
+    if target.startswith("operation"):
+        saved = prepare(editor, lane.service, lane.owner, lane.grant, saved.id, 1)
+
+    def concurrent_write():
+        writer = Store(lane.store.pool)
+        if target == "customer":
+            writer.save_customer(
+                lane.owner,
+                lane.grant,
+                customer.id,
+                CustomerWrite(
+                    data=customer.data.model_copy(update={"name": "Changed"}),
+                    expected_version=1,
+                ),
+                uuid4().hex,
+            )
+        elif target == "invoice":
+            writer.save_invoice(
+                lane.owner,
+                lane.grant,
+                saved.id,
+                InvoiceWrite(
+                    data=draft.model_copy(update={"notes": "Changed"}), expected_version=1
+                ),
+                uuid4().hex,
+            )
+        else:
+            lane.store.claim(
+                lane.owner, lane.grant, saved.operation.id, saved.operation.payload_digest
+            )
+
+    original_transaction = editor.transaction
+
+    @contextmanager
+    def transaction_after_write(*args, **kwargs):
+        with original_transaction(*args, **kwargs) as db:
+            # Authorization has established the reader's snapshot and holds its
+            # authority locks. Commit a separate writer before reading data rows.
+            with ThreadPoolExecutor(max_workers=1) as worker:
+                worker.submit(concurrent_write).result(timeout=10)
+            yield db
+
+    monkeypatch.setattr(editor, "transaction", transaction_after_write)
+    if target == "customer":
+        observed = editor.customer(lane.owner, lane.grant, customer.id)
+        assert observed == customer
+        assert (
+            Store(lane.store.pool).customer(lane.owner, lane.grant, customer.id).version
+            == 2
+        )
+    else:
+        observed = (
+            invoices(editor, lane.owner, lane.grant, Query()).items[0]
+            if target == "operation_list"
+            else editor.invoice(lane.owner, lane.grant, saved.id)
+        )
+        assert observed == saved
+        latest = Store(lane.store.pool).invoice(lane.owner, lane.grant, saved.id)
+        if target == "invoice":
+            assert latest.version == 2
+        else:
+            assert latest.operation.state.submission == "contacted"
 
 
 def test_idempotency_and_concurrent_stale_writes_are_separate(editor, lane, draft):

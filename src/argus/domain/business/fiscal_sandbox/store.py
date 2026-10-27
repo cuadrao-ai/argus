@@ -24,10 +24,15 @@ class Store:
 
     @staticmethod
     def _row(
-        db: Connection, operation_id: UUID, space_id: UUID | None = None
+        db: Connection,
+        operation_id: UUID,
+        space_id: UUID | None = None,
+        *,
+        lock: bool = True,
     ) -> dict[str, Any]:
         row = db.execute(
-            "select * from public.business_fiscal_operations where id=%s and (%s::uuid is null or space_id=%s) for update",
+            "select * from public.business_fiscal_operations where id=%s and (%s::uuid is null or space_id=%s)"
+            + (" for update" if lock else ""),
             (operation_id, space_id, space_id),
         ).fetchone()
         if not row:

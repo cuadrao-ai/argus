@@ -94,7 +94,7 @@ def invoices(
             args,
         ).fetchone()
         return InvoicePage(
-            items=tuple(store.invoice_view(db, row) for row in rows),
+            items=tuple(store.invoice_view(db, row, lock=False) for row in rows),
             page=query.page,
             page_size=query.page_size,
             **metadata,

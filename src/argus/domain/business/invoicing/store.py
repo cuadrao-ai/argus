@@ -100,9 +100,12 @@ class Store:
         )
 
     @staticmethod
-    def customer_row(db: Cursor, business: UUID, customer_id: UUID) -> dict:
+    def customer_row(
+        db: Cursor, business: UUID, customer_id: UUID, *, lock: bool = True
+    ) -> dict:
         row = db.execute(
-            "select * from public.business_customers where space_id=%s and id=%s for share",
+            "select * from public.business_customers where space_id=%s and id=%s"
+            + (" for share" if lock else ""),
             (business, customer_id),
         ).fetchone()
         if row is None:
@@ -113,7 +116,9 @@ class Store:
         self, actor: TrustedActor, grant: UUID | None, customer_id: UUID
     ) -> Customer:
         with self.transaction(actor, grant) as db:
-            return self.customer_view(self.customer_row(db, actor.space_id, customer_id))
+            return self.customer_view(
+                self.customer_row(db, actor.space_id, customer_id, lock=False)
+            )
 
     def save_customer(
         self,
@@ -177,9 +182,12 @@ class Store:
             )
 
     @staticmethod
-    def invoice_row(db: Cursor, business: UUID, invoice_id: UUID) -> dict:
+    def invoice_row(
+        db: Cursor, business: UUID, invoice_id: UUID, *, lock: bool = True
+    ) -> dict:
         row = db.execute(
-            "select * from public.business_invoices where id=%s and space_id=%s for update",
+            "select * from public.business_invoices where id=%s and space_id=%s"
+            + (" for update" if lock else ""),
             (invoice_id, business),
         ).fetchone()
         if not row:
@@ -187,7 +195,7 @@ class Store:
         return row
 
     @staticmethod
-    def invoice_view(db: Cursor, row: dict) -> Invoice:
+    def invoice_view(db: Cursor, row: dict, *, lock: bool = True) -> Invoice:
         revision = db.execute(
             "select * from public.business_invoice_revisions where invoice_id=%s and version=%s",
             (row["id"], row["version"]),
@@ -196,7 +204,7 @@ class Store:
         operation = None
         if row["operation_id"]:
             operation = FiscalStore._view(
-                db, FiscalStore._row(db, row["operation_id"], row["space_id"])
+                db, FiscalStore._row(db, row["operation_id"], row["space_id"], lock=lock)
             )
         return Invoice(
             id=row["id"],
@@ -217,7 +225,11 @@ class Store:
         self, actor: TrustedActor, grant: UUID | None, invoice_id: UUID
     ) -> Invoice:
         with self.transaction(actor, grant) as db:
-            return self.invoice_view(db, self.invoice_row(db, actor.space_id, invoice_id))
+            return self.invoice_view(
+                db,
+                self.invoice_row(db, actor.space_id, invoice_id, lock=False),
+                lock=False,
+            )
 
     def save_invoice(
         self,
