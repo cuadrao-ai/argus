@@ -5,6 +5,7 @@
     "api": {
       "manifest": "scripts/ops/staging_env_manifest.json",
       "settings": [
+        "CUADRAO_BUSINESS_INVOICING_ENABLED",
         "CUADRAO_FISCAL_SANDBOX_API_TOKEN",
         "CUADRAO_FISCAL_SANDBOX_BUSINESS_ID",
         "CUADRAO_FISCAL_SANDBOX_CALLBACK_SECRET",

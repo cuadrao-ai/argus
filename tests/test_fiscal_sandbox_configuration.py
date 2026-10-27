@@ -30,8 +30,11 @@ def test_staging_fiscal_declaration_matches_manifests_and_excludes_production():
         for entry in services["cuadrao-api-staging"]["envVars"]
         if entry["key"].startswith(PREFIX)
     }
-    assert len(declaration["settings"]) == len(set(declaration["settings"])) == 11
-    assert set(declaration["settings"]) == set(entries) == set(staging)
+    fiscal_settings = [
+        name for name in declaration["settings"] if name.startswith(PREFIX)
+    ]
+    assert len(fiscal_settings) == len(set(fiscal_settings)) == 11
+    assert set(fiscal_settings) == set(entries) == set(staging)
     for name, entry in entries.items():
         if "value" in entry:
             assert staging[name]["value"] == entry["value"]
