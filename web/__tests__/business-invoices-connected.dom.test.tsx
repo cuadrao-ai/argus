@@ -12,7 +12,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -27,12 +27,16 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const previousFetch = globalThis.fetch, previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH, previousGrant = getChosenGrant();
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; setChosenGrant(options.selectedGrant === undefined ? invoiceScope.grantId : options.selectedGrant); removeSessionStored("cuadrao:invoice_commands:v1");
   let record = options.record ?? null, creates = 0, prepareEffects = 0, loseCreate = options.loseCreate, losePrepare = options.losePrepare;
-  const calls: { path: string; method: string; body: unknown; key: string | null }[] = [];
+  const calls: { path: string; query: string; method: string; body: unknown; key: string | null }[] = [];
   let releaseCreate: (() => void) | undefined; let heldSignal: AbortSignal | null | undefined;
   const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []);
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)), method = init?.method ?? "GET", body = init?.body ? JSON.parse(String(init.body)) : null;
-    calls.push({ path: url.pathname, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
+    calls.push({ path: url.pathname, query: url.search, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
+    if (method === "GET" && ["/business/invoices", "/business/customers"].some(path => url.pathname.endsWith(path))) {
+      if (options.holdReads) return new Promise<Response>(() => {});
+      if (options.readFailure) return Response.json({ code: "synthetic_read_failure" }, { status: options.readFailure });
+    }
     if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
     if (url.pathname.endsWith("/business/customers") && method === "GET") return Response.json({ items: createdCustomers, total: createdCustomers.length, page: 1, page_size: 25 });
     if (url.pathname.includes("/business/customers") && ["POST", "PUT"].includes(method)) {
@@ -60,7 +64,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const context: BusinessContextValue = { userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
   let currentContext: BusinessContextValue = options.directory ? { ...context, chosen: null, directoryStatus: options.directory } : context;
   const host = document.createElement("div"); document.body.append(host); let root = createRoot(host);
-  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: true, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
+  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: !options.noPrepare, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text && !node.closest("[hidden]")); assert.ok(found, `missing button ${text}`); return found; };
   const click = async (text: string) => { await act(async () => button(text).click()); };
@@ -288,4 +292,105 @@ test("correcting a server-rejected customer field allows a second explicit Save 
       const records = page.customerRecords(); assert.equal(records.length, 1); assert.equal(records[0].data.tax_id, "131793891"); assert.equal(records[0].data.name, "Keep this contact name"); assert.equal(records[0].data.address, "Keep this full address"); if (existing) { assert.equal(records[0].id, original.id); assert.equal(records[0].version, original.version + 1); }
     } finally { await page.close(); }
   }
+});
+
+test("connected empty invoices reuse the approved illustration and one guarded create action", async () => {
+  const page = await mount();
+  try {
+    const image = document.querySelector('img[width="144"]');
+    assert.ok(image?.getAttribute("src")?.includes("first-invoice"), "approved first-invoice artwork is shown");
+    assert.equal(document.querySelector("h3")?.textContent, "Create your first invoice");
+    assert.equal([...document.querySelectorAll("button")].filter(button => button.textContent?.trim() === "Create invoice").length, 1);
+    await page.click("Create invoice");
+    assert.ok(document.querySelector('[data-testid="invoice-editor"]'));
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+
+test("connected empty customer directory reuses its approved illustration and explicit add action", async () => {
+  const page = await mount();
+  try {
+    await page.click("Customers");
+    assert.ok(document.querySelector('img[width="144"]')?.getAttribute("src")?.includes("customer-directory"));
+    assert.equal([...document.querySelectorAll("button")].filter(button => button.textContent?.trim() === "Add customer").length, 1);
+    await page.click("Add customer");
+    assert.ok(document.querySelector('#customer-name'));
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+
+test("illustrated connected empty state keeps prepare permission and does not mask pending or failed reads", async () => {
+  const denied = await mount({ noPrepare: true });
+  try {
+    assert.ok(denied.button("Create invoice").disabled);
+    assert.ok(document.querySelector('img[width="144"]'));
+  } finally { await denied.close(); }
+  for (const options of [{ holdReads: true }, { readFailure: 503 }, { readFailure: 403 }]) {
+    const page = await mount(options);
+    try {
+      assert.equal(document.querySelector('img[width="144"]'), null);
+      assert.ok(document.querySelector(options.holdReads ? '[role="status"]' : '[role="alert"]'));
+    } finally { await page.close(); }
+  }
+});
+
+test("filtered and archived empty results stay compact and never claim the first invoice", async () => {
+  const page = await mount();
+  try {
+    await page.fill('input[aria-label="Search customer, invoice or note…"]', "unmatched");
+    assert.equal(document.querySelector("h3")?.textContent, "No invoices match these filters");
+    assert.ok(document.querySelector('img[width="88"]'));
+    await page.fill('input[aria-label="Search customer, invoice or note…"]', "");
+    const draft = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(tab => tab.textContent?.startsWith("Draft"));
+    assert.ok(draft);
+    await page.act(async () => draft.click());
+    assert.equal(document.querySelector("h3")?.textContent, "No invoices match these filters");
+    assert.ok(document.querySelector('img[width="88"]'));
+    await page.click("Customers");
+    await page.fill('input[aria-label="Search customers"]', "unmatched");
+    assert.equal(document.querySelector("h3")?.textContent, "No customers match this search.");
+    assert.ok(document.querySelector('img[width="88"]'));
+    await page.fill('input[aria-label="Search customers"]', "");
+    await page.click("Active");
+    assert.equal(document.querySelector("h3")?.textContent, "No archived customers");
+    assert.ok(document.querySelector('img[width="88"]'));
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+
+test("empty invoice reset clears real filters and period while preserving stage and page size", async () => {
+  const page = await mount();
+  try {
+    const draft = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(tab => tab.textContent?.startsWith("Draft"));
+    assert.ok(draft); await page.act(async () => draft.click());
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear filters"), false);
+    await page.click("25 per page"); await page.click("50 per page");
+    const date = [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')].find(button => button.textContent?.trim() === "All");
+    assert.ok(date); await page.act(async () => date.click());
+    await page.click("Last 7 days"); await page.click("Confirm period");
+    await page.click("All currencies"); await page.click("USD");
+    await page.fill('input[aria-label="Search customer, invoice or note…"]', "unmatched");
+    const before = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/invoices") && call.method === "GET").at(-1)!.query);
+    assert.equal(before.get("currency"), "USD"); assert.ok(before.get("date_from")); assert.ok(before.get("date_to"));
+    await page.click("Clear filters");
+    const after = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/invoices") && call.method === "GET").at(-1)!.query);
+    assert.equal(after.get("search"), ""); assert.equal(after.get("currency"), null); assert.equal(after.get("date_from"), null); assert.equal(after.get("date_to"), null);
+    assert.equal(after.get("page"), "1"); assert.equal(after.get("page_size"), "50"); assert.equal(after.get("stage"), "draft"); assert.equal(after.get("sort"), before.get("sort"));
+    assert.ok([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "All" && button.hasAttribute("aria-haspopup")));
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear filters"), false);
+  } finally { await page.close(); }
+});
+
+test("customer no-match reset clears search while retaining archived selection", async () => {
+  const page = await mount();
+  try {
+    await page.click("Customers"); await page.click("Active");
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear search"), false);
+    await page.fill('input[aria-label="Search customers"]', "unmatched");
+    await page.click("Clear search");
+    const query = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/customers") && call.method === "GET").at(-1)!.query);
+    assert.equal(query.get("search"), ""); assert.equal(query.get("archived"), "true"); assert.equal(query.get("page"), "1");
+    assert.equal(document.querySelector("h3")?.textContent, "No archived customers");
+    assert.equal(document.querySelector('img[width="88"]')?.parentElement?.querySelectorAll("button").length, 0);
+  } finally { await page.close(); }
 });
