@@ -240,6 +240,7 @@
 .mobileNav {
   height: var(--mobile-nav-height);
   overflow-y: auto;
+  scroll-padding-block: 24px;
   overscroll-behavior: contain;
   align-content: start;
   position: absolute;

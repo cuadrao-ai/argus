@@ -352,7 +352,12 @@ test("short phone menu scrolls its links without scrolling the page and restores
   expect(Math.abs(box.y + box.height - 420)).toBeLessThanOrEqual(1);
   const last = nav.getByRole("button", { name: "Log in", exact: true });
   await trigger.focus(); await page.keyboard.press("Shift+Tab");
-  await expect(last).toBeFocused(); await expect(last).toBeInViewport();
+  await expect(last).toBeFocused(); await expect(last).toBeInViewport({ ratio: 1 });
+  const focus = await last.evaluate(node => {
+    const css = getComputedStyle(node), bounds = node.getBoundingClientRect();
+    return { bottom: bounds.bottom + parseFloat(css.outlineWidth) + parseFloat(css.outlineOffset), panel: node.closest("nav")!.getBoundingClientRect().bottom };
+  });
+  expect(focus.bottom).toBeLessThanOrEqual(focus.panel);
   expect(await nav.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(scroll);
   await attachMenuEvidence(page, "short-phone-menu-scrolled");
