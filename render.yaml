@@ -385,6 +385,8 @@ services:
         value: "false"
       - key: NEXT_PUBLIC_CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
+      - key: NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED
+        value: "false"
       - key: NEXT_PUBLIC_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
       - key: NEXT_PUBLIC_CUADRAO_API_URL
