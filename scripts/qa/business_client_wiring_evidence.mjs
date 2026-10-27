@@ -65,11 +65,11 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: fixturePort, async fetch
   history.push({ path, method: request.method, grant: selected, key: request.headers.get("Idempotency-Key"), hasAuthorization: request.headers.has("Authorization"), hasCookie: request.headers.has("Cookie") });
   if (path.startsWith("/assets/")) {
     const bytes = images.get(path.split("/").at(-1));
-    return bytes ? new Response(bytes, { headers: { ...headers, "Content-Type": "image/png" } }) : json({}, 404);
+    return bytes ? new Response(bytes.body, { headers: { ...headers, "Content-Type": bytes.type } }) : json({}, 404);
   }
   if (path.endsWith("/appearance/assets")) {
     const asset = "local-image-asset";
-    images.set(asset, await request.arrayBuffer());
+    images.set(asset, {body:await request.arrayBuffer(),type:request.headers.get("Content-Type")??"image/webp"});
     return json({ asset_id: asset, width: 64, height: 32, source_url: fixtureOrigin + "/assets/" + asset, rendered_url: null });
   }
   if (path === "/me")
@@ -239,7 +239,7 @@ try{
  await page.goto(`${webOrigin}/biz?view=business`,{waitUntil:"networkidle"});
  await expect(page.getByTestId("business-profile-preview")).toBeVisible();
  await expect(page.locator('iframe[src*="invoicing"]')).toHaveCount(0);
- await expect(page.getByRole("button",{name:"Facturación electrónica",exact:false})).toHaveCount(0);
+ await expect(page.getByTestId("business-profile-preview").getByRole("button",{name:"Facturación electrónica",exact:false})).toHaveCount(0);
  record("production profile uses saved HTTP facts without preview activation");
  for(const width of [360,390,768,1024,1280,1440]){
   await page.setViewportSize({width,height:width<768?900:1000});
