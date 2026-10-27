@@ -4,7 +4,14 @@ import english from "@/public/locales/en/common.json";
 import spanish from "@/public/locales/es-419/common.json";
 
 /** Words that read the same in both languages: DGII names, document names, and plain words English shares. */
-const SHARED_CONTEXTS = new Map([["business.transactions.layout.results.personal_one", "{{count}} personal"], ["business.notifications.times.recent", "5 min"]]);
+const SHARED_CONTEXTS = new Map([
+  ["business.invoicing_preview.email_cc_short", "Cc"],
+  ["business.invoicing_preview.document_customer_ced", "CED: {{id}}"],
+  ["business.invoicing_preview.document_customer_rnc", "RNC: {{id}}"],
+  ["business.invoicing_preview.subtotal", "Subtotal"],
+  ["business.transactions.layout.results.personal_one", "{{count}} personal"],
+  ["business.notifications.times.recent", "5 min"],
+]);
 const SAME_IN_BOTH = new Set(["RNC", "NCF", "e-NCF", "e-CF", "ITBIS", "DGII", "Cédula", "Total", "total", "Personal", "Normal", "No", "Ref."]);
 
 type Tree = { [key: string]: string | Tree };

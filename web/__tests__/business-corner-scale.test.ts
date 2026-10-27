@@ -41,6 +41,34 @@ const PERSONAL_BRANCHES: Record<string, number> = {
 
 /** Geometry approved at the cleared design checkpoint. New values or selectors need review. */
 const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
+  "components/business-app/invoicing/invoicing-preview.module.css": [
+    ".search | border-radius | 999px",
+    ".option | border-radius | 8px",
+    ".chips button | border-radius | 999px",
+    ".tableFrame | border-radius | 16px",
+    ".badge | border-radius | 4px",
+    ".pagination nav button | border-radius | 999px",
+    ".itemSummary | border-radius | 8px",
+    ".iconButton | border-radius | 8px",
+    ".document | border-radius | 16px",
+    ".document[data-editing]::after,.document [data-editing]::after | border-radius | 8px",
+    ".notice | border-radius | 8px",
+    ".stageTabs button | border-radius | 4px 4px 0 0",
+    ".customerList | border-radius | 16px",
+    ".customerLinked | border-radius | 8px",
+    ".customerSubmit | border-radius | 8px",
+    ".setupCard | border-radius | 16px",
+    ".scheduleTemplate | border-radius | 12px",
+    ".scheduleModes label | border-radius | 12px",
+    ".emailPreview | border-radius | 16px",
+    ".emailAttachment | border-radius | 8px",
+    ".customerFieldChevron | border-radius | 8px",
+    ".customerFieldMenu | border-radius | 16px",
+    ".formCard .editorPrimary | border-radius | 8px",
+  ],
+  "components/ui/adaptive-panel.module.css": [
+    ".expandButton | border-radius | 999px",
+  ],
   "components/business-app/foundation/range-picker.module.css": [
     ".preset | border-radius | 8px",
     ".icon,.today,.load | border-radius | 999px",
