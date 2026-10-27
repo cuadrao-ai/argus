@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, mock, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import type { BusinessContextValue } from "@/components/business-app/BusinessWorkspace";
-import type { FiscalOperation, InvoiceDraft, SavedInvoice } from "@/lib/business-invoices-api";
+import type { FiscalOperation, InvoiceDraft, SavedInvoice, SavedCustomer } from "@/lib/business-invoices-api";
 import { invoiceId, invoiceScope, incompleteInvoice, savedInvoice, savedCustomer } from "./fixtures/business-invoice-fixture";
 import { getChosenGrant, setChosenGrant } from "@/lib/business-grant";
 import { removeSessionStored } from "@/lib/browser-storage";
@@ -12,7 +12,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -29,13 +29,17 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   let record = options.record ?? null, creates = 0, prepareEffects = 0, loseCreate = options.loseCreate, losePrepare = options.losePrepare;
   const calls: { path: string; method: string; body: unknown; key: string | null }[] = [];
   let releaseCreate: (() => void) | undefined; let heldSignal: AbortSignal | null | undefined;
-  const createdCustomers: ReturnType<typeof savedCustomer>[] = [];
+  const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []);
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)), method = init?.method ?? "GET", body = init?.body ? JSON.parse(String(init.body)) : null;
     calls.push({ path: url.pathname, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
     if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
     if (url.pathname.endsWith("/business/customers") && method === "GET") return Response.json({ items: createdCustomers, total: createdCustomers.length, page: 1, page_size: 25 });
-    if (url.pathname.endsWith("/business/customers") && method === "POST") { const customer = { ...savedCustomer(), data: body.data }; createdCustomers.push(customer); return Response.json(customer); }
+    if (url.pathname.includes("/business/customers") && ["POST", "PUT"].includes(method)) {
+      if (options.rejectCustomerTax && !/^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.tax_id)) return Response.json({ code: "customer_invalid", context: { field_errors: { tax_id: "tax_id" } } }, { status: 422 });
+      if (method === "PUT") { const index = createdCustomers.findIndex(customer => url.pathname.endsWith(`/${customer.id}`)); assert.ok(index >= 0); assert.equal(body.expected_version, createdCustomers[index].version); createdCustomers[index] = { ...createdCustomers[index], data: body.data, version: createdCustomers[index].version + 1 }; return Response.json(createdCustomers[index]); }
+      const customer = { ...savedCustomer(), data: body.data }; createdCustomers.push(customer); return Response.json(customer);
+    }
     if (url.pathname.endsWith("/business/invoices") && method === "POST") {
       if (!record) { record = savedInvoice(body.data); creates++; }
       if (options.holdCreate) { heldSignal = init?.signal; await new Promise<void>(resolve => { releaseCreate = resolve; }); }
@@ -62,7 +66,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const click = async (text: string) => { await act(async () => button(text).click()); };
   const fill = async (selector: string, value: string) => { const input = document.querySelector<HTMLInputElement>(selector); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); };
   const reopen = async () => { await act(async () => root.unmount()); root = createRoot(host); await render(); };
-  return { calls, click, fill, button, act, reopen, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
+  return { calls, click, fill, button, act, reopen, customerRecords: () => createdCustomers, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
 }
 function preparedOperation(): FiscalOperation {
   return { id: "60000000-0000-4000-8000-000000000006", invoice_id: invoiceId, invoice_revision_id: savedInvoice().revision_id, business_id: invoiceScope.businessId, case_id: "synthetic-saved-revision", kind: "E32", number: "E320000000001", payload_digest: "a".repeat(64), provider_id: null, state: { submission: "prepared", processing: "unreported", legal: "unreported", xml: "unreported", pdf: "unreported", delivery: "not_requested", reconciliation: "not_needed", diagnostics: [], needs_review: false } };
@@ -266,4 +270,22 @@ test("manually formatted fiscal ID remains an exact incomplete draft with a visi
     assert.equal(page.record()?.data.customer_input.tax_id, "131-79389-1"); assert.equal(page.button("Prepare issuance").disabled, true);
     await page.click("Edit draft"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.value, "131-79389-1"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
   } finally { await page.close(); }
+});
+
+test("correcting a server-rejected customer field allows a second explicit Save without changing target or version", async () => {
+  for (const existing of [false, true]) {
+    const original = savedCustomer(), page = await mount({ customerRecords: existing ? [original] : [], rejectCustomerTax: true });
+    try {
+      await page.click("Customers"); await page.click(existing ? original.data.name : "Add customer");
+      await page.fill("#customer-name", "Keep this contact name"); await page.fill("#customer-address", "Keep this full address"); await page.fill("#customer-taxId", "131-793891"); await page.click("Save customer");
+      const writes = () => page.calls.filter(call => ["POST", "PUT"].includes(call.method) && call.path.includes("/customers"));
+      assert.equal(writes().length, 1); assert.equal(page.customerRecords().length, existing ? 1 : 0); assert.equal(document.querySelector<HTMLInputElement>("#customer-taxId")?.getAttribute("aria-invalid"), "true");
+      await page.click("Save customer"); assert.equal(writes().length, 1);
+      await page.fill("#customer-taxId", "000000000"); await page.click("Save customer"); assert.equal(writes().length, 1); assert.equal(document.querySelector<HTMLInputElement>("#customer-taxId")?.getAttribute("aria-invalid"), "true");
+      await page.fill("#customer-taxId", "131793891"); await page.click("Save customer");
+      assert.equal(writes().length, 2); assert.equal(writes()[0].path, writes()[1].path); assert.notEqual(writes()[0].key, writes()[1].key);
+      for (const write of writes()) assert.equal((write.body as { expected_version: number | null }).expected_version, existing ? original.version : null);
+      const records = page.customerRecords(); assert.equal(records.length, 1); assert.equal(records[0].data.tax_id, "131793891"); assert.equal(records[0].data.name, "Keep this contact name"); assert.equal(records[0].data.address, "Keep this full address"); if (existing) { assert.equal(records[0].id, original.id); assert.equal(records[0].version, original.version + 1); }
+    } finally { await page.close(); }
+  }
 });
