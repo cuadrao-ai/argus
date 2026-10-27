@@ -114,7 +114,7 @@ function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; lis
 
 /** Inside the one canvas every screen starts at its left edge; a list or a form keeps a narrower column there. */
 const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as const;
-const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
+const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
 
 export default function BusinessPanel() {
   const { panel, lostAccess, records, reload, openPanel, chosen } = useBusiness();
@@ -144,7 +144,7 @@ export default function BusinessPanel() {
   const recordsPhonePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && record && recordList(record) === "transactions";
   const tray = record && (!isBelowDesktop || recordsPhonePreview) ? recordList(record) : null;
   const shown = tray ?? panel.kind;
-  const profilePreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" && panel.kind === "business" && (!panel.tab || panel.tab === "datos");
+  const profilePreview = panel.kind === "business" && (!panel.tab || panel.tab === "datos");
   const preview = previewEnabled && record?.kind === "expense" && glance?.scope === scope && glance.row.opens?.kind === "expense" && glance.row.opens.expenseId === record.expenseId ? glance.row : undefined;
   const column = profilePreview ? "canvas" : SCREEN_COLUMN[shown] ?? "reading";
   return (

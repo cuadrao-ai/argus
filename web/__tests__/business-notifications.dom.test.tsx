@@ -11,6 +11,8 @@ beforeAll(() => {
 afterAll(async () => { await GlobalRegistrator.unregister(); });
 
 async function mount(width: number, language = "es-419", preview = false, mock = true) {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>Response.json([]);
   const originalEnv = { NODE_ENV: process.env.NODE_ENV, NEXT_PUBLIC_MOCK_AUTH: process.env.NEXT_PUBLIC_MOCK_AUTH };
   Object.assign(process.env, { NODE_ENV: "development", NEXT_PUBLIC_MOCK_AUTH: String(mock) });
   (window as unknown as { happyDOM: { setViewport: (size: { width: number; height: number }) => void } }).happyDOM.setViewport({ width, height: 900 });
@@ -25,12 +27,14 @@ async function mount(width: number, language = "es-419", preview = false, mock =
   document.body.append(host);
   const root = createRoot(host);
   const actions: string[] = [];
+  const accepted:string[]=[];
   const render = async (businessId = "business-a", businessName = "Colmado Luna") => {
-    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessNotifications businessId={businessId} businessName={businessName} preview={preview} onAction={(target) => actions.push(target)} /></I18nextProvider>));
+    await act(async () => root.render(<I18nextProvider i18n={i18n}><BusinessNotifications businessId={businessId} businessName={businessName} preview={preview} onInvitationAccepted={grant=>accepted.push(grant)} onAction={(target) => actions.push(target)} /></I18nextProvider>));
   };
   await render();
-  return { host, actions, render, trigger: host.querySelector<HTMLButtonElement>("button")!, close: async () => {
+  return { host, actions, accepted, render, trigger: host.querySelector<HTMLButtonElement>("button")!, close: async () => {
     await act(async () => root.unmount()); host.remove();
+    globalThis.fetch=originalFetch;
     for (const [key, value] of Object.entries(originalEnv)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   } };
 }
@@ -63,6 +67,29 @@ test("desktop notifications close on an outside pointer without stealing focus",
     await act(async () => document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true })));
     assert.equal(page.host.querySelector('[role="dialog"]'), null);
   } finally { await page.close(); }
+});
+test("a recipient accepts the exact server invitation before its grant becomes selected",async()=>{
+ const page=await mount(1280,"en");
+ const invitation={id:"invite-1",space_id:"business-b",name:"Taller Sol",requested_role:"admin",expires_at:"2026-11-02T12:00:00Z"};
+ const calls:{url:string;body:unknown}[]=[];
+ globalThis.fetch=async(url,init)=>{calls.push({url:String(url),body:init?.body?JSON.parse(String(init.body)):null});return Response.json(init?.method==="POST"?{space_id:"business-b",grant_id:"accepted-grant"}:[invitation]);};
+ try{
+  await act(async()=>page.trigger.click());
+  assert.match(page.host.textContent??"",/Taller Sol/);assert.match(page.host.textContent??"",/Pending acceptance/);assert.deepEqual(page.accepted,[]);
+  const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="Accept invitation")!;
+  await act(async()=>accept.click());
+  assert.deepEqual(calls[1].body,{space_id:"business-b"});assert.deepEqual(page.accepted,["accepted-grant"]);
+ }finally{await page.close();}
+});
+test("an expired acceptance is refused and the same invitation has no blind retry",async()=>{
+ const page=await mount(1280,"en");
+ let writes=0;
+ globalThis.fetch=async(_url,init)=>{if(init?.method==="POST"){writes++;return Response.json({code:"business_invitation_expired"},{status:409});}return Response.json([{id:"expired",space_id:"business-b",name:"Taller Sol",requested_role:"viewer",expires_at:"2026-10-25T12:00:00Z"}]);};
+ try{
+  await act(async()=>page.trigger.click());
+  const accept=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent==="Accept invitation")!;
+  await act(async()=>accept.click());assert.equal(accept.disabled,true);assert.equal(writes,1);assert.deepEqual(page.accepted,[]);assert.match(page.host.textContent??"",/This invitation could not be accepted/);
+ }finally{await page.close();}
 });
 
 test("phone notifications use the shared bottom sheet", async () => {

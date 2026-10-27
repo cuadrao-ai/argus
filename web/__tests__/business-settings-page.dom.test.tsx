@@ -5,7 +5,6 @@ import type { GrantedSpace, ReceiptReading } from "@/lib/business-api";
 import type { BusinessPanelState } from "@/components/business-app/BusinessWorkspace";
 import type { ChatShellBridge } from "@/components/chat/ChatWorkspace";
 import type { BusinessDataSource } from "@/components/business-app/business-data";
-import type { FiscalProfile } from "@/lib/business-dgii";
 
 // The Negocio page on the real workspace provider over the sample data: the
 // address bar picks the tab, the tabs write it back, and only the owner sees
@@ -28,8 +27,8 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
-const CLIENT: GrantedSpace = { space_id: "s-client", name: "Colmado Peña", grant_id: "g-client", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
+const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", business_role:"owner",permissions:["read","prepare","approve","manage","assign_owner","download","export"],capabilities: ["read", "prepare", "approve"], access_seen: true };
+const CLIENT: GrantedSpace = { space_id: "s-client", name: "Colmado Peña", grant_id: "g-client", role: "accountant", business_role:"editor",permissions:["read","prepare","download","export"],capabilities: ["read", "prepare"], access_seen: true };
 
 async function mount(query: string, space: GrantedSpace, overrides: Partial<BusinessDataSource> = {}, rememberedGrant?: string) {
   search = query;
@@ -51,11 +50,14 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
   const shell = { currentView: "workspace", conversationId: null, isBelowTablet: false, sidebarCollapsed: false, showWorkspace: () => undefined, newChat: () => undefined, prepareQuestion: () => undefined } as unknown as ChatShellBridge;
   let panel: BusinessPanelState = { kind: "overview" };
   let chosenReady = false;
+  let selected:GrantedSpace|null=null;
+  let reload=()=>{};
   function Shell() {
     const workspace = useChatWorkspace();
     const context = useBusiness();
     panel = context.panel;
     chosenReady = context.chosen?.grant_id === space.grant_id;
+    selected=context.chosen;reload=context.reload;
     const connect = workspace?.onShellChange;
     useEffect(() => { connect?.(shell); }, [connect]);
     return <main>{workspace?.panel(shell)}</main>;
@@ -88,10 +90,46 @@ async function mount(query: string, space: GrantedSpace, overrides: Partial<Busi
   };
   await settle(() => chosenReady && host.querySelector('[data-testid="business-settings"]') !== null);
   const click = (element: Element) => act(async () => { (element as HTMLElement).click(); });
-  return { host, settle, tabs, chosenTab, choose, click, panel: () => panel, close: () => act(async () => root.unmount()) };
+  return { host, settle, tabs, chosenTab, choose, click, panel: () => panel,chosen:()=>selected,reload:()=>act(async()=>reload()), close: () => act(async () => root.unmount()) };
 }
 
 const params = () => new URLSearchParams(window.location.search);
+
+test("directory reload preserves the selected second Owner grant",async()=>{
+ const second={...OWN,space_id:"second-owned",grant_id:"second-owner-grant",name:"Taller Sol"};
+ const page=await mount("view=business",second,{spaces:async()=>[OWN,second]},second.grant_id);
+ try{
+  assert.equal(page.chosen()?.space_id,second.space_id);
+  await page.reload();await page.settle(()=>page.chosen()?.space_id===second.space_id);
+  const {getChosenGrant}=await import("@/lib/business-grant");
+  assert.equal(getChosenGrant(),second.grant_id);assert.equal(page.chosen()?.grant_id,second.grant_id);
+ }finally{await page.close();}
+});
+
+test("server Viewer permissions keep the approved live profile read only",async()=>{
+ const previousFetch=globalThis.fetch,previousAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+ process.env.NEXT_PUBLIC_MOCK_AUTH="true";
+ const writes:string[]=[];
+ const viewer:GrantedSpace={...CLIENT,business_role:"viewer",permissions:["read"],capabilities:["read"]};
+ globalThis.fetch=async(url,init)=>{
+  if(init?.method&&init.method!=="GET")writes.push(init.method);
+  if(String(url).includes("fiscal-profile"))return Response.json({name:viewer.name,tax_id:null,can_edit:false});
+  return Response.json({space_id:viewer.space_id,name:viewer.name,country:"DO",currency:"DOP",revision:7,details:{address:"Calle Sol 8"},appearance:{kind:"default"},image:null});
+ };
+ const page=await mount("view=business",viewer,{mode:"live",spaceDirectory:async()=>({spaces:[viewer],closed_spaces:[]})});
+ try{
+  await page.settle(()=>page.host.querySelector('[data-testid="business-profile-preview"]')!==null);
+  assert.deepEqual(page.tabs().map(tab=>tab.textContent?.trim()),["Perfil","Recepción"]);
+  assert.equal(page.host.querySelector('button[aria-label="Cambiar imagen"]'),null);
+  const contact=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent?.includes("Ubicación y contacto"))!;
+  await page.click(contact);
+  const address=document.querySelector<HTMLInputElement>('[name="profile-address"]')!;
+  assert.equal(address.value,"Calle Sol 8");assert.equal(address.disabled,true);
+  assert.equal(document.querySelector('[data-testid="side-drawer"] button[type="submit"]'),null);
+  assert.equal(document.querySelector('iframe[src*="invoicing"]'),null);
+  assert.deepEqual(writes,[]);
+ }finally{await page.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;}
+});
 
 describe("the Negocio page", () => {
   test("the owner sees Perfil, Acceso and Recepción, and each tab writes the address bar", async () => {
@@ -100,18 +138,21 @@ describe("the Negocio page", () => {
       assert.equal(page.host.querySelector('[data-testid="business-settings"] h2')?.textContent, "Negocio");
       assert.deepEqual(page.tabs().map((tab) => tab.textContent?.trim()), ["Perfil", "Acceso", "Recepción"]);
       assert.equal(page.chosenTab(), "Perfil");
-      await page.settle(() => page.host.querySelector('input[name="business-name"]') !== null);
-      assert.equal(page.host.querySelector<HTMLInputElement>('input[name="business-name"]')?.value, "Mi negocio", "the owner names the business in Datos");
-      assert.equal(page.host.querySelector<HTMLInputElement>('input[name="tax-id-value"]')?.value, "131245678");
-      assert.equal(page.host.textContent?.includes("Mi negocio · RNC"), false, "an editable profile shows no summary line");
+      assert.ok(page.host.querySelector('[data-testid="business-profile-preview"]'), "the approved profile overview is visible");
+      const identity=[...page.host.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.textContent?.includes("Identidad y datos fiscales"));
+      assert.ok(identity);await page.click(identity);
+      await page.settle(()=>document.querySelector('input[name="business-name"]')!==null);
+      assert.equal(document.querySelector<HTMLInputElement>('input[name="business-name"]')?.value, OWN.name, "identity editing uses the chosen Business name");
+      const close=[...document.querySelectorAll<HTMLButtonElement>("button")].find(button=>button.getAttribute("aria-label")==="Cerrar"&&button.closest('[data-testid="side-drawer"]'));
+      assert.ok(close);await page.click(close);
 
       await page.choose("Acceso");
       assert.deepEqual(page.panel(), { kind: "business", tab: "equipo" });
       assert.equal(params().get("view"), "business");
       assert.equal(params().get("tab"), "equipo");
       assert.equal(page.chosenTab(), "Acceso");
-      await page.settle(() => [...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"));
-      assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Dar acceso"), "the team tab holds the access controls");
+      await page.settle(() => [...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Invita a un colaborador"));
+      assert.ok([...page.host.querySelectorAll("button")].some((button) => button.textContent?.trim() === "Invita a un colaborador"), "the team tab holds the approved invitation control");
 
       await page.choose("Recepción");
       assert.equal(params().get("tab"), "correo");
@@ -150,28 +191,33 @@ describe("the Negocio page", () => {
   });
 
   test("a failed read of the name and RNC says so, and Reintentar reads again", async () => {
+    const previousFetch=globalThis.fetch,previousAuth=process.env.NEXT_PUBLIC_MOCK_AUTH;
+    process.env.NEXT_PUBLIC_MOCK_AUTH="true";
     let reads = 0;
-    const fiscalProfile = async (): Promise<FiscalProfile> => {
-      reads += 1;
-      if (reads === 1) throw new Error("offline");
-      return { name: "Ferretería Luna", tax_id: { type: "rnc", value: "131245678" }, can_edit: false };
+    globalThis.fetch=async url=>{
+      if(String(url).includes("fiscal-profile")){
+        reads++;
+        if(reads===1)return Response.json({code:"unavailable"},{status:503});
+        return Response.json({name:OWN.name,tax_id:{type:"rnc",value:"131245678"},can_edit:true});
+      }
+      if(String(url).includes("/profile"))return Response.json({space_id:OWN.space_id,name:OWN.name,country:"DO",currency:"DOP",revision:0,details:{},appearance:{kind:"default"},image:null});
+      return Response.json({spaces:[]});
     };
-    const page = await mount("view=business", OWN, { fiscalProfile });
+    const page = await mount("view=business", OWN, { mode:"live",spaceDirectory:async()=>({spaces:[OWN],closed_spaces:[]}) });
     try {
-      const datos = () => page.host.querySelector('[data-testid="business-fiscal-profile"]');
-      await page.settle(() => datos()?.querySelector('[role="alert"]') != null);
-      const alert = datos()?.querySelector('[role="alert"]');
-      assert.ok(alert?.textContent?.includes("No pudimos cargar el nombre y el RNC."));
-      const retry = [...(alert?.querySelectorAll("button") ?? [])].find((button) => button.textContent?.trim() === "Reintentar");
+      await page.settle(() => page.host.querySelector('[role="alert"]') != null);
+      const alert = page.host.querySelector('[role="alert"]');
+      assert.ok(alert?.textContent?.includes("No pudimos cargar tu negocio"));
+      const retry = [...page.host.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Reintentar");
       assert.ok(retry, "a Reintentar button");
       await page.click(retry);
-      await page.settle(() => datos()?.querySelector('[role="alert"]') == null);
+      await page.settle(() => page.host.querySelector('[data-testid="business-profile-preview"]') != null);
       assert.equal(reads, 2);
-      assert.equal(datos()?.querySelector('[role="alert"]'), null);
-      assert.ok(datos()?.textContent?.includes("Ferretería Luna · RNC 131245678"), "a read-only profile shows its summary line");
-      assert.equal(datos()?.querySelector("input"), null);
+      assert.equal(page.host.querySelector('[role="alert"]'), null);
+      assert.ok(page.host.textContent?.includes("RNC 131245678"), "the approved profile summary uses accepted fiscal facts");
+      assert.equal(page.host.querySelector("input"), null);
     } finally {
-      await page.close();
+      await page.close();globalThis.fetch=previousFetch;if(previousAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=previousAuth;
     }
   });
 

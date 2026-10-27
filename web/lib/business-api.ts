@@ -6,6 +6,7 @@ import { apiFetch, ARGUS_API_BASE_URL, argusApiRequestHeaders, serverRequestId }
 import type { ArgusLanguage } from "./language-features";
 import type { BusinessApprovalAction, BusinessDossier, BusinessFactPatch, BusinessRecordContext } from "./business-dossier";
 import { getChosenGrant } from "./business-grant";
+import { businessSettingsRequest } from "./business-profile-api";
 
 /**
  * The Business pilot's view of `/api/v1/business`. The backend owns every
@@ -456,6 +457,8 @@ export type GrantedSpace = {
   logo_url?: string | null;
   grant_id: string;
   role: "owner" | "accountant";
+  business_role?: BusinessRole;
+  permissions?: BusinessPermission[];
   capabilities: ("read" | "prepare" | "approve")[];
   /** Whether the one-time "you now have access" line was dismissed; always true for the own Business. */
   access_seen: boolean;
@@ -464,6 +467,8 @@ export type GrantedSpace = {
 const directorySpace = z.object({
   space_id: z.string(), name: z.string(), grant_id: z.string(),
   role: z.enum(["owner", "accountant"]),
+  business_role: z.enum(["owner", "admin", "editor", "viewer"]).optional(),
+  permissions: z.array(z.enum(["read", "prepare", "approve", "manage", "assign_owner", "download", "export"])).optional(),
   capabilities: z.array(z.enum(["read", "prepare", "approve"])),
   access_seen: z.boolean(),
 }).passthrough();
@@ -706,6 +711,8 @@ export async function retryBusinessEmailDelivery(id: string): Promise<{ id: stri
 
 /** Who may act in the owner's Business. The grant is the only authority. */
 export type BusinessAccessCapability = "read" | "prepare" | "approve";
+export type BusinessRole = "owner" | "admin" | "editor" | "viewer";
+export type BusinessPermission = "read" | "prepare" | "approve" | "manage" | "assign_owner" | "download" | "export";
 export type BusinessAccessGrant = {
   id: string;
   email: string | null;
@@ -713,34 +720,53 @@ export type BusinessAccessGrant = {
   capabilities: BusinessAccessCapability[];
   created_at: string;
   owner: boolean;
+  business_role?: BusinessRole;
+  permissions?: BusinessPermission[];
 };
-export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired" };
-export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[]; invite_delivery?: "not_configured" | "accepted" | "failed" | null };
+export type BusinessAccessInvite = { id: string; email: string; created_at: string; expires_at: string; state: "pending" | "expired"; requested_role?: BusinessRole };
+export type BusinessAccess = { grants: BusinessAccessGrant[]; invites: BusinessAccessInvite[]; invite_delivery?: "not_configured" | "accepted" | "failed" | "uncertain" | null };
+const businessRole = z.enum(["owner","admin","editor","viewer"]);
+const permission = z.enum(["read","prepare","approve","manage","download","export","assign_owner"]);
+const accessProjection = z.object({
+  grants:z.array(z.object({id:z.string(),email:z.string().nullable(),display_name:z.string(),capabilities:z.array(z.enum(["read","prepare","approve"])),created_at:z.string(),owner:z.boolean(),business_role:businessRole.optional(),permissions:z.array(permission).optional()}).passthrough()),
+  invites:z.array(z.object({id:z.string(),email:z.string(),created_at:z.string(),expires_at:z.string(),state:z.enum(["pending","expired"]),requested_role:businessRole.optional()})),
+  invite_delivery:z.enum(["not_configured","accepted","failed","uncertain"]).nullable().optional(),
+});
 
 export async function getBusinessAccess(): Promise<BusinessAccess> {
-  return apiFetch("/business/access");
+  return accessProjection.parse(await businessSettingsRequest("/business/access"));
 }
 
-/** A read and prepare grant for a confirmed account, else a pending invite; the server answers with the whole list either way. */
-export async function giveBusinessAccess(email: string): Promise<BusinessAccess> {
-  return apiFetch("/business/access", {
+/** Create a pending invitation with the requested canonical role. */
+export async function giveBusinessAccess(email: string, role: BusinessRole = "editor", key = crypto.randomUUID()): Promise<BusinessAccess> {
+  return accessProjection.parse(await businessSettingsRequest("/business/access", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
+    headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+    body: JSON.stringify({ email, role }),
+  }));
 }
 
 export async function resendBusinessAccessInvite(id: string): Promise<BusinessAccess> {
-  return apiFetch(`/business/access/invites/${encodeURIComponent(id)}/resend`, { method: "POST" });
+  return accessProjection.parse(await businessSettingsRequest(`/business/access/invites/${encodeURIComponent(id)}/resend`, { method: "POST" }));
 }
 
 export async function revokeBusinessAccessGrant(id: string): Promise<void> {
-  await apiFetch(`/business/access/grants/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await businessSettingsRequest(`/business/access/grants/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 export async function revokeBusinessAccessInvite(id: string): Promise<void> {
-  await apiFetch(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await businessSettingsRequest(`/business/access/invites/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+export const changeBusinessRole = async (id: string, role: BusinessRole): Promise<BusinessAccess> => accessProjection.parse(await businessSettingsRequest(`/business/access/grants/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ role }) }));
+export type RecipientInvitation = { id: string; space_id: string; name: string; requested_role: BusinessRole; expires_at: string };
+const recipientInvitation=z.object({id:z.string(),space_id:z.string(),name:z.string(),requested_role:businessRole,expires_at:z.string()});
+export const getBusinessInvitations = async (): Promise<RecipientInvitation[]> => z.array(recipientInvitation).parse(await businessSettingsRequest("/business/invitations"));
+export const acceptBusinessInvitation = async (invitation: RecipientInvitation): Promise<{ space_id: string; grant_id: string }> => z.object({space_id:z.string(),grant_id:z.string()}).parse(await businessSettingsRequest(`/business/invitations/${encodeURIComponent(invitation.id)}/accept`, { method: "POST", body: JSON.stringify({ space_id: invitation.space_id }) }));
+export type BusinessInvitationCommand = { email: string; role: BusinessRole; command_key: string };
+export type BusinessInvitationResult = { command_key:string; email:string; invite_id:string|null; state:"already_member"|"accepted"|"revoked"|"pending"|"expired"|"refused"; delivery:"pending"|"accepted"|"failed"|"not_configured"|"uncertain"|null; code:string|null };
+const invitationResult=z.object({command_key:z.string(),email:z.string(),invite_id:z.string().nullable(),state:z.enum(["already_member","accepted","revoked","pending","expired","refused"]),delivery:z.enum(["pending","accepted","failed","not_configured","uncertain"]).nullable(),code:z.string().nullable()});
+export const inviteBusinessMembers = async (recipients:BusinessInvitationCommand[]):Promise<{results:BusinessInvitationResult[]}> => z.object({results:z.array(invitationResult)}).parse(await businessSettingsRequest("/business/access/invitations",{method:"POST",body:JSON.stringify({recipients})}));
 
 /** Owner action: bind a receipt whose preparation grant is no longer live to the owner's current grant. */
 export async function rebindBusinessReceipt(id: string): Promise<ReceiptDetail> {

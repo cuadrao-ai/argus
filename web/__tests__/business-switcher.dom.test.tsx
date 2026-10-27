@@ -14,9 +14,9 @@ afterAll(async () => {
   await GlobalRegistrator.unregister();
 });
 
-const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", capabilities: ["read", "prepare", "approve"], access_seen: true };
-const CLIENT: GrantedSpace = { space_id: "s-client", name: "Colmado Peña", grant_id: "g-client", role: "accountant", capabilities: ["read", "prepare"], access_seen: false };
-const OTHER: GrantedSpace = { space_id: "s-other", name: "Taller Brito", grant_id: "g-other", role: "accountant", capabilities: ["read", "prepare"], access_seen: true };
+const OWN: GrantedSpace = { space_id: "s-own", name: "Ferretería Luna", grant_id: "g-own", role: "owner", business_role:"owner",permissions:["read","prepare","approve","manage","assign_owner","download","export"],capabilities: ["read", "prepare", "approve"], access_seen: true };
+const CLIENT: GrantedSpace = { space_id: "s-client", name: "Colmado Peña", grant_id: "g-client", role: "accountant", business_role:"editor",permissions:["read","prepare","download","export"],capabilities: ["read", "prepare"], access_seen: false };
+const OTHER: GrantedSpace = { space_id: "s-other", name: "Taller Brito", grant_id: "g-other", role: "accountant", business_role:"editor",permissions:["read","prepare","download","export"],capabilities: ["read", "prepare"], access_seen: true };
 
 async function setup() {
   const { act } = await import("react");
@@ -160,14 +160,14 @@ describe("the Business mark menu", () => {
     assert.deepEqual(options.map((o) => o.getAttribute("aria-selected")), ["false", "true", "false"]);
     assert.ok(options[0].textContent?.includes("Ferretería Luna"));
     assert.equal(options.some((option) => option.textContent?.includes("Tu negocio")), false);
-    // Arrow down from the active (second) to the third, Home to the first, Enter chooses the own Business (null).
+    // Arrow down from the active (second) to the third, Home to the first, Enter chooses the own Business grant.
     await page.act(async () => { key(list, "ArrowDown"); });
     assert.equal(options[2].getAttribute("data-active"), "true");
     await page.act(async () => { key(list, "Home"); });
     assert.equal(options[0].getAttribute("data-active"), "true");
     await page.act(async () => { key(list, "Enter"); });
     await page.settle();
-    assert.deepEqual(page.chosenIds, [null]);
+    assert.deepEqual(page.chosenIds, [OWN.grant_id]);
     assert.equal(document.querySelector('[role="listbox"]'), null, "closed after choosing");
     assert.equal(document.activeElement, button, "focus returns to the button");
     // Open again, type-ahead to Taller, Escape closes without choosing.
@@ -181,7 +181,7 @@ describe("the Business mark menu", () => {
     assert.equal([...document.querySelectorAll('[role="option"]')][2].getAttribute("data-active"), "true");
     await page.act(async () => { key(again, "Escape"); });
     assert.equal(document.querySelector('[role="listbox"]'), null);
-    assert.deepEqual(page.chosenIds, [null]);
+    assert.deepEqual(page.chosenIds, [OWN.grant_id]);
     assert.ok(document.querySelector('[role="menu"]'), "Escape closes the submenu first");
     assert.equal(document.activeElement, changeAgain);
     await page.act(async () => { key(changeAgain, "Escape"); });

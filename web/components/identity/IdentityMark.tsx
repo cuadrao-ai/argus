@@ -11,7 +11,10 @@ import {
   parseAppearance,
   type IdentityAppearance,
 } from "@/lib/identity-appearance";
+import { businessAppearanceSnapshot, businessAppearanceState, subscribeBusinessAppearance } from "@/lib/business-profile-api";
 export function useIdentityAppearance(scope: string): IdentityAppearance | null {
+  const businessId=scope.startsWith("business:")?scope.slice(9):null;
+  const savedBusiness=useSyncExternalStore(subscribeBusinessAppearance,()=>businessId?businessAppearanceSnapshot(businessId):null,()=>null);
   const subscribe = useCallback((listener: () => void) => {
     window.addEventListener("storage", listener);
     window.addEventListener(IDENTITY_EVENT, listener);
@@ -30,13 +33,14 @@ export function useIdentityAppearance(scope: string): IdentityAppearance | null 
     }
   }, [scope]);
   const raw = useSyncExternalStore(subscribe, snapshot, () => "");
-  return useMemo(() => {
+  const preview=useMemo(() => {
     try {
       return parseAppearance(JSON.parse(raw));
     } catch {
       return null;
     }
   }, [raw]);
+  return businessId && /^[0-9a-f-]{36}$/i.test(businessId) ? savedBusiness : preview;
 }
 export function IdentityMark({
   appearance,
@@ -102,6 +106,9 @@ export function SavedIdentityMark({
   fallback?: React.ReactNode;
 }) {
   const appearance = useIdentityAppearance(scope);
+  const state=useSyncExternalStore(subscribeBusinessAppearance,()=>business&&scope.startsWith("business:")?businessAppearanceState(scope.slice(9)):null,()=>null);
+  if(business&&state==="loading"&&!appearance)return <span aria-busy="true" className="inline-flex shrink-0 animate-pulse rounded-mark bg-black/5 dark:bg-white/10" style={{width:size,height:size}}/>;
+  if(business&&state==="failed")return <span aria-hidden="true" className="inline-flex shrink-0 items-center justify-center rounded-mark bg-black/5 dark:bg-white/10" style={{width:size,height:size}}>-</span>;
   return !appearance && fallback ? (
     <>{fallback}</>
   ) : (

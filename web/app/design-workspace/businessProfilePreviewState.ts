@@ -43,7 +43,7 @@ export function saveBusinessProvidedDetails(storage: StorageLike,businessId:stri
 }
 export type ProfileChecklistKey = "name" | "taxId" | "legalName" | "country" | "address" | "email" | "phone" | "website" | "description";
 export type ProfileChecklistItem = {key:ProfileChecklistKey;complete:boolean;section:"basic"|"additional"};
-function profileChecklist(profile:{name:string;country:string|null;taxId:TaxId|null;legalName:string|null},details:BusinessProvidedDetails):ProfileChecklistItem[] {
+export function profileChecklist(profile:{name:string;country:string|null;taxId:TaxId|null;legalName:string|null},details:BusinessProvidedDetails):ProfileChecklistItem[] {
   const errors = validateBusinessProvidedDetails(details);
   const validTaxId = profile.taxId && new RegExp(`^\\d{${profile.taxId.type === "rnc" ? 9 : 11}}$`).test(profile.taxId.value) && !/^0+$/.test(profile.taxId.value);
   return [

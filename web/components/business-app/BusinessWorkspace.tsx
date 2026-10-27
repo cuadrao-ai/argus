@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import CreateBusinessPreview from "@/app/design-workspace/CreateBusinessPreview";
-import {createLocalBusinessPreviewSource,useLocalBusinessDirectory,localBusinessGrant,LOCAL_BUSINESS_PREFIX,LOCAL_BUSINESS_EVENT} from "@/app/design-workspace/localBusinessPreview";
+import {createLocalBusinessPreviewSource,useLocalBusinessDirectory,localBusinessGrant,LOCAL_BUSINESS_EVENT} from "@/app/design-workspace/localBusinessPreview";
 import { readStored, writeStored } from "@/lib/browser-storage";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
@@ -73,6 +73,7 @@ import { canEnterBusiness } from "@/lib/business-privacy-notice";
 import { useBusinessConsent } from "./business-consent-context";
 import { quietButtonClass } from "./business-ui";
 import { loadFailure, type BandejaSource, type LoadFailure } from "./bandeja-sources";
+import { beginBusinessAppearance, failBusinessAppearance, getBusinessProfile, publishBusinessAppearance } from "@/lib/business-profile-api";
 
 export type BusinessPanelState =
   | { kind: "overview" }
@@ -114,6 +115,7 @@ type Records = {
 };
 
 export type BusinessContextValue = Readonly<{
+  userId?: string|null;
   source: BusinessDataSource;
   records: Records;
   /** Every Business the person may enter, the server's list; null until read. */
@@ -244,13 +246,15 @@ function writePanelToUrl(view: ChatShellView, panel: BusinessPanelState) {
 function BusinessWorkspaceContent({
   source: apiSource,
   children,
+  userId,
 }: {
   source: BusinessDataSource;
   children: ReactNode;
+  userId?:string|null;
 }) {
   const { t, i18n } = useTranslation();
   const searchParams = useSearchParams();
-  const localPreview = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
+  const localPreview = apiSource.mode !== "live" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const localBusinesses = useLocalBusinessDirectory(localPreview);
   const chosenGrant = useSyncExternalStore(subscribeChosenGrant, getChosenGrant, () => null);
   const [creatingBusiness,setCreatingBusiness] = useState(false);
@@ -308,6 +312,14 @@ function BusinessWorkspaceContent({
     return [...directory.values()].map(space=>previewNames[space.space_id]?{...space,name:previewNames[space.space_id]}:space);
   },[directorySpaces,localPreview,previewNames,localBusinesses]);
   const chosen = useMemo(() => spaces?.find(space => chosenGrant ? space.grant_id === chosenGrant : space.role === "owner") ?? null, [spaces, chosenGrant]);
+  const appearanceBusinessId=chosen?.space_id;
+  useEffect(()=>{
+    if(source.mode!=="live"||!appearanceBusinessId)return;
+    const controller=new AbortController();
+    beginBusinessAppearance(appearanceBusinessId);
+    getBusinessProfile(appearanceBusinessId,controller.signal).then(value=>publishBusinessAppearance(value,controller.signal),()=>{if(!controller.signal.aborted)failBusinessAppearance(appearanceBusinessId);}).catch(()=>{});
+    return()=>controller.abort();
+  },[source.mode,appearanceBusinessId,chosenGrant]);
   const renamePreviewBusiness = useCallback((name: string) => {
     if (!localPreview || !chosen || chosen.role !== "owner" || !name.trim() || [...name.trim()].length > 80) return;
     setPreviewNames(current => {
@@ -328,9 +340,7 @@ function BusinessWorkspaceContent({
         setClosedSpaces(closed);
         const grant = getChosenGrant();
         const selected = listed.find(space => space.grant_id === grant);
-        if (grant && selected?.role === "owner" && !selected.space_id.startsWith(LOCAL_BUSINESS_PREFIX)) {
-          setChosenGrant(null);
-        } else if (grant && !selected) {
+        if (grant && !selected) {
           const held = closed.find(space => space.grant_id === grant);
           if (held) { setClosedAccess(true); return; }
           setChosenGrant(null);
@@ -362,6 +372,7 @@ function BusinessWorkspaceContent({
   const consent = useBusinessConsent();
   const chooseBusiness = useCallback((grantId: string | null) => {
     setInvitationBusiness(null);
+    setCreatingBusiness(false);
     if (!canEnterBusiness(consent.accepted, grantId)) {
       consent.reopen();
       return;
@@ -555,6 +566,7 @@ function BusinessWorkspaceContent({
 
   const value = useMemo<BusinessContextValue>(
     () => ({
+      userId,
       source,
       records: workspaceRecords,
       spaces,
@@ -580,7 +592,7 @@ function BusinessWorkspaceContent({
       emailRefresh,
       retrySources,
     }),
-    [actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
+    [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
@@ -611,10 +623,10 @@ function BusinessWorkspaceContent({
       bottomNavigation: (shell) => !closedAccessName && shell.isBelowTablet ? <BusinessBottomTabs shell={shell} /> : null,
       panelHasComposer: panel.kind === "overview" && !closedAccessName,
       sidebarNav: (shell) => closedAccessName ? null : <BusinessSidebarNav shell={shell} />,
-      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={localPreview?()=>setCreatingBusiness(true):undefined} />,
+      sidebarHeader: (shell) => shell.isBelowTablet ? null : <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed={shell.sidebarCollapsed} onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} />,
       sidebarMark: () => <BusinessMark businessId={chosen?.space_id} name={chosen?.name} />,
       sidebarFooter: (shell) => shell.isBelowTablet ? null : <BusinessSidebarFooter shell={shell} />,
-      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={localPreview?()=>setCreatingBusiness(true):undefined} /> : null,
+      headerLeading: (shell) => shell.isBelowTablet ? <BusinessSwitcher spaces={spaces} closedSpaces={closedSpaces} chosen={chosen} collapsed onChoose={chooseBusiness} onOpenSettings={() => openPanel({ kind: "business" })} onInvite={localPreview ? () => setInvitationBusiness(chosen?.space_id ?? null) : () => openPanel({ kind: "business", tab: "equipo" })} memberEmail={shell.memberEmail} onAddBusiness={(source.mode==="live"?Boolean(userId):Boolean(shell.memberEmail))?()=>setCreatingBusiness(true):undefined} /> : null,
       headerActions: (shell) => closedAccessName ? null : <>
         {uploads.length > 0 ? <button type="button" className={quietButtonClass} onClick={() => setIntakeTarget(uploads.find((item) => item.status !== "saved" && item.status !== "rejected")?.target ?? uploads[0].target)}>
           {t("business.intake.open_queue", "Uploads ({{count}})", { count: uploads.length })}
@@ -626,9 +638,9 @@ function BusinessWorkspaceContent({
           </button>
         </Tooltip> : null}
         <AmountsToggle />
-        {localPreview ? <BusinessNotifications businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onAction={(tab) => openPanel({ kind: "business", tab })} /> : null}
+        <BusinessNotifications key={chosen?.space_id} businessId={chosen?.space_id} businessName={chosen?.name} preview={localPreview} onInvitationAccepted={grantId=>{chooseBusiness(grantId);reload();showToast({kind:"success",text:t("business_access.invitation_accepted")});}} onAction={(tab) => openPanel({ kind: "business", tab })} />
       </>,
-      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} title={shell.currentView === "workspace" && !closedAccessName ? panel.kind === "transactions" ? t("business.transactions.title") : panel.kind === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} onSearch={shell.openSearch} />,
+      headerSearch: (shell) => <BusinessHeader home={shell.currentView === "workspace" && panel.kind === "overview" && !closedAccessName} name={shell.greetingName} title={shell.currentView === "workspace" && !closedAccessName ? panel.kind === "transactions" ? t("business.transactions.title") : panel.kind === "inbox" ? t("business.inbox.title") : panel.kind === "invoicing" ? t("business.invoicing_preview.title") : undefined : undefined} onSearch={shell.openSearch} />,
       panel: () => closedAccessName ? <BusinessClosedAccess returnHome={!spaces?.length} businessName={closedAccessName} onReturn={() => { setClosedAccess(false); if (!spaces?.length) window.location.assign("/"); else chooseBusiness(spaces.find(space => space.role === "owner") ? null : spaces[0].grant_id); }} /> : <><BusinessClosedOwnerBanner businesses={closedSpaces} /><BusinessPanel /></>,
       starterEntries: () => actions.starterEntries,
       emptyChatLead: () => <BusinessHome variant="new_chat" />,
@@ -652,13 +664,13 @@ function BusinessWorkspaceContent({
       },
       onShellChange: (shell) => setBridge(shell),
     };
-  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview]);
+  }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
 
   return (
     <BusinessContext.Provider value={value}>
       <ChatWorkspaceProvider value={workspace}>
         {children}
-        {localPreview && creatingBusiness?<CreateBusinessPreview onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.id);openPanel({kind:"business",tab:"datos"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}
+        {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"business",tab:"datos"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}
         {localPreview && chosen?.role === "owner" && invitationBusiness === chosen.space_id ? <WorkspaceSetupPreview invitation onClose={() => setInvitationBusiness(null)} /> : null}
         <ReceiptIntakeDialog
           target={intakeTarget}
@@ -679,7 +691,7 @@ function BusinessWorkspaceContent({
   );
 }
 
-export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode }) {
+export function BusinessWorkspaceProvider(props: { source: BusinessDataSource; children: ReactNode;userId?:string|null }) {
   return <BusinessReviewShortcutsProvider><BusinessWorkspaceContent {...props} /></BusinessReviewShortcutsProvider>;
 }
 
