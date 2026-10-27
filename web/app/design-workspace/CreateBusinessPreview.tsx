@@ -33,20 +33,22 @@ function clearDraft(account:string){
   const records=storedDrafts();delete records[account];
   if(Object.keys(records).length)writeStored(DRAFT_KEY,JSON.stringify(records));else removeStored(DRAFT_KEY);
 }
-function readDraft(account:string) {
+type CreationDraft={name:string;country:string;appearance:IdentityAppearance;operation:BusinessCreationState|undefined;needsAppearance:boolean};
+const emptyDraft=():CreationDraft=>({name:"",country:"",appearance:DEFAULT_APPEARANCE,operation:undefined,needsAppearance:false});
+function readDraft(account:string):CreationDraft {
   try {
-    const envelope=storedDrafts()[account]??{};
-    const saved=envelope.account===account?envelope:{};
-    const operation=businessCreationState.safeParse(saved.operation).data;
+    const saved=storedDrafts()[account];
+    if(!saved||saved.account!==account)return emptyDraft();
+    const operation=saved.operation;
     return {
-      name: typeof saved.name === "string" ? saved.name.slice(0, 80) : "",
-      country: ["DO", "US", "CA"].includes(saved.country) ? saved.country : "",
+      name:saved.name,
+      country:saved.country,
       appearance: DEFAULT_APPEARANCE,
       needsAppearance:Boolean(saved.appearancePending)&&!operation?.asset_id,
       operation,
     };
   } catch {
-    return { name: "", country: "", appearance: DEFAULT_APPEARANCE,operation:undefined,needsAppearance:false };
+    return emptyDraft();
   }
 }
 function CreateBusinessPreviewSurface({
