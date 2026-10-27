@@ -289,11 +289,14 @@ jobs:
         run: cd marketing && bun run test:e2e
 
       - name: Upload marketing browser report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: marketing-playwright-report
-          path: marketing/playwright-report
+          name: marketing-playwright-report-${{ github.sha }}
+          path: |
+            marketing/playwright-report
+            marketing/test-results
+          retention-days: 14
 
   # The id and check name are kept for required-check compatibility. Besides the
   # guest gates, this job runs every shared tests/test_*_postgres.py proof and
