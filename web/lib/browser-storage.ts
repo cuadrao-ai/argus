@@ -60,6 +60,7 @@ export const STORAGE_REGISTRY = {
   "cuadrao:business_creation:v1": "temporary",
   // Which currency Inicio's month figures show, per Business, until the account keeps it.
   "cuadrao:business_currency_view:v1": "layout",
+  "cuadrao:invoice_commands:v1": "temporary",
 } as const satisfies Record<string, StorageConcept>;
 
 export type StorageKey = keyof typeof STORAGE_REGISTRY;

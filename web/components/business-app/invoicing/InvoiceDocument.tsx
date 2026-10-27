@@ -1,5 +1,6 @@
 "use client";
 
+import type { SavedInvoice } from "@/lib/business-invoices-api";
 import { useTranslation } from "react-i18next";
 import { formatAmount } from "../business-format";
 import { currencySymbol } from "@/lib/money-entry";
@@ -22,10 +23,10 @@ export function InvoiceDate({ date }: { date: string }) {
   const { locale } = useInvoiceWords();
   return <>{validIsoDate(date) ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`)) : "-"}</>;
 }
-export default function InvoiceDocument({ invoice, business, activeSection }: { invoice: InvoicePreview; business: string; activeSection?: "customer" | "items" | "terms" | "review" }) {
-  const { word } = useInvoiceWords();
+export default function InvoiceDocument({ invoice, business, activeSection, connection }: { connection?: { amounts: SavedInvoice["amounts"] }; invoice: InvoicePreview; business: string; activeSection?: "customer" | "items" | "terms" | "review" }) {
+  const { word, locale } = useInvoiceWords();
   const { chosen } = useBusiness();
-  const amount = invoiceSettlement(invoice);
+  const amount = connection ? null : invoiceSettlement(invoice);
   const taxId = invoice.customer.taxId.trim();
   const taxDigits = taxId.replace(/[ -]/g, "");
   const taxLabel = /^(?:[0-9]{9}|[0-9]{11})$/.test(taxDigits) && !/^0+$/.test(taxDigits)
@@ -34,7 +35,7 @@ export default function InvoiceDocument({ invoice, business, activeSection }: { 
   const taxDisplay = taxLabel ? word(taxLabel, { id: formatCustomerTaxId(taxId) }) : invoice.customer.taxId;
 
   return <article className={styles.document} data-editing={activeSection === "review" || undefined} data-testid="invoice-customer-document">
-    <header className={styles.documentHeader}><div><div className={styles.issuer}><SavedIdentityMark scope={`business:${chosen?.space_id ?? ""}`} name={business} business fallback={<BusinessMark />} /><h2>{business}</h2></div><p>{word("sample_document")}</p></div><div><strong>{word("invoice")}</strong><p>{invoice.reference}</p></div></header>
+    <header className={styles.documentHeader}><div><div className={styles.issuer}><SavedIdentityMark scope={`business:${chosen?.space_id ?? ""}`} name={business} business fallback={<BusinessMark />} /><h2>{business}</h2></div><p>{word(connection ? invoice.issuance === "issued" ? "invoice" : "draft_title" : "sample_document")}</p></div><div><strong>{word("invoice")}</strong><p>{invoice.reference}</p></div></header>
     <section className={styles.documentFacts}><div className={styles.documentCustomer} data-editing={activeSection === "customer" || undefined}>
       <p className={styles.documentLabel}>{word("bill_to")}</p>
       <strong>{invoice.customer.name || word("customer_placeholder")}</strong>
@@ -42,8 +43,8 @@ export default function InvoiceDocument({ invoice, business, activeSection }: { 
       {invoice.customer.email.trim() ? <p>{invoice.customer.email}</p> : null}
       {invoice.customer.address.trim() ? <p className={styles.customerAddress}>{invoice.customer.address}</p> : null}
     </div><dl data-editing={activeSection === "terms" || undefined}><dt>{word("issue_date")}</dt><dd><InvoiceDate date={invoice.issuedOn} /></dd><dt>{word("due_date")}</dt><dd><InvoiceDate date={invoice.dueOn} /></dd><dt>{word("currency")}</dt><dd>{invoice.currency}</dd></dl></section>
-    <div className={styles.documentItems} data-editing={activeSection === "items" || undefined}>{invoice.items.map(item => <div key={item.id}><span>{item.description || word("item_placeholder")}<small>{item.quantity || "0"} × {item.price || "0.00"}</small></span><span>{(() => { const line = invoiceAmounts({ items: [item], payments: [] }); return line ? <InvoiceMoney amount={line.total} currency={invoice.currency} /> : "-"; })()}</span></div>)}</div>
-    <dl className={styles.documentTotals}>{(["subtotal", ...(amount?.discount ? ["discount" as const] : []), "tax", "total"] as const).map(key => <div key={key}><dt>{word(key === "tax" ? "tax_amount" : key === "total" ? "document_total" : key)}</dt><dd>{amount ? <InvoiceMoney amount={key === "discount" ? -amount[key] : amount[key]} currency={invoice.currency} /> : "-"}</dd></div>)}</dl>
+    <div className={styles.documentItems} data-editing={activeSection === "items" || undefined}>{invoice.items.map(item => <div key={item.id}><span>{item.description || word("item_placeholder")}<small>{item.quantity || "0"} × {item.price || "0.00"}</small></span><span>{(() => { const line = connection ? null : invoiceAmounts({ items: [item], payments: [] }); return line ? <InvoiceMoney amount={line.total} currency={invoice.currency} /> : "-"; })()}</span></div>)}</div>
+    <dl className={styles.documentTotals}>{(["subtotal", ...(amount?.discount || connection?.amounts && connection.amounts.discount !== "0.00" ? ["discount" as const] : []), "tax", "total"] as const).map(key => <div key={key}><dt>{word(key === "tax" ? "tax_amount" : key === "total" ? "document_total" : key)}</dt><dd>{connection ? connection.amounts ? <span className="cuadrao-amount whitespace-nowrap tabular-nums">{formatAmount(connection.amounts[key], invoice.currency, locale)}</span> : "-" : amount ? <InvoiceMoney amount={key === "discount" ? -amount[key] : amount[key]} currency={invoice.currency} /> : "-"}</dd></div>)}</dl>
     {invoice.issuance === "issued" && amount ? <dl className={styles.documentTotals}>{amount.credited > 0 ? <div><dt>{word("confirmed_credits")}</dt><dd><InvoiceMoney amount={amount.credited} currency={invoice.currency} /></dd></div> : null}{amount.debited > 0 ? <div><dt>{word("confirmed_debits")}</dt><dd><InvoiceMoney amount={amount.debited} currency={invoice.currency} /></dd></div> : null}<div><dt>{word("collected")}</dt><dd><InvoiceMoney amount={amount.paid} currency={invoice.currency} /></dd></div><div><dt>{word(amount.balance < 0 ? "credit_balance" : "balance")}</dt><dd><InvoiceMoney amount={Math.abs(amount.balance)} currency={invoice.currency} /></dd></div></dl> : null}
     {invoice.instructions ? <section data-editing={activeSection === "terms" || undefined}><h3>{word("instructions")}</h3><p className={styles.multiline}>{invoice.instructions}</p></section> : null}
     {invoice.terms ? <section data-editing={activeSection === "terms" || undefined}><h3>{word("terms")}</h3><p className={styles.multiline}>{invoice.terms}</p></section> : null}

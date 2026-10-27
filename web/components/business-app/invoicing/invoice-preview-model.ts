@@ -1,9 +1,10 @@
+import type { InvoiceDraft } from "@/lib/business-invoices-api";
 import { customerErrors } from "./customer-validation";
 import { todayIso } from "../business-format";
 
 export type InvoiceCurrency = "DOP" | "USD" | "EUR";
 export type InvoiceCustomer = { id: string; name: string; email: string; address: string; taxId: string };
-export type InvoiceItem = { id: string; description: string; quantity: string; price: string; tax: string; discount?: string };
+export type InvoiceItem = { id: string; description: string; quantity: string; price: string; tax: string; discount?: string; classification?: InvoiceDraft["items"][number]["classification"]; taxTreatment?: InvoiceDraft["items"][number]["tax_treatment"] };
 export type InvoiceEmailDraft = { to: string; cc: string; message: string };
 export type InvoicePayment = { id: string; amount: number; currency: InvoiceCurrency; date: string; method: "transfer" | "cash" | "other"; reference: string };
 export type InvoiceCorrectionKind = "full_cancellation" | "partial_credit" | "debit_adjustment";
@@ -13,6 +14,7 @@ export type InvoiceCorrection = {
 };
 export type InvoiceFiscalStatus = "not_submitted" | "processing" | "accepted" | "accepted_observations" | "rejected" | "failed" | "uncertain";
 export type InvoicePreview = {
+  fiscalInput?: Pick<InvoiceDraft, "payment_type" | "income_type" | "tax_inclusion">;
   documentType: "E31" | "E32";
   fiscal: { status: InvoiceFiscalStatus; documentNumber?: string };
   id: string; reference: string; customer: InvoiceCustomer; currency: InvoiceCurrency;

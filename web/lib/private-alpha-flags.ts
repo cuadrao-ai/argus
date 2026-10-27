@@ -76,3 +76,7 @@ export const businessBankMatchingEnabled = (() => {
   const value = (cuadrao ?? legacy ?? "").trim().toLowerCase();
   return businessPilotEnabled && ["1", "true", "yes", "on"].includes(value);
 })();
+
+// Connected invoice/customer editing remains off until its release gates pass.
+export const businessInvoicingEnabled =
+  process.env.NEXT_PUBLIC_CUADRAO_BUSINESS_INVOICING_ENABLED === "true";

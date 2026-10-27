@@ -32,6 +32,7 @@ import {
   type ReceiptSummary,
   type ReceiptActivityCounts,
 } from "@/lib/business-api";
+import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { getChosenGrant, setChosenGrant, soleClientGrantId, subscribeChosenGrant } from "@/lib/business-grant";
 import { classifyFailure, referenceCode, refusedForGood, runQuietRetries, sessionEndedLoginPath } from "@/lib/failure-screen";
 import { normalizeEnabledLanguage } from "@/lib/language-features";
@@ -114,10 +115,13 @@ type Records = {
   serverReference?: string | null;
 };
 
+export type BusinessDirectoryStatus = "loading" | "ready" | "failed";
+
 export type BusinessContextValue = Readonly<{
   userId?: string|null;
   source: BusinessDataSource;
   records: Records;
+  directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
   closedSpaces?: ClosedGrantedSpace[];
@@ -176,7 +180,7 @@ function panelFromSearch(params: URLSearchParams): BusinessPanelState {
   const expenseId = params.get("expense");
   if (expenseId) return { kind: "expense", expenseId };
   const view = params.get("view");
-  if (view === "invoicing" && process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true") return { kind: "invoicing" };
+  if (view === "invoicing" && (businessInvoicingEnabled || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true")) return { kind: "invoicing" };
   // Correos left the Bandeja; its history lives in Negocio > Correo de recibos.
   if (view === "inbox" && params.get("segment") === "emails") return { kind: "business", tab: "correo" };
   if (view && PANEL_KINDS.has(view)) {
@@ -290,6 +294,7 @@ function BusinessWorkspaceContent({
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
+  const [directoryStatus, setDirectoryStatus] = useState<BusinessDirectoryStatus>("loading");
   const [directorySpaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [closedSpaces, setClosedSpaces] = useState<ClosedGrantedSpace[]>([]);
   const [closedAccess, setClosedAccess] = useState(false);
@@ -332,11 +337,13 @@ function BusinessWorkspaceContent({
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
     let cancelled = false;
+    setDirectoryStatus("loading");
     const directory = source.mode === "live" && source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [] }));
     directory.then(
       ({ spaces: listed, closed_spaces: closed }) => {
         if (cancelled) return;
         setSpaces(listed);
+        setDirectoryStatus("ready");
         setClosedSpaces(closed);
         const grant = getChosenGrant();
         const selected = listed.find(space => space.grant_id === grant);
@@ -346,14 +353,14 @@ function BusinessWorkspaceContent({
           setChosenGrant(null);
           setLostAccess(true);
         } else if (!grant) {
-          const sole = soleClientGrantId(listed);
-          if (sole) {
-            setChosenGrant(sole);
+          const defaultGrant = source.mode === "live" ? listed.find(space => space.role === "owner")?.grant_id ?? soleClientGrantId(listed) : soleClientGrantId(listed);
+          if (defaultGrant) {
+            setChosenGrant(defaultGrant);
             setRevision((value) => value + 1);
           }
         }
       },
-      () => { if (!cancelled) setSpaces((current) => current ?? []); },
+      () => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -595,6 +602,8 @@ function BusinessWorkspaceContent({
     [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
+  const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
+
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   const businessSearch = useBusinessSearch({
     source,
@@ -667,7 +676,7 @@ function BusinessWorkspaceContent({
   }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview,reload,source.mode,userId]);
 
   return (
-    <BusinessContext.Provider value={value}>
+    <BusinessContext.Provider value={directoryValue}>
       <ChatWorkspaceProvider value={workspace}>
         {children}
         {creatingBusiness?<CreateBusinessPreview accountKey={source.mode==="live"?userId??"":"preview"} live={source.mode==="live"} onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.grant_id??business.id);reload();openPanel({kind:"business",tab:"datos"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}

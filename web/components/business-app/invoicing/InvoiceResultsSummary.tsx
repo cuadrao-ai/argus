@@ -3,17 +3,25 @@
 import { useRef, useState } from "react";
 import { Check, ChevronRight, Clock3, FileText } from "lucide-react";
 import AdaptivePanel from "@/components/ui/AdaptivePanel";
+import { formatAmount } from "../business-format";
 import { currencySymbol } from "@/lib/money-entry";
 import { InvoiceMoney, useInvoiceWords } from "./InvoiceDocument";
 import styles from "../transacciones/records-results-preview.module.css";
 
-type InvoiceCurrencySummary = { currency: string; total: number; settled: number; balance: number };
+type InvoiceCurrencySummary = { currency: string; total: number | string | null; settled: number | string | null; balance: number | string | null };
 
 const METRICS = [
   { key: "total", icon: FileText, label: "invoiced" },
   { key: "settled", icon: Check, label: "collected" },
   { key: "balance", icon: Clock3, label: "balance" },
 ] as const;
+
+function SummaryMoney({ amount, currency, numberOnly = false }: { amount: number | string | null; currency: string; numberOnly?: boolean }) {
+  const { locale } = useInvoiceWords();
+  if (amount === null) return <>-</>;
+  if (typeof amount === "number") return <InvoiceMoney amount={amount} currency={currency} numberOnly={numberOnly} />;
+  return <span className="cuadrao-amount whitespace-nowrap tabular-nums">{numberOnly ? null : `${currencySymbol(currency)} `}{formatAmount(amount, currency, locale)}</span>;
+}
 
 export default function InvoiceResultsSummary({ currencies }: { currencies: readonly InvoiceCurrencySummary[] }) {
   const { word, t } = useInvoiceWords();
@@ -27,7 +35,7 @@ export default function InvoiceResultsSummary({ currencies }: { currencies: read
     <dl className={styles.cards}>{METRICS.map((metric, index) => <div key={metric.key} className={styles.metric} data-summary-part={index} data-tone={metric.key}>
       <dt className={styles.heading}><metric.icon size={19} strokeWidth={1.6} aria-hidden="true" /><span>{word(metric.label)}</span></dt>
       <dd className={styles.values}>{currencies.slice(0, 2).map(group => <div className={styles.currencyRow} key={group.currency} data-currency={group.currency}>
-        <span className="cuadrao-amount"><span className={styles.symbol}>{currencySymbol(group.currency)}</span><InvoiceMoney numberOnly amount={group[metric.key]} currency={group.currency} /></span>
+        <span className="cuadrao-amount"><span className={styles.symbol}>{currencySymbol(group.currency)}</span><SummaryMoney numberOnly amount={group[metric.key]} currency={group.currency} /></span>
       </div>)}</dd>
     </div>)}</dl>
     {currencies.length > 2 ? <button ref={trigger} type="button" className={styles.breakdown} aria-expanded={expanded} onClick={() => setExpanded(true)}>
@@ -36,7 +44,7 @@ export default function InvoiceResultsSummary({ currencies }: { currencies: read
     {expanded && currencies.length > 2 ? <AdaptivePanel modal={false} width="md" snaps={["half", "full"]} initialSnap="full" title={t("business.transactions.layout.results.breakdown_title")} summary={t("business.transactions.layout.results.currencies", { count: currencies.length })} closeLabel={t("common.close")} onClose={close} returnFocusRef={trigger}>
       <div className={styles.currencyList} data-testid="invoice-currency-breakdown">
         {currencies.map(group => <section className={styles.currencyGroup} key={group.currency} data-currency={group.currency} aria-label={group.currency}>
-          <h3>{group.currency}</h3><dl>{METRICS.map(metric => <div key={metric.key}><dt>{word(metric.label)}</dt><dd><InvoiceMoney amount={group[metric.key]} currency={group.currency} /></dd></div>)}</dl>
+          <h3>{group.currency}</h3><dl>{METRICS.map(metric => <div key={metric.key}><dt>{word(metric.label)}</dt><dd><SummaryMoney amount={group[metric.key]} currency={group.currency} /></dd></div>)}</dl>
         </section>)}
       </div>
     </AdaptivePanel> : null}
