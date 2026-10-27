@@ -182,6 +182,7 @@
         "docs/API_CONTRACT.md",
         "docs/DATA_MODEL.md",
         "docs/api/openapi.yaml",
+        "docs/specs/lanes/account-deletion-fk-census.md",
         "render.yaml",
         "scripts/ops/staging_env_manifest.json",
         "src/argus/api/routers/business_customers.py",
@@ -204,6 +205,7 @@
         "tests/test_business_invoice_editor.py",
         "tests/test_business_invoice_editor_api_postgres.py",
         "tests/test_business_invoice_editor_postgres.py",
+        "tests/test_client_grants_postgres.py",
         "tests/test_fiscal_sandbox_configuration.py"
       ],
       "deny": [
