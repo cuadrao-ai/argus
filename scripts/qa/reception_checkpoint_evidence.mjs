@@ -85,6 +85,7 @@ try {
         if (path.endsWith("/spaces")) return json({ spaces: [{ space_id: fixtureId(3000), grant_id: fixtureId(3001), name: "Negocio sintético", role: "owner", business_role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], access_seen: true }], closed_spaces: [] });
         if (path.endsWith("/space")) return json({ id: fixtureId(3000), name: "Negocio sintético" });
         if (path.endsWith("/space/name-prompt")) return json({ id: fixtureId(3000), name: "Negocio sintético", name_required: false, name_prompt_seen: true, show_prompt: false });
+        if (path === `/api/v1/business/spaces/${fixtureId(3000)}/profile`) return json({ space_id: fixtureId(3000), name: "Negocio sintético", country: "DO", currency: "DOP", revision: 1, details: {}, appearance: { kind: "default" }, image: null });
         if (path.endsWith("/workspace")) return json(await source.workspace());
         if (path.endsWith("/receipt-activity")) return json((await source.receiptPage("all")).activity);
         if (path.endsWith("/receipt-reading")) return json({ scope_version: 1, enabled: true, available: false, can_change: false, disclosure: "", disclosure_token: null, route: null, consented_at: null, revoked_at: null });
@@ -168,7 +169,7 @@ try {
       if (language === "es-419" && theme === "light") {
         stage = "existing receipt review route";
         await receiptRow.getByRole("button").first().click();
-        await detail.getByRole("button", { name: copy.action_review, exact: true }).click();
+        await page.getByRole(width >= 1024 ? "region" : "dialog", { name: copy.detail_title, exact: true }).getByRole("button", { name: copy.action_review, exact: true }).click();
         await page.getByTestId("business-record-review").waitFor(); assert.equal(await detail.count(), 0);
         stage = "connected Records pagination";
         await page.goto(`${web.origin}/biz?view=transactions`, { waitUntil: "load", timeout: 60000 });
