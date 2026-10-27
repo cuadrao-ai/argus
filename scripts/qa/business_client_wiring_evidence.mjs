@@ -13,6 +13,7 @@ if(![webPort,fixturePort].every(port=>Number.isInteger(port)&&port>1023&&port<65
 const webOrigin="http://127.0.0.1:"+webPort,fixtureOrigin="http://127.0.0.1:"+fixturePort;
 const output=resolve(root,argument("--output","temp/business-client-wiring-evidence"));
 await mkdir(output,{recursive:true});
+const sourceHead=execFileSync("git",["rev-parse","HEAD"],{cwd:root,encoding:"utf8"}).trim();
 const sourceDirty=execFileSync("git",["status","--porcelain","--untracked-files=no"],{cwd:root,encoding:"utf8"}).trim();
 if(sourceDirty&&!process.argv.includes("--allow-dirty"))throw new Error("Commit the source before capturing exact-head evidence");
 const unexpectedWrites=[];
@@ -300,7 +301,7 @@ try{
  await expect(page.locator('[data-testid="business-profile-preview"] img[src^="data:image/"]')).toBeVisible();
  const assetReads=(await evidenceState()).history.filter(row=>row.path.startsWith("/assets/"));expect(assetReads.length).toBeGreaterThan(0);expect(assetReads.every(row=>!row.hasAuthorization&&!row.hasCookie)).toBe(true);
  record("bounded saved-image reads render under CSP without forwarding API credentials or cookies");
- await configure({role:"viewer"});await page.reload({waitUntil:"networkidle"});await expect(page.getByTestId("business-profile-preview")).toBeVisible();await expect(page.getByRole("radio",{name:"Acceso",exact:true})).toHaveCount(0);await page.getByRole("button",{name:/Ubicación y contacto/}).click();await expect(page.getByLabel("Dirección del negocio",{exact:true})).toBeDisabled();await expect(page.getByRole("button",{name:"Guardar cambios",exact:true})).toHaveCount(0);await page.setViewportSize({width:390,height:900});await capture("MOCK-viewer-profile-390");
+ await configure({role:"viewer"});await page.reload({waitUntil:"networkidle"});await chooseBusiness("Colmado Luna");await openSettings();await expect(page.getByTestId("business-profile-preview")).toBeVisible();await expect(page.getByRole("radio",{name:"Acceso",exact:true})).toHaveCount(0);await page.getByRole("button",{name:/Ubicación y contacto/}).click();await expect(page.getByLabel("Dirección del negocio",{exact:true})).toBeDisabled();await expect(page.getByRole("button",{name:"Guardar cambios",exact:true})).toHaveCount(0);await page.setViewportSize({width:390,height:900});await capture("MOCK-viewer-profile-390");
  record("Viewer renders server facts read only without management or activation controls");
  expect(errors).toEqual([]);expect(failures).toEqual([]);expect(unexpectedWrites).toEqual([]);
 }catch(error){
@@ -309,8 +310,9 @@ try{
 }finally{
  await browser?.close();app?.kill("SIGTERM");server.stop(true);
  const head=execFileSync("git",["rev-parse","HEAD"],{cwd:root,encoding:"utf8"}).trim();
+ if(head!==sourceHead)failures.push("Git head changed during evidence capture");
  const screenshotHashes=Object.fromEntries(await Promise.all(screenshots.map(async name=>[name,createHash("sha256").update(await readFile(join(output,name))).digest("hex")])));
- await writeFile(join(output,"synthetic-evidence.json"),JSON.stringify({head,base:"codex/private-alpha-next",synthetic:true,hostedAcceptance:false,sourceDirty:Boolean(sourceDirty),viewportWidths:[360,390,768,1024,1280,1440],checks,failures,errors,unexpectedWrites,screenshotHashes,corsScope:"Local cross-port loopback HTTP only. Hosted storage CORS and auth were not tested.",mockAuthLimit:"Full reload of a UUID Business selection is not proven by mock auth; account-scoped persistence is covered by unit tests."},null,2));
+ await writeFile(join(output,"synthetic-evidence.json"),JSON.stringify({head:sourceHead,finishedHead:head,base:"codex/private-alpha-next",synthetic:true,hostedAcceptance:false,sourceDirty:Boolean(sourceDirty),viewportWidths:[360,390,768,1024,1280,1440],checks,failures,errors,unexpectedWrites,screenshotHashes,corsScope:"Local cross-port loopback HTTP only. Hosted storage CORS and auth were not tested.",mockAuthLimit:"Full reload of a UUID Business selection is not proven by mock auth; account-scoped persistence is covered by unit tests."},null,2));
  await writeFile(join(output,"synthetic-http-requests.json"),JSON.stringify(history,null,2));
  if(failures.length){console.error(failures.join("\n"));process.exitCode=1;}else console.log(`Synthetic Business evidence passed: ${checks.length} checks, ${screenshots.length} screenshots, head ${head}`);
 }
