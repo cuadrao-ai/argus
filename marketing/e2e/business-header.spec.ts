@@ -1,4 +1,7 @@
-import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { chromium, expect, test } from "@playwright/test";
+
+import { SITE_PORT } from "./ports";
 
 const cases = [
   { home: "/", other: "/en", language: "Idioma", cta: "Hablemos de tu negocio", login: "Iniciar sesión" },
@@ -178,5 +181,116 @@ test("Personal keeps its original language group and early access action", async
     await expect(access).toHaveCSS("background-color", "rgb(232, 237, 227)");
     await access.hover();
     await expect(access).toHaveCSS("background-color", "rgb(232, 237, 227)");
+  }
+});
+
+const stagingHost = "cuadrao-marketing-staging.onrender.com";
+const stagingSignIn = "https://cuadrao-web-staging.onrender.com/?auth=login";
+
+for (const { home, login } of cases) {
+  for (const method of ["mouse", "keyboard"] as const) {
+    test(`${home} staging sign-in navigates with ${method}`, async () => {
+      const mobile = test.info().project.name === "mobile";
+      const browser = await chromium.launch({
+        args: [`--host-resolver-rules=MAP ${stagingHost} 127.0.0.1`, "--no-proxy-server"],
+      });
+      const context = await browser.newContext({
+        viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+        isMobile: mobile,
+        hasTouch: mobile,
+        serviceWorkers: "block",
+      });
+      const errors: string[] = [];
+      try {
+        await context.route("**/*", async (route) => {
+          const url = new URL(route.request().url());
+          if (url.hostname === stagingHost && url.port === String(SITE_PORT)) return route.continue();
+          if (url.href === stagingSignIn && route.request().isNavigationRequest()) {
+            return route.fulfill({ contentType: "text/html", body: "<!doctype html><title>Synthetic sign-in destination</title>" });
+          }
+          throw new Error(`Unexpected request to ${url.origin}`);
+        });
+        const page = await context.newPage();
+        page.on("pageerror", (error) => errors.push(error.message));
+        page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+        await page.goto(`http://${stagingHost}:${SITE_PORT}${home}`);
+        const menu = page.locator("header").getByRole("button", { name: /Abrir menú|Open menu/ });
+        if (mobile) await menu.click();
+        const nav = page.locator("header nav:visible");
+        const signIn = nav.getByRole("link", { name: login, exact: true });
+        await expect(signIn).toHaveAttribute("href", stagingSignIn);
+        await expect(nav.getByRole("button", { name: login, exact: true })).toHaveCount(0);
+        await expect(signIn).toHaveCSS("color", "rgb(47, 90, 73)");
+        const geometry = await signIn.evaluate((link) => {
+          const measure = (node: Element) => {
+            const css = getComputedStyle(node);
+            const box = node.getBoundingClientRect();
+            return { width: box.width, height: box.height, font: css.font, padding: css.padding, color: css.color, radius: css.borderRadius };
+          };
+          const button = document.createElement("button");
+          button.className = link.className;
+          button.textContent = link.textContent;
+          link.replaceWith(button);
+          const approvedButton = measure(button);
+          button.replaceWith(link);
+          return { approvedButton, signInLink: measure(link) };
+        });
+        expect(geometry.signInLink).toEqual(geometry.approvedButton);
+        if (method === "mouse") {
+          await test.info().attach("staging-signin.png", { body: await page.screenshot(), contentType: "image/png" });
+          await test.info().attach("source-identity.json", {
+            body: Buffer.from(JSON.stringify({
+              commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+              tree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim(),
+              viewport: page.viewportSize(),
+              home,
+              geometry,
+              destination: stagingSignIn,
+              destinationMode: "synthetic document, no hosted request",
+            }, null, 2)),
+            contentType: "application/json",
+          });
+        }
+        await signIn.hover();
+        await expect(signIn).toHaveCSS("text-decoration-line", "underline");
+        if (method === "keyboard") {
+          await signIn.focus();
+          await page.keyboard.press("Shift+Tab");
+          await page.keyboard.press("Tab");
+          await expect(signIn).toBeFocused();
+          await expect(signIn).toHaveCSS("outline-style", "solid");
+          await page.keyboard.press("Enter");
+        } else {
+          await signIn.click();
+        }
+        await expect(page).toHaveURL(stagingSignIn);
+        expect(errors).toEqual([]);
+      } finally {
+        await context.close();
+        await browser.close();
+      }
+    });
+  }
+}
+
+test("public Marketing never exposes the staging sign-in link", async () => {
+  const browser = await chromium.launch({
+    args: ["--host-resolver-rules=MAP cuadrao.ai 127.0.0.1", "--no-proxy-server"],
+  });
+  try {
+    const mobile = test.info().project.name === "mobile";
+    const page = await browser.newPage({
+      viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+    });
+    await page.goto(`http://cuadrao.ai:${SITE_PORT}/`);
+    if (mobile) await page.getByRole("button", { name: "Abrir menú" }).click();
+    const nav = page.locator("header nav:visible");
+    await expect(nav.getByRole("link", { name: "Iniciar sesión", exact: true })).toHaveCount(0);
+    const signIn = nav.getByRole("button", { name: "Iniciar sesión", exact: true });
+    await expect(signIn).toHaveAttribute("data-preview-unwired", "true");
+    await signIn.click();
+    await expect(page).toHaveURL(`http://cuadrao.ai:${SITE_PORT}/`);
+  } finally {
+    await browser.close();
   }
 });

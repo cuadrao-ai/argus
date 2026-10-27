@@ -106,7 +106,8 @@
 .utilityNav > a:not(.buttonSmall) {
   padding-block: 14px;
 }
-.loginLink {
+.loginLink,
+.site a.loginLink {
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -115,6 +116,9 @@
   color: var(--cta-rest);
   font-size: 13px;
   white-space: nowrap;
+}
+.site a.loginLink {
+  font: inherit;
 }
 .loginLink:hover,
 .loginLink:focus-visible {
