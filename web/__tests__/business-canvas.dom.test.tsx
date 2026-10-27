@@ -71,7 +71,7 @@ async function mount() {
 
 const SCREENS = [
   { kind: "overview", column: "canvas", ready: '[data-testid="month-close"]' },
-  { kind: "inbox", column: "reading", ready: '[data-testid="bandeja-row"]' },
+  { kind: "inbox", column: "canvas", ready: '[data-testid="bandeja-row"]' },
   { kind: "transactions", column: "canvas", ready: '[data-testid="transacciones"]' },
   { kind: "business", column: "form", ready: '[data-testid="business-settings"]' },
 ] as const;

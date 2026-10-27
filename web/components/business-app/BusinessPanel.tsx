@@ -114,7 +114,7 @@ function RecordTray({ panel, list, listRef, preview }: { panel: RecordPanel; lis
 
 /** Inside the one canvas every screen starts at its left edge; a list or a form keeps a narrower column there. */
 const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as const;
-const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
+const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", inbox: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
 
 export default function BusinessPanel() {
   const { panel, lostAccess, records, reload, openPanel, chosen } = useBusiness();

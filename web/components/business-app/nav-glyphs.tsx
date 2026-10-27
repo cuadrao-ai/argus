@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { FileText } from "@phosphor-icons/react";
 import styles from "./nav-glyphs.module.css";
 
 type Weight = "regular" | "fill";
 
 /** A screen icon drawn in parts, so each part can act out the screen's meaning. */
 export type NavGlyph = {
-  name: "overview" | "inbox" | "transactions";
+  name: "overview" | "inbox" | "transactions" | "invoicing";
   /** Whether the move plays again when the pointer leaves: true for moves that read the same both ways. */
   replayOnLeave: boolean;
   draw: (weight: Weight, uid: string) => ReactNode;
@@ -84,6 +85,11 @@ export const NAV_GLYPHS = {
       <path data-part="arrow-left" d={ARROWS[weight].left} />
       <path data-part="arrow-right" d={ARROWS[weight].right} />
     </>,
+  },
+  invoicing: {
+    name: "invoicing",
+    replayOnLeave: false,
+    draw: (weight) => <g data-part="invoice-document"><FileText weight={weight} size={256} /></g>,
   },
 } as const satisfies Record<string, NavGlyph>;
 

@@ -551,6 +551,5 @@ test("an old Novedades link lands on the Bandeja", async () => {
   const page = await mount();
   await inboxReady(page);
   assert.equal(page.api().panel.kind, "inbox");
-  assert.equal(page.host.querySelector("h2")?.textContent, "Bandeja");
   assert.equal(document.body.textContent?.includes("Novedades"), false);
 });

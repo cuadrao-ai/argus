@@ -1382,3 +1382,119 @@ Pagination sits outside the table card: result count left, page-size picker cent
 and bounded page navigation right. Match Registros spacing, labels and focus targets.
 These shared patterns do not imply all Records features are already implemented in
 Facturación. Saved views, exports and request recovery need their own contracts.
+
+### Bandeja working direction, 26 October 2026
+
+Private iteration pending the user's checkpoint. Keep Bandeja and the shared
+canvas/title alignment. Use the third supplied reference for a spacious list
+composition, retaining the product's type, palette and components. Quiet row
+boundaries and clear actions carry hierarchy without automatic overview cards.
+Document, source, server state and arrival have separate places. Extracted money
+is secondary. Use the existing dossier for detail and supported fixes.
+
+Todos keeps successful incoming arrivals accessible. Por revisar, En proceso and
+Necesitan atención follow existing server flags and counts. Opening is not resolving;
+processing is not financial approval. Ver registro requires a saved linked record;
+Resolver requires a supported repair and permission. Preserve keyboard focus,
+selected rows and phone layouts. Local loaded-list filtering does not promise a
+complete delivery history. Outgoing invoices and customer payment receipts stay
+in Facturación, linked to their invoice. A unified delivery log is outside this pilot.
+
+The next row iteration uses shared status pills, 14px primary text and the existing
+row-density scale. Amounts remain secondary. Attention reasons sit below document
+identity; sender/channel have their own column. Search sits right of the views,
+with filtering and view options nearby. Upload is a quiet overflow action.
+
+Archive is Business-wide organization of an incoming entry only. It must preserve
+the document, linked record and every financial/review state. Keep unresolved
+attention counts and shared audit history intact. Require an editing capability,
+persist actor/time in Activity, and provide Archivados/Restaurar. Defer archive
+until durable support exists; no local-only substitute, auto-archive or retention
+settings. Checkbox selection alone does not change a document's state.
+
+Status tag styling must reuse the actual Registros workflow tag classes and palette:
+fully rounded, text-only, 12px medium labels, matching light/dark tones. The older
+foundation status pill with an icon and small corner radius is not this convention.
+State labels and tone selection still follow incoming-document facts.
+
+### Bandeja current local iteration
+
+The later user-approved interaction preview supersedes the earlier omission of
+selection. Bulk actions change toolbar mode without vertical movement: inline
+beside Filtros when there is room, replacing normal controls in the same space
+when narrow. No selection banner. Archive/restore is proposed Business-wide;
+seen/unseen is personal and separate from extraction. Local interactions are not
+proof of durable APIs; technical limits live in the handoff, not product copy.
+
+Canal, Remitente and Estado use draft checkbox multiselects with removable applied
+chips. OR within groups, AND between groups. Top state views share that same
+filter; multiple states show Vista combinada. Arrival dates reuse the calendar
+and default to all dates. Pagination reuses Registros' exact footer, 25/50/100,
+with current-page selection and count without navigation when only one page fits.
+New arrivals wait for explicit refresh. Returning from detail preserves position.
+
+Narrow Bandeja adapts to a compact list instead of compressing desktop columns.
+Use the Registros bordered-list treatment, document identity first, quiet amount,
+sender/channel/arrival together, then workflow and the supported next action.
+Do not show empty sender dashes on phone. Keep checkboxes distinct from unseen
+marks and preserve 44px action targets. Search takes a stable full row when narrow;
+icons never wrap independently inside controls.
+
+Bandeja's desktop order is Documento, Canal, Remitente, Monto, Moneda, Estado,
+Llegada and the final action. Monto and Moneda are separate columns,
+using Registros' exact formatter, amount-width helper, currency width/symbol and
+numeric alignment. Both have independent visibility settings; phone keeps the
+amount with its currency as secondary information. Filter checkbox groups reuse
+Registros Revisión's parent mixed/all/none and search-results selection behavior.
+
+Bulk organization confirms through the shared success toast with Deshacer, not
+an inline banner. Undo restores prior values per item, including mixed seen
+states. The existing single-toast timing, keyboard, focus/hover pause, phone
+placement and reduced-motion behavior apply. Local undo is not durable API proof.
+
+Bandeja table cells use Registros' 12px left/right padding. Documento reserves
+its text width plus the icon slot; Remitente has a protected 240px minimum, and
+both receive remaining width. Monto uses the shared adaptive measure and Moneda
+retains 80px. Do not squeeze numeric columns to fit long identity text; preserve
+minimum widths and use the compact list on narrow canvases.
+
+Bandeja private iteration: one document identity per independently processable
+document. A compact Adjunto control opens the original; full filename belongs
+in its tooltip/preview. Desktop order: Documento, Adjunto, Canal, Remitente,
+Monto, Moneda, Estado, Llegada, action. Keep Monto/Moneda separate and in place.
+Do not infer document type from email subject or supplier identity. Delivery
+exceptions retain context in detail; do not fabricate files or split pages.
+
+Bandeja standalone text-note refinement: Contenido replaces Documento so files
+and notes share one heading. Notes use original opening words, a message icon,
+Sin archivo under Adjunto, actual channel/sender/arrival and Ver nota. Full text
+belongs in detail. Standalone intake is explicitly preview-only until wired;
+never classify every conversation as an inbox note, duplicate captions, infer
+follow-up links by timing, invent attachments or create approved expenses.
+Monto and Moneda keep their positions and remain unknown without stored values.
+
+Bandeja default list refinement: prioritize Contenido and Estado; cap Remitente
+at 240px and allow Estado at least 240px. Normal review readiness is neutral;
+exceptions retain the stronger pill. Monto/Moneda are unchecked by default but
+retain their order when revealed. No attachment uses a dash. Delivery exceptions
+use actual subject/sole filename and keep the reason in Estado. Preserve the
+unseen gutter. Optional column reordering is deferred.
+
+
+Bandeja intake inspection uses the existing dossier shell: original content,
+source/sender/arrival context and the specific supported next action. Preserve
+verbatim message text and captions; keep originals expanded and unavailable
+content retryable. Financial review remains in its established dossier. Return
+focus and list position when inspection closes. Adjunto is left-aligned with
+enough width for both supported languages.
+
+Bandeja loading rows inherit its grid, density, visible information and compact
+phone layout. Use the shared delayed shimmer and reduced-motion treatment;
+loading placeholders are not interactive and page selection stays disabled.
+
+
+Bandeja checkpoint cleared by Lucas on 2026-10-27. The final approved surface and
+backend boundaries are consolidated in
+`docs/handoffs/reception-design-checkpoint-20261026.md`; this supersedes earlier
+Reception iteration descriptions where they conflict. Freeze the design for
+integration; preserve connected behavior while adapting the minimal shared diffs.

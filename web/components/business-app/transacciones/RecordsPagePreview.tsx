@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { reportSortToRecords } from "@/lib/business-reporting-wire";
 import type { ReportAnswer, ReportRequest } from "@/lib/business-reports-api";
 import type { RecordRow } from "./transacciones-model";
@@ -10,7 +10,8 @@ import type { Density } from "./table-density";
 import { RecordsNarrowList, RecordsTable } from "./TransaccionesRecords";
 import { ToolbarPicker } from "./RecordsToolbar";
 import { useTransaccionesWords } from "./transacciones-words";
-import { DEFAULT_RECORDS_SORT, INITIAL_PAGINATION, RECORDS_SORT_OPTIONS, pageLinks, paginateRecords, type PaginationState, type RecordsSort } from "./records-pagination";
+import { DEFAULT_RECORDS_SORT, INITIAL_PAGINATION, RECORDS_SORT_OPTIONS, paginateRecords, type PaginationState, type RecordsSort } from "./records-pagination";
+import RecordsPaginationControls from "./RecordsPaginationControls";
 import styles from "./records-page.module.css";
 
 /** Preview and server pages share the same table and footer. */
@@ -55,19 +56,7 @@ export default function RecordsPagePreview({ records, density, resetKey, rowRef,
         {(close) => <>{RECORDS_SORT_OPTIONS.map(({ key, direction, label }) => <button type="button" key={`${key}-${direction}`} className={styles.option} disabled={connected !== undefined && !connected.onSort && (key !== "fecha" || direction !== "desc")} aria-disabled={key === "monto" && !result.amountSortAvailable || undefined} onClick={() => { sort({ key, direction }); close(); }}>{word(label)}{result.effectiveSort.key === key && result.effectiveSort.direction === direction ? <Check size={16} aria-hidden="true" /> : null}</button>)}{!result.amountSortAvailable ? <p className={styles.sortHelp}>{word("amount_requires_currency")}</p> : null}</>}
       </ToolbarPicker></div> : null}
       {result.count === 0 ? emptyContent : narrow ? <RecordsNarrowList records={result.items} rowRef={rowRef} /> : <RecordsTable preferences={preferences} records={result.items} density={density} rowRef={rowRef} sort={result.effectiveSort} onSortChange={sort} amountSortAvailable={result.amountSortAvailable} sortNoticeId={showNotice ? noticeId : undefined} serverSorted={connected !== undefined && !connected.onSort} />}
-      <footer className={styles.footer} data-testid="records-pagination" data-page={result.page}>
-        <span data-testid="records-count" className={styles.count} aria-live="polite">{label}</span>
-        <ToolbarPicker flip label={word("page_size")} value={t("business.transactions.pagination.per_page", { count: connected?.answer.page_size ?? state.pageSize })}>
-          {(close) => <>{([25, 50, 100] as const).map((size) => <button type="button" key={size} className={styles.option} onClick={() => { if (connected) connected.onPageSize(size); else setState((current) => ({ ...current, pageSize: size, page: 1 })); close(); }}>{t("business.transactions.pagination.per_page", { count: size })}{(connected?.answer.page_size ?? state.pageSize) === size ? <Check size={16} aria-hidden="true" /> : null}</button>)}</>}
-        </ToolbarPicker>
-        <nav className={styles.pages} aria-label={word("label")}>
-          <button type="button" aria-label={word("first")} disabled={result.page === 1} onClick={() => changePage(1)}><ChevronsLeft size={16} aria-hidden="true" /></button>
-          <button type="button" aria-label={word("previous")} disabled={result.page === 1} onClick={() => changePage(result.page - 1)}><ChevronLeft size={16} aria-hidden="true" /></button>
-          {pageLinks(result.page, result.pages).map((page, index) => page === "gap" ? <span key={`gap-${index}`} aria-hidden="true">…</span> : <button type="button" key={page} aria-label={t("business.transactions.pagination.page", { page })} aria-current={page === result.page ? "page" : undefined} onClick={() => changePage(page)}>{page}</button>)}
-          <button type="button" aria-label={word("next")} disabled={result.page === result.pages} onClick={() => changePage(result.page + 1)}><ChevronRight size={16} aria-hidden="true" /></button>
-          <button type="button" aria-label={word("last")} disabled={result.page === result.pages} onClick={() => changePage(result.pages)}><ChevronsRight size={16} aria-hidden="true" /></button>
-        </nav>
-      </footer>
+      <RecordsPaginationControls page={result.page} pages={result.pages} pageSize={connected?.answer.page_size ?? state.pageSize} rangeLabel={label} onPageChange={changePage} onPageSizeChange={(pageSize) => { if (connected) connected.onPageSize(pageSize); else setState((current) => ({ ...current, pageSize, page: 1 })); }} />
     </div>
   </div>;
 }
