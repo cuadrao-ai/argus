@@ -29,6 +29,7 @@ assert.equal(execFileSync(process.execPath, ["--version"], { encoding: "utf8" })
 mkdirSync(output, { recursive: true });
 writeFileSync(join(output, "source-sha.txt"), `${head}\n`);
 const results = [], captures = [], errors = [], external = [], diagnostics = [];
+const countsOnly = process.env.EVIDENCE_COUNTS_ONLY === "true";
 const safe = value => String(value).replace(/https?:\/\/[^\s"'<>]+/g, "[URL omitted]").slice(0, 5000);
 const pathname = value => { try { return new URL(value).pathname; } catch { return "[invalid URL]"; } };
 const environment = {
@@ -56,6 +57,7 @@ try {
   assert.ok(ready, "owned runtime did not become ready");
   browser = await chromium.launch({ headless: true });
   for (const width of [1440, 834, 390]) for (const language of ["es-419", "en"]) for (const theme of ["light", "dark"]) {
+    if (countsOnly && (width !== 1440 || language !== "es-419" || theme !== "light")) continue;
     const words = JSON.parse(readFileSync(join(repository, "web/public/locales", language, "common.json"), "utf8"));
     const copy = words.business.reception_preview;
     const context = await browser.newContext({ viewport: { width, height: 1000 }, hasTouch: width < 1024, locale: language === "en" ? "en-US" : "es-DO", colorScheme: theme, reducedMotion: "reduce", serviceWorkers: "block" });
@@ -127,7 +129,7 @@ try {
       assert.equal(await page.getByRole("checkbox", { name: copy.select_page, exact: true }).isDisabled(), true);
       const shape = await skeleton.locator("li").first().evaluate(element => ({ grid: getComputedStyle(element).gridTemplateColumns, height: element.getBoundingClientRect().height, animation: getComputedStyle(element.querySelector('[class*="skeletonBar"]')).animationName }));
       assert.equal(shape.animation, "none");
-      await capture("loading"); release();
+      if (!countsOnly) await capture("loading"); release();
       const rows = page.getByTestId("reception-row"); await rows.first().waitFor();
       await skeleton.waitFor({ state: "detached" });
       await page.addStyleTag({ content: FREEZE_CSS });
@@ -139,6 +141,21 @@ try {
       if (width >= 1024) { assert.equal(shape.grid, actual.grid); assert.equal(shape.height, actual.height); }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       await capture("list");
+      stage = "admitted arrival counts and local archive";
+      const counts = async () => Promise.all(["review", "processing", "attention", "archived"].map(key => page.locator(`#reception-tab-${key} span`).innerText()));
+      assert.deepEqual(await counts(), ["4", "1", "5", "0"], "four review receipts, one reading email, three receipt and two email exceptions");
+      await receiptRow.getByRole("checkbox").check();
+      await page.getByRole("button", { name: copy.archive, exact: true }).click();
+      await page.locator("#reception-tab-review span").filter({ hasText: /^3$/ }).waitFor();
+      assert.deepEqual(await counts(), ["3", "1", "5", "1"]);
+      if (countsOnly) await capture("count-after-archive");
+      await page.locator("#reception-tab-archived").click();
+      await receiptRow.getByRole("checkbox").check();
+      await page.getByRole("button", { name: copy.restore, exact: true }).click();
+      await page.locator("#reception-tab-review span").filter({ hasText: /^4$/ }).waitFor();
+      assert.deepEqual(await counts(), ["4", "1", "5", "0"]);
+      await page.locator("#reception-tab-all").click();
+      if (countsOnly) { await capture("count-after-restore"); assert.ok(writes.every(request => request.path.endsWith("/name-prompt") || request.path.endsWith("/read")), "count organization stays local"); results.push({ width, language, theme, countArchiveRestore: true, requests, writes }); continue; }
       stage = "receipt original denial and retry";
       await receiptRow.getByRole("button").first().click();
       const detail = page.getByTestId("reception-dossier");
@@ -207,6 +224,6 @@ finally {
   if (!exited) { process.kill(-app.pid, "SIGKILL"); await once(app, "exit"); }
   log.end();
   const compiledFiles = [".next/dev/server/app/biz/page.js", ".next/dev/server/app/biz/page_client-reference-manifest.js"].flatMap(relative => { const path = join(repository, "web", relative); return existsSync(path) ? [{ path: relative, sha256: createHash("sha256").update(readFileSync(path)).digest("hex") }] : []; });
-  writeFileSync(join(output, "report.json"), JSON.stringify({ complete, identity: { head, tree, runtime: "direct owned Next child from clean exact-head checkout", pid: app.pid, cwd: join(repository, "web"), port: web.port, compiledFiles, synthetic: true, hostedAcceptance: false }, results, captures, errors, external, diagnostics, runtimeStopped: exited }, null, 2));
+  writeFileSync(join(output, "report.json"), JSON.stringify({ complete, scope: countsOnly ? "counts repair only" : "full viewport matrix", identity: { head, tree, runtime: "direct owned Next child from clean exact-head checkout", pid: app.pid, cwd: join(repository, "web"), port: web.port, compiledFiles, synthetic: true, hostedAcceptance: false }, results, captures, errors, external, diagnostics, runtimeStopped: exited }, null, 2));
 }
 if (originalFailure) throw originalFailure;

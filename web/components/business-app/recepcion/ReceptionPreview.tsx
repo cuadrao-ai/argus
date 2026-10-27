@@ -16,7 +16,7 @@ import { emptyReceptionFilters, receptionFilterMatches, receptionArrivedInPeriod
 import ReceptionEmptyState from "./ReceptionEmptyState";
 import { showToast, dismissToast } from "../foundation/toasts";
 import { quietButtonClass } from "../business-ui";
-import { receptionNoteExample, receptionRows, receptionSearchText, type ReceptionRow, type ReceptionView } from "./reception-model";
+import { receptionNoteExample, receptionRows, receptionMatches, receptionSearchText, type ReceptionRow, type ReceptionView } from "./reception-model";
 import ReceptionArrivalRow from "./ReceptionArrivalRow";
 import ReceptionDossier from "./ReceptionDossier";
 import ReceptionSkeleton from "./ReceptionSkeleton";
@@ -163,8 +163,8 @@ function ReceptionWorkspace() {
     setSelectedIds([]);
     requestAnimationFrame(() => list.current?.focus({ preventScroll: true }));
   };
-  const activity = records.receiptActivity;
-  const counts = { all: undefined, review: activity?.ready_to_review_count, processing: activity?.reading_count, attention: activity?.needs_attention_count, archived: organization.archived.length, combined: undefined };
+  const activeRows = rows.filter(row => !organization.archived.includes(`${row.kind}:${row.id}`));
+  const counts = { all: undefined, review: activeRows.filter(row => receptionMatches(row, "review")).length, processing: activeRows.filter(row => receptionMatches(row, "processing")).length, attention: activeRows.filter(row => receptionMatches(row, "attention")).length, archived: rows.length - activeRows.length, combined: undefined };
   const inPanel = phone || panel.kind !== "inbox";
   const retry = () => {
     if (retryableArrivals) setAttempt(value => value + 1);
