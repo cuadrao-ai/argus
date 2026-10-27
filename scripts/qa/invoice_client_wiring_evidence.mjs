@@ -124,6 +124,7 @@ try {
       await page.locator("#invoice-issuedOn").fill("26/10/2026"); await page.locator("#invoice-issuedOn").blur();
       await page.locator("#invoice-dueOn").fill("26/10/2026"); await page.locator("#invoice-dueOn").blur();
       await choose(connected.payment_type, connected.cash); await choose(connected.income_type, connected.income_1); await choose(connected.tax_inclusion, connected.excluded);
+      assert.equal(await page.getByText(connected.field_required, { exact: true }).count(), 0);
       await capture("connected-fiscal-terms");
       await page.getByRole("button", { name: copy.save_draft, exact: true }).click();
       await page.getByRole("button", { name: connected.prepare, exact: true }).click();

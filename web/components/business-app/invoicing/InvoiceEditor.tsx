@@ -23,7 +23,18 @@ const STEPS = ["customer", "items", "terms", "review"] as const;
 type EditorStep = typeof STEPS[number];
 const stepForField = (key: string): EditorStep => ["id", "name", "email", "taxId", "address"].includes(key) ? "customer" : ["issuedOn", "dueOn"].includes(key) ? "terms" : "items";
 
-export type ConnectedInvoiceEditor = { busy: boolean; blocked: boolean; amounts: SavedInvoice["amounts"]; fieldErrors: Record<string, string>; savedInput: InvoicePreview | null; status: ReactNode; customerSearchStatus?: "pending" | "failed" | "ready"; onCustomerSearch?: (value: string) => void };
+function fieldSnapshot(invoice: InvoicePreview): Record<string, unknown> {
+  const fields: Record<string, unknown> = {
+    customer_id: invoice.customer.id, "customer_input.name": invoice.customer.name, "customer_input.email": invoice.customer.email, "customer_input.tax_id": invoice.customer.taxId, "customer_input.address": invoice.customer.address,
+    document_type: invoice.documentType, currency: invoice.currency, issued_on: invoice.issuedOn, due_on: invoice.dueOn, items: invoice.items,
+    terms: invoice.terms, instructions: invoice.instructions, notes: invoice.notes,
+    payment_type: invoice.fiscalInput?.payment_type ?? null, income_type: invoice.fiscalInput?.income_type ?? null, tax_inclusion: invoice.fiscalInput?.tax_inclusion ?? null,
+  };
+  for (const item of invoice.items) for (const [key, value] of Object.entries({ description: item.description, quantity: item.quantity, price: item.price, discount: item.discount ?? "", tax: item.tax, classification: item.classification ?? null, tax_treatment: item.taxTreatment ?? null })) fields[`items.${item.id}.${key}`] = value;
+  return fields;
+}
+
+export type ConnectedInvoiceEditor = { busy: boolean; blocked: boolean; amounts: SavedInvoice["amounts"]; fieldErrors: Record<string, string>; savedInput: InvoicePreview | null; status: ReactNode; errorInput?: InvoicePreview | null; customerSearchStatus?: "pending" | "failed" | "ready"; onCustomerSearch?: (value: string) => void };
 
 export default function InvoiceEditor({ initial, business, customers, onAddCustomer, onSave, onClose, connection }: { connection?: ConnectedInvoiceEditor; initial: InvoicePreview; business: string; customers: BusinessCustomer[]; onAddCustomer: (customer: BusinessCustomer) => void; onSave: (invoice: InvoicePreview) => void; onClose: () => void }) {
   const { word, t } = useInvoiceWords();
@@ -51,10 +62,12 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
   const errors = connection ? {} : invoiceDraftErrors(draft);
   const rules: FieldRules<string> = Object.fromEntries(Object.keys(values).map(key => [key, () => errors[key] ? word(`error_${errors[key]}`) : null]));
   const checks = useFieldChecks(rules, values);
+  const currentFields = fieldSnapshot(draft), reportedFields = fieldSnapshot(connection?.errorInput ?? connection?.savedInput ?? initial);
+  const reportedErrors = Object.fromEntries(Object.entries(connection?.fieldErrors ?? {}).filter(([field]) => JSON.stringify(currentFields[field]) === JSON.stringify(reportedFields[field])));
   const serverError = (key: string) => {
     if (!connection) return null;
     const field = key === "id" ? "customer_id" : key === "issuedOn" ? "issued_on" : key === "dueOn" ? "due_on" : ["name", "email", "taxId", "address"].includes(key) ? `customer_input.${key === "taxId" ? "tax_id" : key}` : draft.items.reduce((path, item) => key.startsWith(`${item.id}-`) ? `items.${item.id}.${key.slice(item.id.length + 1)}` : path, key);
-    const reason = connection.fieldErrors[field];
+    const reason = reportedErrors[field];
     return reason ? t(`business.invoicing.${reason === "required" ? "field_required" : "field_unsupported"}`) : null;
   };
   const errorOf = (key: string) => serverError(key) || checks.errorOf(key) || ((attempted.has(stepForField(key)) || draft.items.some(item => checkedItems.has(item.id) && key.startsWith(`${item.id}-`))) && errors[key] ? word(`error_${errors[key]}`) : null);
@@ -179,7 +192,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         <div className={fieldLabelClass}><span>{word("document_type")}</span>
         <ToolbarPicker label={word("document_type")} value={word(`document_${draft.documentType}`)}>{close => (["E32", "E31"] as const).map(documentType => <button type="button" key={documentType} className={styles.option} onClick={() => { setDraft(current => ({ ...current, documentType })); close(); }}>{word(`document_${documentType}`)}</button>)}</ToolbarPicker>
         </div>
-        {connection ? <InvoiceTermsFiscalFields value={draft.fiscalInput} errors={connection.fieldErrors} onChange={fiscalInput => setDraft(current => ({ ...current, fiscalInput }))} /> : null}
+        {connection ? <InvoiceTermsFiscalFields value={draft.fiscalInput} errors={reportedErrors} onChange={fiscalInput => setDraft(current => ({ ...current, fiscalInput }))} /> : null}
         <div className={styles.dateFields}>{(["issuedOn", "dueOn"] as const).map(key => <InvoiceDateField due={key === "dueOn"} key={key} id={`invoice-${key}`} label={word(key === "issuedOn" ? "issue_date" : "due_date")} value={draft[key]} error={errorOf(key)} onBlur={() => checks.blur(key)} onChange={value => field(key, value)} />)}</div>
         {(["terms", "instructions"] as const).map(key => <label className={fieldLabelClass} key={key}>{word(key)}<textarea rows={2} className={fieldClass} maxLength={500} value={draft[key]} placeholder={word(`placeholder_${key}`)} onChange={event => field(key, event.target.value)} /><span className={styles.counter}>{draft[key].length}/500</span>{serverError(key) ? <span role="alert" className={styles.error}>{serverError(key)}</span> : null}</label>)}
         </> : null}
@@ -194,7 +207,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
                 <FormField {...feedback(`${item.id}-description`)} reserveMessages={[]} label={word("description")} required maxLength={160} value={item.description} placeholder={word("item_placeholder")} onChange={event => updateItem(item.id, "description", event.target.value)} />
                 {numberField(item, index, "quantity")}
                 {numberField(item, index, "price")}
-              </div>{connection ? <InvoiceItemFiscalFields item={item} errors={connection.fieldErrors} onChange={patch => setDraft(current => ({ ...current, items: current.items.map(value => value.id === item.id ? { ...value, ...patch } : value) }))} /> : null}</> : <button type="button" className={styles.itemSummary} aria-expanded={false} aria-label={word("edit_item", { count: index + 1, name: item.description || word("item_number", { count: index + 1 }) })} onClick={() => { setActiveItemId(item.id); setItemFocus({ id: item.id, invalid: false }); }}>
+              </div>{connection ? <InvoiceItemFiscalFields item={item} errors={reportedErrors} onChange={patch => setDraft(current => ({ ...current, items: current.items.map(value => value.id === item.id ? { ...value, ...patch } : value) }))} /> : null}</> : <button type="button" className={styles.itemSummary} aria-expanded={false} aria-label={word("edit_item", { count: index + 1, name: item.description || word("item_number", { count: index + 1 }) })} onClick={() => { setActiveItemId(item.id); setItemFocus({ id: item.id, invalid: false }); }}>
                 <span><strong>{item.description || word("item_number", { count: index + 1 })}</strong><small>{item.quantity} × {hundredths(item.price) !== null ? <InvoiceMoney amount={hundredths(item.price)!} currency={draft.currency} /> : "-"}</small></span>
                 <span className={styles.itemSummaryAmount}>{amount ? <InvoiceMoney amount={amount.total} currency={draft.currency} /> : "-"}<ChevronDown size={16} aria-hidden="true" /></span>
               </button>}

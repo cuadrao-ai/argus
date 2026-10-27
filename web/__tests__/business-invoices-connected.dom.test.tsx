@@ -129,7 +129,7 @@ test("the five fiscal choices remain blank until explicit selection and incomple
   try {
     await page.click(invoiceId); await page.click("Edit draft");
     assert.equal(page.record()?.data.payment_type, null); assert.equal(page.record()?.data.income_type, null); assert.equal(page.record()?.data.tax_inclusion, null);
-    await choose("Fiscal payment terms", "Credit"); await choose("Income type", "Other income"); await choose("Prices and tax", "Tax included"); await page.click("Save draft");
+    await choose("Fiscal payment terms", "Credit"); assert.ok(!document.body.textContent?.includes("Complete this field before preparing issuance.")); await choose("Income type", "Other income"); await choose("Prices and tax", "Tax included"); await page.click("Save draft");
     assert.equal(page.record()?.data.payment_type, "credit"); assert.equal(page.record()?.data.income_type, 6); assert.equal(page.record()?.data.tax_inclusion, "included"); assert.equal(page.record()?.payment_state, "unknown");
     await page.click("Edit draft"); await page.click("Back"); await page.click("Add product");
     assert.equal(page.record()?.data.items.length, 0);
