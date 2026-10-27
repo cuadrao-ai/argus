@@ -12,7 +12,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean; customerRecords?: SavedCustomer[]; rejectCustomerTax?: boolean; holdReads?: boolean; readFailure?: number; noPrepare?: boolean; fiscalOff?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -51,6 +51,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
       return Response.json(record);
     }
     if (url.pathname.endsWith(`/business/invoices/${invoiceId}`) && method === "PUT" && record) { record = { ...record, version: record.version + 1, data: body.data, field_errors: options.checkTaxId ? /^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.customer_input.tax_id) ? {} : { "customer_input.tax_id": "tax_id" } : record.field_errors, amounts: body.data.tax_inclusion === "included" ? null : record.amounts }; return Response.json(record); }
+    if (options.fiscalOff && ["/prepare", "/submit"].some(suffix => url.pathname.endsWith(suffix))) return Response.json({ type: "https://api.argus.app/problems/http-error", title: "Request Failed", status: 404, detail: "fiscal_sandbox_unavailable", code: "http_error", request_id: "synthetic-request" }, { status: 404 });
     if (url.pathname.endsWith("/prepare") && record) {
       if (record.data.tax_inclusion === "included") return Response.json({ code: "invoice_not_ready", context: { field_errors: { tax_inclusion: "unsupported" } } }, { status: 422 });
       if (!record.operation) { record = { ...record, operation: preparedOperation() }; prepareEffects++; }
@@ -69,8 +70,9 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const button = (text: string) => { const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text && !node.closest("[hidden]")); assert.ok(found, `missing button ${text}`); return found; };
   const click = async (text: string) => { await act(async () => button(text).click()); };
   const fill = async (selector: string, value: string) => { const input = document.querySelector<HTMLInputElement>(selector); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); };
+  const openRow = async () => { const link = document.querySelector<HTMLButtonElement>("tbody tr td:first-child button"); assert.ok(link, "missing invoice row link"); await act(async () => link.click()); };
   const reopen = async () => { await act(async () => root.unmount()); root = createRoot(host); await render(); };
-  return { calls, click, fill, button, act, reopen, customerRecords: () => createdCustomers, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
+  return { calls, click, fill, button, act, reopen, openRow, customerRecords: () => createdCustomers, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
 }
 function preparedOperation(): FiscalOperation {
   return { id: "60000000-0000-4000-8000-000000000006", invoice_id: invoiceId, invoice_revision_id: savedInvoice().revision_id, business_id: invoiceScope.businessId, case_id: "synthetic-saved-revision", kind: "E32", number: "E320000000001", payload_digest: "a".repeat(64), provider_id: null, state: { submission: "prepared", processing: "unreported", legal: "unreported", xml: "unreported", pdf: "unreported", delivery: "not_requested", reconciliation: "not_needed", diagnostics: [], needs_review: false } };
@@ -440,5 +442,24 @@ test("connected invoice rows and their nested buttons open one authoritative dos
     assert.equal(reads(), 2, "nested button must not bubble into a second GET"); assert.equal(row().getAttribute("data-selected"), "true");
     await page.click("Edit draft"); assert.equal(row().getAttribute("data-selected"), "false");
     assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+
+const readyDraft = (): InvoiceDraft => ({ ...incompleteInvoice(), customer_input: { ...incompleteInvoice().customer_input, name: "Synthetic ready customer" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "item-one", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] });
+test("with fiscal issuance off, Prepare issuance becomes a disabled note and editing stays usable across reload", async () => {
+  const page = await mount({ record: { ...savedInvoice(readyDraft()), field_errors: {}, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } }, fiscalOff: true }); try {
+    await page.openRow(); await page.click("Prepare issuance");
+    assert.equal(page.calls.filter(call => call.path.endsWith("/prepare")).length, 1);
+    assert.ok(document.body.textContent?.includes("Fiscal issuance is not available yet."));
+    assert.equal(document.body.textContent?.includes("Retry the same request"), false);
+    assert.equal(document.body.textContent?.includes("We could not confirm whether it was saved"), false);
+    assert.equal(page.button("Prepare issuance").disabled, true);
+    assert.ok(document.body.textContent?.includes("Issuance is not available yet."));
+    assert.equal(sessionStorage.getItem("cuadrao:invoice_commands:v1"), null);
+    await page.click("Edit draft"); await page.click("Save draft");
+    assert.equal(page.calls.filter(call => call.method === "PUT" && call.path.endsWith(`/business/invoices/${invoiceId}`)).length, 1, "a later save reaches the server");
+    assert.ok(document.body.textContent?.includes("Saved to this Business."));
+    await page.reopen(); await page.openRow(); await page.click("Edit draft"); await page.click("Save draft");
+    assert.equal(page.calls.filter(call => call.method === "PUT").length, 2, "a reload leaves saving usable");
   } finally { await page.close(); }
 });

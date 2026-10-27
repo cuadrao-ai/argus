@@ -87,3 +87,27 @@ test("invalid command input stays visible as validation failure and sends no req
   await expect(controller.submit({ kind: "customer", id: null, key: "invalid-tax", body: { data: { ...savedCustomer().data, tax_id: "x".repeat(33) }, archived: false, expected_version: null } })).resolves.toBeUndefined();
   expect(sent).toBe(0); expect(controller.getSnapshot()).toMatchObject({ kind: "failed", failure: "invalid", fieldErrors: { tax_id: "invalid" } }); controller.dispose();
 });
+
+const prepare = (): Extract<InvoiceCommand, { kind: "prepare" }> => ({ kind: "prepare", id: savedInvoice().id, expected_version: 1 });
+test("fiscal issuance off is terminal: not journaled, not retryable and never blocks a later save", async () => {
+  const store = journal(), wire = transport(); let prepares = 0;
+  wire.prepare = async () => { prepares++; throw new InvoiceProblem(404, "http_error"); };
+  const controller = createInvoiceCommandController(invoiceScope, store, wire);
+  await controller.submit(prepare());
+  expect(controller.getSnapshot()).toMatchObject({ kind: "failed", failure: "unavailable", retryable: false });
+  expect(store.read(invoiceScope)).toBeNull();
+  await controller.retry(); expect(prepares).toBe(1);
+  await controller.submit(create()); expect(controller.getSnapshot().kind).toBe("saved"); controller.dispose();
+  expect(createInvoiceCommandController(invoiceScope, store, wire).getSnapshot().kind).toBe("idle");
+});
+test("definite client rejections are terminal while network and server failures stay retryable", async () => {
+  const cases: [number, string, string, boolean][] = [[404, "invoice_not_found", "refused", false], [400, "http_error", "refused", false], [413, "http_error", "refused", false], [429, "http_error", "uncertain", true], [408, "http_error", "uncertain", true], [500, "http_error", "uncertain", true], [503, "http_error", "uncertain", true]];
+  for (const [status, code, failure, retryable] of cases) {
+    const store = journal(), wire = transport(); wire.prepare = async () => { throw new InvoiceProblem(status, code); };
+    const controller = createInvoiceCommandController(invoiceScope, store, wire); await controller.submit(prepare());
+    expect(controller.getSnapshot()).toMatchObject({ kind: "failed", failure, retryable }); expect(store.read(invoiceScope) !== null).toBe(retryable); controller.dispose();
+  }
+  const store = journal(), wire = transport(); wire.invoice = async () => { throw new TypeError("network down"); };
+  const controller = createInvoiceCommandController(invoiceScope, store, wire); await controller.submit(create());
+  expect(controller.getSnapshot()).toMatchObject({ failure: "uncertain", retryable: true }); controller.dispose();
+});

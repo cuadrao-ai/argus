@@ -14,7 +14,7 @@ export const invoiceCommandSchema = z.discriminatedUnion("kind", [
 ]);
 export type InvoiceCommand = z.infer<typeof invoiceCommandSchema>;
 export type CommandResult = { kind: "invoice"; record: api.SavedInvoice } | { kind: "customer"; record: api.SavedCustomer };
-export type CommandFailure = "uncertain" | "conflict" | "invalid" | "access" | "storage";
+export type CommandFailure = "uncertain" | "conflict" | "invalid" | "access" | "storage" | "unavailable" | "refused";
 export type CommandState =
   | { kind: "idle" }
   | { kind: "pending"; command: InvoiceCommand }
@@ -38,6 +38,18 @@ export const sessionInvoiceJournal: InvoiceCommandJournal = {
     else removeSessionStored(STORAGE_KEY);
   },
 };
+const MAYBE_APPLIED_CLIENT_STATUSES = new Set([408, 409, 425, 429]);
+function failureOf(error: unknown, command: InvoiceCommand): CommandFailure {
+  if (error instanceof api.InvoiceScopeChanged) return "access";
+  const status = error instanceof api.InvoiceProblem ? error.status : 0;
+  if (status === 401 || status === 403) return "access";
+  if (status === 409 && error instanceof api.InvoiceProblem && error.code !== "invoice_idempotency_conflict") return "conflict";
+  if (status === 422) return "invalid";
+  const fiscalCommand = command.kind === "prepare" || command.kind === "submit";
+  if (status === 404 && fiscalCommand && error instanceof api.InvoiceProblem && (error.code === "http_error" || error.code === "fiscal_sandbox_unavailable")) return "unavailable";
+  if (status >= 400 && status < 500 && !MAYBE_APPLIED_CLIENT_STATUSES.has(status)) return "refused";
+  return "uncertain";
+}
 export type InvoiceCommandTransport = { invoice: typeof api.saveInvoice; customer: typeof api.saveCustomer; prepare: typeof api.prepareInvoice; submit: typeof api.submitInvoice };
 const live: InvoiceCommandTransport = { invoice: api.saveInvoice, customer: api.saveCustomer, prepare: api.prepareInvoice, submit: api.submitInvoice };
 
@@ -66,8 +78,7 @@ export function createInvoiceCommandController(scope: api.InvoiceScope, journal:
       publish({ kind: "saved", result });
     } catch (error) {
       if (!active()) { dispose(); return; }
-      const status = error instanceof api.InvoiceProblem ? error.status : 0;
-      const failure: CommandFailure = status === 401 || status === 403 || error instanceof api.InvoiceScopeChanged ? "access" : status === 409 && error instanceof api.InvoiceProblem && error.code !== "invoice_idempotency_conflict" ? "conflict" : status === 422 ? "invalid" : "uncertain";
+      const failure = failureOf(error, command);
       const retryable = failure === "uncertain";
       if (!retryable) journal.clear(scope);
       publish({ kind: "failed", command: failure === "access" ? null : command, failure, retryable, fieldErrors: error instanceof api.InvoiceProblem ? error.fieldErrors : {} });
