@@ -50,15 +50,32 @@ function BusinessProfileContent() {
   const live = workspace.source.mode === "live";
   const server = useBusinessProfile(businessId,live&&Boolean(businessId),reloadWorkspace);
   const retryProfile=server.retry;
+  const refuseProfile=server.refuse;
   const [fiscal,setFiscal] = useState<FiscalProfile|null>(null);
   const [fiscalFailed,setFiscalFailed] = useState(false);
   const [fiscalReference,setFiscalReference]=useState<string|null>(null);
+  const fiscalRequest=useRef<AbortController|null>(null);
+  const fiscalRefused=useRef(false);
+  const fetchFiscal=useCallback(async(options:RequestInit={})=>{
+    fiscalRequest.current?.abort();
+    const controller=new AbortController();fiscalRequest.current=controller;
+    try{
+      const value=await businessSettingsRequest<FiscalProfile>("/business/fiscal-profile",{...options,signal:controller.signal});
+      if(!fiscalRefused.current){setFiscal(value);setFiscalFailed(false);}
+      return value;
+    }catch(error){
+      if(!controller.signal.aborted){
+        setFiscalFailed(true);setFiscalReference(referenceCode(error));
+        if(refuseProfile(error)){fiscalRefused.current=true;setFiscal(null);}
+      }
+      throw error;
+    }
+  },[refuseProfile]);
   useEffect(()=>{
-    if(!live||!businessId)return;
-    const controller=new AbortController();
-    businessSettingsRequest<FiscalProfile>("/business/fiscal-profile",{signal:controller.signal}).then(setFiscal,error=>{if(!controller.signal.aborted){setFiscalFailed(true);setFiscalReference(referenceCode(error));}});
-    return()=>controller.abort();
-  },[live,businessId]);
+    if(!live||!businessId||server.refused)return;
+    void fetchFiscal().catch(()=>{});
+    return()=>fiscalRequest.current?.abort();
+  },[live,businessId,server.refused,fetchFiscal]);
   const appearance = previewAppearance;
   const appearanceState=useSyncExternalStore(subscribeBusinessAppearance,()=>businessAppearanceState(businessId),()=>null);
   const imagePending=live&&server.profile?.appearance.kind==="image"&&appearanceState!=="ready";
@@ -72,6 +89,11 @@ function BusinessProfileContent() {
   const [dirty,setDirty] = useState(false);
   const [pending,setPending] = useState<Selection|null>(null);
   const opener = useRef<HTMLElement|null>(null);
+  useEffect(()=>{
+    if(!server.refused)return;
+    fiscalRefused.current=true;fiscalRequest.current?.abort();setFiscal(null);
+    setSelected(null);setFiscalDraft(null);setProvidedDraft(null);setDirty(false);setPending(null);
+  },[server.refused]);
   const refresh = useCallback(()=>window.dispatchEvent(new Event(changedEvent)),[]);
   const subscribe = useCallback((listener:()=>void) => {
     window.addEventListener("storage",listener);window.addEventListener(changedEvent,listener);
@@ -84,16 +106,16 @@ function BusinessProfileContent() {
   const taxType = profile.taxId?.type;
   const taxValue = profile.taxId?.value;
   const localSource = useMemo(()=>({...workspace.source,
-    fiscalProfile:async()=>live ? businessSettingsRequest<FiscalProfile>("/business/fiscal-profile") : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,can_edit:canEdit}),
+    fiscalProfile:async()=>live ? fetchFiscal() : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,can_edit:canEdit}),
     saveFiscalProfile:async(input:Parameters<typeof saveBusinessProfilePreview>[2],key:string)=>{
       if(!canEdit) throw new Error("permission_denied");
-      if(live){const next=await businessSettingsRequest<FiscalProfile>("/business/fiscal-profile",{method:"PATCH",headers:{"Idempotency-Key":key},body:JSON.stringify(input)});setFiscal(next);reloadWorkspace();retryProfile();return next;}
+      if(live){const next=await fetchFiscal({method:"PATCH",headers:{"Idempotency-Key":key},body:JSON.stringify(input)});reloadWorkspace();retryProfile();return next;}
       saveBusinessProfilePreview(storage(),businessId,input);
       renamePreviewBusiness?.(input.name);
       refresh();
       return {name:input.name,tax_id:input.tax_id,can_edit:canEdit};
     },
-  }),[workspace.source,reloadWorkspace,retryProfile,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh,live]);
+  }),[workspace.source,reloadWorkspace,retryProfile,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh,live,fetchFiscal]);
   const formContext = useMemo(()=>({...workspace,source:localSource,reload:()=>{}}),[workspace,localSource]);
   const countryLabel = profile.country ? t(`workspace_setup_preview.country_${profile.country.toLowerCase()}`,{defaultValue:profile.country}) : null;
   const labels: Record<ProfileChecklistKey,string> = {
@@ -137,9 +159,8 @@ function BusinessProfileContent() {
       </dl>
     </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={async next=>{if(live){const fields=selected==="presence"?["website","description"] as const:["address","province","municipality","email","phone"] as const;const saved=await server.save({details:Object.fromEntries(fields.map(field=>[field,next[field]]))});return saved.details;}const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" && !live ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
   </div>;
-  if(live && (!server.profile || !fiscal))return <div className={SURFACE_CARD}>{server.failed||fiscalFailed?<><p role="alert">{t(server.refused?"business.lifecycle.errors.business_unavailable":"business.empty.overview_error")} {failureReference?<ReferenceCode reference={failureReference}/>:null}</p>{!server.refused?<button type="button" className={quietButtonClass} onClick={()=>{server.retry();setFiscalFailed(false);businessSettingsRequest<FiscalProfile>("/business/fiscal-profile").then(setFiscal,error=>{setFiscalFailed(true);setFiscalReference(referenceCode(error));});}}>{t("common.retry")}</button>:null}</>:<div aria-busy="true" className="h-40 animate-pulse rounded-item bg-black/5"/>}</div>;
+  if(live && (server.refused || !server.profile || !fiscal))return <div className={SURFACE_CARD}>{server.failed||fiscalFailed?<><p role="alert">{t(server.refused?"business.lifecycle.errors.business_unavailable":"business.empty.overview_error")} {failureReference?<ReferenceCode reference={failureReference}/>:null}</p>{!server.refused?<button type="button" className={quietButtonClass} onClick={()=>{server.retry();setFiscalFailed(false);void fetchFiscal().catch(()=>{});}}>{t("common.retry")}</button>:null}</>:<div aria-busy="true" className="h-40 animate-pulse rounded-item bg-black/5"/>}</div>;
   return <>
-    {live&&server.refused?<p role="alert" className="mb-4 text-[14px] text-[#9e2f39]">{t("business.lifecycle.errors.business_unavailable")}</p>:null}
     <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}
     `}</style>
     <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">

@@ -48,6 +48,7 @@ export async function saveBusinessProfile(id: string, patch: BusinessProfilePatc
   return result;
 }
 const savedAppearances = new Map<string, IdentityAppearance>();
+const appearanceAssets = new Map<string,Set<string>>();
 const imageSources = new Map<string,{source:string;rendered:string}>();
 const appearanceStates=new Map<string,"loading"|"ready"|"failed">();
 const appearanceRevisions=new Map<string,number>();
@@ -57,6 +58,12 @@ export const businessAppearanceSnapshot = (id: string) => savedAppearances.get(`
 export const businessAppearanceState = (id:string) => appearanceStates.get(`${browserAuthGeneration()}:${id}`)??null;
 export function beginBusinessAppearance(id:string){appearanceStates.set(`${browserAuthGeneration()}:${id}`,"loading");for(const listener of listeners)listener();}
 export function failBusinessAppearance(id:string){appearanceStates.set(`${browserAuthGeneration()}:${id}`,"failed");for(const listener of listeners)listener();}
+export function clearBusinessAppearance(id:string){
+  const target=`${browserAuthGeneration()}:${id}`;
+  for(const asset of appearanceAssets.get(target)??[])imageSources.delete(asset);
+  appearanceAssets.delete(target);savedAppearances.delete(target);appearanceStates.delete(target);appearanceRevisions.delete(target);
+  for(const listener of listeners)listener();
+}
 export function profileIdentity(profile: BusinessProfile): IdentityAppearance {
   if (profile.appearance.kind !== "image") return profile.appearance;
   const bytes=profile.image?imageSources.get(`${browserAuthGeneration()}:${profile.image.asset_id}`):null;
@@ -82,6 +89,7 @@ export async function publishBusinessAppearance(value: BusinessProfile,signal?:A
   const target=`${generation}:${value.space_id}`;
   if((appearanceRevisions.get(target)??-1)>value.revision)return;
   appearanceRevisions.set(target,value.revision);
+  if(value.image){const assets=appearanceAssets.get(target)??new Set<string>();assets.add(`${generation}:${value.image.asset_id}`);appearanceAssets.set(target,assets);}
   if(value.appearance.kind==="image"&&!value.image?.rendered_url){failBusinessAppearance(value.space_id);return;}
   if(value.appearance.kind==="image"&&value.image?.rendered_url){
     appearanceStates.set(target,"loading");for(const listener of listeners)listener();

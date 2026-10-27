@@ -32,6 +32,7 @@ function BusinessAccessLive(){
   const {chosen,reload}=useBusiness();
   const [access,setAccess]=useState<BusinessAccess|null>(null);
   const [failed,setFailed]=useState(false);
+  const [actionFailed,setActionFailed]=useState(false);
   const [refused,setRefused]=useState(false);
   const [busy,setBusy]=useState(false);
   const [inviting,setInviting]=useState(false);
@@ -39,22 +40,29 @@ function BusinessAccessLive(){
   const [notice,setNotice]=useState<string|null>(null);
   const [attempt,setAttempt]=useState(0);
   const mounted=useRef(true);
+  const failure=useCallback((error:unknown)=>{
+    setFailed(true);
+    const status=error&&typeof error==="object"&&"status" in error?error.status:null;
+    if(status===403||status===404){setRefused(true);setAccess(null);setInviting(false);setConfirmation(null);setNotice(null);}
+  },[]);
   useEffect(()=>{
     mounted.current=true;
-    getBusinessAccess().then(value=>{if(mounted.current){setAccess(value);setFailed(false);}},error=>{if(mounted.current){setFailed(true);setRefused(error?.status===403||error?.status===404);}});
+    getBusinessAccess().then(value=>{if(mounted.current){setAccess(value);setFailed(false);}},error=>{if(mounted.current){setActionFailed(false);failure(error);}});
     return()=>{mounted.current=false;};
-  },[attempt]);
+  },[attempt,failure]);
   const act=async(work:()=>Promise<unknown>)=>{
     if(busy||refused)return;
     setBusy(true);setFailed(false);setNotice(null);
     try{
       await work();
-      const saved=await getBusinessAccess();
-      if(mounted.current){setAccess(saved);reload();}
-    }catch(error){if(mounted.current){setFailed(true);const status=error&&typeof error==="object"&&"status" in error?error.status:null;if(status===403||status===404)setRefused(true);}}
+    }catch(error){if(mounted.current){setActionFailed(true);failure(error);setBusy(false);}return;}
+    if(!mounted.current)return;
+    setAccess(null);setActionFailed(false);
+    try{const saved=await getBusinessAccess();if(mounted.current){setAccess(saved);reload();}}
+    catch(error){if(mounted.current)failure(error);}
     finally{if(mounted.current)setBusy(false);}
   };
-  if(!access)return <section className={SURFACE_CARD}>{failed?<><p role="alert">{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
+  if(refused||!access)return <section className={SURFACE_CARD}>{failed?<><p role="alert">{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.error")}</p>{!refused?<button className={primaryButtonClass} onClick={()=>setAttempt(value=>value+1)}>{t("common.retry")}</button>:null}</>:<div className="h-40 animate-pulse rounded-item bg-black/5 dark:bg-white/10" aria-busy="true"/>}</section>;
   const personRow=(person:{id:string;email:string|null;role:AccessRole|undefined;pending:boolean;expired?:boolean})=>{
     const self=!person.pending&&person.id===chosen?.grant_id;
     const restricted=self||refused||!chosen?.permissions?.includes("manage")||(person.role==="owner"&&!chosen.permissions.includes("assign_owner"));
@@ -68,10 +76,10 @@ function BusinessAccessLive(){
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-display text-[21px] font-medium">{t("workspace_setup_preview.access_members_title")}</h2><button type="button" className={primaryButtonClass} disabled={busy||refused||!chosen?.permissions?.includes("manage")} onClick={()=>setInviting(true)}><UserPlus className="h-4 w-4"/>{t("workspace_setup_preview.invite")}</button></div>
     <ul>{access.grants.map(person=>personRow({...person,role:person.business_role,pending:false}))}</ul>
     <details className="border-t border-black/10 pt-1 dark:border-white/10"><summary className="min-h-11 cursor-pointer content-center rounded-md px-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_pending_title")}</summary>{access.invites.length?<ul>{access.invites.map(person=>personRow({...person,role:person.requested_role,pending:true,expired:person.state==="expired"}))}</ul>:<p className="px-2 py-2 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.access_no_pending")}</p>}</details>
-    {failed?<p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(refused?"business.lifecycle.errors.business_unavailable":"business_access.remove_error")}</p>:null}
+    {failed?<p role="alert" className="text-[14px] text-[#9e2f39] dark:text-[#ec9aa0]">{t(actionFailed?"business_access.remove_error":"business_access.error")}</p>:null}
     {notice?<p role="status" className="text-[14px] text-[#56635e] dark:text-white/70">{t(notice)}</p>:null}
     <ConfirmDialog isOpen={confirmation!==null} title={t(confirmation?.pending?"workspace_setup_preview.access_cancel_title":"workspace_setup_preview.access_remove_title",{email:confirmation?.email})} description={t(confirmation?.pending?"workspace_setup_preview.access_cancel_detail":"workspace_setup_preview.access_remove_detail")} confirmLabel={t(confirmation?.pending?"workspace_setup_preview.access_cancel":"workspace_setup_preview.access_remove")} cancelLabel={t("common.cancel")} onCancel={()=>setConfirmation(null)} onConfirm={()=>{if(confirmation){const target=confirmation;setConfirmation(null);void act(()=>target.pending?revokeBusinessAccessInvite(target.id):revokeBusinessAccessGrant(target.id));}}}/>
-    {inviting?<BusinessInvitationForm onClose={()=>setInviting(false)} onAccepted={()=>setAttempt(value=>value+1)}/>:null}
+    {inviting?<BusinessInvitationForm onRefused={failure} onClose={()=>setInviting(false)} onAccepted={()=>setAttempt(value=>value+1)}/>:null}
   </section>;
 }
 

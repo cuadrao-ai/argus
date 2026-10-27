@@ -13,7 +13,7 @@ import { useBusiness } from "./BusinessWorkspace";
 type Row = BusinessInvitationCommand & { id:string; result?:BusinessInvitationResult };
 const emptyRow=():Row=>({id:crypto.randomUUID(),email:"",role:"editor",command_key:crypto.randomUUID()});
 /** The approved invitation rows, with server results replacing the browser sketch. */
-export default function BusinessInvitationForm({onClose,onAccepted}:{onClose:()=>void;onAccepted:()=>void}) {
+export default function BusinessInvitationForm({onClose,onAccepted,onRefused}:{onClose:()=>void;onAccepted:()=>void;onRefused?:(error:unknown)=>void}) {
   const {t}=useTranslation();
   const {chosen}=useBusiness();
   const [rows,setRows]=useState<Row[]>([emptyRow()]);
@@ -36,7 +36,7 @@ export default function BusinessInvitationForm({onClose,onAccepted}:{onClose:()=
       if(!mounted.current)return;
       setRows(current=>current.map(row=>{const result=response.results.find(result=>result.command_key===row.command_key);return result?{...row,result}:row;}));
       onAccepted();
-    }catch(error){if(mounted.current){setFailed(true);const status=error&&typeof error==="object"&&"status" in error?error.status:null;setRefused(status===403||status===404);}}
+    }catch(error){if(mounted.current){setFailed(true);const status=error&&typeof error==="object"&&"status" in error?error.status:null;setRefused(status===403||status===404);if(status===403||status===404)onRefused?.(error);}}
     finally{if(mounted.current)setBusy(false);}
   };
   return <AdaptivePanel title={t("workspace_setup_preview.batch_title")} summary={chosen?.name} width="lg" closeLabel={t("common.close")} onClose={()=>{if(!busy){mounted.current=false;onClose();}}} snaps={["full"]} initialSnap="full">

@@ -37,7 +37,7 @@ const permissions = ["read", "prepare", "approve", "manage", "download", "export
 const profiles = new Map(ids.map((id, index) => [id, { space_id: id, name: index ? "Taller Sol" : "Colmado Luna", country: "DO", currency: "DOP", revision: 1, details: { address: index ? "Calle Sol 8" : "Calle Luna 12", province: "Distrito Nacional", municipality: "Santo Domingo", email: "contacto@example.test", phone: "809 555 0100", website: "https://negocio.example.test", description: "Negocio de muestra" }, appearance: { kind: "avatar", token: index ? "gold" : "teal", mark: "initials" }, image: null }]));
 const access = { grants: [{ id: grants[0], email: "pilot@example.test", display_name: "José de muestra", business_role: "owner", permissions, owner: true, capabilities: ["read", "prepare", "approve"], created_at: "2026-10-01T12:00:00Z" }, { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", email: "equipo@example.test", display_name: "Persona de muestra", business_role: "editor", permissions: ["read", "prepare", "download", "export"], owner: false, capabilities: ["read", "prepare"], created_at: "2026-10-02T12:00:00Z" }], invites: [] };
 let invitations = [{ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", space_id: "44444444-4444-4444-8444-444444444444", name: "Taller Invitado", requested_role: "admin", expires_at: "2026-11-02T12:00:00Z" }];
-let config = { profileFailure: false, conflict: false, appearanceFailure: false, role: "owner", acceptFailure: false };
+let config = { profileRefused:false,refuseInvitation:false,accessRefreshFailure:false, profileFailure: false, conflict: false, appearanceFailure: false, role: "owner", acceptFailure: false };
 let creates = 0;
 const history = [];
 const receipts = new Map;
@@ -98,6 +98,7 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: fixturePort, async fetch
     return json({ spaces: ids.map((id, index) => ({ space_id: id, name: profiles.get(id).name, grant_id: grants[index], role: config.role === "viewer" || id === "44444444-4444-4444-8444-444444444444" ? "accountant" : "owner", business_role: config.role === "viewer" ? "viewer" : id === "44444444-4444-4444-8444-444444444444" ? "admin" : "owner", permissions: config.role === "viewer" ? ["read"] : id === "44444444-4444-4444-8444-444444444444" ? ["read", "prepare", "manage", "download", "export"] : permissions, capabilities: config.role === "viewer" ? ["read"] : id === "44444444-4444-4444-8444-444444444444" ? ["read", "prepare"] : ["read", "prepare", "approve"], access_seen: true })), closed_spaces: [] });
   const match = path.match(/^\/business\/spaces\/([^/]+)\/profile$/);
   if (match) {
+    if(config.profileRefused)return json({code:"business_permission_denied"},403);
     if (config.profileFailure)
       return json({ code: "profile_unavailable", request_id: "fixture-profile" }, 503);
     const saved = profiles.get(match[1]);
@@ -148,8 +149,9 @@ const server = Bun.serve({ hostname: "127.0.0.1", port: fixturePort, async fetch
   if (path === "/business/email/deliveries")
     return json({ items: [] });
   if (path === "/business/access")
-    return json(access);
+    return config.accessRefreshFailure?json({code:"access_unavailable"},503):json(access);
   if (path === "/business/access/invitations") {
+    if(config.refuseInvitation)return json({code:"business_permission_denied"},403);
     const body = await request.json();
     return json({ results: body.recipients.map((recipient) => {
       const invite = { id: crypto.randomUUID(), email: recipient.email, requested_role: recipient.role, state: "pending", created_at: "2026-10-26T12:00:00Z", expires_at: "2026-11-02T12:00:00Z" };
@@ -303,6 +305,18 @@ try{
  record("bounded saved-image reads render under CSP without forwarding API credentials or cookies");
  await configure({role:"viewer"});await page.reload({waitUntil:"networkidle"});await chooseBusiness("Colmado Luna");await openSettings();await expect(page.getByTestId("business-profile-preview")).toBeVisible();await expect(page.getByRole("radio",{name:"Acceso",exact:true})).toHaveCount(0);await page.getByRole("button",{name:/Ubicación y contacto/}).click();await expect(page.getByLabel("Dirección del negocio",{exact:true})).toBeDisabled();await expect(page.getByRole("button",{name:"Guardar cambios",exact:true})).toHaveCount(0);await page.setViewportSize({width:390,height:900});await capture("MOCK-viewer-profile-390");
  record("Viewer renders server facts read only without management or activation controls");
+ await configure({role:"owner"});await page.reload({waitUntil:"networkidle"});await chooseBusiness("Colmado Luna");await openSettings();await page.setViewportSize({width:1440,height:1000});
+ await page.getByRole("button",{name:/Ubicación y contacto/}).click();await page.getByLabel("Dirección del negocio",{exact:true}).fill("Edición privada pendiente");await configure({profileRefused:true});await page.getByRole("button",{name:"Guardar cambios",exact:true}).click();
+ await expect(page.getByTestId("business-profile-preview")).toHaveCount(0);await expect(page.getByTestId("side-drawer")).toHaveCount(0);await expect(page.locator('img[src^="data:image/"]')).toHaveCount(0);await expect(page.locator("body")).not.toContainText("contacto@example.test");await capture("MOCK-profile-refused-1440");
+ record("definitive profile refusal clears contact fiscal draft and saved image presentation");
+ await configure({profileRefused:false});await page.reload({waitUntil:"networkidle"});await chooseBusiness("Colmado Luna");await openSettings();await page.getByRole("radio",{name:"Acceso",exact:true}).click();await expect(page.getByTestId("business-access-preview")).toBeVisible();
+ await page.getByRole("button",{name:"Invita a un colaborador",exact:true}).click();await page.getByLabel("Correo electrónico",{exact:true}).fill("privado@example.test");await configure({refuseInvitation:true});await page.getByRole("button",{name:"Enviar invitaciones",exact:true}).click();
+ await expect(page.getByTestId("business-access-preview")).toHaveCount(0);await expect(page.getByTestId("side-drawer")).toHaveCount(0);await expect(page.locator("body")).not.toContainText("pilot@example.test");await expect(page.locator("body")).not.toContainText("nueva@example.test");await capture("MOCK-access-refused-1440");
+ record("definitive invitation refusal clears loaded membership invitations and the open dialog");
+ await configure({refuseInvitation:false});await page.reload({waitUntil:"networkidle"});await chooseBusiness("Colmado Luna");await openSettings();await page.getByRole("radio",{name:"Acceso",exact:true}).click();await page.getByTestId("business-access-preview").locator("summary").click();
+ await page.getByRole("button",{name:/Cancelar.*nueva@example.test/}).click();await configure({accessRefreshFailure:true});await page.getByTestId("confirm-dialog-confirm").click();
+ await expect(page.getByTestId("business-access-preview")).toHaveCount(0);await expect(page.locator('p[role="alert"]')).toBeVisible();await expect(page.getByRole("button",{name:"Reintentar",exact:true})).toBeVisible();await expect(page.locator("body")).not.toContainText("nueva@example.test");await capture("MOCK-confirmed-removal-refresh-failed-1440");
+ record("confirmed 204 removal remains accepted when the followup access refresh fails");
  expect(errors).toEqual([]);expect(failures).toEqual([]);expect(unexpectedWrites).toEqual([]);
 }catch(error){
  failures.push(error.stack??String(error));

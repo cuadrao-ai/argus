@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getBusinessProfile, saveBusinessProfile, appearanceCommand, publishBusinessAppearance, type BusinessProfile, type BusinessProfilePatch } from "@/lib/business-profile-api";
+import { getBusinessProfile, saveBusinessProfile, appearanceCommand, publishBusinessAppearance, clearBusinessAppearance, type BusinessProfile, type BusinessProfilePatch } from "@/lib/business-profile-api";
 import type { IdentityAppearance } from "@/lib/identity-appearance";
 import {referenceCode} from "@/lib/failure-screen";
 
@@ -12,11 +12,20 @@ export function useBusinessProfile(id: string, enabled: boolean, onAccepted: () 
   const [attempt,setAttempt] = useState(0);
   const current = useRef<BusinessProfile|null>(null);
   const live = useRef(true);
+  const denied=useRef(false);
   const imageRequest=useRef<AbortController|null>(null);
   const command = useRef<{ input: string; patch: BusinessProfilePatch; key: string }|null>(null);
   const imageCommand = useRef<{ input: string; run: ReturnType<typeof appearanceCommand> }|null>(null);
+  const refuse=useCallback((error:unknown)=>{
+    const status=error&&typeof error==="object"&&"status" in error?error.status:null;
+    if(status!==403&&status!==404)return false;
+    denied.current=true;imageRequest.current?.abort();clearBusinessAppearance(id);
+    current.current=null;command.current=null;imageCommand.current=null;
+    setProfile(null);setRefused(true);setFailed(true);setReference(referenceCode(error));
+    return true;
+  },[id]);
   const accept = useCallback((next: BusinessProfile) => {
-    if (!live.current) return;
+    if (!live.current||denied.current) return;
     current.current=next;setProfile(next);setFailed(false);
     imageRequest.current?.abort();imageRequest.current=new AbortController();
     void publishBusinessAppearance(next,imageRequest.current.signal).catch(()=>{});
@@ -24,14 +33,14 @@ export function useBusinessProfile(id: string, enabled: boolean, onAccepted: () 
   useEffect(()=>{
     live.current=true;
     const controller=new AbortController();
-    if(enabled) getBusinessProfile(id,controller.signal).then(accept,error=>{if(!controller.signal.aborted){setFailed(true);setReference(referenceCode(error));setRefused(error?.status===403||error?.status===404);}});
+    if(enabled) getBusinessProfile(id,controller.signal).then(accept,error=>{if(!controller.signal.aborted){setFailed(true);setReference(referenceCode(error));refuse(error);}});
     return()=>{live.current=false;controller.abort();imageRequest.current?.abort();};
-  },[id,enabled,attempt,accept]);
+  },[id,enabled,attempt,accept,refuse]);
   const failure = async (error: unknown): Promise<never> => {
     if (!live.current) throw error;
     const status = error && typeof error === "object" && "status" in error ? error.status : null;
-    if(status===403||status===404)setRefused(true);
-    if(status===409){command.current=null;imageCommand.current=null;try{accept(await getBusinessProfile(id));}catch{setFailed(true);}}
+    refuse(error);
+    if(status===409){command.current=null;imageCommand.current=null;try{accept(await getBusinessProfile(id));}catch(refreshError){refuse(refreshError);setFailed(true);}}
     throw error;
   };
   const save = async (patch: Omit<BusinessProfilePatch,"expected_revision">) => {
@@ -49,5 +58,5 @@ export function useBusinessProfile(id: string, enabled: boolean, onAccepted: () 
     catch(error){await failure(error);}
   };
   const retry=useCallback(()=>setAttempt(value=>value+1),[]);
-  return { profile,failed,refused,reference,save,saveAppearance,retry };
+  return { profile,failed,refused,reference,save,saveAppearance,retry,refuse };
 }
