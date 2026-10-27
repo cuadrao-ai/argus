@@ -30,10 +30,10 @@
 .badge[data-state="overdue"],.badge[data-state="uncertain"] { color:#7b3826; background:#f6d9ce; }
 .badge[data-state="draft"],.badge[data-state="partial"] { color:#67571f; background:#f3ebcc; }
 .phoneList { display:none; }
-.pagination { display:flex; align-items:center; gap:12px; padding:12px 16px; font-size:13px; }
-.pagination > span { margin-right:auto; }
-.pagination nav { display:flex; align-items:center; }
-.pagination nav button { min-width:36px; height:44px; display:grid; place-items:center; border-radius:8px; }
+.pagination { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; padding-top:16px; font-size:13px; }
+.pagination > span { color:color-mix(in srgb,var(--fg) 65%,transparent); }
+.pagination nav { display:flex; align-items:center; gap:2px; }
+.pagination nav button { min-width:44px; height:44px; display:grid; place-items:center; border-radius:999px; }
 .pagination nav button[aria-current] { background:color-mix(in srgb,var(--fg) 7%,transparent); }
 .pagination button:disabled { opacity:.3; }
 .empty { padding:40px 20px; text-align:center; }
@@ -138,7 +138,7 @@
   .phoneList strong { white-space:nowrap; text-overflow:ellipsis; overflow:hidden; font-size:14px; }
   .phoneList > button > span:nth-child(2),.phoneList small { text-align:right; }
   .phoneList small { font-size:12px; opacity:.7; }
-  .pagination { flex-wrap:wrap; }
+  .pagination nav { width:100%; justify-content:center; }
   .search { max-width:none; }
 }
 @media(max-width:1023px) {
