@@ -171,7 +171,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
             return <fieldset id={`invoice-item-${item.id}`} className={styles.item} key={item.id} data-expanded={expanded}>
               <legend className="sr-only">{word("item_number", { count: index + 1 })}</legend>
               {expanded ? <div id={`invoice-item-fields-${item.id}`} className={styles.itemFields}>
-                <FormField {...feedback(`${item.id}-description`)} reserveMessages={[]} label={word("item_description")} required maxLength={160} value={item.description} placeholder={word("item_placeholder")} onChange={event => updateItem(item.id, "description", event.target.value)} />
+                <FormField {...feedback(`${item.id}-description`)} reserveMessages={[]} label={word("description")} required maxLength={160} value={item.description} placeholder={word("item_placeholder")} onChange={event => updateItem(item.id, "description", event.target.value)} />
                 {numberField(item, index, "quantity")}
                 {numberField(item, index, "price")}
               </div> : <button type="button" className={styles.itemSummary} aria-expanded={false} aria-label={word("edit_item", { count: index + 1, name: item.description || word("item_number", { count: index + 1 }) })} onClick={() => { setActiveItemId(item.id); setItemFocus({ id: item.id, invalid: false }); }}>
