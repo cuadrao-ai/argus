@@ -172,6 +172,48 @@
         "marketing/**"
       ]
     },
+    "codex/business-invoice-editor-20261026": {
+      "description": "Business customers and saved invoice revisions with immutable fiscal operation linkage. Default off. No hosted changes.",
+      "base_ref": "origin/codex/private-alpha-next",
+      "allow": [
+        ".agent/ownership/branch_ownership.json",
+        ".env.example",
+        ".github/private-alpha-release-profile.json",
+        "docs/API_CONTRACT.md",
+        "docs/DATA_MODEL.md",
+        "docs/api/openapi.yaml",
+        "render.yaml",
+        "scripts/ops/staging_env_manifest.json",
+        "src/argus/api/routers/business_customers.py",
+        "src/argus/api/routers/business_invoices.py",
+        "src/argus/api/routers/financial_accounts.py",
+        "src/argus/domain/business/contracts/invoicing.py",
+        "src/argus/domain/business/fiscal_sandbox/contracts.py",
+        "src/argus/domain/business/fiscal_sandbox/provider.py",
+        "src/argus/domain/business/fiscal_sandbox/service.py",
+        "src/argus/domain/business/fiscal_sandbox/store.py",
+        "src/argus/domain/business/invoicing/__init__.py",
+        "src/argus/domain/business/invoicing/artifacts.py",
+        "src/argus/domain/business/invoicing/config.py",
+        "src/argus/domain/business/invoicing/preparation.py",
+        "src/argus/domain/business/invoicing/queries.py",
+        "src/argus/domain/business/invoicing/store.py",
+        "src/argus/domain/business/invoicing/validation.py",
+        "supabase/migrations/20261027024830_business_invoice_editor.sql",
+        "tests/fiscal/test_invoice_artifacts.py",
+        "tests/test_business_invoice_editor.py",
+        "tests/test_business_invoice_editor_api_postgres.py",
+        "tests/test_business_invoice_editor_postgres.py",
+        "tests/test_fiscal_sandbox_configuration.py"
+      ],
+      "deny": [
+        ".env",
+        "web/**",
+        "ios/**",
+        "mobile/**",
+        "marketing/**"
+      ]
+    },
     "codex/business-owner-receipt-upload": {
       "description": "Issue #1112 owner Inbox upload acceptance coverage for saved reading permission, exact web request, JPEG/PDF source persistence and review entry. No runtime, provider, hosted, migration or iOS changes.",
       "base_ref": "origin/codex/private-alpha-next",

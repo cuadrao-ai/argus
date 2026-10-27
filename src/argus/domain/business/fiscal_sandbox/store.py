@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID, uuid4
 
-from psycopg import Connection
+from psycopg import Connection, Cursor
 from psycopg.errors import UniqueViolation
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -43,6 +43,8 @@ class Store:
         observations = [Observation.model_validate(e["evidence"]) for e in events]
         return FiscalOperation(
             id=row["id"],
+            invoice_id=row["case_data"].get("invoice_id"),
+            invoice_revision_id=row["case_data"].get("invoice_revision_id"),
             business_id=row["space_id"],
             case_id=row["case_data"]["case_id"],
             kind=row["kind"],
@@ -68,35 +70,57 @@ class Store:
                 conn.transaction(),
                 conn.cursor(row_factory=dict_row) as db,
             ):
-                auth = authorize(conn, actor, grant)
-                auth.require("prepare")
-                db.execute(
-                    "insert into public.business_fiscal_operations(space_id,document_key,account_key,company_id,issuer,kind,number,case_data,payload_digest,prepared_actor) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) on conflict do nothing",
-                    (
-                        case.business_id,
-                        case.document_key,
-                        case.account_key,
-                        case.company_id,
-                        case.issuer,
-                        case.kind,
-                        case.number,
-                        Jsonb(case.model_dump(mode="json")),
-                        case.payload_digest,
-                        Jsonb(auth.provenance.model_dump(mode="json")),
-                    ),
-                )
-                db.execute(
-                    "select * from public.business_fiscal_operations where space_id=%s and document_key=%s for update",
-                    (case.business_id, case.document_key),
-                )
-                row = db.fetchone()
-                if not row or row["case_data"] != case.model_dump(mode="json"):
-                    raise ActionError("idempotency_conflict", "fiscal_identity_conflict")
-                return self._view(conn.cursor(row_factory=dict_row), row)
+                return self.prepare_on(db, actor, grant, case)
         except UniqueViolation:
             raise ActionError(
                 "idempotency_conflict", "fiscal_identity_conflict"
             ) from None
+
+    def prepare_on(
+        self, db: Cursor, actor: TrustedActor, grant: UUID | None, case: Case
+    ) -> FiscalOperation:
+        if actor.space_id != case.business_id or actor.actor_kind != "member":
+            raise ActionError("permission_denied", "business_permission_denied")
+        auth = authorize(db.connection, actor, grant)
+        auth.require("prepare")
+        db.execute(
+            "insert into public.business_fiscal_operations(space_id,document_key,account_key,company_id,issuer,kind,number,case_data,payload_digest,prepared_actor) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) on conflict do nothing",
+            (
+                case.business_id,
+                case.document_key,
+                case.account_key,
+                case.company_id,
+                case.issuer,
+                case.kind,
+                case.number,
+                Jsonb(case.model_dump(mode="json")),
+                case.payload_digest,
+                Jsonb(auth.provenance.model_dump(mode="json")),
+            ),
+        )
+        db.execute(
+            "select * from public.business_fiscal_operations where space_id=%s and document_key=%s for update",
+            (case.business_id, case.document_key),
+        )
+        row = db.fetchone()
+        if not row or row["case_data"] != case.model_dump(mode="json"):
+            raise ActionError("idempotency_conflict", "fiscal_identity_conflict")
+        return self._view(db, row)
+
+    def saved_revision_matches(self, case: Case, operation_id: UUID) -> bool:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "select i.issue_snapshot->'case' from public.business_invoices i "
+                "join public.business_invoice_revisions r on r.invoice_id=i.id and r.version=i.version "
+                "where i.id=%s and i.space_id=%s and i.operation_id=%s and r.id=%s",
+                (
+                    case.invoice_id,
+                    case.business_id,
+                    operation_id,
+                    case.invoice_revision_id,
+                ),
+            ).fetchone()
+            return bool(row and row[0] == case.model_dump(mode="json"))
 
     def get(
         self, actor: TrustedActor, grant: UUID | None, operation_id: UUID

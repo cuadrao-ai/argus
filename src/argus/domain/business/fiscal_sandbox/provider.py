@@ -286,4 +286,14 @@ class Provider:
                         raise ValueError
             except Exception:
                 raise ProviderError("artifact_invalid") from None
+        if case.invoice_revision_id is not None:
+            from argus.domain.business.invoicing.artifacts import verify_pdf, verify_xml
+
+            try:
+                if kind == "pdf":
+                    await verify_pdf(raw, case)
+                else:
+                    verify_xml(document, case)
+            except Exception:
+                raise ProviderError("artifact_invoice_mismatch") from None
         return raw

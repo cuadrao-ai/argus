@@ -9443,6 +9443,79 @@ sales use the Business plus NCF regardless of buyer identity and keep
 `fiscal_duplicate_document`. Printed identifier spaces
 or hyphens and NCF letter case normalize for identity without changing sources.
 
+### Business customers and invoice editor
+
+The default-off `CUADRAO_BUSINESS_INVOICING_ENABLED` gate requires the existing
+Business surface and durable store. Every request rechecks the selected live
+Business membership and closure. All responses use `Cache-Control: no-store`.
+Read requires read permission; create, save and prepare require prepare permission.
+Only an Owner can submit the existing fiscal operation.
+
+| Method and path | Request | Result |
+| --- | --- | --- |
+| `GET /business/customers` | `page`, `page_size`, `search`, `archived` | Business-scoped customer page |
+| `POST /business/customers` | `{data,archived}` plus `Idempotency-Key` | 201 customer; incomplete identity is 422 |
+| `GET /business/customers/{customer_id}` | none | Customer with version and timestamps |
+| `PUT /business/customers/{customer_id}` | `{data,archived,expected_version}` plus `Idempotency-Key` | Versioned customer, including archive/restore |
+| `GET /business/invoices` | `page`, `page_size`, `search`, `currency`, `stage`, `date_from`, `date_to`, `sort` | Rows, matching total, period stage counts, per-currency billed sums and query version |
+| `POST /business/invoices` | `{data}` plus `Idempotency-Key` | 201 saved incomplete draft and immutable revision |
+| `GET /business/invoices/{invoice_id}` | none | Complete saved draft, revision, exact amounts, field errors and optional operation |
+| `PUT /business/invoices/{invoice_id}` | `{data,expected_version}` plus `Idempotency-Key` | New immutable revision, or 409 with attempted input and current version |
+| `POST /business/invoices/{invoice_id}/prepare` | `{expected_version}` | Same invoice with one immutable existing fiscal operation |
+
+Stable invoice/customer/revision IDs are UUIDs. Item IDs remain stable strings.
+Future payment/allocation IDs are Business-scoped UUIDs, with allocations referring
+to `invoice_id`; this slice creates no payment or allocation record. Payment facts,
+collected amount and outstanding balance remain unknown/null. Delivery preparation
+stores To, up to five Cc addresses and a separate 500-character message; it is always
+`not_sent`. No request here sends email, records a payment or creates a schedule.
+
+`data` stores `customer_id` separately from partial `customer_input`, item strings
+(description 160, quantity, price, tax, line discount), DOP/USD/EUR, issue/due dates,
+terms/instructions/notes (500 each), delivery preparation and explicit fiscal
+classification. Saving a draft never creates a customer. Contact changes never
+refresh existing draft or issued snapshots implicitly; the client must explicitly
+save the selected contact values into a new draft revision. Archive hides the
+contact from default selection and blocks new preparation while preserving history.
+
+Decimal arithmetic rounds each line subtotal and tax half-up to two places, with
+line discount before tax. Numeric API values are decimal strings. Invalid partial
+numbers retain their original strings and produce null totals plus field errors.
+Idempotency binds Business plus key to the entire command independently from version
+checks. Duplicate retries return the saved command result. A different command with
+the same key returns 409. A stale save returns 409 `invoice_version_conflict` with
+`context.attempted` and `context.current_version`; the current revision is unchanged.
+Prepared invoices refuse further draft saves, including when submission is uncertain.
+
+Preparation uses the configured sandbox manifest only for its authorized issuer,
+account/company and reserved E31/E32 number. The saved revision supplies line items,
+buyer, dates and amounts. Current Business country must be DO and saved issuer
+identity must match the configured issuer. Full issuer/customer/revision/payload
+snapshots bind atomically to the existing operation. Repeated preparation returns
+the same operation, and a reserved number cannot bind to another invoice.
+Linked artifact retrieval additionally checks XML total/buyer/currency and PDF text for the expected number, issuer, amount and DOP marker; a mismatch is unavailable and never authorizes another issue.
+The legacy case-based endpoint remains compatible. Operation responses add nullable
+`invoice_id` and `invoice_revision_id`; private snapshots never enter public responses.
+
+The first issuing envelope requires DOP, explicit goods/services, taxable/exempt,
+18/16/0 percent tax, tax excluded from line price, cash/credit and income type.
+USD/EUR and tax-included drafts remain saved with explicit preparation errors.
+Preparation enforces item description 80, customer name 150/address 100 and payment
+term 15 characters. Notes and instructions join with two newlines into the official
+PDF note, at most 250 combined; the original fields remain separate in the immutable
+snapshot. That PDF note is not an XML fiscal field. No truncation or prose inference
+occurs. Line discounts include their matching amount subdiscount. A discrepancy
+between per-line rounding and fiscal tax-bucket rounding refuses preparation.
+
+Invoice queries use issue-date bounds inclusively, with no date restriction by
+default, and numbered pages of 25/50/100. Sort is creation time plus unique ID.
+Search covers saved customer name, fiscal number, invoice ID and notes. Matching rows/counts/sums
+share the same filters and database snapshot. Stage counts omit search/currency/stage
+filters. Stages are draft, issued, processing, rejected and uncertain. Payment-based
+stages are unavailable until shared allocations exist. Only the first confirmed
+accepted/accepted-with-observations fiscal outcome enters billed sums. Query version
+changes with saved revisions and fiscal observations; clients refresh explicitly.
+
 ### Business fiscal sandbox operations
 
 All paths below use `/api/v1`. The default-off fiscal surface also requires the
