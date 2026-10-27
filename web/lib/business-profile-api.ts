@@ -12,14 +12,14 @@ const details = z.object({ address: z.string().default(""), province: z.string()
 const profile = z.object({ space_id: z.string(), name: z.string(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), revision: z.number().int().nonnegative(), details, appearance, image: image.nullable() });
 export type BusinessProfile = z.infer<typeof profile>;
 export type BusinessProfilePatch = { expected_revision: number; name?: string; details?: Partial<BusinessProfile["details"]>; appearance?: BusinessProfile["appearance"] };
-type Scope = { selection: string | null; grant: string | null };
+type Scope = { selection: string | null; grant: string | null; userId?:string };
 const currentScope = (): Scope => ({ selection: getChosenGrant(), grant: getChosenGrant() });
 
 /** Pin both the selected context and the header before auth resolves. A late reply cannot update another Business. */
 export async function businessSettingsRequest<T>(path: string, options: RequestInit = {}, scope = currentScope()): Promise<T> {
   const generation = browserAuthGeneration();
   const check = () => { options.signal?.throwIfAborted(); requireBrowserAuthGeneration(generation); if (getChosenGrant() !== scope.selection) throw new Error("Business selection changed"); };
-  const auth = await authenticatedRequestHeaders();
+  const auth = await authenticatedRequestHeaders(scope.userId);
   check();
   const headers = argusApiRequestHeaders(options.headers, auth, path);
   if (scope.grant) headers.set("X-Business-Grant", scope.grant);
@@ -117,7 +117,7 @@ export function appearanceCommand(id: string, value: IdentityAppearance, saved?:
 const createdSpace = z.object({ id: z.string(), name: z.string(), country: z.enum(["DO", "US", "CA"]), currency: z.string(), logo_url: z.string().nullable() });
 export const businessCreationState = z.object({key:z.string().min(1),upload:z.string().min(1),save:z.string().min(1),asset_id:z.string().optional(),crop:crop.optional(),revision:z.number().int().nonnegative().optional(),created:z.object({id:z.string()}).optional()});
 export type BusinessCreationState = z.infer<typeof businessCreationState>;
-export function createBusinessCommand(input: { name: string; country: "DO" | "US" | "CA"; appearance: IdentityAppearance }, restored?: BusinessCreationState, onProgress?: (state:BusinessCreationState)=>void) {
+export function createBusinessCommand(input: { name: string; country: "DO" | "US" | "CA"; appearance: IdentityAppearance;userId?:string }, restored?: BusinessCreationState, onProgress?: (state:BusinessCreationState)=>void) {
   const state = restored ?? {key:crypto.randomUUID(),upload:crypto.randomUUID(),save:crypto.randomUUID()};
   const key = state.key, selection = getChosenGrant();
   let created: {id:string} | undefined = state.created;
@@ -126,22 +126,22 @@ export function createBusinessCommand(input: { name: string; country: "DO" | "US
     get created() { return created; },
     async run() {
       onProgress?.(state);
-      created ??= createdSpace.parse(await businessSettingsRequest("/business/spaces", { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify({ name: input.name, country: input.country }) }, { selection, grant: selection }));
+      created ??= createdSpace.parse(await businessSettingsRequest("/business/spaces", { method: "POST", headers: { "Idempotency-Key": key }, body: JSON.stringify({ name: input.name, country: input.country }) }, { selection, grant: selection,userId:input.userId }));
       state.created={id:created.id};onProgress?.(state);
-      const directory = z.object({ spaces: z.array(z.object({ space_id: z.string(), grant_id: z.string() })) }).parse(await businessSettingsRequest("/business/spaces", {}, { selection, grant: selection }));
+      const directory = z.object({ spaces: z.array(z.object({ space_id: z.string(), grant_id: z.string() })) }).parse(await businessSettingsRequest("/business/spaces", {}, { selection, grant: selection,userId:input.userId }));
       const selected = directory.spaces.find(item => item.space_id === created?.id);
       if (!selected) throw new Error("Created Business is not accessible");
       let accepted:BusinessProfile|undefined;
       if(state.asset_id&&state.crop&&input.appearance.kind==="default"){
-        state.revision??=(await getBusinessProfile(created.id,undefined,{selection,grant:selected.grant_id})).revision;
+        state.revision??=(await getBusinessProfile(created.id,undefined,{selection,grant:selected.grant_id,userId:input.userId})).revision;
         onProgress?.(state);
-        try{accepted=await saveBusinessProfile(created.id,{expected_revision:state.revision,appearance:{kind:"image",asset_id:state.asset_id,crop:state.crop}},state.save,{selection,grant:selected.grant_id});}
+        try{accepted=await saveBusinessProfile(created.id,{expected_revision:state.revision,appearance:{kind:"image",asset_id:state.asset_id,crop:state.crop}},state.save,{selection,grant:selected.grant_id,userId:input.userId});}
         catch(error){if(error&&typeof error==="object"&&"status" in error&&error.status===409){state.revision=undefined;state.save=crypto.randomUUID();onProgress?.(state);}throw error;}
       }else if (input.appearance.kind !== "default") {
-        finishAppearance ??= appearanceCommand(created.id, input.appearance, undefined, { selection, grant: selected.grant_id },state,()=>onProgress?.(state));
+        finishAppearance ??= appearanceCommand(created.id, input.appearance, undefined, { selection, grant: selected.grant_id,userId:input.userId },state,()=>onProgress?.(state));
         accepted=await finishAppearance();
       }
-      accepted??=await getBusinessProfile(created.id,undefined,{selection,grant:selected.grant_id});
+      accepted??=await getBusinessProfile(created.id,undefined,{selection,grant:selected.grant_id,userId:input.userId});
       return {id:created.id,name:accepted.name,country:accepted.country,currency:accepted.currency,logo_url:null,grant_id:selected.grant_id};
     },
   };

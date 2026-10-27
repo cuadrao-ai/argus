@@ -114,19 +114,27 @@ test("another account cannot display or overwrite an unresolved creation envelop
  const {writeStored,readStored}=await import("@/lib/browser-storage");
  localStorage.clear();
  const command={key:"stable-create",upload:"stable-upload",save:"stable-save",created:{id:"created-business"}};
- writeStored("cuadrao:business_creation:v1",JSON.stringify({"first@example.test":{account:"first@example.test",name:"Taller Sol",country:"DO",appearancePending:true,operation:command}}));
- let page=await mount("other@example.test",true);
+ writeStored("cuadrao:business_creation:v1",JSON.stringify({"11111111-aaaa-4aaa-8aaa-111111111111":{account:"11111111-aaaa-4aaa-8aaa-111111111111",name:"Taller Sol",country:"DO",appearancePending:true,operation:command}}));
+ let page=await mount("22222222-bbbb-4bbb-8bbb-222222222222",true);
  try{
   assert.equal(document.querySelector<HTMLInputElement>('input[autocomplete="organization"]')!.value,"");
   const saved=JSON.parse(readStored("cuadrao:business_creation:v1")!);
-  assert.deepEqual(saved["first@example.test"].operation,command);
+  assert.deepEqual(saved["11111111-aaaa-4aaa-8aaa-111111111111"].operation,command);
   await page.act(async()=>page.root.unmount());page.host.remove();
-  page=await mount("first@example.test",true);
+  page=await mount("11111111-aaaa-4aaa-8aaa-111111111111",true);
   assert.equal(document.querySelector<HTMLInputElement>('input[autocomplete="organization"]')!.value,"Taller Sol");
   assert.equal(document.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled,true,"the optional image must be reselected before its upload was confirmed");
   assert.match(document.body.textContent??"",/El negocio se creó/);
-  const envelope=JSON.parse(readStored("cuadrao:business_creation:v1")!)["first@example.test"];
+  const envelope=JSON.parse(readStored("cuadrao:business_creation:v1")!)["11111111-aaaa-4aaa-8aaa-111111111111"];
   assert.deepEqual(Object.keys(envelope).sort(),["account","appearancePending","country","name","operation"]);
   assert.equal(JSON.stringify(envelope).includes("data:image"),false);
+ }finally{await page.act(async()=>page.root.unmount());page.host.remove();localStorage.clear();}
+});
+test("live creation cannot submit before the canonical account ID is known",async()=>{
+ localStorage.clear();const page=await mount("",true);
+ try{
+  assert.equal(document.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled,true);
+  await page.act(async()=>document.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
+  assert.equal(page.created.length,0);
  }finally{await page.act(async()=>page.root.unmount());page.host.remove();localStorage.clear();}
 });

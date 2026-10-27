@@ -1,0 +1,56 @@
+name: Business client wiring synthetic evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [codex/private-alpha-next]
+    paths:
+      - web/components/business-app/**
+      - web/app/design-workspace/Business*Preview.tsx
+      - web/app/design-workspace/CreateBusinessPreview.tsx
+      - web/lib/business-api.ts
+      - web/lib/business-profile-api.ts
+      - web/lib/browser-storage.ts
+      - scripts/qa/business_client_wiring_evidence.mjs
+      - .github/workflows/business-client-wiring-evidence.yml
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-evidence:
+    if: github.head_ref == 'codex/business-client-wiring-20261026' || github.ref_name == 'codex/business-client-wiring-20261026'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_MOCK_AUTH: "true"
+      NEXT_PUBLIC_BUSINESS_PILOT_ENABLED: "true"
+      NEXT_PUBLIC_CUADRAO_BUSINESS_PILOT_ENABLED: "true"
+      NEXT_PUBLIC_ENABLE_SPANISH: "true"
+      NEXT_PUBLIC_CUADRAO_API_URL: http://127.0.0.1:4412/api/v1
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install locked frontend and headless browser dependencies
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bunx playwright install --with-deps chromium
+      - name: Build the isolated synthetic app
+        working-directory: web
+        run: bun run build
+      - name: Verify Business HTTP wiring and capture synthetic evidence
+        run: bun --tsconfig-override web/tsconfig.json scripts/qa/business_client_wiring_evidence.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-client-wiring-synthetic-${{ github.event.pull_request.head.sha || github.sha }}
+          path: temp/business-client-wiring-evidence/
+          if-no-files-found: error
+          retention-days: 14

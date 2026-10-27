@@ -75,6 +75,7 @@ function CreateBusinessPreviewSurface({
   const [created,setCreated]=useState(Boolean(draft.operation?.created));
   const [conflict,setConflict]=useState(false);
   const [refused,setRefused]=useState(false);
+  const hasAccount=!live||Boolean(accountKey)&&accountKey!=="preview";
   const store=useCallback((value:typeof draft)=>{
     const operation=value.operation;
     const envelope=JSON.stringify({...storedDrafts(),[accountKey]:{account:accountKey,name:value.name.trim(),country:value.country,appearancePending:value.needsAppearance||value.appearance.kind!=="default"||Boolean(operation?.asset_id),operation}});
@@ -123,7 +124,7 @@ function CreateBusinessPreviewSurface({
     { name: draft.name, country: draft.country },
   );
   const submit = async () => {
-    if (submitting.current||refused) return;
+    if (submitting.current||refused||!hasAccount) return;
     if (!checks.submit()) {
       requestAnimationFrame(() =>
         panel.current
@@ -139,7 +140,7 @@ function CreateBusinessPreviewSurface({
       if(live){
         if(!["DO","US","CA"].includes(draft.country))throw new Error("invalid_country");
         const country=draft.country as "DO"|"US"|"CA";
-        operation.current??=createBusinessCommand({name:draft.name,country,appearance:draft.appearance},draft.operation,(next:BusinessCreationState)=>{const value={...draft,operation:{...next}};store(value);setDraft(value);setCreated(Boolean(next.created));});
+        operation.current??=createBusinessCommand({name:draft.name,country,appearance:draft.appearance,userId:accountKey},draft.operation,(next:BusinessCreationState)=>{const value={...draft,operation:{...next}};store(value);setDraft(value);setCreated(Boolean(next.created));});
         business=await operation.current.run();
       }else business = createLocalBusiness(
         // eslint-disable-next-line no-restricted-syntax -- Bounded development-only identity storage; no production data.
@@ -267,7 +268,7 @@ function CreateBusinessPreviewSurface({
           ) : null}
           <div className="border-t border-black/10 pt-4 dark:border-white/10">
             <button
-              disabled={busy||refused||draft.needsAppearance}
+              disabled={busy||refused||draft.needsAppearance||!hasAccount}
               type="submit"
               className={`${primaryButtonClass} w-full`}
             >
