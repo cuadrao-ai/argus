@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
+import { resolveLanguage } from "@/lib/language-features";
 import type { ReceiptSummary } from "@/lib/business-api";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -46,6 +47,7 @@ export default function ReceptionPreview() {
 
 function ReceptionWorkspace() {
   const { t, i18n } = useTranslation();
+  const locale = resolveLanguage({ device: i18n.resolvedLanguage ?? i18n.language });
   const word = (key: string) => t(`business.reception_preview.${key}`);
   const { source, records, chosen, panel, openPanel, revision, refresh, reload, retrySources } = useBusiness();
   const { isBelowTablet: phone } = useResponsiveLayout();
@@ -113,13 +115,13 @@ function ReceptionWorkspace() {
   const openedRow = openedId ? byId.get(openedId) : undefined;
   const rows = (admittedIds ?? latestIds).map(id => byId.get(id)).filter((row): row is ReceptionRow => !!row);
   const newCount = admittedIds ? latestIds.filter(id => !admittedIds.includes(id)).length : 0;
-  const senders = [...new Map(rows.map(receptionSenderIdentity).filter((value): value is SenderIdentity => !!value).map(sender => [sender.id, sender])).values()].sort((a, b) => (a.name || a.address).localeCompare(b.name || b.address, i18n.resolvedLanguage));
-  const queryText = query.trim().toLocaleLowerCase(i18n.resolvedLanguage);
-  const matched = rows.filter(row => organization.archived.includes(`${row.kind}:${row.id}`) === archived && receptionFilterMatches(row, filters) && receptionArrivedInPeriod(row, period) && (!queryText || receptionSearchText(row).toLocaleLowerCase(i18n.resolvedLanguage).includes(queryText)));
+  const senders = [...new Map(rows.map(receptionSenderIdentity).filter((value): value is SenderIdentity => !!value).map(sender => [sender.id, sender])).values()].sort((a, b) => (a.name || a.address).localeCompare(b.name || b.address, locale));
+  const queryText = query.trim().toLocaleLowerCase(locale);
+  const matched = rows.filter(row => organization.archived.includes(`${row.kind}:${row.id}`) === archived && receptionFilterMatches(row, filters) && receptionArrivedInPeriod(row, period) && (!queryText || receptionSearchText(row).toLocaleLowerCase(locale).includes(queryText)));
   const pages = Math.max(1, Math.ceil(matched.length / pageSize));
   const currentPage = Math.min(page, pages);
   const shown = matched.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const amountSize = previewAmountColumnSize(matched.flatMap(row => row.kind === "receipt" && row.receipt.amount != null && row.receipt.currency ? [{ amount: row.receipt.amount, currency: row.receipt.currency }] : []), i18n.resolvedLanguage ?? "es-419");
+  const amountSize = previewAmountColumnSize(matched.flatMap(row => row.kind === "receipt" && row.receipt.amount != null && row.receipt.currency ? [{ amount: row.receipt.amount, currency: row.receipt.currency }] : []), locale);
   const recordsWidth = (key: "contraparte" | "moneda" | "fecha") => RECORDS_PREVIEW_COLUMNS.find(column => column.key === key)!.width!;
   const documentWidth = recordsWidth("contraparte");
   const attachmentWidth = 104;

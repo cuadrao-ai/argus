@@ -7,7 +7,7 @@ import type { ReceptionPreferences } from "./ReceptionControls";
 import styles from "./reception.module.css";
 
 function Bar({ width, height = 12, pill = false }: { width: number | string; height?: number; pill?: boolean }) {
-  return <span className={`${motion.block} ${motion.shimmer} ${styles.skeletonBar}`} style={{ width, height, borderRadius: pill ? 999 : 4 }} />;
+  return <span className={`${motion.block} ${motion.shimmer} ${styles.skeletonBar} ${pill ? "rounded-full" : "rounded-mark"}`} style={{ width, height }} />;
 }
 export default function ReceptionSkeleton({ preferences }: { preferences: ReceptionPreferences }) {
   const { t } = useTranslation();
