@@ -1,6 +1,6 @@
 # Cuadrao: product and engineering handoff
 
-**Snapshot: 27 October 2026, 22:45 UTC. Documentation publication authorized.**
+**Updated: 27 October 2026. Release/source evidence snapshot: 22:45 UTC.**
 Repository checked at `dffee69257dcdc5d5a33301e78b79e5a7acac332` on
 `codex/private-alpha-next`. This is a concise Business continuation checkpoint,
 linked from the execution board. It supplements the older dated status there;
@@ -56,11 +56,11 @@ agreements and identity details do not belong in this repository.
 
 | Surface | Settled job |
 | --- | --- |
-| Home / Inicio | What needs attention; still needs polish and approved visual parity. |
+| Home / Inicio | What needs attention; further polish is Lucas's next design task. Preserve the existing approved baseline. |
 | Registros | Financial records, original evidence, review/approval, all-match totals, saved views and export. |
 | Facturación | Draft creation/editing, invoice detail, customer-facing invoice, outgoing delivery, collection and recurring billing. |
 | Bandeja / Recepción | What arrived, channel/sender, processing, exceptions and destination. Inbound belongs here. |
-| Activity | Who changed what and when; shared audit history is not inbox organization. |
+| Activity | Intended job: who changed what and when. Standalone Activity design is pending with Lucas; shared history is not a completed Activity checkpoint. |
 | Settings | Businesses, team, identity, intake and provider configuration. |
 
 Carry these settled constraints into implementation:
@@ -174,7 +174,10 @@ showing the retained receipt and requires its own scoped proof.
 
 ## Approved source baseline: continue wiring
 
-No missing approved checkpoint source was found in the existing source comparison.
+No missing completed approved checkpoint source was found in the existing source
+comparison. This does not include a finished standalone Activity checkpoint:
+Activity design and further Home polish are Lucas's next design tasks, not lost
+completed work.
 Reception checkpoint `aa0142b83` has all 40 changed files represented through #1395;
 its original commit need not be an ancestor after curated integration. Thirteen
 reference harness files, design guides, seeds and evidence were preserved when the
@@ -209,7 +212,9 @@ an engineering estimate or completion promise. The orchestrator owns the existin
 continuation; no redesign or duplicate lane is requested. This docs task grants
 no implementation or deployment authority.
 
-Expose the latest approved checkpoints across all five surfaces. Maximize existing
+The target includes all five surfaces, using approved checkpoints where they
+exist. Home polish and standalone Activity still need Lucas's design work; the
+target is not a claim those designs are already complete. Maximize existing
 real wiring; incomplete backend wiring need not block visual/runtime checkpoint
 inspection. Identify unavailable or preview behavior explicitly and never simulate
 persistence on live Business records. Accept through normal staging login at the
@@ -217,11 +222,11 @@ recorded API/web SHAs, on desktop and phone, including subpages and controls:
 
 | Surface | Acceptance checklist and source reference |
 | --- | --- |
-| Inicio | Approved shell, attention/open-items and setup presentation; working intended navigation, honest readiness and loading/empty/error states. Use the [Home handoff](handoffs/home-shell-working.md) and [BusinessHome](../web/components/business-app/BusinessHome.tsx). |
+| Inicio | Preserve the approved shell, attention/open-items and setup baseline; further polish is pending with Lucas. After that checkpoint is approved, verify its intended navigation and honest readiness/loading/empty/error states. Use the [Home handoff](handoffs/home-shell-working.md) and [BusinessHome](../web/components/business-app/BusinessHome.tsx). |
 | Bandeja | Approved Reception list, filters, sender/channel, pagination, dossier and original evidence. Preserve real arrival/review wiring; explicitly identify unavailable archive/seen/bulk persistence. Use the [Reception checkpoint](handoffs/reception-design-checkpoint-20261026.md); the old live inbox alone does not satisfy visual parity. |
 | Registros | Approved table/cards, filters, columns, evidence and note interactions, pagination and saved-view behavior. Retain real query/totals/notes; identify any unsupported evidence action. Use [Registros design](reports/registros-filter-design-20261025.md) and [BusinessReportsPanel](../web/components/business-app/transacciones/BusinessReportsPanel.tsx). |
 | Facturación | Approved empty/populated views, editor, customer/detail navigation and state presentation; retain accepted real customer/draft save/reload/retry. Explicitly distinguish unavailable issuance, payment, correction, schedule and sending actions. Use the [invoice inventory](reports/invoicing-preview-20261026.md) and [connected workspace](../web/components/business-app/invoicing/ConnectedInvoicingWorkspace.tsx). |
-| Actividad | Approved shared activity/history entry and presentation, readable actor/time/action and correct Business scope; verify actual reachable content and honest empty/unavailable states. Use the [Business design foundations](../.agent/designs/cuadrao-business-app/DESIGN.md) and preserved source-handover shared-history reference. Exact dedicated runtime coverage remains to be established; do not substitute receipt processing or sample notifications for accepted Activity. |
+| Actividad | Standalone design is pending with Lucas. Obtain that approved checkpoint before claiming design parity; then verify entry/navigation, readable actor/time/action, correct Business scope and honest empty/unavailable states. The [Business design foundations](../.agent/designs/cuadrao-business-app/DESIGN.md) and existing shared-history reference are inputs, not a completed Activity design. Do not substitute receipt processing or sample notifications for accepted Activity. |
 
 Record pass/gap and evidence for each row. A polished preview, source-presence
 comparison or backend test alone is insufficient. **Pilot acceptance after the
@@ -250,8 +255,10 @@ evidence, run provider probes, change grants/tokens, or touch production from th
 handoff. Production activation, customer sending and live fiscal actions require
 their own explicit scope and approval.
 
-The design lane is archived with source, DESIGN, seeds and evidence preserved;
-the orchestrator continues stabilization. No new design lane or cleanup is assigned.
+The prior design lane is archived with source, DESIGN, seeds and evidence
+preserved; the orchestrator continues stabilization. Lucas separately owns the
+next Home polish and standalone Activity design tasks. No duplicate design lane
+or cleanup is assigned by this documentation.
 
 Lucas authorized publishing and merging this documentation through required gates.
 That approval changes documentation publication only; it does not authorize any
