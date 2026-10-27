@@ -60,7 +60,6 @@ jobs:
     env:
       EVIDENCE_WEB_BASE_URL: http://127.0.0.1:4421
       EVIDENCE_FIXTURE_BASE_URL: http://127.0.0.1:4422
-      EVIDENCE_RUNTIME_BASE_URL: http://127.0.0.1:4423
     steps:
       - uses: actions/checkout@v4
         with:

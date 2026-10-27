@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createServer, request as httpRequest } from "node:http";
-import { createWriteStream, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { once } from "node:events";
 import { join, resolve } from "node:path";
 import { chromium } from "../../web/node_modules/@playwright/test/index.mjs";
@@ -13,6 +13,7 @@ import { createBusinessReportHttpFixture, fixtureId } from "../../web/__tests__/
 const repository = resolve(import.meta.dirname, "../..");
 const git = (...args) => execFileSync("git", args, { cwd: repository, encoding: "utf8" }).trim();
 const head = git("rev-parse", "HEAD");
+const tree = git("rev-parse", "HEAD^{tree}");
 assert.match(process.env.EVIDENCE_EXPECTED_HEAD ?? "", /^[a-f0-9]{40}$/);
 assert.equal(head, process.env.EVIDENCE_EXPECTED_HEAD);
 const sourcePaths = ["web", "scripts/qa/reception_checkpoint_evidence.mjs"];
@@ -23,8 +24,7 @@ const output = resolve(process.env.EVIDENCE_OUTPUT);
 const origin = (value) => { const url = new URL(value); assert.equal(url.protocol, "http:"); assert.equal(url.hostname, "127.0.0.1"); assert.equal(url.origin, value); return url; };
 const web = origin(process.env.EVIDENCE_WEB_BASE_URL ?? "http://127.0.0.1:4421");
 const fixture = origin(process.env.EVIDENCE_FIXTURE_BASE_URL ?? "http://127.0.0.1:4422");
-const runtime = origin(process.env.EVIDENCE_RUNTIME_BASE_URL ?? "http://127.0.0.1:4423");
-assert.equal(new Set([web.port, fixture.port, runtime.port]).size, 3);
+assert.notEqual(web.port, fixture.port);
 assert.equal(execFileSync(process.execPath, ["--version"], { encoding: "utf8" }).trim(), "1.3.14");
 mkdirSync(output, { recursive: true });
 writeFileSync(join(output, "source-sha.txt"), `${head}\n`);
@@ -38,37 +38,22 @@ const environment = {
   NEXT_PUBLIC_CUADRAO_API_URL: `${fixture.origin}/api/v1`, NEXT_TELEMETRY_DISABLED: "1",
 };
 const probe = createServer();
-await new Promise((resolve, reject) => { probe.once("error", reject); probe.listen(Number(runtime.port), "127.0.0.1", resolve); });
+await new Promise((resolve, reject) => { probe.once("error", reject); probe.listen(Number(web.port), "127.0.0.1", resolve); });
 await new Promise(resolve => probe.close(resolve));
 const log = createWriteStream(join(output, "web.log"));
-const app = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", runtime.port, "--webpack"], { cwd: join(repository, "web"), env: environment, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+const app = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--hostname", "127.0.0.1", "--port", web.port, "--webpack"], { cwd: join(repository, "web"), env: environment, detached: true, stdio: ["ignore", "pipe", "pipe"] });
 app.stdout.pipe(log); app.stderr.pipe(log);
 let exited = false;
 app.once("exit", () => { exited = true; });
-const proxy = createServer((incoming, outgoing) => {
-  if (incoming.url === "/__evidence_identity") {
-    outgoing.writeHead(200, { "content-type": "application/json", "x-evidence-source-sha": head });
-    outgoing.end(JSON.stringify({ head, runtime: "owned Next child", pid: app.pid, synthetic: true }));
-    return;
-  }
-  const upstream = httpRequest(new URL(incoming.url, runtime), { method: incoming.method, headers: { ...incoming.headers, host: runtime.host } }, response => {
-    outgoing.writeHead(response.statusCode, { ...response.headers, "x-evidence-source-sha": head });
-    response.pipe(outgoing);
-  });
-  upstream.on("error", () => { outgoing.writeHead(502); outgoing.end(); });
-  incoming.pipe(upstream);
-});
 let browser, complete = false, originalFailure;
 try {
-  await new Promise((resolve, reject) => { proxy.once("error", reject); proxy.listen(Number(web.port), "127.0.0.1", resolve); });
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt++) {
     assert.equal(exited, false, "owned runtime exited before readiness");
-    try { const response = await fetch(`${runtime.origin}/biz`, { signal: AbortSignal.timeout(60000) }); if (response.ok) { ready = true; break; } } catch {}
+    try { const response = await fetch(`${web.origin}/biz`, { signal: AbortSignal.timeout(60000) }); if (response.ok) { ready = true; break; } } catch {}
     await new Promise(resolve => setTimeout(resolve, 500));
   }
   assert.ok(ready, "owned runtime did not become ready");
-  assert.equal((await (await fetch(`${web.origin}/__evidence_identity`)).json()).head, head);
   browser = await chromium.launch({ headless: true });
   for (const width of [1440, 834, 390]) for (const language of ["es-419", "en"]) for (const theme of ["light", "dark"]) {
     const words = JSON.parse(readFileSync(join(repository, "web/public/locales", language, "common.json"), "utf8"));
@@ -131,9 +116,8 @@ try {
         if (path.endsWith("/consent")) return route.fallback();
         throw new Error(`Unhandled synthetic Business request ${method} ${path}`);
       });
-      stage = "runtime identity and loading";
-      const navigation = await page.goto(`${web.origin}/biz?view=inbox`, { waitUntil: "domcontentloaded", timeout: 60000 });
-      assert.equal(navigation.headers()["x-evidence-source-sha"], head);
+      stage = "owned runtime loading";
+      await page.goto(`${web.origin}/biz?view=inbox`, { waitUntil: "domcontentloaded", timeout: 60000 });
       await page.waitForLoadState("load", { timeout: 60000 });
       const skeleton = page.getByTestId("reception-skeleton");
       await skeleton.waitFor();
@@ -213,15 +197,15 @@ try {
     } finally { release(); await context.close(); }
   }
   assert.deepEqual(errors, []); assert.deepEqual(external, []);
-  git("diff", "--exit-code", head, "--", ...sourcePaths); assert.equal(git("rev-parse", "HEAD"), head);
+  git("diff", "--exit-code", head, "--", ...sourcePaths); assert.equal(git("rev-parse", "HEAD"), head); assert.equal(git("rev-parse", "HEAD^{tree}"), tree);
   complete = true;
 } catch (error) { originalFailure = error; }
 finally {
   if (browser) await browser.close();
-  proxy.closeAllConnections(); await new Promise(resolve => proxy.close(resolve));
   if (!exited) { process.kill(-app.pid, "SIGTERM"); await Promise.race([once(app, "exit"), new Promise(resolve => setTimeout(resolve, 5000))]); }
   if (!exited) { process.kill(-app.pid, "SIGKILL"); await once(app, "exit"); }
   log.end();
-  writeFileSync(join(output, "report.json"), JSON.stringify({ complete, identity: { head, runtime: "owned child from clean exact-head worktree via SHA-stamped loopback proxy", synthetic: true, hostedAcceptance: false }, results, captures, errors, external, diagnostics, runtimeStopped: exited }, null, 2));
+  const compiledFiles = [".next/dev/server/app/biz/page.js", ".next/dev/server/app/biz/page_client-reference-manifest.js"].flatMap(relative => { const path = join(repository, "web", relative); return existsSync(path) ? [{ path: relative, sha256: createHash("sha256").update(readFileSync(path)).digest("hex") }] : []; });
+  writeFileSync(join(output, "report.json"), JSON.stringify({ complete, identity: { head, tree, runtime: "direct owned Next child from clean exact-head checkout", pid: app.pid, cwd: join(repository, "web"), port: web.port, compiledFiles, synthetic: true, hostedAcceptance: false }, results, captures, errors, external, diagnostics, runtimeStopped: exited }, null, 2));
 }
 if (originalFailure) throw originalFailure;
