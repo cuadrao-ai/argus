@@ -25,6 +25,7 @@ test("an accepted command replay renders its accepted server outcome",async()=>{
   await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(email,"member@example.test");email.dispatchEvent(new Event("input",{bubbles:true}));});
   await act(async()=>document.querySelector("form")!.dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})));
   expect(document.body.textContent).toContain("Invitation accepted. Check your access to the business.");
+  expect(document.body.textContent).not.toContain("Editor");
   expect(document.body.textContent).not.toContain("Couldn't send");
  }finally{await act(async()=>root.unmount());host.remove();globalThis.fetch=originalFetch;if(originalAuth===undefined)delete process.env.NEXT_PUBLIC_MOCK_AUTH;else process.env.NEXT_PUBLIC_MOCK_AUTH=originalAuth;}
 });
