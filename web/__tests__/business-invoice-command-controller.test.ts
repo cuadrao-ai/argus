@@ -79,3 +79,11 @@ test("an idempotency conflict never discards unresolved intent or permits a new 
   expect(sent).toBe(1); expect(store.read(invoiceScope)).toEqual(create());
   expect(controller.getSnapshot()).toMatchObject({ kind: "failed", retryable: true }); controller.dispose();
 });
+
+test("invalid command input stays visible as validation failure and sends no request", async () => {
+  const wire = transport(); let sent = 0;
+  wire.customer = async () => { sent++; return savedCustomer(); };
+  const controller = createInvoiceCommandController(invoiceScope, journal(), wire);
+  await expect(controller.submit({ kind: "customer", id: null, key: "invalid-tax", body: { data: { ...savedCustomer().data, tax_id: "x".repeat(33) }, archived: false, expected_version: null } })).resolves.toBeUndefined();
+  expect(sent).toBe(0); expect(controller.getSnapshot()).toMatchObject({ kind: "failed", failure: "invalid", fieldErrors: { tax_id: "invalid" } }); controller.dispose();
+});

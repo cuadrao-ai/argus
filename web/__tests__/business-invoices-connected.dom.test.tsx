@@ -12,7 +12,7 @@ mock.module("@/lib/private-alpha-flags", () => ({ ...realFlags, businessInvoicin
 
 beforeAll(() => { GlobalRegistrator.register({ url: "http://localhost/biz?view=invoicing" }); Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); });
 afterAll(async () => { await GlobalRegistrator.unregister(); });
-async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean } = {}) {
+async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; losePrepare?: boolean; holdCreate?: boolean; entry?: boolean; selectedGrant?: string | null; missingActor?: boolean; missingPermissions?: boolean; directory?: "loading" | "failed"; checkTaxId?: boolean } = {}) {
   const { act, StrictMode } = await import("react");
   const { createRoot } = await import("react-dom/client");
   const { I18nextProvider } = await import("react-i18next");
@@ -33,7 +33,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)), method = init?.method ?? "GET", body = init?.body ? JSON.parse(String(init.body)) : null;
     calls.push({ path: url.pathname, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
-    if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
+    if (url.pathname.endsWith("/business/invoices") && method === "GET") return Response.json({ items: record ? [record] : [], total: record ? 1 : 0, page: 1, page_size: 25, stage_counts: { draft: record && !record.operation ? 1 : 0, issued: record?.operation?.state.legal === "ACCEPTED" ? 1 : 0, uncertain: record?.operation?.state.submission === "unknown" ? 1 : 0 }, summaries: [], query_version: "synthetic-version" });
     if (url.pathname.endsWith("/business/customers") && method === "GET") return Response.json({ items: createdCustomers, total: createdCustomers.length, page: 1, page_size: 25 });
     if (url.pathname.endsWith("/business/customers") && method === "POST") { const customer = { ...savedCustomer(), data: body.data }; createdCustomers.push(customer); return Response.json(customer); }
     if (url.pathname.endsWith("/business/invoices") && method === "POST") {
@@ -42,7 +42,7 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
       if (loseCreate) { loseCreate = false; throw new TypeError("synthetic response lost after commit"); }
       return Response.json(record);
     }
-    if (url.pathname.endsWith(`/business/invoices/${invoiceId}`) && method === "PUT" && record) { record = { ...record, version: record.version + 1, data: body.data, amounts: body.data.tax_inclusion === "included" ? null : record.amounts }; return Response.json(record); }
+    if (url.pathname.endsWith(`/business/invoices/${invoiceId}`) && method === "PUT" && record) { record = { ...record, version: record.version + 1, data: body.data, field_errors: options.checkTaxId ? /^(?:[0-9]{9}|[0-9]{11})$/.test(body.data.customer_input.tax_id) ? {} : { "customer_input.tax_id": "tax_id" } : record.field_errors, amounts: body.data.tax_inclusion === "included" ? null : record.amounts }; return Response.json(record); }
     if (url.pathname.endsWith("/prepare") && record) {
       if (record.data.tax_inclusion === "included") return Response.json({ code: "invoice_not_ready", context: { field_errors: { tax_inclusion: "unsupported" } } }, { status: 422 });
       if (!record.operation) { record = { ...record, operation: preparedOperation() }; prepareEffects++; }
@@ -54,14 +54,15 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   };
   const source = createFixtureBusinessDataSource();
   const context: BusinessContextValue = { userId: options.missingActor ? null : invoiceScope.userId, source, records: { workspace: null, overview: null, inbox: [], notes: [], notesTruncated: false, emails: [], error: false }, spaces: [], chosen: { space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId!, name: "Synthetic Business", role: "owner", capabilities: ["read", "prepare", "approve"], permissions: options.missingPermissions ? undefined : ["read", "prepare", "approve", "download"], access_seen: true }, chooseBusiness: () => undefined, markAccessSeen: async () => undefined, lostAccess: false, clearLostAccess: () => undefined, revision: 0, reload: () => undefined, refresh: async () => "updated", period: periodRange("all"), setPeriod: () => undefined, panel: { kind: "invoicing" }, openPanel: () => undefined, actions: { create: [], composer: [], starterEntries: [] }, bridge: null, attachedReceipt: null, clearAttachedReceipt: () => undefined, openExport: () => undefined, emailRefresh: { refresh: () => undefined, refreshing: false, stalled: false }, retrySources: () => undefined };
+  let currentContext: BusinessContextValue = options.directory ? { ...context, chosen: null, directoryStatus: options.directory } : context;
   const host = document.createElement("div"); document.body.append(host); let root = createRoot(host);
-  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={context}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: true, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
+  const render = async () => { await act(async () => { root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={currentContext}>{options.entry ? <BusinessPanel /> : <ConnectedInvoicingWorkspace scope={invoiceScope} business="Synthetic Business" capabilities={{ prepare: true, issue: false, download: true }} />}</BusinessContext.Provider></I18nextProvider></StrictMode>); }); };
   await render();
   const button = (text: string) => { const found = [...document.querySelectorAll<HTMLButtonElement>("button")].find(node => node.textContent?.trim() === text && !node.closest("[hidden]")); assert.ok(found, `missing button ${text}`); return found; };
   const click = async (text: string) => { await act(async () => button(text).click()); };
   const fill = async (selector: string, value: string) => { const input = document.querySelector<HTMLInputElement>(selector); assert.ok(input); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); }); };
   const reopen = async () => { await act(async () => root.unmount()); root = createRoot(host); await render(); };
-  return { calls, click, fill, button, act, reopen, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
+  return { calls, click, fill, button, act, reopen, advanceAccepted: () => { if (record?.operation) record = { ...record, operation: { ...record.operation, state: { ...record.operation.state, submission: "identified", processing: "FINISHED", legal: "ACCEPTED", xml: "available", pdf: "available" } } }; }, resolveDirectory: async () => { currentContext = { ...context, directoryStatus: "ready" }; await render(); }, release: () => releaseCreate?.(), signal: () => heldSignal, record: () => record, creates: () => creates, prepareEffects: () => prepareEffects, async close() { await act(async () => root.unmount()); host.remove(); globalThis.fetch = previousFetch; setChosenGrant(previousGrant); if (previousMock === undefined) delete process.env.NEXT_PUBLIC_MOCK_AUTH; else process.env.NEXT_PUBLIC_MOCK_AUTH = previousMock; removeSessionStored("cuadrao:invoice_commands:v1"); } };
 }
 function preparedOperation(): FiscalOperation {
   return { id: "60000000-0000-4000-8000-000000000006", invoice_id: invoiceId, invoice_revision_id: savedInvoice().revision_id, business_id: invoiceScope.businessId, case_id: "synthetic-saved-revision", kind: "E32", number: "E320000000001", payload_digest: "a".repeat(64), provider_id: null, state: { submission: "prepared", processing: "unreported", legal: "unreported", xml: "unreported", pdf: "unreported", delivery: "not_requested", reconciliation: "not_needed", diagnostics: [], needs_review: false } };
@@ -143,7 +144,7 @@ test("switching Business during real editor save aborts it and never applies a l
     await page.click("Create invoice"); await page.fill("#invoice-customer-search", "Do not show in next Business"); await page.click("Save draft");
     await page.act(async () => setChosenGrant(null)); assert.equal(page.signal()?.aborted, true); assert.equal(document.querySelector('[data-testid="invoice-editor"]'), null);
     await page.act(async () => { page.release(); await Promise.resolve(); });
-    assert.ok(!document.body.textContent?.includes("Saved to this Business.")); assert.ok(document.body.textContent?.includes("no longer have access"));
+    assert.ok(!document.body.textContent?.includes("Saved to this Business.")); assert.ok(document.body.textContent?.includes("do not have access"));
   } finally { await page.close(); }
 });
 
@@ -199,4 +200,70 @@ test("actual entry fails closed when actor or canonical permissions are missing"
     try { assert.equal(page.calls.length, 0); assert.equal(document.querySelector('[data-testid="connected-invoicing-workspace"]'), null); }
     finally { await page.close(); }
   }
+});
+
+test("actual direct entry waits for a delayed directory without denial or invoice requests", async () => {
+  const page = await mount({ entry: true, directory: "loading" });
+  try {
+    assert.ok(document.querySelector('[role="status"]')?.textContent?.includes("Loading"));
+    assert.ok(!document.body.textContent?.includes("You do not have access")); assert.equal(page.calls.length, 0);
+    await page.resolveDirectory(); await page.click("Create invoice"); assert.ok(document.querySelector('[data-testid="invoice-editor"]'));
+  } finally { await page.close(); }
+});
+test("terminal directory failure offers retry without an endless loading state or access claim", async () => {
+  const page = await mount({ entry: true, directory: "failed" });
+  try { assert.ok(document.querySelector('[role="alert"]')); assert.ok(!document.body.textContent?.includes("You do not have access")); assert.equal(page.calls.length, 0); assert.ok(page.button("Retry")); }
+  finally { await page.close(); }
+});
+test("connected customers accept backend name/address limits and visibly reject tax33 before sending", async () => {
+  const page = await mount();
+  try {
+    await page.click("Customers"); await page.click("Add customer");
+    assert.equal(document.querySelector<HTMLInputElement>("#customer-name")?.maxLength, 200); assert.equal(document.querySelector<HTMLInputElement>("#customer-address")?.maxLength, 500); assert.equal(document.querySelector<HTMLInputElement>("#customer-taxId")?.maxLength, 32);
+    await page.fill("#customer-name", "N".repeat(180)); await page.fill("#customer-address", "A".repeat(400)); await page.fill("#customer-taxId", "x".repeat(33)); await page.click("Save customer");
+    assert.equal(page.calls.filter(call => call.method === "POST").length, 0); assert.equal(document.querySelector<HTMLInputElement>("#customer-taxId")?.getAttribute("aria-invalid"), "true");
+    await page.fill("#customer-taxId", ""); await page.click("Save customer");
+    const writes = page.calls.filter(call => call.method === "POST" && call.path.endsWith("/customers")); assert.equal(writes.length, 1);
+    const body = writes[0].body as { data: { name: string; address: string } }; assert.equal(body.data.name, "N".repeat(180)); assert.equal(body.data.address, "A".repeat(400));
+    await page.reopen(); await page.click("Customers"); await page.click("N".repeat(180)); assert.equal(document.querySelector<HTMLInputElement>("#customer-address")?.value, "A".repeat(400));
+  } finally { await page.close(); }
+});
+test("a new connected draft does not display the internal English new reference", async () => {
+  const page = await mount(); try { await page.click("Create invoice"); assert.ok(!document.body.textContent?.includes("· new")); assert.equal([...document.querySelectorAll('[class*="documentHeader"] p')].some(node => node.textContent === "new"), false); }
+  finally { await page.close(); }
+});
+
+test("confirmed fiscal refresh requeries the list counts and rows without closing detail or resetting query", async () => {
+  const operation = preparedOperation(); operation.state.submission = "unknown";
+  const page = await mount({ record: { ...savedInvoice(), operation } });
+  try {
+    await page.fill('input[type="search"]', "E32"); await page.click(operation.number); const before = page.calls.filter(call => call.path.endsWith("/invoices") && call.method === "GET").length;
+    page.advanceAccepted(); await page.click("Check fiscal status");
+    assert.ok(page.calls.filter(call => call.path.endsWith("/invoices") && call.method === "GET").length > before);
+    const issuedTab = [...document.querySelectorAll('[role="tab"]')].find(node => node.textContent?.startsWith("Issued")); assert.equal(issuedTab?.textContent, "Issued1");
+    assert.equal(document.querySelector('tbody tr td:last-child')?.textContent, "Issued"); assert.ok(document.querySelector('[role="dialog"]')); assert.equal(document.querySelector<HTMLInputElement>('input[type="search"]')?.value, "E32");
+  } finally { await page.close(); }
+});
+
+test("connected fiscal customer digits survive blur, Save and immutable prepare without preview formatting", async () => {
+  for (const digits of ["131793891", "00101234567"]) {
+    const data: InvoiceDraft = { ...incompleteInvoice(), document_type: "E31", customer_input: { ...incompleteInvoice().customer_input, name: "Fiscal customer" }, payment_type: "cash", income_type: 1, tax_inclusion: "excluded", issued_on: "2026-10-27", due_on: "2026-10-27", items: [{ id: "fiscal-item", description: "Service", quantity: "1", price: "100.01", discount: "0", tax: "0", classification: "services", tax_treatment: "exempt" }] };
+    const page = await mount({ record: { ...savedInvoice(data), field_errors: { "customer_input.tax_id": "required" } }, checkTaxId: true });
+    try {
+      await page.click(invoiceId); await page.click("Edit draft"); await page.fill("#invoice-taxId", digits);
+      await page.act(async () => { const input = document.querySelector<HTMLInputElement>("#invoice-taxId")!; input.focus(); input.blur(); });
+      await page.click("Save draft"); assert.equal(page.record()?.data.customer_input.tax_id, digits); await page.click("Prepare issuance");
+      assert.equal(page.prepareEffects(), 1); assert.equal(page.record()?.data.customer_input.tax_id, digits);
+      const prepared = page.calls.find(call => call.path.endsWith("/prepare")); assert.deepEqual(prepared?.body, { expected_version: 2 });
+    } finally { await page.close(); }
+  }
+});
+
+test("manually formatted fiscal ID remains an exact incomplete draft with a visible server field error", async () => {
+  const page = await mount({ record: { ...savedInvoice(), field_errors: { "customer_input.tax_id": "required" } }, checkTaxId: true });
+  try {
+    await page.click(invoiceId); await page.click("Edit draft"); await page.fill("#invoice-customer-search", "Draft customer"); await page.click("Add customer · Draft customer"); await page.fill("#invoice-taxId", "131-79389-1"); await page.click("Save draft");
+    assert.equal(page.record()?.data.customer_input.tax_id, "131-79389-1"); assert.equal(page.button("Prepare issuance").disabled, true);
+    await page.click("Edit draft"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.value, "131-79389-1"); assert.equal(document.querySelector<HTMLInputElement>("#invoice-taxId")?.getAttribute("aria-invalid"), "true");
+  } finally { await page.close(); }
 });

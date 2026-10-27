@@ -49,12 +49,16 @@ try {
       page.on("requestfailed", request => requests.push({ ...safeUrl(request.url()), method: request.method(), error: safeText(request.failure()?.errorText) }));
       page.on("response", response => { if (response.status() >= 400) requests.push({ ...safeUrl(response.url()), status: response.status() }); });
       await installBreakpointFixture(page, { language, theme, emptyChat: true, consent: "accepted" });
+      await page.addInitScript(({ access }) => {
+        window.__invoiceAccessClaim = false;
+        new MutationObserver(() => { if (document.body?.textContent?.includes(access)) window.__invoiceAccessClaim = true; }).observe(document, { childList: true, subtree: true, characterData: true });
+      }, { access: connected.access });
       await page.addInitScript(({ language, theme }) => { localStorage.setItem("cuadrao-business-preview-language", language); localStorage.setItem("argus-theme", theme); }, { language, theme });
       await page.route(`${fixture}/api/v1/business/**`, async route => {
         const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
         const body = request.postDataJSON(), json = (value, status = 200) => route.fulfill({ status, json: value });
         if (method === "OPTIONS") return json(null);
-        if (path.endsWith("/spaces")) return json({ spaces: [{ space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId, name: "Negocio sintético", role: "owner", business_role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], access_seen: true }], closed_spaces: [] });
+        if (path.endsWith("/spaces")) { await new Promise(resolve => setTimeout(resolve, 250)); return json({ spaces: [{ space_id: invoiceScope.businessId, grant_id: invoiceScope.grantId, name: "Negocio sintético", role: "owner", business_role: "owner", capabilities: ["read", "prepare", "approve"], permissions: ["read", "prepare", "approve", "manage", "download", "export", "assign_owner"], access_seen: true }], closed_spaces: [] }); }
         if (path.endsWith("/space")) return json({ id: invoiceScope.businessId, name: "Negocio sintético" });
         if (path.endsWith("/workspace")) return json(workspace);
         if (path.endsWith("/receipt-activity")) return json(await source.receiptActivity());
@@ -94,6 +98,7 @@ try {
       await page.waitForLoadState("load", { timeout: 60000 });
       await page.getByTestId("connected-invoicing-workspace").waitFor();
       assert.equal(await page.getByTestId("invoicing-preview").count(), 0);
+      assert.equal(await page.evaluate(() => window.__invoiceAccessClaim), false);
       await page.addStyleTag({ content: FREEZE_CSS });
       const dimensions = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, dark: document.documentElement.classList.contains("dark"), language: document.documentElement.lang }));
       assert.ok(dimensions.scroll <= width); assert.equal(dimensions.dark, theme === "dark"); assert.equal(dimensions.language, language === "en" ? "en" : "es");
@@ -101,12 +106,18 @@ try {
       stage = "incomplete real editor save";
       await page.getByRole("button", { name: copy.create, exact: true }).click();
       await page.getByTestId("invoice-editor").waitFor();
+      assert.equal((await page.getByTestId("invoice-editor").innerText()).includes("· new"), false);
       assert.equal(await page.getByTestId("invoice-editor").getAttribute("data-invoice-source"), "connected");
       await page.locator("#invoice-customer-search").fill("Cliente sintético parcial");
       await capture("connected-editor");
       await page.getByRole("button", { name: copy.save_draft, exact: true }).click();
       await page.getByRole("button", { name: connected.retry, exact: true }).waitFor();
-      await page.reload({ waitUntil: "load" });
+      stage = "reload navigation";
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
+      stage = "reload client assets";
+      await page.waitForLoadState("load", { timeout: 60000 });
+      stage = "pending command readiness";
+      assert.equal(await page.evaluate(() => window.__invoiceAccessClaim), false);
       await page.getByRole("button", { name: connected.retry, exact: true }).click();
       await page.getByRole("button", { name: copy.edit_draft, exact: true }).waitFor();
       assert.equal(creates, 1); assert.equal(customers.length, 0); assert.deepEqual(writes[1], writes[0]);
@@ -138,6 +149,7 @@ try {
       await capture("connected-uncertain");
       await page.getByRole("button", { name: connected.refresh_state, exact: true }).click();
       await page.getByRole("button", { name: copy.official_xml, exact: true }).waitFor({ state: "visible" });
+      await page.waitForFunction(issued => [...document.querySelectorAll('[role="tab"]')].some(node => node.textContent === `${issued}1`), connected.issued);
       assert.equal(invoice.operation.state.legal, "ACCEPTED"); assert.equal(invoice.payment_state, "unknown"); assert.equal(invoice.delivery_state, "not_sent");
       for (const kind of ["xml", "pdf"]) { const download = page.waitForEvent("download"); await page.getByRole("button", { name: copy[`official_${kind}`], exact: true }).click(); await download; }
       assert.equal(artifactReads, 2); await capture("connected-accepted-artifacts");

@@ -7,6 +7,12 @@ import { getChosenGrant, subscribeChosenGrant } from "./business-grant";
 const uuid = z.string().uuid();
 const text = (max: number) => z.string().max(max);
 export const customerInputSchema = z.strictObject({ name: text(200), email: text(254), tax_id: text(32), address: text(500), phone: text(40), notes: text(500) });
+export const customerInputLimits = {
+  name: customerInputSchema.shape.name.maxLength ?? undefined,
+  email: customerInputSchema.shape.email.maxLength ?? undefined,
+  taxId: customerInputSchema.shape.tax_id.maxLength ?? undefined,
+  address: customerInputSchema.shape.address.maxLength ?? undefined,
+} as const;
 const itemSchema = z.strictObject({ id: text(80).min(1), description: text(160), quantity: text(32), price: text(32), tax: text(32), discount: text(32), classification: z.enum(["goods", "services"]).nullable(), tax_treatment: z.enum(["taxable", "exempt"]).nullable() });
 export const invoiceDraftSchema = z.strictObject({
   customer_id: uuid.nullable(), customer_input: customerInputSchema,

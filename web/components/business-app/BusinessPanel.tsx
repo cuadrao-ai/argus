@@ -117,7 +117,7 @@ const COLUMN = { canvas: "", reading: "max-w-3xl", form: "max-w-[40rem]" } as co
 const SCREEN_COLUMN: Partial<Record<BusinessPanelState["kind"], keyof typeof COLUMN>> = { overview: "canvas", transactions: "canvas", invoicing: "canvas", receipt: "canvas", draft: "canvas", business: "form", expense: "form" };
 
 export default function BusinessPanel() {
-  const { panel, lostAccess, records, reload, openPanel, chosen, userId } = useBusiness();
+  const { panel, lostAccess, records, reload, openPanel, chosen, userId, directoryStatus } = useBusiness();
   const previewEnabled = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true";
   const scope = chosen?.space_id ?? "own";
   const [glance, setGlance] = useState<{ scope: string; row: RecordRow } | null>(null);
@@ -157,7 +157,7 @@ export default function BusinessPanel() {
         {shown === "overview" ? <BusinessOverviewPanel /> : null}
         {shown === "inbox" ? <BusinessInboxPanel /> : null}
         {shown === "transactions" ? <TransaccionesPanel /> : null}
-        {shown === "invoicing" ? <InvoiceWorkspaceEntry scope={userId && chosen?.permissions?.includes("read") === true ? { userId, businessId: chosen.space_id, grantId: chosen.grant_id } : null} business={chosen?.name ?? ""} capabilities={{ prepare: chosen?.permissions?.includes("prepare") === true, issue: chosen?.permissions?.includes("approve") === true, download: chosen?.permissions?.includes("download") === true }} previewEnabled={previewEnabled} /> : null}
+        {shown === "invoicing" ? <InvoiceWorkspaceEntry directoryStatus={directoryStatus} onRetry={reload} scope={userId && chosen?.permissions?.includes("read") === true ? { userId, businessId: chosen.space_id, grantId: chosen.grant_id } : null} business={chosen?.name ?? ""} capabilities={{ prepare: chosen?.permissions?.includes("prepare") === true, issue: chosen?.permissions?.includes("approve") === true, download: chosen?.permissions?.includes("download") === true }} previewEnabled={previewEnabled} /> : null}
         {shown === "business" ? <BusinessSettingsPanel tab={panel.kind === "business" ? panel.tab : undefined} /> : null}
         {record && !tray ? <RecordContent panel={record} /> : null}
       </PanelErrorBoundary>

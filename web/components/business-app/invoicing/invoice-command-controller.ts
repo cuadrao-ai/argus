@@ -79,7 +79,13 @@ export function createInvoiceCommandController(scope: api.InvoiceScope, journal:
     dispose,
     submit: async (input: InvoiceCommand) => {
       if (!active() || state.kind === "pending" || state.kind === "failed" && (state.retryable || state.failure === "storage" || state.failure === "access")) return;
-      const command = structuredClone(invoiceCommandSchema.parse(input));
+      const parsed = invoiceCommandSchema.safeParse(input);
+      if (!parsed.success) {
+        const fieldErrors = Object.fromEntries(parsed.error.issues.map(issue => [issue.path.slice(2).join("."), "invalid"]));
+        publish({ kind: "failed", command: null, failure: "invalid", retryable: false, fieldErrors });
+        return;
+      }
+      const command = structuredClone(parsed.data);
       if (!journal.write(scope, command)) { publish({ kind: "failed", command, failure: "storage", retryable: true, fieldErrors: {} }); return; }
       await execute(command);
     },

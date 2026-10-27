@@ -8,7 +8,7 @@ export function customerForEditor(customer: SavedCustomer): BusinessCustomer {
 export function invoiceForEditor(data: InvoiceDraft, id: string, operation: SavedInvoice["operation"] = null): InvoicePreview {
   const fiscal = operation?.state.legal === "ACCEPTED" ? "accepted" : operation?.state.legal === "ACCEPTED_WITH_OBSERVATIONS" ? "accepted_observations" : operation?.state.legal === "REJECTED" ? "rejected" : operation?.state.submission === "unknown" ? "uncertain" : operation ? "processing" : "not_submitted";
   return {
-    id, reference: operation?.number ?? id, customer: { id: data.customer_id ?? (Object.values(data.customer_input).some(Boolean) ? "inline-customer" : ""), name: data.customer_input.name, email: data.customer_input.email, taxId: data.customer_input.tax_id, address: data.customer_input.address },
+    id, reference: operation?.number ?? (id === "new" ? "" : id), customer: { id: data.customer_id ?? (Object.values(data.customer_input).some(Boolean) ? "inline-customer" : ""), name: data.customer_input.name, email: data.customer_input.email, taxId: data.customer_input.tax_id, address: data.customer_input.address },
     documentType: data.document_type, currency: data.currency, issuedOn: data.issued_on, dueOn: data.due_on,
     items: data.items.map(item => ({ id: item.id, description: item.description, quantity: item.quantity, price: item.price, tax: item.tax, discount: item.discount, classification: item.classification, taxTreatment: item.tax_treatment })), terms: data.terms, notes: data.notes, instructions: data.instructions,
     emailDraft: { ...data.delivery, cc: data.delivery.cc.join(", ") }, fiscalInput: { payment_type: data.payment_type, income_type: data.income_type, tax_inclusion: data.tax_inclusion },

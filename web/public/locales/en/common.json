@@ -3034,7 +3034,7 @@
       "business": "Business"
     },
     "invoicing": {
-      "access": "You no longer have access to this feature.",
+      "access": "You do not have access to this feature.",
       "all": "All",
       "amount_unknown": "Amount unavailable.",
       "artifact_unavailable": "This file is not available yet.",

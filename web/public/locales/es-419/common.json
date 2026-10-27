@@ -3272,7 +3272,7 @@
       "business": "Negocio"
     },
     "invoicing": {
-      "access": "Ya no tienes acceso a esta función.",
+      "access": "No tienes acceso a esta función.",
       "all": "Todas",
       "amount_unknown": "Monto no disponible.",
       "artifact_unavailable": "Este archivo aún no está disponible.",

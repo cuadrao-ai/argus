@@ -114,10 +114,13 @@ type Records = {
   serverReference?: string | null;
 };
 
+export type BusinessDirectoryStatus = "loading" | "ready" | "failed";
+
 export type BusinessContextValue = Readonly<{
   userId?: string|null;
   source: BusinessDataSource;
   records: Records;
+  directoryStatus?: BusinessDirectoryStatus;
   /** Every Business the person may enter, the server's list; null until read. */
   spaces: GrantedSpace[] | null;
   closedSpaces?: ClosedGrantedSpace[];
@@ -290,6 +293,7 @@ function BusinessWorkspaceContent({
   const [records, setRecords] = useState<Records>(EMPTY_RECORDS);
   const [notesAttempt, setNotesAttempt] = useState(0);
   const [revision, setRevision] = useState(0);
+  const [directoryStatus, setDirectoryStatus] = useState<BusinessDirectoryStatus>("loading");
   const [directorySpaces, setSpaces] = useState<GrantedSpace[] | null>(null);
   const [closedSpaces, setClosedSpaces] = useState<ClosedGrantedSpace[]>([]);
   const [closedAccess, setClosedAccess] = useState(false);
@@ -324,11 +328,13 @@ function BusinessWorkspaceContent({
   // The listing is the server's; a remembered choice it no longer holds falls back to the own Business.
   useEffect(() => {
     let cancelled = false;
+    setDirectoryStatus("loading");
     const directory = source.mode === "live" && source.spaceDirectory ? source.spaceDirectory() : source.spaces().then(listed => ({ spaces: listed, closed_spaces: [] }));
     directory.then(
       ({ spaces: listed, closed_spaces: closed }) => {
         if (cancelled) return;
         setSpaces(listed);
+        setDirectoryStatus("ready");
         setClosedSpaces(closed);
         const grant = getChosenGrant();
         const selected = listed.find(space => space.grant_id === grant);
@@ -345,7 +351,7 @@ function BusinessWorkspaceContent({
           }
         }
       },
-      () => { if (!cancelled) setSpaces((current) => current ?? []); },
+      () => { if (!cancelled) { setSpaces((current) => current ?? []); setDirectoryStatus("failed"); } },
     );
     return () => { cancelled = true; };
   }, [source, revision, accessRevision]);
@@ -586,6 +592,8 @@ function BusinessWorkspaceContent({
     [userId,actions, attachedReceipt, bridge, chooseBusiness, chosen, localPreview, renamePreviewBusiness, clearLostAccess, emailRefresh, lostAccess, markAccessSeen, openExport, openPanel, panel, period, workspaceRecords, reload, refresh, retrySources, revision, setPeriod, source, spaces, closedSpaces],
   );
 
+  const directoryValue = useMemo<BusinessContextValue>(() => ({ ...value, directoryStatus }), [value, directoryStatus]);
+
   const chatAvailable = businessChatAvailable(records.workspace) && consent.accepted && !closedAccessName;
   const businessSearch = useBusinessSearch({
     source,
@@ -658,7 +666,7 @@ function BusinessWorkspaceContent({
   }, [keyboardShortcuts, actions.starterEntries, chatAvailable, composerPlaceholder, draftRevision, initialView, panel.kind, businessSearch, uploads, t, spaces, closedSpaces, closedAccessName, chosen, chooseBusiness, openPanel, localPreview]);
 
   return (
-    <BusinessContext.Provider value={value}>
+    <BusinessContext.Provider value={directoryValue}>
       <ChatWorkspaceProvider value={workspace}>
         {children}
         {localPreview && creatingBusiness?<CreateBusinessPreview onClose={()=>setCreatingBusiness(false)} onCreated={business=>{setCreatingBusiness(false);window.dispatchEvent(new Event(LOCAL_BUSINESS_EVENT));chooseBusiness(business.id);openPanel({kind:"business",tab:"datos"});showToast({kind:"success",text:t("identity.business_created",{name:business.name})});}}/>:null}

@@ -9,7 +9,7 @@ import { useInvoiceWords } from "./InvoiceDocument";
 import { matchesCustomer, type BusinessCustomer } from "./customer-preview-model";
 import styles from "./invoicing-preview.module.css";
 
-export default function InvoiceCustomerField({ customers, selectedId, selectedName, error, onChoose, onAdd, onNameChange, onBlur, onSearch, searchStatus }: { searchStatus?: "pending" | "failed" | "ready"; onSearch?: (value: string) => void; customers: BusinessCustomer[]; selectedId: string; selectedName: string; error: string | null; onChoose: (customer: BusinessCustomer) => void; onAdd: (name: string) => void; onNameChange: (name: string) => void; onBlur: () => void }) {
+export default function InvoiceCustomerField({ customers, selectedId, selectedName, error, onChoose, onAdd, onNameChange, onBlur, onSearch, searchStatus, nameLimit = 120 }: { nameLimit?: number; searchStatus?: "pending" | "failed" | "ready"; onSearch?: (value: string) => void; customers: BusinessCustomer[]; selectedId: string; selectedName: string; error: string | null; onChoose: (customer: BusinessCustomer) => void; onAdd: (name: string) => void; onNameChange: (name: string) => void; onBlur: () => void }) {
   const { word, t } = useInvoiceWords();
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export default function InvoiceCustomerField({ customers, selectedId, selectedNa
   return <div ref={root} className={styles.customerField} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { close(); onBlur(); } }}>
     <label className={fieldLabelClass} htmlFor="invoice-customer-search">{word("customer_name")}</label>
     <div className={styles.customerFieldInput}>
-      <input ref={input} id="invoice-customer-search" role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${activeIndex}` : undefined} aria-describedby={describedBy} aria-invalid={!!error} className={fieldClass} placeholder={word("placeholder_name")} autoComplete="off" maxLength={120} value={open ? query : selectedName} onClick={() => { if (!open && !selectedId) show(); }} onChange={event => { if (selectedId && !open) onNameChange(event.target.value); else { setQuery(event.target.value); onSearch?.(event.target.value); setActive(0); setOpen(true); } }} onKeyDown={event => {
+      <input ref={input} id="invoice-customer-search" role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open ? id : undefined} aria-activedescendant={open ? `${id}-${activeIndex}` : undefined} aria-describedby={describedBy} aria-invalid={!!error} className={fieldClass} placeholder={word("placeholder_name")} autoComplete="off" maxLength={nameLimit} value={open ? query : selectedName} onClick={() => { if (!open && !selectedId) show(); }} onChange={event => { if (selectedId && !open) onNameChange(event.target.value); else { setQuery(event.target.value); onSearch?.(event.target.value); setActive(0); setOpen(true); } }} onKeyDown={event => {
         if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); if (!open) show(); else setActive(current => (current + (event.key === "ArrowDown" ? 1 : results.length)) % (results.length + 1)); }
         if (event.key === "Enter" && (open || !selectedId)) { event.preventDefault(); if (open) choose(activeIndex); else show(); }
       }} />
