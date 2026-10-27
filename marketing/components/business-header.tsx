@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Menu, X } from "lucide-react";
+import { businessSignInHref } from "@/lib/business-signin";
 import { businessPath, type BusinessPage } from "@/lib/site-routes";
 import { businessContent, type BusinessLocale } from "./content";
 import styles from "./business.module.css";
 import shell from "./touchup-shell.module.css";
 import { siteCopy } from "./site-copy";
 import { BusinessLanguageToggle } from "./business-language-toggle";
+
+const subscribeToHostname = () => () => {};
+const getSignInSnapshot = () => businessSignInHref(window.location.hostname);
+const getServerSignInSnapshot = () => null;
 
 export function BusinessHeader({
   locale,
@@ -17,6 +22,11 @@ export function BusinessHeader({
   page?: BusinessPage;
 }) {
   const [open, setOpen] = useState(false);
+  const signInHref = useSyncExternalStore(
+    subscribeToHostname,
+    getSignInSnapshot,
+    getServerSignInSnapshot,
+  );
   const header = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLElement>(null);
@@ -88,6 +98,15 @@ export function BusinessHeader({
   ) : (
     <BusinessLanguageToggle locale={locale} page={page} label={copy.language} />
   );
+  const signIn = signInHref ? (
+    <a className={styles.loginLink} href={signInHref}>
+      {copy.login}
+    </a>
+  ) : (
+    <button className={styles.loginLink} type="button" data-preview-unwired="true">
+      {copy.login}
+    </button>
+  );
   const backLink = (
     <a href={home} className={styles.backLink}>
       <ArrowLeft size={16} aria-hidden="true" />
@@ -150,11 +169,7 @@ export function BusinessHeader({
                 {primaryLabel}
               </a>
             )}
-            {!personal && !secondary && (
-              <button className={styles.loginLink} type="button" data-preview-unwired="true">
-                {copy.login}
-              </button>
-            )}
+            {!personal && !secondary && signIn}
           </div>
         </nav>
         <button
@@ -202,11 +217,7 @@ export function BusinessHeader({
                 {primaryLabel}
               </a>
             )}
-            {!personal && !secondary && (
-              <button className={styles.loginLink} type="button" data-preview-unwired="true">
-                {copy.login}
-              </button>
-            )}
+            {!personal && !secondary && signIn}
           </nav>
         )}
       </header>
