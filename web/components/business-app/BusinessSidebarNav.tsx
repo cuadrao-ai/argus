@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { businessInvoicingEnabled } from "@/lib/private-alpha-flags";
 import { quickJumpHintDisplay } from "@/lib/keyboard-shortcuts";
 import { NAV_GLYPHS, navGlyph } from "./nav-glyphs";
 import { useTranslation } from "react-i18next";
@@ -72,7 +73,7 @@ export default function BusinessSidebarNav({ shell }: { shell: ChatShellBridge }
         iconSize={20}
         variant="business"
       />
-      {process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <SidebarNavButton
+      {businessInvoicingEnabled || process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <SidebarNavButton
         glyph={navGlyph(NAV_GLYPHS.invoicing)} label={t("business.invoicing_preview.title")}
         active={isActive("invoicing")} collapsed={shell.sidebarCollapsed}
         onClick={() => openPanel({ kind: "invoicing" })} iconSize={20} variant="business"

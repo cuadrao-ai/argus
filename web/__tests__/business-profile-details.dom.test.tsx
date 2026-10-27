@@ -34,6 +34,22 @@ test("optional invalid fields show blur errors and linked submit summary, then n
 test("a failed save keeps the draft and announces failure without success",async()=>{
  const form=await mount(true,"en");try{await form.type("address","Calle Sol 10");await form.save();expect(form.field("address").value).toBe("Calle Sol 10");expect(form.host.textContent).toContain("We couldn't save these details.");expect(form.host.textContent).not.toContain("Details saved.");expect(form.writes).toHaveLength(0);}finally{await form.close();}
 });
+test("an asynchronous server refusal keeps attempted edits and never confirms a save",async()=>{
+ const {default:BusinessProfileDetails}=await import("../app/design-workspace/BusinessProfileDetails");
+ const messages=(await import("../public/locales/en/common.json")).default;
+ const i18n=i18next.createInstance();await i18n.init({lng:"en",resources:{en:{translation:messages}}});
+ const host=document.createElement("div");document.body.append(host);const root=createRoot(host);
+ let refuse:((reason:Error)=>void)|undefined;
+ await act(async()=>root.render(<I18nextProvider i18n={i18n}><BusinessProfileDetails saved={normalizeBusinessProvidedDetails({})} canEdit onSave={()=>new Promise<BusinessProvidedDetails>((_resolve,reject)=>{refuse=reject;})}/></I18nextProvider>));
+ try {
+  const input=host.querySelector<HTMLInputElement>('[name="profile-address"]')!;
+  await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(input,"Calle Luna 12");input.dispatchEvent(new Event("input",{bubbles:true}));});
+  await act(async()=>host.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+  expect(host.textContent).not.toContain("Details saved.");
+  await act(async()=>{refuse?.(new Error("business_workspace_stale"));});
+  expect(input.value).toBe("Calle Luna 12");expect(host.textContent).toContain("We couldn't save these details.");
+ } finally {await act(async()=>root.unmount());}
+});
 test("unrelated saved-state updates do not discard a contact draft",async()=>{
  const form=await mount();try{await form.type("address","Unfinished address");await form.render(normalizeBusinessProvidedDetails({phone:"809 555 0100"}));expect(form.field("address").value).toBe("Unfinished address");expect(form.field("phone").value).toBe("");}finally{await form.close();}
 });
