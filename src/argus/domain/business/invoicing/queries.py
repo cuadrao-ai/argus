@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import BeforeValidator, Field
 
 from argus.domain.business.contracts.authority import TrustedActor
 from argus.domain.business.contracts.invoicing import CustomerPage, InvoicePage, Strict
@@ -12,9 +12,15 @@ from argus.domain.business.contracts.invoicing import CustomerPage, InvoicePage,
 from .store import Store
 
 
+def _query_integer(value: object) -> object:
+    if isinstance(value, str) and value.isascii() and value.isdecimal():
+        return int(value)
+    return value
+
+
 class CustomerQuery(Strict):
     page: int = Field(default=1, ge=1, le=1000000)
-    page_size: Literal[25, 50, 100] = 25
+    page_size: Annotated[Literal[25, 50, 100], BeforeValidator(_query_integer)] = 25
     search: str = Field(default="", max_length=200)
 
 
