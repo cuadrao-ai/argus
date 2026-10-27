@@ -9,9 +9,9 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { fieldClass, fieldLabelClass } from "@/components/ui/form-field";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import { ToolbarPicker } from "../transacciones/RecordsToolbar";
-import InvoiceDocument, { InvoiceDate, InvoiceMoney, useInvoiceWords } from "./InvoiceDocument";
+import InvoiceDocument, { InvoiceMoney, useInvoiceWords } from "./InvoiceDocument";
 import InvoiceEmailPreview from "./InvoiceEmailPreview";
-import { CURRENCIES, hundredths, invoiceAmounts, invoiceLineAmounts, invoiceEmailDraft, invoiceEmailErrors, invoiceDraftErrors, validDraft, type InvoiceCustomer, type InvoiceItem, type InvoicePreview } from "./invoice-preview-model";
+import { CURRENCIES, hundredths, invoiceLineAmounts, invoiceEmailDraft, invoiceEmailErrors, invoiceDraftErrors, validDraft, type InvoiceCustomer, type InvoiceItem, type InvoicePreview } from "./invoice-preview-model";
 import InvoiceCustomerField from "./InvoiceCustomerField";
 import { customerSnapshot, type BusinessCustomer } from "./customer-preview-model";
 import { CUSTOMER_FIELD_LIMITS, formatCustomerTaxId } from "./customer-validation";
@@ -144,10 +144,10 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         <div className={styles.editorStepHeader}>
           <p className={styles.muted}>{word("editor_step_count", { current: STEPS.indexOf(step) + 1, total: STEPS.length })}</p>
           <div className={styles.sectionHeading}>
-            <h3 ref={stepHeading} tabIndex={-1} className={styles.editorStepTitle}>{word(step === "customer" ? "editor_customer_heading" : `editor_step_${step}`)}</h3>
+            <h3 ref={stepHeading} tabIndex={-1} className={`${styles.editorStepTitle} ${step === "review" ? styles.reviewHeading : ""}`}>{word(step === "customer" ? "editor_customer_heading" : step === "review" ? "editor_review_heading" : `editor_step_${step}`)}</h3>
             {step === "items" ? <ToolbarPicker label={word("currency")} value={draft.currency}>{close => CURRENCIES.map(currency => <button key={currency} type="button" className={styles.option} onClick={() => { setDraft(current => ({ ...current, currency })); close(); }}>{currency}</button>)}</ToolbarPicker> : null}
           </div>
-          {step !== "customer" && step !== "items" ? <p className={styles.muted}>{word(`editor_help_${step}`)}</p> : null}
+          {step === "review" ? <p className={styles.muted}>{word(`editor_help_${step}`)}</p> : null}
         </div>
         {step === "customer" ? <>
         <InvoiceCustomerField customers={customers} selectedId={draft.customer.id} selectedName={draft.customer.name} error={errorOf("id") || errorOf("name")} onNameChange={name => customer("name", name)} onBlur={() => checks.blur(draft.customer.id ? "name" : "id")} onChoose={item => { setDraft(current => ({ ...current, customer: customerSnapshot(item) })); setAddingCustomer(false); }} onAdd={name => { setDraft(current => ({ ...current, customer: { id: crypto.randomUUID(), name, email: "", taxId: "", address: "" } })); setAddingCustomer(true); requestAnimationFrame(() => document.getElementById("invoice-customer-search")?.focus()); }} />
@@ -160,7 +160,7 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         <div className={fieldLabelClass}><span>{word("document_type")}</span>
         <ToolbarPicker label={word("document_type")} value={word(`document_${draft.documentType}`)}>{close => (["E32", "E31"] as const).map(documentType => <button type="button" key={documentType} className={styles.option} onClick={() => { setDraft(current => ({ ...current, documentType })); close(); }}>{word(`document_${documentType}`)}</button>)}</ToolbarPicker>
         </div>
-        <div className={styles.fields}>{(["issuedOn", "dueOn"] as const).map(key => <InvoiceDateField key={key} id={`invoice-${key}`} label={word(key === "issuedOn" ? "issue_date" : "due_date")} value={draft[key]} error={errorOf(key)} onBlur={() => checks.blur(key)} onChange={value => field(key, value)} />)}</div>
+        <div className={styles.dateFields}>{(["issuedOn", "dueOn"] as const).map(key => <InvoiceDateField due={key === "dueOn"} key={key} id={`invoice-${key}`} label={word(key === "issuedOn" ? "issue_date" : "due_date")} value={draft[key]} error={errorOf(key)} onBlur={() => checks.blur(key)} onChange={value => field(key, value)} />)}</div>
         {(["terms", "instructions"] as const).map(key => <label className={fieldLabelClass} key={key}>{word(key)}<textarea rows={2} className={fieldClass} maxLength={500} value={draft[key]} placeholder={word(`placeholder_${key}`)} onChange={event => field(key, event.target.value)} /><span className={styles.counter}>{draft[key].length}/500</span></label>)}
         </> : null}
         {step === "items" ? <>
@@ -192,24 +192,35 @@ export default function InvoiceEditor({ initial, business, customers, onAddCusto
         <label className={fieldLabelClass}>{word("notes")}<textarea rows={2} className={fieldClass} maxLength={500} value={draft.notes} placeholder={word("placeholder_notes")} onChange={event => field("notes", event.target.value)} /><span className={styles.counter}>{draft.notes.length}/500</span></label>
         </> : null}
         {step === "review" ? <>
-        <div className={styles.editorReview}>
-          {STEPS.filter(candidate => candidate !== "review").map(candidate => <button type="button" className={styles.editorReviewRow} key={candidate} onClick={() => goTo(candidate)}><span><strong>{word(`editor_step_${candidate}`)}</strong><small>{candidate === "customer" ? draft.customer.name : candidate === "items" ? word("editor_item_count", { count: draft.items.length }) : <><InvoiceDate date={draft.issuedOn} /> · <InvoiceDate date={draft.dueOn} /></>}</small></span><span>{word("edit")}</span></button>)}
-        </div>
-        <div className={styles.reviewTotal}><span>{word("document_total")}</span><strong>{(() => { const amount = invoiceAmounts(draft); return amount ? <InvoiceMoney amount={amount.total} currency={draft.currency} /> : "-"; })()}</strong></div>
+        <nav className={styles.reviewEditLinks} aria-label={word("edit")}>
+          {STEPS.filter(candidate => candidate !== "review").map(candidate => <button type="button" className={quietButtonClass} key={candidate} onClick={() => goTo(candidate)}>{word(`editor_step_${candidate}`)}</button>)}
+        </nav>
         <FormField id="invoice-email-to" label={word("email_to")} value={email.to} type="email" autoComplete="off" maxLength={254} placeholder={word("placeholder_email")} error={emailChecks.errorOf("to")} onBlur={() => emailChecks.blur("to")} reserveMessages={[word("error_email")]} onChange={event => updateEmail("to", event.target.value)} />
         <FormField id="invoice-email-cc" label={word("email_cc")} value={email.cc} autoComplete="off" maxLength={1274} placeholder={word("email_cc_placeholder")} error={emailChecks.errorOf("cc")} onBlur={() => emailChecks.blur("cc")} reserveMessages={[word("error_email_cc")]} onChange={event => updateEmail("cc", event.target.value)} />
         <label className={fieldLabelClass} htmlFor="invoice-email-message">{word("email_message")}<textarea id="invoice-email-message" rows={3} className={fieldClass} maxLength={500} value={email.message} placeholder={word("email_message_placeholder")} onChange={event => updateEmail("message", event.target.value)} /><span className={styles.counter}>{email.message.length}/500</span></label>
+        <div className={styles.reviewSubmit}>
+          <button className={`${primaryButtonClass} ${styles.editorPrimary}`} type="submit">{word("email_save_preparation")}</button>
+          <p className={styles.muted}>{word("email_local_boundary")}</p>
+        </div>
         </> : null}
         {attempted.has(step) && Object.keys(errors).some(key => stepForField(key) === step) ? <p role="alert" className={styles.error}>{word("editor_check_step")}</p> : null}
         <div className={styles.footer}>
-          <p className={styles.muted}>{word(step === "review" ? "email_local_boundary" : "save_local")}</p>
+          {step !== "review" ? <button className={`${primaryButtonClass} ${styles.editorPrimary}`} type="submit">{word("next")}</button> : null}
           <div className={styles.editorActions}>
             <button className={quietButtonClass} type="button" onClick={save}>{word("save_draft")}</button>
-            <div>{step !== "customer" ? <button type="button" className={quietButtonClass} onClick={() => goTo(STEPS[STEPS.indexOf(step) - 1])}>{t("common.back")}</button> : null}<button className={primaryButtonClass} type="submit">{word(step === "review" ? "email_save_preparation" : "next")}</button></div>
+            {step !== "customer" ? <button type="button" className={quietButtonClass} onClick={() => goTo(STEPS[STEPS.indexOf(step) - 1])}>{t("common.back")}</button> : null}
           </div>
         </div>
       </form>
-      <aside className={styles.livePreview}>{step === "review" ? <SegmentedControl label={word("review_preview")} value={reviewView} onChange={setReviewView} segments={[{ key: "invoice", label: word("invoice") }, { key: "email", label: word("email_preview") }]} /> : <p className={styles.muted}>{word("live_preview")}</p>}{step === "review" && reviewView === "email" ? <InvoiceEmailPreview invoice={draft} business={business} /> : <InvoiceDocument invoice={draft} business={business} activeSection={step} />}</aside>
+      <aside className={styles.livePreview}>{step === "review" ? <div className={styles.stageTabs} role="tablist" aria-label={word("review_preview")}>
+        {(["invoice", "email"] as const).map(tab => <button key={tab} type="button" role="tab" id={`review-tab-${tab}`} aria-selected={reviewView === tab} aria-controls="invoice-review-preview" tabIndex={reviewView === tab ? 0 : -1} onClick={() => setReviewView(tab)} onKeyDown={event => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault();
+          const next = event.key === "Home" ? "invoice" : event.key === "End" ? "email" : tab === "invoice" ? "email" : "invoice";
+          setReviewView(next);
+          document.getElementById(`review-tab-${next}`)?.focus();
+        }}>{word(tab === "invoice" ? "invoice" : "email_preview")}</button>)}
+      </div> : <p className={styles.muted}>{word("live_preview")}</p>}<div id="invoice-review-preview" role={step === "review" ? "tabpanel" : undefined} aria-labelledby={step === "review" ? `review-tab-${reviewView}` : undefined}>{step === "review" && reviewView === "email" ? <InvoiceEmailPreview invoice={draft} business={business} /> : <InvoiceDocument invoice={draft} business={business} activeSection={step} />}</div></aside>
     </div>
   </section>
   </AdaptivePanel>

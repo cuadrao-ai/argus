@@ -57,7 +57,7 @@ const iconButton = `inline-flex h-11 w-11 shrink-0 items-center justify-center r
  * dd/mm/aaaa, and opens one Monday-first month with Hoy and Ayer. On a
  * phone the month opens as a bottom sheet. Values are ISO days.
  */
-export function DatePicker({ id, label, value, onChange, disabled, invalid, describedBy }: {
+export function DatePicker({ id, label, value, onChange, disabled, invalid, describedBy, shortcuts = "past" }: {
   id?: string;
   /** The field's name, which also names the phone sheet. */
   label: string;
@@ -66,6 +66,7 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
   disabled?: boolean;
   invalid?: boolean;
   describedBy?: string;
+  shortcuts?: "past" | "due";
 }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? resolveLanguage({});
@@ -146,14 +147,18 @@ export function DatePicker({ id, label, value, onChange, disabled, invalid, desc
   const view = monthOf(active);
   const today = todayIso();
   const yesterday = shiftDay(today, -1);
+  const [year, monthNumber, day] = today.split("-").map(Number);
+  const nextMonth = isoOf(year, monthNumber, Math.min(day, new Date(Date.UTC(year, monthNumber + 1, 0)).getUTCDate()));
+  const quickDates = shortcuts === "due"
+    ? [{ key: "today", date: today }, { key: "in_7_days", date: shiftDay(today, 7) }, { key: "in_15_days", date: shiftDay(today, 15) }, { key: "in_one_month", date: nextMonth }]
+    : [{ key: "today", date: today }, { key: "yesterday", date: yesterday }];
   const monthTitle = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(view.year, view.month, 1)));
   const weekdays = t("business.date_picker.weekdays", "lu ma mi ju vi sá do").split(" ");
 
   const month = (
     <div data-testid="date-picker-month" className="business-foundation">
-      <div className="flex gap-2">
-        <button type="button" className={`${quietButtonClass} px-3`} onClick={() => choose(today)}>{t("business.date_picker.today", "Today")}</button>
-        <button type="button" className={`${quietButtonClass} px-3`} onClick={() => choose(yesterday)}>{t("business.date_picker.yesterday", "Yesterday")}</button>
+      <div className="flex flex-wrap gap-1">
+        {quickDates.map(preset => <button key={preset.key} type="button" className={`${quietButtonClass} px-2 text-sm`} onClick={() => choose(preset.date)}>{t(`business.date_picker.${preset.key}`)}</button>)}
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <button type="button" className={iconButton} aria-label={t("business.date_picker.previous_month", "Previous month")} onClick={() => turn(-1)}>

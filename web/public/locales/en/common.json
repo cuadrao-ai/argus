@@ -2236,6 +2236,9 @@
       "valid_date": "Valid date"
     },
     "date_picker": {
+      "in_7_days": "In 7 days",
+      "in_15_days": "In 15 days",
+      "in_one_month": "In 1 month",
       "next_month": "Next month",
       "open": "Open calendar",
       "placeholder": "dd/mm/yyyy",
@@ -3112,7 +3115,7 @@
       "email_cc_placeholder": "name@example.com, another@example.com",
       "email_cc_short": "Cc",
       "email_greeting": "Hello {{name}},",
-      "email_local_boundary": "Saves this draft and email preparation for this preview session only. No invoice is issued and no email is sent.",
+      "email_local_boundary": "Saved for this session. No invoice is issued and no email is sent.",
       "email_message": "Email message",
       "email_message_placeholder": "Thank you for your business. Please find your invoice attached.",
       "email_preview": "Email",
@@ -3221,6 +3224,7 @@
       "editor_customer_heading": "Who is this invoice for?",
       "editor_item_count_one": "{{count}} item",
       "editor_item_count_other": "{{count}} items",
+      "editor_review_heading": "Your invoice is ready",
       "editor_step_count": "Step {{current}} of {{total}}",
       "editor_step_customer": "Customer",
       "editor_step_items": "Details",
