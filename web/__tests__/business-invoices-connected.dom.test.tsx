@@ -27,12 +27,12 @@ async function mount(options: { record?: SavedInvoice; loseCreate?: boolean; los
   const previousFetch = globalThis.fetch, previousMock = process.env.NEXT_PUBLIC_MOCK_AUTH, previousGrant = getChosenGrant();
   process.env.NEXT_PUBLIC_MOCK_AUTH = "true"; setChosenGrant(options.selectedGrant === undefined ? invoiceScope.grantId : options.selectedGrant); removeSessionStored("cuadrao:invoice_commands:v1");
   let record = options.record ?? null, creates = 0, prepareEffects = 0, loseCreate = options.loseCreate, losePrepare = options.losePrepare;
-  const calls: { path: string; method: string; body: unknown; key: string | null }[] = [];
+  const calls: { path: string; query: string; method: string; body: unknown; key: string | null }[] = [];
   let releaseCreate: (() => void) | undefined; let heldSignal: AbortSignal | null | undefined;
   const createdCustomers: SavedCustomer[] = structuredClone(options.customerRecords ?? []);
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)), method = init?.method ?? "GET", body = init?.body ? JSON.parse(String(init.body)) : null;
-    calls.push({ path: url.pathname, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
+    calls.push({ path: url.pathname, query: url.search, method, body, key: new Headers(init?.headers).get("Idempotency-Key") });
     if (method === "GET" && ["/business/invoices", "/business/customers"].some(path => url.pathname.endsWith(path))) {
       if (options.holdReads) return new Promise<Response>(() => {});
       if (options.readFailure) return Response.json({ code: "synthetic_read_failure" }, { status: options.readFailure });
@@ -355,5 +355,42 @@ test("filtered and archived empty results stay compact and never claim the first
     assert.equal(document.querySelector("h3")?.textContent, "No archived customers");
     assert.ok(document.querySelector('img[width="88"]'));
     assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
+
+test("empty invoice reset clears real filters and period while preserving stage and page size", async () => {
+  const page = await mount();
+  try {
+    const draft = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(tab => tab.textContent?.startsWith("Draft"));
+    assert.ok(draft); await page.act(async () => draft.click());
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear filters"), false);
+    await page.click("25 per page"); await page.click("50 per page");
+    const date = [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')].find(button => button.textContent?.trim() === "All");
+    assert.ok(date); await page.act(async () => date.click());
+    await page.click("Last 7 days"); await page.click("Confirm period");
+    await page.click("All currencies"); await page.click("USD");
+    await page.fill('input[aria-label="Search customer, invoice or note…"]', "unmatched");
+    const before = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/invoices") && call.method === "GET").at(-1)!.query);
+    assert.equal(before.get("currency"), "USD"); assert.ok(before.get("date_from")); assert.ok(before.get("date_to"));
+    await page.click("Clear filters");
+    const after = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/invoices") && call.method === "GET").at(-1)!.query);
+    assert.equal(after.get("search"), ""); assert.equal(after.get("currency"), null); assert.equal(after.get("date_from"), null); assert.equal(after.get("date_to"), null);
+    assert.equal(after.get("page"), "1"); assert.equal(after.get("page_size"), "50"); assert.equal(after.get("stage"), "draft"); assert.equal(after.get("sort"), before.get("sort"));
+    assert.ok([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "All" && button.hasAttribute("aria-haspopup")));
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear filters"), false);
+  } finally { await page.close(); }
+});
+
+test("customer no-match reset clears search while retaining archived selection", async () => {
+  const page = await mount();
+  try {
+    await page.click("Customers"); await page.click("Active");
+    assert.equal([...document.querySelectorAll("button")].some(button => button.textContent?.trim() === "Clear search"), false);
+    await page.fill('input[aria-label="Search customers"]', "unmatched");
+    await page.click("Clear search");
+    const query = new URLSearchParams(page.calls.filter(call => call.path.endsWith("/business/customers") && call.method === "GET").at(-1)!.query);
+    assert.equal(query.get("search"), ""); assert.equal(query.get("archived"), "true"); assert.equal(query.get("page"), "1");
+    assert.equal(document.querySelector("h3")?.textContent, "No archived customers");
+    assert.equal(document.querySelector('img[width="88"]')?.parentElement?.querySelectorAll("button").length, 0);
   } finally { await page.close(); }
 });
