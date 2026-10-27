@@ -57,6 +57,7 @@ export const STORAGE_REGISTRY = {
   "argus:business-grant:v1": "layout",
   // The last few Business searches that led to a record, per Business, on this device only.
   "cuadrao:business_recent_searches:v1": "layout",
+  "cuadrao:business_creation:v1": "temporary",
   // Which currency Inicio's month figures show, per Business, until the account keeps it.
   "cuadrao:business_currency_view:v1": "layout",
 } as const satisfies Record<string, StorageConcept>;

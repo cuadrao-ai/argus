@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { withViewportPortal } from "@/components/ui/withViewportPortal";
@@ -15,7 +15,6 @@ import IdentityEditor from "@/components/identity/IdentityEditor";
 import { IdentityMark } from "@/components/identity/IdentityMark";
 import {
   DEFAULT_APPEARANCE,
-  parseAppearance,
   type IdentityAppearance,
 } from "@/lib/identity-appearance";
 import AccessRolePicker from "./AccessRolePicker";
@@ -23,40 +22,66 @@ import {
   createLocalBusiness,
   type LocalBusiness,
 } from "./localBusinessPreview";
-const DRAFT_KEY = "cuadrao-new-business-draft-v1";
-function readDraft() {
+import { businessCreationState, createBusinessCommand, type BusinessCreationState } from "@/lib/business-profile-api";
+import {readStored,writeStored,removeStored} from "@/lib/browser-storage";
+import {z} from "zod";
+const DRAFT_KEY = "cuadrao:business_creation:v1";
+const pendingEnvelope=z.object({account:z.string(),name:z.string().max(80),country:z.enum(["","DO","US","CA"]),appearancePending:z.boolean(),operation:businessCreationState.optional()});
+const pendingEnvelopes=z.record(z.string(),pendingEnvelope);
+function storedDrafts(){return pendingEnvelopes.parse(JSON.parse(readStored(DRAFT_KEY)||"{}"));}
+function clearDraft(account:string){
+  const records=storedDrafts();delete records[account];
+  if(Object.keys(records).length)writeStored(DRAFT_KEY,JSON.stringify(records));else removeStored(DRAFT_KEY);
+}
+function readDraft(account:string) {
   try {
-    // eslint-disable-next-line no-restricted-syntax -- Bounded development-only identity storage; no production data.
-    const saved = JSON.parse(window.localStorage.getItem(DRAFT_KEY) || "{}");
+    const envelope=storedDrafts()[account]??{};
+    const saved=envelope.account===account?envelope:{};
+    const operation=businessCreationState.safeParse(saved.operation).data;
     return {
       name: typeof saved.name === "string" ? saved.name.slice(0, 80) : "",
       country: ["DO", "US", "CA"].includes(saved.country) ? saved.country : "",
-      appearance: parseAppearance(saved.appearance),
+      appearance: DEFAULT_APPEARANCE,
+      needsAppearance:Boolean(saved.appearancePending)&&!operation?.asset_id,
+      operation,
     };
   } catch {
-    return { name: "", country: "", appearance: DEFAULT_APPEARANCE };
+    return { name: "", country: "", appearance: DEFAULT_APPEARANCE,operation:undefined,needsAppearance:false };
   }
 }
 function CreateBusinessPreviewSurface({
   onClose,
   onCreated,
+  live=false,
+  accountKey="preview",
 }: {
   onClose: () => void;
-  onCreated: (business: LocalBusiness) => void;
+  onCreated: (business: LocalBusiness & {grant_id?:string}) => void;
+  live?:boolean;
+  accountKey?:string;
 }) {
   const { t } = useTranslation(),
     { isBelowDesktop } = useResponsiveLayout(),
     id = useId();
-  const [draft, setDraft] = useState(readDraft),
+  const [draft, setDraft] = useState(()=>readDraft(accountKey)),
     [step, setStep] = useState<"details" | "image">("details"),
-    [failed, setFailed] = useState(false),
+    [failed, setFailed] = useState(Boolean(draft.operation?.created)),
     [busy, setBusy] = useState(false);
   const panel = useRef<HTMLDivElement>(null),
     submitting = useRef(false);
+  const operation=useRef<ReturnType<typeof createBusinessCommand>|null>(null);
+  const [created,setCreated]=useState(Boolean(draft.operation?.created));
+  const [conflict,setConflict]=useState(false);
+  const [refused,setRefused]=useState(false);
+  const store=useCallback((value:typeof draft)=>{
+    const operation=value.operation;
+    const envelope=JSON.stringify({...storedDrafts(),[accountKey]:{account:accountKey,name:value.name.trim(),country:value.country,appearancePending:value.needsAppearance||value.appearance.kind!=="default"||Boolean(operation?.asset_id),operation}});
+    writeStored(DRAFT_KEY,envelope);
+    if(readStored(DRAFT_KEY)!==envelope)throw new Error("Business command persistence unavailable");
+  },[accountKey]);
   const preserve = () => {
     try {
-      // eslint-disable-next-line no-restricted-syntax -- Bounded development-only identity storage; no production data.
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      store(draft);
       return true;
     } catch {
       setFailed(true);
@@ -65,16 +90,15 @@ function CreateBusinessPreviewSurface({
   };
   useEffect(() => {
     try {
-      // eslint-disable-next-line no-restricted-syntax -- Bounded development-only identity storage; no production data.
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      store(draft);
     } catch {
       setFailed(true);
     }
-  }, [draft]);
+  }, [draft,store]);
   const close = () => {
     if (busy) return;
     if (step === "image") setStep("details");
-    else if (preserve()) onClose();
+    else if (preserve()) {if(!draft.operation)clearDraft(accountKey);onClose();}
   };
   useModalSurface({
     isOpen: !isBelowDesktop,
@@ -96,8 +120,8 @@ function CreateBusinessPreviewSurface({
     },
     { name: draft.name, country: draft.country },
   );
-  const submit = () => {
-    if (submitting.current) return;
+  const submit = async () => {
+    if (submitting.current||refused) return;
     if (!checks.submit()) {
       requestAnimationFrame(() =>
         panel.current
@@ -109,17 +133,25 @@ function CreateBusinessPreviewSurface({
     submitting.current = true;
     setBusy(true);
     try {
-      const business = createLocalBusiness(
+      let business:LocalBusiness & {grant_id?:string};
+      if(live){
+        if(!["DO","US","CA"].includes(draft.country))throw new Error("invalid_country");
+        const country=draft.country as "DO"|"US"|"CA";
+        operation.current??=createBusinessCommand({name:draft.name,country,appearance:draft.appearance},draft.operation,(next:BusinessCreationState)=>{const value={...draft,operation:{...next}};store(value);setDraft(value);setCreated(Boolean(next.created));});
+        business=await operation.current.run();
+      }else business = createLocalBusiness(
         // eslint-disable-next-line no-restricted-syntax -- Bounded development-only identity storage; no production data.
         window.localStorage,
         draft.name,
         draft.country,
         draft.appearance,
       );
-      // eslint-disable-next-line no-restricted-syntax -- Bounded development-only identity storage; no production data.
-      window.localStorage.removeItem(DRAFT_KEY);
+      clearDraft(accountKey);
       onCreated(business);
-    } catch {
+    } catch(error) {
+      const status=error&&typeof error==="object"&&"status" in error?error.status:null;
+      setConflict(status===409&&Boolean(operation.current?.created));
+      setRefused(status===403||status===404);
       setFailed(true);
       setBusy(false);
       submitting.current = false;
@@ -135,7 +167,8 @@ function CreateBusinessPreviewSurface({
             name={draft.name}
             business
             onSave={(appearance: IdentityAppearance) => {
-              setDraft({ ...draft, appearance });
+              operation.current=null;
+              setDraft({ ...draft, appearance,needsAppearance:false,operation:draft.operation?{...draft.operation,upload:crypto.randomUUID(),save:crypto.randomUUID(),asset_id:undefined,crop:undefined,revision:undefined}:undefined });
               setStep("details");
             }}
           />
@@ -145,7 +178,7 @@ function CreateBusinessPreviewSurface({
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            submit();
+            void submit();
           }}
           className="space-y-4"
         >
@@ -159,6 +192,7 @@ function CreateBusinessPreviewSurface({
             <button
               type="button"
               className={quietButtonClass}
+              disabled={busy}
               onClick={() => setStep("image")}
             >
               {t(
@@ -176,6 +210,7 @@ function CreateBusinessPreviewSurface({
             autoComplete="organization"
             maxLength={80}
             value={draft.name}
+            disabled={busy||Boolean(draft.operation)}
             onChange={(event) =>
               setDraft({ ...draft, name: event.target.value })
             }
@@ -186,6 +221,7 @@ function CreateBusinessPreviewSurface({
             <AccessRolePicker
               id={`${id}-country`}
               value={draft.country}
+              disabled={busy||Boolean(draft.operation)}
               label={t("workspace_setup_preview.operating_country")}
               options={[
                 {
@@ -224,16 +260,16 @@ function CreateBusinessPreviewSurface({
               role="alert"
               className="text-[14px] text-[#b52335] dark:text-[#ff929c]"
             >
-              {t("identity.create_error")}
+              {refused?t("business.lifecycle.errors.business_unavailable"):conflict?t("identity.business_profile_conflict"):created?draft.needsAppearance||draft.appearance.kind!=="default"||draft.operation?.asset_id?t("identity.business_appearance_pending"):<>{t("identity.business_created",{name:draft.name})} {t("common.error_occurred")}</>:t("identity.create_error")}
             </p>
           ) : null}
           <div className="border-t border-black/10 pt-4 dark:border-white/10">
             <button
-              disabled={busy}
+              disabled={busy||refused||draft.needsAppearance}
               type="submit"
               className={`${primaryButtonClass} w-full`}
             >
-              {t("identity.create_business")}
+              {t(created ? draft.needsAppearance||draft.appearance.kind!=="default"||draft.operation?.asset_id?"identity.retry_business_appearance":"common.retry" : "identity.create_business")}
             </button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BusinessContext, useBusiness } from "@/components/business-app/BusinessWorkspace";
@@ -15,11 +15,16 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import AccessRolePicker from "./AccessRolePicker";
 import { invitationStorageKeys } from "./businessAccessPreviewState";
-import { readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
+import { profileChecklist, readBusinessProfilePreview, saveBusinessProfilePreview, saveBusinessProvidedDetails, type ProfileChecklistKey, type BusinessProvidedDetails } from "./businessProfilePreviewState";
 import {quietButtonClass} from "@/components/business-app/business-ui";
 import BusinessProfileCard from "./BusinessProfileCard";
 import BusinessProfileDetails from "./BusinessProfileDetails";
 import WorkspaceSetupPreview from "./WorkspaceSetupPreview";
+import { useBusinessProfile } from "@/components/business-app/useBusinessProfile";
+import { businessSettingsRequest } from "@/lib/business-profile-api";
+import type { FiscalProfile } from "@/lib/business-dgii";
+import {referenceCode} from "@/lib/failure-screen";
+import {ReferenceCode} from "@/components/status/ReferenceCode";
 
 const changedEvent = "workspace-preview-profile-changed";
 const emptyStorage = {getItem:()=>null,setItem:()=>{}};
@@ -36,14 +41,28 @@ export default function BusinessProfilePreview() {
 
 function BusinessProfileContent() {
   const workspace = useBusiness();
-  const {chosen,records,renamePreviewBusiness} = workspace;
+  const {chosen,records,renamePreviewBusiness,reload:reloadWorkspace} = workspace;
   const {t} = useTranslation();
   const {isBelowDesktop} = useResponsiveLayout();
   const businessId = chosen?.space_id ?? "";
   const name = chosen?.name ?? "";
-  const appearance = useIdentityAppearance(`business:${businessId}`) ?? DEFAULT_APPEARANCE;
+  const previewAppearance = useIdentityAppearance(`business:${businessId}`) ?? DEFAULT_APPEARANCE;
+  const live = workspace.source.mode === "live";
+  const server = useBusinessProfile(businessId,live&&Boolean(businessId),reloadWorkspace);
+  const retryProfile=server.retry;
+  const [fiscal,setFiscal] = useState<FiscalProfile|null>(null);
+  const [fiscalFailed,setFiscalFailed] = useState(false);
+  const [fiscalReference,setFiscalReference]=useState<string|null>(null);
+  useEffect(()=>{
+    if(!live||!businessId)return;
+    const controller=new AbortController();
+    businessSettingsRequest<FiscalProfile>("/business/fiscal-profile",{signal:controller.signal}).then(setFiscal,error=>{if(!controller.signal.aborted){setFiscalFailed(true);setFiscalReference(referenceCode(error));}});
+    return()=>controller.abort();
+  },[live,businessId]);
+  const appearance = previewAppearance;
+  const failureReference=server.reference??fiscalReference;
   const country = records.workspace?.country;
-  const canEdit = chosen?.role === "owner";
+  const canEdit = live ? Boolean(chosen?.permissions?.includes("manage")) && !server.refused : chosen?.role === "owner";
   const [footerTarget,setFooterTarget] = useState<HTMLDivElement|null>(null);
   const [selected,setSelected] = useState<ProfileSection|null>(null);
   const [fiscalDraft,setFiscalDraft] = useState<FiscalProfileDraft|null>(null);
@@ -56,21 +75,23 @@ function BusinessProfileContent() {
     window.addEventListener("storage",listener);window.addEventListener(changedEvent,listener);
     return ()=>{window.removeEventListener("storage",listener);window.removeEventListener(changedEvent,listener);};
   },[]);
-  const snapshot = useCallback(()=>storage().getItem(invitationStorageKeys(businessId).guide) ?? "",[businessId]);
+  const snapshot = useCallback(()=>live?"":storage().getItem(invitationStorageKeys(businessId).guide) ?? "",[businessId,live]);
   const raw = useSyncExternalStore(subscribe,snapshot,()=>"");
-  const profile = useMemo(()=>{void raw;return readBusinessProfilePreview(storage(),businessId,name,country);},[raw,businessId,name,country]);
+  const previewProfile = useMemo(()=>{void raw;return readBusinessProfilePreview(live?emptyStorage:storage(),businessId,name,country);},[raw,businessId,name,country,live]);
+  const profile = live && server.profile ? {...previewProfile,name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName:null,providedDetails:server.profile.details,checklist:profileChecklist({name:server.profile.name,country:server.profile.country,taxId:fiscal?.tax_id??null,legalName:null},server.profile.details)} : previewProfile;
   const taxType = profile.taxId?.type;
   const taxValue = profile.taxId?.value;
   const localSource = useMemo(()=>({...workspace.source,
-    fiscalProfile:async()=>({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,can_edit:canEdit}),
-    saveFiscalProfile:async(input:Parameters<typeof saveBusinessProfilePreview>[2])=>{
+    fiscalProfile:async()=>live ? businessSettingsRequest<FiscalProfile>("/business/fiscal-profile") : ({name:profile.name,tax_id:taxType && taxValue ? {type:taxType,value:taxValue} : null,can_edit:canEdit}),
+    saveFiscalProfile:async(input:Parameters<typeof saveBusinessProfilePreview>[2],key:string)=>{
       if(!canEdit) throw new Error("permission_denied");
+      if(live){const next=await businessSettingsRequest<FiscalProfile>("/business/fiscal-profile",{method:"PATCH",headers:{"Idempotency-Key":key},body:JSON.stringify(input)});setFiscal(next);reloadWorkspace();retryProfile();return next;}
       saveBusinessProfilePreview(storage(),businessId,input);
       renamePreviewBusiness?.(input.name);
       refresh();
       return {name:input.name,tax_id:input.tax_id,can_edit:canEdit};
     },
-  }),[workspace.source,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh]);
+  }),[workspace.source,reloadWorkspace,retryProfile,profile.name,taxType,taxValue,canEdit,businessId,renamePreviewBusiness,refresh,live]);
   const formContext = useMemo(()=>({...workspace,source:localSource,reload:()=>{}}),[workspace,localSource]);
   const countryLabel = profile.country ? t(`workspace_setup_preview.country_${profile.country.toLowerCase()}`,{defaultValue:profile.country}) : null;
   const labels: Record<ProfileChecklistKey,string> = {
@@ -81,8 +102,8 @@ function BusinessProfileContent() {
     {key:"identity",title:t("business.settings.profile_identity_title"),summary:[profile.taxId ? `${t(`business.dgii.tax_id_${profile.taxId.type}`)} ${profile.taxId.value}` : t("business.settings.profile_identity_empty"),profile.legalName].filter(Boolean).join(" · ")},
     {key:"contact",title:t("business.settings.profile_contact_title"),summary:[details.address,details.email || details.phone].filter(Boolean).join(" · ") || t("business.settings.profile_contact_empty")},
     {key:"presence",title:t("business.settings.profile_presence_title"),summary:[details.description,details.website].filter(Boolean).join(" · ") || t("business.settings.profile_presence_empty")},
-    {key:"invoicing",title:t("workspace_setup_preview.invoice_title"),summary:t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)},
   ];
+  if(!live)sections.push({key:"invoicing",title:t("workspace_setup_preview.invoice_title"),summary:t(`workspace_setup_preview.invoice_${profile.invoice.status.replaceAll("-","_")}`)});
   const applySelection = ({section,trigger}:Selection)=>{
     if(trigger) opener.current = trigger;
     setFiscalDraft(null);setProvidedDraft(null);setDirty(false);setSelected(section);setPending(null);
@@ -106,15 +127,17 @@ function BusinessProfileContent() {
     <span style={item.complete ? {textDecoration:"line-through"} : undefined} className={item.complete ? "text-[#56635e] dark:text-white/60" : ""}>{labels[item.key]}<span className="sr-only"> · {t(item.complete ? "business.settings.profile_saved" : "business.settings.profile_pending")}</span></span>
   </button></li>)}</ul>;
   const dossier = <div key={`${businessId}:${selected}`} data-profile-dossier-content className="min-w-0">
-    {selected === "appearance" ? <IdentityEditor onBack={isBelowDesktop?close:undefined} saved={appearance} name={name} business onSave={next=>{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));applySelection({section:null});}}/> : selected === "card" ? <BusinessProfileCard profile={profile} businessId={businessId} logoUrl={chosen?.logo_url} /> : selected === "identity" ? <>
+    {selected === "appearance" ? <IdentityEditor onBack={isBelowDesktop?close:undefined} saved={appearance} name={name} business onSave={async next=>{if(live)await server.saveAppearance(next);else{saveAppearance(storage(),`business:${businessId}`,next);window.dispatchEvent(new Event(IDENTITY_EVENT));}applySelection({section:null});}}/> : selected === "card" ? <BusinessProfileCard profile={profile} businessId={businessId} logoUrl={chosen?.logo_url} /> : selected === "identity" ? <>
       <div data-profile-identity><BusinessContext.Provider value={formContext}><BusinessFiscalProfile footerTarget={footerTarget} initialDraft={fiscalDraft} onDraftChange={setFiscalDraft} onDirtyChange={setDirty} renderTaxIdControl={props=><AccessRolePicker {...props} showDetail={false} options={(["rnc","cedula"] as const).map(type=>({value:type,label:t(`business.dgii.tax_id_${type}`),description:t(`business.dgii.tax_id_hint_${type}`)}))} onChange={value=>props.onChange(value as "rnc"|"cedula")} />} /></BusinessContext.Provider></div>
       <dl className="mt-5 space-y-5 text-[16px]">
         <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.legal_name")}</dt><dd>{profile.legalName || t("business.settings.profile_unverified")}</dd></div>
         {countryLabel ? <div><dt className="mb-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.operating_country")}</dt><dd>{countryLabel}</dd></div> : null}
       </dl>
-    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={next=>{const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
+    </> : selected === "contact" || selected === "presence" ? <BusinessProfileDetails footerTarget={footerTarget} initialDraft={providedDraft} onDraftChange={setProvidedDraft} group={selected} saved={details} canEdit={canEdit} onDirtyChange={setDirty} onSave={async next=>{if(live){const fields=selected==="presence"?["website","description"] as const:["address","province","municipality","email","phone"] as const;const saved=await server.save({details:Object.fromEntries(fields.map(field=>[field,next[field]]))});return saved.details;}const saved=saveBusinessProvidedDetails(storage(),businessId,next);refresh();return saved;}} /> : selected === "invoicing" && !live ? canEdit ? <WorkspaceSetupPreview profileInvoicing embedded onProfileChange={refresh} onClose={close} /> : <p className="text-[16px]">{sections.find(section=>section.key === "invoicing")?.summary}</p> : null}
   </div>;
+  if(live && (!server.profile || !fiscal))return <div className={SURFACE_CARD}>{server.failed||fiscalFailed?<><p role="alert">{t(server.refused?"business.lifecycle.errors.business_unavailable":"business.empty.overview_error")} {failureReference?<ReferenceCode reference={failureReference}/>:null}</p>{!server.refused?<button type="button" className={quietButtonClass} onClick={()=>{server.retry();setFiscalFailed(false);businessSettingsRequest<FiscalProfile>("/business/fiscal-profile").then(setFiscal,error=>{setFiscalFailed(true);setFiscalReference(referenceCode(error));});}}>{t("common.retry")}</button>:null}</>:<div aria-busy="true" className="h-40 animate-pulse rounded-item bg-black/5"/>}</div>;
   return <>
+    {live&&server.refused?<p role="alert" className="mb-4 text-[14px] text-[#9e2f39]">{t("business.lifecycle.errors.business_unavailable")}</p>:null}
     <style>{`[data-profile-identity] form{max-width:none}[data-profile-identity] form>div.grid{grid-template-columns:minmax(0,1fr)}[data-profile-identity]>div{margin-top:0}.profile-section-row{display:flex;width:100%;min-width:0;align-items:center;gap:16px;padding:20px 12px;text-align:left;border-radius:8px}.profile-section-row:hover,.profile-section-row[aria-expanded=true]{background:rgba(0,0,0,.04)}.dark .profile-section-row:hover,.dark .profile-section-row[aria-expanded=true]{background:rgba(255,255,255,.06)}.profile-section-copy{min-width:0;flex:1}.profile-section-summary{display:block;overflow-wrap:anywhere;line-height:1.5;margin-top:5px}[data-profile-dossier-content] iframe{max-width:100%}
     `}</style>
     <div data-testid="business-profile-preview" style={{gridTemplateColumns:isBelowDesktop ? undefined : selected ? "minmax(0,1fr)" : "minmax(0,1fr) 20rem"}} className="grid items-start gap-6">

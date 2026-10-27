@@ -10,6 +10,7 @@ import BottomSheet from "@/components/ui/BottomSheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { quietButtonClass } from "../business-ui";
 import styles from "./business-notifications.module.css";
+import { acceptBusinessInvitation, getBusinessInvitations, type RecipientInvitation } from "@/lib/business-api";
 
 type Filter = "all" | "unread";
 export type NotificationTarget = "equipo" | "correo" | "datos";
@@ -30,6 +31,7 @@ type Props = {
   businessName?: string;
   preview?: boolean;
   onAction?: (target: NotificationTarget) => void;
+  onInvitationAccepted?: (grantId:string)=>void;
 };
 
 function NotificationFilter({ value, onChange }: { value: Filter; onChange: (value: Filter) => void }) {
@@ -73,13 +75,36 @@ function NotificationFilter({ value, onChange }: { value: Filter; onChange: (val
   </div>;
 }
 
-export default function BusinessNotifications({ businessId, businessName, preview = false, onAction }: Props) {
+export default function BusinessNotifications({ businessId, businessName, preview = false, onAction, onInvitationAccepted }: Props) {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [read, setRead] = useState<Record<string, boolean>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  const [invitations,setInvitations]=useState<RecipientInvitation[]|null>(null);
+  const [invitationError,setInvitationError]=useState(false);
+  const [accepting,setAccepting]=useState<string|null>(null);
+  const [acceptFailed,setAcceptFailed]=useState(false);
+  const [acceptRefused,setAcceptRefused]=useState<Set<string>>(new Set());
+  const [invitationAttempt,setInvitationAttempt]=useState(0);
+  const invitationLive=useRef(true);
+  useEffect(()=>{
+    invitationLive.current=true;
+    if(!preview&&open){setInvitationError(false);getBusinessInvitations().then(value=>{if(invitationLive.current)setInvitations(value);},()=>{if(invitationLive.current)setInvitationError(true);});}
+    return()=>{invitationLive.current=false;};
+  },[preview,open,businessId,invitationAttempt]);
+  const acceptInvitation=async(invitation:RecipientInvitation)=>{
+    if(accepting||acceptRefused.has(invitation.id))return;
+    setAccepting(invitation.id);setAcceptFailed(false);
+    try{
+      const accepted=await acceptBusinessInvitation(invitation);
+      if(!invitationLive.current)return;
+      setInvitations(current=>current?.filter(item=>item.id!==invitation.id)??null);
+      close();onInvitationAccepted?.(accepted.grant_id);
+    }catch(error){if(invitationLive.current){setAcceptFailed(true);const status=error&&typeof error==="object"&&"status" in error?error.status:null;if(status===403||status===404||status===409)setAcceptRefused(current=>new Set([...current,invitation.id]));}}
+    finally{if(invitationLive.current)setAccepting(null);}
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -125,6 +150,15 @@ export default function BusinessNotifications({ businessId, businessName, previe
       {isBelowTablet && notices.length ? markAll : null}
     </div>
     <div className={styles.list}>
+      {!preview&&invitationError?<div className={styles.empty}><p role="alert">{t("business_access.error")}</p><button type="button" className={quietButtonClass} onClick={()=>setInvitationAttempt(value=>value+1)}>{t("common.retry")}</button></div>:!preview&&invitations===null?<div className="m-5 h-24 animate-pulse rounded-item bg-black/5" aria-busy="true"/>:null}
+      {!preview&&!invitationError&&invitations?.length?<ul aria-label={t("business_access.invitations_title")}>
+        {invitations.map(invitation=><li key={invitation.id} className={styles.row}>
+          <div className={styles.rowHeading}><h3 className={styles.unreadTitle}>{invitation.name}</h3></div>
+          <p className={styles.description}>{t(`workspace_setup_preview.permission_${invitation.requested_role}`)} · {t("workspace_setup_preview.invite_pending")}</p>
+          <div className={styles.rowActions}><button type="button" className={`${quietButtonClass} ${styles.rowAction}`} disabled={Boolean(accepting)||acceptRefused.has(invitation.id)} onClick={()=>void acceptInvitation(invitation)}>{t("business_access.accept_invitation")}</button></div>
+        </li>)}
+      </ul>:null}
+      {acceptFailed?<p role="alert" className="px-5 pb-3 text-[14px] text-[#9e2f39]">{t("business_access.invitation_accept_failed")}</p>:null}
       {visible.length ? <ul>
         {visible.map((notice) => <li key={notice.id} data-notice={notice.id} className={`${styles.row} ${notice.id === "profile" ? styles.productUpdate : ""}`}>
           <div className={styles.rowHeading}>
@@ -146,14 +180,14 @@ export default function BusinessNotifications({ businessId, businessName, previe
             }}><X aria-hidden="true" size={14} /></button>
           </div>
         </li>)}
-      </ul> : <div className={styles.empty} data-notification-state={state}>
+      </ul> : (preview||invitations!==null)&&!invitationError&&!invitations?.length ? <div className={styles.empty} data-notification-state={state}>
         <div className={styles.emptyArt}><Image src="/images/notifications/quiet-bell.png" alt="" width={88} height={88} sizes="88px" /></div>
         <h3 ref={emptyHeadingRef} tabIndex={-1} className={styles.emptyTitle}>{t(state === "empty-all" ? "business.notifications.empty_all_title" : "business.notifications.empty_unread_title")}</h3>
         <p className={styles.emptyDescription}>{state === "empty-unread"
           ? t("business.notifications.empty_unread_body")
           : t(businessName ? "business.notifications.empty_all_body_business" : "business.notifications.empty_all_body", { business: businessName })}</p>
         <div className={styles.emptyAction}>{state === "empty-unread" ? <button type="button" className={`${quietButtonClass} ${styles.rowAction}`} onClick={() => { focusFilter(); setFilter("all"); }}>{t("business.notifications.view_all")}</button> : null}</div>
-      </div>}
+      </div>:null}
     </div>
   </div>;
 

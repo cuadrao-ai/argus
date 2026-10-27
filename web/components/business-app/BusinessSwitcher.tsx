@@ -4,7 +4,6 @@ import AdaptivePanel from "@/components/ui/AdaptivePanel";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { profileSubmenuClass } from "@/components/sidebar/profileMenuPlacement";
 import {SavedIdentityMark} from "@/components/identity/IdentityMark";
-import {LOCAL_BUSINESS_PREFIX} from "@/app/design-workspace/localBusinessPreview";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, BriefcaseBusiness, Check, ChevronRight, Plus, Settings2, UserRoundPlus } from "lucide-react";
@@ -122,7 +121,7 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
 
   const choose = (space: GrantedSpace) => {
     setMode("closed");
-    onChoose(space.role === "owner" && !space.space_id.startsWith(LOCAL_BUSINESS_PREFIX) ? null : space.grant_id);
+    onChoose(space.grant_id);
     buttonRef.current?.focus();
   };
 
@@ -145,10 +144,10 @@ export default function BusinessSwitcher({ spaces, closedSpaces = [], chosen, co
   const rootRows = (<>
     <div className="mb-2 border-b border-black/10 px-2 pb-3 dark:border-white/10">
       {memberEmail ? <p data-testid="business-member-email" className="break-words text-[16px] leading-6 text-[#172b26] dark:text-white">{memberEmail}</p> : <span aria-hidden="true" className="block h-5 w-40 rounded bg-black/[0.05] dark:bg-white/[0.08]" />}
-      <p data-testid="business-member-access" className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.your_access")} · {t(current.role === "owner" ? "workspace_setup_preview.permission_owner" : current.capabilities.includes("prepare") ? "workspace_setup_preview.permission_editor" : "workspace_setup_preview.permission_viewer")}</p>
+      <p data-testid="business-member-access" className="mt-1 text-[14px] text-[#56635e] dark:text-white/70">{t("workspace_setup_preview.your_access")} · {current.business_role ? t(`workspace_setup_preview.permission_${current.business_role}`) : "-"}</p>
     </div>
     <div className="mb-2 border-b border-black/10 pb-2 dark:border-white/10">
-      {current.role === "owner" && onInvite ? <button type="button" role="menuitem" className={menuItemClass} onClick={() => { closeToButton(); onInvite(); }}>
+      {current.permissions?.includes("manage") && onInvite ? <button type="button" role="menuitem" className={menuItemClass} onClick={() => { closeToButton(); onInvite(); }}>
         <UserRoundPlus aria-hidden="true" className="h-5 w-5 shrink-0" />
         {t("business.switcher.invite")}
       </button> : null}
