@@ -201,6 +201,33 @@ patterns; the harness archive is local-only.
 
 ## Prioritized continuation and acceptance
 
+### Immediate five-surface staging target
+
+Lucas's latest target is **27 October evening, within the next few hours**, so he
+can inspect before Jose's **28 October demo**. This is a requested deadline, not
+an engineering estimate or completion promise. The orchestrator owns the existing
+continuation; no redesign or duplicate lane is requested. This docs task grants
+no implementation or deployment authority.
+
+Expose the latest approved checkpoints across all five surfaces. Maximize existing
+real wiring; incomplete backend wiring need not block visual/runtime checkpoint
+inspection. Identify unavailable or preview behavior explicitly and never simulate
+persistence on live Business records. Accept through normal staging login at the
+recorded API/web SHAs, on desktop and phone, including subpages and controls:
+
+| Surface | Acceptance checklist and source reference |
+| --- | --- |
+| Inicio | Approved shell, attention/open-items and setup presentation; working intended navigation, honest readiness and loading/empty/error states. Use the [Home handoff](handoffs/home-shell-working.md) and [BusinessHome](../web/components/business-app/BusinessHome.tsx). |
+| Bandeja | Approved Reception list, filters, sender/channel, pagination, dossier and original evidence. Preserve real arrival/review wiring; explicitly identify unavailable archive/seen/bulk persistence. Use the [Reception checkpoint](handoffs/reception-design-checkpoint-20261026.md); the old live inbox alone does not satisfy visual parity. |
+| Registros | Approved table/cards, filters, columns, evidence and note interactions, pagination and saved-view behavior. Retain real query/totals/notes; identify any unsupported evidence action. Use [Registros design](reports/registros-filter-design-20261025.md) and [BusinessReportsPanel](../web/components/business-app/transacciones/BusinessReportsPanel.tsx). |
+| Facturación | Approved empty/populated views, editor, customer/detail navigation and state presentation; retain accepted real customer/draft save/reload/retry. Explicitly distinguish unavailable issuance, payment, correction, schedule and sending actions. Use the [invoice inventory](reports/invoicing-preview-20261026.md) and [connected workspace](../web/components/business-app/invoicing/ConnectedInvoicingWorkspace.tsx). |
+| Actividad | Approved shared activity/history entry and presentation, readable actor/time/action and correct Business scope; verify actual reachable content and honest empty/unavailable states. Use the [Business design foundations](../.agent/designs/cuadrao-business-app/DESIGN.md) and preserved source-handover shared-history reference. Exact dedicated runtime coverage remains to be established; do not substitute receipt processing or sample notifications for accepted Activity. |
+
+Record pass/gap and evidence for each row. A polished preview, source-presence
+comparison or backend test alone is insufficient. **Pilot acceptance after the
+demo is separate:** real end-to-end workflows, durable state, authorization,
+retries and financial correctness must be completed before claiming pilot readiness.
+
 All approved scope remains tracked in the linked contracts/handoffs. This ordering
 does not silently shrink it. Roles below are responsibility boundaries, not fresh
 dispatches; confirm the active person and file ownership with the orchestrator.
