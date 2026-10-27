@@ -41,6 +41,21 @@ const PERSONAL_BRANCHES: Record<string, number> = {
 
 /** Geometry approved at the cleared design checkpoint. New values or selectors need review. */
 const APPROVED_GEOMETRY: Record<string, readonly string[]> = {
+  "components/business-app/recepcion/reception.module.css": [
+    ".tabs button[aria-selected=true]::after | border-radius | 2px",
+    ".count | border-radius | 5px",
+    ".search button | border-radius | 999px",
+    ".tabs button:focus-visible | border-radius | 4px",
+    ".identity | border-radius | 4px",
+    ".rowAction > span | border-radius | 999px",
+    ".list ul | border-radius | 16px",
+    ".forwardMenu | border-radius | 16px",
+    ".forwardAction | border-radius | 10px",
+    ".checkbox input | border-radius | 4px",
+    ".bulkBar button | border-radius | 999px",
+    ".unseenDot | border-radius | 50%",
+    ".detailHeader h2:focus-visible | border-radius | 4px",
+  ],
   "components/business-app/invoicing/invoicing-preview.module.css": [
     ".search | border-radius | 999px",
     ".option | border-radius | 8px",
@@ -195,4 +210,12 @@ test("approved geometry rejects a changed value, a new selector and unconditiona
   assert.ok(unapprovedGeometry("components/business-app/transacciones/records-overview-preview.module.css", ".new { border-radius:30px; }").length);
   assert.ok(unapprovedGeometry("components/ui/BottomSheet.tsx", "style={{ borderRadius: 0 }}").length);
   assert.ok(unapprovedGeometry("components/ui/Switch.tsx", "style={{ borderRadius: 12 }}").length);
+});
+
+test("Reception geometry accepts only the cleared checkpoint selectors and values", () => {
+  const path = "components/business-app/recepcion/reception.module.css";
+  assert.deepEqual(unapprovedGeometry(path, ".count { border-radius:5px; }"), []);
+  assert.ok(unapprovedGeometry(path, ".count { border-radius:6px; }").length);
+  assert.ok(unapprovedGeometry(path, ".new { border-radius:5px; }").length);
+  assert.ok(unapprovedGeometry("components/business-app/recepcion/ReceptionSkeleton.tsx", "style={{ borderRadius: 4 }}").length);
 });

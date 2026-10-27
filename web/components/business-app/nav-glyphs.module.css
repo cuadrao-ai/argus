@@ -171,6 +171,17 @@
   }
 }
 
+/* The invoice lifts like a sheet being picked up, then returns to its resting glyph. */
+.icon[data-move] [data-part="invoice-document"] {
+  transform-origin:128px 160px;
+  animation:invoice-lift 240ms cubic-bezier(.2,.7,.2,1);
+}
+@keyframes invoice-lift {
+  0%,100% { transform:translateY(0) rotate(0deg); }
+  45% { transform:translateY(-10px) rotate(-7deg); }
+  72% { transform:translateY(-3px) rotate(2deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .icon,
   .layer,

@@ -256,7 +256,7 @@ describe("the Business top bar on a phone", () => {
     assert.deepEqual(page.searches, ["open"]);
     for (const kind of ["overview", "inbox", "transactions"] as const) {
       await page.open({ kind });
-      const placement = kind === "transactions" ? "header" : "page";
+      const placement = kind === "overview" ? "page" : "header";
       const selector = `[data-testid="add-menu-${placement}"]`;
       await page.settle(() => page.screen().querySelector(selector) !== null, `${kind}'s Agregar`);
       const menu = page.screen().querySelector(selector)!;

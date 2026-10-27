@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, Banknote, Building2, CheckCheck, 
 import BottomSheet from "@/components/ui/BottomSheet";
 import MoneyInput from "@/components/money/MoneyInput";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
+import RecordsFilterSelection from "./RecordsFilterSelection";
 import RecordsPreviewPopover from "./RecordsPreviewPopover";
 import { activeFilterGroups, emptyPreviewFilters, FILTER_GROUPS, validPreviewAmount, type FilterGroup, type PreviewFilters } from "./records-filter-preview-model";
 import { useTransaccionesWords } from "./transacciones-words";
@@ -41,27 +42,7 @@ function FilterEditor({ initial, initialKind, apply, close, phone = false, catal
   const word = (key: string) => t(`business.transactions.layout.filters.${key}`);
   const groupLabel = (key: EditorGroup) => key === "record" ? word("record") : word(`groups.${key}`);
   const labelFor = (kind: FilterGroup, value: string): string => value === "unknown" ? t("business.transactions.unknown") : value === "no_comprobante" ? t("business.marks.sin_comprobante_chip") : value === "owner_funds" ? t("business.dossier.owner_funds") : kind === "counterparty" ? catalogues?.counterparties.find((option) => option.key === value)?.labels.join(" / ") ?? value : kind === "account" && catalogues ? catalogues.funding_sources.find((option) => option.key === value)?.label ?? value : kind === "category" && catalogues ? value === "uncategorized" ? word("category.none") : t(`business.category.${value}`, { defaultValue: value }) : kind === "review" ? t(`business.transactions.layout.overview.${value}.title`) : t(`business.transactions.layout.filters.${kind}.${value}`, { defaultValue: value.toUpperCase() });
-  const selection = (kind: "review" | "counterparty" | "category" | "account" | "document" | "fiscal", values: string[]) => {
-    const search = query.trim().toLocaleLowerCase();
-    const visible = values.filter((value) => labelFor(kind, value).toLocaleLowerCase().includes(search));
-    const selected: string[] = draft[kind];
-    const selectedCount = visible.filter((value) => selected.includes(value)).length;
-    const all = visible.length > 0 && selectedCount === visible.length;
-    const mixed = selectedCount > 0 && !all;
-    const chooseVisible = () => setDraft({ ...draft, [kind]: all ? selected.filter((value) => !visible.includes(value)) : [...new Set([...selected, ...visible])] });
-    return <>
-      <label className={`${styles.choice} ${styles.parentChoice}`}>
-        <input type="checkbox" checked={all} disabled={visible.length === 0} aria-checked={mixed ? "mixed" : all} ref={(node) => { if (node) node.indeterminate = mixed; }} onChange={chooseVisible} />
-        <span>{word(search ? "select_results" : "select_all")}</span>
-      </label>
-      {search ? <p className={styles.hint}>{word("visible_selection_hint")}</p> : null}
-      <div className={styles.options}>{visible.map((value) => <label key={value} className={styles.choice}>
-        <input type="checkbox" checked={selected.includes(value)} onChange={() => setDraft({ ...draft, [kind]: toggle(selected, value) })} />
-        <span>{labelFor(kind, value)}</span>
-      </label>)}</div>
-      {visible.length === 0 ? <p className={styles.hint}>{word("no_matches")}</p> : null}
-    </>;
-  };
+  const selection = (kind: "review" | "counterparty" | "category" | "account" | "document" | "fiscal", values: string[]) => <RecordsFilterSelection options={values.map((value) => ({ value, label: labelFor(kind, value) }))} selected={draft[kind]} query={query} onChange={(selected) => setDraft({ ...draft, [kind]: selected })} />;
   const searchable = group === "counterparty" || group === "category" || group === "account";
   const body = <div className={phone ? styles.phonePanel : styles.panel}>
       {!phone || choosingGroup ? <div ref={rail} className={styles.rail} role={phone ? undefined : "tablist"} aria-label={word("title")} aria-orientation={phone ? undefined : "vertical"} onKeyDown={(event) => {

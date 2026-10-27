@@ -5,6 +5,7 @@ import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
 import { ChevronRight, FileText, ImageIcon, Mail, MessageCircle, NotebookPen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ReceiptSummary } from "@/lib/business-api";
+import ReceptionPreview from "./recepcion/ReceptionPreview";
 import ReceiptReadingControl from "./ReceiptReadingControl";
 import { useEmailWords } from "./BusinessEmailDeliveries";
 import { useReceiptStateWord } from "./receipt-state-word";
@@ -244,6 +245,10 @@ function SourcesFailed({ failed, retry }: { failed: readonly { source: BandejaSo
  * empty; when one failed the screen says so once and claims no empty state.
  */
 export default function BusinessInboxPanel() {
+  return process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_MOCK_AUTH === "true" ? <ReceptionPreview /> : <BusinessInboxContent />;
+}
+
+function BusinessInboxContent() {
   const { t } = useTranslation();
   const { isBelowTablet } = useResponsiveLayout();
   const { records, openPanel, actions, panel, chosen, revision, reload, refresh, retrySources } = useBusiness();
@@ -282,42 +287,46 @@ export default function BusinessInboxPanel() {
     </div>
   ) : null;
 
+  const headingInPanel = isBelowTablet || panel.kind !== "inbox";
+  const headerActions = (
+    <div className="flex flex-wrap items-center gap-3">
+      {chosen?.role === "accountant" ? (
+        <button type="button" data-testid="business-primary-review" onClick={openReview} className={primaryButtonClass}>
+          {t("business.inbox.review_receipts", "Revisar recibos")}
+        </button>
+      ) : null}
+      {!isBelowTablet || !empty ? <BusinessAddMenu placement="header" /> : null}
+    </div>
+  );
+
   return (
     <PullToRefresh onRefresh={refresh}>
       <section className="@container">
-        {isBelowTablet && !empty ? <div className="mb-4"><BusinessAddMenu placement="page" /></div> : null}
-        <PanelHeading
-          title={t("business.inbox.title", "Inbox")}
-          action={
-            <div className="flex flex-wrap items-center gap-3">{chosen?.role === "accountant" ? (
-              <button type="button" data-testid="business-primary-review" onClick={openReview} className={primaryButtonClass}>
-                {t("business.inbox.review_receipts", "Revisar recibos")}
-              </button>
-            ) : null}{isBelowTablet ? null : <BusinessAddMenu placement="header" />}</div>
-          }
-        />
+        {headingInPanel ? <PanelHeading title={t("business.inbox.title", "Inbox")} action={headerActions} /> : null}
         <ReceiptReadingControl />
+        {!records.error || !headingInPanel ? <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          {!records.error ? <div className={isBelowTablet ? "w-full" : undefined}>
+            <SegmentedControl
+              testId="bandeja-segments"
+              label={t("business.inbox.segments", "Show")}
+              value={list}
+              onChange={setList}
+              fill={isBelowTablet}
+              segments={[
+                { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts.review },
+                { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts.problem },
+                { key: "all", label: t("business.inbox.segment_all", "All") },
+              ]}
+            />
+          </div> : null}
+          {!headingInPanel ? <div className="ml-auto">{headerActions}</div> : null}
+        </div> : null}
         {records.error && records.refused ? (
           <EmptyState kind="error" testId="business-inbox-error" title={t("auth.business_unavailable.title", "Cuadrao Business isn't available for your account yet.")} body={t("auth.business_unavailable.body", "If you think this is a mistake, email us at hola@cuadrao.ai.")} />
         ) : records.error ? (
           <EmptyState kind="error" testId="business-inbox-error" title={t("business.empty.inbox_error", "We couldn't load your inbox")} body={t("business.empty.error_body", "Your data is still saved. Check your connection and try again.")} action={{ label: t("common.retry", "Retry"), run: reload }} />
         ) : (
           <>
-            <div className="mb-4">
-              {/* A phone fits all three only with their short names. */}
-              <SegmentedControl
-                testId="bandeja-segments"
-                label={t("business.inbox.segments", "Show")}
-                value={list}
-                onChange={setList}
-                fill={isBelowTablet}
-                segments={[
-                  { key: "review", label: isBelowTablet ? t("business.inbox.segment_review_short", "Review") : t("business.inbox.segment_review", "To review"), count: counts.review },
-                  { key: "problem", label: isBelowTablet ? t("business.inbox.segment_problem_short", "Issues") : t("business.inbox.segment_problem", "Problems"), count: counts.problem },
-                  { key: "all", label: t("business.inbox.segment_all", "All") },
-                ]}
-              />
-            </div>
             <SourcesFailed failed={failed} retry={retryFailed} />
             <Settle pending={rows === null} layout="inbox">
               {rows === null ? null : empty ? (

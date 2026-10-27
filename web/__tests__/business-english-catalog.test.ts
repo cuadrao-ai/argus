@@ -9,6 +9,7 @@ const SHARED_CONTEXTS = new Map([
   ["business.invoicing_preview.document_customer_ced", "CED: {{id}}"],
   ["business.invoicing_preview.document_customer_rnc", "RNC: {{id}}"],
   ["business.invoicing_preview.subtotal", "Subtotal"],
+  ["business.reception_preview.source_whatsapp", "WhatsApp"],
   ["business.transactions.layout.results.personal_one", "{{count}} personal"],
   ["business.notifications.times.recent", "5 min"],
 ]);
