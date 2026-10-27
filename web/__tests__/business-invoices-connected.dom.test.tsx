@@ -394,3 +394,51 @@ test("customer no-match reset clears search while retaining archived selection",
     assert.equal(document.querySelector('img[width="88"]')?.parentElement?.querySelectorAll("button").length, 0);
   } finally { await page.close(); }
 });
+
+test("connected populated rows reuse approved status badges without turning fiscal acceptance into payment", async () => {
+  const prepared = preparedOperation();
+  const cases = [
+    { operation: null, state: "draft", label: "Drafts" },
+    { operation: prepared, state: "prepare_state", label: "Prepared, not issued" },
+    { operation: { ...prepared, state: { ...prepared.state, submission: "unknown" } }, state: "uncertain", label: "Uncertain" },
+    { operation: { ...prepared, state: { ...prepared.state, submission: "identified", legal: "ACCEPTED" } }, state: "issued", label: "Issued" },
+    { operation: { ...prepared, state: { ...prepared.state, submission: "identified", legal: "REJECTED" } }, state: "rejected", label: "Rejected" },
+    { operation: { ...prepared, state: { ...prepared.state, submission: "identified" } }, state: "processing", label: "Processing" },
+  ] satisfies { operation: SavedInvoice["operation"]; state: string; label: string }[];
+  for (const item of cases) {
+    const data = incompleteInvoice(); data.customer_input.name = "A long synthetic customer name that needs the approved full-name tooltip";
+    const record = { ...savedInvoice(data), operation: item.operation, amounts: { subtotal: "100.01", discount: "0.00", tax: "0.00", total: "100.01" } };
+    const page = await mount({ record });
+    try {
+      const row = document.querySelector("tbody tr"); assert.ok(row);
+      const badge = row.querySelector('td:last-child > span[class*="badge"]');
+      assert.ok(badge, `desktop ${item.state} badge`); assert.equal(badge.getAttribute("data-state"), item.state); assert.equal(badge.textContent, item.label);
+      assert.equal(row.children[1].getAttribute("title"), data.customer_input.name);
+      assert.equal(row.children[5].textContent, "100.01"); assert.equal(row.children[6].textContent, "-");
+      const mobile = document.querySelector('[class*="phoneList"] > button'); assert.ok(mobile);
+      const wrapper = mobile.children[2]; assert.equal(wrapper.tagName, "SPAN"); assert.equal(wrapper.className.includes("badge"), false);
+      const mobileBadge = wrapper.querySelector('span[class*="badge"]'); assert.ok(mobileBadge); assert.equal(mobileBadge.getAttribute("data-state"), item.state); assert.equal(mobileBadge.textContent, item.label);
+      assert.equal(page.record()?.payment_state, "unknown"); assert.equal(page.record()?.outstanding_amount, null);
+    } finally { await page.close(); }
+  }
+});
+
+test("connected invoice rows and their nested buttons open one authoritative dossier and show selection", async () => {
+  const data = incompleteInvoice(); data.customer_input.name = "Synthetic row customer";
+  const page = await mount({ record: savedInvoice(data) });
+  try {
+    const reads = () => page.calls.filter(call => call.method === "GET" && call.path.endsWith(`/invoices/${invoiceId}`)).length;
+    const row = () => { const node = document.querySelector<HTMLTableRowElement>("tbody tr"); assert.ok(node); return node; };
+    assert.equal(row().getAttribute("data-selected"), "false");
+    const customerCell = row().children[1]; assert.ok(customerCell instanceof HTMLElement);
+    await page.act(async () => customerCell.click());
+    assert.equal(reads(), 1); assert.equal(row().getAttribute("data-selected"), "true"); assert.ok(document.querySelector('[role="dialog"]'));
+    const close = document.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]'); assert.ok(close); await page.act(async () => close.click());
+    assert.equal(row().getAttribute("data-selected"), "false");
+    const button = row().querySelector<HTMLButtonElement>("td:first-child button"); assert.ok(button);
+    await page.act(async () => { button.focus(); button.click(); });
+    assert.equal(reads(), 2, "nested button must not bubble into a second GET"); assert.equal(row().getAttribute("data-selected"), "true");
+    await page.click("Edit draft"); assert.equal(row().getAttribute("data-selected"), "false");
+    assert.equal(page.calls.filter(call => call.method !== "GET").length, 0);
+  } finally { await page.close(); }
+});
