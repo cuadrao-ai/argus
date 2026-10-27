@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterAll, afterEach, beforeAll, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
@@ -21,6 +21,10 @@ const activity = {
 beforeAll(() => {
   GlobalRegistrator.register({ url: "http://localhost" });
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+beforeEach(async () => {
+  const { clearBusinessAppearance } = await import("@/lib/business-profile-api");
+  clearBusinessAppearance(OWN.space_id);
 });
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
