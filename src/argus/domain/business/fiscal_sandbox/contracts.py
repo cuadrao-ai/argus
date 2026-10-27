@@ -35,6 +35,9 @@ class FiscalSubmit(Strict):
 
 
 class Case(Strict):
+    invoice_id: UUID | None = None
+    invoice_revision_id: UUID | None = None
+    manifest_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     case_id: str
     document_key: str
     business_id: UUID
@@ -50,6 +53,11 @@ class Case(Strict):
 
     @model_validator(mode="after")
     def pinned(self) -> Case:
+        linkage = (self.invoice_id, self.invoice_revision_id, self.manifest_digest)
+        if any(value is not None for value in linkage) and not all(
+            value is not None for value in linkage
+        ):
+            raise ValueError("fiscal_invoice_linkage")
         if (
             not self.number.startswith(self.kind)
             or digest(self.payload) != self.payload_digest
@@ -100,6 +108,8 @@ class FiscalState(Strict):
 
 
 class FiscalOperation(Strict):
+    invoice_id: UUID | None = None
+    invoice_revision_id: UUID | None = None
     id: UUID
     business_id: UUID
     case_id: str

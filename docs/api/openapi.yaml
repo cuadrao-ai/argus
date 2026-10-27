@@ -1953,6 +1953,233 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/business/customers:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: archived
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          enum:
+          - 25
+          - 50
+          - 100
+          type: integer
+          default: 25
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          default: ''
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerPage'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerWrite'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/customers/{customer_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: customer_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerWrite'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/business/drafts/{draft_id}/approve:
     post:
       tags:
@@ -3874,6 +4101,328 @@ paths:
           description: '`business_grant_not_live`: the chosen grant (`X-Business-Grant`) is
             missing, someone else''s, revoked or expired; `business_permission_denied`: the
             live grant does not allow this.'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/invoices:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+          default: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          enum:
+          - 25
+          - 50
+          - 100
+          type: integer
+          default: 25
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          default: ''
+      - name: currency
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - DOP
+            - USD
+            - EUR
+            type: string
+          - type: 'null'
+      - name: stage
+        in: query
+        required: false
+        schema:
+          enum:
+          - all
+          - draft
+          - issued
+          - processing
+          - rejected
+          - uncertain
+          type: string
+          default: all
+      - name: date_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      - name: date_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - newest
+          - oldest
+          type: string
+          default: newest
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoicePage'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceWrite'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/invoices/{invoice_id}:
+    get:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceWrite'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/business/invoices/{invoice_id}/prepare:
+    post:
+      tags:
+      - financial-accounts
+      - business
+      parameters:
+      - name: invoice_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: X-Business-Grant
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The caller's own live grant on the Business to work in; absent for
+            the own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+            a live grant on a closed Business answers 403 business_closed.
+        description: The caller's own live grant on the Business to work in; absent for the
+          own Business. A missing, foreign, revoked or expired grant answers 403 business_grant_not_live;
+          a live grant on a closed Business answers 403 business_closed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoicePrepare'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
         '422':
           description: Validation Error
           content:
@@ -19592,6 +20141,103 @@ components:
       - currency
       - amount
       - count
+    Customer:
+      properties:
+        id:
+          type: string
+          format: uuid
+        business_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        data:
+          $ref: '#/components/schemas/CustomerInput'
+        archived:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - business_id
+      - version
+      - data
+      - archived
+      - created_at
+      - updated_at
+    CustomerInput:
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          default: ''
+        email:
+          type: string
+          maxLength: 254
+          default: ''
+        tax_id:
+          type: string
+          maxLength: 32
+          default: ''
+        address:
+          type: string
+          maxLength: 500
+          default: ''
+        phone:
+          type: string
+          maxLength: 40
+          default: ''
+        notes:
+          type: string
+          maxLength: 500
+          default: ''
+      additionalProperties: false
+      type: object
+    CustomerPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Customer'
+          type: array
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+          enum:
+          - 25
+          - 50
+          - 100
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - page_size
+    CustomerWrite:
+      properties:
+        data:
+          $ref: '#/components/schemas/CustomerInput'
+        archived:
+          type: boolean
+          default: false
+        expected_version:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - data
     DebtCreate:
       properties:
         debt_account_id:
@@ -20276,6 +20922,24 @@ components:
       type: object
       required:
       - expected_version
+    DeliveryPreparation:
+      properties:
+        to:
+          type: string
+          maxLength: 254
+          default: ''
+        cc:
+          items:
+            type: string
+          type: array
+          maxItems: 5
+          default: []
+        message:
+          type: string
+          maxLength: 500
+          default: ''
+      additionalProperties: false
+      type: object
     DemonstratedInterest:
       properties:
         markets:
@@ -21865,6 +22529,16 @@ components:
       - itbis
     FiscalOperation:
       properties:
+        invoice_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        invoice_revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
         id:
           type: string
           format: uuid
@@ -23789,6 +24463,258 @@ components:
       additionalProperties: false
       type: object
       description: A code typed by hand, or the token from a link or QR. Exactly one.
+    Invoice:
+      properties:
+        id:
+          type: string
+          format: uuid
+        business_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        revision_id:
+          type: string
+          format: uuid
+        data:
+          $ref: '#/components/schemas/InvoiceDraft'
+        field_errors:
+          additionalProperties:
+            type: string
+          type: object
+        amounts:
+          anyOf:
+          - $ref: '#/components/schemas/InvoiceAmounts'
+          - type: 'null'
+        operation:
+          anyOf:
+          - $ref: '#/components/schemas/FiscalOperation'
+          - type: 'null'
+        payment_state:
+          type: string
+          const: unknown
+          default: unknown
+        paid_amount:
+          type: 'null'
+        outstanding_amount:
+          type: 'null'
+        delivery_state:
+          type: string
+          const: not_sent
+          default: not_sent
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - business_id
+      - version
+      - revision_id
+      - data
+      - field_errors
+      - amounts
+      - created_at
+      - updated_at
+    InvoiceAmounts:
+      properties:
+        subtotal:
+          type: string
+        discount:
+          type: string
+        tax:
+          type: string
+        total:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - subtotal
+      - discount
+      - tax
+      - total
+    InvoiceDraft:
+      properties:
+        customer_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+        customer_input:
+          $ref: '#/components/schemas/CustomerInput'
+          default:
+            name: ''
+            email: ''
+            tax_id: ''
+            address: ''
+            phone: ''
+            notes: ''
+        document_type:
+          type: string
+          enum:
+          - E31
+          - E32
+          default: E32
+        currency:
+          type: string
+          enum:
+          - DOP
+          - USD
+          - EUR
+          default: DOP
+        issued_on:
+          type: string
+          maxLength: 10
+          default: ''
+        due_on:
+          type: string
+          maxLength: 10
+          default: ''
+        items:
+          items:
+            $ref: '#/components/schemas/InvoiceItem'
+          type: array
+          maxItems: 50
+          default: []
+        terms:
+          type: string
+          maxLength: 500
+          default: ''
+        instructions:
+          type: string
+          maxLength: 500
+          default: ''
+        notes:
+          type: string
+          maxLength: 500
+          default: ''
+        delivery:
+          $ref: '#/components/schemas/DeliveryPreparation'
+          default:
+            to: ''
+            cc: []
+            message: ''
+        payment_type:
+          anyOf:
+          - type: string
+            enum:
+            - cash
+            - credit
+            - free
+          - type: 'null'
+        income_type:
+          anyOf:
+          - type: integer
+            enum:
+            - 1
+            - 2
+            - 3
+            - 4
+            - 5
+            - 6
+          - type: 'null'
+        tax_inclusion:
+          anyOf:
+          - type: string
+            enum:
+            - excluded
+            - included
+          - type: 'null'
+      additionalProperties: false
+      type: object
+    InvoiceItem:
+      properties:
+        id:
+          type: string
+          maxLength: 80
+          minLength: 1
+        description:
+          type: string
+          maxLength: 160
+          default: ''
+        quantity:
+          type: string
+          maxLength: 32
+          default: ''
+        price:
+          type: string
+          maxLength: 32
+          default: ''
+        tax:
+          type: string
+          maxLength: 32
+          default: ''
+        discount:
+          type: string
+          maxLength: 32
+          default: ''
+        classification:
+          anyOf:
+          - type: string
+            enum:
+            - goods
+            - services
+          - type: 'null'
+        tax_treatment:
+          anyOf:
+          - type: string
+            enum:
+            - taxable
+            - exempt
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+    InvoicePage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/Invoice'
+          type: array
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+          enum:
+          - 25
+          - 50
+          - 100
+        stage_counts:
+          additionalProperties:
+            type: integer
+          type: object
+        summaries:
+          items:
+            $ref: '#/components/schemas/InvoiceSummary'
+          type: array
+        query_version:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - total
+      - page
+      - page_size
+      - stage_counts
+      - summaries
+      - query_version
+    InvoicePrepare:
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1.0
+      additionalProperties: false
+      type: object
+      required:
+      - expected_version
     InvoiceStatuses:
       properties:
         pendiente:
@@ -23800,6 +24726,38 @@ components:
       required:
       - pendiente
       - cobrado
+    InvoiceSummary:
+      properties:
+        currency:
+          type: string
+          enum:
+          - DOP
+          - USD
+          - EUR
+        billed:
+          type: string
+        collected:
+          type: 'null'
+        outstanding:
+          type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - currency
+      - billed
+    InvoiceWrite:
+      properties:
+        data:
+          $ref: '#/components/schemas/InvoiceDraft'
+        expected_version:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - data
     ItemAssignment:
       properties:
         item_id:

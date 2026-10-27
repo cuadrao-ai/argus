@@ -262,6 +262,8 @@ services:
         value: "true"
       - key: CUADRAO_BUSINESS_BANK_MATCHING_ENABLED
         value: "false"
+      - key: CUADRAO_BUSINESS_INVOICING_ENABLED
+        value: "false"
       - key: CUADRAO_BUSINESS_SUPPLIER_FAST_PATH_ENABLED
         value: "false"
       - key: CUADRAO_DOCUMENT_EXTRACTION_ENABLED
